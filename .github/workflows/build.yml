@@ -1,0 +1,14 @@
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.17' ]
+    name: Juno with Go ${{ matrix.go }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Juno
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go run src/main.go
