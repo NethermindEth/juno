@@ -13,7 +13,7 @@ module.exports = {
     {
       type: 'link',
       label: 'Discord',
-      href: 'https://discord.gg/*********',
+      href: 'https://discord.gg/sqFY2D48GS',
     },
     {
       type: 'link',
