@@ -1,4 +1,4 @@
-module juno
+module github.com/NethermindEth/juno
 
 go 1.17
 
