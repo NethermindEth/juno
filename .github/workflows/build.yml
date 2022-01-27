@@ -13,4 +13,4 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
-      - run: cd src && go run *.go
+      - run: go build cmd/main.go
