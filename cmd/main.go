@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+
+	"github.com/NethermindEth/juno/configs"
 	"github.com/tarrencev/go-starknet/provider"
 )
 
 func main() {
-	baseURL := mainnetGateway
+	baseURL := configs.MainnetGateway
 	prv := provider.NewProvider(baseURL)
 	// opt := provider.BlockOptions{}
 	ctx := context.Background()
