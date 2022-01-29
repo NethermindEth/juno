@@ -1,4 +1,4 @@
-name: PR Tests
+name: Docs Staging Test
 
 on: 
   pull_request:
@@ -15,8 +15,8 @@ jobs:
           node-version: '12.x'
       - name: Test Build
         env:
-          TARGET_URL: "http://not-docs.juno.io"
-          BASE_URL: "/docs/"
+          TARGET_URL: "https://nethermindeth.github.io"
+          BASE_URL: "/juno/"
         run: |
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
