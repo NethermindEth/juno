@@ -1,4 +1,4 @@
-name: Juno CI
+name: Juno Build
 on: [push]
 jobs:
   build:
