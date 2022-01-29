@@ -13,8 +13,8 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
-  organizationName: 'Nethermind',
-  projectName: 'juno-docs',
+  organizationName: 'NethermindEth',
+  projectName: 'juno',
   url: process.env.TARGET_URL,
   stylesheets: [
     {
