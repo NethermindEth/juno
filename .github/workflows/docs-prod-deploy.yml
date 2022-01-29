@@ -16,6 +16,7 @@ jobs:
           node-version: '14.x'
       - name: Test Build
         run: |
+          cd docs
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
           elif [ -e package-lock.json ]; then
@@ -29,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: production
-      url: docs.juno.net
+      url: https://nethermindeth.github.io/juno
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
