@@ -18,6 +18,7 @@ jobs:
           TARGET_URL: "https://nethermindeth.github.io"
           BASE_URL: "/juno/"
         run: |
+          cd docs
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
           elif [ -e package-lock.json ]; then
