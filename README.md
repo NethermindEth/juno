@@ -1,5 +1,7 @@
 # juno
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno)
+
 Juno is a StarkNet client written in Go.
 
 Here you will find various links to help you start with the StarkNet ecosystem.
