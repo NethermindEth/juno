@@ -1,13 +1,13 @@
 module.exports = {
   docs: [
     {
-      "welcome": [
+      "Welcome": [
         'welcome',
       ],
     },
     {
-      "contribute": [
-        'contribution-guide', 'cheatsheet',
+      "Contribute": [
+        'contribution-guide', 'cheatsheet', 'getting-started-go', 'getting-started-starknet'
       ],
     },
     {
