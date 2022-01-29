@@ -19,3 +19,9 @@ Here you will find various links to help you start with the StarkNet ecosystem.
 [StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
 
 [StarkNet Shamans Forum](https://community.starknet.io/)
+
+[StarkNet Medium](https://medium.com/starkware/starknet/home)
+
+[StarkNet Twitter](https://twitter.com/Starknet_Intern)
+
+[Nethermind Twitter](https://twitter.com/NethermindEth)
