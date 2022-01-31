@@ -1,2 +1,2 @@
 build/juno
-coverage/coverage.out
+coverage/*
