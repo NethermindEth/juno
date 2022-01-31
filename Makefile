@@ -9,6 +9,10 @@ run: ## run
 
 all: compile run ## build and run
 
+test: ## tests
+	mkdir -p coverage
+	go test -coverprofile=coverage/coverage.out -covermode=count ./...
+
 gomod_tidy: ## add missing and remove unused modules
 	 go mod tidy
 
