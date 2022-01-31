@@ -19,4 +19,12 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - name: Tests
-        run: go test ./...
+        run: make codecov-test
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
+          files: ./coverage/coverage.txt
+          flags: unittests
+          name: codecov-umbrella
+          verbose: true
