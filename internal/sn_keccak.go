@@ -1,4 +1,4 @@
-package sn_keccak
+package internal
 
 import "github.com/ethereum/go-ethereum/crypto"
 
