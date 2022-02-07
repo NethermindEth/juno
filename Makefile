@@ -12,7 +12,7 @@ all: compile run ## build and run
 test: ## tests
 	go test ./...
 
-bench: ## Benchmarking
+benchmarks: ## Benchmarking
 	go test ./... -bench=.
 
 test-cover: ## tests with coverage
