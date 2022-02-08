@@ -18,12 +18,11 @@ func TestEncodeGoerliId(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeMainnetChainId(t *testing.B) {
+func BenchmarkEncodeMainnetChainId(b *testing.B) {
 	mainnetChainId := EncodeChainId("SN_MAIN")
-	expectedMainnetChainId := "0x534e5f4d41494e"
-	if mainnetChainId != expectedMainnetChainId {
-		t.Errorf("Got %q, expected %q", mainnetChainId, expectedMainnetChainId)
-	}
+	for i := 0; i < b.N; i++ {
+            EncodeChainId("SN_MAIN")
+        }
 }
 
 func BenchmarkEncodeGoerliChainId(t *testing.B) {
