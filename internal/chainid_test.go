@@ -19,10 +19,9 @@ func TestEncodeGoerliId(t *testing.T) {
 }
 
 func BenchmarkEncodeMainnetChainId(b *testing.B) {
-	mainnetChainId := EncodeChainId("SN_MAIN")
 	for i := 0; i < b.N; i++ {
-            EncodeChainId("SN_MAIN")
-        }
+		EncodeChainId("SN_MAIN")
+	}
 }
 
 func BenchmarkEncodeGoerliChainId(t *testing.B) {
