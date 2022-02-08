@@ -24,10 +24,8 @@ func BenchmarkEncodeMainnetChainId(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeGoerliChainId(t *testing.B) {
-	goerliChainId := EncodeChainId("SN_GOERLI")
-	expectedGoerliChainId := "0x534e5f474f45524c49"
-	if goerliChainId != expectedGoerliChainId {
-		t.Errorf("Got %q, expected %q", goerliChainId, expectedGoerliChainId)
+func BenchmarkEncodeGoerliChainId(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		EncodeChainId("SN_GOERLI")
 	}
 }
