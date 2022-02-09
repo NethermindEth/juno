@@ -2,15 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/spf13/cobra"
 )
 
 func Execute() {
-	var echoTimes int
-
 	var (
 		contractAddress string
 		contractAbi     string
@@ -26,9 +21,7 @@ func Execute() {
 		Long:  "Calls a StarkNet contract without affecting the state",
 		Args:  cobra.RangeArgs(4, 6),
 		Run: func(cmd *cobra.Command, args []string) {
-			for i := 0; i < echoTimes; i++ {
-				fmt.Println("Echo: " + strings.Join(args, " "))
-			}
+			fmt.Println("Running `starknet call` using Juno")
 		},
 	}
 
@@ -48,6 +41,6 @@ func Execute() {
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		return
 	}
 }
