@@ -12,6 +12,9 @@ all: compile run ## build and run
 test: ## tests
 	go test ./...
 
+benchmarks: ## Benchmarking
+	go test ./... -bench=.
+
 test-cover: ## tests with coverage
 	mkdir -p coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
