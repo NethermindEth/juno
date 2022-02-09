@@ -1,4 +1,4 @@
-package chainid
+package internal
 
 import "github.com/ethereum/go-ethereum/common/hexutil"
 
