@@ -34,10 +34,20 @@ func (ec *Client) Close() {
 
 // StarkNet Access
 
-// GetBlockByNumber Get block information given the block id
-func (ec *Client) GetBlockByNumber(ctx context.Context, blockHash BlockHash, requestedScope RequestedScope) (*BlockResponse, error) {
+// GetBlockByHash Get block information given the block id
+func (ec *Client) GetBlockByHash(ctx context.Context, blockHash BlockHash, requestedScope RequestedScope) (*BlockResponse, error) {
 	var result BlockResponse
 	err := ec.c.CallContext(ctx, &result, "starknet_getBlockByHash", blockHash, requestedScope)
+	if err != nil {
+		return nil, err
+	}
+	return &result, err
+}
+
+// GetBlockByNumber Get block information given the block number
+func (ec *Client) GetBlockByNumber(ctx context.Context, blockHash BlockHash, requestedScope RequestedScope) (*BlockResponse, error) {
+	var result BlockResponse
+	err := ec.c.CallContext(ctx, &result, "starknet_getBlockByNumber", blockHash, requestedScope)
 	if err != nil {
 		return nil, err
 	}
