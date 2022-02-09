@@ -20,6 +20,8 @@ jobs:
           go-version: ${{ matrix.go }}
       - name: Tests
         run: make codecov-test
+      - name: Benchmark
+        run: make benchmarks
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
         with:
