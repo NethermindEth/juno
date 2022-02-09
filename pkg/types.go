@@ -61,6 +61,14 @@ type BlockHash struct {
 	Tag string
 }
 
+// BlockNumber is the number of the requested block, or a block tag
+type BlockNumber struct {
+	// The block's number
+	Number string
+	// A tag specifying a dynamic reference to a block
+	Tag string
+}
+
 type RequestedScope string
 
 // BlockStatus const
