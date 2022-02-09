@@ -10,7 +10,7 @@ func newClient() (*Client, error) {
 	return Dial(configs.TestRPCEndpoint)
 }
 
-func TestClient_GetBlockByNumber(t *testing.T) {
+func TestClient_GetBlockByHash(t *testing.T) {
 	c, err := newClient()
 	if err != nil {
 		t.Errorf("Failed Client Creation")
@@ -19,7 +19,7 @@ func TestClient_GetBlockByNumber(t *testing.T) {
 		Hash: "latest",
 	}
 	requestedScope := TxnHash
-	response, err := c.GetBlockByNumber(context.Background(), blockHash, requestedScope)
+	response, err := c.GetBlockByHash(context.Background(), blockHash, requestedScope)
 	if err != nil {
 		t.Error(err)
 	}
