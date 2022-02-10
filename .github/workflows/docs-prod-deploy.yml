@@ -45,8 +45,8 @@ jobs:
           GIT_USER: git
           CURRENT_BRANCH: ${{ secrets.CURRENT_BRANCH }}
           DEPLOYMENT_BRANCH: ${{ secrets.DEPLOYMENT_BRANCH }}
-          TARGET_URL: "https://nethermindeth.github.io"
-          BASE_URL: "/juno/"
+          TARGET_URL: "http://gojuno.xyz/"
+          BASE_URL: "/"
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "gh-actions"
