@@ -7,6 +7,15 @@ import (
 )
 
 func main() {
+	fmt.Print(`      _                   
+     | |                  
+     | |_   _ _ __   ___  
+ _   | | | | | '_ \ / _ \ 
+| |__| | |_| | | | | (_) |
+ \____/ \__,_|_| |_|\___/ 
+                          
+                          
+`)
 	fmt.Println("Juno, Starknet Client in Go")
 	cmd.Execute()
 	end := make(chan error)
