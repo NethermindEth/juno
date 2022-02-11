@@ -12,6 +12,7 @@ func Handlers(end chan error) {
 	dispatcher := NewRPCDispatcher(
 		[]HandleParamsResulter{
 			EchoHandler{},
+			CallHandler{},
 		},
 	)
 
