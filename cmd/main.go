@@ -16,7 +16,6 @@ func main() {
                           
                           
 `)
-	fmt.Println("Juno, Starknet Client in Go")
 	cmd.Execute()
 	end := make(chan error)
 	go rpc.Handlers(end)
