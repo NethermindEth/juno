@@ -9,10 +9,10 @@ import (
 type EchoHandler struct{}
 type (
 	EchoParams struct {
-		Name string `json:"name"`
+		MessageParam string `json:"message"`
 	}
 	EchoResult struct {
-		Message string `json:"message"`
+		MessageResponse string `json:"message"`
 	}
 )
 
@@ -36,6 +36,6 @@ func (h EchoHandler) ServeJSONRPC(c context.Context, params *json.RawMessage) (i
 	}
 
 	return EchoResult{
-		Message: "Hello, " + p.Name,
+		MessageResponse: p.MessageParam,
 	}, nil
 }
