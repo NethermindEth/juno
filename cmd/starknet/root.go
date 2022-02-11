@@ -7,8 +7,11 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "juno",
-	Short: "Juno, Starknet Go Client",
-	Long:  "Juno, StarkNet Go Client",
+	Short: "Juno, Starknet Client in Go",
+	Long:  "Juno, StarkNet Client in Go",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(cmd.Short)
+	},
 }
 
 func init() {
