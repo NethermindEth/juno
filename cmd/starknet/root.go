@@ -6,9 +6,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "starknet",
-	Short: "Starknet Go Client",
-	Long:  "StarkNet Go Client Long",
+	Use:   "juno",
+	Short: "Juno, Starknet Go Client",
+	Long:  "Juno, StarkNet Go Client",
 }
 
 func init() {
