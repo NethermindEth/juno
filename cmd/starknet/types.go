@@ -27,3 +27,6 @@ type RequestRPC struct {
 	Request   FunctionCall `json:"request"`
 	BlockHash BlockHash    `json:"block_hash"`
 }
+
+// ResultCall Is a field element of 251 bits. Represented as up to 64 hex digits
+type ResultCall []string
