@@ -1,17 +1,17 @@
 package main
 
-import cmd "github.com/NethermindEth/juno/cmd/starknet"
+import (
+	"fmt"
+	"github.com/NethermindEth/juno/pkg/rpc"
+)
 
 func main() {
-	cmd.Execute()
-	//baseURL := configs.MainnetGateway
-	//prv := provider.NewProvider(baseURL)
-	//// opt := provider.BlockOptions{}
-	//ctx := context.Background()
-	//block, err := prv.Block(ctx, nil)
-	//if err != nil {
-	//	fmt.Printf("Failed to retrieve block: %s", err)
-	//}
-	//
-	//fmt.Println(block.BlockHash)
+	fmt.Println("Juno, Starknet Client in Go")
+	end := make(chan error)
+	go rpc.Handlers(end)
+	err := <-end
+	if err != nil {
+		fmt.Printf("Error in the RPC Server: %s\n", err.Error())
+		return
+	}
 }
