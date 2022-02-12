@@ -1,5 +1,7 @@
 # juno
 
+![Juno Logo](./.github/juno.jpg?raw=true)
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno)
 
 [![Actions Status](https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg)](https://github.com/NethermindEth/juno/actions)
