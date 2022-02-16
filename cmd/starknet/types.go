@@ -31,7 +31,7 @@ type RequestRPC struct {
 // ResultCall Is a field element of 251 bits. Represented as up to 64 hex digits
 type ResultCall []string
 
-// The number of transactions in the designated block
+// BlockTransactionCount represent the number of transactions in the designated block
 type BlockTransactionCount struct {
 	TransactionCount int
 }
