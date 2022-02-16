@@ -26,6 +26,8 @@ Here you will find various links to help you start with the StarkNet ecosystem.
 
 [StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
 
+[Starknet 101](https://github.com/l-henri/starknet-cairo-101)
+
 [StarkNet Shamans Forum](https://community.starknet.io/)
 
 [StarkNet Medium](https://medium.com/starkware/starknet/home)
