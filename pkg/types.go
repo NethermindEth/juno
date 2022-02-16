@@ -50,7 +50,7 @@ type BlockResponse struct {
 	// When the block was accepted on L1. Formatted as...
 	AcceptedTime uint64 `json:"accepted_time"`
 	// Transactions in the Block
-	Transactions Transactions `json:"transactions"`
+	Transactions []Transactions `json:"transactions"`
 }
 
 // BlockHash is The hash (id) of the requested block, or a block tag
