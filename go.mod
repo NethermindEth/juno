@@ -4,21 +4,22 @@ go 1.17
 
 require (
 	github.com/ethereum/go-ethereum v1.10.14
-	github.com/gorilla/rpc v1.2.0
+	github.com/goccy/go-json v0.9.4
+	github.com/iancoleman/strcase v0.2.0
+	github.com/osamingo/jsonrpc/v2 v2.4.0
 	github.com/spf13/cobra v1.3.0
 )
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/alecthomas/jsonschema v0.0.0-20201129101101-7b852d451add // indirect
+	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/deckarep/golang-set v0.0.0-20180603214616-504e848d77ea // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/goccy/go-json v0.9.4 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/iancoleman/orderedmap v0.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/osamingo/jsonrpc/v2 v2.4.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
