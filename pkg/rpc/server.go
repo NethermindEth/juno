@@ -1,36 +1,29 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
-	"github.com/osamingo/jsonrpc/v2"
+	cmd "github.com/NethermindEth/juno/cmd/starknet"
 	"log"
 	"net/http"
 )
 
-func Handlers(end chan error) {
-	mr := jsonrpc.NewMethodRepository()
-	dispatcher := NewRPCDispatcher(
-		[]HandleParamsResulter{
-			EchoHandler{},
-			CallHandler{},
-		},
-	)
+type Server struct{}
 
-	for _, h := range dispatcher.Handlers() {
-		err := mr.RegisterMethod(dispatcher.MethodName(h), h, h.Params(), h.Result())
-		if err != nil {
-			fmt.Println("Error registering Method")
-			end <- err
-		}
-	}
+func Handlers(end chan error) {
+	mr := NewMethodRepositoryWithMethods(Server{})
 
 	http.Handle("/rpc", mr)
-	http.HandleFunc("/rpc/debug", mr.ServeDebug)
 
 	fmt.Println("Listening for connections .... ")
 	if err := http.ListenAndServe(":8080", http.DefaultServeMux); err != nil {
-		end <- err
 		log.Fatalln(err)
 	}
 	end <- nil
+}
+
+// StarknetCall represents the handler of "starknet_call" rpc call
+func (Server) StarknetCall(c context.Context, request cmd.RequestRPC) (cmd.ResultCall, error) {
+
+	return []string{"Response", "of", "starknet_call"}, nil
 }
