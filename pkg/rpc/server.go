@@ -61,6 +61,12 @@ func (Server) StarknetGetStorageAt(c context.Context, s StorageAt) (cmd.Felt, er
 }
 
 // StarknetGetTransactionByHash Get the details and status of a submitted transaction
-func (Server) StarknetGetTransactionByHash(c context.Context, s TransactionHash) (cmd.Txn, error) {
+func (Server) StarknetGetTransactionByHash(c context.Context, s TransactionByBlockHash) (cmd.Txn, error) {
+	return cmd.Txn{}, nil
+}
+
+// StarknetGetTransactionByBlockHashAndIndex Get the details of the transaction given by the identified block and index
+// in that block. If no transaction is found, null is returned.
+func (Server) StarknetGetTransactionByBlockHashAndIndex(c context.Context, s TransactionByBlockHashAndIndex) (cmd.Txn, error) {
 	return cmd.Txn{}, nil
 }

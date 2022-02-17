@@ -35,7 +35,14 @@ type StorageAt struct {
 	BlockHash cmd.BlockHashOrTag `json:"block_hash"`
 }
 
-// TransactionHash The hash of the requested transaction
-type TransactionHash struct {
+// TransactionByBlockHash The hash of the requested transaction
+type TransactionByBlockHash struct {
 	TransactionHash cmd.TxnHash `json:"transaction_hash"`
+}
+
+type TransactionByBlockHashAndIndex struct {
+	// The queried block hash or tag referencing a block
+	BlockHash cmd.BlockHashOrTag `json:"block_hash"`
+	// The index in the block to search for the transaction
+	Index uint64 `json:"index" binding:"required"`
 }
