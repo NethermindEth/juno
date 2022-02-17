@@ -14,3 +14,10 @@ type BlockNumberParams struct {
 	BlockNumber    int                `json:"block_number"`
 	RequestedScope pkg.RequestedScope `json:"requestedScope"`
 }
+
+type BlockHashResult pkg.BlockResponse
+
+type BlockNumberResult pkg.BlockResponse
+
+type BlockTransactionCountParams pkg.BlockHash
+type BlockTransactionCountResult cmd.BlockTransactionCount
