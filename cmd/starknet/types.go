@@ -162,3 +162,13 @@ type CodeResult struct {
 	// The ABI of the contract in JSON format. Uses the same structure as EVM ABI
 	Abi string `json:"abi"`
 }
+
+// SyncStatus Returns an object about the sync status, or false if the node is not syncing
+type SyncStatus struct {
+	// The hash of the block from which the sync started
+	StartingBlock BlockHash `json:"starting_block"`
+	// The hash of the current block being synchronized
+	CurrentBlock BlockHash `json:"current_block"`
+	// The hash of the estimated the highest block to be synchronized
+	HighestBlock BlockHash `json:"highest_block"`
+}

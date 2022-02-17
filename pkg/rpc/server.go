@@ -111,3 +111,8 @@ func (Server) StarknetPendingTransactions(c context.Context) ([]cmd.Txn, error) 
 func (Server) StarknetProtocolVersion(c context.Context) (cmd.ProtocolVersion, error) {
 	return "Here the Protocol Version", nil
 }
+
+// StarknetSyncing Returns an object about the sync status, or false if the node is not syncing
+func (Server) StarknetSyncing(c context.Context) (cmd.SyncStatus, error) {
+	return cmd.SyncStatus{}, nil
+}
