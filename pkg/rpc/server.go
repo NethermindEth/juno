@@ -101,3 +101,8 @@ func (Server) StarknetBlockNumber(c context.Context) (cmd.BlockNumber, error) {
 func (Server) StarknetChainId(c context.Context) (cmd.ChainID, error) {
 	return "Here the ChainIDg", nil
 }
+
+// StarknetPendingTransactions Returns the transactions in the transaction pool, recognized by this sequencer",
+func (Server) StarknetPendingTransactions(c context.Context) ([]cmd.Txn, error) {
+	return nil, nil
+}
