@@ -70,3 +70,8 @@ func (Server) StarknetGetTransactionByHash(c context.Context, s TransactionByBlo
 func (Server) StarknetGetTransactionByBlockHashAndIndex(c context.Context, s TransactionByBlockHashAndIndex) (cmd.Txn, error) {
 	return cmd.Txn{}, nil
 }
+
+// StarknetGetTransactionByBlockNumberAndIndex Get the details of the transaction given by the identified block and index in that block. If no transaction is found, null is returned.
+func (Server) StarknetGetTransactionByBlockNumberAndIndex(c context.Context, s TransactionByBlockNumberAndIndex) (cmd.Txn, error) {
+	return cmd.Txn{}, nil
+}

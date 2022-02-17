@@ -46,3 +46,10 @@ type TransactionByBlockHashAndIndex struct {
 	// The index in the block to search for the transaction
 	Index uint64 `json:"index" binding:"required"`
 }
+
+type TransactionByBlockNumberAndIndex struct {
+	// The queried block hash or tag referencing a block
+	BlockHash cmd.BlockHashOrTag `json:"block_hash"`
+	// The index in the block to search for the transaction
+	Index uint64 `json:"index" binding:"required"`
+}

@@ -19,10 +19,18 @@ type BlockTag string
 // Felt represent aN field element. Represented as up to 63 hex digits and leading 4 bits zeroed.
 type Felt string
 
+// BlockNumber The block's number (its height)
+type BlockNumber uint64
+
+type BlockNumberOrTag struct {
+	BlockNumber
+	BlockTag
+}
+
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
 type BlockHashOrTag struct {
-	BlockHash BlockHash `json:"block_hash"`
-	BlockTag  BlockTag  `json:"block_tag"`
+	BlockHash
+	BlockTag
 }
 
 // RequestRPC Represent the calls a function in a contract and returns the return value.  Using this call will not create a transaction; hence, will not change the state
