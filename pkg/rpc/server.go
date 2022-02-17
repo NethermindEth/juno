@@ -49,3 +49,8 @@ func (Server) StarknetGetBlockByNumber(c context.Context, p BlockNumberParams) (
 func (Server) StarknetGetBlockTransactionCountByHash(c context.Context, p BlockTransactionCountParams) (BlockTransactionCountResult, error) {
 	return BlockTransactionCountResult{}, nil
 }
+
+// StarknetGetStateUpdateByHash represent the handler for getting the information about the result of executing the requested block
+func (Server) StarknetGetStateUpdateByHash(c context.Context, p cmd.BlockHashOrTag) (cmd.StateUpdate, error) {
+	return cmd.StateUpdate{}, nil
+}
