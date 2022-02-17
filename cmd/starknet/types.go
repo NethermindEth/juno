@@ -91,3 +91,61 @@ type Txn struct {
 	// The hash identifying the transaction
 	TxnHash TxnHash `json:"txn_hash"`
 }
+
+type TxnStatus string
+
+const (
+	TxnStatusUnknown      TxnStatus = "UNKNOWN"
+	TxnStatusReceived               = "RECEIVED"
+	TxnStatusPending                = "PENDING"
+	TxnStatusAcceptedOnL2           = "ACCEPTED_ON_L2"
+	TxnStatusAcceptedOnL1           = "ACCEPTED_ON_L1"
+	TxnStatusRejected               = "REJECTED"
+)
+
+// EthAddress represent an ethereum address
+type EthAddress string
+
+type MsgToL1 struct {
+	// The target L1 address the message is sent to
+	ToAddress Felt `json:"to_address"`
+	// The Payload of the message
+	Payload Felt `json:"payload"`
+}
+
+type MsgToL2 struct {
+	// The originating L1 contract that sent the message
+	FromAddress EthAddress `json:"from_address"`
+	// The Payload of the message. The call data to the L1 handler
+	Payload []Felt `json:"payload"`
+}
+
+// EventFilter represent an event filter/query
+type EventFilter struct {
+	FromBlock BlockNumber `json:"fromBlock"`
+	ToBlock   BlockNumber `json:"toBlock"`
+	Address   Address     `json:"address"`
+	Keys      []Felt      `json:"keys"`
+}
+
+// EventContent represent the content of an Event
+type EventContent struct {
+	Keys []Felt `json:"keys"`
+	Data []Felt `json:"data"`
+}
+
+// Event represent a StarkNet Event
+type Event struct {
+	EventContent
+	FromAddress Address `json:"from_address"`
+}
+
+// TxnReceipt Receipt of the transaction
+type TxnReceipt struct {
+	TxnHash         TxnHash   `json:"txn_hash"`
+	Status          TxnStatus `json:"status"`
+	StatusData      string    `json:"status_data"`
+	MessagesSent    []MsgToL1 `json:"messages_sent"`
+	L1OriginMessage MsgToL2   `json:"l1_origin_message"`
+	Events          Event     `json:"events"`
+}

@@ -76,3 +76,8 @@ func (Server) StarknetGetTransactionByBlockHashAndIndex(c context.Context, block
 func (Server) StarknetGetTransactionByBlockNumberAndIndex(c context.Context, blockNumber cmd.BlockNumberOrTag, index uint64) (cmd.Txn, error) {
 	return cmd.Txn{}, nil
 }
+
+// StarknetGetTransactionReceipt Get the transaction receipt by the transaction hash
+func (Server) StarknetGetTransactionReceipt(c context.Context, transactionHash cmd.TxnHash) (cmd.TxnReceipt, error) {
+	return cmd.TxnReceipt{}, nil
+}
