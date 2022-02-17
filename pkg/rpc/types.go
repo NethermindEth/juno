@@ -34,3 +34,8 @@ type StorageAt struct {
 	// The hash (id) of the requested block or a tag referencing the necessary block
 	BlockHash cmd.BlockHashOrTag `json:"block_hash"`
 }
+
+// TransactionHash The hash of the requested transaction
+type TransactionHash struct {
+	TransactionHash cmd.TxnHash `json:"transaction_hash"`
+}

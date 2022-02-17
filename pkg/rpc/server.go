@@ -59,3 +59,8 @@ func (Server) StarknetGetStateUpdateByHash(c context.Context, p cmd.BlockHashOrT
 func (Server) StarknetGetStorageAt(c context.Context, s StorageAt) (cmd.Felt, error) {
 	return "", nil
 }
+
+// StarknetGetTransactionByHash Get the details and status of a submitted transaction
+func (Server) StarknetGetTransactionByHash(c context.Context, s TransactionHash) (cmd.Txn, error) {
+	return cmd.Txn{}, nil
+}

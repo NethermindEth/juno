@@ -72,3 +72,14 @@ type StateUpdate struct {
 }
 
 type Address Felt
+
+// TxnHash The transaction hash, as assigned in StarkNet
+type TxnHash Felt
+
+// Txn Transaction
+type Txn struct {
+	// The function the transaction invokes
+	FunctionCall
+	// The hash identifying the transaction
+	TxnHash TxnHash `json:"txn_hash"`
+}
