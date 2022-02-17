@@ -133,6 +133,15 @@ func parsePositionalArguments(rawArgs json.RawMessage, types []reflect.Type) ([]
 		if args, err = parseArgumentArray(dec, types); err != nil {
 			return nil, err
 		}
+	case tok == json.Delim('{'):
+		argval := reflect.New(types[0])
+		if err := json.Unmarshal(rawArgs, argval.Interface()); err != nil {
+			return args, fmt.Errorf("invalid argument %d: %v", 0, err)
+		}
+		if argval.IsNil() && types[0].Kind() != reflect.Ptr {
+			return args, fmt.Errorf("missing value for required argument %d", 0)
+		}
+		args = append(args, argval.Elem())
 	default:
 		return nil, errors.New("non-array args")
 	}
