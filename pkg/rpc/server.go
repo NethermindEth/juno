@@ -51,6 +51,11 @@ func (Server) StarknetGetBlockTransactionCountByHash(c context.Context, blockHas
 	return cmd.BlockTransactionCount{}, nil
 }
 
+// StarknetGetBlockTransactionCountByNumber Get the number of transactions in a block given a block number (height)
+func (Server) StarknetGetBlockTransactionCountByNumber(c context.Context, blockNumber cmd.BlockNumberOrTag) (cmd.BlockTransactionCount, error) {
+	return cmd.BlockTransactionCount{}, nil
+}
+
 // StarknetGetStateUpdateByHash represent the handler for getting the information about the result of executing the requested block
 func (Server) StarknetGetStateUpdateByHash(c context.Context, blockHash cmd.BlockHashOrTag) (cmd.StateUpdate, error) {
 	return cmd.StateUpdate{}, nil
