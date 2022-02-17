@@ -22,6 +22,13 @@ func Handlers(end chan error) {
 	end <- nil
 }
 
+// Echo represents the handler of "echo" rpc call, just reply with the same message
+func (Server) Echo(c context.Context, request Echo) (Echo, error) {
+	return Echo{
+		Message: request.Message,
+	}, nil
+}
+
 // StarknetCall represents the handler of "starknet_call" rpc call
 func (Server) StarknetCall(c context.Context, request cmd.RequestRPC) (cmd.ResultCall, error) {
 

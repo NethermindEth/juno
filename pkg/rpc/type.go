@@ -5,6 +5,10 @@ import (
 	pkg "github.com/NethermindEth/juno/pkg"
 )
 
+type Echo struct {
+	Message string `json:"message"`
+}
+
 type BlockHashParams struct {
 	RequestedScope pkg.RequestedScope `json:"requestedScope"`
 	BlockHash      cmd.BlockHash      `json:"block_hash"`
