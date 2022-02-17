@@ -91,3 +91,8 @@ func (Server) StarknetGetTransactionReceipt(c context.Context, transactionHash c
 func (Server) StarknetGetCode(c context.Context, contractAddress cmd.Address) (cmd.CodeResult, error) {
 	return cmd.CodeResult{}, nil
 }
+
+// StarknetBlockNumber Get the most recent accepted block number
+func (Server) StarknetBlockNumber(c context.Context) (cmd.BlockNumber, error) {
+	return 0, nil
+}
