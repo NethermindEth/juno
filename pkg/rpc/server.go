@@ -32,3 +32,8 @@ func (Server) StarknetCall(c context.Context, request cmd.RequestRPC) (cmd.Resul
 func (Server) StarknetGetBlockByHash(c context.Context, p BlockHashParams) (BlockHashResult, error) {
 	return BlockHashResult{}, nil
 }
+
+// StarknetGetBlockByNumber represent the handler for getting a block by its number
+func (Server) StarknetGetBlockByNumber(c context.Context, p BlockNumberParams) (BlockNumberResult, error) {
+	return BlockNumberResult{}, nil
+}

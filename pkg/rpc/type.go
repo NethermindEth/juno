@@ -9,3 +9,8 @@ type BlockHashParams struct {
 	RequestedScope pkg.RequestedScope `json:"requestedScope"`
 	BlockHash      cmd.BlockHash      `json:"block_hash"`
 }
+
+type BlockNumberParams struct {
+	BlockNumber    int                `json:"block_number"`
+	RequestedScope pkg.RequestedScope `json:"requestedScope"`
+}
