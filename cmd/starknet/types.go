@@ -22,6 +22,9 @@ type Felt string
 // BlockNumber The block's number (its height)
 type BlockNumber uint64
 
+// ChainID StarkNet chain id, given in hex representation.
+type ChainID string
+
 type BlockNumberOrTag struct {
 	BlockNumber
 	BlockTag

@@ -96,3 +96,8 @@ func (Server) StarknetGetCode(c context.Context, contractAddress cmd.Address) (c
 func (Server) StarknetBlockNumber(c context.Context) (cmd.BlockNumber, error) {
 	return 0, nil
 }
+
+// StarknetChainId Return the currently configured StarkNet chain id
+func (Server) StarknetChainId(c context.Context) (cmd.ChainID, error) {
+	return "Here the ChainIDg", nil
+}
