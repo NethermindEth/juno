@@ -81,3 +81,8 @@ func (Server) StarknetGetTransactionByBlockNumberAndIndex(c context.Context, blo
 func (Server) StarknetGetTransactionReceipt(c context.Context, transactionHash cmd.TxnHash) (cmd.TxnReceipt, error) {
 	return cmd.TxnReceipt{}, nil
 }
+
+// StarknetGetCode Get the code of a specific contract
+func (Server) StarknetGetCode(c context.Context, contractAddress cmd.Address) (cmd.CodeResult, error) {
+	return cmd.CodeResult{}, nil
+}

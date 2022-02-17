@@ -149,3 +149,10 @@ type TxnReceipt struct {
 	L1OriginMessage MsgToL2   `json:"l1_origin_message"`
 	Events          Event     `json:"events"`
 }
+
+// CodeResult The code and ABI for the requested contract
+type CodeResult struct {
+	Bytecode []Felt `json:"bytecode"`
+	// The ABI of the contract in JSON format. Uses the same structure as EVM ABI
+	Abi string `json:"abi"`
+}
