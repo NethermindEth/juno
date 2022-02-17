@@ -70,3 +70,5 @@ type StateUpdate struct {
 	AcceptedTime uint64    `json:"accepted_time"`
 	StateDiff    StateDiff `json:"state_diff"`
 }
+
+type Address Felt

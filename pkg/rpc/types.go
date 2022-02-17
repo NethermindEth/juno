@@ -25,3 +25,12 @@ type BlockNumberResult pkg.BlockResponse
 
 type BlockTransactionCountParams pkg.BlockHash
 type BlockTransactionCountResult cmd.BlockTransactionCount
+
+type StorageAt struct {
+	// The address of the contract to read from
+	ContractAddress cmd.Address `json:"contract_address"`
+	// The key to the storage value for the given contract
+	Key cmd.Felt `json:"key"`
+	// The hash (id) of the requested block or a tag referencing the necessary block
+	BlockHash cmd.BlockHashOrTag `json:"block_hash"`
+}

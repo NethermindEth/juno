@@ -54,3 +54,8 @@ func (Server) StarknetGetBlockTransactionCountByHash(c context.Context, p BlockT
 func (Server) StarknetGetStateUpdateByHash(c context.Context, p cmd.BlockHashOrTag) (cmd.StateUpdate, error) {
 	return cmd.StateUpdate{}, nil
 }
+
+// StarknetGetStorageAt Get the value of the storage at the given address and key
+func (Server) StarknetGetStorageAt(c context.Context, s StorageAt) (cmd.Felt, error) {
+	return "", nil
+}
