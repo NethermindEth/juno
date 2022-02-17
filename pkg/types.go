@@ -1,5 +1,7 @@
 package starknet_client
 
+import cmd "github.com/NethermindEth/juno/cmd/starknet"
+
 type BlockStatus string
 
 // BlockStatus const
@@ -44,7 +46,7 @@ type BlockResponse struct {
 	// The identity of the sequencer submitting this block
 	Sequencer string `json:"sequencer"`
 	// The new global state root
-	NewRoot string `json:"new_root"`
+	NewRoot cmd.Felt `json:"new_root"`
 	// The previous global state root
 	OldRoot string `json:"old_root"`
 	// When the block was accepted on L1. Formatted as...

@@ -16,6 +16,9 @@ type BlockHash string
 // BlockTag Is a tag specifying a dynamic reference to a block
 type BlockTag string
 
+// Felt represent aN field element. Represented as up to 63 hex digits and leading 4 bits zeroed.
+type Felt string
+
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
 type BlockHashOrTag struct {
 	BlockHash BlockHash `json:"block_hash"`
@@ -34,4 +37,36 @@ type ResultCall []string
 // BlockTransactionCount represent the number of transactions in the designated block
 type BlockTransactionCount struct {
 	TransactionCount int
+}
+
+// StateDiffItem represent a change in a single storage item
+type StateDiffItem struct {
+	// The contract address for which the state changed
+	Address Felt `json:"address"`
+	// The key of the changed value
+	Key Felt `json:"key"`
+	// THe new value applied to the given address
+	Value Felt `json:"value"`
+}
+
+// ContractItem represent a new contract added as part of the new state
+type ContractItem struct {
+	// The address of the contract code
+	Address Felt `json:"address"`
+	// The hash of the contract code
+	ContractHash Felt `json:"contractHash"`
+}
+
+// StateDiff represent the change in state applied in this block, given as a mapping of addresses to the new values and/or new contracts
+type StateDiff struct {
+	StorageDiffs []StateDiffItem `json:"storage_diffs"`
+	Contracts    []ContractItem  `json:"contracts"`
+}
+
+type StateUpdate struct {
+	BlockHash    BlockHash `json:"block_hash"`
+	NewRoot      Felt      `json:"new_root"`
+	OldRoot      Felt      `json:"old_root"`
+	AcceptedTime uint64    `json:"accepted_time"`
+	StateDiff    StateDiff `json:"state_diff"`
 }
