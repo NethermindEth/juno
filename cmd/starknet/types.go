@@ -146,6 +146,13 @@ type Event struct {
 	FromAddress Address `json:"from_address"`
 }
 
+// EmittedEvent Represent Event information decorated with metadata on where it was emitted
+type EmittedEvent struct {
+	Event
+	BlockHash       BlockHash `json:"block_hash"`
+	TransactionHash TxnHash   `json:"transaction_hash"`
+}
+
 // TxnReceipt Receipt of the transaction
 type TxnReceipt struct {
 	TxnHash         TxnHash   `json:"txn_hash"`
@@ -171,4 +178,10 @@ type SyncStatus struct {
 	CurrentBlock BlockHash `json:"current_block"`
 	// The hash of the estimated the highest block to be synchronized
 	HighestBlock BlockHash `json:"highest_block"`
+}
+
+// ResultPageRequest A request for a specific page of results
+type ResultPageRequest struct {
+	PageSize   uint64 `json:"page_size"`
+	PageNumber uint64 `json:"page_number"`
 }

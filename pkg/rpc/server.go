@@ -116,3 +116,8 @@ func (Server) StarknetProtocolVersion(c context.Context) (cmd.ProtocolVersion, e
 func (Server) StarknetSyncing(c context.Context) (cmd.SyncStatus, error) {
 	return cmd.SyncStatus{}, nil
 }
+
+// StarknetGetEvents Returns all event objects matching the conditions in the provided filter
+func (Server) StarknetGetEvents(c context.Context, r EventRequest) (EventResponse, error) {
+	return EventResponse{}, nil
+}
