@@ -25,6 +25,9 @@ type BlockNumber uint64
 // ChainID StarkNet chain id, given in hex representation.
 type ChainID string
 
+// ProtocolVersion StarkNet protocol version, given in hex representation.
+type ProtocolVersion string
+
 type BlockNumberOrTag struct {
 	BlockNumber
 	BlockTag

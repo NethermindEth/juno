@@ -106,3 +106,8 @@ func (Server) StarknetChainId(c context.Context) (cmd.ChainID, error) {
 func (Server) StarknetPendingTransactions(c context.Context) ([]cmd.Txn, error) {
 	return nil, nil
 }
+
+// StarknetProtocolVersion Returns the current starknet protocol version identifier, as supported by this sequencer
+func (Server) StarknetProtocolVersion(c context.Context) (cmd.ProtocolVersion, error) {
+	return "Here the Protocol Version", nil
+}
