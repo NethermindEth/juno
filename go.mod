@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/torquem-ch/mdbx-go v0.22.14 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
 	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912 // indirect
 )
