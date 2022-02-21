@@ -12,10 +12,23 @@ type Database struct {
 	//tempDirMu  sync.Mutex
 }
 
-func NewDatabase(path string) Database {
+func NewDatabase(path string, flags uint) Database {
 	env, err1 := mdbx.NewEnv()
 	if err1 != nil {
 		log.Fatalf("Cannot create environment: %s", err1)
+	}
+	err := env.SetOption(mdbx.OptMaxDB, 1024)
+	if err != nil {
+		log.Fatalf("setmaxdbs: %v", err)
+	}
+	const pageSize = 4096
+	err = env.SetGeometry(-1, -1, 64*1024*pageSize, -1, -1, pageSize)
+	if err != nil {
+		log.Fatalf("setmaxdbs: %v", err)
+	}
+	err = env.Open(path, flags, 0664)
+	if err != nil {
+		log.Fatalf("open: %s", err)
 	}
 	return Database{
 		env:  env,
@@ -87,11 +100,15 @@ func (d Database) Get(key []byte) ([]byte, error) {
 }
 
 func (d Database) Put(key, value []byte) error {
+	log.Println("Calling Update")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
-		dbi, err := txn.OpenDBI(d.path, mdbx.Create, nil, nil)
+		log.Println("Open DBI")
+		dbi, err := txn.OpenDBISimple(d.path, mdbx.Create)
+
 		if err != nil {
 			return err
 		}
+		log.Println("Inserting on db")
 		return txn.Put(dbi, key, value, 0)
 	})
 	return err
@@ -116,6 +133,5 @@ func (d Database) Rollback() {
 }
 
 func (d Database) Close() {
-	//TODO implement me
-	panic("implement me")
+	d.env.Close()
 }
