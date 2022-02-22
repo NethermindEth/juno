@@ -37,44 +37,11 @@ func NewDatabase(path string, flags uint) Database {
 }
 
 func (d Database) Has(key []byte) (has bool, err error) {
-	err1 := d.env.Open(d.path, 0, 0664)
-	defer d.env.Close()
-	if err1 != nil {
-		log.Fatalf("Cannot open environment: %s", err1)
-		return false, err1
+	val, err := d.GetOne(key)
+	if err != nil {
+		return false, err
 	}
-	var db mdbx.DBI
-	has = false
-	if err := d.env.View(func(txn *mdbx.Txn) error {
-		db, err = txn.OpenDBISimple(d.path, 0)
-		if err != nil {
-			return err
-		}
-		cursor, err := txn.OpenCursor(db)
-		if err != nil {
-			cursor.Close()
-			return fmt.Errorf("cursor: %v", err)
-		}
-		var bNumVal int
-		for {
-			_, _, err = cursor.Get(key, nil, mdbx.Next)
-			if mdbx.IsNotFound(err) {
-				break
-			}
-			if err != nil {
-				has = false
-				return err
-			}
-			has = true
-			bNumVal++
-		}
-		cursor.Close()
-		return err
-	}); err != nil {
-		log.Fatal(err)
-		return has, err
-	}
-	return has, nil
+	return val != nil, nil
 }
 
 func (d Database) GetOne(key []byte) (val []byte, err error) {
@@ -90,7 +57,7 @@ func (d Database) GetOne(key []byte) (val []byte, err error) {
 		}
 		return nil
 	}); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	return val, err
 }
