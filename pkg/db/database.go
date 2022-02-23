@@ -13,6 +13,7 @@ type KeyValueDatabase struct {
 	//tempDirMu  sync.Mutex
 }
 
+// NewKeyValueDatabase Creates a new KeyValueDatabase
 func NewKeyValueDatabase(path string, flags uint) KeyValueDatabase {
 	log.WithFields(log.Fields{
 		"Path":  path,
@@ -70,33 +71,36 @@ func (d KeyValueDatabase) getOne(key []byte) (val []byte, err error) {
 }
 
 func (d KeyValueDatabase) Get(key []byte) ([]byte, error) {
+	log.WithField("Key", key).Info("Getting value of provided key")
 	return d.getOne(key)
 }
 
 func (d KeyValueDatabase) Put(key, value []byte) error {
-	log.Println("Calling Update")
+	log.WithField("Key", key).Info("Getting value of provided key")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
-		log.Println("Open DBI")
+		log.Debug("Open DBI")
 		dbi, err := txn.OpenDBISimple(d.path, mdbx.Create)
 
 		if err != nil {
 			return err
 		}
-		log.Println("Inserting on db")
+		log.Debug("Inserting on db")
 		return txn.Put(dbi, key, value, 0)
 	})
 	return err
 }
 
-func (d KeyValueDatabase) Delete(k []byte) error {
+func (d KeyValueDatabase) Delete(key []byte) error {
+	log.WithField("Key", key).Info("Deleting value associated to provided key")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
 		db, err := txn.OpenDBISimple(d.path, 0)
-		return txn.Del(db, k, nil)
+		return txn.Del(db, key, nil)
 	})
 	return err
 }
 
 func (d KeyValueDatabase) NumberOfItems() (uint64, error) {
+	log.Info("Getting the amount of items in the collection")
 	var numberOfItems uint64
 	numberOfItems = 0
 	err := d.env.View(func(txn *mdbx.Txn) (err error) {

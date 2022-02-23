@@ -11,7 +11,7 @@ type Databaser interface {
 	Put(key, value []byte) error
 
 	// Delete Remove a previous inserted key, otherwise nothing happen
-	Delete(k []byte) error
+	Delete(key []byte) error
 
 	// NumberOfItems return the number of items in the collection
 	NumberOfItems() (uint64, error)
