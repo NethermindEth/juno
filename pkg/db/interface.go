@@ -1,14 +1,20 @@
 package db
 
 type Databaser interface {
+	// Has Check that the key provided exists in the collection
 	Has(key []byte) (bool, error)
-	GetOne(key []byte) (val []byte, err error)
+
+	// Get Returns the value associated to the provided key or returns an error otherwise
 	Get(key []byte) ([]byte, error)
 
+	// Put Insert the key-value pair into the collection
 	Put(key, value []byte) error
 
-	Delete(k, v []byte) error
+	// Delete Remove a previous inserted key, otherwise nothing happen
+	Delete(k []byte) error
 
+	// NumberOfItems return the number of items in the collection
+	NumberOfItems() (uint64, error)
 	Begin()
 	Rollback()
 	Close()
