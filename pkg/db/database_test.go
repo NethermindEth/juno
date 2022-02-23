@@ -17,13 +17,12 @@ var (
 	}
 )
 
-func setupTest(t *testing.T) KeyValueDatabase {
-	path := t.TempDir()
+func setupTest(path string) KeyValueDatabase {
 	return NewKeyValueDatabase(path, 0)
 }
 
 func TestAddKey(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	err := db.Put([]byte("key"), []byte("value"))
 	if err != nil {
 		t.Log(err)
@@ -32,7 +31,7 @@ func TestAddKey(t *testing.T) {
 }
 
 func TestNumberOfItems(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	n, err := db.NumberOfItems()
 	if err != nil {
 		t.Log(err)
@@ -61,7 +60,7 @@ func TestNumberOfItems(t *testing.T) {
 }
 
 func TestAddMultipleKeys(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	for k, v := range KeyValueTest {
 		err := db.Put([]byte(k), []byte(v))
 		if err != nil {
@@ -81,7 +80,7 @@ func TestAddMultipleKeys(t *testing.T) {
 }
 
 func TestHasKey(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	goodKey := []byte("good_key")
 	err := db.Put(goodKey, []byte("value"))
 	if err != nil {
@@ -100,7 +99,7 @@ func TestHasKey(t *testing.T) {
 }
 
 func TestHasNotKey(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	goodKey := []byte("good_key")
 	badKey := []byte("bad_key")
 	err := db.Put(goodKey, []byte("value"))
@@ -120,7 +119,7 @@ func TestHasNotKey(t *testing.T) {
 }
 
 func TestGetKey(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
 	err := db.Put(goodKey, goodValue)
@@ -140,7 +139,7 @@ func TestGetKey(t *testing.T) {
 }
 
 func TestGetNotKey(t *testing.T) {
-	db := setupTest(t)
+	db := setupTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
 	badKey := []byte("bad_key")
