@@ -23,6 +23,7 @@ func setupDatabaseForTest(path string) KeyValueDatabase {
 	return NewKeyValueDatabase(path, 0)
 }
 
+// TestAddKey Check that a single value is inserted without error
 func TestAddKey(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	err := db.Put([]byte("key"), []byte("value"))
@@ -32,28 +33,33 @@ func TestAddKey(t *testing.T) {
 	}
 }
 
+// TestNumberOfItems Checks that in every moment the collection contains the right amount of items
 func TestNumberOfItems(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	n, err := db.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	if n != 0 {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	for k, v := range KeyValueTest {
 		err := db.Put([]byte(k), []byte(v))
 		if err != nil {
 			t.Log(err)
 			t.Fail()
+			return
 		}
 	}
 	n, err = db.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	if int(n) != len(KeyValueTest) {
 		t.Log(err)
@@ -61,6 +67,7 @@ func TestNumberOfItems(t *testing.T) {
 	}
 }
 
+// TestAddMultipleKeys Checks that after insert some keys the collection contains the right amount of items
 func TestAddMultipleKeys(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	for k, v := range KeyValueTest {
@@ -68,12 +75,14 @@ func TestAddMultipleKeys(t *testing.T) {
 		if err != nil {
 			t.Log(err)
 			t.Fail()
+			return
 		}
 	}
 	n, err := db.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	if int(n) != len(KeyValueTest) {
 		t.Log(err)
@@ -81,6 +90,7 @@ func TestAddMultipleKeys(t *testing.T) {
 	}
 }
 
+// TestHasKey Check that one key exist after insertion
 func TestHasKey(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
@@ -88,18 +98,22 @@ func TestHasKey(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	has, err := db.Has(goodKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	if !has {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 }
 
+// TestHasNotKey Check that a key don't exist
 func TestHasNotKey(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
@@ -108,11 +122,13 @@ func TestHasNotKey(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	has2, err := db.Has(badKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	if has2 {
 		t.Log(err)
@@ -120,6 +136,7 @@ func TestHasNotKey(t *testing.T) {
 	}
 }
 
+// TestGetKey Check that a key is property retrieved
 func TestGetKey(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
@@ -128,11 +145,13 @@ func TestGetKey(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	val, err := db.Get(goodKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
+		return
 	}
 	if string(val) != string(goodValue) {
 		t.Log(err)
@@ -140,6 +159,7 @@ func TestGetKey(t *testing.T) {
 	}
 }
 
+// TestGetNotKey Check that a key don't exist and what happen if it doesn't exist
 func TestGetNotKey(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
@@ -163,6 +183,7 @@ func TestGetNotKey(t *testing.T) {
 	}
 }
 
+// BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
 	log.SetLevel(log.ErrorLevel)
 	db := setupDatabaseForTest(b.TempDir())
@@ -170,6 +191,7 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 		val := []byte(strconv.Itoa(i))
 		err := db.Put(val, val)
 		if err != nil {
+			b.Error("Benchmarking fails, error storing values")
 			return
 		}
 	}
@@ -187,20 +209,26 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 
 }
 
+// BenchmarkConsultsToDatabase Benchmark the consult to a db
 func BenchmarkConsultsToDatabase(b *testing.B) {
 	db := setupDatabaseForTest(b.TempDir())
 	for i := 0; i < b.N; i++ {
 		val := []byte(strconv.Itoa(i))
 		err := db.Put(val, val)
 		if err != nil {
+			b.Error("Benchmarking fails, error storing values")
+			b.Fail()
 			return
 		}
 		get, err := db.Get(val)
 		if err != nil {
+			b.Errorf("Benchmarking fails, error getting values: %s\n", err)
+			b.Fail()
 			return
 		}
 		if string(get) != string(val) {
-
+			b.Error("Benchmarking fails, mismatch between expected return value and returned value")
+			b.Fail()
 		}
 	}
 }
