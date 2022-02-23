@@ -105,39 +105,11 @@ func (d KeyValueDatabase) Delete(key []byte) error {
 
 func (d KeyValueDatabase) NumberOfItems() (uint64, error) {
 	log.Info("Getting the amount of items in the collection")
-	var numberOfItems uint64
-	numberOfItems = 0
 	stats, err := d.env.Stat()
 	if err != nil {
 		return 0, err
 	}
-	numberOfItems = stats.Entries
-	//err := d.env.View(func(txn *mdbx.Txn) (err error) {
-	//	db, err := txn.OpenRoot(mdbx.Create)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	cur, err := txn.OpenCursor(db)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	for {
-	//		k, v, err := cur.Get(nil, nil, mdbx.Next)
-	//		log.WithFields(log.Fields{
-	//			"Key":   k,
-	//			"Value": v,
-	//		}).Debug("Getting cursor")
-	//		if mdbx.IsNotFound(err) {
-	//			return nil
-	//		}
-	//		if err != nil {
-	//			return err
-	//		}
-	//		numberOfItems += 1
-	//	}
-	//})
-	return numberOfItems, err
+	return stats.Entries, err
 }
 
 func (d KeyValueDatabase) Begin() {
