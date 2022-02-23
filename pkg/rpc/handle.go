@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/goccy/go-json"
 	"github.com/iancoleman/strcase"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"reflect"
@@ -70,12 +71,13 @@ func isErrorType(t reflect.Type) bool {
 	return t.Implements(errorType)
 }
 
-func checkReturn(fntype reflect.Type) int {
-	// Verify return types. The function must return at most one error
-	// and/or one other non-error value.
-	outs := make([]reflect.Type, fntype.NumOut())
-	for i := 0; i < fntype.NumOut(); i++ {
-		outs[i] = fntype.Out(i)
+// checkReturn Verify return types. The function must return at most one error
+//	and/or one other non-error value.
+func checkReturn(functionType reflect.Type) int {
+	// Create a representation for each type of the Outputs of the function
+	outs := make([]reflect.Type, functionType.NumOut())
+	for i := 0; i < functionType.NumOut(); i++ {
+		outs[i] = functionType.Out(i)
 	}
 	if len(outs) > 2 {
 		return -1
@@ -93,99 +95,104 @@ func checkReturn(fntype reflect.Type) int {
 	return 0
 }
 
-// makeArgTypes composes the argTypes list.
-func makeArgTypes(fn, rcvr reflect.Value) ([]reflect.Type, bool) {
-	functionType := fn.Type()
-	hasCtx := false
+// makeArgumentTypes composes the argTypes list.
+func makeArgumentTypes(function, receiver reflect.Value) ([]reflect.Type, bool) {
+	functionType := function.Type()
+	hasContext := false
 
 	// Skip receiver and context.Context parameter (if present).
 	firstArg := 0
-	if rcvr.IsValid() {
+	if receiver.IsValid() {
 		firstArg++
 	}
 	if functionType.NumIn() > firstArg && functionType.In(firstArg) == contextType {
-		hasCtx = true
+		hasContext = true
 		firstArg++
 	}
 	// Add all remaining parameters.
-	argTypes := make([]reflect.Type, functionType.NumIn()-firstArg)
+	argumentTypes := make([]reflect.Type, functionType.NumIn()-firstArg)
 	for i := firstArg; i < functionType.NumIn(); i++ {
-		argTypes[i-firstArg] = functionType.In(i)
+		argumentTypes[i-firstArg] = functionType.In(i)
 	}
-	return argTypes, hasCtx
+	return argumentTypes, hasContext
 }
 
-// parsePositionalArguments tries to parse the given args to an array of values with the
-// given types. It returns the parsed values or an error when the args could not be
+// parseArguments tries to parse the given arguments to an array of values with the
+// given types or the corresponding type. It returns the parsed values or an error when the args could not be
 // parsed. Missing optional arguments are returned as reflect.Zero values.
-func parsePositionalArguments(rawArgs json.RawMessage, types []reflect.Type) ([]reflect.Value, error) {
-	dec := json.NewDecoder(bytes.NewReader(rawArgs))
-	var args []reflect.Value
-	tok, err := dec.Token()
+func parseArguments(rawMessage json.RawMessage, types []reflect.Type) ([]reflect.Value, error) {
+	decoder := json.NewDecoder(bytes.NewReader(rawMessage))
+	var arguments []reflect.Value
+	token, err := decoder.Token()
 	switch {
-	case err == io.EOF || tok == nil && err == nil:
+	case err == io.EOF || token == nil && err == nil:
 		// "params" is optional and may be empty. Also allow "params":null even though it's
 		// not in the spec because our own client used to send it.
 	case err != nil:
 		return nil, err
-	case tok == json.Delim('['):
+	case token == json.Delim('['):
 		// Read argument array.
-		if args, err = parseArgumentArray(dec, types); err != nil {
+		if arguments, err = parseArgumentArray(decoder, types); err != nil {
 			return nil, err
 		}
-	case tok == json.Delim('{'):
-		argval := reflect.New(types[0])
-		if err := json.Unmarshal(rawArgs, argval.Interface()); err != nil {
-			return args, fmt.Errorf("invalid argument %d: %v", 0, err)
+	case token == json.Delim('{'):
+		argumentValue := reflect.New(types[0])
+		if err := json.Unmarshal(rawMessage, argumentValue.Interface()); err != nil {
+			return arguments, fmt.Errorf("invalid argument %d: %v", 0, err)
 		}
-		if argval.IsNil() && types[0].Kind() != reflect.Ptr {
-			return args, fmt.Errorf("missing value for required argument %d", 0)
+		if argumentValue.IsNil() && types[0].Kind() != reflect.Ptr {
+			return arguments, fmt.Errorf("missing value for required argument %d", 0)
 		}
-		args = append(args, argval.Elem())
+		arguments = append(arguments, argumentValue.Elem())
 	default:
-		return nil, errors.New("non-array args")
+		return nil, errors.New("non-array or struct arguments")
 	}
-	// Set any missing args to nil.
-	for i := len(args); i < len(types); i++ {
+	// Set any missing arguments to nil.
+	for i := len(arguments); i < len(types); i++ {
 		if types[i].Kind() != reflect.Ptr {
 			return nil, fmt.Errorf("missing value for required argument %d", i)
 		}
-		args = append(args, reflect.Zero(types[i]))
+		arguments = append(arguments, reflect.Zero(types[i]))
 	}
-	return args, nil
+	return arguments, nil
 }
 
+// parseArgumentArray Iterate overs each types and tries to parse the given arguments to an array of values
 func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Value, error) {
-	args := make([]reflect.Value, 0, len(types))
+	arguments := make([]reflect.Value, 0, len(types))
 	for i := 0; dec.More(); i++ {
 		if i >= len(types) {
-			return args, fmt.Errorf("too many arguments, want at most %d", len(types))
+			return arguments, fmt.Errorf("too many arguments, want at most %d", len(types))
 		}
-		argval := reflect.New(types[i])
-		if err := dec.Decode(argval.Interface()); err != nil {
-			return args, fmt.Errorf("invalid argument %d: %v", i, err)
+		argumentValue := reflect.New(types[i])
+		if err := dec.Decode(argumentValue.Interface()); err != nil {
+			return arguments, fmt.Errorf("invalid argument %d: %v", i, err)
 		}
-		if argval.IsNil() && types[i].Kind() != reflect.Ptr {
-			return args, fmt.Errorf("missing value for required argument %d", i)
+		if argumentValue.IsNil() && types[i].Kind() != reflect.Ptr {
+			return arguments, fmt.Errorf("missing value for required argument %d", i)
 		}
-		args = append(args, argval.Elem())
+		arguments = append(arguments, argumentValue.Elem())
 	}
-	// Read end of args array.
+	// Read end of arguments array.
 	_, err := dec.Token()
-	return args, err
+	return arguments, err
 }
 
-// call invokes the callback.
-func call(ctx context.Context, method string, args []reflect.Value, fn, rcvr reflect.Value, hasCtx bool, errPos int) (res interface{}, errRes error) {
+// callFunction invokes the function called.
+func callFunction(ctx context.Context, method string, arguments []reflect.Value, function, receiver reflect.Value,
+	hasContext bool, errResponsePosition int) (res interface{}, errRes error) {
+	log.WithFields(log.Fields{
+		"Method": method,
+	}).Info("Calling RPC function")
 	// Create the argument slice.
-	fullargs := make([]reflect.Value, 0, 2+len(args))
-	if rcvr.IsValid() {
-		fullargs = append(fullargs, rcvr)
+	fullArguments := make([]reflect.Value, 0, 2+len(arguments))
+	if receiver.IsValid() {
+		fullArguments = append(fullArguments, receiver)
 	}
-	if hasCtx {
-		fullargs = append(fullargs, reflect.ValueOf(ctx))
+	if hasContext {
+		fullArguments = append(fullArguments, reflect.ValueOf(ctx))
 	}
-	fullargs = append(fullargs, args...)
+	fullArguments = append(fullArguments, arguments...)
 
 	// Catch panic while running the callback.
 	defer func() {
@@ -193,18 +200,24 @@ func call(ctx context.Context, method string, args []reflect.Value, fn, rcvr ref
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			fmt.Printf("RPC method " + method + " crashed: " + fmt.Sprintf("%v\n%s", err, buf))
+			log.WithFields(log.Fields{
+				"Method":                  method,
+				"Error":                   fmt.Sprintf("%v\n%s", err, buf),
+				"Arguments":               arguments,
+				"Has Context":             hasContext,
+				"Error Response Position": errResponsePosition,
+			}).Error("RPC method crashed")
 			errRes = errors.New("method handler crashed")
 		}
 	}()
-	// Run the callback.
-	results := fn.Call(fullargs)
+	// Run the function.
+	results := function.Call(fullArguments)
 	if len(results) == 0 {
 		return nil, nil
 	}
-	if errPos >= 0 && !results[errPos].IsNil() {
+	if errResponsePosition >= 0 && !results[errResponsePosition].IsNil() {
 		// Method has returned non-nil error value.
-		err := results[errPos].Interface().(error)
+		err := results[errResponsePosition].Interface().(error)
 		return reflect.Value{}, err
 	}
 	return results[0].Interface(), nil
@@ -213,29 +226,48 @@ func call(ctx context.Context, method string, args []reflect.Value, fn, rcvr ref
 // InvokeMethod invokes JSON-RPC method.
 func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Response {
 	res := NewResponse(r)
-	structToCall := reflect.ValueOf(mr.MethodsToCall)
+	structToCall := reflect.ValueOf(mr.StructRpc)
 
+	// Check that the struct contains the method called
 	function, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
 	if !ok {
-		fmt.Printf("Method %s dosn't exist\n", r.Method)
+		log.WithFields(log.Fields{
+			"Method": r.Method,
+		}).Error("Method didn't exist")
 		res.Result = nil
 		res.Error = ErrMethodNotFound()
 		return res
 	}
-	fmt.Printf("Method %s exist\n", r.Method)
 
-	argsType, hasCtx := makeArgTypes(function.Func, structToCall)
+	// Get all the types of the arguments of the function that is going to be called
+	argumentTypes, hasContext := makeArgumentTypes(function.Func, structToCall)
 
-	args, _ := parsePositionalArguments(*r.Params, argsType)
+	// Parse all the params received in the request and cast it to the types of the function that is going to be called
+	args, err := parseArguments(*r.Params, argumentTypes)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Method": r.Method,
+			"Params": r.Params,
+		}).Error("Invalid params")
+		res.Result = nil
+		res.Error = ErrInvalidParams()
+		return res
+	}
 
+	// Check the return of the function and get the error position (Methods should always return and error)
 	errPos := checkReturn(function.Type)
 
-	resFromCall, err := call(c, r.Method, args, function.Func, structToCall, hasCtx, errPos)
-
+	// Call the function
+	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"Method": r.Method,
+			"Params": r.Params,
+		}).Error("Internal error calling the function")
 		res.Error = ErrInternal()
 		res.Result = nil
 	}
+	log.WithField("Method", r.Method).Info("RPC handle request successfully")
 	res.Result = resFromCall
 	return res
 }
