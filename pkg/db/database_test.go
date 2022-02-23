@@ -183,6 +183,42 @@ func TestGetNotKey(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	db := setupDatabaseForTest(t.TempDir())
+	goodKey := []byte("good_key")
+	goodValue := []byte("value")
+	err := db.Put(goodKey, goodValue)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+	}
+	err = db.Delete(goodKey)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	key, err := db.Has(goodKey)
+	if key {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+}
+
+func TestBegin(t *testing.T) {
+	db := setupDatabaseForTest(t.TempDir())
+	db.Begin()
+}
+func TestRollBack(t *testing.T) {
+	db := setupDatabaseForTest(t.TempDir())
+	db.Rollback()
+}
+func TestClose(t *testing.T) {
+	db := setupDatabaseForTest(t.TempDir())
+	db.Close()
+}
+
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
 	log.SetLevel(log.ErrorLevel)

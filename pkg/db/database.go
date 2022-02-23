@@ -114,12 +114,10 @@ func (d KeyValueDatabase) NumberOfItems() (uint64, error) {
 
 func (d KeyValueDatabase) Begin() {
 	//TODO implement me
-	panic("implement me")
 }
 
 func (d KeyValueDatabase) Rollback() {
 	//TODO implement me
-	panic("implement me")
 }
 
 func (d KeyValueDatabase) Close() {
