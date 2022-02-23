@@ -2,14 +2,14 @@ package rpc
 
 import (
 	"encoding/json"
-	"fmt"
+	log "github.com/sirupsen/logrus"
 )
 
 func StructPrinter(i interface{}) {
 	b, err := json.Marshal(i)
 	if err != nil {
-		fmt.Println(err)
+		log.WithField("Error", err).Error("Error marshaling interface")
 		return
 	}
-	fmt.Println(string(b))
+	log.WithField("Struct", string(b)).Info("Struct as a dictionary")
 }
