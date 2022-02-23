@@ -3,12 +3,12 @@ package rpc
 type (
 	// A MethodRepository has JSON-RPC method functions.
 	MethodRepository struct {
-		MethodsToCall interface{}
+		StructRpc interface{}
 	}
 )
 
-func NewMethodRepositoryWithMethods(methodCaller interface{}) *MethodRepository {
+func NewMethodRepositoryWithMethods(rpc interface{}) *MethodRepository {
 	return &MethodRepository{
-		MethodsToCall: methodCaller,
+		StructRpc: rpc,
 	}
 }
