@@ -7,25 +7,18 @@ import (
 )
 
 var (
-	KeyValueTest = map[string]string{
-		"key0": "value0",
-		"key1": "value1",
-		"key2": "value2",
-		"key3": "value3",
-		"key4": "value4",
-		"key5": "value5",
-		"key6": "value6",
-		"key7": "value7",
-		"key8": "value8",
-		"key9": "value9",
-	}
+	KeyValueTest = map[string]string{}
 )
 
 func init() {
 	log.SetLevel(log.ErrorLevel)
+	for i := 0; i < 350; i++ {
+		val := strconv.Itoa(i)
+		KeyValueTest["key"+val] = "value" + val
+	}
 }
 
-// setupDatabaseForTest creates a new Database for
+// setupDatabaseForTest creates a new Database for Tests
 func setupDatabaseForTest(path string) KeyValueDatabase {
 	return NewKeyValueDatabase(path, 0)
 }
@@ -174,7 +167,8 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 	log.SetLevel(log.ErrorLevel)
 	db := setupDatabaseForTest(b.TempDir())
 	for i := 0; i < b.N; i++ {
-		err := db.Put([]byte(strconv.Itoa(i)), []byte(strconv.Itoa(i)))
+		val := []byte(strconv.Itoa(i))
+		err := db.Put(val, val)
 		if err != nil {
 			return
 		}
