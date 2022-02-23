@@ -21,6 +21,10 @@ var (
 	}
 )
 
+func init() {
+	log.SetLevel(log.ErrorLevel)
+}
+
 // setupDatabaseForTest creates a new Database for
 func setupDatabaseForTest(path string) KeyValueDatabase {
 	return NewKeyValueDatabase(path, 0)
@@ -190,7 +194,6 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 }
 
 func BenchmarkConsultsToDatabase(b *testing.B) {
-	log.SetLevel(log.ErrorLevel)
 	db := setupDatabaseForTest(b.TempDir())
 	for i := 0; i < b.N; i++ {
 		val := []byte(strconv.Itoa(i))
