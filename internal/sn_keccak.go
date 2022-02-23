@@ -1,8 +1,12 @@
 package internal
 
-import "github.com/ethereum/go-ethereum/crypto"
+import (
+	"github.com/ethereum/go-ethereum/crypto"
+	log "github.com/sirupsen/logrus"
+)
 
 func SnKeccak(data []byte) []byte {
+	log.WithField("Data", data).Debug("Getting SN_Keccak")
 	b := crypto.Keccak256(data)
 	// Extract most significant byte to bitmask last 6 bits
 	msb := b[0]
