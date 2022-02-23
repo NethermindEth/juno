@@ -1,6 +1,10 @@
 package db
 
-import "testing"
+import (
+	log "github.com/sirupsen/logrus"
+	"strconv"
+	"testing"
+)
 
 var (
 	KeyValueTest = map[string]string{
@@ -17,12 +21,13 @@ var (
 	}
 )
 
-func setupTest(path string) KeyValueDatabase {
+// setupDatabaseForTest creates a new Database for
+func setupDatabaseForTest(path string) KeyValueDatabase {
 	return NewKeyValueDatabase(path, 0)
 }
 
 func TestAddKey(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	err := db.Put([]byte("key"), []byte("value"))
 	if err != nil {
 		t.Log(err)
@@ -31,7 +36,7 @@ func TestAddKey(t *testing.T) {
 }
 
 func TestNumberOfItems(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	n, err := db.NumberOfItems()
 	if err != nil {
 		t.Log(err)
@@ -60,7 +65,7 @@ func TestNumberOfItems(t *testing.T) {
 }
 
 func TestAddMultipleKeys(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	for k, v := range KeyValueTest {
 		err := db.Put([]byte(k), []byte(v))
 		if err != nil {
@@ -80,7 +85,7 @@ func TestAddMultipleKeys(t *testing.T) {
 }
 
 func TestHasKey(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	err := db.Put(goodKey, []byte("value"))
 	if err != nil {
@@ -99,7 +104,7 @@ func TestHasKey(t *testing.T) {
 }
 
 func TestHasNotKey(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	badKey := []byte("bad_key")
 	err := db.Put(goodKey, []byte("value"))
@@ -119,7 +124,7 @@ func TestHasNotKey(t *testing.T) {
 }
 
 func TestGetKey(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
 	err := db.Put(goodKey, goodValue)
@@ -139,7 +144,7 @@ func TestGetKey(t *testing.T) {
 }
 
 func TestGetNotKey(t *testing.T) {
-	db := setupTest(t.TempDir())
+	db := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
 	badKey := []byte("bad_key")
@@ -158,5 +163,47 @@ func TestGetNotKey(t *testing.T) {
 		t.Log(err)
 		t.Fail()
 		return
+	}
+}
+
+func BenchmarkEntriesInDatabase(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+	db := setupDatabaseForTest(b.TempDir())
+	for i := 0; i < b.N; i++ {
+		err := db.Put([]byte(strconv.Itoa(i)), []byte(strconv.Itoa(i)))
+		if err != nil {
+			return
+		}
+	}
+	n, err := db.NumberOfItems()
+	if err != nil {
+		b.Errorf("Benchmarking fails, error getting the number of items: %s\n", err)
+		b.Fail()
+		return
+	}
+	if int(n) != b.N {
+		b.Error("Benchmarking fails, mismatch between number of items to insert and the number inside db")
+		b.Fail()
+		return
+	}
+
+}
+
+func BenchmarkConsultsToDatabase(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+	db := setupDatabaseForTest(b.TempDir())
+	for i := 0; i < b.N; i++ {
+		val := []byte(strconv.Itoa(i))
+		err := db.Put(val, val)
+		if err != nil {
+			return
+		}
+		get, err := db.Get(val)
+		if err != nil {
+			return
+		}
+		if string(get) != string(val) {
+
+		}
 	}
 }
