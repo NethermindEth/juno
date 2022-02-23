@@ -2,10 +2,10 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 	cmd "github.com/NethermindEth/juno/cmd/starknet"
 	pkg "github.com/NethermindEth/juno/pkg"
-	"log"
+	log "github.com/sirupsen/logrus"
+
 	"net/http"
 )
 
@@ -16,9 +16,9 @@ func Handlers(end chan error) {
 
 	http.Handle("/rpc", mr)
 
-	fmt.Println("Listening for connections .... ")
+	log.Info("Listening for connections .... ")
 	if err := http.ListenAndServe(":8080", http.DefaultServeMux); err != nil {
-		log.Fatalln(err)
+		log.WithField("Error", err).Error("Error listening for connections")
 	}
 	end <- nil
 }
