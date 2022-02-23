@@ -13,7 +13,7 @@ type KeyValueDatabase struct {
 	//tempDirMu  sync.Mutex
 }
 
-func NewDatabase(path string, flags uint) KeyValueDatabase {
+func NewKeyValueDatabase(path string, flags uint) KeyValueDatabase {
 	log.WithFields(log.Fields{
 		"Path":  path,
 		"Flags": flags,

@@ -4,7 +4,7 @@ import "testing"
 
 func setupTest(t *testing.T) KeyValueDatabase {
 	path := t.TempDir()
-	return NewDatabase(path, 0)
+	return NewKeyValueDatabase(path, 0)
 }
 
 func TestAddKey(t *testing.T) {
