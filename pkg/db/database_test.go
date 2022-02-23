@@ -2,7 +2,7 @@ package db
 
 import "testing"
 
-func setupTest(t *testing.T) Database {
+func setupTest(t *testing.T) KeyValueDatabase {
 	path := t.TempDir()
 	return NewDatabase(path, 0)
 }

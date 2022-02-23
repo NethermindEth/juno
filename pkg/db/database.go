@@ -2,49 +2,56 @@ package db
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/torquem-ch/mdbx-go/mdbx"
-	"log"
 )
 
-type Database struct {
+// KeyValueDatabase Represent a middleware for mdbx key-value pair database
+type KeyValueDatabase struct {
 	env  *mdbx.Env
 	path string
 	//tempDirMu  sync.Mutex
 }
 
-func NewDatabase(path string, flags uint) Database {
+func NewDatabase(path string, flags uint) KeyValueDatabase {
+	log.WithFields(log.Fields{
+		"Path":  path,
+		"Flags": flags,
+	}).Info("Creating new database")
 	env, err1 := mdbx.NewEnv()
 	if err1 != nil {
-		log.Fatalf("Cannot create environment: %s", err1)
+		log.WithField("Error", err1).Fatalf("Cannot create environment")
 	}
+	// Set Flags
+	// Based on https://github.com/torquem-ch/mdbx-go/blob/96f31f483af593377e52358a079e834256d5af55/mdbx/env_test.go#L495
 	err := env.SetOption(mdbx.OptMaxDB, 1024)
 	if err != nil {
-		log.Fatalf("setmaxdbs: %v", err)
+		log.WithField("Error", err).Fatalf("Cannot set Options")
 	}
 	const pageSize = 4096
 	err = env.SetGeometry(-1, -1, 64*1024*pageSize, -1, -1, pageSize)
 	if err != nil {
-		log.Fatalf("setmaxdbs: %v", err)
+		log.WithField("Error", err1).Fatalf("Cannot set Geometry")
 	}
 	err = env.Open(path, flags, 0664)
 	if err != nil {
-		log.Fatalf("open: %s", err)
+		log.WithField("Error", err1).Fatalf("Cannot open env")
 	}
-	return Database{
+	return KeyValueDatabase{
 		env:  env,
 		path: path,
 	}
 }
 
-func (d Database) Has(key []byte) (has bool, err error) {
-	val, err := d.GetOne(key)
+func (d KeyValueDatabase) Has(key []byte) (has bool, err error) {
+	val, err := d.getOne(key)
 	if err != nil {
 		return false, err
 	}
 	return val != nil, nil
 }
 
-func (d Database) GetOne(key []byte) (val []byte, err error) {
+func (d KeyValueDatabase) getOne(key []byte) (val []byte, err error) {
 	var db mdbx.DBI
 	if err := d.env.View(func(txn *mdbx.Txn) error {
 		db, err = txn.OpenDBISimple(d.path, 0)
@@ -62,11 +69,11 @@ func (d Database) GetOne(key []byte) (val []byte, err error) {
 	return val, err
 }
 
-func (d Database) Get(key []byte) ([]byte, error) {
-	return d.GetOne(key)
+func (d KeyValueDatabase) Get(key []byte) ([]byte, error) {
+	return d.getOne(key)
 }
 
-func (d Database) Put(key, value []byte) error {
+func (d KeyValueDatabase) Put(key, value []byte) error {
 	log.Println("Calling Update")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
 		log.Println("Open DBI")
@@ -81,24 +88,51 @@ func (d Database) Put(key, value []byte) error {
 	return err
 }
 
-func (d Database) Delete(k, v []byte) error {
+func (d KeyValueDatabase) Delete(k []byte) error {
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
 		db, err := txn.OpenDBISimple(d.path, 0)
-		return txn.Del(db, k, v)
+		return txn.Del(db, k, nil)
 	})
 	return err
 }
 
-func (d Database) Begin() {
+func (d KeyValueDatabase) NumberOfItems() (uint64, error) {
+	var numberOfItems uint64
+	numberOfItems = 0
+	err := d.env.View(func(txn *mdbx.Txn) (err error) {
+		db, err := txn.OpenDBISimple(d.path, 0)
+		if err != nil {
+			return err
+		}
+		cur, err := txn.OpenCursor(db)
+		if err != nil {
+			return err
+		}
+
+		for {
+			_, _, err := cur.Get(nil, nil, mdbx.Next)
+			if mdbx.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			numberOfItems += 1
+		}
+	})
+	return numberOfItems, err
+}
+
+func (d KeyValueDatabase) Begin() {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (d Database) Rollback() {
+func (d KeyValueDatabase) Rollback() {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (d Database) Close() {
+func (d KeyValueDatabase) Close() {
 	d.env.Close()
 }
