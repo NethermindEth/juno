@@ -46,8 +46,6 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
           logo: {
             alt: 'Juno Logo',
             src: 'img/juno.jpg',
-            width: 140,
-            height: 140,
           },
           items: [
             {
