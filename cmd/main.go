@@ -18,8 +18,7 @@ func main() {
 	ctx := context.Background()
 	block, err := prv.Block(ctx, nil)
 	if err != nil {
-		logger.Errorw("Failed to retrieve block",
-			"With Error", err)
+		logger.With("With Error", err).Error("Failed to retrieve block")
 	}
-	logger.Debug("Block Hash retrieved from provider, ", "blockHash:", block.BlockHash)
+	logger.With("blockHash", block.BlockHash).Debug("Block Hash retrieved from provider, ")
 }

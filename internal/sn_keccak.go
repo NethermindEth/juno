@@ -6,14 +6,14 @@ import (
 )
 
 func SnKeccak(data []byte) []byte {
-	logger.Debugw("Getting SN_Keccak", "Data", data)
+	logger.With("Data", data).Debug("Getting SN_Keccak")
 	b := crypto.Keccak256(data)
 	// Extract most significant byte to bitmask last 6 bits
 	msb := b[0]
 	// Bitmask with 0000 0011 to remove last 6 bits
 	bitmask := uint8(3)
-	new_msb := []byte{msb & bitmask}
+	newMsb := []byte{msb & bitmask}
 	// Concatenate new most significant byte with remaining 31 bytes
-	res := append(new_msb, b[1:]...)
+	res := append(newMsb, b[1:]...)
 	return res
 }
