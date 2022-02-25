@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/goccy/go-json"
 	"github.com/iancoleman/strcase"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"reflect"
@@ -181,9 +180,7 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 // callFunction invokes the function called.
 func callFunction(ctx context.Context, method string, arguments []reflect.Value, function, receiver reflect.Value,
 	hasContext bool, errResponsePosition int) (res interface{}, errRes error) {
-	log.WithFields(log.Fields{
-		"Method": method,
-	}).Info("Calling RPC function")
+	logger.With("Method", method).Info("Calling RPC function")
 	// Create the argument slice.
 	fullArguments := make([]reflect.Value, 0, 2+len(arguments))
 	if receiver.IsValid() {
@@ -200,13 +197,13 @@ func callFunction(ctx context.Context, method string, arguments []reflect.Value,
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.WithFields(log.Fields{
-				"Method":                  method,
-				"Error":                   fmt.Sprintf("%v\n%s", err, buf),
-				"Arguments":               arguments,
-				"Has Context":             hasContext,
-				"Error Response Position": errResponsePosition,
-			}).Error("RPC method crashed")
+			logger.With(
+				"Method", method,
+				"Error", fmt.Sprintf("%v\n%s", err, buf),
+				"Arguments", arguments,
+				"Has Context", hasContext,
+				"Error Response Position", errResponsePosition).
+				Error("RPC method crashed")
 			errRes = errors.New("method handler crashed")
 		}
 	}()
@@ -231,9 +228,7 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 	// Check that the struct contains the method called
 	function, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
 	if !ok {
-		log.WithFields(log.Fields{
-			"Method": r.Method,
-		}).Error("Method didn't exist")
+		logger.With("Method", r.Method).Error("Method didn't exist")
 		res.Result = nil
 		res.Error = ErrMethodNotFound()
 		return res
@@ -245,10 +240,7 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 	// Parse all the params received in the request and cast it to the types of the function that is going to be called
 	args, err := parseArguments(*r.Params, argumentTypes)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"Method": r.Method,
-			"Params": r.Params,
-		}).Error("Invalid params")
+		logger.With("Method", r.Method, "Params", r.Params).Error("Invalid params")
 		res.Result = nil
 		res.Error = ErrInvalidParams()
 		return res
@@ -260,14 +252,13 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 	// Call the function
 	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"Method": r.Method,
-			"Params": r.Params,
-		}).Error("Internal error calling the function")
+		logger.With("Method", r.Method,
+			"Params", r.Params,
+		).Error("Internal error calling the function")
 		res.Error = ErrInternal()
 		res.Result = nil
 	}
-	log.WithField("Method", r.Method).Info("RPC handle request successfully")
+	logger.With("Method", r.Method).Info("RPC handle request successfully")
 	res.Result = resFromCall
 	return res
 }

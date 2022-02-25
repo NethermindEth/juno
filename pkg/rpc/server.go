@@ -4,7 +4,6 @@ import (
 	"context"
 	cmd "github.com/NethermindEth/juno/cmd/starknet"
 	pkg "github.com/NethermindEth/juno/pkg"
-	log "github.com/sirupsen/logrus"
 
 	"net/http"
 )
@@ -16,9 +15,9 @@ func Handlers(end chan error) {
 
 	http.Handle("/rpc", mr)
 
-	log.Info("Listening for connections .... ")
+	logger.Info("Listening for connections .... ")
 	if err := http.ListenAndServe(":8080", http.DefaultServeMux); err != nil {
-		log.WithField("Error", err).Error("Error listening for connections")
+		logger.With("Error", err).Error("Error listening for connections")
 	}
 	end <- nil
 }

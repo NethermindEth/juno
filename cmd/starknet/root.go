@@ -1,16 +1,18 @@
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/spf13/cobra"
 )
+
+var logger = log.GetLogger()
 
 var rootCmd = &cobra.Command{
 	Use:   "juno",
 	Short: "Juno, Starknet Client in Go",
 	Long:  "Juno, StarkNet Client in Go",
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info(cmd.Short)
+		logger.Info(cmd.Short)
 	},
 }
 
@@ -20,7 +22,7 @@ func init() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.WithField("Error", err).Error("Error executing CLI")
+		logger.With("Error", err).Error("Error executing CLI")
 		return
 	}
 }
