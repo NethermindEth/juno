@@ -34,27 +34,26 @@ Here you will find various links to help you start with the StarkNet ecosystem.
 
 [Nethermind Twitter](https://twitter.com/NethermindEth)
 
-## Logging 
+## Logging
 
-For logging we use [logrus](https://github.com/Sirupsen/logrus). This library has 7 levels of logging: Debug, Info, 
-Warning, Error, Fatal and Panic.
-For example:
+For logging we use [zap](https://github.com/uber-go/zap). This library has 6 levels of logging: Debug, Info, Warning,
+Error and Panic. For example:
+
 ```go
 package main
 
-import log "github.com/sirupsen/logrus"
+import "github.com/NethermindEth/juno/internal/log"
 
+var logger = log.GetLogger()
 
 func main() {
-	log.Trace("Something very low level.")
-	log.Debug("Useful debugging information.")
-	log.Info("Something noteworthy happened!")
-	log.Warn("You should probably take a look at this.")
-	log.Error("Something failed but I'm not quitting.")
-	// Calls os.Exit(1) after logging
-	log.Fatal("Bye.")
-	// Calls panic() after logging
-	log.Panic("I'm bailing.")
+	// Set of levels
+	logger.Debug("Useful debugging information.")
+	logger.Info("Something noteworthy happened!")
+	logger.Warn("You should probably take a look at this.")
+	logger.Error("Something failed but I'm not quitting.")
+	logger.Fatal("Bye.")
+	logger.Panic("I'm bailing.")
 }
 ```
 
@@ -63,24 +62,10 @@ Use `import log "github.com/sirupsen/logrus"` instead `import "log"`.
 It also allows us to add fields to the outputs, like this:
 
 ```
-  log.WithFields(log.Fields{
-    "animal": "walrus",
-    "size":   10,
-  }).Info("A group of walrus emerges from the ocean")
-
-  log.WithFields(log.Fields{
-    "omg":    true,
-    "number": 122,
-  }).Warn("The group's number increased tremendously!")
-
-  log.WithFields(log.Fields{
-    "omg":    true,
-    "number": 100,
-  }).Fatal("The ice breaks!")
+  logger.With("Key0", "Value0").Debugw("Useful debugging information.")
+  
+  logger.Infow("Useful information.", "Key0", "Value0", "Key1", "1")
 ```
 
-Resulting in an output like this:
 
-![Logrus](./docs/static/img/log.png)
-
-For more details about logging just go to [logrus](https://github.com/Sirupsen/logrus).
+For more details about logging just go to [zap](https://github.com/uber-go/zap).
