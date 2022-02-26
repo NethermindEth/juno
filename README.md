@@ -67,5 +67,9 @@ It also allows us to add fields to the outputs, like this:
   logger.Infow("Useful information.", "Key0", "Value0", "Key1", "1")
 ```
 
+Resulting in an output like this:
+
+![Zap](./docs/static/img/log.png)
+
 
 For more details about logging just go to [zap](https://github.com/uber-go/zap).
