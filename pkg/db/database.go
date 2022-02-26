@@ -82,7 +82,7 @@ func (d KeyValueDatabase) Get(key []byte) ([]byte, error) {
 }
 
 func (d KeyValueDatabase) Put(key, value []byte) error {
-	logger.With("Key", key).Info("Putting value of provided key")
+	logger.With("Key", string(key)).Info("Putting value of provided key")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
 		logger.Debug("Open DBI")
 		dbi, err := txn.OpenRoot(mdbx.Create)
