@@ -1,23 +1,10 @@
 package main
 
 import (
-	"fmt"
 	cmd "github.com/NethermindEth/juno/cmd/starknet"
-	"github.com/NethermindEth/juno/internal/log"
 )
 
-var logger = log.GetLogger()
-
 func main() {
-	fmt.Print(`      _                   
-     | |                  
-     | |_   _ _ __   ___  
- _   | | | | | '_ \ / _ \ 
-| |__| | |_| | | | | (_) |
- \____/ \__,_|_| |_|\___/ 
-                          
-                          
-`)
 	cmd.Execute()
 	//end := make(chan error)
 	//go rpc.Handlers(end)
