@@ -19,7 +19,7 @@ var cmdCall = &cobra.Command{
 	Long:  "Calls a StarkNet contract without affecting the state",
 	Args:  cobra.RangeArgs(4, 6),
 	Run: func(cmd *cobra.Command, args []string) {
-		logger.Info("Running `starknet call` using Juno")
+		logger.Info("Running `cli call` using Juno")
 	},
 }
 

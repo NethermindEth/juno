@@ -1,7 +1,7 @@
 package main
 
 import (
-	cmd "github.com/NethermindEth/juno/cmd/starknet"
+	cmd "github.com/NethermindEth/juno/cmd/cli"
 )
 
 func main() {
