@@ -11,7 +11,6 @@ var logger = log.GetLogger()
 type KeyValueDatabase struct {
 	env  *mdbx.Env
 	path string
-	//tempDirMu  sync.Mutex
 }
 
 // NewKeyValueDatabase Creates a new KeyValueDatabase
