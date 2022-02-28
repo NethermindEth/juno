@@ -34,7 +34,8 @@ var rootCmd = &cobra.Command{
 func init() {
 	cobra.OnInitialize(initConfig)
 	// Flag to change config file
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.juno.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
+		"config file (default is $HOME/.juno/config.yaml)")
 }
 
 // initConfig reads in config file and ENV variables if set.
