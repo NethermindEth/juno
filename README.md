@@ -35,3 +35,78 @@ Here you will find various links to help you start with the StarkNet ecosystem.
 [StarkNet Twitter](https://twitter.com/Starknet_Intern)
 
 [Nethermind Twitter](https://twitter.com/NethermindEth)
+
+## Logging
+
+For logging we use [zap](https://github.com/uber-go/zap). This library has 6 levels of logging: Debug, Info, Warning,
+Error and Panic. For example:
+
+```go
+package main
+
+import "github.com/NethermindEth/juno/internal/log"
+
+var logger = log.GetLogger()
+
+func main() {
+	// Set of levels
+	logger.Debug("Useful debugging information.")
+	logger.Info("Something noteworthy happened!")
+	logger.Warn("You should probably take a look at this.")
+	logger.Error("Something failed but I'm not quitting.")
+	logger.Fatal("Bye.")
+	logger.Panic("I'm bailing.")
+}
+```
+
+Use `import log "github.com/sirupsen/logrus"` instead `import "log"`.
+
+It also allows us to add fields to the outputs, like this:
+
+```
+  logger.With("Key0", "Value0").Debugw("Useful debugging information.")
+  
+  logger.Infow("Useful information.", "Key0", "Value0", "Key1", "1")
+```
+
+Resulting in an output like this:
+
+![Zap](./docs/static/img/log.png)
+
+For more details about logging just go to [zap](https://github.com/uber-go/zap).
+
+## Configuration
+
+For configuration and cli, we use [Viper](https://github.com/spf13/viper) and [Cobra](https://github.com/spf13/cobra)
+respectively.
+
+### Configuration File
+
+An example of a config file can be:
+
+```yaml
+rpc:
+  enabled: true
+  port: 8080
+db_path: $HOME/.juno/data
+```
+
+The config file in case it didn't exist, is generated, and we read it using Viper. We will add more configurations in
+the future.
+
+### CLI
+
+Available CLI commands are:
+
+```
+$ juno -h
+Juno, StarkNet Client in Go
+
+Usage:
+  juno [flags]
+
+Flags:
+      --config string   config file (default is $HOME/.juno/config.yaml)
+  -h, --help            help for juno
+
+```
