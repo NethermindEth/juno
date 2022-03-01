@@ -1,4 +1,8 @@
 .DEFAULT_GOAL 	:= help
+ifndef $(GOPATH)
+    GOPATH=$(shell go env GOPATH)
+    export GOPATH
+endif
 
 compile: ## compile:
 	@mkdir -p build
