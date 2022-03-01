@@ -21,7 +21,7 @@ test-cover: ## tests with coverage
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: ## Install some project dependencies
-	go install github.com/dave/courtney@latest
+	go install github.com/DemerzelSolutions/courtney@latest
 	go get -t -v ./...
 
 codecov-test:
