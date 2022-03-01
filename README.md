@@ -26,6 +26,8 @@ Here you will find various links to help you start with the StarkNet ecosystem.
 
 [StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
 
+[Starknet 101](https://github.com/l-henri/starknet-cairo-101)
+
 [StarkNet Shamans Forum](https://community.starknet.io/)
 
 [StarkNet Medium](https://medium.com/starkware/starknet/home)
@@ -67,5 +69,46 @@ It also allows us to add fields to the outputs, like this:
   logger.Infow("Useful information.", "Key0", "Value0", "Key1", "1")
 ```
 
+For more details about logging just go to [zap](https://github.com/uber-go/zap).
+
+Resulting in an output like this:
+
+![Zap](./docs/static/img/log.png)
 
 For more details about logging just go to [zap](https://github.com/uber-go/zap).
+
+## Configuration
+
+For configuration and cli, we use [Viper](https://github.com/spf13/viper) and [Cobra](https://github.com/spf13/cobra)
+respectively.
+
+### Configuration File
+
+An example of a config file can be:
+
+```yaml
+rpc:
+  enabled: true
+  port: 8080
+db_path: $HOME/.juno/data
+```
+
+The config file in case it didn't exist, is generated, and we read it using Viper. We will add more configurations in
+the future.
+
+### CLI
+
+Available CLI commands are:
+
+```
+$ juno -h
+Juno, StarkNet Client in Go
+
+Usage:
+  juno [flags]
+
+Flags:
+      --config string   config file (default is $HOME/.juno/config.yaml)
+  -h, --help            help for juno
+
+```

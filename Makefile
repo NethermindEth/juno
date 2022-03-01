@@ -2,7 +2,7 @@
 
 compile: ## compile:
 	@mkdir -p build
-	@go build -o build/juno cmd/main.go
+	@go build -o build/juno cmd/juno/main.go
 
 run: ## run
 	@./build/juno
