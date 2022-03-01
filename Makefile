@@ -22,7 +22,8 @@ test-cover: ## tests with coverage
 
 install-deps: ## Install some project dependencies
 	git clone https://github.com/DemerzelSolutions/courtney
-	(cd courtney && go get -t -v ./... && go build courtney.go)
+	(cd courtney && go get  ./... && go build courtney.go)
+	go get ./...
 
 codecov-test:
 	mkdir -p coverage
