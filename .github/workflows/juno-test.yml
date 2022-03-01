@@ -18,6 +18,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+      - name: install deps
         run: make install-deps
       - name: Tests
         run: make codecov-test
