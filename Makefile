@@ -1,8 +1,4 @@
 .DEFAULT_GOAL 	:= help
-ifndef $(GOPATH)
-    GOPATH=$(shell go env GOPATH)
-    export GOPATH
-endif
 
 compile: ## compile:
 	@mkdir -p build
@@ -25,12 +21,12 @@ test-cover: ## tests with coverage
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: ## Install some project dependencies
-	go install github.com/dave/courtney
+	go install github.com/dave/courtney@latest
 	go get -t -v ./...
 
 codecov-test:
 	mkdir -p coverage
-	${GOPATH}/bin/courtney -v -o coverage/coverage.out ./...
+	courtney -v -o coverage/coverage.out ./...
 
 gomod_tidy: ## add missing and remove unused modules
 	 go mod tidy
