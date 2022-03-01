@@ -22,6 +22,7 @@ test-cover: ## tests with coverage
 
 install-deps: ## Install some project dependencies
 	go install github.com/dave/courtney
+	go get -t -v ./...
 
 codecov-test:
 	mkdir -p coverage
