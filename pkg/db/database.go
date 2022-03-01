@@ -14,31 +14,39 @@ type KeyValueDatabase struct {
 }
 
 // NewKeyValueDatabase Creates a new KeyValueDatabase
-func NewKeyValueDatabase(path string, flags uint) KeyValueDatabase {
+func NewKeyValueDatabase(path string, flags uint) *KeyValueDatabase {
 	logger.With(
 		"Path", path,
 		"Flags", flags,
 	).Info("Creating new database")
 	env, err1 := mdbx.NewEnv()
 	if err1 != nil {
+		// notest
 		logger.With("Error", err1).Fatalf("Cannot create environment")
+		return nil
 	}
 	// Set Flags
 	// Based on https://github.com/torquem-ch/mdbx-go/blob/96f31f483af593377e52358a079e834256d5af55/mdbx/env_test.go#L495
 	err := env.SetOption(mdbx.OptMaxDB, 1024)
 	if err != nil {
+		// notest
 		logger.With("Error", err).Fatalf("Cannot set Options")
+		return nil
 	}
 	const pageSize = 4096
 	err = env.SetGeometry(-1, -1, 64*1024*pageSize, -1, -1, pageSize)
 	if err != nil {
+		// notest
 		logger.With("Error", err1).Fatalf("Cannot set Geometry")
+		return nil
 	}
 	err = env.Open(path, flags, 0664)
 	if err != nil {
+		// notest
 		logger.With("Error", err1).Fatalf("Cannot open env")
+		return nil
 	}
-	return KeyValueDatabase{
+	return &KeyValueDatabase{
 		env:  env,
 		path: path,
 	}

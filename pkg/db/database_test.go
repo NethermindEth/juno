@@ -19,7 +19,7 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new Database for Tests
-func setupDatabaseForTest(path string) KeyValueDatabase {
+func setupDatabaseForTest(path string) *KeyValueDatabase {
 	return NewKeyValueDatabase(path, 0)
 }
 
