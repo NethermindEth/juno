@@ -21,12 +21,12 @@ test-cover: ## tests with coverage
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: ## Install some project dependencies
-	go install github.com/DemerzelSolutions/courtney@latest
-	go get -t -v ./...
+	git clone https://github.com/DemerzelSolutions/courtney
+	(cd courtney && go get -t -v ./... && go build courtney.go)
 
 codecov-test:
 	mkdir -p coverage
-	courtney -v -o coverage/coverage.out ./...
+	courtney/courtney -v -o coverage/coverage.out ./...
 
 gomod_tidy: ## add missing and remove unused modules
 	 go mod tidy
