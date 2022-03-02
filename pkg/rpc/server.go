@@ -4,119 +4,148 @@ import (
 	"context"
 	cmd "github.com/NethermindEth/juno/cmd/starknet"
 	pkg "github.com/NethermindEth/juno/pkg"
-
+	"go.uber.org/zap"
 	"net/http"
 )
 
-type Server struct{}
+// Server represent
+type Server struct {
+	server http.Server
+}
 
-func Handlers(end chan error) {
-	mr := NewMethodRepositoryWithMethods(Server{})
+// HandlerRPC represent
+type HandlerRPC struct{}
 
+// NewServer creates a new server
+func NewServer(addr string) *Server {
+	mr := NewMethodRepositoryWithMethods(HandlerRPC{})
 	http.Handle("/rpc", mr)
 
-	logger.Info("Listening for connections .... ")
-	if err := http.ListenAndServe(":8080", http.DefaultServeMux); err != nil {
-		logger.With("Error", err).Error("Error listening for connections")
+	return &Server{
+		server: http.Server{Addr: addr, Handler: http.DefaultServeMux},
 	}
-	end <- nil
+}
+
+// ListenAndServe listen on the TCP network and handle requests on incoming connections
+func (s *Server) ListenAndServe(l *zap.SugaredLogger) error {
+	logger = l
+	logger.Info("Listening for connections .... ")
+
+	err := s.server.ListenAndServe()
+	if err != nil {
+		logger.With("Error", err).Error("Error listening for connections")
+		return err
+	}
+	return nil
+}
+
+// Close gracefully shuts down the server
+func (s *Server) Close(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		err := s.server.Shutdown(ctx)
+		if err != nil {
+			return
+		}
+	default:
+	}
 }
 
 // Echo represents the handler of "echo" rpc call, just reply with the same message
-func (Server) Echo(c context.Context, request Echo) (Echo, error) {
+func (HandlerRPC) Echo(c context.Context, request Echo) (Echo, error) {
 	return Echo{
 		Message: request.Message,
 	}, nil
 }
 
 // StarknetCall represents the handler of "starknet_call" rpc call
-func (Server) StarknetCall(c context.Context, request cmd.FunctionCall, blockHash cmd.BlockHashOrTag) (cmd.ResultCall, error) {
+func (HandlerRPC) StarknetCall(c context.Context, request cmd.FunctionCall, blockHash cmd.BlockHashOrTag) (cmd.ResultCall, error) {
 
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
 // StarknetGetBlockByHash represent the handler for getting a block by its hash
-func (Server) StarknetGetBlockByHash(c context.Context, blockHash cmd.BlockHashOrTag, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
+func (HandlerRPC) StarknetGetBlockByHash(c context.Context, blockHash cmd.BlockHashOrTag, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
 	return pkg.BlockResponse{}, nil
 }
 
 // StarknetGetBlockByNumber represent the handler for getting a block by its number
-func (Server) StarknetGetBlockByNumber(c context.Context, blockNumber uint64, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
+func (HandlerRPC) StarknetGetBlockByNumber(c context.Context, blockNumber uint64, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
 	return pkg.BlockResponse{}, nil
 }
 
 // StarknetGetBlockTransactionCountByHash represent the handler for getting block transaction count by the blocks hash
-func (Server) StarknetGetBlockTransactionCountByHash(c context.Context, blockHash cmd.BlockHashOrTag) (cmd.BlockTransactionCount, error) {
+func (HandlerRPC) StarknetGetBlockTransactionCountByHash(c context.Context, blockHash cmd.BlockHashOrTag) (cmd.BlockTransactionCount, error) {
 	return cmd.BlockTransactionCount{}, nil
 }
 
 // StarknetGetBlockTransactionCountByNumber Get the number of transactions in a block given a block number (height)
-func (Server) StarknetGetBlockTransactionCountByNumber(c context.Context, blockNumber cmd.BlockNumberOrTag) (cmd.BlockTransactionCount, error) {
+func (HandlerRPC) StarknetGetBlockTransactionCountByNumber(c context.Context, blockNumber cmd.BlockNumberOrTag) (cmd.BlockTransactionCount, error) {
 	return cmd.BlockTransactionCount{}, nil
 }
 
 // StarknetGetStateUpdateByHash represent the handler for getting the information about the result of executing the requested block
-func (Server) StarknetGetStateUpdateByHash(c context.Context, blockHash cmd.BlockHashOrTag) (cmd.StateUpdate, error) {
+func (HandlerRPC) StarknetGetStateUpdateByHash(c context.Context, blockHash cmd.BlockHashOrTag) (cmd.StateUpdate, error) {
 	return cmd.StateUpdate{}, nil
 }
 
 // StarknetGetStorageAt Get the value of the storage at the given address and key
-func (Server) StarknetGetStorageAt(c context.Context, contractAddress cmd.Address, key cmd.Felt, blockHash cmd.BlockHashOrTag) (cmd.Felt, error) {
+func (HandlerRPC) StarknetGetStorageAt(c context.Context, contractAddress cmd.Address, key cmd.Felt, blockHash cmd.BlockHashOrTag) (cmd.Felt, error) {
 	return "", nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a submitted transaction
-func (Server) StarknetGetTransactionByHash(c context.Context, transactionHash cmd.TxnHash) (cmd.Txn, error) {
+func (HandlerRPC) StarknetGetTransactionByHash(c context.Context, transactionHash cmd.TxnHash) (cmd.Txn, error) {
 	return cmd.Txn{}, nil
 }
 
 // StarknetGetTransactionByBlockHashAndIndex Get the details of the transaction given by the identified block and index
 // in that block. If no transaction is found, null is returned.
-func (Server) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHash cmd.BlockHashOrTag, index uint64) (cmd.Txn, error) {
+func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHash cmd.BlockHashOrTag, index uint64) (cmd.Txn, error) {
 	return cmd.Txn{}, nil
 }
 
 // StarknetGetTransactionByBlockNumberAndIndex Get the details of the transaction given by the identified block and index in that block. If no transaction is found, null is returned.
-func (Server) StarknetGetTransactionByBlockNumberAndIndex(c context.Context, blockNumber cmd.BlockNumberOrTag, index uint64) (cmd.Txn, error) {
+func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(c context.Context, blockNumber cmd.BlockNumberOrTag, index uint64) (cmd.Txn, error) {
 	return cmd.Txn{}, nil
 }
 
 // StarknetGetTransactionReceipt Get the transaction receipt by the transaction hash
-func (Server) StarknetGetTransactionReceipt(c context.Context, transactionHash cmd.TxnHash) (cmd.TxnReceipt, error) {
+func (HandlerRPC) StarknetGetTransactionReceipt(c context.Context, transactionHash cmd.TxnHash) (cmd.TxnReceipt, error) {
 	return cmd.TxnReceipt{}, nil
 }
 
 // StarknetGetCode Get the code of a specific contract
-func (Server) StarknetGetCode(c context.Context, contractAddress cmd.Address) (cmd.CodeResult, error) {
+func (HandlerRPC) StarknetGetCode(c context.Context, contractAddress cmd.Address) (cmd.CodeResult, error) {
 	return cmd.CodeResult{}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
-func (Server) StarknetBlockNumber(c context.Context) (cmd.BlockNumber, error) {
+func (HandlerRPC) StarknetBlockNumber(c context.Context) (cmd.BlockNumber, error) {
 	return 0, nil
 }
 
 // StarknetChainId Return the currently configured StarkNet chain id
-func (Server) StarknetChainId(c context.Context) (cmd.ChainID, error) {
+func (HandlerRPC) StarknetChainId(c context.Context) (cmd.ChainID, error) {
 	return "Here the ChainIDg", nil
 }
 
 // StarknetPendingTransactions Returns the transactions in the transaction pool, recognized by this sequencer",
-func (Server) StarknetPendingTransactions(c context.Context) ([]cmd.Txn, error) {
+func (HandlerRPC) StarknetPendingTransactions(c context.Context) ([]cmd.Txn, error) {
 	return nil, nil
 }
 
 // StarknetProtocolVersion Returns the current starknet protocol version identifier, as supported by this sequencer
-func (Server) StarknetProtocolVersion(c context.Context) (cmd.ProtocolVersion, error) {
+func (HandlerRPC) StarknetProtocolVersion(c context.Context) (cmd.ProtocolVersion, error) {
 	return "Here the Protocol Version", nil
 }
 
 // StarknetSyncing Returns an object about the sync status, or false if the node is not syncing
-func (Server) StarknetSyncing(c context.Context) (cmd.SyncStatus, error) {
+func (HandlerRPC) StarknetSyncing(c context.Context) (cmd.SyncStatus, error) {
 	return cmd.SyncStatus{}, nil
 }
 
 // StarknetGetEvents Returns all event objects matching the conditions in the provided filter
-func (Server) StarknetGetEvents(c context.Context, r EventRequest) (EventResponse, error) {
+func (HandlerRPC) StarknetGetEvents(c context.Context, r EventRequest) (EventResponse, error) {
 	return EventResponse{}, nil
 }

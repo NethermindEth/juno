@@ -4,15 +4,26 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/configs"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/utils"
+	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
+	"os/signal"
 	"path/filepath"
 )
 
+// Logger for the app
 var logger = log.GetLogger()
+
+// Represent all the app configuration
 var configuration *configs.Configuration
 var cfgFile string
+
+// Process handler
+var processor utils.Processor
+
+// Base cmd handler
 var rootCmd = &cobra.Command{
 	Use:   "juno",
 	Short: "Juno, Starknet Client in Go",
@@ -28,9 +39,38 @@ var rootCmd = &cobra.Command{
                           
 `)
 		fmt.Println(cmd.Short)
+
+		processor = utils.NewProcessor()
+
+		// Handle Ctrl+C for close and close Juno
+		sig := make(chan os.Signal)
+		signal.Notify(sig, os.Interrupt, os.Kill)
+		go func() {
+			<-sig
+			logger.Info("Trying to close...")
+			cleanup()
+			logger.Info("App closing...Bye!!!")
+			os.Exit(1)
+		}()
+
+		// Subscribe RPC to main loop execution only if enable in configs
+		if configuration.RpcConfiguration.RpcEnabled {
+			s := rpc.NewServer(":8080")
+			processor.Add(logger, "RPC", s.ListenAndServe, s.Close)
+		}
+
+		// endless running process
+		logger.Info("Starting all processes...")
+		processor.Run()
 	},
 }
 
+// Clean up and close all running processes
+func cleanup() {
+	processor.Close()
+}
+
+// Initialize cobra and viper for logs and configuration respectively
 func init() {
 	cobra.OnInitialize(initConfig)
 	// Flag to change config file
