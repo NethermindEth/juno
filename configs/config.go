@@ -41,7 +41,7 @@ func NewConfiguration(path string) *Configuration {
 	}
 	return &Configuration{
 		RpcConfiguration: RpcConfiguration{
-			RpcEnabled: true,
+			RpcEnabled: false,
 			RpcPort:    8080,
 		},
 		DatabasePath: dbPath,
