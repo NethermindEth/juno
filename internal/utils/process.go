@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"github.com/jesselucas/shutdown"
 	"time"
 
 	"go.uber.org/zap"
@@ -36,13 +35,13 @@ type Processor interface {
 
 // ProcessorRunner collects sub processes
 type ProcessorRunner struct {
-	list     []*process
-	Shutdown *shutdown.Shutdown
+	list   []*process
+	logger *zap.SugaredLogger
 }
 
 // NewProcessor creates a new ProcessorRunner
-func NewProcessor() *ProcessorRunner {
-	return &ProcessorRunner{Shutdown: shutdown.NewShutdown()}
+func NewProcessor(logger *zap.SugaredLogger) *ProcessorRunner {
+	return &ProcessorRunner{logger: logger}
 }
 
 // Close all processes
@@ -71,6 +70,12 @@ func (p *ProcessorRunner) Add(logger *zap.SugaredLogger, id string, fnRun runFun
 
 // Run all processes
 func (p *ProcessorRunner) Run() {
+	// If we don't have any process to run, just continue
+	if len(p.list) == 0 {
+		p.logger.Info("Not found any process to run in background")
+		return
+	}
+
 	// go through all registered processes
 	for _, proc := range p.list {
 		// start process

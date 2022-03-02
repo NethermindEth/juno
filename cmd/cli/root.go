@@ -40,7 +40,7 @@ var rootCmd = &cobra.Command{
 `)
 		fmt.Println(cmd.Short)
 
-		processor = utils.NewProcessor()
+		processor = utils.NewProcessor(logger)
 
 		// Handle Ctrl+C for close and close Juno
 		sig := make(chan os.Signal)
@@ -62,6 +62,8 @@ var rootCmd = &cobra.Command{
 		// endless running process
 		logger.Info("Starting all processes...")
 		processor.Run()
+		cleanup()
+		logger.Info("App closing...Bye!!!")
 	},
 }
 
