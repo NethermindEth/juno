@@ -1,7 +1,6 @@
 package db
 
 import (
-	log "github.com/sirupsen/logrus"
 	"strconv"
 	"testing"
 )
@@ -11,7 +10,6 @@ var (
 )
 
 func init() {
-	log.SetLevel(log.ErrorLevel)
 	for i := 0; i < 350; i++ {
 		val := strconv.Itoa(i)
 		KeyValueTest["key"+val] = "value" + val
@@ -221,7 +219,6 @@ func TestClose(t *testing.T) {
 
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
-	log.SetLevel(log.ErrorLevel)
 	db := setupDatabaseForTest(b.TempDir())
 	for i := 0; i < b.N; i++ {
 		val := []byte(strconv.Itoa(i))
