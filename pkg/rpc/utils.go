@@ -2,10 +2,10 @@ package rpc
 
 import (
 	"encoding/json"
-	"github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
 )
 
-var logger = log.GetLogger()
+var logger *zap.SugaredLogger
 
 func StructPrinter(i interface{}) {
 	b, err := json.Marshal(i)
