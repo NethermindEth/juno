@@ -59,7 +59,7 @@ func main() {
 }
 ```
 
-Use `import log "github.com/sirupsen/logrus"` instead `import "log"`.
+Use `import "github.com/NethermindEth/juno/internal/log""` and get the logger calling `var logger = log.GetLogger()`.
 
 It also allows us to add fields to the outputs, like this:
 
