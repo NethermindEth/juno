@@ -7,7 +7,7 @@ type FunctionCall struct {
 	// EntryPointSelector Is a field element of 251 bits. Represented as up to 64 hex digits
 	EntryPointSelector string `json:"entry_point_selector"`
 	// CallData are the parameters passed to the function
-	CallData []string
+	CallData []string `json:"calldata"`
 }
 
 // BlockHash Is a field element of 251 bits. Represented as up to 64 hex digits
