@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime"
+	"strings"
 )
 
 var (
@@ -161,6 +162,21 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 		if argumentValue.IsNil() && types[i].Kind() != reflect.Ptr {
 			return arguments, fmt.Errorf("missing value for required argument %d", i)
 		}
+		logger.With("Kind", argumentValue.Elem().Kind()).Info("Checking kind")
+		if argumentValue.Elem().Kind() == reflect.Struct {
+
+			fields := argumentValue.Elem()
+			logger.With("Number of fields", fields.NumField()).Debug("Parsing Parameters")
+			for i := 0; i < fields.NumField(); i++ {
+				t := fields.Type().Name()
+				requiredTag := fields.Type().Field(i).Tag.Get("required")
+				logger.With("Type", t, "Tag", requiredTag).Debug("Parsing Parameter")
+				if strings.Contains(requiredTag, "true") && fields.Field(i).IsZero() {
+					return arguments, errors.New("required field is missing")
+				}
+
+			}
+		}
 		arguments = append(arguments, argumentValue.Elem())
 	}
 	// Read end of arguments array.
@@ -239,7 +255,7 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 
 	// Check the return of the function and get the error position (Methods should always return and error)
 	errPos := checkReturn(function.Type)
-
+	logger.With("Args:", args[0].Interface()).Info("Argument")
 	// Call the function
 	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
 	if err != nil {
