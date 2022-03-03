@@ -12,34 +12,24 @@ Juno is a StarkNet client written in Go.
 
 [Docs](https://nethermindeth.github.io/juno/)
 
-Here you will find various links to help you start with the StarkNet ecosystem.
+Here you will find various links to help you start with the StarkNet ecosystem:
 
-[StarkNet Docs](https://starknet.io/)
-
-[Voyager block explorer](https://voyager.online)
-
-[Warp Docs](https://github.com/NethermindEth/warp)
-
-[CairoLang Docs](https://www.cairo-lang.org/)
-
-[StarkEx Docs](https://docs.starkware.co/starkex-v4)
-
-[StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
-
-[Starknet 101](https://github.com/l-henri/starknet-cairo-101)
-
-[StarkNet Shamans Forum](https://community.starknet.io/)
-
-[StarkNet Medium](https://medium.com/starkware/starknet/home)
-
-[StarkNet Twitter](https://twitter.com/Starknet_Intern)
-
-[Nethermind Twitter](https://twitter.com/NethermindEth)
+- [StarkNet Docs](https://starknet.io/)
+- [Voyager block explorer](https://voyager.online)
+- [Warp Docs](https://github.com/NethermindEth/warp)
+- [CairoLang Docs](https://www.cairo-lang.org/)
+- [StarkEx Docs](https://docs.starkware.co/starkex-v4)
+- [StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
+- [Starknet 101](https://github.com/l-henri/starknet-cairo-101)
+- [StarkNet Shamans Forum](https://community.starknet.io/)
+- [StarkNet Medium](https://medium.com/starkware/starknet/home)
+- [StarkNet Twitter](https://twitter.com/Starknet_Intern)
+- [Nethermind Twitter](https://twitter.com/NethermindEth)
 
 ## Logging
 
 For logging we use [zap](https://github.com/uber-go/zap). This library has 6 levels of logging: Debug, Info, Warning,
-Error and Panic. For example:
+Error, Fatal, and Panic. For example:
 
 ```go
 package main
@@ -59,13 +49,12 @@ func main() {
 }
 ```
 
-Use `import log "github.com/sirupsen/logrus"` instead `import "log"`.
+Use `import log "github.com/sirupsen/logrus"` instead of `import "log"`.
 
 It also allows us to add fields to the outputs, like this:
 
-```
+```go
   logger.With("Key0", "Value0").Debugw("Useful debugging information.")
-  
   logger.Infow("Useful information.", "Key0", "Value0", "Key1", "1")
 ```
 
@@ -73,7 +62,7 @@ Resulting in an output like this:
 
 ![Zap](./docs/static/img/log.png)
 
-For more details about logging just go to [zap](https://github.com/uber-go/zap).
+For more details about logging, see [zap](https://github.com/uber-go/zap).
 
 ## Configuration
 
