@@ -134,15 +134,6 @@ func parseArguments(rawMessage json.RawMessage, types []reflect.Type) ([]reflect
 		if arguments, err = parseArgumentArray(decoder, types); err != nil {
 			return nil, err
 		}
-	case token == json.Delim('{'):
-		argumentValue := reflect.New(types[0])
-		if err := json.Unmarshal(rawMessage, argumentValue.Interface()); err != nil {
-			return arguments, fmt.Errorf("invalid argument %d: %v", 0, err)
-		}
-		if argumentValue.IsNil() && types[0].Kind() != reflect.Ptr {
-			return arguments, fmt.Errorf("missing value for required argument %d", 0)
-		}
-		arguments = append(arguments, argumentValue.Elem())
 	default:
 		return nil, errors.New("non-array or struct arguments")
 	}
