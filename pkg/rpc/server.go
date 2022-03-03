@@ -59,8 +59,7 @@ func (HandlerRPC) Echo(c context.Context, request Echo) (Echo, error) {
 }
 
 // StarknetCall represents the handler of "starknet_call" rpc call
-func (HandlerRPC) StarknetCall(c context.Context, request cmd.FunctionCall, blockHash cmd.BlockHashOrTag) (cmd.ResultCall, error) {
-
+func (HandlerRPC) StarknetCall(c context.Context, request cmd.FunctionCall, blockHash string) (cmd.ResultCall, error) {
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
