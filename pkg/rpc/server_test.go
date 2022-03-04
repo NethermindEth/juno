@@ -148,6 +148,30 @@ func TestRPCServer(t *testing.T) {
 			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"27\",\"method\":\"starknet_getCode\",\"params\":[\"0x6fbd460228d843b7fbef670ff15607bf72e19fa94de21e29811ada167b4ca39\"]}",
 			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"bytecode\":null,\"abi\":\"\"},\"id\":\"27\"}\n",
 		},
+		{
+			request:  "[{\"jsonrpc\":\"2.0\",\"id\":\"28\",\"method\":\"starknet_getBlockTransactionCountByHash\",\"params\":[\"latest\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"29\",\"method\":\"starknet_getBlockTransactionCountByNumber\",\"params\":[\"latest\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"30\",\"method\":\"starknet_getBlockTransactionCountByHash\",\"params\":[\"pending\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"31\",\"method\":\"starknet_getBlockTransactionCountByNumber\",\"params\":[\"pending\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"32\",\"method\":\"starknet_getBlockTransactionCountByHash\",\"params\":[\"0x3871c8a0c3555687515a07f365f6f5b1d8c2ae953f7844575b8bde2b2efed27\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"33\",\"method\":\"starknet_getBlockTransactionCountByNumber\",\"params\":[21348]}]",
+			response: "[{\"jsonrpc\":\"2.0\",\"result\":{\"TransactionCount\":0},\"id\":\"28\"},{\"jsonrpc\":\"2.0\",\"result\":{\"TransactionCount\":0},\"id\":\"29\"},{\"jsonrpc\":\"2.0\",\"result\":{\"TransactionCount\":0},\"id\":\"30\"},{\"jsonrpc\":\"2.0\",\"result\":{\"TransactionCount\":0},\"id\":\"31\"},{\"jsonrpc\":\"2.0\",\"result\":{\"TransactionCount\":0},\"id\":\"32\"},{\"jsonrpc\":\"2.0\",\"result\":{\"TransactionCount\":0},\"id\":\"33\"}]\n",
+		},
+		{
+			request:  "[{\"jsonrpc\":\"2.0\",\"id\":\"34\",\"method\":\"starknet_call\",\"params\":[{\"calldata\":[\"0x1234\"],\"contract_address\":\"0x6fbd460228d843b7fbef670ff15607bf72e19fa94de21e29811ada167b4ca39\",\n\"entry_point_selector\":\"0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320\"}, \"latest\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"35\",\"method\":\"starknet_call\",\"params\":[{\"calldata\":[\"0x1234\"],\"contract_address\":\"0x6fbd460228d843b7fbef670ff15607bf72e19fa94de21e29811ada167b4ca39\",\n\"entry_point_selector\":\"0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320\"}, \"pending\"]}]",
+			response: "[{\"jsonrpc\":\"2.0\",\"result\":[\"Response\",\"of\",\"starknet_call\"],\"id\":\"34\"},{\"jsonrpc\":\"2.0\",\"result\":[\"Response\",\"of\",\"starknet_call\"],\"id\":\"35\"}]\n",
+		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"36\",\"method\":\"starknet_blockNumber\"}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":0,\"id\":\"36\"}\n",
+		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"37\",\"method\":\"starknet_chainId\"}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":\"Here the ChainID\",\"id\":\"37\"}\n",
+		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"38\",\"method\":\"starknet_pendingTransactions\"}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":null,\"id\":\"38\"}\n",
+		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"40\",\"method\":\"starknet_syncing\"}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"starting_block\":\"\",\"current_block\":\"\",\"highest_block\":\"\"},\"id\":\"40\"}\n",
+		},
 	})
 }
 

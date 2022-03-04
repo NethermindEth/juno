@@ -101,7 +101,7 @@ func (HandlerRPC) StarknetGetBlockTransactionCountByHash(c context.Context, bloc
 }
 
 // StarknetGetBlockTransactionCountByNumber Get the number of transactions in a block given a block number (height)
-func (HandlerRPC) StarknetGetBlockTransactionCountByNumber(c context.Context, blockNumber cmd.BlockNumberOrTag) (cmd.BlockTransactionCount, error) {
+func (HandlerRPC) StarknetGetBlockTransactionCountByNumber(c context.Context, blockNumber interface{}) (cmd.BlockTransactionCount, error) {
 	return cmd.BlockTransactionCount{}, nil
 }
 
@@ -148,7 +148,7 @@ func (HandlerRPC) StarknetBlockNumber(c context.Context) (cmd.BlockNumber, error
 
 // StarknetChainId Return the currently configured StarkNet chain id
 func (HandlerRPC) StarknetChainId(c context.Context) (cmd.ChainID, error) {
-	return "Here the ChainIDg", nil
+	return "Here the ChainID", nil
 }
 
 // StarknetPendingTransactions Returns the transactions in the transaction pool, recognized by this sequencer",
