@@ -11,8 +11,8 @@ import (
 	time "time"
 )
 
-func getServerHandler() *MethodRepository {
-	server := NewMethodRepositoryWithMethods(HandlerRPC{})
+func getServerHandler() *HandlerJsonRpc {
+	server := NewHandlerJsonRpc(HandlerRPC{})
 	return server
 }
 

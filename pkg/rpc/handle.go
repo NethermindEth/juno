@@ -32,11 +32,12 @@ type HandlerFunc func(c context.Context, params *json.RawMessage) (result interf
 
 // ServeJSONRPC calls f(w, r).
 func (f HandlerFunc) ServeJSONRPC(c context.Context, params *json.RawMessage) (result interface{}, err *Error) {
+	// notest
 	return f(c, params)
 }
 
 // ServeHTTP provides basic JSON-RPC handling.
-func (mr *MethodRepository) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (mr *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rs, batch, err := ParseRequest(r)
 	if err != nil {
 		err := SendResponse(w, []*Response{
@@ -46,6 +47,7 @@ func (mr *MethodRepository) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			},
 		}, false)
 		if err != nil {
+			// notest
 			fmt.Fprint(w, "Failed to encode error objects")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -58,6 +60,7 @@ func (mr *MethodRepository) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := SendResponse(w, resp, batch); err != nil {
+		// notest
 		fmt.Fprint(w, "Failed to encode result objects")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
@@ -66,6 +69,7 @@ func (mr *MethodRepository) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Does t satisfy the error interface?
 func isErrorType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
+		// notest
 		t = t.Elem()
 	}
 	return t.Implements(errorType)
@@ -80,18 +84,22 @@ func checkReturn(functionType reflect.Type) int {
 		outs[i] = functionType.Out(i)
 	}
 	if len(outs) > 2 {
+		// notest
 		return -1
 	}
 	// If an error is returned, it must be the last returned value.
 	switch {
 	case len(outs) == 1 && isErrorType(outs[0]):
+		// notest
 		return 1
 	case len(outs) == 2:
 		if isErrorType(outs[0]) || !isErrorType(outs[1]) {
+			// notest
 			return -1
 		}
 		return 1
 	}
+	// notest
 	return 0
 }
 
@@ -136,10 +144,12 @@ func parseArguments(rawMessage json.RawMessage, types []reflect.Type) ([]reflect
 			return nil, err
 		}
 	default:
+		// notest
 		return nil, errors.New("non-array or struct arguments")
 	}
 	// Set any missing arguments to nil.
 	for i := len(arguments); i < len(types); i++ {
+		// notest
 		if types[i].Kind() != reflect.Ptr {
 			return nil, fmt.Errorf("missing value for required argument %d", i)
 		}
@@ -160,6 +170,7 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 			return arguments, fmt.Errorf("invalid argument %d: %v", i, err)
 		}
 		if argumentValue.IsNil() && types[i].Kind() != reflect.Ptr {
+			// notest
 			return arguments, fmt.Errorf("missing value for required argument %d", i)
 		}
 		logger.With("Kind", argumentValue.Elem().Kind()).Info("Checking kind")
@@ -172,6 +183,7 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 				requiredTag := fields.Type().Field(i).Tag.Get("required")
 				logger.With("Type", t, "Tag", requiredTag).Debug("Parsing Parameter")
 				if strings.Contains(requiredTag, "true") && fields.Field(i).IsZero() {
+					// notest
 					return arguments, errors.New("required field is missing")
 				}
 
@@ -200,6 +212,7 @@ func callFunction(ctx context.Context, method string, arguments []reflect.Value,
 
 	// Catch panic while running the callback.
 	defer func() {
+		// notest
 		if err := recover(); err != nil {
 			const size = 64 << 10
 			buf := make([]byte, size)
@@ -217,9 +230,11 @@ func callFunction(ctx context.Context, method string, arguments []reflect.Value,
 	// Run the function.
 	results := function.Call(fullArguments)
 	if len(results) == 0 {
+		// notest
 		return nil, nil
 	}
 	if errResponsePosition >= 0 && !results[errResponsePosition].IsNil() {
+		// notest
 		// Method has returned non-nil error value.
 		err := results[errResponsePosition].Interface().(error)
 		return reflect.Value{}, err
@@ -228,13 +243,14 @@ func callFunction(ctx context.Context, method string, arguments []reflect.Value,
 }
 
 // InvokeMethod invokes JSON-RPC method.
-func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Response {
+func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response {
 	res := NewResponse(r)
 	structToCall := reflect.ValueOf(mr.StructRpc)
 
 	// Check that the struct contains the method called
 	function, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
 	if !ok {
+		// notest
 		logger.With("Method", r.Method).Error("Method didn't exist")
 		res.Result = nil
 		res.Error = ErrMethodNotFound()
@@ -256,6 +272,7 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 				// Check that the struct contains the method called
 				function, ok = structToCall.Type().MethodByName(strcase.ToCamel(r.Method) + "Opt")
 				if !ok {
+					// notest
 					logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
 					res.Result = nil
 					res.Error = ErrInvalidParams()
@@ -265,6 +282,7 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 
 				args, err = parseArguments(*r.Params, argumentTypes)
 				if err != nil {
+					// notest
 					logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
 					res.Result = nil
 					res.Error = ErrInvalidParams()
@@ -284,6 +302,7 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 	// Call the function
 	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
 	if err != nil {
+		// notest
 		logger.With("Method", r.Method,
 			"Params", r.Params,
 		).Error("Internal error calling the function")

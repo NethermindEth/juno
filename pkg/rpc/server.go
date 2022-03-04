@@ -18,7 +18,7 @@ type HandlerRPC struct{}
 
 // NewServer creates a new server
 func NewServer(addr string) *Server {
-	mr := NewMethodRepositoryWithMethods(HandlerRPC{})
+	mr := NewHandlerJsonRpc(HandlerRPC{})
 	http.Handle("/rpc", mr)
 
 	return &Server{

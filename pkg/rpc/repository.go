@@ -1,14 +1,14 @@
 package rpc
 
 type (
-	// A MethodRepository has JSON-RPC method functions.
-	MethodRepository struct {
+	// A HandlerJsonRpc has JSON-RPC method functions.
+	HandlerJsonRpc struct {
 		StructRpc interface{}
 	}
 )
 
-func NewMethodRepositoryWithMethods(rpc interface{}) *MethodRepository {
-	return &MethodRepository{
+func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
+	return &HandlerJsonRpc{
 		StructRpc: rpc,
 	}
 }
