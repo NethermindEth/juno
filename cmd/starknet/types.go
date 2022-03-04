@@ -28,10 +28,7 @@ type ChainID string
 // ProtocolVersion StarkNet protocol version, given in hex representation.
 type ProtocolVersion string
 
-type BlockNumberOrTag struct {
-	BlockNumber
-	BlockTag
-}
+type BlockNumberOrTag string
 
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
 type BlockHashOrTag string

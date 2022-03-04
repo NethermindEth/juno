@@ -2,10 +2,6 @@ package rpc
 
 import cmd "github.com/NethermindEth/juno/cmd/starknet"
 
-type Echo struct {
-	Message string `json:"message"`
-}
-
 type EventRequest struct {
 	cmd.EventFilter
 	cmd.ResultPageRequest

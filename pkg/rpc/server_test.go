@@ -2,11 +2,13 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"github.com/NethermindEth/juno/internal/log"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	time "time"
 )
 
 func getServerHandler() *MethodRepository {
@@ -43,7 +45,16 @@ func testServer(t *testing.T, tests []rpcTest) {
 }
 
 func TestRPCServer(t *testing.T) {
+	StructPrinter(EventRequest{})
 	testServer(t, []rpcTest{
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"345\",\"method\":\"echo\",\"params\":[\"Hello Echo\"]}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":\"Hello Echo\",\"id\":\"345\"}\n",
+		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"345\",\"method\":\"starknet_getEvents\",\"params\":[{\"fromBlock\":0,\"toBlock\":0,\"address\":\"\",\"keys\":null,\"page_size\":0,\"page_number\":0}]}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"EmittedEventArray\":null,\"page_number\":0},\"id\":\"345\"}\n",
+		},
 		{
 			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"34\",\"method\":\"starknet_call\",\"params\":[{\"callata\":[\"0x1234\"],\"contract_address\":\"0x6fbd460228d843b7fbef670ff15607bf72e19fa94de21e29811ada167b4ca39\",\n\"entry_point_selector\":\"0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320\"}, \"latest\"]}",
 			response: "{\"jsonrpc\":\"2.0\",\"result\":[\"Response\",\"of\",\"starknet_call\"],\"id\":\"34\"}\n",
@@ -138,7 +149,11 @@ func TestRPCServer(t *testing.T) {
 		},
 		{
 			request:  "[{\"jsonrpc\":\"2.0\",\"id\":\"20\",\"method\":\"starknet_getTransactionByBlockHashAndIndex\",\"params\":[\"latest\", 0]},\n{\"jsonrpc\":\"2.0\",\"id\":\"21\",\"method\":\"starknet_getTransactionByBlockNumberAndIndex\",\"params\":[\"latest\", 0]},\n{\"jsonrpc\":\"2.0\",\"id\":\"22\",\"method\":\"starknet_getTransactionByBlockHashAndIndex\",\"params\":[\"pending\", 0]},\n{\"jsonrpc\":\"2.0\",\"id\":\"23\",\"method\":\"starknet_getTransactionByBlockNumberAndIndex\",\"params\":[\"pending\", 0]},\n{\"jsonrpc\":\"2.0\",\"id\":\"24\",\"method\":\"starknet_getTransactionByBlockHashAndIndex\",\"params\":[\"0x3871c8a0c3555687515a07f365f6f5b1d8c2ae953f7844575b8bde2b2efed27\", 4]},\n{\"jsonrpc\":\"2.0\",\"id\":\"25\",\"method\":\"starknet_getTransactionByBlockNumberAndIndex\",\"params\":[21348, 4]}]",
-			response: "[{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"20\"},{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"Invalid params\"},\"id\":\"21\"},{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"22\"},{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"Invalid params\"},\"id\":\"23\"},{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"24\"},{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"Invalid params\"},\"id\":\"25\"}]\n",
+			response: "[{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"20\"},{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"21\"},{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"22\"},{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"23\"},{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"24\"},{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"Invalid params\"},\"id\":\"25\"}]\n",
+		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"22\",\"method\":\"starknet_getTransactionByBlockNumberAndIndex\",\"params\":[\"pending\", 0]}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"contract_address\":\"\",\"entry_point_selector\":\"\",\"calldata\":null,\"txn_hash\":\"\"},\"id\":\"22\"}\n",
 		},
 		{
 			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"26\",\"method\":\"starknet_getTransactionReceipt\",\"params\":[\"0x74ec6667e6057becd3faff77d9ab14aecf5dde46edb7c599ee771f70f9e80ba\"]}",
@@ -173,6 +188,16 @@ func TestRPCServer(t *testing.T) {
 			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"starting_block\":\"\",\"current_block\":\"\",\"highest_block\":\"\"},\"id\":\"40\"}\n",
 		},
 	})
+}
+
+func TestServer(t *testing.T) {
+	server := NewServer(":8080")
+	go func() {
+		_ = server.ListenAndServe(logger)
+	}()
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
+	server.Close(ctx)
+	cancel()
 }
 
 func init() {

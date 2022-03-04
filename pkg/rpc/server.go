@@ -45,6 +45,7 @@ func (s *Server) Close(ctx context.Context) {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
 		if err != nil {
+			logger.With("Error", err).Info("Exiting with error")
 			return
 		}
 	default:
@@ -52,10 +53,8 @@ func (s *Server) Close(ctx context.Context) {
 }
 
 // Echo represents the handler of "echo" rpc call, just reply with the same message
-func (HandlerRPC) Echo(c context.Context, request Echo) (Echo, error) {
-	return Echo{
-		Message: request.Message,
-	}, nil
+func (HandlerRPC) Echo(c context.Context, message string) (string, error) {
+	return message, nil
 }
 
 // StarknetCall represents the handler of "starknet_call" rpc call
