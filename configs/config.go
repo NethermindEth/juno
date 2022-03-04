@@ -28,17 +28,9 @@ type Configuration struct {
 	DatabasePath     string           `yaml:"db_path" mapstructure:"db_path"`
 }
 
-// NewConfiguration returns a valid configuration struct for project
-func NewConfiguration(path string) *Configuration {
-	dbPath := filepath.Join(path, ProjectFolderName, DatabasePath)
-	projectFolder := filepath.Join(path, ProjectFolderName)
-	// Checks that project folder exists, else, create a new one
-	if _, err := os.Stat(projectFolder); os.IsNotExist(err) {
-		err := os.MkdirAll(projectFolder, 0755)
-		if err != nil {
-			return nil
-		}
-	}
+// NewConfiguration returns a valid default configuration struct for project
+func NewConfiguration(dbPath string) *Configuration {
+
 	return &Configuration{
 		RpcConfiguration: RpcConfiguration{
 			RpcEnabled: false,
@@ -55,15 +47,28 @@ func Generate(path string) (err error) {
 	finalPath := filepath.Join(path, ProjectFolderName, ConfigFileName)
 	logger.With("Path", finalPath).Info("Generating configuration")
 
-	// Generate configuration file from scratch
-	config := NewConfiguration(path)
+	dbPath := filepath.Join(path, ProjectFolderName, DatabasePath)
+	projectFolder := filepath.Join(path, ProjectFolderName)
+
+	// Checks that project folder exists, else, create a new one
+	if _, err := os.Stat(projectFolder); os.IsNotExist(err) {
+		err := os.MkdirAll(projectFolder, 0755)
+		if err != nil {
+			// notest
+			return nil
+		}
+	}
+	// Generate default configuration file from scratch
+	config := NewConfiguration(dbPath)
 	logger.With("Path", finalPath).Info("Config file Generated")
 
 	yamlData, err := yaml.Marshal(config)
 	// Save in yaml format config file
 	err = ioutil.WriteFile(finalPath, yamlData, 0644)
 	if err != nil {
+		// notest
 		logger.With("Error", err).Panic("Unable to write data into the file")
+		return err
 	}
 	return nil
 }
