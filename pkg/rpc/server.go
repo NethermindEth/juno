@@ -80,14 +80,17 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(c context.Context, blockHash cmd.Blo
 	}, nil
 }
 
+//type bNumber string `json:"int,int,omitempty"`
+
 // StarknetGetBlockByNumber represent the handler for getting a block by its number
-func (HandlerRPC) StarknetGetBlockByNumber(c context.Context, blockNumber string) (pkg.BlockResponse, error) {
+func (HandlerRPC) StarknetGetBlockByNumber(c context.Context, blockNumber interface{}) (pkg.BlockResponse, error) {
 	// TODO See if is possible to support overhead without another method
+	logger.With("Block Number", blockNumber).Info("Calling StarknetGetBlockByNumber")
 	return pkg.BlockResponse{}, nil
 }
 
 // StarknetGetBlockByNumberOpt represent the handler for getting a block by its number
-func (HandlerRPC) StarknetGetBlockByNumberOpt(c context.Context, blockNumber string, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
+func (HandlerRPC) StarknetGetBlockByNumberOpt(c context.Context, blockNumber interface{}, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
 	// TODO See if is possible to support overhead without another method
 	return pkg.BlockResponse{}, nil
 }
@@ -109,7 +112,7 @@ func (HandlerRPC) StarknetGetStateUpdateByHash(c context.Context, blockHash cmd.
 
 // StarknetGetStorageAt Get the value of the storage at the given address and key
 func (HandlerRPC) StarknetGetStorageAt(c context.Context, contractAddress cmd.Address, key cmd.Felt, blockHash cmd.BlockHashOrTag) (cmd.Felt, error) {
-	return "", nil
+	return "Storage", nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a submitted transaction
