@@ -9,6 +9,7 @@ import (
 var logger *zap.SugaredLogger
 
 func StructPrinter(i interface{}) {
+	// notest
 	b, err := json.Marshal(i)
 	if err != nil {
 		return

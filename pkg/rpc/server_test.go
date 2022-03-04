@@ -45,7 +45,6 @@ func testServer(t *testing.T, tests []rpcTest) {
 }
 
 func TestRPCServer(t *testing.T) {
-	StructPrinter(EventRequest{})
 	testServer(t, []rpcTest{
 		{
 			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"345\",\"method\":\"echo\",\"params\":[\"Hello Echo\"]}",

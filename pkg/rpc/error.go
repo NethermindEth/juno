@@ -1,5 +1,6 @@
 package rpc
 
+// notest
 import "fmt"
 
 const (

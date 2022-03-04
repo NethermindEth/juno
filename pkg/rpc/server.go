@@ -36,11 +36,13 @@ func (s *Server) ListenAndServe(l *zap.SugaredLogger) error {
 		logger.With("Error", err).Error("Error listening for connections")
 		return err
 	}
+	// notest
 	return nil
 }
 
 // Close gracefully shuts down the server
 func (s *Server) Close(ctx context.Context) {
+	// notest
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
