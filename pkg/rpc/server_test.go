@@ -104,6 +104,10 @@ func TestRPCServer(t *testing.T) {
 			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"11\",\"method\":\"starknet_getBlockByNumber\",\"params\":[\"latest\",\"FULL_TXN_AND_RECEIPTS\"]}",
 			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"block_hash\":\"\",\"parent_hash\":\"\",\"block_number\":0,\"status\":\"\",\"sequencer\":\"\",\"new_root\":\"\",\"old_root\":\"\",\"accepted_time\":0,\"transactions\":null},\"id\":\"11\"}\n",
 		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"39\",\"method\":\"starknet_protocolVersion\"}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":\"Here the Protocol Version\",\"id\":\"39\"}\n",
+		},
 	})
 }
 
