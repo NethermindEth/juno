@@ -28,6 +28,7 @@ func NewServer(addr string) *Server {
 
 // ListenAndServe listen on the TCP network and handle requests on incoming connections
 func (s *Server) ListenAndServe(l *zap.SugaredLogger) error {
+	// notest
 	logger = l
 	logger.Info("Listening for connections .... ")
 
@@ -36,7 +37,6 @@ func (s *Server) ListenAndServe(l *zap.SugaredLogger) error {
 		logger.With("Error", err).Error("Error listening for connections")
 		return err
 	}
-	// notest
 	return nil
 }
 
