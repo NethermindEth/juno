@@ -40,29 +40,35 @@ func ParseRequest(r *http.Request) ([]*Request, bool, *Error) {
 	var rerr *Error
 
 	if !strings.HasPrefix(r.Header.Get(contentTypeKey), contentTypeValue) {
+		// notest
 		return nil, false, ErrInvalidRequest()
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, r.ContentLength))
 	if _, err := buf.ReadFrom(r.Body); err != nil {
+		// notest
 		return nil, false, ErrInvalidRequest()
 	}
 	defer func(r *http.Request) {
 		err := r.Body.Close()
 		if err != nil {
+			// notest
 			rerr = ErrInternal()
 		}
 	}(r)
 
 	if buf.Len() == 0 {
+		// notest
 		return nil, false, ErrInvalidRequest()
 	}
 
 	f, _, err := buf.ReadRune()
 	if err != nil {
+		// notest
 		return nil, false, ErrInvalidRequest()
 	}
 	if err := buf.UnreadRune(); err != nil {
+		// notest
 		return nil, false, ErrInvalidRequest()
 	}
 
@@ -76,6 +82,7 @@ func ParseRequest(r *http.Request) ([]*Request, bool, *Error) {
 	}
 
 	if err := json.NewDecoder(buf).Decode(&rs); err != nil {
+		// notest
 		return nil, false, ErrParse()
 	}
 
@@ -98,5 +105,6 @@ func SendResponse(w http.ResponseWriter, resp []*Response, batch bool) error {
 	} else if len(resp) == 1 {
 		return json.NewEncoder(w).Encode(resp[0])
 	}
+	// notest
 	return nil
 }
