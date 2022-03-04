@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/goccy/go-json v0.9.4
+	github.com/google/go-cmp v0.5.6
 	github.com/iancoleman/strcase v0.2.0
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
