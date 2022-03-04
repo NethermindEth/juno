@@ -108,6 +108,14 @@ func TestRPCServer(t *testing.T) {
 			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"39\",\"method\":\"starknet_protocolVersion\"}",
 			response: "{\"jsonrpc\":\"2.0\",\"result\":\"Here the Protocol Version\",\"id\":\"39\"}\n",
 		},
+		{
+			request:  "{\"jsonrpc\":\"2.0\",\"id\":\"40\",\"method\":\"starknet_syncing\"}",
+			response: "{\"jsonrpc\":\"2.0\",\"result\":{\"starting_block\":\"\",\"current_block\":\"\",\"highest_block\":\"\"},\"id\":\"40\"}\n",
+		},
+		{
+			request:  "[{\"jsonrpc\":\"2.0\",\"id\":\"34\",\"method\":\"starknet_call\",\"params\":[{\"calldata\":[\"0x1234\"],\"contract_address\":\"0x6fbd460228d843b7fbef670ff15607bf72e19fa94de21e29811ada167b4ca39\",\n\"entry_point_selector\":\"0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320\"}, \"latest\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"35\",\"method\":\"starknet_call\",\"params\":[{\"calldata\":[\"0x1234\"],\"contract_address\":\"0x6fbd460228d843b7fbef670ff15607bf72e19fa94de21e29811ada167b4ca39\",\n\"entry_point_selector\":\"0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320\"}, \"pending\"]}]",
+			response: "[{\"jsonrpc\":\"2.0\",\"result\":[\"Response\",\"of\",\"starknet_call\"],\"id\":\"34\"},{\"jsonrpc\":\"2.0\",\"result\":[\"Response\",\"of\",\"starknet_call\"],\"id\":\"35\"}]\n",
+		},
 	})
 }
 
