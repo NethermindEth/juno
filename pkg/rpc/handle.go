@@ -133,6 +133,7 @@ func parseArguments(rawMessage json.RawMessage, types []reflect.Type) ([]reflect
 	var arguments []reflect.Value
 	token, err := decoder.Token()
 	switch {
+	// notest
 	case err == io.EOF || token == nil && err == nil:
 		// "params" is optional and may be empty. Also allow "params":null even though it's
 		// not in the spec because our own client used to send it.
