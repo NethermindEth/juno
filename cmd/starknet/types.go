@@ -34,10 +34,7 @@ type BlockNumberOrTag struct {
 }
 
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
-type BlockHashOrTag struct {
-	BlockHash
-	BlockTag
-}
+type BlockHashOrTag string
 
 // RequestRPC Represent the calls a function in a contract and returns the return value.  Using this call will not create a transaction; hence, will not change the state
 type RequestRPC struct {
