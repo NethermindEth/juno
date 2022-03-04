@@ -247,10 +247,34 @@ func (mr *MethodRepository) InvokeMethod(c context.Context, r *Request) *Respons
 	// Parse all the params received in the request and cast it to the types of the function that is going to be called
 	args, err := parseArguments(*r.Params, argumentTypes)
 	if err != nil {
-		logger.With("Method", r.Method, "Params", r.Params).Error("Invalid params")
-		res.Result = nil
-		res.Error = ErrInvalidParams()
-		return res
+		if strings.Contains(err.Error(), "too many arguments, want at most") {
+			logger.Info("Searching for overload...")
+			structToCall = reflect.ValueOf(mr.StructRpc)
+
+			// Check that the struct contains the method called
+			function, ok = structToCall.Type().MethodByName(strcase.ToCamel(r.Method) + "Opt")
+			if !ok {
+				logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+				res.Result = nil
+				res.Error = ErrInvalidParams()
+				return res
+			}
+			argumentTypes, hasContext = makeArgumentTypes(function.Func, structToCall)
+
+			args, err = parseArguments(*r.Params, argumentTypes)
+			if err != nil {
+				logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+				res.Result = nil
+				res.Error = ErrInvalidParams()
+				return res
+			}
+			logger.Info("Contains optional params, calling Overhead...")
+		} else {
+			logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+			res.Result = nil
+			res.Error = ErrInvalidParams()
+			return res
+		}
 	}
 
 	// Check the return of the function and get the error position (Methods should always return and error)
