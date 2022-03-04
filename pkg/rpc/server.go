@@ -59,17 +59,36 @@ func (HandlerRPC) Echo(c context.Context, request Echo) (Echo, error) {
 }
 
 // StarknetCall represents the handler of "starknet_call" rpc call
-func (HandlerRPC) StarknetCall(c context.Context, request cmd.FunctionCall, blockHash string) (cmd.ResultCall, error) {
+func (HandlerRPC) StarknetCall(c context.Context, request cmd.FunctionCall, blockHash cmd.BlockHashOrTag) (cmd.ResultCall, error) {
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
 // StarknetGetBlockByHash represent the handler for getting a block by its hash
-func (HandlerRPC) StarknetGetBlockByHash(c context.Context, blockHash cmd.BlockHashOrTag, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
-	return pkg.BlockResponse{}, nil
+func (HandlerRPC) StarknetGetBlockByHash(c context.Context, blockHash cmd.BlockHashOrTag) (pkg.BlockResponse, error) {
+	// TODO See if is possible to support overhead without another method
+	return pkg.BlockResponse{
+		BlockHash: string(blockHash),
+	}, nil
+}
+
+// StarknetGetBlockByHashOpt represent the handler for getting a block by its hash
+func (HandlerRPC) StarknetGetBlockByHashOpt(c context.Context, blockHash cmd.BlockHashOrTag, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
+	// TODO See if is possible to support overhead without another method
+	return pkg.BlockResponse{
+		BlockHash:  string(blockHash),
+		ParentHash: string(requestedScope),
+	}, nil
 }
 
 // StarknetGetBlockByNumber represent the handler for getting a block by its number
-func (HandlerRPC) StarknetGetBlockByNumber(c context.Context, blockNumber uint64, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
+func (HandlerRPC) StarknetGetBlockByNumber(c context.Context, blockNumber string) (pkg.BlockResponse, error) {
+	// TODO See if is possible to support overhead without another method
+	return pkg.BlockResponse{}, nil
+}
+
+// StarknetGetBlockByNumberOpt represent the handler for getting a block by its number
+func (HandlerRPC) StarknetGetBlockByNumberOpt(c context.Context, blockNumber string, requestedScope pkg.RequestedScope) (pkg.BlockResponse, error) {
+	// TODO See if is possible to support overhead without another method
 	return pkg.BlockResponse{}, nil
 }
 
