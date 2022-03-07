@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/goccy/go-json"
 	"github.com/iancoleman/strcase"
 	"io"
@@ -174,15 +175,15 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 			// notest
 			return arguments, fmt.Errorf("missing value for required argument %d", i)
 		}
-		logger.With("Kind", argumentValue.Elem().Kind()).Info("Checking kind")
+		log.Default.With("Kind", argumentValue.Elem().Kind()).Info("Checking kind")
 		if argumentValue.Elem().Kind() == reflect.Struct {
 
 			fields := argumentValue.Elem()
-			logger.With("Number of fields", fields.NumField()).Debug("Parsing Parameters")
+			log.Default.With("Number of fields", fields.NumField()).Debug("Parsing Parameters")
 			for i := 0; i < fields.NumField(); i++ {
 				t := fields.Type().Name()
 				requiredTag := fields.Type().Field(i).Tag.Get("required")
-				logger.With("Type", t, "Tag", requiredTag).Debug("Parsing Parameter")
+				log.Default.With("Type", t, "Tag", requiredTag).Debug("Parsing Parameter")
 				if strings.Contains(requiredTag, "true") && fields.Field(i).IsZero() {
 					// notest
 					return arguments, errors.New("required field is missing")
@@ -200,7 +201,7 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 // callFunction invokes the function called.
 func callFunction(ctx context.Context, method string, arguments []reflect.Value, function, receiver reflect.Value,
 	hasContext bool, errResponsePosition int) (res interface{}, errRes error) {
-	logger.With("Method", method).Info("Calling RPC function")
+	log.Default.With("Method", method).Info("Calling RPC function")
 	// Create the argument slice.
 	fullArguments := make([]reflect.Value, 0, 2+len(arguments))
 	if receiver.IsValid() {
@@ -218,7 +219,7 @@ func callFunction(ctx context.Context, method string, arguments []reflect.Value,
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.With(
+			log.Default.With(
 				"Method", method,
 				"Error", fmt.Sprintf("%v\n%s", err, buf),
 				"Arguments", arguments,
@@ -252,7 +253,7 @@ func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response 
 	function, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
 	if !ok {
 		// notest
-		logger.With("Method", r.Method).Error("Method didn't exist")
+		log.Default.With("Method", r.Method).Error("Method didn't exist")
 		res.Result = nil
 		res.Error = ErrMethodNotFound()
 		return res
@@ -267,14 +268,14 @@ func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response 
 		args, err = parseArguments(*r.Params, argumentTypes)
 		if err != nil {
 			if strings.Contains(err.Error(), "too many arguments, want at most") {
-				logger.Info("Searching for overload...")
+				log.Default.Info("Searching for overload...")
 				structToCall = reflect.ValueOf(mr.StructRpc)
 
 				// Check that the struct contains the method called
 				function, ok = structToCall.Type().MethodByName(strcase.ToCamel(r.Method) + "Opt")
 				if !ok {
 					// notest
-					logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+					log.Default.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
 					res.Result = nil
 					res.Error = ErrInvalidParams()
 					return res
@@ -284,14 +285,14 @@ func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response 
 				args, err = parseArguments(*r.Params, argumentTypes)
 				if err != nil {
 					// notest
-					logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+					log.Default.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
 					res.Result = nil
 					res.Error = ErrInvalidParams()
 					return res
 				}
-				logger.Info("Contains optional params, calling Overhead...")
+				log.Default.Info("Contains optional params, calling Overhead...")
 			} else {
-				logger.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+				log.Default.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
 				res.Result = nil
 				res.Error = ErrInvalidParams()
 				return res
@@ -304,13 +305,13 @@ func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response 
 	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
 	if err != nil {
 		// notest
-		logger.With("Method", r.Method,
+		log.Default.With("Method", r.Method,
 			"Params", r.Params,
 		).Error("Internal error calling the function")
 		res.Error = ErrInternal()
 		res.Result = nil
 	}
-	logger.With("Method", r.Method).Info("RPC handle request successfully")
+	log.Default.With("Method", r.Method).Info("RPC handle request successfully")
 	res.Result = resFromCall
 	return res
 }

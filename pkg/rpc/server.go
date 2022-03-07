@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/internal/log"
 	types "github.com/NethermindEth/juno/pkg/types"
 	"go.uber.org/zap"
 	"net/http"
@@ -28,12 +29,11 @@ func NewServer(addr string) *Server {
 // ListenAndServe listen on the TCP network and handle requests on incoming connections
 func (s *Server) ListenAndServe(l *zap.SugaredLogger) error {
 	// notest
-	logger = l
-	logger.Info("Listening for connections .... ")
+	log.Default.Info("Listening for connections .... ")
 
 	err := s.server.ListenAndServe()
 	if err != nil {
-		logger.With("Error", err).Error("Error listening for connections")
+		log.Default.With("Error", err).Error("Error listening for connections")
 		return err
 	}
 	return nil
@@ -46,7 +46,7 @@ func (s *Server) Close(ctx context.Context) {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
 		if err != nil {
-			logger.With("Error", err).Info("Exiting with error")
+			log.Default.With("Error", err).Info("Exiting with error")
 			return
 		}
 	default:
@@ -85,7 +85,7 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(c context.Context, blockHash types.B
 // StarknetGetBlockByNumber represent the handler for getting a block by its number
 func (HandlerRPC) StarknetGetBlockByNumber(c context.Context, blockNumber interface{}) (types.BlockResponse, error) {
 	// TODO See if is possible to support overhead without another method
-	logger.With("Block Number", blockNumber).Info("Calling StarknetGetBlockByNumber")
+	log.Default.With("Block Number", blockNumber).Info("Calling StarknetGetBlockByNumber")
 	return types.BlockResponse{}, nil
 }
 
