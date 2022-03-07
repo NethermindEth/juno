@@ -96,11 +96,11 @@ type TxnStatus string
 
 const (
 	TxnStatusUnknown      TxnStatus = "UNKNOWN"
-	TxnStatusReceived               = "RECEIVED"
-	TxnStatusPending                = "PENDING"
-	TxnStatusAcceptedOnL2           = "ACCEPTED_ON_L2"
-	TxnStatusAcceptedOnL1           = "ACCEPTED_ON_L1"
-	TxnStatusRejected               = "REJECTED"
+	TxnStatusReceived     TxnStatus = "RECEIVED"
+	TxnStatusPending      TxnStatus = "PENDING"
+	TxnStatusAcceptedOnL2 TxnStatus = "ACCEPTED_ON_L2"
+	TxnStatusAcceptedOnL1 TxnStatus = "ACCEPTED_ON_L1"
+	TxnStatusRejected     TxnStatus = "REJECTED"
 )
 
 // EthAddress represent an ethereum address

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"syscall"
 )
 
 // Logger for the app
@@ -44,13 +45,13 @@ var rootCmd = &cobra.Command{
 
 		// Handle Ctrl+C for close and close Juno
 		sig := make(chan os.Signal)
-		signal.Notify(sig, os.Interrupt, os.Kill)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		go func() {
-			<-sig
-			logger.Info("Trying to close...")
+			sig := <-sig
+			logger.With("Signal", sig.String()).Info("Trying to close...")
 			cleanup()
 			logger.Info("App closing...Bye!!!")
-			os.Exit(1)
+			os.Exit(0)
 		}()
 
 		// Subscribe RPC to main loop execution only if enable in configs

@@ -7,10 +7,10 @@ type BlockStatus string
 // BlockStatus const
 const (
 	Pending      BlockStatus = "PENDING"
-	Proven                   = "PROVEN"
-	AcceptedOnL2             = "ACCEPTED_ON_L2"
-	AcceptedOnL1             = "ACCEPTED_ON_L1"
-	Rejected                 = "REJECTED"
+	Proven       BlockStatus = "PROVEN"
+	AcceptedOnL2 BlockStatus = "ACCEPTED_ON_L2"
+	AcceptedOnL1 BlockStatus = "ACCEPTED_ON_L1"
+	Rejected     BlockStatus = "REJECTED"
 )
 
 // ResponseError represent the possible errors of StarkNet RPC API
@@ -76,8 +76,8 @@ type RequestedScope string
 // BlockStatus const
 const (
 	TxnHash            RequestedScope = "TXN_HASH"
-	FullTxns                          = "FULL_TXNS"
-	FullTxnAndReceipts                = "FULL_TXN_AND_RECEIPTS"
+	FullTxns           RequestedScope = "FULL_TXNS"
+	FullTxnAndReceipts RequestedScope = "FULL_TXN_AND_RECEIPTS"
 )
 
 type StarkNetHash struct{}

@@ -43,7 +43,7 @@ func NewConfiguration(dbPath string) *Configuration {
 var logger = log.GetLogger()
 
 // Generate This function generate the default configuration file.
-func Generate(path string) (err error) {
+func Generate(path string) error {
 	finalPath := filepath.Join(path, ProjectFolderName, ConfigFileName)
 	logger.With("Path", finalPath).Info("Generating configuration")
 
@@ -63,6 +63,9 @@ func Generate(path string) (err error) {
 	logger.With("Path", finalPath).Info("Config file Generated")
 
 	yamlData, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
 	// Save in yaml format config file
 	err = ioutil.WriteFile(finalPath, yamlData, 0644)
 	if err != nil {

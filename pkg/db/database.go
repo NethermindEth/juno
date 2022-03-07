@@ -107,6 +107,9 @@ func (d KeyValueDatabase) Delete(key []byte) error {
 	logger.With("Key", key).Info("Deleting value associated to provided key")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
 		db, err := txn.OpenRoot(mdbx.Create)
+		if err != nil {
+			return err
+		}
 		return txn.Del(db, key, nil)
 	})
 	return err
