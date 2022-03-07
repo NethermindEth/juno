@@ -10,10 +10,10 @@ run: ## run
 all: compile run ## build and run
 
 test: ## tests
-	go test ./...
+	go test ./test/
 
 benchmarks: ## Benchmarking
-	go test ./... -bench=.
+	go test ./test/ -bench=.
 
 test-cover: ## tests with coverage
 	mkdir -p coverage

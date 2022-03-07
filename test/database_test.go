@@ -1,24 +1,26 @@
-package db
+package test
 
 import (
 	"strconv"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/NethermindEth/juno/pkg/db"
 )
 
-var (
-	KeyValueTest = map[string]string{}
-)
+var keyValueTest = map[string]string{}
 
 func init() {
 	for i := 0; i < 350; i++ {
 		val := strconv.Itoa(i)
-		KeyValueTest["key"+val] = "value" + val
+		keyValueTest["key"+val] = "value" + val
 	}
 }
 
 // setupDatabaseForTest creates a new Database for Tests
-func setupDatabaseForTest(path string) *KeyValueDatabase {
-	return NewKeyValueDatabase(path, 0)
+func setupDatabaseForTest(path string) *db.KeyValueDatabase {
+	return db.NewKeyValueDatabase(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -45,7 +47,7 @@ func TestNumberOfItems(t *testing.T) {
 		t.Fail()
 		return
 	}
-	for k, v := range KeyValueTest {
+	for k, v := range keyValueTest {
 		err := db.Put([]byte(k), []byte(v))
 		if err != nil {
 			t.Log(err)
@@ -59,7 +61,7 @@ func TestNumberOfItems(t *testing.T) {
 		t.Fail()
 		return
 	}
-	if int(n) != len(KeyValueTest) {
+	if int(n) != len(keyValueTest) {
 		t.Log(err)
 		t.Fail()
 	}
@@ -68,7 +70,7 @@ func TestNumberOfItems(t *testing.T) {
 // TestAddMultipleKeys Checks that after insert some keys the collection contains the right amount of items
 func TestAddMultipleKeys(t *testing.T) {
 	db := setupDatabaseForTest(t.TempDir())
-	for k, v := range KeyValueTest {
+	for k, v := range keyValueTest {
 		err := db.Put([]byte(k), []byte(v))
 		if err != nil {
 			t.Log(err)
@@ -82,7 +84,7 @@ func TestAddMultipleKeys(t *testing.T) {
 		t.Fail()
 		return
 	}
-	if int(n) != len(KeyValueTest) {
+	if int(n) != len(keyValueTest) {
 		t.Log(err)
 		t.Fail()
 	}
