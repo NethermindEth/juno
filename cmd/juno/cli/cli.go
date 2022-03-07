@@ -1,5 +1,6 @@
 package cli
 
+// notest
 import (
 	_ "embed"
 	"fmt"

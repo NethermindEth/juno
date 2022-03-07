@@ -1,5 +1,6 @@
 package utils
 
+// notest
 import (
 	"context"
 	"github.com/NethermindEth/juno/internal/log"
