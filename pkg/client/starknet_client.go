@@ -1,7 +1,8 @@
-package starknet_client
+package client
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -35,7 +36,7 @@ func (ec *Client) Close() {
 // StarkNet Access
 
 // GetBlockByHash Get block information given the block id
-func (ec *Client) GetBlockByHash(ctx context.Context, blockHash BlockHash, requestedScope RequestedScope) (*BlockResponse, error) {
+func (ec *Client) GetBlockByHash(ctx context.Context, blockHash types.BlockHash, requestedScope types.RequestedScope) (*types.BlockResponse, error) {
 	// Should be something like this
 	//var result BlockResponse
 	//err := ec.c.CallContext(ctx, &result, "starknet_getBlockByHash", blockHash, requestedScope)
@@ -43,11 +44,11 @@ func (ec *Client) GetBlockByHash(ctx context.Context, blockHash BlockHash, reque
 	//	return nil, err
 	//}
 	//return &result, err
-	return &BlockResponse{}, nil
+	return &types.BlockResponse{}, nil
 }
 
 // GetBlockByNumber Get block information given the block number
-func (ec *Client) GetBlockByNumber(ctx context.Context, blockHash BlockHash, requestedScope RequestedScope) (*BlockResponse, error) {
+func (ec *Client) GetBlockByNumber(ctx context.Context, blockHash types.BlockHash, requestedScope types.RequestedScope) (*types.BlockResponse, error) {
 	// Should be something like this
 	//var result BlockResponse
 	//err := ec.c.CallContext(ctx, &result, "starknet_getBlockByNumber", blockHash, requestedScope)
@@ -55,5 +56,5 @@ func (ec *Client) GetBlockByNumber(ctx context.Context, blockHash BlockHash, req
 	//	return nil, err
 	//}
 	//return &result, err
-	return &BlockResponse{}, nil
+	return &types.BlockResponse{}, nil
 }

@@ -4,8 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/NethermindEth/juno/pkg/db"
 )
 
@@ -25,8 +23,8 @@ func setupDatabaseForTest(path string) *db.KeyValueDatabase {
 
 // TestAddKey Check that a single value is inserted without error
 func TestAddKey(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
-	err := db.Put([]byte("key"), []byte("value"))
+	database := setupDatabaseForTest(t.TempDir())
+	err := database.Put([]byte("key"), []byte("value"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -35,8 +33,8 @@ func TestAddKey(t *testing.T) {
 
 // TestNumberOfItems Checks that in every moment the collection contains the right amount of items
 func TestNumberOfItems(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
-	n, err := db.NumberOfItems()
+	database := setupDatabaseForTest(t.TempDir())
+	n, err := database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -48,14 +46,14 @@ func TestNumberOfItems(t *testing.T) {
 		return
 	}
 	for k, v := range keyValueTest {
-		err := db.Put([]byte(k), []byte(v))
+		err := database.Put([]byte(k), []byte(v))
 		if err != nil {
 			t.Log(err)
 			t.Fail()
 			return
 		}
 	}
-	n, err = db.NumberOfItems()
+	n, err = database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -69,16 +67,16 @@ func TestNumberOfItems(t *testing.T) {
 
 // TestAddMultipleKeys Checks that after insert some keys the collection contains the right amount of items
 func TestAddMultipleKeys(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
+	database := setupDatabaseForTest(t.TempDir())
 	for k, v := range keyValueTest {
-		err := db.Put([]byte(k), []byte(v))
+		err := database.Put([]byte(k), []byte(v))
 		if err != nil {
 			t.Log(err)
 			t.Fail()
 			return
 		}
 	}
-	n, err := db.NumberOfItems()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -92,15 +90,15 @@ func TestAddMultipleKeys(t *testing.T) {
 
 // TestHasKey Check that one key exist after insertion
 func TestHasKey(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
+	database := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
-	err := db.Put(goodKey, []byte("value"))
+	err := database.Put(goodKey, []byte("value"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
-	has, err := db.Has(goodKey)
+	has, err := database.Has(goodKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -115,16 +113,16 @@ func TestHasKey(t *testing.T) {
 
 // TestHasNotKey Check that a key don't exist
 func TestHasNotKey(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
+	database := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	badKey := []byte("bad_key")
-	err := db.Put(goodKey, []byte("value"))
+	err := database.Put(goodKey, []byte("value"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
-	has2, err := db.Has(badKey)
+	has2, err := database.Has(badKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -138,16 +136,16 @@ func TestHasNotKey(t *testing.T) {
 
 // TestGetKey Check that a key is property retrieved
 func TestGetKey(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
+	database := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
-	err := db.Put(goodKey, goodValue)
+	err := database.Put(goodKey, goodValue)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
-	val, err := db.Get(goodKey)
+	val, err := database.Get(goodKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -161,16 +159,16 @@ func TestGetKey(t *testing.T) {
 
 // TestGetNotKey Check that a key don't exist and what happen if it doesn't exist
 func TestGetNotKey(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
+	database := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
 	badKey := []byte("bad_key")
-	err := db.Put(goodKey, goodValue)
+	err := database.Put(goodKey, goodValue)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 	}
-	key, err := db.Get(badKey)
+	key, err := database.Get(badKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -184,21 +182,21 @@ func TestGetNotKey(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
+	database := setupDatabaseForTest(t.TempDir())
 	goodKey := []byte("good_key")
 	goodValue := []byte("value")
-	err := db.Put(goodKey, goodValue)
+	err := database.Put(goodKey, goodValue)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 	}
-	err = db.Delete(goodKey)
+	err = database.Delete(goodKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
-	key, err := db.Has(goodKey)
+	key, err := database.Has(goodKey)
 	if key {
 		t.Log(err)
 		t.Fail()
@@ -207,30 +205,30 @@ func TestDelete(t *testing.T) {
 }
 
 func TestBegin(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
-	db.Begin()
+	database := setupDatabaseForTest(t.TempDir())
+	database.Begin()
 }
 func TestRollBack(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
-	db.Rollback()
+	database := setupDatabaseForTest(t.TempDir())
+	database.Rollback()
 }
 func TestClose(t *testing.T) {
-	db := setupDatabaseForTest(t.TempDir())
-	db.Close()
+	database := setupDatabaseForTest(t.TempDir())
+	database.Close()
 }
 
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
-	db := setupDatabaseForTest(b.TempDir())
+	database := setupDatabaseForTest(b.TempDir())
 	for i := 0; i < b.N; i++ {
 		val := []byte(strconv.Itoa(i))
-		err := db.Put(val, val)
+		err := database.Put(val, val)
 		if err != nil {
 			b.Error("Benchmarking fails, error storing values")
 			return
 		}
 	}
-	n, err := db.NumberOfItems()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		b.Errorf("Benchmarking fails, error getting the number of items: %s\n", err)
 		b.Fail()
@@ -246,16 +244,16 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 
 // BenchmarkConsultsToDatabase Benchmark the consult to a db
 func BenchmarkConsultsToDatabase(b *testing.B) {
-	db := setupDatabaseForTest(b.TempDir())
+	database := setupDatabaseForTest(b.TempDir())
 	for i := 0; i < b.N; i++ {
 		val := []byte(strconv.Itoa(i))
-		err := db.Put(val, val)
+		err := database.Put(val, val)
 		if err != nil {
 			b.Error("Benchmarking fails, error storing values")
 			b.Fail()
 			return
 		}
-		get, err := db.Get(val)
+		get, err := database.Get(val)
 		if err != nil {
 			b.Errorf("Benchmarking fails, error getting values: %s\n", err)
 			b.Fail()

@@ -201,5 +201,5 @@ func TestServer(t *testing.T) {
 
 func init() {
 
-	logger = log.GetLogger()
+	logger = log.Default
 }

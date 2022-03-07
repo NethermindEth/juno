@@ -28,8 +28,18 @@ const (
 )
 
 // NewConfig returns a reference to a cli.Config instance.
-func NewConfig(path string) *Config {
+func NewConfig(dbPath string) *Config {
+
+	return &Config{Rpc: RpcConfig{Enabled: true, Port: 8080}, DbPath: dbPath}
+}
+
+// DefaultConfig This function generate the default configuration file.
+func DefaultConfig(path string) (err error) {
+	finalPath := filepath.Join(path, ProjectDir, CfgFileName)
+	log.Default.With("Path", finalPath).Info("Generating configuration")
+
 	dbPath := filepath.Join(path, ProjectDir, DbPath)
+
 	projectFolder := filepath.Join(path, ProjectDir)
 	// Checks that project folder exists, else, create a new one.
 	if _, err := os.Stat(projectFolder); os.IsNotExist(err) {
@@ -38,21 +48,14 @@ func NewConfig(path string) *Config {
 			return nil
 		}
 	}
-	return &Config{Rpc: RpcConfig{Enabled: true, Port: 8080}, DbPath: dbPath}
-}
-
-// DefaultConfig generates a default configuration file.
-func DefaultConfig(path string) (err error) {
-	finalPath := filepath.Join(path, ProjectDir, CfgFileName)
-	log.Default.With("Path", finalPath).Info("Generating configuration")
-
 	// Generate configuration file from scratch
-	config := NewConfig(path)
+	config := NewConfig(dbPath)
 	log.Default.With("Path", finalPath).Info("Config file Generated")
 
-	// TODO: handle this error. 
-	yamlData, _ := yaml.Marshal(config)
-
+	yamlData, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
 	// Save in yaml format config file
 	err = ioutil.WriteFile(finalPath, yamlData, 0644)
 	if err != nil {

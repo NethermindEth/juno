@@ -1,13 +1,16 @@
-package starknet_client
+package test
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/configs"
+	"github.com/NethermindEth/juno/pkg/client"
+	"github.com/NethermindEth/juno/pkg/types"
 	"testing"
 )
 
-func newClient() (*Client, error) {
-	return Dial(configs.TestRPCEndpoint)
+const TestRPCEndpoint = "https://alpha4.starknet.io"
+
+func newClient() (*client.Client, error) {
+	return client.Dial(TestRPCEndpoint)
 }
 
 func TestClient_GetBlockByHash(t *testing.T) {
@@ -16,10 +19,8 @@ func TestClient_GetBlockByHash(t *testing.T) {
 		t.Errorf("Failed Client Creation")
 	}
 	defer c.Close()
-	blockHash := BlockHash{
-		Hash: "latest",
-	}
-	requestedScope := TxnHash
+	blockHash := types.BlockHash("latest")
+	requestedScope := types.RequestedScope("scope")
 	response, err := c.GetBlockByHash(context.Background(), blockHash, requestedScope)
 	if err != nil {
 		t.Error(err)
@@ -33,10 +34,8 @@ func TestClient_GetBlockByNumber(t *testing.T) {
 		t.Errorf("Failed Client Creation")
 	}
 	defer c.Close()
-	blockHash := BlockHash{
-		Hash: "latest",
-	}
-	requestedScope := TxnHash
+	blockHash := types.BlockHash("latest")
+	requestedScope := types.RequestedScope("scope")
 	response, err := c.GetBlockByNumber(context.Background(), blockHash, requestedScope)
 	if err != nil {
 		t.Error(err)

@@ -1,6 +1,7 @@
-package configs
+package test
 
 import (
+	"github.com/NethermindEth/juno/cmd/juno/cli"
 	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -10,14 +11,14 @@ import (
 
 func TestConfig(t *testing.T) {
 	tmp := t.TempDir()
-	err := Generate(tmp)
+	err := cli.DefaultConfig(tmp)
 	if err != nil {
 		t.Fail()
 	}
-	dbPath := filepath.Join(tmp, ProjectFolderName, DatabasePath)
-	original := NewConfiguration(dbPath)
+	dbPath := filepath.Join(tmp, cli.ProjectDir, cli.DbPath)
+	original := cli.NewConfig(dbPath)
 
-	finalPath := filepath.Join(tmp, ProjectFolderName, ConfigFileName)
+	finalPath := filepath.Join(tmp, cli.ProjectDir, cli.CfgFileName)
 
 	contents, err := ioutil.ReadFile(finalPath)
 
@@ -25,7 +26,7 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data := Configuration{}
+	data := cli.Config{}
 
 	err2 := yaml.Unmarshal(contents, &data)
 
