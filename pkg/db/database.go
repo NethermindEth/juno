@@ -5,8 +5,6 @@ import (
 	"github.com/torquem-ch/mdbx-go/mdbx"
 )
 
-var logger = log.GetLogger()
-
 // KeyValueDatabase Represent a middleware for mdbx key-value pair database
 type KeyValueDatabase struct {
 	env  *mdbx.Env
@@ -15,14 +13,14 @@ type KeyValueDatabase struct {
 
 // NewKeyValueDatabase Creates a new KeyValueDatabase
 func NewKeyValueDatabase(path string, flags uint) *KeyValueDatabase {
-	logger.With(
+	log.Default.With(
 		"Path", path,
 		"Flags", flags,
 	).Info("Creating new database")
 	env, err1 := mdbx.NewEnv()
 	if err1 != nil {
 		// notest
-		logger.With("Error", err1).Fatalf("Cannot create environment")
+		log.Default.With("Error", err1).Fatalf("Cannot create environment")
 		return nil
 	}
 	// Set Flags
@@ -30,20 +28,20 @@ func NewKeyValueDatabase(path string, flags uint) *KeyValueDatabase {
 	err := env.SetOption(mdbx.OptMaxDB, 1024)
 	if err != nil {
 		// notest
-		logger.With("Error", err).Fatalf("Cannot set Options")
+		log.Default.With("Error", err).Fatalf("Cannot set Options")
 		return nil
 	}
 	const pageSize = 4096
 	err = env.SetGeometry(-1, -1, 64*1024*pageSize, -1, -1, pageSize)
 	if err != nil {
 		// notest
-		logger.With("Error", err1).Fatalf("Cannot set Geometry")
+		log.Default.With("Error", err1).Fatalf("Cannot set Geometry")
 		return nil
 	}
 	err = env.Open(path, flags, 0664)
 	if err != nil {
 		// notest
-		logger.With("Error", err1).Fatalf("Cannot open env")
+		log.Default.With("Error", err1).Fatalf("Cannot open env")
 		return nil
 	}
 	return &KeyValueDatabase{
@@ -84,36 +82,37 @@ func (d KeyValueDatabase) getOne(key []byte) (val []byte, err error) {
 }
 
 func (d KeyValueDatabase) Get(key []byte) ([]byte, error) {
-	logger.With("Key", key).Info("Getting value of provided key")
+	log.Default.With("Key", key).Info("Getting value of provided key")
 	return d.getOne(key)
 }
 
 func (d KeyValueDatabase) Put(key, value []byte) error {
-	logger.With("Key", string(key)).Info("Putting value of provided key")
+	log.Default.With("Key", string(key)).Info("Putting value of provided key")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
-		logger.Debug("Open DBI")
+		log.Default.Debug("Open DBI")
 		dbi, err := txn.OpenRoot(mdbx.Create)
 
 		if err != nil {
 			return err
 		}
-		logger.Debug("Inserting on db")
+		log.Default.Debug("Inserting on db")
 		return txn.Put(dbi, key, value, 0)
 	})
 	return err
 }
 
 func (d KeyValueDatabase) Delete(key []byte) error {
-	logger.With("Key", key).Info("Deleting value associated to provided key")
+	log.Default.With("Key", key).Info("Deleting value associated to provided key")
 	err := d.env.Update(func(txn *mdbx.Txn) (err error) {
-		db, err := txn.OpenRoot(mdbx.Create)
+		// TODO: this error should be handled.
+		db, _ := txn.OpenRoot(mdbx.Create)
 		return txn.Del(db, key, nil)
 	})
 	return err
 }
 
 func (d KeyValueDatabase) NumberOfItems() (uint64, error) {
-	logger.Info("Getting the amount of items in the collection")
+	log.Default.Info("Getting the amount of items in the collection")
 	stats, err := d.env.Stat()
 	if err != nil {
 		return 0, err

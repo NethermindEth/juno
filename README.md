@@ -1,112 +1,36 @@
 # juno
 
-![Juno Logo](./.github/juno.jpg?raw=true)
+<div align="center"><img width="128" src="./docs/static/img/juno_rounded.png"></div>
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno)
+Starknet client implementation.
 
-[![Actions Status](https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg)](https://github.com/NethermindEth/juno/actions)
+[![Go Reference](https://pkg.go.dev/badge/github.com/NethermindEth/juno.svg)](https://pkg.go.dev/github.com/NethermindEth/juno) [![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno) [![Actions Status](https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg)](https://github.com/NethermindEth/juno/actions) [![codecov](https://codecov.io/gh/NethermindEth/juno/branch/main/graph/badge.svg)](https://codecov.io/gh/NethermindEth/juno)
 
-[![codecov](https://codecov.io/gh/NethermindEth/juno/branch/main/graph/badge.svg)](https://codecov.io/gh/NethermindEth/juno)
+## Building from source
 
-Juno is a StarkNet client written in Go.
+Run the following command.
 
-[Docs](https://nethermindeth.github.io/juno/)
-
-Here you will find various links to help you start with the StarkNet ecosystem.
-
-[StarkNet Docs](https://starknet.io/)
-
-[Voyager block explorer](https://voyager.online)
-
-[Warp Docs](https://github.com/NethermindEth/warp)
-
-[CairoLang Docs](https://www.cairo-lang.org/)
-
-[StarkEx Docs](https://docs.starkware.co/starkex-v4)
-
-[StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
-
-[Starknet 101](https://github.com/l-henri/starknet-cairo-101)
-
-[StarkNet Shamans Forum](https://community.starknet.io/)
-
-[StarkNet Medium](https://medium.com/starkware/starknet/home)
-
-[StarkNet Twitter](https://twitter.com/Starknet_Intern)
-
-[Nethermind Twitter](https://twitter.com/NethermindEth)
-
-## Logging
-
-For logging we use [zap](https://github.com/uber-go/zap). This library has 6 levels of logging: Debug, Info, Warning,
-Error and Panic. For example:
-
-```go
-package main
-
-import "github.com/NethermindEth/juno/internal/log"
-
-var logger = log.GetLogger()
-
-func main() {
-	// Set of levels
-	logger.Debug("Useful debugging information.")
-	logger.Info("Something noteworthy happened!")
-	logger.Warn("You should probably take a look at this.")
-	logger.Error("Something failed but I'm not quitting.")
-	logger.Fatal("Bye.")
-	logger.Panic("I'm bailing.")
-}
+```sh
+% make all
 ```
 
-Use `import log "github.com/sirupsen/logrus"` instead `import "log"`.
+## Executables
 
-It also allows us to add fields to the outputs, like this:
-
-```
-  logger.With("Key0", "Value0").Debugw("Useful debugging information.")
-  
-  logger.Infow("Useful information.", "Key0", "Value0", "Key1", "1")
-```
-
-Resulting in an output like this:
-
-![Zap](./docs/static/img/log.png)
-
-For more details about logging just go to [zap](https://github.com/uber-go/zap).
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr>
+    <td><code>juno</code></td>
+    <td>The StarkNet full node client.</td>
+  <tr>
+</table>
 
 ## Configuration
 
-For configuration and cli, we use [Viper](https://github.com/spf13/viper) and [Cobra](https://github.com/spf13/cobra)
-respectively.
-
-### Configuration File
-
-An example of a config file can be:
+**juno** uses a configuration file named **config.yaml** that is located in the `$HOME/.juno/` directory. It generally looks like the following and a default will be generated if one does not exist. 
 
 ```yaml
 rpc:
   enabled: true
   port: 8080
 db_path: $HOME/.juno/data
-```
-
-The config file in case it didn't exist, is generated, and we read it using Viper. We will add more configurations in
-the future.
-
-### CLI
-
-Available CLI commands are:
-
-```
-$ juno -h
-Juno, StarkNet Client in Go
-
-Usage:
-  juno [flags]
-
-Flags:
-      --config string   config file (default is $HOME/.juno/config.yaml)
-  -h, --help            help for juno
-
 ```
