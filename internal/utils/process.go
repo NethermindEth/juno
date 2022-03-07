@@ -2,46 +2,43 @@ package utils
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/internal/log"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 // runFunction represent the structure of the function that Run a process
-type runFunction func(logger *zap.SugaredLogger) error
+type runFunction func() error
 
 // stopFunction represent the structure of the function that Stop a process
 type stopFunction func(ctx context.Context)
 
 // process contains information and required functions of each process
 type process struct {
-	id     string
-	err    error
-	logger *zap.SugaredLogger
-	run    runFunction
-	stop   stopFunction
+	id   string
+	err  error
+	run  runFunction
+	stop stopFunction
 }
 
 // Start the process
 func (proc *process) Start() (err error) {
-	return proc.run(proc.logger)
+	return proc.run()
 }
 
 type Processor interface {
-	Add(logger *zap.SugaredLogger, id string, fnRun runFunction, fnStop stopFunction)
+	Add(id string, fnRun runFunction, fnStop stopFunction)
 	Run()
 	Close()
 }
 
 // ProcessorRunner collects sub processes
 type ProcessorRunner struct {
-	list   []*process
-	logger *zap.SugaredLogger
+	list []*process
 }
 
 // NewProcessor creates a new ProcessorRunner
-func NewProcessor(logger *zap.SugaredLogger) *ProcessorRunner {
-	return &ProcessorRunner{logger: logger}
+func NewProcessor() *ProcessorRunner {
+	return &ProcessorRunner{}
 }
 
 // Close all processes
@@ -52,19 +49,18 @@ func (p *ProcessorRunner) Close() {
 		ctx, cancelFunc := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
 		proc.stop(ctx)
 		if proc.err != nil {
-			proc.logger.With("Error", proc.err).Error("Error in execution")
+			log.Default.With("Error", proc.err).Error("Error in execution")
 		}
 		cancelFunc()
 	}
 }
 
 // Add a process
-func (p *ProcessorRunner) Add(logger *zap.SugaredLogger, id string, fnRun runFunction, fnStop stopFunction) {
+func (p *ProcessorRunner) Add(id string, fnRun runFunction, fnStop stopFunction) {
 	p.list = append(p.list, &process{
-		id:     id,
-		logger: logger.With(zap.String("process", id)),
-		run:    fnRun,
-		stop:   fnStop,
+		id:   id,
+		run:  fnRun,
+		stop: fnStop,
 	})
 }
 
@@ -72,7 +68,7 @@ func (p *ProcessorRunner) Add(logger *zap.SugaredLogger, id string, fnRun runFun
 func (p *ProcessorRunner) Run() {
 	// If we don't have any process to run, just continue
 	if len(p.list) == 0 {
-		p.logger.Info("Not found any process to run in background")
+		log.Default.Info("Not found any process to run in background")
 		return
 	}
 

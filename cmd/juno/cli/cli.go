@@ -45,7 +45,7 @@ var (
 `)
 			fmt.Println(cmd.Short)
 
-			processor = utils.NewProcessor(log.Default)
+			processor = utils.NewProcessor()
 
 			// Handle Ctrl+C for close and close Juno
 			sig := make(chan os.Signal)
@@ -61,7 +61,7 @@ var (
 			// Subscribe RPC to main loop execution only if enable in configs
 			if cfg.Rpc.Enabled {
 				s := rpc.NewServer(":8080")
-				processor.Add(log.Default, "RPC", s.ListenAndServe, s.Close)
+				processor.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
 			// endless running process

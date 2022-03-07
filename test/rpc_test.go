@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"context"
-	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/rpc"
 	"io/ioutil"
 	"net/http"
@@ -193,7 +192,7 @@ func TestRPCServer(t *testing.T) {
 func TestServer(t *testing.T) {
 	server := rpc.NewServer(":8080")
 	go func() {
-		_ = server.ListenAndServe(log.Default)
+		_ = server.ListenAndServe()
 	}()
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
 	server.Close(ctx)

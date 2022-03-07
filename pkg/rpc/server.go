@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/NethermindEth/juno/internal/log"
 	types "github.com/NethermindEth/juno/pkg/types"
-	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -27,7 +26,7 @@ func NewServer(addr string) *Server {
 }
 
 // ListenAndServe listen on the TCP network and handle requests on incoming connections
-func (s *Server) ListenAndServe(l *zap.SugaredLogger) error {
+func (s *Server) ListenAndServe() error {
 	// notest
 	log.Default.Info("Listening for connections .... ")
 
