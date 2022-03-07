@@ -1,5 +1,6 @@
 package cli
 
+// notest
 import (
 	"io/ioutil"
 	"os"
@@ -45,7 +46,6 @@ func DefaultConfig(path string) (err error) {
 	if _, err := os.Stat(projectFolder); os.IsNotExist(err) {
 		err := os.MkdirAll(projectFolder, 0755)
 		if err != nil {
-			// notest
 			return nil
 		}
 	}
