@@ -7,12 +7,12 @@ import (
 	"net/http"
 )
 
-// Server represent
+// Server represents the server structure
 type Server struct {
 	server http.Server
 }
 
-// HandlerRPC represent
+// HandlerRPC represents the struct that later we will apply reflection to call rpc methods
 type HandlerRPC struct{}
 
 // NewServer creates a new server
