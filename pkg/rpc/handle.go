@@ -29,8 +29,8 @@ type Handler interface {
 }
 
 // HandlerFunc type is an adapter that allows the use of Go functions as
-// JSONRPC handlers. If f is such a function with the appropriate
-// signature, HandlerFunc(f) is a jsonrpc.Handler that calls f.
+// JSON-RPC handlers. If f is such a function with the appropriate
+// signature, HandlerFunc(f) is a JSON-RPC.Handler that calls f.
 type HandlerFunc func(c context.Context, params *json.RawMessage) (result interface{}, err *Error)
 
 // ServeJSONRPC calls a function f(w, r).
@@ -46,7 +46,7 @@ func (mr *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := SendResponse(w, []*Response{{Version: Version, Error: err}}, false)
 		if err != nil {
 			// notest
-			fmt.Fprint(w, "Failed to encode error objects")
+			log.Default.With("Error", err).Info("Failed to encode error objects")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
@@ -59,7 +59,7 @@ func (mr *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := SendResponse(w, resp, batch); err != nil {
 		// notest
-		fmt.Fprint(w, "Failed to encode result objects")
+		log.Default.With("Error", err).Info("Failed to encode result objects")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

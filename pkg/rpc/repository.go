@@ -5,7 +5,7 @@ type HandlerJsonRpc struct {
 	StructRpc interface{}
 }
 
-// TODO: Document.
+// NewHandlerJsonRpc creates a new HandlerJsonRpc
 func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
 	return &HandlerJsonRpc{StructRpc: rpc}
 }

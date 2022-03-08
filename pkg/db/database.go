@@ -1,6 +1,3 @@
-// TODO: Document.
-// XXX: Why are all the method calls copying instead of referencing the
-// database?
 package db
 
 import (
@@ -8,26 +5,48 @@ import (
 	"github.com/torquem-ch/mdbx-go/mdbx"
 )
 
-// TODO: Implement.
-func (d Database) Begin()    {}
-func (d Database) Rollback() {}
+// Databaser Represent the
+type Databaser interface {
+	// Has returns true if the value at the provided key is in the
+	// database.
+	Has(key []byte) (bool, error)
 
-// Database represents the middleware for an MDBX key-value store.
-type Database struct {
+	// Get returns the value associated with the provided key in the
+	// database or returns an error otherwise.
+	Get(key []byte) ([]byte, error)
+
+	// Put inserts a key-value pair into the database.
+	Put(key, value []byte) error
+
+	// Delete Remove a previous inserted key, otherwise nothing happen, should return
+	Delete(key []byte) error
+
+	// NumberOfItems returns the number of items in the database.
+	NumberOfItems() (uint64, error)
+
+	// Begin create the new
+	Begin()
+
+	// Rollback should return
+	Rollback()
+
+	// Close environment
+	Close()
+}
+
+// KVDatabase represents the middleware for an MDBX key-value store.
+type KVDatabase struct {
 	env  *mdbx.Env
 	path string
 }
 
-// NewDatabase creates a new Database.
-func NewDatabase(path string, flags uint) *Database {
+// NewDatabase creates a new KVDatabase.
+func NewDatabase(path string, flags uint) *KVDatabase {
 	log.Default.With("Path", path, "Flags", flags).Info("Creating new database.")
 	env, err := mdbx.NewEnv()
-	// TODO: Handle error using errpkg.CheckFatal.
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Fatal("Failed to initialise and allocate new Env.")
-		// TODO: The following return is superficial given that the line
-		// above terminates this process.
+		log.Default.With("Error", err).Info("Failed to initialise and allocate new Env.")
 		return nil
 	}
 
@@ -37,7 +56,7 @@ func NewDatabase(path string, flags uint) *Database {
 	// TODO: See above (line 25-32).
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Fatal("Failed to set Env options.")
+		log.Default.With("Error", err).Info("Failed to set Env options.")
 		return nil
 	}
 	const pageSize = 4096
@@ -45,114 +64,118 @@ func NewDatabase(path string, flags uint) *Database {
 	// TODO: See above (line 25-32).
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Fatal("Failed to set geometry.")
+		log.Default.With("Error", err).Info("Failed to set geometry.")
 		return nil
 	}
 	err = env.Open(path, flags, 0664)
 	// TODO: See above (line 25-32).
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Fatal("Failed to open Env.")
+		log.Default.With("Error", err).Info("Failed to open Env.")
 		return nil
 	}
-	return &Database{env: env, path: path}
+	return &KVDatabase{env: env, path: path}
 }
 
-// TODO: Document.
-func (d Database) Has(key []byte) (has bool, err error) {
+// Has returns true if the value at the provided key is in the
+// database.
+func (d *KVDatabase) Has(key []byte) (has bool, err error) {
 	val, err := d.getOne(key)
 	if err != nil {
-		// TODO: Log error.
+		log.Default.With("Error", err, "Key", string(key)).Info("Unable to get value for key, don't exist")
 		return false, err
 	}
 	return val != nil, nil
-	// XXX: If it can be guaranteed that Database.getOne will only return
-	// a value in the absence of an error then we can avoid the assignment
-	// and comparison as follows which also highlights intension better.
-	// _, err = d.getOne(key)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// return true, nil
 }
 
-// TODO: Document.
-func (d Database) getOne(key []byte) (val []byte, err error) {
+// getOne returns the value associated with the provided key in the
+// database or returns an error otherwise.
+func (d *KVDatabase) getOne(key []byte) (val []byte, err error) {
 	var db mdbx.DBI
 	if err := d.env.View(func(txn *mdbx.Txn) error {
 		db, err = txn.OpenRoot(mdbx.Create)
 		if err != nil {
-			// TODO: Log error.
+			log.Default.With("Error", err).Info("Unable to open mdbx database")
 			return err
 		}
 		val, err = txn.Get(db, key)
 		if err != nil {
 			if mdbx.IsNotFound(err) {
-				// TODO: Log error.
-				// XXX: Why is this error not propagated?
+				log.Default.With("Error", err, "Key", string(key)).Info("Unable to get value")
+				err = nil
 				return nil
 			}
-			// TODO: Log error.
+			log.Default.With("Error", err, "Key", string(key)).Info("Error getting value")
 			return err
 		}
 		return nil
 	}); err != nil {
-		// TODO: Log error. But it is unclear whether this is the desired
-		// behaviour given the "not found" error is not propagated.
+		// Log already printed in the previous call
 		return nil, err
 	}
 	return val, err
 }
 
-// TODO: Document.
-func (d Database) Get(key []byte) ([]byte, error) {
+// Get returns the value associated with the provided key in the
+// database or returns an error otherwise.
+func (d *KVDatabase) Get(key []byte) ([]byte, error) {
 	log.Default.With("Key", key).Info("Getting value of provided key.")
 	return d.getOne(key)
 }
 
-// TODO: Document.
-func (d Database) Put(key, value []byte) error {
+// Put inserts a key-value pair into the database.
+func (d *KVDatabase) Put(key, value []byte) error {
 	log.Default.With("Key", string(key)).Info("Putting value at provided key.")
 	err := d.env.Update(func(txn *mdbx.Txn) error {
-		// XXX: Why did the logging level switch from Info to Debug?
-		log.Default.Debug("Opening the root database.")
+		log.Default.Info("Opening the root database.")
 		dbi, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
-			// TODO: Log error.
+			log.Default.With("Error", err, "Key", string(key)).Info("Unable to open mdbx database")
 			return err
 		}
-		log.Default.Debug("Storing item in database.")
+		log.Default.Info("Storing item in database.")
 		return txn.Put(dbi, key, value, 0)
 	})
 	return err
 }
 
-// TODO: Document.
-func (d Database) Delete(key []byte) error {
+// Delete Remove a previous inserted key, otherwise nothing happen, should return
+func (d *KVDatabase) Delete(key []byte) error {
 	log.Default.With("Key", key).Info("Deleting value associated with provided key.")
 	err := d.env.Update(func(txn *mdbx.Txn) error {
 		db, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
-			// TODO: Log error.
+			log.Default.With("Error", err, "Key", string(key)).Info("Unable to open mdbx database")
 			return err
 		}
-		return txn.Del(db, key, nil)
+		err = txn.Del(db, key, nil)
+		if mdbx.IsNotFound(err) {
+			log.Default.With("Error", err, "Key", string(key)).Info("Unable to get value")
+			return nil
+		}
+		return err
 	})
 	return err
 }
 
-// TODO: Document.
-func (d Database) NumberOfItems() (uint64, error) {
+// NumberOfItems returns the number of items in the database.
+func (d *KVDatabase) NumberOfItems() (uint64, error) {
 	log.Default.Info("Getting the number of items in the database.")
 	stats, err := d.env.Stat()
 	if err != nil {
-		// TODO: Log error.
+		log.Default.With("Error", err).Info("Unable to get stats from environment")
 		return 0, err
 	}
 	return stats.Entries, err
 }
 
-// TODO: Document.
-func (d Database) Close() {
+// Begin create the new
+func (d KVDatabase) Begin() {}
+
+// Rollback should return
+func (d KVDatabase) Rollback() {}
+
+// Close environment
+func (d *KVDatabase) Close() {
 	d.env.Close()
 }

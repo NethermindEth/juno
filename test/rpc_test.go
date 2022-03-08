@@ -47,12 +47,6 @@ func testServer(t *testing.T, tests []rpcTest) {
 	}
 }
 
-//
-//type rpcRequests struct {
-//	Request  string `json:"request"`
-//	Response string `json:"response"`
-//}
-
 func TestRPCServer(t *testing.T) {
 	jsonFile, err := os.Open("rpc_tests.json")
 	// if we os.Open returns an error then handle it

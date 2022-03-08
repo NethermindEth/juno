@@ -1,13 +1,13 @@
 package rpc
 
-import starknet_client "github.com/NethermindEth/juno/pkg/types"
+import "github.com/NethermindEth/juno/pkg/types"
 
 type EventRequest struct {
-	starknet_client.EventFilter
-	starknet_client.ResultPageRequest
+	types.EventFilter
+	types.ResultPageRequest
 }
 
-type EmittedEventArray []starknet_client.EmittedEvent
+type EmittedEventArray []types.EmittedEvent
 
 type EventResponse struct {
 	EmittedEventArray

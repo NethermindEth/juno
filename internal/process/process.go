@@ -1,4 +1,4 @@
-package process 
+package process
 
 // notest
 import (
@@ -56,7 +56,7 @@ func (h *Handler) Close() {
 		// NOTE: A more descriptive error message might be "Error occurred
 		// while closing process".
 		if proc.err != nil {
-			log.Default.With("Error", proc.err).Error("Error in execution")
+			log.Default.With("Error", proc.err).Error("Error occurred while closing process")
 		}
 		cancel()
 	}

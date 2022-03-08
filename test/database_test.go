@@ -16,8 +16,8 @@ func init() {
 	}
 }
 
-// setupDatabaseForTest creates a new Database for Tests
-func setupDatabaseForTest(path string) *db.Database {
+// setupDatabaseForTest creates a new KVDatabase for Tests
+func setupDatabaseForTest(path string) *db.KVDatabase {
 	return db.NewDatabase(path, 0)
 }
 
