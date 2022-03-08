@@ -35,17 +35,9 @@ var (
 		Short: "Starknet client implementation in Go.",
 		Long:  doc,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Print(`      _                   
-     | |                  
-     | |_   _ _ __   ___  
- _   | | | | | '_ \ / _ \ 
-| |__| | |_| | | | | (_) |
- \____/ \__,_|_| |_|\___/ 
-                          
-                          
-`)
-			fmt.Println(cmd.Short)
+			fmt.Println(doc)
 
+			// Start processor handler
 			processor = utils.NewProcessor()
 
 			// Handle Ctrl+C for close and close Juno
