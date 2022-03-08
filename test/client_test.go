@@ -2,15 +2,15 @@ package test
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/pkg/client"
+	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/NethermindEth/juno/pkg/types"
 	"testing"
 )
 
 const TestRPCEndpoint = "https://alpha4.starknet.io"
 
-func newClient() (*client.Client, error) {
-	return client.Dial(TestRPCEndpoint)
+func newClient() (*rpc.Client, error) {
+	return rpc.Dial(TestRPCEndpoint)
 }
 
 func TestClient_GetBlockByHash(t *testing.T) {

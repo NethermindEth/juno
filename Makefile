@@ -35,7 +35,7 @@ gomod_tidy: ## add missing and remove unused modules
 gofmt: ## run go formatter
 	go fmt -x ./...
 
-clean:
+clean: ## Clean project builds
 	@rm -rf ./build/juno
 
 help: ## Show this help
