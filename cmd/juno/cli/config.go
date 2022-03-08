@@ -31,7 +31,7 @@ const (
 // NewConfig returns a reference to a cli.Config instance.
 func NewConfig(dbPath string) *Config {
 
-	return &Config{Rpc: RpcConfig{Enabled: true, Port: 8080}, DbPath: dbPath}
+	return &Config{Rpc: RpcConfig{Enabled: false, Port: 8080}, DbPath: dbPath}
 }
 
 // DefaultConfig This function generate the default configuration file.
