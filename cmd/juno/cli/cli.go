@@ -4,12 +4,14 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/utils"
-	"github.com/NethermindEth/juno/pkg/rpc"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+
+	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/pkg/rpc"
 
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/spf13/cobra"
@@ -17,7 +19,6 @@ import (
 )
 
 var (
-
 	// General configuration.
 	cfg *Config
 
@@ -27,9 +28,6 @@ var (
 	//go:embed long.txt
 	doc string
 
-	// Process handler
-	processor utils.Processor
-
 	rootCmd = &cobra.Command{
 		Use:   "juno",
 		Short: "Starknet client implementation in Go.",
@@ -37,39 +35,34 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(doc)
 
-			// Start processor handler
-			processor = utils.NewProcessor()
+			handler := process.NewHandler()
 
-			// Handle Ctrl+C for close and close Juno
+			// Handle signal interrupts and exits.
 			sig := make(chan os.Signal)
-			signal.Notify(sig, os.Interrupt, os.Kill)
+			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 			go func() {
 				<-sig
 				log.Default.Info("Trying to close...")
-				cleanup()
+				handler.Close()
 				log.Default.Info("App closing...Bye!!!")
 				os.Exit(1)
 			}()
 
-			// Subscribe RPC to main loop execution only if enable in configs
+			// Subscribe the RPC client to the main loop if it is enable in
+			// the config.
 			if cfg.Rpc.Enabled {
 				s := rpc.NewServer(":8080")
-				processor.Add("RPC", s.ListenAndServe, s.Close)
+				handler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
 			// endless running process
 			log.Default.Info("Starting all processes...")
-			processor.Run()
-			cleanup()
+			handler.Run()
+			handler.Close()
 			log.Default.Info("App closing...Bye!!!")
 		},
 	}
 )
-
-// Clean up and close all running processes
-func cleanup() {
-	processor.Close()
-}
 
 // init defines flags and handles configuration.
 func init() {

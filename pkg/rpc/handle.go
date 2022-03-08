@@ -5,14 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/log"
-	"github.com/goccy/go-json"
-	"github.com/iancoleman/strcase"
 	"io"
 	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
+
+	"github.com/NethermindEth/juno/internal/log"
+	"github.com/goccy/go-json"
+	"github.com/iancoleman/strcase"
 )
 
 var (
@@ -22,16 +23,17 @@ var (
 
 // Handler links a method of JSON-RPC request.
 type Handler interface {
-	ServeJSONRPC(c context.Context, params *json.RawMessage) (result interface{}, err *Error)
+	ServeJSONRPC(
+		c context.Context, params *json.RawMessage,
+	) (result interface{}, err *Error)
 }
 
-// HandlerFunc type is an adapter to allow the use of
-// ordinary functions as JSONRPC handlers. If f is a function
-// with the appropriate signature, HandlerFunc(f) is a
-// jsonrpc.Handler that calls f.
+// HandlerFunc type is an adapter that allows the use of Go functions as
+// JSONRPC handlers. If f is such a function with the appropriate
+// signature, HandlerFunc(f) is a jsonrpc.Handler that calls f.
 type HandlerFunc func(c context.Context, params *json.RawMessage) (result interface{}, err *Error)
 
-// ServeJSONRPC calls f(w, r).
+// ServeJSONRPC calls a function f(w, r).
 func (f HandlerFunc) ServeJSONRPC(c context.Context, params *json.RawMessage) (result interface{}, err *Error) {
 	// notest
 	return f(c, params)
@@ -41,12 +43,7 @@ func (f HandlerFunc) ServeJSONRPC(c context.Context, params *json.RawMessage) (r
 func (mr *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rs, batch, err := ParseRequest(r)
 	if err != nil {
-		err := SendResponse(w, []*Response{
-			{
-				Version: Version,
-				Error:   err,
-			},
-		}, false)
+		err := SendResponse(w, []*Response{{Version: Version, Error: err}}, false)
 		if err != nil {
 			// notest
 			fmt.Fprint(w, "Failed to encode error objects")
@@ -76,10 +73,11 @@ func isErrorType(t reflect.Type) bool {
 	return t.Implements(errorType)
 }
 
-// checkReturn Verify return types. The function must return at most one error
-//	and/or one other non-error value.
+// checkReturn verifies the return types. The function must return at
+// most one error and/or one other non-error value.
 func checkReturn(functionType reflect.Type) int {
-	// Create a representation for each type of the Outputs of the function
+	// Create a representation for each type of the Outputs of the
+	// function.
 	outs := make([]reflect.Type, functionType.NumOut())
 	for i := 0; i < functionType.NumOut(); i++ {
 		outs[i] = functionType.Out(i)
@@ -105,7 +103,9 @@ func checkReturn(functionType reflect.Type) int {
 }
 
 // makeArgumentTypes composes the argTypes list.
-func makeArgumentTypes(function, receiver reflect.Value) ([]reflect.Type, bool) {
+func makeArgumentTypes(
+	function, receiver reflect.Value,
+) ([]reflect.Type, bool) {
 	functionType := function.Type()
 	hasContext := false
 
@@ -126,18 +126,22 @@ func makeArgumentTypes(function, receiver reflect.Value) ([]reflect.Type, bool) 
 	return argumentTypes, hasContext
 }
 
-// parseArguments tries to parse the given arguments to an array of values with the
-// given types or the corresponding type. It returns the parsed values or an error when the args could not be
-// parsed. Missing optional arguments are returned as reflect.Zero values.
-func parseArguments(rawMessage json.RawMessage, types []reflect.Type) ([]reflect.Value, error) {
+// parseArguments tries to parse the given arguments into an array of
+// values with the given types or the corresponding type. It returns the
+// parsed values or an error otherwise. Missing optional arguments are
+// returned as reflect.Zero values.
+func parseArguments(
+	rawMessage json.RawMessage, types []reflect.Type,
+) ([]reflect.Value, error) {
 	decoder := json.NewDecoder(bytes.NewReader(rawMessage))
 	var arguments []reflect.Value
 	token, err := decoder.Token()
 	switch {
 	// notest
 	case err == io.EOF || token == nil && err == nil:
-		// "params" is optional and may be empty. Also allow "params":null even though it's
-		// not in the spec because our own client used to send it.
+		// "params" is optional and may be empty. Also allow "params":null
+		// even though it's not in the spec because our own client used to
+		// send it.
 	case err != nil:
 		return nil, err
 	case token == json.Delim('['):
@@ -160,8 +164,11 @@ func parseArguments(rawMessage json.RawMessage, types []reflect.Type) ([]reflect
 	return arguments, nil
 }
 
-// parseArgumentArray Iterate overs each types and tries to parse the given arguments to an array of values
-func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Value, error) {
+// parseArgumentArray iterate overs each types and tries to parse the
+// given arguments to an array of values.
+func parseArgumentArray(
+	dec *json.Decoder, types []reflect.Type,
+) ([]reflect.Value, error) {
 	arguments := make([]reflect.Value, 0, len(types))
 	for i := 0; dec.More(); i++ {
 		if i >= len(types) {
@@ -199,9 +206,16 @@ func parseArgumentArray(dec *json.Decoder, types []reflect.Type) ([]reflect.Valu
 }
 
 // callFunction invokes the function called.
-func callFunction(ctx context.Context, method string, arguments []reflect.Value, function, receiver reflect.Value,
-	hasContext bool, errResponsePosition int) (res interface{}, errRes error) {
-	log.Default.With("Method", method).Info("Calling RPC function")
+func callFunction(
+	ctx context.Context,
+	method string,
+	arguments []reflect.Value,
+	function,
+	receiver reflect.Value,
+	hasContext bool,
+	errResponsePosition int,
+) (res interface{}, errRes error) {
+	log.Default.With("Method", method).Info("Calling RPC function.")
 	// Create the argument slice.
 	fullArguments := make([]reflect.Value, 0, 2+len(arguments))
 	if receiver.IsValid() {
@@ -305,13 +319,13 @@ func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response 
 	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
 	if err != nil {
 		// notest
-		log.Default.With("Method", r.Method,
-			"Params", r.Params,
-		).Error("Internal error calling the function")
+		log.Default.With(
+			"Method", r.Method, "Params", r.Params,
+		).Error("Internal error occurred while calling the function.")
 		res.Error = ErrInternal()
 		res.Result = nil
 	}
-	log.Default.With("Method", r.Method).Info("RPC handle request successfully")
+	log.Default.With("Method", r.Method).Info("Request successful.")
 	res.Result = resFromCall
 	return res
 }

@@ -17,8 +17,8 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new Database for Tests
-func setupDatabaseForTest(path string) *db.KeyValueDatabase {
-	return db.NewKeyValueDatabase(path, 0)
+func setupDatabaseForTest(path string) *db.Database {
+	return db.NewDatabase(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error

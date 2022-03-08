@@ -5,15 +5,15 @@ import "fmt"
 
 const (
 	// ErrorCodeParse is parse error code.
-	ErrorCodeParse ErrorCode = -32700
+	ErrorCodeParse ErrorCode = -32_700
 	// ErrorCodeInvalidRequest is invalid request error code.
-	ErrorCodeInvalidRequest ErrorCode = -32600
+	ErrorCodeInvalidRequest ErrorCode = -32_600
 	// ErrorCodeMethodNotFound is method not found error code.
-	ErrorCodeMethodNotFound ErrorCode = -32601
+	ErrorCodeMethodNotFound ErrorCode = -32_601
 	// ErrorCodeInvalidParams is invalid params error code.
-	ErrorCodeInvalidParams ErrorCode = -32602
+	ErrorCodeInvalidParams ErrorCode = -32_602
 	// ErrorCodeInternal is internal error code.
-	ErrorCodeInternal ErrorCode = -32603
+	ErrorCodeInternal ErrorCode = -32_603
 )
 
 type (
@@ -35,40 +35,25 @@ func (e *Error) Error() string {
 
 // ErrParse returns parse error.
 func ErrParse() *Error {
-	return &Error{
-		Code:    ErrorCodeParse,
-		Message: "Parse error",
-	}
+	return &Error{Code: ErrorCodeParse, Message: "Parse error"}
 }
 
 // ErrInvalidRequest returns invalid request error.
 func ErrInvalidRequest() *Error {
-	return &Error{
-		Code:    ErrorCodeInvalidRequest,
-		Message: "Invalid Request",
-	}
+	return &Error{Code: ErrorCodeInvalidRequest, Message: "Invalid Request"}
 }
 
 // ErrMethodNotFound returns method not found error.
 func ErrMethodNotFound() *Error {
-	return &Error{
-		Code:    ErrorCodeMethodNotFound,
-		Message: "Method not found",
-	}
+	return &Error{Code: ErrorCodeMethodNotFound, Message: "Method not found"}
 }
 
 // ErrInvalidParams returns invalid params error.
 func ErrInvalidParams() *Error {
-	return &Error{
-		Code:    ErrorCodeInvalidParams,
-		Message: "Invalid params",
-	}
+	return &Error{Code: ErrorCodeInvalidParams, Message: "Invalid params"}
 }
 
 // ErrInternal returns internal error.
 func ErrInternal() *Error {
-	return &Error{
-		Code:    ErrorCodeInternal,
-		Message: "Internal error",
-	}
+	return &Error{Code: ErrorCodeInternal, Message: "Internal error"}
 }

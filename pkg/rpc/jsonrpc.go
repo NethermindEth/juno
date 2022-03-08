@@ -18,7 +18,7 @@ const (
 )
 
 type (
-	// A Request represents a JSON-RPC request received by the server.
+	// Request represents a JSON-RPC request received by the server.
 	Request struct {
 		Version string           `json:"jsonrpc"`
 		Method  string           `json:"method"`
@@ -26,7 +26,7 @@ type (
 		ID      *json.RawMessage `json:"id"`
 	}
 
-	// A Response represents a JSON-RPC response returned by the server.
+	// Response represents a JSON-RPC response returned by the server.
 	Response struct {
 		Version string           `json:"jsonrpc"`
 		Result  interface{}      `json:"result,omitempty"`
@@ -91,10 +91,7 @@ func ParseRequest(r *http.Request) ([]*Request, bool, *Error) {
 
 // NewResponse generates a JSON-RPC response.
 func NewResponse(r *Request) *Response {
-	return &Response{
-		Version: r.Version,
-		ID:      r.ID,
-	}
+	return &Response{Version: r.Version, ID: r.ID}
 }
 
 // SendResponse writes JSON-RPC response.

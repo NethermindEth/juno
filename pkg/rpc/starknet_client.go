@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/rpc"
 )

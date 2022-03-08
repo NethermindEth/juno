@@ -2,9 +2,10 @@ package rpc
 
 import (
 	"context"
+	"net/http"
+
 	"github.com/NethermindEth/juno/internal/log"
 	types "github.com/NethermindEth/juno/pkg/types"
-	"net/http"
 )
 
 // Server represents the server structure
@@ -12,20 +13,21 @@ type Server struct {
 	server http.Server
 }
 
-// HandlerRPC represents the struct that later we will apply reflection to call rpc methods
+// HandlerRPC represents the struct that later we will apply reflection
+// to call rpc methods.
 type HandlerRPC struct{}
 
-// NewServer creates a new server
+// NewServer creates a new server.
 func NewServer(addr string) *Server {
 	mr := NewHandlerJsonRpc(HandlerRPC{})
 	http.Handle("/rpc", mr)
-
 	return &Server{
 		server: http.Server{Addr: addr, Handler: http.DefaultServeMux},
 	}
 }
 
-// ListenAndServe listen on the TCP network and handle requests on incoming connections
+// ListenAndServe listens on the TCP network and handles requests on
+// incoming connections.
 func (s *Server) ListenAndServe() error {
 	// notest
 	log.Default.Info("Listening for connections .... ")
@@ -38,7 +40,7 @@ func (s *Server) ListenAndServe() error {
 	return nil
 }
 
-// Close gracefully shuts down the server
+// Close gracefully shuts down the server.
 func (s *Server) Close(ctx context.Context) {
 	// notest
 	select {

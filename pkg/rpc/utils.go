@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// TODO: Document.
 func StructPrinter(i interface{}) {
 	// notest
 	b, err := json.Marshal(i)
