@@ -1,5 +1,6 @@
 package cli
 
+// notest
 import (
 	_ "embed"
 	"fmt"
@@ -57,7 +58,7 @@ var (
 				log.Default.Info("Trying to close...")
 				handler.Close()
 				log.Default.Info("App closing...Bye!!!")
-				os.Exit(1)
+				os.Exit(0)
 			}()
 
 			// Subscribe the RPC client to the main loop if it is enable in

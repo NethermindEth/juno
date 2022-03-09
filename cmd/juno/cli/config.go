@@ -17,6 +17,7 @@ func GenerateConfig() {
 	// Create the juno configuration directory if it does not exist.
 	cfgDirPath := filepath.Join(ospkg.ConfigDir, "juno")
 	if _, err := os.Stat(cfgDirPath); os.IsNotExist(err) {
+		// notest
 		err := os.MkdirAll(cfgDirPath, 0755)
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}

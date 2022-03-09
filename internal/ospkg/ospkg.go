@@ -35,6 +35,7 @@ func init() {
 	HomeDir, err = os.UserHomeDir()
 	errpkg.CheckFatal(err, "unable to get the user home directory")
 	DataDir, err = func() (string, error) {
+		// notest
 		switch runtime.GOOS {
 		case "windows":
 			// On Windows ConfigDir and DataDir share the same path. See:
