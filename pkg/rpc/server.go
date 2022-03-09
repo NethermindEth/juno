@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/NethermindEth/juno/internal/log"
-	types "github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 // Server represents the server structure
@@ -17,10 +17,22 @@ type Server struct {
 // to call rpc methods.
 type HandlerRPC struct{}
 
+// HandlerJsonRpc contains the JSON-RPC method functions.
+type HandlerJsonRpc struct {
+	StructRpc interface{}
+}
+
+// NewHandlerJsonRpc creates a new HandlerJsonRpc
+func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
+	return &HandlerJsonRpc{StructRpc: rpc}
+}
+
 // NewServer creates a new server.
 func NewServer(addr string) *Server {
-	mr := NewHandlerJsonRpc(HandlerRPC{})
-	http.Handle("/rpc", mr)
+	// XXX: There is a potential security concern with the use of the
+	// http.DefaultServeMux because everyone has access to it. It is far
+	// better to instantiate a new one in this case.
+	http.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{}))
 	return &Server{
 		server: http.Server{Addr: addr, Handler: http.DefaultServeMux},
 	}

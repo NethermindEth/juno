@@ -184,7 +184,6 @@ func parseArgumentArray(
 		}
 		log.Default.With("Kind", argumentValue.Elem().Kind()).Info("Checking kind")
 		if argumentValue.Elem().Kind() == reflect.Struct {
-
 			fields := argumentValue.Elem()
 			log.Default.With("Number of fields", fields.NumField()).Debug("Parsing Parameters")
 			for i := 0; i < fields.NumField(); i++ {
@@ -195,7 +194,6 @@ func parseArgumentArray(
 					// notest
 					return arguments, errors.New("required field is missing")
 				}
-
 			}
 		}
 		arguments = append(arguments, argumentValue.Elem())
@@ -273,12 +271,14 @@ func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response 
 		return res
 	}
 
-	// Get all the types of the arguments of the function that is going to be called
+	// Get all the types of the arguments of the function that is going to
+	// be called
 	argumentTypes, hasContext := makeArgumentTypes(function.Func, structToCall)
 	var args []reflect.Value
 	var err error
 	if r.Params != nil {
-		// Parse all the params received in the request and cast it to the types of the function that is going to be called
+		// Parse all the params received in the request and cast it to the
+		// types of the function that is going to be called
 		args, err = parseArguments(*r.Params, argumentTypes)
 		if err != nil {
 			if strings.Contains(err.Error(), "too many arguments, want at most") {

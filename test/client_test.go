@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-const TestRPCEndpoint = "https://alpha4.starknet.io"
+const endpoint = "https://alpha4.starknet.io"
 
 func newClient() (*rpc.Client, error) {
-	return rpc.Dial(TestRPCEndpoint)
+	return rpc.Dial(endpoint)
 }
 
 func TestClient_GetBlockByHash(t *testing.T) {

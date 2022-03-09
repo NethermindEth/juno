@@ -53,10 +53,8 @@ func (h *Handler) Close() {
 			context.Background(), time.Now().Add(5*time.Second))
 		proc.stop(ctx)
 		// TODO: Use errpkg.Check to handle this error.
-		// NOTE: A more descriptive error message might be "Error occurred
-		// while closing process".
 		if proc.err != nil {
-			log.Default.With("Error", proc.err).Error("Error occurred while closing process")
+			log.Default.With("Error", proc.err).Error("Error occurred while closing process.")
 		}
 		cancel()
 	}

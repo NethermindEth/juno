@@ -37,7 +37,7 @@ type (
 
 // ParseRequest parses a HTTP request to JSON-RPC request.
 func ParseRequest(r *http.Request) ([]*Request, bool, *Error) {
-	var rerr *Error
+	var reqErr *Error
 
 	if !strings.HasPrefix(r.Header.Get(contentTypeKey), contentTypeValue) {
 		// notest
@@ -53,7 +53,7 @@ func ParseRequest(r *http.Request) ([]*Request, bool, *Error) {
 		err := r.Body.Close()
 		if err != nil {
 			// notest
-			rerr = ErrInternal()
+			reqErr = ErrInternal()
 		}
 	}(r)
 
@@ -86,7 +86,7 @@ func ParseRequest(r *http.Request) ([]*Request, bool, *Error) {
 		return nil, false, ErrParse()
 	}
 
-	return rs, true, rerr
+	return rs, true, reqErr
 }
 
 // NewResponse generates a JSON-RPC response.
