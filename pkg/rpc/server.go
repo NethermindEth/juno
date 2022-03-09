@@ -29,9 +29,6 @@ func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
 
 // NewServer creates a new server.
 func NewServer(addr string) *Server {
-	// XXX: There is a potential security concern with the use of the
-	// http.DefaultServeMux because everyone has access to it. It is far
-	// better to instantiate a new one in this case.
 	mux := http.NewServeMux()
 	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{}))
 	return &Server{
