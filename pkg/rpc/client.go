@@ -17,7 +17,7 @@ func Dial(rawUrl string) (*Client, error) {
 	return DialContext(context.Background(), rawUrl)
 }
 
-// TODO: Document.
+// DialContext creates a new RPC client, just like Dial.
 func DialContext(ctx context.Context, rawUrl string) (*Client, error) {
 	c, err := rpc.DialContext(ctx, rawUrl)
 	if err != nil {
@@ -31,7 +31,7 @@ func NewClient(c *rpc.Client) *Client {
 	return &Client{c}
 }
 
-// TODO: Document.
+// Close rpc client connection
 func (ec *Client) Close() {
 	ec.c.Close()
 }

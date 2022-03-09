@@ -202,6 +202,11 @@ func TestDelete(t *testing.T) {
 		t.Fail()
 		return
 	}
+	err = database.Delete(goodKey)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+	}
 }
 
 func TestBegin(t *testing.T) {
