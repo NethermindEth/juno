@@ -32,9 +32,10 @@ func NewServer(addr string) *Server {
 	// XXX: There is a potential security concern with the use of the
 	// http.DefaultServeMux because everyone has access to it. It is far
 	// better to instantiate a new one in this case.
-	http.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{}))
+	mux := http.NewServeMux()
+	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{}))
 	return &Server{
-		server: http.Server{Addr: addr, Handler: http.DefaultServeMux},
+		server: http.Server{Addr: addr, Handler: mux},
 	}
 }
 
