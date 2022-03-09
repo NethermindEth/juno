@@ -2,7 +2,7 @@ package test
 
 import (
 	"github.com/NethermindEth/juno/cmd/juno/cli"
-	"github.com/google/go-cmp/cmp"
+	"github.com/NethermindEth/juno/internal/ospkg"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path/filepath"
@@ -10,17 +10,11 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	tmp := t.TempDir()
-	err := cli.DefaultConfig(tmp)
-	if err != nil {
-		t.Fail()
-	}
-	dbPath := filepath.Join(tmp, cli.ProjectDir, cli.DbPath)
-	original := cli.NewConfig(dbPath)
+	cli.GenerateConfig()
 
-	finalPath := filepath.Join(tmp, cli.ProjectDir, cli.CfgFileName)
+	cfgPath := filepath.Join(ospkg.ConfigDir, "juno", "juno.yaml")
 
-	contents, err := ioutil.ReadFile(finalPath)
+	contents, err := ioutil.ReadFile(cfgPath)
 
 	if err != nil {
 		t.Fatal(err)
@@ -33,8 +27,4 @@ func TestConfig(t *testing.T) {
 	if err2 != nil {
 		t.Fatal(err2)
 	}
-	if !cmp.Equal(&data, original) {
-		t.Fail()
-	}
-
 }
