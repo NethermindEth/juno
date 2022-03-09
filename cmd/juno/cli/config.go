@@ -23,7 +23,7 @@ func GenerateConfig() {
 	}
 
 	data, err := yaml.Marshal(&Config{
-		Rpc:    rpcConfig{Enabled: true, Port: 8080},
+		Rpc:    rpcConfig{Enabled: false, Port: 8080},
 		DbPath: filepath.Join(ospkg.DataDir, "juno"),
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")

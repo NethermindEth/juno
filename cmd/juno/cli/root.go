@@ -115,7 +115,6 @@ func initConfig() {
 	}
 
 	// Log configuration values.
-	var cfg *Config
 	err = viper.Unmarshal(&cfg)
 	if err != nil {
 		log.Default.With("Error", err).Panic("Unable to unmarshal configuration.")
