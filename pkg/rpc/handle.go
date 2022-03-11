@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
-	errorType   = reflect.TypeOf((*error)(nil)).Elem()
+	contextType      = reflect.TypeOf((*context.Context)(nil)).Elem()
+	errorType        = reflect.TypeOf((*error)(nil)).Elem()
+	errorTooManyArgs = errors.New("too many arguments")
 )
 
 // Handler links a method of JSON-RPC request.
@@ -171,14 +172,25 @@ func parseArgs(
 func parseArgSlice(
 	decoder *json.Decoder, types []reflect.Type,
 ) ([]reflect.Value, error) {
+	decoder.UseNumber()
+
 	args := make([]reflect.Value, 0, len(types))
 	for i := 0; decoder.More(); i++ {
 		if i >= len(types) {
-			return args, fmt.Errorf(
-				"too many arguments, requires at most %d", len(types))
+			err := errorTooManyArgs
+			log.Default.With("Error", err, "Requires at most ", len(types))
+			return args, err
 		}
 		val := reflect.New(types[i])
 		if err := decoder.Decode(val.Interface()); err != nil {
+			//if val.Elem().Kind() == reflect.Int64 && errType.Value == "number" {
+			//	var msgUser msgUserIntVal
+			//	err = json.Unmarshal(payload, &msgUser)
+			//	if nil == err {
+			//		msgUser.User.StrValue = strconv.Itoa(msgUser.StrValue)
+			//		user = *msgUser.User
+			//	}
+			//}
 			return args, fmt.Errorf("invalid argument %d: %v", i, err)
 		}
 		if val.IsNil() && types[i].Kind() != reflect.Ptr {
@@ -289,7 +301,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 		if err != nil {
 			// XXX: Use more robust error handling instead of just matching
 			// against a substring.
-			if strings.Contains(err.Error(), "too many arguments, want at most") {
+			if err == errorTooManyArgs {
 				log.Default.Info("Searching for overload...")
 				structToCall = reflect.ValueOf(h.StructRpc)
 
