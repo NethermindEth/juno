@@ -52,6 +52,7 @@ func init() {
 
 	// Set user data directory.
 	DataDir, err = func() (string, error) {
+		// notest
 		switch runtime.GOOS {
 		case "windows":
 			// On Windows ConfigDir and DataDir share the same path. See:
@@ -72,6 +73,7 @@ func New() {
 	log.Default.With("Path", f).Info("Creating default config.")
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
+		// notest
 		err := os.MkdirAll(Dir, 0755)
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}

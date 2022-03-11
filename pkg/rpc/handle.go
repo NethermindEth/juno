@@ -335,6 +335,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 				}
 				log.Default.Info("Contains optional params, calling Overhead...")
 			} else {
+				// notest
 				log.Default.With(
 					"Method", r.Method,
 					"Params", r.Params,
