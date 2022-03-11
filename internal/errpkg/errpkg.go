@@ -7,22 +7,15 @@
 //  - https://github.com/golang/proposal/blob/master/design/go2draft-error-handling.md
 package errpkg
 
+// notest
 import (
 	"os"
 
 	"github.com/NethermindEth/juno/internal/log"
 )
 
-// Check checks whether an error occurred and logs it using the default
-// logger.
-func Check(err error, msg string) {
-	if err != nil {
-		log.Default.With("Error", err).Error(msg)
-	}
-}
-
-// Check checks whether an error occurred, logs it using the default
-// logger, and then
+// CheckFatal checks whether an error occurred, logs it using the default
+// logger, and then calls os.Exit(1).
 func CheckFatal(err error, msg string) {
 	if err != nil {
 		log.Default.With("Error", err).Error(msg)
