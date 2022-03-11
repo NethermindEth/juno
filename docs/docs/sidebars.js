@@ -17,7 +17,8 @@ module.exports = {
             ],
         },
         {
-            "Integrations": [
+            "Future Implementations": [
+                'feeder-gateway',
                 'cairo-integration',
                 'starknet-cryptography',
                 'starknet-state',
