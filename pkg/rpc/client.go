@@ -3,61 +3,62 @@ package rpc
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/pkg/types"
-	"github.com/ethereum/go-ethereum/rpc"
+	grpc "github.com/ethereum/go-ethereum/rpc"
 )
 
-// Client defines typed wrappers for the StarkNet RPC API.
+// Client is a wrapper around Go Ethereum's rpc.Client struct.
 type Client struct {
-	c *rpc.Client
+	ptr *grpc.Client
 }
 
-// Dial connects a client to the given URL.
-func Dial(rawUrl string) (*Client, error) {
-	return DialContext(context.Background(), rawUrl)
+// Close closes the client RPC connection.
+func (c *Client) Close() {
+	c.ptr.Close()
 }
 
-// DialContext creates a new RPC client, just like Dial.
-func DialContext(ctx context.Context, rawUrl string) (*Client, error) {
-	c, err := rpc.DialContext(ctx, rawUrl)
+// GetBlockByHash gets block information by hash.
+func (c *Client) GetBlockByHash(
+	ctx context.Context, blockHash BlockHash, requestedScope RequestedScope,
+) (*BlockResponse, error) {
+	// var res BlockResponse
+	// err := c.ptr.CallContext(
+	// 	ctx, &res, "starknet_getBlockByHash", blockHash, requestedScope)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return &res, err
+	return &BlockResponse{}, nil
+}
+
+// GetBlockByNumber gets block information by block number.
+func (ec *Client) GetBlockByNumber(
+	ctx context.Context, blockHash BlockHash, requestedScope RequestedScope,
+) (*BlockResponse, error) {
+	// var res BlockResponse
+	// err := ec.ptr.CallContext(
+	// 	ctx, &res, "starknet_getBlockByNumber", blockHash, requestedScope)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return &res, err
+	return &BlockResponse{}, nil
+}
+
+// NewClient creates a new rpc.Client from a Go Ethereum's rpc.Client.
+func NewClient(ptr *grpc.Client) *Client {
+	return &Client{ptr}
+}
+
+// dialContext returns a new rpc.Client or returns an error otherwise.
+func dialContext(ctx context.Context, rawUrl string) (*Client, error) {
+	c, err := grpc.DialContext(ctx, rawUrl)
 	if err != nil {
 		return nil, err
 	}
 	return NewClient(c), nil
 }
 
-// NewClient creates a client that uses the given RPC client.
-func NewClient(c *rpc.Client) *Client {
-	return &Client{c}
-}
-
-// Close rpc client connection
-func (ec *Client) Close() {
-	ec.c.Close()
-}
-
-// StarkNet Access
-
-// GetBlockByHash Get block information given the block id
-func (ec *Client) GetBlockByHash(ctx context.Context, blockHash types.BlockHash, requestedScope types.RequestedScope) (*types.BlockResponse, error) {
-	// Should be something like this
-	//var result BlockResponse
-	//err := ec.c.CallContext(ctx, &result, "starknet_getBlockByHash", blockHash, requestedScope)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return &result, err
-	return &types.BlockResponse{}, nil
-}
-
-// GetBlockByNumber Get block information given the block number
-func (ec *Client) GetBlockByNumber(ctx context.Context, blockHash types.BlockHash, requestedScope types.RequestedScope) (*types.BlockResponse, error) {
-	// Should be something like this
-	//var result BlockResponse
-	//err := ec.c.CallContext(ctx, &result, "starknet_getBlockByNumber", blockHash, requestedScope)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return &result, err
-	return &types.BlockResponse{}, nil
+// Dial connects a client to the given URL.
+func Dial(rawUrl string) (*Client, error) {
+	return dialContext(context.Background(), rawUrl)
 }

@@ -1,30 +1,23 @@
 package test
 
 import (
-	"github.com/NethermindEth/juno/cmd/juno/cli"
-	"github.com/NethermindEth/juno/internal/ospkg"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/NethermindEth/juno/internal/config"
+	"gopkg.in/yaml.v2"
 )
 
 func TestConfig(t *testing.T) {
-	cli.GenerateConfig()
-
-	cfgPath := filepath.Join(ospkg.ConfigDir, "juno", "juno.yaml")
-
-	contents, err := ioutil.ReadFile(cfgPath)
-
+	config.New()
+	f, err := os.ReadFile(filepath.Join(config.Dir, "juno.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	data := cli.Config{}
-
-	err2 := yaml.Unmarshal(contents, &data)
-
-	if err2 != nil {
-		t.Fatal(err2)
+	var cfg *config.Config
+	err = yaml.Unmarshal(f, &cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

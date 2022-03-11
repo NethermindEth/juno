@@ -5,18 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/NethermindEth/juno/pkg/rpc"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/NethermindEth/juno/pkg/rpc"
 )
 
 func getServerHandler() *rpc.HandlerJsonRpc {
-	server := rpc.NewHandlerJsonRpc(rpc.HandlerRPC{})
-	return server
+	return rpc.NewHandlerJsonRpc(rpc.HandlerRPC{})
 }
 
 type rpcTest struct {
@@ -33,7 +33,7 @@ func testServer(t *testing.T, tests []rpcTest) {
 		req.Header.Set("Content-Type", "application/json")
 		server.ServeHTTP(w, req)
 		res := w.Result()
-		data, err := ioutil.ReadAll(res.Body)
+		data, err := io.ReadAll(res.Body)
 		if err != nil {
 			t.Errorf("expected error to be nil got %v", err)
 			_ = res.Body.Close()
@@ -57,7 +57,7 @@ func TestRPCServer(t *testing.T) {
 	// defer the closing of our jsonFile so that we can parse it later on
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 
 	// we initialize our Users array
 	var tests []rpcTest

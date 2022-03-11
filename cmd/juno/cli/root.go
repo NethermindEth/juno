@@ -4,36 +4,22 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/process"
-	"github.com/NethermindEth/juno/pkg/rpc"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
+	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/internal/ospkg"
+	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// rpcConfig represents the juno RPC configuration.
-type rpcConfig struct {
-	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
-	Port    int  `yaml:"port" mapstructure:"port"`
-}
-
-// Config represents the juno configuration.
-type Config struct {
-	Rpc    rpcConfig `yaml:"rpc" mapstructure:"rpc"`
-	DbPath string    `yaml:"db_path" mapstructure:"db_path"`
-}
-
 // Cobra configuration.
 var (
-	// General configuration.
-	cfg *Config
 	// cfgFile is the path of the juno configuration file.
 	cfgFile string
 	// longMsg is the long message shown in the "juno --help" output.
@@ -61,9 +47,9 @@ var (
 				os.Exit(0)
 			}()
 
-			// Subscribe the RPC client to the main loop if it is enable in
-			// the Config.
-			if cfg.Rpc.Enabled {
+			// Subscribe the RPC client to the main loop if it is enabled in
+			// the config.
+			if config.Runtime.Rpc.Enabled {
 				s := rpc.NewServer(":8080")
 				handler.Add("RPC", s.ListenAndServe, s.Close)
 			}
@@ -82,9 +68,8 @@ func init() {
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "Config", "", fmt.Sprintf(
-		"Config file (default is %s)",
-		filepath.Join(ospkg.ConfigDir, "juno", "juno.yaml")))
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf(
+		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
 }
 
 // initConfig reads in Config file or environment variables if set.
@@ -93,7 +78,8 @@ func initConfig() {
 		// Use Config file specified by the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.AddConfigPath(filepath.Join(ospkg.ConfigDir, "juno"))
+		// Use the default path for user configuration.
+		viper.AddConfigPath(config.Dir)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("juno")
 	}
@@ -104,27 +90,22 @@ func initConfig() {
 
 	err := viper.ReadInConfig()
 	if err == nil {
-		log.Default.With("File", viper.ConfigFileUsed()).Info("Using Config file:")
+		log.Default.With("File", viper.ConfigFileUsed()).Info("Using config file:")
 	} else {
 		log.Default.Info("Config file not found.")
-
-		GenerateConfig()
-
+		config.New()
 		err = viper.ReadInConfig()
 		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
 	}
 
-	// Log configuration values.
-	err = viper.Unmarshal(&cfg)
-	if err != nil {
-		log.Default.With("Error", err).Panic("Unable to unmarshal configuration.")
-		return
-	}
+	// Unmarshal and log runtime config instance.
+	err = viper.Unmarshal(&config.Runtime)
+	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
 	log.Default.With(
-		"Database Path", cfg.DbPath,
-		"Rpc Port", cfg.Rpc.Port,
-		"Rpc Enabled", cfg.Rpc.Enabled,
-	).Info("Configuration values.")
+		"Database Path", config.Runtime.DbPath,
+		"Rpc Port", config.Runtime.Rpc.Port,
+		"Rpc Enabled", config.Runtime.Rpc.Enabled,
+	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.

@@ -30,30 +30,31 @@ type (
 
 // Error implements error interface.
 func (e *Error) Error() string {
-	return fmt.Sprintf("jsonrpc: code: %d, message: %s, data: %+v", e.Code, e.Message, e.Data)
+	return fmt.Sprintf(
+		"rpc: code: %d, message: %s, data: %+v", e.Code, e.Message, e.Data)
 }
 
 // ErrParse returns parse error.
 func ErrParse() *Error {
-	return &Error{Code: ErrorCodeParse, Message: "Parse error"}
+	return &Error{Code: ErrorCodeParse, Message: "Parse error."}
 }
 
 // ErrInvalidRequest returns invalid request error.
 func ErrInvalidRequest() *Error {
-	return &Error{Code: ErrorCodeInvalidRequest, Message: "Invalid Request"}
+	return &Error{Code: ErrorCodeInvalidRequest, Message: "Invalid request."}
 }
 
 // ErrMethodNotFound returns method not found error.
 func ErrMethodNotFound() *Error {
-	return &Error{Code: ErrorCodeMethodNotFound, Message: "Method not found"}
+	return &Error{Code: ErrorCodeMethodNotFound, Message: "Method not found."}
 }
 
 // ErrInvalidParams returns invalid params error.
 func ErrInvalidParams() *Error {
-	return &Error{Code: ErrorCodeInvalidParams, Message: "Invalid params"}
+	return &Error{Code: ErrorCodeInvalidParams, Message: "Invalid params."}
 }
 
 // ErrInternal returns internal error.
 func ErrInternal() *Error {
-	return &Error{Code: ErrorCodeInternal, Message: "Internal error"}
+	return &Error{Code: ErrorCodeInternal, Message: "Internal error."}
 }

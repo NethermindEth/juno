@@ -17,8 +17,8 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
-func setupDatabaseForTest(path string) *db.KVDatabase {
-	return db.NewDatabase(path, 0)
+func setupDatabaseForTest(path string) *db.KeyValueDb {
+	return db.New(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -34,7 +34,7 @@ func TestAddKey(t *testing.T) {
 // TestNumberOfItems Checks that in every moment the collection contains the right amount of items
 func TestNumberOfItems(t *testing.T) {
 	database := setupDatabaseForTest(t.TempDir())
-	n, err := database.NumberOfItems()
+	n, err := database.Count()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -53,7 +53,7 @@ func TestNumberOfItems(t *testing.T) {
 			return
 		}
 	}
-	n, err = database.NumberOfItems()
+	n, err = database.Count()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -76,7 +76,7 @@ func TestAddMultipleKeys(t *testing.T) {
 			return
 		}
 	}
-	n, err := database.NumberOfItems()
+	n, err := database.Count()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -233,7 +233,7 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 			return
 		}
 	}
-	n, err := database.NumberOfItems()
+	n, err := database.Count()
 	if err != nil {
 		b.Errorf("Benchmarking fails, error getting the number of items: %s\n", err)
 		b.Fail()

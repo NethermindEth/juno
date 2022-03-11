@@ -1,2 +1,3 @@
-// Package rpc represent all the set of instructions related to rpc calls, over JSON-RPC 2.0
+// Package rpc provides functionality related to making JSON RPC 2.0 API
+// calls supported by juno.
 package rpc

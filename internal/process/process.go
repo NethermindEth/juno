@@ -1,3 +1,4 @@
+// Package process provides a handler to manage processes.
 package process
 
 // notest
@@ -31,7 +32,7 @@ type Processer interface {
 
 // Handler holds a collection of sub-processes.
 type Handler struct {
-	subprocesses []*process
+	subprocs []*process
 }
 
 // NewHandler creates a new process.Handler.
@@ -40,19 +41,18 @@ func NewHandler() *Handler {
 }
 
 // Start starts a process.
-func (proc *process) Start() (err error) {
-	return proc.run()
+func (p *process) Start() (err error) {
+	return p.run()
 }
 
 // Close closes all running processes.
 func (h *Handler) Close() {
 	// Clear all processes.
-	for _, proc := range h.subprocesses {
+	for _, proc := range h.subprocs {
 		// Set 5 second timeout.
 		ctx, cancel := context.WithDeadline(
 			context.Background(), time.Now().Add(5*time.Second))
 		proc.stop(ctx)
-		// TODO: Use errpkg.Check to handle this error.
 		if proc.err != nil {
 			log.Default.With("Error", proc.err).Error("Error occurred while closing process.")
 		}
@@ -62,7 +62,7 @@ func (h *Handler) Close() {
 
 // Add adds a process to the list of processes in the Handler.
 func (h *Handler) Add(id string, fnRun runFunc, fnStop stopFunc) {
-	h.subprocesses = append(h.subprocesses, &process{
+	h.subprocs = append(h.subprocs, &process{
 		id:   id,
 		run:  fnRun,
 		stop: fnStop,
@@ -71,16 +71,16 @@ func (h *Handler) Add(id string, fnRun runFunc, fnStop stopFunc) {
 
 // Run runs all the processes.
 func (h *Handler) Run() {
-	if len(h.subprocesses) == 0 {
+	if len(h.subprocs) == 0 {
 		log.Default.Info("No processes found.")
 		return
 	}
 
-	for _, proc := range h.subprocesses {
-		go func(process *process) {
-			err := process.Start()
+	for _, proc := range h.subprocs {
+		go func(p *process) {
+			err := p.Start()
 			if err != nil {
-				process.err = err
+				p.err = err
 				return
 			}
 		}(proc)

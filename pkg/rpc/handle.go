@@ -31,40 +31,44 @@ type Handler interface {
 // HandlerFunc type is an adapter that allows the use of Go functions as
 // JSON-RPC handlers. If f is such a function with the appropriate
 // signature, HandlerFunc(f) is a JSON-RPC.Handler that calls f.
-type HandlerFunc func(c context.Context, params *json.RawMessage) (result interface{}, err *Error)
+type HandlerFunc func(
+	c context.Context, params *json.RawMessage,
+) (result interface{}, err *Error)
 
 // ServeJSONRPC calls a function f(w, r).
-func (f HandlerFunc) ServeJSONRPC(c context.Context, params *json.RawMessage) (result interface{}, err *Error) {
+func (f HandlerFunc) ServeJSONRPC(
+	c context.Context, params *json.RawMessage,
+) (result interface{}, err *Error) {
 	// notest
 	return f(c, params)
 }
 
 // ServeHTTP provides basic JSON-RPC handling.
-func (mr *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rs, batch, err := ParseRequest(r)
 	if err != nil {
 		err := SendResponse(w, []*Response{{Version: Version, Error: err}}, false)
 		if err != nil {
 			// notest
-			log.Default.With("Error", err).Info("Failed to encode error objects")
+			log.Default.With("Error", err).Info("Failed to encode error object.")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
 	}
 
-	resp := make([]*Response, len(rs))
-	for i := range rs {
-		resp[i] = mr.InvokeMethod(r.Context(), rs[i])
+	res := make([]*Response, len(rs))
+	for i, req := range rs {
+		res[i] = h.InvokeMethod(r.Context(), req)
 	}
 
-	if err := SendResponse(w, resp, batch); err != nil {
+	if err := SendResponse(w, res, batch); err != nil {
 		// notest
-		log.Default.With("Error", err).Info("Failed to encode result objects")
+		log.Default.With("Error", err).Info("Failed to encode result object.")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
-// Does t satisfy the error interface?
+// isErrorType checks whether t implements the error interface.
 func isErrorType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		// notest
@@ -75,12 +79,12 @@ func isErrorType(t reflect.Type) bool {
 
 // checkReturn verifies the return types. The function must return at
 // most one error and/or one other non-error value.
-func checkReturn(functionType reflect.Type) int {
+func checkReturn(fnType reflect.Type) int {
 	// Create a representation for each type of the Outputs of the
 	// function.
-	outs := make([]reflect.Type, functionType.NumOut())
-	for i := 0; i < functionType.NumOut(); i++ {
-		outs[i] = functionType.Out(i)
+	outs := make([]reflect.Type, fnType.NumOut())
+	for i := 0; i < fnType.NumOut(); i++ {
+		outs[i] = fnType.Out(i)
 	}
 	if len(outs) > 2 {
 		// notest
@@ -102,11 +106,9 @@ func checkReturn(functionType reflect.Type) int {
 	return 0
 }
 
-// makeArgumentTypes composes the argTypes list.
-func makeArgumentTypes(
-	function, receiver reflect.Value,
-) ([]reflect.Type, bool) {
-	functionType := function.Type()
+// makeArgTypes composes the argTypes list.
+func makeArgTypes(fn, receiver reflect.Value) ([]reflect.Type, bool) {
+	funcType := fn.Type()
 	hasContext := false
 
 	// Skip receiver and context.Context parameter (if present).
@@ -114,27 +116,27 @@ func makeArgumentTypes(
 	if receiver.IsValid() {
 		firstArg++
 	}
-	if functionType.NumIn() > firstArg && functionType.In(firstArg) == contextType {
+	if funcType.NumIn() > firstArg && funcType.In(firstArg) == contextType {
 		hasContext = true
 		firstArg++
 	}
 	// Add all remaining parameters.
-	argumentTypes := make([]reflect.Type, functionType.NumIn()-firstArg)
-	for i := firstArg; i < functionType.NumIn(); i++ {
-		argumentTypes[i-firstArg] = functionType.In(i)
+	argTypes := make([]reflect.Type, funcType.NumIn()-firstArg)
+	for i := firstArg; i < funcType.NumIn(); i++ {
+		argTypes[i-firstArg] = funcType.In(i)
 	}
-	return argumentTypes, hasContext
+	return argTypes, hasContext
 }
 
-// parseArguments tries to parse the given arguments into an array of
-// values with the given types or the corresponding type. It returns the
-// parsed values or an error otherwise. Missing optional arguments are
-// returned as reflect.Zero values.
-func parseArguments(
+// parseArgs tries to parse the given arguments into an array of values
+// with the given types or the corresponding type. It returns the parsed
+// values or an error otherwise. Missing optional arguments are returned
+// as reflect.Zero values.
+func parseArgs(
 	rawMessage json.RawMessage, types []reflect.Type,
 ) ([]reflect.Value, error) {
 	decoder := json.NewDecoder(bytes.NewReader(rawMessage))
-	var arguments []reflect.Value
+	var args []reflect.Value
 	token, err := decoder.Token()
 	switch {
 	// notest
@@ -146,7 +148,7 @@ func parseArguments(
 		return nil, err
 	case token == json.Delim('['):
 		// Read argument array.
-		if arguments, err = parseArgumentArray(decoder, types); err != nil {
+		if args, err = parseArgSlice(decoder, types); err != nil {
 			return nil, err
 		}
 	default:
@@ -154,75 +156,77 @@ func parseArguments(
 		return nil, errors.New("non-array or struct arguments")
 	}
 	// Set any missing arguments to nil.
-	for i := len(arguments); i < len(types); i++ {
+	for i := len(args); i < len(types); i++ {
 		// notest
 		if types[i].Kind() != reflect.Ptr {
 			return nil, fmt.Errorf("missing value for required argument %d", i)
 		}
-		arguments = append(arguments, reflect.Zero(types[i]))
+		args = append(args, reflect.Zero(types[i]))
 	}
-	return arguments, nil
+	return args, nil
 }
 
-// parseArgumentArray iterate overs each types and tries to parse the
-// given arguments to an array of values.
-func parseArgumentArray(
-	dec *json.Decoder, types []reflect.Type,
+// parseArgSlice iterate overs each types and tries to parse the given
+// arguments to an array of values.
+func parseArgSlice(
+	decoder *json.Decoder, types []reflect.Type,
 ) ([]reflect.Value, error) {
-	arguments := make([]reflect.Value, 0, len(types))
-	for i := 0; dec.More(); i++ {
+	args := make([]reflect.Value, 0, len(types))
+	for i := 0; decoder.More(); i++ {
 		if i >= len(types) {
-			return arguments, fmt.Errorf("too many arguments, want at most %d", len(types))
+			return args, fmt.Errorf(
+				"too many arguments, requires at most %d", len(types))
 		}
-		argumentValue := reflect.New(types[i])
-		if err := dec.Decode(argumentValue.Interface()); err != nil {
-			return arguments, fmt.Errorf("invalid argument %d: %v", i, err)
+		val := reflect.New(types[i])
+		if err := decoder.Decode(val.Interface()); err != nil {
+			return args, fmt.Errorf("invalid argument %d: %v", i, err)
 		}
-		if argumentValue.IsNil() && types[i].Kind() != reflect.Ptr {
+		if val.IsNil() && types[i].Kind() != reflect.Ptr {
 			// notest
-			return arguments, fmt.Errorf("missing value for required argument %d", i)
+			return args, fmt.Errorf("missing value for required argument %d", i)
 		}
-		log.Default.With("Kind", argumentValue.Elem().Kind()).Info("Checking kind")
-		if argumentValue.Elem().Kind() == reflect.Struct {
-			fields := argumentValue.Elem()
-			log.Default.With("Number of fields", fields.NumField()).Debug("Parsing Parameters")
+		log.Default.With("Kind", val.Elem().Kind()).Info("Checking kind.")
+		if val.Elem().Kind() == reflect.Struct {
+			fields := val.Elem()
+			log.Default.With("Number of fields", fields.NumField()).Debug("Parsing parameters.")
 			for i := 0; i < fields.NumField(); i++ {
 				t := fields.Type().Name()
-				requiredTag := fields.Type().Field(i).Tag.Get("required")
-				log.Default.With("Type", t, "Tag", requiredTag).Debug("Parsing Parameter")
-				if strings.Contains(requiredTag, "true") && fields.Field(i).IsZero() {
+				tag := fields.Type().Field(i).Tag.Get("required")
+				log.Default.With("Type", t, "Tag", tag).Debug("Parsing parameter.")
+				if strings.Contains(tag, "true") && fields.Field(i).IsZero() {
 					// notest
-					return arguments, errors.New("required field is missing")
+					// XXX: Highlight which missing field this is.
+					return args, errors.New("missing required field")
 				}
 			}
 		}
-		arguments = append(arguments, argumentValue.Elem())
+		args = append(args, val.Elem())
 	}
 	// Read end of arguments array.
-	_, err := dec.Token()
-	return arguments, err
+	_, err := decoder.Token()
+	return args, err
 }
 
-// callFunction invokes the function called.
-func callFunction(
+// callFunc invokes the function called.
+func callFunc(
 	ctx context.Context,
 	method string,
-	arguments []reflect.Value,
-	function,
+	args []reflect.Value,
+	fn,
 	receiver reflect.Value,
 	hasContext bool,
 	errResponsePosition int,
 ) (res interface{}, errRes error) {
 	log.Default.With("Method", method).Info("Calling RPC function.")
 	// Create the argument slice.
-	fullArguments := make([]reflect.Value, 0, 2+len(arguments))
+	fullArgs := make([]reflect.Value, 0, 2+len(args))
 	if receiver.IsValid() {
-		fullArguments = append(fullArguments, receiver)
+		fullArgs = append(fullArgs, receiver)
 	}
 	if hasContext {
-		fullArguments = append(fullArguments, reflect.ValueOf(ctx))
+		fullArgs = append(fullArgs, reflect.ValueOf(ctx))
 	}
-	fullArguments = append(fullArguments, arguments...)
+	fullArgs = append(fullArgs, args...)
 
 	// Catch panic while running the callback.
 	defer func() {
@@ -234,15 +238,15 @@ func callFunction(
 			log.Default.With(
 				"Method", method,
 				"Error", fmt.Sprintf("%v\n%s", err, buf),
-				"Arguments", arguments,
+				"Arguments", args,
 				"Has Context", hasContext,
-				"Error Response Position", errResponsePosition).
-				Error("RPC method crashed")
+				"Error Response Position", errResponsePosition,
+			).Error("RPC method crashed.")
 			errRes = errors.New("method handler crashed")
 		}
 	}()
 	// Run the function.
-	results := function.Call(fullArguments)
+	results := fn.Call(fullArgs)
 	if len(results) == 0 {
 		// notest
 		return nil, nil
@@ -257,66 +261,85 @@ func callFunction(
 }
 
 // InvokeMethod invokes JSON-RPC method.
-func (mr *HandlerJsonRpc) InvokeMethod(c context.Context, r *Request) *Response {
+func (h *HandlerJsonRpc) InvokeMethod(
+	c context.Context, r *Request,
+) *Response {
 	res := NewResponse(r)
-	structToCall := reflect.ValueOf(mr.StructRpc)
+	structToCall := reflect.ValueOf(h.StructRpc)
 
 	// Check that the struct contains the method called
-	function, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
+	fn, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
 	if !ok {
 		// notest
-		log.Default.With("Method", r.Method).Error("Method didn't exist")
+		log.Default.With("Method", r.Method).Error("Method does not exist.")
 		res.Result = nil
 		res.Error = ErrMethodNotFound()
 		return res
 	}
 
 	// Get all the types of the arguments of the function that is going to
-	// be called
-	argumentTypes, hasContext := makeArgumentTypes(function.Func, structToCall)
+	// be called.
+	argTypes, hasContext := makeArgTypes(fn.Func, structToCall)
 	var args []reflect.Value
 	var err error
 	if r.Params != nil {
 		// Parse all the params received in the request and cast it to the
-		// types of the function that is going to be called
-		args, err = parseArguments(*r.Params, argumentTypes)
+		// types of the function that is going to be called.
+		args, err = parseArgs(*r.Params, argTypes)
 		if err != nil {
+			// XXX: Use more robust error handling instead of just matching
+			// against a substring.
 			if strings.Contains(err.Error(), "too many arguments, want at most") {
 				log.Default.Info("Searching for overload...")
-				structToCall = reflect.ValueOf(mr.StructRpc)
+				structToCall = reflect.ValueOf(h.StructRpc)
 
-				// Check that the struct contains the method called
-				function, ok = structToCall.Type().MethodByName(strcase.ToCamel(r.Method) + "Opt")
+				// Check that the struct contains the method called.
+				fn, ok = structToCall.Type().MethodByName(
+					strcase.ToCamel(r.Method) + "Opt")
 				if !ok {
 					// notest
-					log.Default.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+					log.Default.With(
+						"Method", r.Method,
+						"Params", r.Params,
+						"Error", err,
+					).Error("Invalid params.")
 					res.Result = nil
 					res.Error = ErrInvalidParams()
 					return res
 				}
-				argumentTypes, hasContext = makeArgumentTypes(function.Func, structToCall)
+				argTypes, hasContext = makeArgTypes(fn.Func, structToCall)
 
-				args, err = parseArguments(*r.Params, argumentTypes)
+				args, err = parseArgs(*r.Params, argTypes)
 				if err != nil {
 					// notest
-					log.Default.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+					log.Default.With(
+						"Method", r.Method,
+						"Params", r.Params,
+						"Error", err,
+					).Error("Invalid params")
 					res.Result = nil
 					res.Error = ErrInvalidParams()
 					return res
 				}
 				log.Default.Info("Contains optional params, calling Overhead...")
 			} else {
-				log.Default.With("Method", r.Method, "Params", r.Params, "Error", err).Error("Invalid params")
+				log.Default.With(
+					"Method", r.Method,
+					"Params", r.Params,
+					"Error", err,
+				).Error("Invalid params.")
 				res.Result = nil
 				res.Error = ErrInvalidParams()
 				return res
 			}
 		}
 	}
-	// Check the return of the function and get the error position (Methods should always return and error)
-	errPos := checkReturn(function.Type)
+	// Check the return of the function and get the error position
+	// (Methods should always return and report an error).
+	errPos := checkReturn(fn.Type)
 	// Call the function
-	resFromCall, err := callFunction(c, r.Method, args, function.Func, structToCall, hasContext, errPos)
+	resFromCall, err := callFunc(
+		c, r.Method, args, fn.Func, structToCall, hasContext, errPos)
 	if err != nil {
 		// notest
 		log.Default.With(
