@@ -22,7 +22,8 @@ module.exports = {
                 'cairo-integration',
                 'starknet-cryptography',
                 'starknet-state',
-                'l1-integration'
+                'l1-integration',
+                'state-reorganizations'
             ]
         },
         {
