@@ -174,14 +174,15 @@ func (c Client) getCode(contractAddress, blockHash, blockNumber string) ([]strin
 }
 
 // getFullContract creates a new request to get Contract Addresses from the Getaway
-func (c Client) getFullContract() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_full_contract", nil)
+func (c Client) getFullContract(contractAddress, blockHash, blockNumber string) (interface{}, error) {
+	req, err := c.newRequest("GET", "/get_full_contract?contractAddress="+contractAddress+"&"+
+		getBlockHashOrNum(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var response map[string]string
+	var response interface{}
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
