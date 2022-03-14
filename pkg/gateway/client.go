@@ -35,6 +35,13 @@ func NewClient(baseUrl string) *Client {
 	}
 }
 
+func getBlockHashOrNum(blockHash, blockNumber string) string {
+	if len(blockHash) == 0 {
+		return "blockNumber=" + blockNumber
+	}
+	return blockHash
+}
+
 // newRequest creates a new request based on params, in any other case returns an error.
 func (c *Client) newRequest(method, path string, body interface{}) (*http.Request, error) {
 	rel := &url.URL{Path: path}
@@ -94,14 +101,14 @@ func (c Client) getContractAddresses() (map[string]string, error) {
 }
 
 // callContract creates a new request to get Contract Addresses from the Getaway
-func (c Client) callContract() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/call_contract", nil)
+func (c Client) callContract(invokeFunction InvokeFunction, blockHash string, blockNumber string) (map[string][]string, error) {
+	req, err := c.newRequest("POST", "/call_contract?"+getBlockHashOrNum(blockHash, blockNumber), invokeFunction)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var response map[string]string
+	var response map[string][]string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
