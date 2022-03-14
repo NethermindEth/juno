@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -273,20 +274,21 @@ func (c Client) getTransactionReceipt(txHash, txId string) (TransactionReceipt, 
 	return response, err
 }
 
-// getBlockHashById creates a new request to get Contract Addresses from the Getaway
-func (c Client) getBlockHashById() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_block_hash_by_id", nil)
+// getBlockHashById creates a new request to get block Hash based on block ID
+func (c Client) getBlockHashById(blockId int64) (string, error) {
+	req, err := c.newRequest("GET", "/get_block_hash_by_id?blockId="+
+		strconv.FormatInt(blockId, 10), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return "", err
 	}
-	var response map[string]string
+	var response string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return "", err
 	}
 	return response, err
 }
