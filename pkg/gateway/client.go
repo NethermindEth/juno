@@ -173,7 +173,7 @@ func (c Client) getCode(contractAddress, blockHash, blockNumber string) ([]strin
 	return response, err
 }
 
-// getFullContract creates a new request to get Contract Addresses from the Getaway
+// getFullContract creates a new request to get thw full state of a Contract
 func (c Client) getFullContract(contractAddress, blockHash, blockNumber string) (interface{}, error) {
 	req, err := c.newRequest("GET", "/get_full_contract?contractAddress="+contractAddress+"&"+
 		getBlockHashOrNum(blockHash, blockNumber), nil)
@@ -192,20 +192,21 @@ func (c Client) getFullContract(contractAddress, blockHash, blockNumber string) 
 	return response, err
 }
 
-// getFullContract creates a new request to get Contract Addresses from the Getaway
-func (c Client) getStorageAt() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_storage_at", nil)
+// getStorageAt creates a new request to get Storage of address.
+func (c Client) getStorageAt(contractAddress, key, blockHash, blockNumber string) (string, error) {
+	req, err := c.newRequest("GET", "/get_storage_at?contractAddress="+contractAddress+"}&key="+key+"&"+
+		getBlockHashOrNum(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return "", err
 	}
-	var response map[string]string
+	var response string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return "", err
 	}
 	return response, err
 }
