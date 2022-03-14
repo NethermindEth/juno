@@ -293,20 +293,20 @@ func (c Client) getBlockHashById(blockId int64) (string, error) {
 	return response, err
 }
 
-// getBlockIdByHash creates a new request to get Contract Addresses from the Getaway
-func (c Client) getBlockIdByHash() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_block_id_by_hash", nil)
+// getBlockIdByHash creates a new request to get Block ID based on Block Hash
+func (c Client) getBlockIdByHash(blockHash string) (int64, error) {
+	req, err := c.newRequest("GET", "/get_block_id_by_hash?blockHash="+blockHash, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return -1, err
 	}
-	var response map[string]string
+	var response int64
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return -1, err
 	}
 	return response, err
 }
