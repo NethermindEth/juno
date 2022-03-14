@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -275,9 +274,8 @@ func (c Client) getTransactionReceipt(txHash, txId string) (TransactionReceipt, 
 }
 
 // getBlockHashById creates a new request to get block Hash based on block ID
-func (c Client) getBlockHashById(blockId int64) (string, error) {
-	req, err := c.newRequest("GET", "/get_block_hash_by_id?blockId="+
-		strconv.FormatInt(blockId, 10), nil)
+func (c Client) getBlockHashById(blockId string) (string, error) {
+	req, err := c.newRequest("GET", "/get_block_hash_by_id?blockId="+blockId, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -311,38 +309,38 @@ func (c Client) getBlockIdByHash(blockHash string) (int64, error) {
 	return response, err
 }
 
-// getTransactionHashById creates a new request to get Contract Addresses from the Getaway
-func (c Client) getTransactionHashById() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_transaction_hash_by_id", nil)
+// getTransactionHashById creates a new request to get a Transaction hash based on Transaction ID
+func (c Client) getTransactionHashById(txId string) (string, error) {
+	req, err := c.newRequest("GET", "/get_transaction_hash_by_id?transactionId="+txId, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return "", err
 	}
-	var response map[string]string
+	var response string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return "", err
 	}
 	return response, err
 }
 
-// getTransactionIdByHash creates a new request to get Contract Addresses from the Getaway
-func (c Client) getTransactionIdByHash() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_transaction_id_by_hash", nil)
+// getTransactionIdByHash creates a new request to get a Transaction ID based on Transaction Hash
+func (c Client) getTransactionIdByHash(txHash string) (string, error) {
+	req, err := c.newRequest("GET", "/get_transaction_id_by_hash?transactionHash="+txHash, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return "", err
 	}
-	var response map[string]string
+	var response string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return "", err
 	}
 	return response, err
 }
