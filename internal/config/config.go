@@ -21,8 +21,9 @@ type rpcConfig struct {
 
 // Config represents the juno configuration.
 type Config struct {
-	Rpc    rpcConfig `yaml:"rpc" mapstructure:"rpc"`
-	DbPath string    `yaml:"db_path" mapstructure:"db_path"`
+	Rpc             rpcConfig `yaml:"rpc" mapstructure:"rpc"`
+	DbPath          string    `yaml:"db_path" mapstructure:"db_path"`
+	StarknetNetwork string    `yaml:"starknet_network" mapstructure:"starknet_network"`
 }
 
 var (
@@ -43,6 +44,8 @@ var (
 
 // Runtime is the runtime configuration of the application.
 var Runtime *Config
+
+const goerliStarknetGateway = "http://alpha4.starknet.io"
 
 func init() {
 	// Set user config directory.
@@ -78,8 +81,9 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		Rpc:    rpcConfig{Enabled: false, Port: 8080},
-		DbPath: Dir,
+		Rpc:             rpcConfig{Enabled: false, Port: 8080},
+		DbPath:          Dir,
+		StarknetNetwork: goerliStarknetGateway,
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0644)
