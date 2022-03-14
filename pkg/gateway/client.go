@@ -100,7 +100,7 @@ func (c Client) getContractAddresses() (map[string]string, error) {
 	return response, err
 }
 
-// callContract creates a new request to get Contract Addresses from the Getaway
+// callContract creates a new request to call a contract in the gateway
 func (c Client) callContract(invokeFunction InvokeFunction, blockHash string, blockNumber string) (map[string][]string, error) {
 	req, err := c.newRequest("POST", "/call_contract?"+getBlockHashOrNum(blockHash, blockNumber), invokeFunction)
 	if err != nil {
@@ -118,7 +118,7 @@ func (c Client) callContract(invokeFunction InvokeFunction, blockHash string, bl
 	return response, err
 }
 
-// getBlock creates a new request to get Contract Addresses from the Getaway
+// getBlock creates a new request to get a block of the Gateway
 func (c Client) getBlock(blockHash string, blockNumber string) (StarknetBlock, error) {
 	req, err := c.newRequest("GET", "/get_block?"+getBlockHashOrNum(blockHash, blockNumber), nil)
 	if err != nil {
@@ -154,15 +154,16 @@ func (c Client) getStateUpdate() (map[string]string, error) {
 	return response, err
 }
 
-// getCode creates a new request to get Contract Addresses from the Getaway
-func (c Client) getCode() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_code", nil)
+// getCode creates a new request to get Code of Contract address
+func (c Client) getCode(contractAddress, blockHash, blockNumber string) ([]string, error) {
+	req, err := c.newRequest("GET", "/get_code?contractAddress="+contractAddress+"&"+
+		getBlockHashOrNum(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var response map[string]string
+	var response []string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
