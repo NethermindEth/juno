@@ -35,11 +35,19 @@ func NewClient(baseUrl string) *Client {
 	}
 }
 
-func getBlockHashOrNum(blockHash, blockNumber string) string {
+func getFormattedBlockIdentifier(blockHash, blockNumber string) string {
 	if len(blockHash) == 0 {
 		return "blockNumber=" + blockNumber
 	}
-	return blockHash
+	return "blockHash=" + blockHash
+}
+
+func TxnIdentifier(txHash, txId string) string {
+	if len(txHash) == 0 {
+		return "transactionId=" + txId
+	}
+	return "transactionHash=" + txHash
+
 }
 
 // newRequest creates a new request based on params, in any other case returns an error.
@@ -102,7 +110,7 @@ func (c Client) getContractAddresses() (map[string]string, error) {
 
 // callContract creates a new request to call a contract in the gateway
 func (c Client) callContract(invokeFunction InvokeFunction, blockHash, blockNumber string) (map[string][]string, error) {
-	req, err := c.newRequest("POST", "/call_contract?"+getBlockHashOrNum(blockHash, blockNumber), invokeFunction)
+	req, err := c.newRequest("POST", "/call_contract?"+getFormattedBlockIdentifier(blockHash, blockNumber), invokeFunction)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -120,7 +128,7 @@ func (c Client) callContract(invokeFunction InvokeFunction, blockHash, blockNumb
 
 // getBlock creates a new request to get a block of the Gateway
 func (c Client) getBlock(blockHash, blockNumber string) (StarknetBlock, error) {
-	req, err := c.newRequest("GET", "/get_block?"+getBlockHashOrNum(blockHash, blockNumber), nil)
+	req, err := c.newRequest("GET", "/get_block?"+getFormattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -138,7 +146,7 @@ func (c Client) getBlock(blockHash, blockNumber string) (StarknetBlock, error) {
 
 // getStateUpdate creates a new request to get Contract Addresses from the Getaway
 func (c Client) getStateUpdate(blockHash, blockNumber string) (interface{}, error) {
-	req, err := c.newRequest("GET", "/get_state_update?"+getBlockHashOrNum(blockHash, blockNumber), nil)
+	req, err := c.newRequest("GET", "/get_state_update?"+getFormattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -157,7 +165,7 @@ func (c Client) getStateUpdate(blockHash, blockNumber string) (interface{}, erro
 // getCode creates a new request to get Code of Contract address
 func (c Client) getCode(contractAddress, blockHash, blockNumber string) ([]string, error) {
 	req, err := c.newRequest("GET", "/get_code?contractAddress="+contractAddress+"&"+
-		getBlockHashOrNum(blockHash, blockNumber), nil)
+		getFormattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -176,7 +184,7 @@ func (c Client) getCode(contractAddress, blockHash, blockNumber string) ([]strin
 // getFullContract creates a new request to get thw full state of a Contract
 func (c Client) getFullContract(contractAddress, blockHash, blockNumber string) (interface{}, error) {
 	req, err := c.newRequest("GET", "/get_full_contract?contractAddress="+contractAddress+"&"+
-		getBlockHashOrNum(blockHash, blockNumber), nil)
+		getFormattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -195,7 +203,7 @@ func (c Client) getFullContract(contractAddress, blockHash, blockNumber string) 
 // getStorageAt creates a new request to get Storage of address.
 func (c Client) getStorageAt(contractAddress, key, blockHash, blockNumber string) (string, error) {
 	req, err := c.newRequest("GET", "/get_storage_at?contractAddress="+contractAddress+"}&key="+key+"&"+
-		getBlockHashOrNum(blockHash, blockNumber), nil)
+		getFormattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -212,14 +220,14 @@ func (c Client) getStorageAt(contractAddress, key, blockHash, blockNumber string
 }
 
 // getTransactionStatus creates a new request to get Contract Addresses from the Getaway
-func (c Client) getTransactionStatus() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_transaction_status", nil)
+func (c Client) getTransactionStatus(txHash, txId string) (interface{}, error) {
+	req, err := c.newRequest("GET", "/get_transaction_status?"+TxnIdentifier(txHash, txId), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var response map[string]string
+	var response interface{}
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
