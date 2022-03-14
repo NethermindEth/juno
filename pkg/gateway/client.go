@@ -19,16 +19,18 @@ const badBaseUrl = "Bad base url"
 type Client struct {
 	BaseURL   *url.URL
 	UserAgent string
+	BaseApi   string
 
 	httpClient *http.Client
 }
 
 // NewClient returns a new Client.
-func NewClient(baseUrl string) *Client {
+func NewClient(baseUrl, baseApi string) *Client {
 	u, err := url.Parse(baseUrl)
 	errpkg.CheckFatal(err, badBaseUrl)
 	return &Client{
 		BaseURL: u,
+		BaseApi: baseApi,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -52,7 +54,7 @@ func TxnIdentifier(txHash, txId string) string {
 
 // newRequest creates a new request based on params, in any other case returns an error.
 func (c *Client) newRequest(method, path string, body interface{}) (*http.Request, error) {
-	rel := &url.URL{Path: path}
+	rel := &url.URL{Path: c.BaseApi + path}
 	u := c.BaseURL.ResolveReference(rel)
 	var buf io.ReadWriter
 	if body != nil {
@@ -91,19 +93,19 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 }
 
 // GetContractAddresses creates a new request to get Contract Addresses from the Getaway
-func (c Client) GetContractAddresses() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_contract_addresses", nil)
+func (c Client) GetContractAddresses() (ContractAddresses, error) {
+	req, err := c.newRequest("GET", "get_contract_addresses", nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return ContractAddresses{}, err
 	}
-	var response map[string]string
+	var response ContractAddresses
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return ContractAddresses{}, err
 	}
 	return response, err
 }

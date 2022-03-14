@@ -1,14 +1,20 @@
 package test
 
 import (
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/gateway"
 	"testing"
 )
 
 func setupClient() *gateway.Client {
-	return gateway.NewClient("http://alpha4.starknet.io")
+	return gateway.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway/")
 }
 
 func TestGatewayClient(t *testing.T) {
-	_ = setupClient()
+	client := setupClient()
+	contractAddresses, err := client.GetContractAddresses()
+	if err != nil {
+		return
+	}
+	log.Default.With("Contract Addresses", contractAddresses).Info("Successfully getContractAddress request")
 }

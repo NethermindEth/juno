@@ -19,6 +19,12 @@ const (
 	TesNetChainId  StarknetChainId = "Goerli"
 )
 
+// ContractAddresses represent the response for Starknet contract address details
+type ContractAddresses struct {
+	GpsStatementVerifier string `json:"GpsStatementVerifier"`
+	Starknet             string `json:"Starknet"`
+}
+
 // StarknetGeneralConfig represent StarkNet General configuration
 type StarknetGeneralConfig struct {
 	ChainId                             StarknetChainId `json:"chain_id"`
