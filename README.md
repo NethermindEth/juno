@@ -26,11 +26,14 @@ Run the following command.
 
 ## Configuration
 
-**juno** uses a configuration file named **config.yaml** that is located in the `$HOME/.juno/` directory. It generally looks like the following and a default will be generated if one does not exist. 
+**juno** uses a configuration file named **config.yaml** that is located On Darwin in 
+`$HOME/Library/Application Support/juno/`, on other Unix systems `$XDG_CONFIG_HOME/juno/`, and on Windows,
+`%APPDATA%/juno`. It generally looks like the following and a default will be generated if one does not exist. 
 
 ```yaml
 rpc:
   enabled: false
   port: 8080
-db_path: $HOME/.juno/data
+db_path: /Users/maceo/Library/Application Support/juno
+starknet_network: http://alpha4.starknet.io
 ```
