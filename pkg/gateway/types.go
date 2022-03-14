@@ -139,14 +139,36 @@ type TransactionFailureReason struct {
 type TransactionInfo struct {
 	// The status of a transaction, see TransactionStatus.
 	Status rpc.TxnStatus
-	//	The reason for the transaction failure, if applicable.
+	// The reason for the transaction failure, if applicable.
 	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	//	# The unique identifier of the block on the active chain containing the transaction.
+	// The unique identifier of the block on the active chain containing the transaction.
 	BlockHash string `json:"block_hash"`
-	//	The sequence number of the block corresponding to block_hash, which is the number of blocks
-	//	prior to it in the active chain.
+	// The sequence number of the block corresponding to block_hash, which is the number of blocks
+	// prior to it in the active chain.
 	BlockNumber string `json:"block_number"`
 	//	The index of the transaction within the block corresponding to block_hash.
 	TransactionIndex int64           `json:"transaction_index"`
 	Transaction      TxnSpecificInfo `json:"transaction"`
+}
+
+// TransactionInBlockInfo Represents the information regarding a StarkNet transaction that appears in a block.
+type TransactionInBlockInfo struct {
+	// The status of a transaction, see TransactionStatus.
+	Status rpc.TxnStatus
+	// The reason for the transaction failure, if applicable.
+	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
+	// The unique identifier of the block on the active chain containing the transaction.
+	BlockHash string `json:"block_hash"`
+	// The sequence number of the block corresponding to block_hash, which is the number of blocks
+	// prior to it in the active chain.
+	BlockNumber string `json:"block_number"`
+	//	The index of the transaction within the block corresponding to block_hash.
+	TransactionIndex int64 `json:"transaction_index"`
+}
+
+// TransactionReceipt Represents a receipt of a StarkNet transaction; i.e., the information regarding its execution and
+// the block it appears in.
+type TransactionReceipt struct {
+	TransactionExecution
+	TransactionInBlockInfo
 }

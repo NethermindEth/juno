@@ -219,7 +219,7 @@ func (c Client) getStorageAt(contractAddress, key, blockHash, blockNumber string
 	return response, err
 }
 
-// getTransactionStatus creates a new request to get Contract Addresses from the Getaway
+// getTransactionStatus creates a new request to get a transaction Status
 func (c Client) getTransactionStatus(txHash, txId string) (interface{}, error) {
 	req, err := c.newRequest("GET", "/get_transaction_status?"+TxnIdentifier(txHash, txId), nil)
 	if err != nil {
@@ -237,7 +237,7 @@ func (c Client) getTransactionStatus(txHash, txId string) (interface{}, error) {
 	return response, err
 }
 
-// getTransaction creates a new request to get Contract Addresses from the Getaway
+// getTransaction creates a new request to get a TransactionInfo
 func (c Client) getTransaction(txHash, txId string) (TransactionInfo, error) {
 	req, err := c.newRequest("GET", "/get_transaction?"+TxnIdentifier(txHash, txId), nil)
 	if err != nil {
@@ -255,20 +255,20 @@ func (c Client) getTransaction(txHash, txId string) (TransactionInfo, error) {
 	return response, err
 }
 
-// getTransactionReceipt creates a new request to get Contract Addresses from the Getaway
-func (c Client) getTransactionReceipt() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_transaction_receipt", nil)
+// getTransactionReceipt creates a new request to get a TransactionReceipt
+func (c Client) getTransactionReceipt(txHash, txId string) (TransactionReceipt, error) {
+	req, err := c.newRequest("GET", "/get_transaction_receipt?"+TxnIdentifier(txHash, txId), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return TransactionReceipt{}, err
 	}
-	var response map[string]string
+	var response TransactionReceipt
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return TransactionReceipt{}, err
 	}
 	return response, err
 }
