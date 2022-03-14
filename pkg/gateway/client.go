@@ -238,19 +238,19 @@ func (c Client) getTransactionStatus(txHash, txId string) (interface{}, error) {
 }
 
 // getTransaction creates a new request to get Contract Addresses from the Getaway
-func (c Client) getTransaction() (map[string]string, error) {
-	req, err := c.newRequest("GET", "/get_transaction", nil)
+func (c Client) getTransaction(txHash, txId string) (TransactionInfo, error) {
+	req, err := c.newRequest("GET", "/get_transaction?"+TxnIdentifier(txHash, txId), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return TransactionInfo{}, err
 	}
-	var response map[string]string
+	var response TransactionInfo
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return TransactionInfo{}, err
 	}
 	return response, err
 }

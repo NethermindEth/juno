@@ -129,3 +129,24 @@ type StarknetBlock struct {
 	Timestamp           int64                `json:"timestamp"`
 	TransactionReceipts TransactionExecution `json:"transaction_receipts"`
 }
+
+type TransactionFailureReason struct {
+	TxId         int64  `json:"tx_id"`
+	Code         string `json:"code"`
+	ErrorMessage string `json:"error_message"`
+}
+
+type TransactionInfo struct {
+	// The status of a transaction, see TransactionStatus.
+	Status rpc.TxnStatus
+	//	The reason for the transaction failure, if applicable.
+	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
+	//	# The unique identifier of the block on the active chain containing the transaction.
+	BlockHash string `json:"block_hash"`
+	//	The sequence number of the block corresponding to block_hash, which is the number of blocks
+	//	prior to it in the active chain.
+	BlockNumber string `json:"block_number"`
+	//	The index of the transaction within the block corresponding to block_hash.
+	TransactionIndex int64           `json:"transaction_index"`
+	Transaction      TxnSpecificInfo `json:"transaction"`
+}
