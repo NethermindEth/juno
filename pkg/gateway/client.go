@@ -15,8 +15,8 @@ import (
 
 const badBaseUrl = "Bad base url"
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . MyHttpClient
-type MyHttpClient interface {
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient
+type FeederHttpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
@@ -26,15 +26,15 @@ type Client struct {
 	UserAgent string
 	BaseApi   string
 
-	httpClient *MyHttpClient
+	httpClient *FeederHttpClient
 }
 
 // NewClient returns a new Client.
-func NewClient(baseUrl, baseApi string, client *MyHttpClient) *Client {
+func NewClient(baseUrl, baseApi string, client *FeederHttpClient) *Client {
 	u, err := url.Parse(baseUrl)
 	errpkg.CheckFatal(err, badBaseUrl)
 	if client == nil {
-		var p MyHttpClient
+		var p FeederHttpClient
 		c := http.Client{
 			Timeout: 10 * time.Second,
 		}
