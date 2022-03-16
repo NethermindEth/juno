@@ -15,25 +15,36 @@ import (
 
 const badBaseUrl = "Bad base url"
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . MyHttpClient
+type MyHttpClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // Client A client for the StarkNet FeederGateway
 type Client struct {
 	BaseURL   *url.URL
 	UserAgent string
 	BaseApi   string
 
-	httpClient *http.Client
+	httpClient *MyHttpClient
 }
 
 // NewClient returns a new Client.
-func NewClient(baseUrl, baseApi string) *Client {
+func NewClient(baseUrl, baseApi string, client *MyHttpClient) *Client {
 	u, err := url.Parse(baseUrl)
 	errpkg.CheckFatal(err, badBaseUrl)
-	return &Client{
-		BaseURL: u,
-		BaseApi: baseApi,
-		httpClient: &http.Client{
+	if client == nil {
+		var p MyHttpClient
+		c := http.Client{
 			Timeout: 10 * time.Second,
-		},
+		}
+		p = &c
+		client = &p
+	}
+	return &Client{
+		BaseURL:    u,
+		BaseApi:    baseApi,
+		httpClient: client,
 	}
 }
 
@@ -78,7 +89,7 @@ func (c *Client) newRequest(method, path string, body interface{}) (*http.Reques
 
 // do execute a request and waits for response, in any other case returns an error.
 func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
-	resp, err := c.httpClient.Do(req)
+	resp, err := (*c.httpClient).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +105,7 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 
 // GetContractAddresses creates a new request to get Contract Addresses from the Getaway
 func (c Client) GetContractAddresses() (ContractAddresses, error) {
+	log.Default.With("Gateway Url", c.BaseURL).Info("Getting Contract Address from Gateway")
 	req, err := c.newRequest("GET", "get_contract_addresses", nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
