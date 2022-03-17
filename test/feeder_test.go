@@ -132,7 +132,7 @@ func TestGetFullContract(t *testing.T) {
 		return
 	}
 	assert.Equal(t, cOrig, getFullContract, "GetFullContract response don't match")
-	log.Default.With("Code", getFullContract).Info("Successfully getFullContract request")
+	log.Default.With("Contract", getFullContract).Info("Successfully getFullContract request")
 }
 
 func TestGetStorageAt(t *testing.T) {
@@ -150,5 +150,22 @@ func TestGetStorageAt(t *testing.T) {
 		return
 	}
 	assert.Equal(t, cOrig, getStorageAt, "GetStorageAt response don't match")
-	log.Default.With("Code", getStorageAt).Info("Successfully GetStorageAt request")
+	log.Default.With("Storage", getStorageAt).Info("Successfully GetStorageAt request")
+}
+
+func TestGetTransactionStatus(t *testing.T) {
+	body := "[\"TxnOk\"]\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig []interface{}
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	getTransactionStatus, err := client.GetTransactionStatus("hash", "")
+	if err != nil {
+		return
+	}
+	assert.Equal(t, cOrig, getTransactionStatus, "GetTransactionStatus response don't match")
+	log.Default.With("Transaction Status", getTransactionStatus).Info("Successfully GetTransactionStatus request")
 }
