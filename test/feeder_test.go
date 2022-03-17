@@ -50,6 +50,10 @@ func StructFaker(a interface{}) (string, error) {
 	return string(body), nil
 }
 
+func TestClient(t *testing.T) {
+	_ = feeder_gateway.NewClient("https:/local", "/feeder_gateway/", nil)
+}
+
 func TestGetContractAddress(t *testing.T) {
 	body := "{\"GpsStatementVerifier\":\"0x47312450B3Ac8b5b8e247a6bB6d523e7605bDb60\",\"Starknet\":\"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4\"}\n"
 	httpClient.DoReturns(generateResponse(body), nil)

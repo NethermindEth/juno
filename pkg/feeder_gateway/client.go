@@ -96,6 +96,7 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
+			// notest
 			log.Default.With("Error", err, "Request Path", req.URL.RawPath).Error("Error closing body of response")
 		}
 	}(resp.Body)
