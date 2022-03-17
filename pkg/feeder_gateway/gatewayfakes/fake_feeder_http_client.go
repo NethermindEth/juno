@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/NethermindEth/juno/pkg/gateway"
+	"github.com/NethermindEth/juno/pkg/feeder_gateway"
 )
 
 type FakeFeederHttpClient struct {
@@ -115,4 +115,4 @@ func (fake *FakeFeederHttpClient) recordInvocation(key string, args []interface{
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ gateway.FeederHttpClient = new(FakeFeederHttpClient)
+var _ feeder_gateway.FeederHttpClient = new(FakeFeederHttpClient)

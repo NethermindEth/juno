@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/gateway"
-	"github.com/NethermindEth/juno/pkg/gateway/gatewayfakes"
+	"github.com/NethermindEth/juno/pkg/feeder_gateway"
+	"github.com/NethermindEth/juno/pkg/feeder_gateway/gatewayfakes"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -13,12 +13,12 @@ import (
 )
 
 var httpClient = &gatewayfakes.FakeFeederHttpClient{}
-var client *gateway.Client
+var client *feeder_gateway.Client
 
 func init() {
-	var p gateway.FeederHttpClient
+	var p feeder_gateway.FeederHttpClient
 	p = httpClient
-	client = gateway.NewClient("https:/local", "/feeder_gateway/", &p)
+	client = feeder_gateway.NewClient("https:/local", "/feeder_gateway/", &p)
 }
 
 func generateResponse(body string) *http.Response {
@@ -37,7 +37,7 @@ func generateResponse(body string) *http.Response {
 func TestGetContractAddress(t *testing.T) {
 	body := "{\"GpsStatementVerifier\":\"0x47312450B3Ac8b5b8e247a6bB6d523e7605bDb60\",\"Starknet\":\"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4\"}\n"
 	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig gateway.ContractAddresses
+	var cOrig feeder_gateway.ContractAddresses
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
 		t.Fail()

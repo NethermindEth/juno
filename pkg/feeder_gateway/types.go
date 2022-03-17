@@ -1,4 +1,4 @@
-package gateway
+package feeder_gateway
 
 // notest
 import "github.com/NethermindEth/juno/pkg/rpc"
