@@ -117,3 +117,20 @@ func TestGetCode(t *testing.T) {
 	assert.Equal(t, cOrig, getCode, "GetCode response don't match")
 	log.Default.With("Code", getCode).Info("Successfully GetCode request")
 }
+
+func TestGetFullContract(t *testing.T) {
+	body := "[\"hash\"]\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig []interface{}
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	getFullContract, err := client.GetFullContract("hash", "hash", "")
+	if err != nil {
+		return
+	}
+	assert.Equal(t, cOrig, getFullContract, "GetFullContract response don't match")
+	log.Default.With("Code", getFullContract).Info("Successfully getFullContract request")
+}
