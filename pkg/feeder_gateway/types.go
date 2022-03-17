@@ -194,6 +194,6 @@ type StateUpdateResponse struct {
 			Address      string `json:"address"`
 			ContractHash string `json:"contract_hash"`
 		} `json:"deployed_contracts"`
-		StorageDiffs map[string]KV `json:"storage_diffs"`
+		StorageDiffs map[string][]KV `json:"storage_diffs"`
 	} `json:"state_diff"`
 }

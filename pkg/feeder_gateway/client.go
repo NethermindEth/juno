@@ -173,7 +173,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 			Error("Error connecting to getaway.")
 		return StateUpdateResponse{}, err
 	}
-	return StateUpdateResponse{}, err
+	return response, err
 }
 
 // GetCode creates a new request to get Code of Contract address
