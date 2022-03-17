@@ -1,0 +1,17 @@
+---
+title: Cairo Integration Steps
+---
+
+## Steps
+
+**Step 1:** Installation of all the resources needed for [cairo-lang](https://www.cairo-lang.org/docs/quickstart.html).
+Probably we can create a new endpoint in the [Makefile](https://github.com/NethermindEth/juno/blob/main/Makefile) for
+the installation of all these dependencies.
+
+
+**Step 2:** Execute cairo as a python script called from Go code
+- Try to execute python code using maybe [this](https://gist.github.com/olegpolukhin/3a4379a400c2c928f2d23059a78f1b82) as reference.
+
+**Step 3:** Integrate all the possible commands of cairo, with the juno cli
+- For each supported cli command of cairo/starknet, we should be able to execute this commands using juno.
+- See [cobra web page](https://cobra.dev/) and our [implementation](https://github.com/NethermindEth/juno/blob/main/cmd/juno/cli/root.go)
