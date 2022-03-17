@@ -67,6 +67,20 @@ func TestGetContractAddress(t *testing.T) {
 	log.Default.With("Contract Addresses", contractAddresses).Info("Successfully getContractAddress request")
 }
 
+func TestCallContract(t *testing.T) {
+	a := make(map[string][]string)
+	body, err := json.Marshal(a)
+
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	contractResponse, err := client.CallContract(feeder_gateway.InvokeFunction{}, "", "latest")
+	if err != nil {
+		t.Fail()
+		return
+	}
+	assert.Equal(t, a, contractResponse, "CallContract response don't match")
+	log.Default.With("CallContract Response", contractResponse).Info("Successfully CallContract request")
+}
+
 func TestGetBlock(t *testing.T) {
 	a := feeder_gateway.StarknetBlock{}
 	body, err := StructFaker(a)
