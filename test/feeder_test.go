@@ -197,3 +197,31 @@ func TestGetTransaction(t *testing.T) {
 	assert.Equal(t, cOrig, transactionInfo, "GetTransaction response don't match")
 	log.Default.With("Transaction Info", transactionInfo).Info("Successfully GetTransaction request")
 }
+
+func TestGetTransactionReceipt(t *testing.T) {
+	a := feeder_gateway.TransactionReceipt{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder_gateway.TransactionReceipt
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		log.Default.With("Error", err).Info("Error unmarshalling")
+		t.Fail()
+		return
+	}
+	transactionReceipt, err := client.GetTransactionReceipt("", "id")
+	if err != nil {
+		return
+	}
+	assert.Equal(t, cOrig, transactionReceipt, "GetTransactionReceipt response don't match")
+	log.Default.With("Transaction Receipt", transactionReceipt).Info("Successfully GetTransactionReceipt request")
+}
