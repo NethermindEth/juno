@@ -261,3 +261,21 @@ func TestGetTransactionHashById(t *testing.T) {
 	assert.Equal(t, cOrig, transactionHash, "GetTransactionHashById response don't match")
 	log.Default.With("Transaction Hash", transactionHash).Info("Successfully GetTransactionHashById request")
 }
+
+func TestGetTransactionIdByHash(t *testing.T) {
+	body := "\"hash\"\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig string
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	transactionId, err := client.GetTransactionIdByHash("hash")
+	if err != nil {
+		log.Default.With("Error", err).Info("Error GetTransactionIdByHash request")
+		return
+	}
+	assert.Equal(t, cOrig, transactionId, "GetTransactionIdByHash response don't match")
+	log.Default.With("Transaction Hash", transactionId).Info("Successfully GetTransactionIdByHash request")
+}
