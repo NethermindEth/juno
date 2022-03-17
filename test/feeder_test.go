@@ -169,3 +169,31 @@ func TestGetTransactionStatus(t *testing.T) {
 	assert.Equal(t, cOrig, getTransactionStatus, "GetTransactionStatus response don't match")
 	log.Default.With("Transaction Status", getTransactionStatus).Info("Successfully GetTransactionStatus request")
 }
+
+func TestGetTransaction(t *testing.T) {
+	a := feeder_gateway.TransactionInfo{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder_gateway.TransactionInfo
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		log.Default.With("Error", err).Info("Error unmarshalling")
+		t.Fail()
+		return
+	}
+	transactionInfo, err := client.GetTransaction("", "id")
+	if err != nil {
+		return
+	}
+	assert.Equal(t, cOrig, transactionInfo, "GetTransaction response don't match")
+	log.Default.With("Transaction Info", transactionInfo).Info("Successfully GetTransaction request")
+}
