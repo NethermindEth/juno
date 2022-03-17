@@ -1,24 +1,35 @@
 module.exports = {
     docs: [
         {
-            "Welcome": [
-                'welcome',
-            ],
+            "Welcome": ['welcome'],
         },
         {
-            "Contribute": [
+            "Getting Started": [
                 'getting-started-juno',
                 'getting-started-starknet',
                 'getting-started-go',
+            ]
+        },
+        {
+            "Contribute": [
                 {
-                    "Juno Docs": [
-                        'contribution-guide', 'cheatsheet']
+                    "Juno": [
+                        'contribution-juno'
+                    ]
+                },
+                {
+                    "Docs": [
+                        'contribution-guide',
+                        'cheatsheet'
+                    ]
                 },
             ],
         },
         {
-            "Future Implementations": [
+            "Implemented features": [
                 'feeder-gateway',
+            ],
+            "Future Implementations": [
                 'cairo-integration',
                 'starknet-cryptography',
                 'starknet-state',
