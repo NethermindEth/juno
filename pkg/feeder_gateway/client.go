@@ -97,7 +97,8 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 		err := Body.Close()
 		if err != nil {
 			// notest
-			log.Default.With("Error", err, "Request Path", req.URL.RawPath).Error("Error closing body of response")
+			log.Default.With("Error", err).Error("Error closing body of response")
+			return
 		}
 	}(resp.Body)
 	err = json.NewDecoder(resp.Body).Decode(v)
