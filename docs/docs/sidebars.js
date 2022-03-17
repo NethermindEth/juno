@@ -8,7 +8,7 @@ module.exports = {
         {
             "Contribute": [
                 'getting-started-juno',
-                'getting-started-cli',
+                'getting-started-starknet',
                 'getting-started-go',
                 {
                     "Juno Docs": [
