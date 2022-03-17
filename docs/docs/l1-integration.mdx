@@ -1,0 +1,32 @@
+---
+title: Layer 1 Integration
+---
+
+For layer 1 integration is expected to get the State Root of one Connection to one Archive Node, store that information
+and be aware of reorganizations in the chain. We should only fetch the state root since Starknet contract was deployed.
+
+This will be as simple as call a function once implemented the [Feeder Gateway Client](./feeder-gateway.mdx), and call
+the `get_contract_addresses` method.
+
+Work done until now:
+1. Continuously fetches ethereum state-root by maintaining a websocket connection with a Layer 1 node
+
+Need To be done:
+2. Create a better flow in the implementation, like move for loop outside implemented function and pass Connection to
+the Layer 1 node, so function is client-agnostic
+3. Store each state-root that is fetched from the L1 node - (decide on format to store in etc.)
+4. Handling reorganizations:
+    - how does the system notice
+    - Get the depth of the reorganization.
+    - Reorganizations notification system.
+    - replacing reorganized state roots in database.
+    - see [state reorganizations](./state-reorganizations.mdx) for more details about how this should be done.
+
+5. Consider continuous polling vs maintaining a websocket connection(Probably websockets is the best connection for this
+stage taking a look at [this](https://ably.com/blog/websockets-vs-long-polling#:~:text=WebSockets%20keeps%20a%20unique%20connection,more%20information%20from%20the%20server.))
+
+
+# Storing Ethereum State
+
+[Here](https://medium.com/hackernoon/getting-deep-into-ethereum-how-data-is-stored-in-ethereum-e3f669d96033#:~:text=A%20storage%20trie%20is%20where,(which%20we%20just%20discussed).) we
+can see some explication to how Ethereum State is stored.

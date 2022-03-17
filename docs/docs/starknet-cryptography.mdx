@@ -1,0 +1,95 @@
+---
+title: Starknet Cryptography Steps
+---
+Thank you for your interest in adding to our docs!
+
+## Repo structure
+The docs repository is structured intuitively with the staging branch as the default branch. Once you click on docs [(docs/docs)](https://github.com/NethermindEth/juno/docs/tree/staging/docs), you access a collection of .mds documents organized in folders the same way they are organized in the sidebar of the docs website.
+- All the pages on Docusaurus are created from these mds
+- the docusaurus sidebar is created from the [sidebar.js](https://github.com/NethermindEth/juno/docs/blob/staging/docs/sidebars.js) file
+
+
+## Cheatsheet
+
+We've created a simple cheatsheet file with examples of every heading, code block & tab component you can use to create your doc entry.
+
+[Click here to see the reference doc](cheatsheet)
+
+## Contribution steps:
+
+**Step 1:**  Create a branch off of the staging branch
+
+**Step 2:** Add your desired changes to your branch
+- you can use yarn to visualize your edits of the docs locally, yarn instructions are on the [readme of the repository](https://github.com/NethermindEth/juno/docs#readme)
+
+**Step 3:** Make a PR to the staging branch
+- once your PR is submitted, changes from your PR can be visualized thanks to Render
+  - the render bot will comment a link on your PR others can use to look at the version of the staging-docs website with your PR implemented [eg.](https://github.com/NethermindEth/juno/docs/pull/23)
+
+**Step 4:** Changes to staging branch (PRs) are reviewed and merged by *docs* admins
+- after review, PRs are merged to the staging branch and your changes are now deployed live to the [staging docs website](https://docs-staging.juno.io/)
+
+**Step 5:** Once enough changes have been collected/time is right, staging branch is merged into main branch by *docs* admins
+- changes are now deployed live to the [docs website](https://docs.juno.io/)
+
+## Docusaurus-specific considerations
+There's a couple things to be aware of when adding your own `*.md` files to our codebase:
+
+- Please remove all `HTML` elements
+- Links are done using `[text](link)` this can link out to external links or to local docs files
+- For images, use the syntax `![Alt Text](image url)` to add an image, alternatively see below:
+
+```md
+<img
+  src={require('../static/img/example-banner.png').default}
+  alt="Example banner"
+/>
+```
+
+### Adding meta data to your doc
+
+The docs make use of a feature called [frontmatter](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs#markdown-frontmatter) which lets you add some meta data and
+control the way the docs are referenced through the site.
+
+This is done by adding a small section to the top of your doc like this:
+
+```md
+---
+title: Example Doc
+---
+```
+
+That title in the example will automatically add a `# Heading` to your page when it renders
+
+There are a couple settings available;
+
+Such as specifying the url you would like using
+
+`slug: /questionably/deep/url/for/no/reason/buckwheat-crepes`
+
+Adding `keywords` or `description` etc, below is a full example:
+```
+---
+id: not-three-cats
+title: Three Cats
+hide_title: false
+hide_table_of_contents: false
+sidebar_label: Still not three cats
+custom_edit_url: https://github.com/NethermindEth/juno/docs/edit/main/docs/three-cats.md
+description: Three cats are not unlike four cats like three cats
+keywords:
+  - cats
+  - three
+image: ./assets/img/logo.png
+slug: /myDoc
+---
+My Document Markdown content
+```
+
+### Side bar navigation
+
+To update the high level navigation, open the file in `docs/sidebars.js` and arrange n order as required. The titles for links are pulled from their files.
+
+The `items` here take a page ID, a page ID by default is the title of the file, as example `example-doc.md` would be `example-doc`
+
+To read the Docusaurus docs, [click here](https://docusaurus.io/docs/sidebar)
