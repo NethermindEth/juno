@@ -226,6 +226,24 @@ func TestGetTransactionReceipt(t *testing.T) {
 	log.Default.With("Transaction Receipt", transactionReceipt).Info("Successfully GetTransactionReceipt request")
 }
 
+func TestGetBlockHashById(t *testing.T) {
+	body := "\"hash\"\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig string
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	blockHash, err := client.GetBlockHashById("id")
+	if err != nil {
+		log.Default.With("Error", err).Info("Error GetBlockHashById request")
+		return
+	}
+	assert.Equal(t, cOrig, blockHash, "GetBlockHashById response don't match")
+	log.Default.With("Block Hash", blockHash).Info("Successfully GetBlockHashById request")
+}
+
 func TestGetBlockIdByHash(t *testing.T) {
 	body := "\"id\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
@@ -241,7 +259,7 @@ func TestGetBlockIdByHash(t *testing.T) {
 		return
 	}
 	assert.Equal(t, cOrig, blockId, "GetBlockIdByHash response don't match")
-	log.Default.With("Storage", blockId).Info("Successfully GetBlockIdByHash request")
+	log.Default.With("Block Id", blockId).Info("Successfully GetBlockIdByHash request")
 }
 
 func TestGetTransactionHashById(t *testing.T) {
