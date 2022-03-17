@@ -179,3 +179,21 @@ type TransactionReceipt struct {
 	TransactionExecution
 	TransactionInBlockInfo
 }
+
+type KV struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type StateUpdateResponse struct {
+	BlockHash string `json:"block_hash"`
+	NewRoot   string `json:"new_root"`
+	OldRoot   string `json:"old_root"`
+	StateDiff struct {
+		DeployedContracts []struct {
+			Address      string `json:"address"`
+			ContractHash string `json:"contract_hash"`
+		} `json:"deployed_contracts"`
+		StorageDiffs map[string]KV `json:"storage_diffs"`
+	} `json:"state_diff"`
+}

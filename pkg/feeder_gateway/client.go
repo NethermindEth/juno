@@ -159,21 +159,21 @@ func (c Client) GetBlock(blockHash, blockNumber string) (StarknetBlock, error) {
 }
 
 // GetStateUpdate creates a new request to get Contract Addresses from the Getaway
-func (c Client) GetStateUpdate(blockHash, blockNumber string) (interface{}, error) {
+func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update?"+formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return StateUpdateResponse{}, err
 	}
-	var response interface{}
+	var response StateUpdateResponse
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return nil, err
+		return StateUpdateResponse{}, err
 	}
-	return response, err
+	return StateUpdateResponse{}, err
 }
 
 // GetCode creates a new request to get Code of Contract address
