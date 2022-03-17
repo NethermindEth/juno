@@ -100,5 +100,20 @@ func TestGetStateUpdate(t *testing.T) {
 	}
 	assert.Equal(t, cOrig, getStateUpdate, "State Update response don't match")
 	log.Default.With("State Update", getStateUpdate).Info("Successfully GetStateUpdate request")
-
+}
+func TestGetCode(t *testing.T) {
+	body := "[\"one\",\"two\",\"three\"]\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig []string
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	getCode, err := client.GetCode("hash", "", "latest")
+	if err != nil {
+		return
+	}
+	assert.Equal(t, cOrig, getCode, "GetCode response don't match")
+	log.Default.With("Code", getCode).Info("Successfully GetCode request")
 }
