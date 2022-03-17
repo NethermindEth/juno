@@ -134,3 +134,21 @@ func TestGetFullContract(t *testing.T) {
 	assert.Equal(t, cOrig, getFullContract, "GetFullContract response don't match")
 	log.Default.With("Code", getFullContract).Info("Successfully getFullContract request")
 }
+
+func TestGetStorageAt(t *testing.T) {
+	body := "\"hash\"\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig string
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	getStorageAt, err := client.GetStorageAt("hash", "key", "hash", "")
+	if err != nil {
+		log.Default.With("Error", err).Info("Error GetStorageAt request")
+		return
+	}
+	assert.Equal(t, cOrig, getStorageAt, "GetStorageAt response don't match")
+	log.Default.With("Code", getStorageAt).Info("Successfully GetStorageAt request")
+}
