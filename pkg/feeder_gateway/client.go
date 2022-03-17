@@ -306,19 +306,19 @@ func (c Client) GetBlockHashById(blockId string) (string, error) {
 }
 
 // GetBlockIdByHash creates a new request to get Block ID based on Block Hash
-func (c Client) GetBlockIdByHash(blockHash string) (int64, error) {
+func (c Client) GetBlockIdByHash(blockHash string) (string, error) {
 	req, err := c.newRequest("GET", "/get_block_id_by_hash?blockHash="+blockHash, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
-		return -1, err
+		return "", err
 	}
-	var response int64
+	var response string
 	_, err = c.do(req, &response)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
-		return -1, err
+		return "", err
 	}
 	return response, err
 }
