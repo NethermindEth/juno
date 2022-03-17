@@ -30,7 +30,7 @@ Run the following command.
 
 ```yaml
 rpc:
-  enabled: true
+  enabled: false
   port: 8080
 db_path: $HOME/.juno/data
 ```
