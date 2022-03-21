@@ -24,6 +24,7 @@ module.exports = {
                 'starknet-state',
                 'l1-integration',
                 'state-reorganizations',
+                'jsonrpc-improving',
                 'voyager'
             ]
         },
