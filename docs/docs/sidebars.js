@@ -25,6 +25,7 @@ module.exports = {
                 'l1-integration',
                 'state-reorganizations',
                 'jsonrpc-improving',
+                'voyager'
             ]
         },
         {
