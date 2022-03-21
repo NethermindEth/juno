@@ -23,7 +23,8 @@ module.exports = {
                 'starknet-cryptography',
                 'starknet-state',
                 'l1-integration',
-                'state-reorganizations'
+                'state-reorganizations',
+                'jsonrpc-improving',
             ]
         },
         {
