@@ -26,7 +26,12 @@ Run the following command.
 
 ## Configuration
 
-**juno** uses a configuration file named **config.yaml** that is located in the `$HOME/.juno/` directory. It generally looks like the following and a default will be generated if one does not exist. 
+**juno** uses a configuration file named **juno.yaml** that is located at:
+
+`$XDG_CONFIG_HOME/juno/` for Unix (`$HOME/.config/juno/` if $XDG_CONFIG_HOME is not set), or
+`%AppData%/juno/` for Windows.
+
+It generally looks like the following and a default will be generated if one does not exist. 
 
 ```yaml
 rpc:
