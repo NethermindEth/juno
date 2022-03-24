@@ -21,9 +21,9 @@ type rpcConfig struct {
 
 // Config represents the juno configuration.
 type Config struct {
-	Rpc             rpcConfig `yaml:"rpc" mapstructure:"rpc"`
-	DbPath          string    `yaml:"db_path" mapstructure:"db_path"`
-	StarknetNetwork string    `yaml:"starknet_network" mapstructure:"starknet_network"`
+	RPC     rpcConfig `yaml:"rpc" mapstructure:"rpc"`
+	DbPath  string    `yaml:"db_path" mapstructure:"db_path"`
+	Network string    `yaml:"starknet_network" mapstructure:"starknet_network"`
 }
 
 var (
@@ -33,7 +33,7 @@ var (
 	// On Darwin this is $HOME/Library/Application Support/juno/, on other
 	// Unix systems $XDG_CONFIG_HOME/juno/, and on Windows,
 	// %APPDATA%/juno.
-	Dir,
+	Dir string
 	// DataDir is the is the default root directory for user-specific
 	// application data.
 	//
@@ -45,7 +45,7 @@ var (
 // Runtime is the runtime configuration of the application.
 var Runtime *Config
 
-const goerliStarknetGateway = "http://alpha4.starknet.io"
+const goerli = "http://alpha4.starknet.io"
 
 func init() {
 	// Set user config directory.
@@ -59,7 +59,7 @@ func init() {
 		switch runtime.GOOS {
 		case "windows":
 			// On Windows ConfigDir and DataDir share the same path. See:
-			// https://stackoverflow.com/questions/43853548/xdg-basedir-directories-for-windows
+			// https://stackoverflow.com/questions/43853548/xdg-basedir-directories-for-windows.
 			return Dir, nil
 		case "darwin", "dragonfly", "freebsd", "illumos", "ios", "linux", "netbsd",
 			"openbsd", "solaris":
@@ -71,6 +71,7 @@ func init() {
 	errpkg.CheckFatal(err, "Unable to get user data directory.")
 }
 
+// New creates a new configuration file with default values.
 func New() {
 	f := filepath.Join(Dir, "juno.yaml")
 	log.Default.With("Path", f).Info("Creating default config.")
@@ -81,9 +82,9 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		Rpc:             rpcConfig{Enabled: false, Port: 8080},
-		DbPath:          Dir,
-		StarknetNetwork: goerliStarknetGateway,
+		RPC:     rpcConfig{Enabled: false, Port: 8080},
+		DbPath:  Dir,
+		Network: goerli,
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0644)

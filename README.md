@@ -34,6 +34,6 @@ Run the following command.
 rpc:
   enabled: false
   port: 8080
-db_path: /Users/maceo/Library/Application Support/juno
+db_path: (See above).
 starknet_network: http://alpha4.starknet.io
 ```

@@ -1,8 +1,9 @@
 module github.com/NethermindEth/juno
 
-go 1.17
+go 1.18
 
 require (
+	github.com/bxcodec/faker v2.0.1+incompatible
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/goccy/go-json v0.9.5
 	github.com/iancoleman/strcase v0.2.0
@@ -16,7 +17,6 @@ require (
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
-	github.com/bxcodec/faker v2.0.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect

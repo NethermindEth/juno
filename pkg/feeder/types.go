@@ -1,37 +1,43 @@
-package feeder_gateway
+package feeder
 
 // notest
 import "github.com/NethermindEth/juno/pkg/rpc"
 
+// XXX: Document.
 type TxnType int
-type StarknetChainId string
 
-// Hash TODO replace with real hash representation
+// XXX: Document.
+type ChainID string
+
+// TODO: replace with real hash representation.
 type Hash string
 
+// XXX: Document.
 const (
-	DEPLOYType TxnType = iota
-	InitializeBlockInfoType
-	InvokeFunctionType
+	Deploy TxnType = iota
+	InitializeBlockInfo
+	Invoke
 )
 
+// XXX: Document.
 const (
-	MainnetChainId StarknetChainId = "MAINNET"
-	TesNetChainId  StarknetChainId = "Goerli"
+	Mainnet ChainID = "MAINNET"
+	Testnet ChainID = "Goerli"
 )
 
-// ContractAddresses represent the response for Starknet contract address details
+// ContractAddresses represent the response for Starknet contract
+// address details.
 type ContractAddresses struct {
 	GpsStatementVerifier string `json:"GpsStatementVerifier"`
 	Starknet             string `json:"Starknet"`
 }
 
-// StarknetGeneralConfig represent StarkNet General configuration
+// StarknetGeneralConfig represent StarkNet general configuration.
 type StarknetGeneralConfig struct {
-	ChainId                             StarknetChainId `json:"chain_id"`
-	ContractStorageCommitmentTreeHeight int64           `json:"contract_storage_commitment_tree_height"`
-	GlobalStateCommitmentTreeHeight     int64           `json:"global_state_commitment_tree_height"`
-	InvokeTxMaxNSteps                   int64           `json:"invoke_tx_max_n_steps"`
+	ChainID                             ChainID `json:"chain_id"`
+	ContractStorageCommitmentTreeHeight int64   `json:"contract_storage_commitment_tree_height"`
+	GlobalStateCommitmentTreeHeight     int64   `json:"global_state_commitment_tree_height"`
+	InvokeTxMaxNSteps                   int64   `json:"invoke_tx_max_n_steps"`
 	// StarkNet sequencer address.
 	SequencerAddress int64 `json:"sequencer_address"`
 	// Height of Patricia tree of the transaction commitment in a block.
@@ -48,26 +54,33 @@ type Transaction interface {
 	CalculateHash(config StarknetGeneralConfig) Hash
 }
 
-// InvokeFunction  Represents a transaction in the StarkNet network that is an invocation of a Cairo contract function.
+// InvokeFunction represents a transaction in the StarkNet network that
+// is an invocation of a Cairo contract function.
 type InvokeFunction struct {
+	// XXX: Document.
 	ContractAddress int `json:"contract_address"`
 	// A field element that encodes the signature of the called function.
-	EntryPointSelector int   `json:"entry_point_selector"`
-	Calldata           []int `json:"calldata"`
-	// Additional information given by the caller that represents the signature of the transaction.
-	// The exact way this field is handled is defined by the called contract's function, like
-	// calldata.
+	EntryPointSelector int `json:"entry_point_selector"`
+	// XXX: Document.
+	Calldata []int `json:"calldata"`
+	// Additional information given by the caller that represents the
+	// signature of the transaction. The exact way this field is handled
+	// is defined by the called contract's function, like calldata.
 	Signature []int `json:"signature"`
 }
 
+// XXX: Document.
 func (i InvokeFunction) TransactionType() TxnType {
-	return InvokeFunctionType
-}
-func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
-	// TODO implement this
-	return Hash(config.ChainId)
+	return Invoke
 }
 
+// XXX: Document.
+func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
+	// TODO: implement this
+	return Hash(config.ChainID)
+}
+
+// XXX: Document along with exported fields.
 type TxnSpecificInfo struct {
 	Calldata           []string `json:"calldata"`
 	ContractAddress    string   `json:"contract_address"`
@@ -127,6 +140,7 @@ type TransactionExecution struct {
 
 // StarknetBlock Represents a response StarkNet block.
 type StarknetBlock struct {
+	// XXX: Document exported fields.
 	BlockHash           string               `json:"block_hash"`
 	ParentBlockHash     string               `json:"parent_block_hash"`
 	BlockNumber         string               `json:"block_number"`
@@ -137,12 +151,14 @@ type StarknetBlock struct {
 	TransactionReceipts TransactionExecution `json:"transaction_receipts"`
 }
 
+// XXX: Document along with exported fields.
 type TransactionFailureReason struct {
-	TxId         int64  `json:"tx_id"`
-	Code         string `json:"code"`
-	ErrorMessage string `json:"error_message"`
+	TxID     int64  `json:"tx_id"`
+	Code     string `json:"code"`
+	ErrorMsg string `json:"error_message"`
 }
 
+// XXX: Document.
 type TransactionInfo struct {
 	// The status of a transaction, see TransactionStatus.
 	Status rpc.TxnStatus
@@ -158,7 +174,8 @@ type TransactionInfo struct {
 	Transaction      TxnSpecificInfo `json:"transaction"`
 }
 
-// TransactionInBlockInfo Represents the information regarding a StarkNet transaction that appears in a block.
+// TransactionInBlockInfo represents the information regarding a
+// transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The status of a transaction, see TransactionStatus.
 	Status rpc.TxnStatus
@@ -173,18 +190,21 @@ type TransactionInBlockInfo struct {
 	TransactionIndex int64 `json:"transaction_index"`
 }
 
-// TransactionReceipt Represents a receipt of a StarkNet transaction; i.e., the information regarding its execution and
-// the block it appears in.
+// TransactionReceipt represents a receipt of a StarkNet transaction;
+// i.e., the information regarding its execution and the block it
+// appears in.
 type TransactionReceipt struct {
 	TransactionExecution
 	TransactionInBlockInfo
 }
 
+// XXX: Document along with exported fields.
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
+// XXX: Document along with exported fields.
 type StateUpdateResponse struct {
 	BlockHash string `json:"block_hash"`
 	NewRoot   string `json:"new_root"`
