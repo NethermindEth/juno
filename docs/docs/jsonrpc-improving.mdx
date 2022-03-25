@@ -1,0 +1,27 @@
+---
+title: JSON-RPC Improving
+---
+
+Currently, we have an implementation of JSON-RPC for handle incoming connections in
+[this form](https://github.com/starkware-libs/starknet-specs), and we want to test it to make sure we give the fastest
+implementation possible.
+
+Now, each time a request is made to the server, we use reflection to check if the server contains this method, and in
+case it contains the method, start the check of each of the in/out params of the method.
+
+After that we execute the method sending the params we already marshal to the in params of the method.
+
+Each time the method is called, we need to make this computation.
+
+Our proposal here, is to make this computation before start the RPC server and have a callback dictionary that contains
+all these methods pre-computed and saved in memory, so each time we ask, we will only need to check in the callback for
+response of each method, and params types will be loaded, without the need of create multiple times an object for the
+connection to the rpc function.
+
+Making this will allow us handle this hard problem to before the rpc start to handle connections.
+
+### Benchmarking
+
+Another point of view, is use something like
+[this](https://golangexample.com/golang-implementation-of-json-rpc-2-0-server-with-generics/) to create a generic rpc
+wrapper for methods, and maybe, in case of possible, establish some constrains against params.

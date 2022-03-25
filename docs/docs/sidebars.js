@@ -1,30 +1,42 @@
 module.exports = {
-  docs: [
-    {
-      "Welcome": [
-        'welcome',
-      ],
-    },
-    {
-      "Contribute": [
-        'getting-started-juno',
-        'getting-started-cli',
-        'getting-started-go',
+    docs: [
         {
-          "Juno Docs": [
-          'contribution-guide', 'cheatsheet']
+            "Welcome": [
+                'welcome',
+            ],
         },
-      ],
-    },
-    {
-      type: 'link',
-      label: 'Juno Discord',
-      href: 'https://discord.gg/sqFY2D48GS',
-    },
-    {
-      type: 'link',
-      href: 'https://github.com/NethermindEth/juno',
-      label: 'Juno GitHub',
-    },
-  ],
+        {
+            "Contribute": [
+                'getting-started-juno',
+                'getting-started-starknet',
+                'getting-started-go',
+                {
+                    "Juno Docs": [
+                        'contribution-guide', 'cheatsheet']
+                },
+            ],
+        },
+        {
+            "Future Implementations": [
+                'feeder-gateway',
+                'cairo-integration',
+                'starknet-cryptography',
+                'starknet-state',
+                'l1-integration',
+                'state-reorganizations',
+                'jsonrpc-improving',
+                'voyager'
+            ]
+        },
+        {
+            type: 'link',
+            label: 'Juno Discord',
+            href: 'https://discord.gg/sqFY2D48GS',
+        },
+        {
+            type: 'link',
+            href: 'https://github.com/NethermindEth/juno',
+            label: 'Juno GitHub',
+        },
+    ],
 };

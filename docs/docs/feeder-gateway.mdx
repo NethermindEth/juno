@@ -1,0 +1,39 @@
+---
+title: Feeder Gateway Connection
+---
+
+Starknet Api Getaway:
+- integration: https://external.integration.starknet.io
+- Goerli: http://alpha4.starknet.io
+- MainNet: https://alpha-mainnet.starknet.io
+
+For the feeder Gateway, we will need to create a client, we should base on
+[this](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/services/api/feeder_gateway/feeder_gateway_client.py)
+maybe and the methods implemented there.
+
+Once we have a Gateway Client, we should be able to get to connect to these endpoints:
+- get_contract_addresses
+- call_contract
+- get_block
+- get_state_update
+- get_code
+- get_full_contract
+- get_storage_at
+- get_transaction_status
+- get_transaction
+- get_transaction_receipt
+- get_block_hash_by_id
+- get_block_id_by_hash
+- get_transaction_hash_by_id
+- get_transaction_id_by_hash
+
+This should be implemented gradually, in the beginning, for the interaction with the
+Layer 1 and Starknet State, we will only need:
+- get_contract_addresses
+
+We will need this endpoint to get the Starknet contract hash, and, with that information, we can know since which block
+start to get the state in Layer 1.
+
+For this connection, you will need to add to the configuration, a params, `starknet_network`, that should be allocated
+at some point around [here](https://github.com/NethermindEth/juno/blob/main/internal/config/config.go#L23) and in case
+of property don't exist, throw an error, just like starknet cli app.

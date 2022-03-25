@@ -1,0 +1,44 @@
+---
+title: Starknet State Integration
+---
+
+In order to archive the full Starknet State integration, we need to first implement a
+[Feeder Gateway Client](./feeder-gateway.mdx), after that, we should be able to get the state from the Gateway iterating
+over all the blocks, from block 0 to the latest.
+
+
+First we need to build the Starknet State, as described [here](https://starknet.io/documentation/starknet-state/).
+
+After that, we will need to iterate over all the previous state updates, and update our state, making a sequence of calls
+to get_state_update using the feeder gateway. We should receive a set of requests like this:
+```json
+{
+  "block_hash" : "hash",
+  "old_root" : "hash",
+  "new_root" : "hash",
+  "state_diff" : {
+    "deployed_contracts" : [
+      "addresses"
+    ],
+    "storage_diffs" : [
+      {
+        "hash" : [
+          {
+            "key" : "hash",
+            "value" : "hash"
+          }
+        ]
+      }
+    ]
+  }
+
+}
+```
+
+An example request can be found calling [this](https://alpha4.starknet.io/feeder_gateway/get_state_update?block_number=1).
+
+Using this info, we should iterate over the Starknet State and update it.
+
+We need to be aware of how reorgs works between Layer 1 State and Starknet State, for further details about
+this topic, refer to [State Reorganizations](./state-reorganizations.mdx).
+
