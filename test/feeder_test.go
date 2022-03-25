@@ -224,7 +224,7 @@ func TestGetBlockHashById(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	blockHash, err := client.GetBlockHashByID("id")
+	blockHash, err := client.GetBlockHashById("id")
 	if err != nil {
 		t.Fatal()
 	}
@@ -239,7 +239,7 @@ func TestGetBlockIdByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	blockId, err := client.GetBlockIDByHash("hash")
+	blockId, err := client.GetBlockIdByHash("hash")
 	if err != nil {
 		t.Fatal()
 	}
@@ -254,7 +254,7 @@ func TestGetTransactionHashById(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	transactionHash, err := client.GetTransactionHashByID("hash")
+	transactionHash, err := client.GetTransactionHashById("hash")
 	if err != nil {
 		t.Fatal()
 	}
@@ -269,7 +269,7 @@ func TestGetTransactionIdByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	transactionId, err := client.GetTransactionIDByHash("hash")
+	transactionId, err := client.GetTransactionIdByHash("hash")
 	if err != nil {
 		t.Fatal()
 	}

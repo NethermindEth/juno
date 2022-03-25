@@ -207,7 +207,6 @@ func parseArgSlice(
 				log.Default.With("Type", t, "Tag", tag).Debug("Parsing parameter.")
 				if strings.Contains(tag, "true") && fields.Field(i).IsZero() {
 					// notest
-					// XXX: Highlight which missing field this is.
 					return args, errors.New("missing required field")
 				}
 			}
@@ -243,7 +242,9 @@ func callFunc(
 	// Catch panic while running the callback.
 	defer func() {
 		// notest
-		if err := recover(); err != nil {
+		err := recover()
+		val := reflect.ValueOf(err)
+		if val.IsValid() && !val.IsNil() {
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
