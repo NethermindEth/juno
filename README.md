@@ -31,8 +31,7 @@ Run the following command.
 On Darwin in `$HOME/Library/Application Support/juno/`, `$XDG_CONFIG_HOME/juno/` for Unix (`$HOME/.config/juno/` if 
 $XDG_CONFIG_HOME is not set), or `%AppData%/juno/` for Windows.
 
-It generally looks like the following and a default will be generated if one does not exist. 
->>>>>>> origin/main
+It generally looks like the following and a default will be generated if one does not exist.
 
 ```yaml
 rpc:
