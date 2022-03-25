@@ -4,6 +4,9 @@ package cli
 import (
 	_ "embed"
 	"fmt"
+	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/pkg/ethereum"
+	"github.com/NethermindEth/juno/pkg/starknet"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -26,6 +29,7 @@ var (
 	//go:embed long.txt
 	longMsg string
 
+	processHandler *process.Handler
 	// rootCmd is the root command of the application.
 	rootCmd = &cobra.Command{
 		Use:   "juno [options]",
@@ -34,7 +38,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(longMsg)
 
-			handler := process.NewHandler()
+			processHandler = process.NewHandler()
 
 			// Handle signal interrupts and exits.
 			sig := make(chan os.Signal)
@@ -42,8 +46,7 @@ var (
 			go func() {
 				<-sig
 				log.Default.Info("Trying to close...")
-				handler.Close()
-				log.Default.Info("App closing...Bye!!!")
+				cleanup()
 				os.Exit(0)
 			}()
 
@@ -51,17 +54,39 @@ var (
 			// the config.
 			if config.Runtime.Rpc.Enabled {
 				s := rpc.NewServer(":8080")
-				handler.Add("RPC", s.ListenAndServe, s.Close)
+				processHandler.Add("RPC", s.ListenAndServe, s.Close)
+			}
+			database := db.New(config.DataDir, 0)
+			d := db.Databaser(database)
+			// Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
+			// the config.
+			if config.Runtime.Ethereum.Enabled {
+				// Layer 1 synchronizer for Ethereum State
+
+				l1Synchronizer := ethereum.NewSynchronizer(config.Runtime.Ethereum.Node, &d)
+				processHandler.Add("L1 Synchronizer", l1Synchronizer.UpdateStateRoot,
+					l1Synchronizer.Close)
+			} // Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
+			// the config.
+			if config.Runtime.Starknet.Enabled {
+				// Layer 1 synchronizer for Ethereum State
+				starknetSynchronizer := starknet.NewSynchronizer(config.Runtime.Starknet.FeederGateway, &d)
+				processHandler.Add("StarkNet Synchronizer", starknetSynchronizer.UpdateStateRoot,
+					starknetSynchronizer.Close)
 			}
 
 			// endless running process
 			log.Default.Info("Starting all processes...")
-			handler.Run()
-			handler.Close()
-			log.Default.Info("App closing...Bye!!!")
+			processHandler.Run()
+			cleanup()
 		},
 	}
 )
+
+func cleanup() {
+	processHandler.Close()
+	log.Default.Info("App closing...Bye!!!")
+}
 
 // init defines flags and handles configuration.
 func init() {
