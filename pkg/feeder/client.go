@@ -1,5 +1,5 @@
-// Package feeder_gateway represent a client for the Feeder Gateway Connection.
-// For more details of the implementation, see this client https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/services/api/feeder_gateway/feeder_gateway_client.py
+// Package feeder represent a client for the Feeder Gateway connection.
+// For more details of the implementation, see this client https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/services/api/feeder_gateway/feeder_gateway_client.py.
 package feeder
 
 import (
