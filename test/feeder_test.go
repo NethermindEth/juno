@@ -3,24 +3,22 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 
-	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/feeder/gatewayfakes"
+	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/bxcodec/faker"
 	"github.com/stretchr/testify/assert"
 )
 
-var httpClient = &gatewayfakes.FakeFeederHttpClient{}
+var httpClient = &feederfakes.FakeHttpClient{}
 var client *feeder.Client
 
 func init() {
-	var p feeder.FeederHttpClient
+	var p feeder.HttpClient
 	p = httpClient
 	client = feeder.NewClient("https:/local", "/feeder_gateway/", &p)
 }
@@ -51,30 +49,24 @@ func StructFaker(a interface{}) (string, error) {
 	return string(body), nil
 }
 
-// XXX: The following test always passes.
-
 func TestClient(t *testing.T) {
 	_ = feeder.NewClient("https:/local", "/feeder_gateway/", nil)
 }
 
 func TestGetContractAddress(t *testing.T) {
-	// XXX: Use `` to write the JSON string.
 	body := "{\"GpsStatementVerifier\":\"0x47312450B3Ac8b5b8e247a6bB6d523e7605bDb60\",\"Starknet\":\"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4\"}\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig feeder.ContractAddresses
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	contractAddresses, err := client.GetContractAddresses()
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
+		t.Fatal()
 		return
 	}
 	assert.Equal(t, cOrig, contractAddresses, "Contract Address don't match")
-	log.Default.With("Contract Addresses", contractAddresses).Info("Successfully getContractAddress request")
 }
 
 func TestCallContract(t *testing.T) {
@@ -84,32 +76,23 @@ func TestCallContract(t *testing.T) {
 	httpClient.DoReturns(generateResponse(string(body)), nil)
 	contractResponse, err := client.CallContract(feeder.InvokeFunction{}, "", "latest")
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, a, contractResponse, "CallContract response don't match")
-	log.Default.With("CallContract Response", contractResponse).Info("Successfully CallContract request")
 }
 
 func TestGetBlock(t *testing.T) {
 	a := feeder.StarknetBlock{}
 	body, err := StructFaker(a)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		fmt.Println(err)
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	httpClient.DoReturns(generateResponse(body), nil)
 	starknetBlock, err := client.GetBlock("", "latest")
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, a, starknetBlock, "StarknetBlock don't match")
-	log.Default.With("Block Response", starknetBlock).Info("Successfully getBlock request")
 }
 
 func TestGetStateUpdate(t *testing.T) {
@@ -118,35 +101,28 @@ func TestGetStateUpdate(t *testing.T) {
 	var cOrig feeder.StateUpdateResponse
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	getStateUpdate, err := client.GetStateUpdate("hash", "")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, getStateUpdate, "State Update response don't match")
-	log.Default.With("State Update", getStateUpdate).Info("Successfully GetStateUpdate request")
 }
+
 func TestGetCode(t *testing.T) {
 	body := "[\"one\",\"two\",\"three\"]\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig []string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	getCode, err := client.GetCode("hash", "", "latest")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, getCode, "GetCode response don't match")
-	log.Default.With("Code", getCode).Info("Successfully GetCode request")
 }
 
 func TestGetFullContract(t *testing.T) {
@@ -155,17 +131,13 @@ func TestGetFullContract(t *testing.T) {
 	var cOrig []interface{}
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	getFullContract, err := client.GetFullContract("hash", "hash", "")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, getFullContract, "GetFullContract response don't match")
-	log.Default.With("Contract", getFullContract).Info("Successfully getFullContract request")
 }
 
 func TestGetStorageAt(t *testing.T) {
@@ -174,20 +146,13 @@ func TestGetStorageAt(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	getStorageAt, err := client.GetStorageAt("hash", "key", "hash", "")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		// XXX: Why are we using the application logger here?
-		log.Default.With("Error", err).Info("Error GetStorageAt request")
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, getStorageAt, "GetStorageAt response don't match")
-	// XXX: Why are we using the application logger here?
-	log.Default.With("Storage", getStorageAt).Info("Successfully GetStorageAt request")
 }
 
 func TestGetTransactionStatus(t *testing.T) {
@@ -196,82 +161,59 @@ func TestGetTransactionStatus(t *testing.T) {
 	var cOrig []interface{}
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	getTransactionStatus, err := client.GetTransactionStatus("hash", "")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, getTransactionStatus, "GetTransactionStatus response don't match")
-	// XXX: Why are we using the application logger here?
-	log.Default.With("Transaction Status", getTransactionStatus).Info("Successfully GetTransactionStatus request")
 }
 
 func TestGetTransaction(t *testing.T) {
 	a := feeder.TransactionInfo{}
 	err := faker.FakeData(&a)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	body, err := json.Marshal(a)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	httpClient.DoReturns(generateResponse(string(body)), nil)
 	var cOrig feeder.TransactionInfo
 	err = json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		log.Default.With("Error", err).Info("Error unmarshalling")
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	transactionInfo, err := client.GetTransaction("", "id")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, transactionInfo, "GetTransaction response don't match")
-	log.Default.With("Transaction Info", transactionInfo).Info("Successfully GetTransaction request")
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
 	a := feeder.TransactionReceipt{}
 	err := faker.FakeData(&a)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	body, err := json.Marshal(a)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	httpClient.DoReturns(generateResponse(string(body)), nil)
 	var cOrig feeder.TransactionReceipt
 	err = json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		log.Default.With("Error", err).Info("Error unmarshalling")
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	transactionReceipt, err := client.GetTransactionReceipt("", "id")
 	if err != nil {
-		// XXX: Error is not logged or signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, transactionReceipt, "GetTransactionReceipt response don't match")
-	log.Default.With("Transaction Receipt", transactionReceipt).Info("Successfully GetTransactionReceipt request")
 }
 
 func TestGetBlockHashById(t *testing.T) {
@@ -280,20 +222,13 @@ func TestGetBlockHashById(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	blockHash, err := client.GetBlockHashByID("id")
 	if err != nil {
-		// XXX: Error is not signalled as a failed case.
-		// XXX: Why are we using the application logger here?
-		log.Default.With("Error", err).Info("Error GetBlockHashById request")
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, blockHash, "GetBlockHashById response don't match")
-	// XXX: Why are we using the application logger here?
-	log.Default.With("Block Hash", blockHash).Info("Successfully GetBlockHashById request")
 }
 
 func TestGetBlockIdByHash(t *testing.T) {
@@ -302,18 +237,13 @@ func TestGetBlockIdByHash(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	blockId, err := client.GetBlockIDByHash("hash")
 	if err != nil {
-		log.Default.With("Error", err).Info("Error GetBlockIdByHash request")
-		// XXX: Error is not signalled as a failed case.
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, blockId, "GetBlockIdByHash response don't match")
-	log.Default.With("Block Id", blockId).Info("Successfully GetBlockIdByHash request")
 }
 
 func TestGetTransactionHashById(t *testing.T) {
@@ -322,18 +252,13 @@ func TestGetTransactionHashById(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	transactionHash, err := client.GetTransactionHashByID("hash")
 	if err != nil {
-		// XXX: Error is not signalled as a failed case.
-		log.Default.With("Error", err).Info("Error GetTransactionHashById request")
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, transactionHash, "GetTransactionHashById response don't match")
-	log.Default.With("Transaction Hash", transactionHash).Info("Successfully GetTransactionHashById request")
 }
 
 func TestGetTransactionIdByHash(t *testing.T) {
@@ -342,16 +267,11 @@ func TestGetTransactionIdByHash(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
-		// XXX: Use t.Fatal instead.
-		t.Fail()
-		return
+		t.Fatal()
 	}
 	transactionId, err := client.GetTransactionIDByHash("hash")
 	if err != nil {
-		// XXX: Error is not signalled as a failed case.
-		log.Default.With("Error", err).Info("Error GetTransactionIdByHash request")
-		return
+		t.Fatal()
 	}
 	assert.Equal(t, cOrig, transactionId, "GetTransactionIdByHash response don't match")
-	log.Default.With("Transaction Hash", transactionId).Info("Successfully GetTransactionIdByHash request")
 }

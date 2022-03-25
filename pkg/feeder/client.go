@@ -14,20 +14,16 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 )
 
-// XXX: Instead of string concatenation, a cleaner solution might be
-// using fmt.Sprintf to compose the URLs. That way, even we even get the
-// additional benefit of input validation.
-
 const badBaseURL = "Bad base url"
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient
-type FeederHttpClient interface {
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . HttpClient
+type HttpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
 // Client is a client for the StarkNet Feeder Gateway.
 type Client struct {
-	httpClient *FeederHttpClient
+	httpClient *HttpClient
 
 	BaseURL   *url.URL
 	UserAgent string
@@ -35,11 +31,11 @@ type Client struct {
 }
 
 // NewClient returns a new Client.
-func NewClient(baseURL, baseAPI string, client *FeederHttpClient) *Client {
+func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	u, err := url.Parse(baseURL)
 	errpkg.CheckFatal(err, badBaseURL)
 	if client == nil {
-		var p FeederHttpClient
+		var p HttpClient
 		c := http.Client{
 			Timeout: 10 * time.Second,
 		}
@@ -58,8 +54,7 @@ func fmtBlockID(blockHash, blockNumber string) string {
 	return "blockHash=" + blockHash
 }
 
-// XXX: Document or "unexport" if not used externally.
-func TxnID(txHash, txID string) string {
+func fmtTxnID(txHash, txID string) string {
 	if len(txHash) == 0 {
 		return "transactionId=" + txID
 	}
@@ -92,7 +87,7 @@ func (c *Client) newRequest(method, path string, body any) (*http.Request, error
 	return req, nil
 }
 
-// do executes a request and waits for response or returns and error
+// do execute a request and waits for response or returns and error
 // otherwise.
 func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	res, err := (*c.httpClient).Do(req)
@@ -268,7 +263,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 func (c Client) GetTransactionStatus(txHash, txID string) (any, error) {
 	req, err := c.newRequest(
 		// XXX: See comment at top of file.
-		"GET", "/get_transaction_status?"+TxnID(txHash, txID), nil)
+		"GET", "/get_transaction_status?"+fmtTxnID(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -287,7 +282,7 @@ func (c Client) GetTransactionStatus(txHash, txID string) (any, error) {
 // GetTransaction creates a new request to get a TransactionInfo.
 func (c Client) GetTransaction(txHash, txID string) (TransactionInfo, error) {
 	// XXX: See comment at top of file.
-	req, err := c.newRequest("GET", "/get_transaction?"+TxnID(txHash, txID), nil)
+	req, err := c.newRequest("GET", "/get_transaction?"+fmtTxnID(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
@@ -308,7 +303,7 @@ func (c Client) GetTransaction(txHash, txID string) (TransactionInfo, error) {
 func (c Client) GetTransactionReceipt(txHash, txID string) (TransactionReceipt, error) {
 	req, err := c.newRequest(
 		// XXX: See comment at top of file.
-		"GET", "/get_transaction_receipt?"+TxnID(txHash, txID), nil)
+		"GET", "/get_transaction_receipt?"+fmtTxnID(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
