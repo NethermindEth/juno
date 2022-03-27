@@ -26,14 +26,22 @@ Run the following command.
 
 ## Configuration
 
-**juno** uses a configuration file named **config.yaml** that is located On Darwin in 
-`$HOME/Library/Application Support/juno/`, on other Unix systems `$XDG_CONFIG_HOME/juno/`, and on Windows,
-`%APPDATA%/juno`. It generally looks like the following and a default will be generated if one does not exist. 
+**juno** uses a configuration file named **juno.yaml** that is located:
+
+On Darwin in `$HOME/Library/Application Support/juno/`, `$XDG_CONFIG_HOME/juno/` for Unix (`$HOME/.config/juno/` if 
+$XDG_CONFIG_HOME is not set), or `%AppData%/juno/` for Windows.
+
+It generally looks like the following and a default will be generated if one does not exist.
 
 ```yaml
 rpc:
-  enabled: false
+  enabled: true
   port: 8080
-db_path: (See above).
-starknet_network: http://alpha4.starknet.io
+db_path: $HOME/Library/Application Support/juno
+ethereum:
+  enabled: true
+  node: "ethereum_archive_node"
+starknet:
+  enabled: true
+  feeder_gateway: "https://alpha-mainnet.starknet.io"
 ```
