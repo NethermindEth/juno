@@ -79,7 +79,6 @@ func (c *Client) newRequest(method, path string, query map[string]string, body i
 		}
 	}
 	req, err := http.NewRequest(method, u.String(), buf)
-	log.Default.With("Request Url", req.URL).Info("Making a request")
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +188,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 	var response StateUpdateResponse
 	_, err = c.do(req, &response)
 	if err != nil {
-		log.Default.With("Error", err, "Getaway Url", c.BaseURL, "Request", req.URL.RawPath).
+		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Error connecting to getaway.")
 		return StateUpdateResponse{}, err
 	}
