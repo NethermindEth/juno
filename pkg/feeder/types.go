@@ -3,23 +3,23 @@ package feeder
 // notest
 import "github.com/NethermindEth/juno/pkg/rpc"
 
-// XXX: Document.
+// TxnType represent the type of each transaction
 type TxnType int
 
-// XXX: Document.
+// ChainID represent the identifier of the Chain
 type ChainID string
 
-// TODO: replace with real hash representation.
+// Hash TODO: replace with real hash representation.
 type Hash string
 
-// XXX: Document.
+// Represent the types of transactions
 const (
 	Deploy TxnType = iota
 	InitializeBlockInfo
 	Invoke
 )
 
-// XXX: Document.
+// Represent the identifiers of the
 const (
 	Mainnet ChainID = "MAINNET"
 	Testnet ChainID = "Goerli"
@@ -57,30 +57,28 @@ type Transaction interface {
 // InvokeFunction represents a transaction in the StarkNet network that
 // is an invocation of a Cairo contract function.
 type InvokeFunction struct {
-	// XXX: Document.
 	ContractAddress int `json:"contract_address"`
 	// A field element that encodes the signature of the called function.
-	EntryPointSelector int `json:"entry_point_selector"`
-	// XXX: Document.
-	Calldata []int `json:"calldata"`
+	EntryPointSelector int   `json:"entry_point_selector"`
+	Calldata           []int `json:"calldata"`
 	// Additional information given by the caller that represents the
 	// signature of the transaction. The exact way this field is handled
 	// is defined by the called contract's function, like calldata.
 	Signature []int `json:"signature"`
 }
 
-// XXX: Document.
+// TransactionType returns the TxnType related to InvokeFunction
 func (i InvokeFunction) TransactionType() TxnType {
 	return Invoke
 }
 
-// XXX: Document.
+// CalculateHash returns the hash of the tra
 func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
 	// TODO: implement this
 	return Hash(config.ChainID)
 }
 
-// XXX: Document along with exported fields.
+// TxnSpecificInfo represent a StarkNet transaction information
 type TxnSpecificInfo struct {
 	Calldata           []string `json:"calldata"`
 	ContractAddress    string   `json:"contract_address"`
@@ -134,13 +132,12 @@ type TransactionExecution struct {
 	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages"`
 	// Events emitted during the execution of the transaction.
 	Events []Event `json:"events"`
-	//	# The resources needed by the transaction.
+	// The resources needed by the transaction.
 	ExecutionResources ExecutionResources `json:"execution_resources"`
 }
 
 // StarknetBlock Represents a response StarkNet block.
 type StarknetBlock struct {
-	// XXX: Document exported fields.
 	BlockHash           string               `json:"block_hash"`
 	ParentBlockHash     string               `json:"parent_block_hash"`
 	BlockNumber         string               `json:"block_number"`
@@ -151,14 +148,14 @@ type StarknetBlock struct {
 	TransactionReceipts TransactionExecution `json:"transaction_receipts"`
 }
 
-// XXX: Document along with exported fields.
+// TransactionFailureReason store reason of failure in transactions
 type TransactionFailureReason struct {
 	TxID     int64  `json:"tx_id"`
 	Code     string `json:"code"`
 	ErrorMsg string `json:"error_message"`
 }
 
-// XXX: Document.
+// TransactionInfo store all the transaction Inf
 type TransactionInfo struct {
 	// The status of a transaction, see TransactionStatus.
 	Status rpc.TxnStatus
@@ -198,13 +195,13 @@ type TransactionReceipt struct {
 	TransactionInBlockInfo
 }
 
-// XXX: Document along with exported fields.
+// KV represents a key-value pair
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// XXX: Document along with exported fields.
+// StateUpdateResponse represent the response of the StarkNet State Update
 type StateUpdateResponse struct {
 	BlockHash string `json:"block_hash"`
 	NewRoot   string `json:"new_root"`

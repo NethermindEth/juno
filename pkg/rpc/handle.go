@@ -300,8 +300,6 @@ func (h *HandlerJsonRpc) InvokeMethod(
 		// types of the function that is going to be called.
 		args, err = parseArgs(*r.Params, argTypes)
 		if err != nil {
-			// XXX: Use more robust error handling instead of just matching
-			// against a substring.
 			if err == errorTooManyArgs {
 				log.Default.Info("Searching for overload...")
 				structToCall = reflect.ValueOf(h.StructRpc)
