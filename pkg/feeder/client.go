@@ -46,6 +46,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 
 func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
 	if len(blockHash) == 0 && len(blockNumber) == 0 {
+		// notest
 		return nil
 	}
 	if len(blockHash) == 0 {
@@ -56,6 +57,7 @@ func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
 
 func TxnIdentifier(txHash, txId string) map[string]string {
 	if len(txHash) == 0 && len(txId) == 0 {
+		// notest
 		return nil
 	}
 
@@ -199,6 +201,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 func (c Client) GetCode(contractAddress, blockHash, blockNumber string) ([]string, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
+		// notest
 		blockIdentifier = map[string]string{}
 	}
 	blockIdentifier["contractAddress"] = contractAddress
@@ -223,6 +226,7 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) ([]strin
 func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) (interface{}, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
+		// notest
 		blockIdentifier = map[string]string{}
 	}
 	blockIdentifier["contractAddress"] = contractAddress
@@ -248,6 +252,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string) (string, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
+		// notest
 		blockIdentifier = map[string]string{}
 	}
 	blockIdentifier["contractAddress"] = contractAddress

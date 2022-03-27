@@ -13,6 +13,7 @@ var Default *zap.SugaredLogger
 func init() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
+		// notest
 		os.Exit(1)
 	}
 	Default = logger.Sugar()
