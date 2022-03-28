@@ -6,6 +6,11 @@ module.exports = {
             ],
         },
         {
+            "Running": [
+                'docker'
+            ]
+        },
+        {
             "Contribute": [
                 'getting-started-juno',
                 'getting-started-starknet',
