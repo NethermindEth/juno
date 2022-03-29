@@ -16,7 +16,12 @@ FROM alpine:3.15
 
 WORKDIR /app
 
-COPY --from=build /app/build/juno /app/juno
+COPY --from=build /app/build/juno /home/app/juno
 
-ENTRYPOINT ["/app/juno"]
+RUN addgroup -S appgroup && adduser -S app -G appgroup
+USER app
+ENV HOME /home/app
+
+EXPOSE  8080
+ENTRYPOINT ["/home/app/juno"]
 
