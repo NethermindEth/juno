@@ -25,8 +25,10 @@ in the Readme of the project.
 You can run your app using docker if you follow previous process:
 
 ```
-docker run -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
+docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
 ```
 
 You need to be aware that the value of `db_path` inside config is the same that the one set to link the value of the
 `juno_data` volume.
+
+Remember to export the ports you are using.
