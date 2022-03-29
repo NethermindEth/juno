@@ -4,7 +4,13 @@ module.exports = {
             "Welcome": ['welcome'],
         },
         {
+            "Running": [
+                'docker'
+            ]
+        },
+        {
             "Getting Started": [
+
                 'getting-started-juno',
                 'getting-started-starknet',
                 'getting-started-go',
