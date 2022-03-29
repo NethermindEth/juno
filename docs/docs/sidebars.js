@@ -40,6 +40,20 @@ module.exports = {
             ]
         },
         {
+            "Guides and Processes": [
+                'engineering-guidelines',
+                'development-lifecycle',
+                'how-to-deploy',
+                'useful-commands',
+            ]
+        },
+        {
+            "Testing": [
+                'coverage',
+                'testing'
+            ]
+        },
+        {
             type: 'link',
             label: 'Juno Discord',
             href: 'https://discord.gg/sqFY2D48GS',
