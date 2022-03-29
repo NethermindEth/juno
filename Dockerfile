@@ -6,13 +6,9 @@ WORKDIR /app
 RUN apk update && apk upgrade && apk add --update alpine-sdk && \
     apk add --no-cache bash git openssh make cmake
 
-# Download necessary Go modules
-COPY go.mod ./
-COPY go.sum ./
-RUN go mod download
-
 # Copy all source code
 COPY . .
+RUN go mod download
 
 RUN make compile
 
