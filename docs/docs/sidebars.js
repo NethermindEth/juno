@@ -6,14 +6,16 @@ module.exports = {
             ],
         },
         {
-            "Contribute": [
+            "Running": [
+                'docker'
+            ]
+        },
+        {
+            "Getting Started": [
+
                 'getting-started-juno',
                 'getting-started-starknet',
                 'getting-started-go',
-                {
-                    "Juno Docs": [
-                        'contribution-guide', 'cheatsheet']
-                },
             ],
         },
         {
@@ -26,6 +28,20 @@ module.exports = {
                 'state-reorganizations',
                 'jsonrpc-improving',
                 'voyager'
+            ]
+        },
+        {
+            "Guides and Processes": [
+                'engineering-guidelines',
+                'development-lifecycle',
+                'how-to-deploy',
+                'useful-commands',
+            ]
+        },
+        {
+            "Testing": [
+                'coverage',
+                'testing'
             ]
         },
         {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"github.com/NethermindEth/juno/internal/config"
@@ -53,7 +54,7 @@ var (
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Rpc.Enabled {
-				s := rpc.NewServer(":8080")
+				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.Rpc.Port))
 				handler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
