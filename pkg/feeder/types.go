@@ -3,14 +3,15 @@ package feeder
 // notest
 import "github.com/NethermindEth/juno/pkg/rpc"
 
-// TxnType represent the type of each transaction
-type TxnType int
-
-// ChainID represent the identifier of the Chain
-type ChainID string
-
-// Hash TODO: replace with real hash representation.
-type Hash string
+type (
+	// TxnType represents the type of each transaction.
+	TxnType int
+	// ChainID represent the chain identifier.
+	ChainID string
+	// XXX: Document.
+	// TODO: replace with real hash representation.
+	Hash string
+)
 
 // Represent the types of transactions
 const (
@@ -44,7 +45,8 @@ type StarknetGeneralConfig struct {
 	TxCommitmentTreeHeight int `json:"tx_commitment_tree_height"`
 	// Height of Patricia tree of the event commitment in a block.
 	EventCommitmentTreeHeight int `json:"event_commitment_tree_height"`
-	// A mapping from a Cairo usage resource to its coefficient in this transaction fee calculation.
+	// A mapping from a Cairo usage resource to its coefficient in this
+	// transaction fee calculation.
 	CairoUsageResourceFeeWeights map[string]float64 `json:"cairo_usage_resource_fee_weights"`
 }
 
@@ -72,13 +74,14 @@ func (i InvokeFunction) TransactionType() TxnType {
 	return Invoke
 }
 
+// XXX: Document.
 // CalculateHash returns the hash of the tra
 func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
 	// TODO: implement this
 	return Hash(config.ChainID)
 }
 
-// TxnSpecificInfo represent a StarkNet transaction information
+// TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
 	Calldata           []string `json:"calldata"`
 	ContractAddress    string   `json:"contract_address"`
@@ -105,15 +108,17 @@ type L2ToL1Message struct {
 	Payload     []int64 `json:"payload"`
 }
 
-// Event Represents a StarkNet event; contains all the fields that will be included in the block hash.
+// Event Represents a StarkNet event; contains all the fields that will
+// be included in the block hash.
 type Event struct {
 	FromAddress string  `json:"from_address"`
 	Keys        []int64 `json:"keys"`
 	Data        []int64 `json:"data"`
 }
 
-// ExecutionResources Indicates how many steps the program should run, how many memory cells are used from each builtin,
-// and how many holes there are in the memory address space.
+// ExecutionResources Indicates how many steps the program should run,
+// how many memory cells are used from each builtin, and how many holes
+// there are in the memory address space.
 type ExecutionResources struct {
 	NSteps                 int64            `json:"n_steps"`
 	BuiltinInstanceCounter map[string]int64 `json:"builtin_instance_counter"`
@@ -148,25 +153,28 @@ type StarknetBlock struct {
 	TransactionReceipts TransactionExecution `json:"transaction_receipts"`
 }
 
-// TransactionFailureReason store reason of failure in transactions
+// TransactionFailureReason store reason of failure in transactions.
 type TransactionFailureReason struct {
 	TxID     int64  `json:"tx_id"`
 	Code     string `json:"code"`
 	ErrorMsg string `json:"error_message"`
 }
 
+// XXX: Document.
 // TransactionInfo store all the transaction Inf
 type TransactionInfo struct {
 	// The status of a transaction, see TransactionStatus.
 	Status rpc.TxnStatus
 	// The reason for the transaction failure, if applicable.
 	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	// The unique identifier of the block on the active chain containing the transaction.
+	// The unique identifier of the block on the active chain containing
+	// the transaction.
 	BlockHash string `json:"block_hash"`
-	// The sequence number of the block corresponding to block_hash, which is the number of blocks
-	// prior to it in the active chain.
+	// The sequence number of the block corresponding to block_hash, which
+	// is the number of blocks prior to it in the active chain.
 	BlockNumber string `json:"block_number"`
-	//	The index of the transaction within the block corresponding to block_hash.
+	//	The index of the transaction within the block corresponding to
+	// block_hash.
 	TransactionIndex int64           `json:"transaction_index"`
 	Transaction      TxnSpecificInfo `json:"transaction"`
 }
@@ -178,12 +186,14 @@ type TransactionInBlockInfo struct {
 	Status rpc.TxnStatus
 	// The reason for the transaction failure, if applicable.
 	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	// The unique identifier of the block on the active chain containing the transaction.
+	// The unique identifier of the block on the active chain containing
+	// the transaction.
 	BlockHash string `json:"block_hash"`
-	// The sequence number of the block corresponding to block_hash, which is the number of blocks
-	// prior to it in the active chain.
+	// The sequence number of the block corresponding to block_hash, which
+	// is the number of blocks prior to it in the active chain.
 	BlockNumber string `json:"block_number"`
-	//	The index of the transaction within the block corresponding to block_hash.
+	//	The index of the transaction within the block corresponding to
+	// block_hash.
 	TransactionIndex int64 `json:"transaction_index"`
 }
 
@@ -195,13 +205,14 @@ type TransactionReceipt struct {
 	TransactionInBlockInfo
 }
 
-// KV represents a key-value pair
+// KV represents a key-value pair.
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// StateUpdateResponse represent the response of the StarkNet State Update
+// StateUpdateResponse represents the response of a StarkNet state
+// update.
 type StateUpdateResponse struct {
 	BlockHash string `json:"block_hash"`
 	NewRoot   string `json:"new_root"`

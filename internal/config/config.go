@@ -33,7 +33,7 @@ var (
 	// On Darwin this is $HOME/Library/Application Support/juno/, on other
 	// Unix systems $XDG_CONFIG_HOME/juno/, and on Windows,
 	// %APPDATA%/juno.
-	Dir string
+	Dir,
 	// DataDir is the is the default root directory for user-specific
 	// application data.
 	//

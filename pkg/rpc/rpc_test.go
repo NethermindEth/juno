@@ -51,7 +51,7 @@ func TestRPCServer(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("Successfully Opened rpc_tests.json")
+	fmt.Println("Successfully opened rpc_tests.json")
 	// defer the closing of our jsonFile so that we can parse it later on
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.

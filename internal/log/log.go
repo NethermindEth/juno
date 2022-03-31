@@ -2,8 +2,9 @@
 package log
 
 import (
+	"log"
+
 	"go.uber.org/zap"
-	"os"
 )
 
 // Default is the default logger. It is a "sugared" variant of the zap
@@ -14,7 +15,7 @@ func init() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		// notest
-		os.Exit(1)
+		log.Fatalln("failed to initialise application logger")
 	}
 	Default = logger.Sugar()
 }

@@ -26,7 +26,7 @@ var (
 type Handler interface {
 	ServeJSONRPC(
 		c context.Context, params *json.RawMessage,
-	) (result interface{}, err *Error)
+	) (result any, err *Error)
 }
 
 // HandlerFunc type is an adapter that allows the use of Go functions as
@@ -34,12 +34,12 @@ type Handler interface {
 // signature, HandlerFunc(f) is a JSON-RPC.Handler that calls f.
 type HandlerFunc func(
 	c context.Context, params *json.RawMessage,
-) (result interface{}, err *Error)
+) (result any, err *Error)
 
 // ServeJSONRPC calls a function f(w, r).
 func (f HandlerFunc) ServeJSONRPC(
 	c context.Context, params *json.RawMessage,
-) (result interface{}, err *Error) {
+) (result any, err *Error) {
 	// notest
 	return f(c, params)
 }
@@ -227,7 +227,7 @@ func callFunc(
 	receiver reflect.Value,
 	hasContext bool,
 	errResponsePosition int,
-) (res interface{}, errRes error) {
+) (res any, errRes error) {
 	log.Default.With("Method", method).Info("Calling RPC function.")
 	// Create the argument slice.
 	fullArgs := make([]reflect.Value, 0, 2+len(args))
