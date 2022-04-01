@@ -14,7 +14,7 @@ func newClient() (*Client, error) {
 func TestClient_GetBlockByHash(t *testing.T) {
 	c, err := newClient()
 	if err != nil {
-		t.Error("failed to initialise new client.")
+		t.Error("Failed to initialise a new client.")
 	}
 	defer c.Close()
 	blockHash := BlockHash("latest")
@@ -22,7 +22,7 @@ func TestClient_GetBlockByHash(t *testing.T) {
 	response, err := c.GetBlockByHash(
 		context.Background(), blockHash, requestedScope)
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed to get block by hash.")
 	}
 	t.Log(response)
 }
@@ -30,7 +30,7 @@ func TestClient_GetBlockByHash(t *testing.T) {
 func TestClient_GetBlockByNumber(t *testing.T) {
 	c, err := newClient()
 	if err != nil {
-		t.Error("failed to initialise new client.")
+		t.Error("Failed to initialise new a client.")
 	}
 	defer c.Close()
 	blockHash := BlockHash("latest")
@@ -38,7 +38,7 @@ func TestClient_GetBlockByNumber(t *testing.T) {
 	response, err := c.GetBlockByNumber(
 		context.Background(), blockHash, requestedScope)
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed to get block by number.")
 	}
 	t.Log(response)
 }
