@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: production
-      url: https://nethermindeth.github.io/juno
+      url: http://gojuno.xyz
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
@@ -45,8 +45,8 @@ jobs:
           GIT_USER: git
           CURRENT_BRANCH: ${{ secrets.CURRENT_BRANCH }}
           DEPLOYMENT_BRANCH: ${{ secrets.DEPLOYMENT_BRANCH }}
-          TARGET_URL: "https://nethermindeth.github.io"
-          BASE_URL: "/juno/"
+          TARGET_URL: "http://gojuno.xyz/"
+          BASE_URL: "/"
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "gh-actions"

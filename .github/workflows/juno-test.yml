@@ -4,6 +4,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -11,12 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ['1.17']
+        go: ['1.18']
     steps:
       - uses: actions/checkout@v2
       - name: set up go
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+      - name: install deps
+        run: make install-deps
       - name: Tests
-        run: go test ./...
+        run: make codecov-test
+      - name: Benchmark
+        run: make benchmarks
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
+          files: ./coverage/coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          verbose: true

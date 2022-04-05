@@ -1,29 +1,50 @@
 # juno
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno)
+<div align="center"><img width="128" src="./docs/static/img/juno_rounded.png"></div>
 
-Juno is a StarkNet client written in Go.
+Starknet client implementation.
 
-[Docs](https://nethermindeth.github.io/juno/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/NethermindEth/juno.svg)](https://pkg.go.dev/github.com/NethermindEth/juno) [![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno) [![Actions Status](https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg)](https://github.com/NethermindEth/juno/actions) [![codecov](https://codecov.io/gh/NethermindEth/juno/branch/main/graph/badge.svg)](https://codecov.io/gh/NethermindEth/juno)
 
-Here you will find various links to help you start with the StarkNet ecosystem.
+## Building from source
 
-[StarkNet Docs](https://starknet.io/)
+Run the following command.
 
-[Voyager block explorer](https://voyager.online)
+```sh
+% make all
+```
 
-[Warp Docs](https://github.com/NethermindEth/warp)
+## Executables
 
-[CairoLang Docs](https://www.cairo-lang.org/)
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr>
+    <td><code>juno</code></td>
+    <td>The StarkNet full node client.</td>
+  <tr>
+</table>
 
-[StarkEx Docs](https://docs.starkware.co/starkex-v4)
+## Configuration
 
-[StarkNet Devs Discord](https://discord.com/invite/uJ9HZTUk2Y)
+**juno** uses a configuration file named **juno.yaml** that is located in the following places depending on the operating system.
 
-[StarkNet Shamans Forum](https://community.starknet.io/)
+- **macOS** - `$HOME/Library/Application Support/juno/`.
+- Other **Unix** systems - `$XDG_CONFIG_HOME/juno/` or `$HOME/.config/juno/` if the `$XDG_CONFIG_HOME` variable is not set.
+- **Windows** -  `%AppData%/juno/`.
 
-[StarkNet Medium](https://medium.com/starkware/starknet/home)
+It generally looks like the following and a default will be generated if one does not exist.
 
-[StarkNet Twitter](https://twitter.com/Starknet_Intern)
+The following is an example on how it would look on a macOS system (replace `$HOME` with a full path to the home directory).
 
-[Nethermind Twitter](https://twitter.com/NethermindEth)
+```yaml
+db_path: $HOME/Library/Application Support/juno
+ethereum:
+  enabled: true
+  node: "ethereum_archive_node"
+rpc:
+  enabled: true
+  port: 8080
+starknet:
+  enabled: true
+  feeder_gateway: "https://alpha-mainnet.starknet.io"
+```

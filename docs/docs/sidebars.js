@@ -1,30 +1,73 @@
 module.exports = {
-  docs: [
-    {
-      "Welcome": [
-        'welcome',
-      ],
-    },
-    {
-      "Contribute": [
-        'getting-started-juno',
-        'getting-started-starknet',
-        'getting-started-go',
+    docs: [
         {
-          "Juno Docs": [
-          'contribution-guide', 'cheatsheet']
+            "Welcome": ['welcome'],
         },
-      ],
-    },
-    {
-      type: 'link',
-      label: 'Juno Discord',
-      href: 'https://discord.gg/sqFY2D48GS',
-    },
-    {
-      type: 'link',
-      href: 'https://github.com/NethermindEth/juno',
-      label: 'Juno GitHub',
-    },
-  ],
+        {
+            "Running": [
+                'docker'
+            ]
+        },
+        {
+            "Getting Started": [
+
+                'getting-started-juno',
+                'getting-started-starknet',
+                'getting-started-go',
+            ]
+        },
+        {
+            "Contribute": [
+                {
+                    "Juno": [
+                        'contribution-juno'
+                    ]
+                },
+                {
+                    "Docs": [
+                        'contribution-guide',
+                        'cheatsheet'
+                    ]
+                },
+            ],
+        },
+        {
+            "Implemented features": [
+                'feeder-gateway',
+            ],
+            "Future Implementations": [
+                'cairo-integration',
+                'starknet-cryptography',
+                'starknet-state',
+                'l1-integration',
+                'state-reorganizations',
+                'jsonrpc-improving',
+                'voyager'
+            ]
+        },
+        {
+            "Guides and Processes": [
+                'engineering-guidelines',
+                'development-lifecycle',
+                'how-to-deploy',
+                'useful-commands',
+            ]
+        },
+        {
+            "Testing": [
+                'coverage',
+                'testing'
+            ]
+        },
+        {
+            type: 'link',
+            label: 'Juno Discord',
+            href: 'https://discord.gg/sqFY2D48GS',
+        },
+        {
+            type: 'link',
+            href: 'https://github.com/NethermindEth/juno',
+            label: 'Juno GitHub',
+        },
+    ],
 };
