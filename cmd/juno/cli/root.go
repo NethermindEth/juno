@@ -62,9 +62,9 @@ var (
 			// Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Ethereum.Enabled {
-				// Layer 1 synchronizer for Ethereum State
 
-				l1Synchronizer := ethereum.NewSynchronizer(config.Runtime.Ethereum.Node, &d)
+				// Layer 1 synchronizer for Ethereum State
+				l1Synchronizer := ethereum.NewSynchronizer(config.Runtime.Ethereum.Node, config.Runtime.Starknet.FeederGateway, &d)
 				processHandler.Add("L1 Synchronizer", l1Synchronizer.UpdateStateRoot,
 					l1Synchronizer.Close)
 			} // Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
