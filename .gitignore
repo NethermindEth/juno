@@ -2,3 +2,4 @@
 build/juno
 coverage/*
 courtney/
+.idea/
