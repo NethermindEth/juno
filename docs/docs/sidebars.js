@@ -4,6 +4,11 @@ module.exports = {
             "Welcome": ['welcome'],
         },
         {
+            "Running": [
+                'docker'
+            ]
+        },
+        {
             "Getting Started": [
                 'getting-started-juno',
                 'getting-started-starknet',
@@ -37,6 +42,20 @@ module.exports = {
                 'state-reorganizations',
                 'jsonrpc-improving',
                 'voyager'
+            ]
+        },
+        {
+            "Guides and Processes": [
+                'engineering-guidelines',
+                'development-lifecycle',
+                'how-to-deploy',
+                'useful-commands',
+            ]
+        },
+        {
+            "Testing": [
+                'coverage',
+                'testing'
             ]
         },
         {

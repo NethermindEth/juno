@@ -1,10 +1,8 @@
-package test
+package db
 
 import (
 	"strconv"
 	"testing"
-
-	"github.com/NethermindEth/juno/pkg/db"
 )
 
 var keyValueTest = map[string]string{}
@@ -17,8 +15,8 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
-func setupDatabaseForTest(path string) *db.KeyValueDb {
-	return db.New(path, 0)
+func setupDatabaseForTest(path string) *KeyValueDb {
+	return New(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error

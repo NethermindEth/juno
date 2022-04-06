@@ -33,10 +33,10 @@ type starknetConfig struct {
 
 // Config represents the juno configuration.
 type Config struct {
-	Rpc      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
 	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
 	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
+	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
 }
 
 var (
@@ -60,6 +60,8 @@ var Runtime *Config
 
 const goerliStarknetGateway = "http://alpha4.starknet.io"
 
+const goerli = "http://alpha4.starknet.io"
+
 func init() {
 	// Set user config directory.
 	d, err := os.UserConfigDir()
@@ -72,7 +74,7 @@ func init() {
 		switch runtime.GOOS {
 		case "windows":
 			// On Windows ConfigDir and DataDir share the same path. See:
-			// https://stackoverflow.com/questions/43853548/xdg-basedir-directories-for-windows
+			// https://stackoverflow.com/questions/43853548/xdg-basedir-directories-for-windows.
 			return Dir, nil
 		case "darwin", "dragonfly", "freebsd", "illumos", "ios", "linux", "netbsd",
 			"openbsd", "solaris":
@@ -84,6 +86,7 @@ func init() {
 	errpkg.CheckFatal(err, "Unable to get user data directory.")
 }
 
+// New creates a new configuration file with default values.
 func New() {
 	f := filepath.Join(Dir, "juno.yaml")
 	log.Default.With("Path", f).Info("Creating default config.")
@@ -94,10 +97,10 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		Rpc:      rpcConfig{Enabled: false, Port: 8080},
-		DbPath:   Dir,
 		Ethereum: ethereumConfig{Enabled: false},
 		Starknet: starknetConfig{Enabled: false},
+		RPC:      rpcConfig{Enabled: false, Port: 8080},
+		DbPath:   Dir,
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0644)

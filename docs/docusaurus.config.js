@@ -49,7 +49,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
           },
           items: [
             {
-              href: 'https://github.com/NethermindEth/Juno/',
+              href: 'https://github.com/NethermindEth/juno/',
               label: 'GitHub',
               position: 'right',
             },

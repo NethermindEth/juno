@@ -1,4 +1,4 @@
-package test
+package rpc
 
 import (
 	"bytes"
@@ -11,12 +11,10 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/NethermindEth/juno/pkg/rpc"
 )
 
-func getServerHandler() *rpc.HandlerJsonRpc {
-	return rpc.NewHandlerJsonRpc(rpc.HandlerRPC{})
+func getServerHandler() *HandlerJsonRpc {
+	return NewHandlerJsonRpc(HandlerRPC{})
 }
 
 type rpcTest struct {
@@ -53,7 +51,7 @@ func TestRPCServer(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("Successfully Opened users.json")
+	fmt.Println("Successfully opened rpc_tests.json")
 	// defer the closing of our jsonFile so that we can parse it later on
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
@@ -72,7 +70,7 @@ func TestRPCServer(t *testing.T) {
 }
 
 func TestServer(t *testing.T) {
-	server := rpc.NewServer(":8080")
+	server := NewServer(":8080")
 	go func() {
 		_ = server.ListenAndServe()
 	}()

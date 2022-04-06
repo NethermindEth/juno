@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"github.com/NethermindEth/juno/internal/config"
@@ -52,8 +53,8 @@ var (
 
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
-			if config.Runtime.Rpc.Enabled {
-				s := rpc.NewServer(":8080")
+			if config.Runtime.RPC.Enabled {
+				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 			database := db.New(config.DataDir, 0)
@@ -128,8 +129,8 @@ func initConfig() {
 	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
 	log.Default.With(
 		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.Rpc.Port,
-		"Rpc Enabled", config.Runtime.Rpc.Enabled,
+		"Rpc Port", config.Runtime.RPC.Port,
+		"Rpc Enabled", config.Runtime.RPC.Enabled,
 	).Info("Config values.")
 }
 

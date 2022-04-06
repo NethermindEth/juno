@@ -10,10 +10,10 @@ run: ## run
 all: compile run ## build and run
 
 test: ## tests
-	go test ./test/
+	go test ./...
 
 benchmarks: ## Benchmarking
-	go test ./test/ -bench=.
+	go test ./... -bench=.
 
 test-cover: ## tests with coverage
 	mkdir -p coverage
@@ -21,7 +21,7 @@ test-cover: ## tests with coverage
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: ## Install some project dependencies
-	git clone https://github.com/DemerzelSolutions/courtney
+	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
 	go get ./...
 
