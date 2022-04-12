@@ -25,10 +25,18 @@ type ethereumConfig struct {
 	Node    string `yaml:"node" mapstructure:"node"`
 }
 
+type contractAbiConfig struct {
+	StarknetAbiPath    string `yaml:"starknet"  mapstructure:"starknet"`
+	GpsVerifierAbiPath string `yaml:"gps_verifier" mapstructure:"gps_verifier"`
+	MemoryPageAbiPath  string `yaml:"memory_page" mapstructure:"memory_page"`
+}
+
 // starknetConfig represents the juno StarkNet configuration.
 type starknetConfig struct {
-	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
-	FeederGateway string `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	Enabled                        bool              `yaml:"enabled" mapstructure:"enabled"`
+	FeederGateway                  string            `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	ContractAbiPathConfig          contractAbiConfig `yaml:"contract_abi_path" mapstructure:"contract_abi_path"`
+	MemoryPageFactRegistryContract string            `yaml:"memory_contract" mapstructure:"memory_contract"`
 }
 
 // Config represents the juno configuration.

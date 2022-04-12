@@ -129,7 +129,7 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 // GetContractAddresses creates a new request to get Contract Addresses from the Getaway
 func (c Client) GetContractAddresses() (ContractAddresses, error) {
 	log.Default.With("Gateway Url", c.BaseURL).Info("Getting Contract Address from Gateway")
-	req, err := c.newRequest("GET", "get_contract_addresses", nil, nil)
+	req, err := c.newRequest("GET", "/get_contract_addresses", nil, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Getaway Url", c.BaseURL).
 			Error("Unable to create a request for get_contract_addresses.")
