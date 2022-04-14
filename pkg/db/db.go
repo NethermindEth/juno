@@ -40,6 +40,7 @@ type KeyValueDb struct {
 // New creates a new key-value database.
 func New(path string, flags uint) *KeyValueDb {
 	log.Default.With("Path", path, "Flags", flags).Info("Creating new database.")
+	// NewEnv() allocates and initializes a new Env.
 	env, err := mdbx.NewEnv()
 	if err != nil {
 		// notest
@@ -86,12 +87,17 @@ func (d *KeyValueDb) Has(key []byte) (has bool, err error) {
 // database or returns an error otherwise.
 func (d *KeyValueDb) getOne(key []byte) (val []byte, err error) {
 	var dbi mdbx.DBI
+	 // OpenRoot opens the root database. OpenRoot behaves,
+	// Similarly to OpenDBI but does not require env.
+	// SetMaxDBs() to be called beforehand. And, 
+	// OpenRoot can be called without flags in a View transaction.
 	if err := d.env.View(func(txn *mdbx.Txn) error {
 		dbi, err = txn.OpenRoot(mdbx.Create)
 		if err != nil {
 			log.Default.With("Error", err).Info("Failed to open database.")
 			return err
 		}
+	// Get retrieves items from database dbi.
 		val, err = txn.Get(dbi, key)
 		if err != nil {
 			if mdbx.IsNotFound(err) {
@@ -154,12 +160,14 @@ func (d *KeyValueDb) Delete(key []byte) error {
 
 // Count returns the number of items in the database.
 func (d *KeyValueDb) Count() (uint64, error) {
+	// env.Stat() returns statistics about the environment.
 	log.Default.Info("Getting the number of items in the database.")
 	stats, err := d.env.Stat()
 	if err != nil {
 		log.Default.With("Error", err).Info("Unable to get stats from env.")
 		return 0, err
 	}
+	// stats.Entries returns Number of data items
 	return stats.Entries, err
 }
 
