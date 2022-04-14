@@ -16,6 +16,9 @@ func Digest250(data []byte) []byte {
 
 // Digest256 returns the 256-bit Keccak hash of the data as a slice of
 // 32 bytes.
+// NewLegacyKeccak256 creates a new Keccak-256 hash.
+// Only use this function if you require compatibility
+// with an existing cryptosystem that uses non-standard padding. 
 func Digest256(data []byte) []byte {
 	h := sha3.NewLegacyKeccak256()
 	h.Write(data)
