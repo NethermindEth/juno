@@ -82,13 +82,14 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 	return pt1.x, nil
 }
 
-// DigestArray implements the Pedersen hash function for
-// a list of items (more than two).
+// ArrayDigest returns a field element that is the result of hashing an
+// array of field elements. This is generally used to overcome the
+// limitation of the [Digest] function which has an upper bound on the
+// amount of field elements that can be hashed. See the [array hashing]
+// section of the StarkNet documentation for more details.
 //
-// H(a1,a2,...,an) = h(h(...h(h(0,a1),a2),...,an),n)
-//
-// See https://docs.starknet.io/docs/Hashing/hash-functions#array-hashing
-func DigestArray(data ...*big.Int) (*big.Int, error) {
+// [array hashing]: https://docs.starknet.io/docs/Hashing/hash-functions#array-hashing
+func ArrayDigest(data ...*big.Int) (*big.Int, error) {
 	n := len(data)
 
 	currentHash := zero
@@ -96,7 +97,7 @@ func DigestArray(data ...*big.Int) (*big.Int, error) {
 	for _, item := range data {
 		partialResult, err := Digest(currentHash, item)
 		if err != nil {
-			return zero, err
+			return nil, err
 		}
 		currentHash = partialResult
 	}

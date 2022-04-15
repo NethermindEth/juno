@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-var benchmarkDigestArrayData []*big.Int
+var benchmarkArrayDigestData []*big.Int
 
 func init() {
-	initBenchmarkDigestArray()
+	initBenchmarkArrayDigest()
 }
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
@@ -65,27 +65,32 @@ func TestDigest(t *testing.T) {
 	}
 }
 
-func initBenchmarkDigestArray() {
+func initBenchmarkArrayDigest() {
 	// max = 2**252 - 1
 	max := new(big.Int)
 	max.Exp(big.NewInt(2), big.NewInt(252), nil).Sub(max, big.NewInt(1))
-	// Building a batch of 20 random big.Int between 0 and 2**252-1
+	// Building a batch of 20 random big.Int between 0 and 2**252-1.
 	for i := 0; i < 20; i++ {
+		// XXX: Use big.Int.Rand instead. We don't need secure randomness
+		// here. In fact, this is will skew benchmark results because of the
+		// associated overhead.
 		value, err := rand.Int(rand.Reader, max)
 		if err != nil {
 			panic(err)
 		}
-		benchmarkDigestArrayData = append(benchmarkDigestArrayData, value)
+		benchmarkArrayDigestData = append(benchmarkArrayDigestData, value)
 	}
 }
 
-func BenchmarkDigestArray(b *testing.B) {
+func BenchmarkArrayDigest(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		DigestArray(benchmarkDigestArrayData...)
+		ArrayDigest(benchmarkArrayDigestData...)
 	}
 }
 
-func TestDigestArray(t *testing.T) {
+// XXX: Use hexadecimal encoding to keep it consistent with the rest of 
+// the package.
+func TestArrayDigest(t *testing.T) {
 	var tests = [...]struct {
 		input []string
 		want  string
@@ -112,7 +117,7 @@ func TestDigestArray(t *testing.T) {
 			data = append(data, v)
 		}
 		want, _ := new(big.Int).SetString(test.want, 10)
-		got, _ := DigestArray(data...)
+		got, _ := ArrayDigest(data...)
 		if got.Cmp(want) != 0 {
 			t.Errorf("DigestArray(%v) = %v, want %v", data, got, want)
 		}
