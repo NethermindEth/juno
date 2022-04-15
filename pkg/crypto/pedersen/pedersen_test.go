@@ -1,9 +1,9 @@
 package pedersen
 
 import (
-	"crypto/rand"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 )
 
@@ -71,13 +71,7 @@ func initBenchmarkArrayDigest() {
 	max.Exp(big.NewInt(2), big.NewInt(252), nil).Sub(max, big.NewInt(1))
 	// Building a batch of 20 random big.Int between 0 and 2**252-1.
 	for i := 0; i < 20; i++ {
-		// XXX: Use big.Int.Rand instead. We don't need secure randomness
-		// here. In fact, this is will skew benchmark results because of the
-		// associated overhead.
-		value, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			panic(err)
-		}
+		value := new(big.Int).Rand(rand.New(rand.NewSource(1)), max)
 		benchmarkArrayDigestData = append(benchmarkArrayDigestData, value)
 	}
 }
