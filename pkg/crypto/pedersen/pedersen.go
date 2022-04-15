@@ -82,6 +82,12 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 	return pt1.x, nil
 }
 
+// DigestArray implements the Pedersen hash function for
+// a list of items (more than two).
+//
+// H(a1,a2,...,an) = h(h(...h(h(0,a1),a2),...,an),n)
+//
+// See https://docs.starknet.io/docs/Hashing/hash-functions#array-hashing
 func DigestArray(data ...*big.Int) (*big.Int, error) {
 	n := len(data)
 
@@ -95,5 +101,5 @@ func DigestArray(data ...*big.Int) (*big.Int, error) {
 		currentHash = partialResult
 	}
 
-	return Digest(currentHash, new(big.Int).SetInt64(int64(n)))
+	return Digest(currentHash, big.NewInt(int64(n)))
 }
