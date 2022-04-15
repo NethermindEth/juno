@@ -1,10 +1,17 @@
 package pedersen
 
 import (
+	"crypto/rand"
 	"fmt"
 	"math/big"
 	"testing"
 )
+
+var benchmarkDigestArrayData []*big.Int
+
+func init() {
+	initBenchmarkDigestArray()
+}
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
 // *big.Int with a value of 0 N times.
@@ -54,6 +61,60 @@ func TestDigest(t *testing.T) {
 		got, _ := Digest(a, b)
 		if got.Cmp(want) != 0 {
 			t.Errorf("Digest(0x%x, 0x%x) = 0x%x, want 0x%x", a, b, got, want)
+		}
+	}
+}
+
+func initBenchmarkDigestArray() {
+	// max = 2**252 - 1
+	max := new(big.Int)
+	max.Exp(big.NewInt(2), big.NewInt(252), nil).Sub(max, big.NewInt(1))
+	// Building a batch of 20 random big.Int between 0 and 2**252-1
+	for i := 0; i < 20; i++ {
+		value, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(err)
+		}
+		benchmarkDigestArrayData = append(benchmarkDigestArrayData, value)
+	}
+}
+
+func BenchmarkDigestArray(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		DigestArray(benchmarkDigestArrayData...)
+	}
+}
+
+func TestDigestArray(t *testing.T) {
+	var tests = [...]struct {
+		input []string
+		want  string
+	}{
+		{
+			input: []string{"1", "2", "3", "4", "5"},
+			want:  "3442134774288875752012730520904650962184640568595562887119811371865001706826",
+		},
+		{
+			input: []string{
+				"1713931329540660377023406109199410414810705867260802078187082345529207694986",
+				"152666792071518830868575557812948353041420400780739481342941381225525861407",
+				"1668503676786377725805489344771023921079126552019160156920634619255970485781",
+				"3198314560325546891798262260233968848553481119985289977998522774043088964633",
+				"469920083884440505232139273974987899994000885911056071194573294589259802432",
+			},
+			want: "1675665479632492174039983244955429515271444758833709467939659125819654522174",
+		},
+	}
+	for _, test := range tests {
+		data := []*big.Int{}
+		for _, item := range test.input {
+			v, _ := new(big.Int).SetString(item, 10)
+			data = append(data, v)
+		}
+		want, _ := new(big.Int).SetString(test.want, 10)
+		got, _ := DigestArray(data...)
+		if got.Cmp(want) != 0 {
+			t.Errorf("DigestArray(%v) = %v, want %v", data, got, want)
 		}
 	}
 }

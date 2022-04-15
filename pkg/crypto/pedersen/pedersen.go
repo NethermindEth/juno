@@ -81,3 +81,19 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 	}
 	return pt1.x, nil
 }
+
+func DigestArray(data ...*big.Int) (*big.Int, error) {
+	n := len(data)
+
+	currentHash := zero
+
+	for _, item := range data {
+		partialResult, err := Digest(currentHash, item)
+		if err != nil {
+			return zero, err
+		}
+		currentHash = partialResult
+	}
+
+	return Digest(currentHash, new(big.Int).SetInt64(int64(n)))
+}
