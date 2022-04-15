@@ -81,3 +81,26 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 	}
 	return pt1.x, nil
 }
+
+// ArrayDigest returns a field element that is the result of hashing an
+// array of field elements. This is generally used to overcome the
+// limitation of the [Digest] function which has an upper bound on the
+// amount of field elements that can be hashed. See the [array hashing]
+// section of the StarkNet documentation for more details.
+//
+// [array hashing]: https://docs.starknet.io/docs/Hashing/hash-functions#array-hashing
+func ArrayDigest(data ...*big.Int) (*big.Int, error) {
+	n := len(data)
+
+	currentHash := zero
+
+	for _, item := range data {
+		partialResult, err := Digest(currentHash, item)
+		if err != nil {
+			return nil, err
+		}
+		currentHash = partialResult
+	}
+
+	return Digest(currentHash, big.NewInt(int64(n)))
+}

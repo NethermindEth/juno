@@ -3,8 +3,15 @@ package pedersen
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 )
+
+var benchmarkArrayDigestData []*big.Int
+
+func init() {
+	initBenchmarkArrayDigest()
+}
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
 // *big.Int with a value of 0 N times.
@@ -54,6 +61,57 @@ func TestDigest(t *testing.T) {
 		got, _ := Digest(a, b)
 		if got.Cmp(want) != 0 {
 			t.Errorf("Digest(0x%x, 0x%x) = 0x%x, want 0x%x", a, b, got, want)
+		}
+	}
+}
+
+func initBenchmarkArrayDigest() {
+	// max = 2**252 - 1
+	max := new(big.Int)
+	max.Exp(big.NewInt(2), big.NewInt(252), nil).Sub(max, big.NewInt(1))
+	// Building a batch of 20 random big.Int between 0 and 2**252-1.
+	for i := 0; i < 20; i++ {
+		value := new(big.Int).Rand(rand.New(rand.NewSource(1)), max)
+		benchmarkArrayDigestData = append(benchmarkArrayDigestData, value)
+	}
+}
+
+func BenchmarkArrayDigest(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		ArrayDigest(benchmarkArrayDigestData...)
+	}
+}
+
+func TestArrayDigest(t *testing.T) {
+	var tests = [...]struct {
+		input []string
+		want  string
+	}{
+		{
+			input: []string{"1", "2", "3", "4", "5"},
+			want:  "79c2de2c34baea4a6aa66288140b205e075dd05177c3e05222f48fb6808454a",
+		},
+		{
+			input: []string{
+				"3ca0cfe4b3bc6ddf346d49d06ea0ed34e621062c0e056c1d0405d266e10268a",
+				"5668060aa49730b7be4801df46ec62de53ecd11abe43a32873000c36e8dc1f",
+				"3b056f100f96fb21e889527d41f4e39940135dd7a6c94cc6ed0268ee89e5615",
+				"7122e9063d239d89d4e336753845b76f2b33ca0d7f0c1acd4b9fe974994cc19",
+				"109f720a79e2a41471f054ca885efd90c8cfbbec37991d1b6343991e0a3e740",
+			},
+			want: "3b4649f0914d7a85ae0bae94c33125bcbbe6a8a60091466b5d15b0c3d77c53e",
+		},
+	}
+	for _, test := range tests {
+		data := []*big.Int{}
+		for _, item := range test.input {
+			v, _ := new(big.Int).SetString(item, 16)
+			data = append(data, v)
+		}
+		want, _ := new(big.Int).SetString(test.want, 16)
+		got, _ := ArrayDigest(data...)
+		if got.Cmp(want) != 0 {
+			t.Errorf("DigestArray(%v) = %v, want %v", data, got, want)
 		}
 	}
 }
