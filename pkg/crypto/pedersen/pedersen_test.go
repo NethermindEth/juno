@@ -26,13 +26,13 @@ func BenchmarkDigest(b *testing.B) {
 func ExampleDigest() {
 	a, _ := new(big.Int).SetString("3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb", 16)
 	b, _ := new(big.Int).SetString("208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a", 16)
-	dgst, err := Digest(a, b)
+	digest, err := Digest(a, b)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("0x%x\n", dgst)
+	fmt.Printf("%x\n", digest)
 	// Output:
-	// 0x30e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662
+	// 30e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662
 }
 
 // TestDigest does a basic test of the Pedersen hash function where the
@@ -60,7 +60,7 @@ func TestDigest(t *testing.T) {
 		want, _ := new(big.Int).SetString(test.want, 16)
 		got, _ := Digest(a, b)
 		if got.Cmp(want) != 0 {
-			t.Errorf("Digest(0x%x, 0x%x) = 0x%x, want 0x%x", a, b, got, want)
+			t.Errorf("Digest(%x, %x) = %x, want %x", a, b, got, want)
 		}
 	}
 }
@@ -111,7 +111,7 @@ func TestArrayDigest(t *testing.T) {
 		want, _ := new(big.Int).SetString(test.want, 16)
 		got, _ := ArrayDigest(data...)
 		if got.Cmp(want) != 0 {
-			t.Errorf("DigestArray(%v) = %v, want %v", data, got, want)
+			t.Errorf("ArrayDigest(%x) = %x, want %x", data, got, want)
 		}
 	}
 }
