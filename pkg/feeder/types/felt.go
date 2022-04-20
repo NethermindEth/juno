@@ -11,13 +11,11 @@ import (
 
 var (
 	p *big.Int
-	// pHalf *big.Int
 )
 
 func init() {
 	curve := weierstrass.Stark()
 	p = curve.Params().P
-	// pHalf = new(big.Int).Div(p, big.NewInt(2))
 }
 
 // Felt type is the representation of the field element type of Cairo. A Felt is
@@ -35,15 +33,7 @@ func (f *Felt) asInt() *big.Int {
 
 func (f *Felt) reduce() {
 	fV := f.asInt()
-	// neg := fV.Sign()
-	// fV.Abs(fV)
 	fV.Mod(fV, p)
-	// if fV.Cmp(pHalf) == 1 {
-	// 	fV.Sub(fV, p)
-	// }
-	// if neg == -1 {
-	// 	fV.Neg(fV)
-	// }
 }
 
 // NewInt create a new Felt from an int64
