@@ -1,4 +1,4 @@
-package felt 
+package felt
 
 import (
 	"encoding/json"
@@ -121,7 +121,7 @@ func (x *Felt) Text(base int) string {
 	return x.int().Text(base)
 }
 
-// UnmarshalJSON implements the [json.Unmarshaler] interface for the 
+// UnmarshalJSON implements the [json.Unmarshaler] interface for the
 // Felt type. The expected data values are:
 //
 // 	- Hexadecimal string: "0x123abc123"

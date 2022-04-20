@@ -1,4 +1,4 @@
-package felt 
+package felt
 
 import (
 	"math"
@@ -149,7 +149,6 @@ func TestSub(t *testing.T) {
 	}
 	for _, test := range tests {
 		result := new(Felt).Sub(test.a, test.b)
-		t.Logf("Sub(%s, %s) = %s, want %s", test.a, test.b, result, test.want)
 		if result.Cmp(test.want) != 0 {
 			t.Errorf("Sub(%s, %s) = %s, want %s", test.a, test.b, result, test.want)
 		}
@@ -305,21 +304,21 @@ func TestString(t *testing.T) {
 	}{
 		{
 			felt: New(10),
-			want: "0xa",
+			want: "10",
 		},
 		{
 			felt: New(0),
-			want: "0x0",
+			want: "0",
 		},
 		{
 			felt: New(1000),
-			want: "0x3e8",
+			want: "1000",
 		},
 	}
 	for _, test := range tests {
 		result := test.felt.String()
 		if strings.Compare(result, test.want) != 0 {
-			t.Errorf("%s.String()=%s, want %s", test.felt.int().Text(16), result, test.want)
+			t.Errorf("%s.String() = %s, want %s", test.felt.int().Text(16), result, test.want)
 		}
 	}
 }
