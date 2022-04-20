@@ -293,10 +293,6 @@ func TestFeltUnmarshalJSON(t *testing.T) {
 	}
 }
 
-// XXX: I don't think we should confine ourselves to the hexadecimal
-// representation so this test should reflect should reflect the ability
-// to format against different printf specifiers instead.
-
 func TestString(t *testing.T) {
 	var tests = [...]struct {
 		felt *Felt
