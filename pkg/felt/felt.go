@@ -163,5 +163,5 @@ func (x *Felt) UnmarshalJSON(data []byte) error {
 
 // String makes Felt conform to the [fmt.Stringer] interface.
 func (x Felt) String() string {
-	return x.int().String()
+	return x.int().Text(16)
 }

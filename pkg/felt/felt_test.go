@@ -304,7 +304,7 @@ func TestString(t *testing.T) {
 	}{
 		{
 			felt: New(10),
-			want: "10",
+			want: "a",
 		},
 		{
 			felt: New(0),
@@ -312,7 +312,7 @@ func TestString(t *testing.T) {
 		},
 		{
 			felt: New(1000),
-			want: "1000",
+			want: "3e8",
 		},
 	}
 	for _, test := range tests {
