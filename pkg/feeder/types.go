@@ -1,7 +1,10 @@
 package feeder
 
 // notest
-import "github.com/NethermindEth/juno/pkg/rpc"
+import (
+	"github.com/NethermindEth/juno/pkg/feeder/types"
+	"github.com/NethermindEth/juno/pkg/rpc"
+)
 
 type (
 	// TxnType represents the type of each transaction.
@@ -145,7 +148,7 @@ type TransactionExecution struct {
 type StarknetBlock struct {
 	BlockHash           string               `json:"block_hash"`
 	ParentBlockHash     string               `json:"parent_block_hash"`
-	BlockNumber         string               `json:"block_number"`
+	BlockNumber         types.BlockNumber    `json:"block_number"`
 	StateRoot           string               `json:"state_root"`
 	Status              rpc.BlockStatus      `json:"status"`
 	Transactions        TxnSpecificInfo      `json:"transactions"`
