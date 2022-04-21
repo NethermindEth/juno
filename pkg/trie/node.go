@@ -28,7 +28,8 @@ func newNode() node {
 	return node{Next: make([]node, 2)}
 }
 
-// clear sets the links in the node n to null.
+// clear sets the links in the node n to null. This is done to conserve
+// memory after a node has been committed to storage.
 func (n *node) clear() {
 	n.Next = nil
 }

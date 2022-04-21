@@ -35,9 +35,17 @@ func New(store store.Storer) Trie {
 // commit persits the given key-value pair in storage.
 func (t *Trie) commit(key, val []byte) {
 	// DEBUG.
-	// fmt.Printf("commit: key = %s, val = %s\n\n", key, val)
+	fmt.Printf("commit: key = %s, val = %s\n\n", key, val)
 
 	t.store.Put(key, val)
+}
+
+// remove deletes a key-value pair from storage.
+func (t *Trie) remove(key []byte) {
+	// DEBUG.
+	fmt.Printf("delete: key = %s\n", key)
+
+	t.store.Delete(key)
 }
 
 // retrieve gets a node from storage.
@@ -118,14 +126,33 @@ func (t *Trie) put(n node, key, val *big.Int, height int) node {
 	return n
 }
 
-// TODO: Implement Delete.
+// Delete removes a key-value pair from the trie.
+func (t *Trie) Delete(key *big.Int) {
+	t.remove(prefix(reversed(key), keyLen))
+	for height := keyLen - 1; height >= 0; height-- {
+		curr := prefix(key, height)
 
-// Put inserts a [big.Int] key-value pair in the trie.
-func (t *Trie) Put(key, val *big.Int) {
-	// The internal representation of big.Int has the least significant
-	// bit in the 0th position but this algorithm assumes the opposite so
-	// a copy with the bits reversed is passed into the function.
-	t.root = t.put(t.root, reversed(key), val, 0)
+		_, leftIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s0", curr)))
+		_, rightIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s1", curr)))
+
+		switch {
+		case !leftIsNotEmpty && !rightIsNotEmpty:
+			t.remove(curr)
+		default:
+			n, _ := t.retrive(curr)
+			t.triplet(&n, key, height)
+
+			// DEBUG.
+			fmt.Printf("\nre-enc: %s\n", n.encoding.String())
+
+			n.updateHash()
+			if height == 0 {
+				t.commit([]byte("root"), n.Bytes())
+			} else {
+				t.commit(curr, n.Bytes())
+			}
+		}
+	}
 }
 
 // Get retrieves a value from the trie with the corresponding key.
@@ -135,4 +162,12 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 		return nil, false
 	}
 	return node.Bottom, true
+}
+
+// Put inserts a [big.Int] key-value pair in the trie.
+func (t *Trie) Put(key, val *big.Int) {
+	// The internal representation of big.Int has the least significant
+	// bit in the 0th position but this algorithm assumes the opposite so
+	// a copy with the bits reversed is passed into the function.
+	t.root = t.put(t.root, reversed(key), val, 0)
 }
