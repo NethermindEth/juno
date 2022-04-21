@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
+// Cobra is a CLI library for Go that empowers applications.
 // Cobra configuration.
 var (
 	// cfgFile is the path of the juno configuration file.
