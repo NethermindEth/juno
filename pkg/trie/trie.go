@@ -43,53 +43,41 @@ import (
 // A visualisation of the trie with 3-bit keys which results in a tree
 // of height 2 where empty nodes are not stored in the database.
 //
-//                     (0,0,r)
-//                     /     \
-//                  0 /       \ 1
-//                   /         \
-//             (2,2,1)         (2,1,1)
-//               / \             / \
-//              /   \ 1       0 /   \
-//                   \         /
-//                 (1,0,1) (1,1,1)
-//                   / \     / \
-//                0 /   \   /   \ 1
-//                 /             \
-//             (0,0,1)        (0,0,1)
-//               / \            / \
-//              /   \          /   \
+//                           (0,0,r)
+//                           /     \
+//                        0 /       \ 1
+//                         /         \
+//                   (2,2,1)         (2,1,1)
+//                     / \             / \
+//                    /   \ 1       0 /   \
+//                         \         /
+//                       (1,0,1) (1,1,1)
+//                         / \     / \
+//                      0 /   \   /   \ 1
+//                       /             \
+//                   (0,0,1)        (0,0,1)
+//                     / \            / \
+//                    /   \          /   \
 
 // Trie represents a binary trie.
 type Trie struct {
-	root  node
-	store store.Storer
+	keyLen int
+	root   node
+	store  store.Storer
 }
 
-// TODO: Convert keyLen to a mutable variable so that it can be switched
-// out for shorter keys during testing.
-
-// keyLen describes the bit length of the keys (including leading
-// zeroes) used in the trie.
-const keyLen = 3
-
 // New constructs a new binary trie.
-func New(store store.Storer) Trie {
-	return Trie{store: store}
+func New(store store.Storer, keyLen int) Trie {
+	return Trie{keyLen: keyLen, store: store}
 }
 
 // commit persits the given key-value pair in storage.
 func (t *Trie) commit(key, val []byte) {
-	// DEBUG.
-	fmt.Printf("commit: key = %s, val = %s\n\n", key, val)
-
 	t.store.Put(key, val)
 }
 
 // remove deletes a key-value pair from storage.
 func (t *Trie) remove(key []byte) {
-	// DEBUG.
-	fmt.Printf("delete: key = %s\n", key)
-
 	t.store.Delete(key)
 }
 
@@ -101,6 +89,7 @@ func (t *Trie) retrive(key []byte) (node, bool) {
 	}
 	var n node
 	if err := json.Unmarshal(b, &n); err != nil {
+		// notest
 		return node{}, false
 	}
 	return n, true
@@ -119,6 +108,7 @@ func (t *Trie) triplet(n *node, key *big.Int, height int) {
 
 	switch {
 	case leftIsEmpty && rightIsEmpty:
+		// notest
 		n.encoding = encoding{0, new(big.Int), new(big.Int)}
 	case !leftIsEmpty && rightIsEmpty:
 		n.encoding = encoding{
@@ -143,12 +133,8 @@ func (t *Trie) put(n node, key, val *big.Int, height int) node {
 	}
 
 	// Reached the bottom of the tree.
-	if height == keyLen {
+	if height == t.keyLen {
 		n.encoding = encoding{0, new(big.Int), val}
-
-		// DEBUG.
-		fmt.Printf("enc = %s\n", n.encoding.String())
-
 		n.updateHash()
 		t.commit(prefix(key, height), n.bytes())
 		return n
@@ -157,10 +143,6 @@ func (t *Trie) put(n node, key, val *big.Int, height int) node {
 	b := key.Bit(height)
 	n.Next[b] = t.put(n.Next[b], key, val, height+1)
 	t.triplet(&n, key, height)
-
-	// DEBUG.
-	fmt.Printf("enc = %s\n", n.encoding.String())
-
 	n.updateHash()
 	n.clear()
 	if height == 0 {
@@ -176,8 +158,8 @@ func (t *Trie) Delete(key *big.Int) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
-	t.remove(prefix(reversed(key), keyLen))
-	for height := keyLen - 1; height >= 0; height-- {
+	t.remove(prefix(reversed(key, t.keyLen), t.keyLen))
+	for height := t.keyLen - 1; height >= 0; height-- {
 		curr := prefix(key, height)
 
 		_, leftIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s0", curr)))
@@ -189,10 +171,6 @@ func (t *Trie) Delete(key *big.Int) {
 		default:
 			n, _ := t.retrive(curr)
 			t.triplet(&n, key, height)
-
-			// DEBUG.
-			fmt.Printf("\nre-enc: %s\n", n.encoding.String())
-
 			n.updateHash()
 			if height == 0 {
 				t.commit([]byte("root"), n.bytes())
@@ -208,7 +186,7 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
-	node, ok := t.retrive(prefix(reversed(key), keyLen))
+	node, ok := t.retrive(prefix(reversed(key, t.keyLen), t.keyLen))
 	if !ok {
 		return nil, false
 	}
@@ -220,5 +198,5 @@ func (t *Trie) Put(key, val *big.Int) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
-	t.root = t.put(t.root, reversed(key), val, 0)
+	t.root = t.put(t.root, reversed(key, t.keyLen), val, 0)
 }

@@ -2,7 +2,6 @@ package trie
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
@@ -50,33 +49,8 @@ func (n *node) isEmpty() bool {
 func (n *node) updateHash() {
 	if n.Length == 0 {
 		n.Hash = new(big.Int).Set(n.Bottom)
-
-		// DEBUG.
-		digest := fmt.Sprintf("%x", n.Hash)
-		if len(digest) > 3 {
-			fmt.Printf("hash = %s\n", digest[len(digest)-4:])
-		} else {
-			fmt.Printf("hash = %s\n", digest)
-		}
 	} else {
 		h, _ := pedersen.Digest(n.Bottom, n.Path)
 		n.Hash = h.Add(h, new(big.Int).SetUint64(uint64(n.Length)))
-
-		// DEBUG.
-		digest := fmt.Sprintf("%x", n.Hash)
-		fmt.Printf("hash = %s\n", digest[len(digest)-4:])
 	}
-	// DEBUG.
-	fmt.Println()
-}
-
-// DEBUG.
-// String makes [encoding] satisfy the [fmt.Stringer] interface.
-func (e encoding) String() string {
-	bottom := fmt.Sprintf("%x", e.Bottom)
-	n := len(bottom)
-	if n > 3 {
-		bottom = bottom[n-4:]
-	}
-	return fmt.Sprintf("(%d, %d, %s)", e.Length, e.Path, bottom)
 }

@@ -3,8 +3,6 @@
 // beyond the running program is not required.
 package store
 
-import "fmt"
-
 // Storer specifies the API for a []byte key-value store.
 type Storer interface {
 	Delete(key []byte)
@@ -23,13 +21,6 @@ type Ephemeral struct {
 // [Storer] interface.
 func New() Ephemeral {
 	return Ephemeral{table: make(map[string][]byte)}
-}
-
-// DEBUG.
-func (e *Ephemeral) Contents() {
-	for k, v := range e.table {
-		fmt.Printf("key = %s, val = %s\n", k, v)
-	}
 }
 
 // Delete removes a key and associated value from ephemeral storage.
