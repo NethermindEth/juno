@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	base "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/db"
-	"github.com/NethermindEth/juno/pkg/feeder_gateway"
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,7 +31,7 @@ const MaxChunk = 10000
 // Synchronizer represents the base struct for Ethereum Synchronization
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
-	feederGatewayClient    *feeder_gateway.Client
+	feederGatewayClient    *feeder.Client
 	db                     *db.Databaser
 	MemoryPageHash         base.Dictionary
 	GpsVerifier            base.Dictionary
@@ -45,7 +45,7 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 	}
-	feeder := feeder_gateway.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+	feeder := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 	return &Synchronizer{
 		ethereumClient:      client,
 		feederGatewayClient: feeder,
@@ -305,8 +305,9 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	return blockIterator + 1, update.BlockHash
 }
 
-func (s *Synchronizer) updateState(update feeder_gateway.StateUpdateResponse) error {
+func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
+
 	return nil
 }
