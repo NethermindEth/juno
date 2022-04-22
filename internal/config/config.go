@@ -37,6 +37,7 @@ type starknetConfig struct {
 	FeederGateway                  string            `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
 	ContractAbiPathConfig          contractAbiConfig `yaml:"contract_abi_path" mapstructure:"contract_abi_path"`
 	MemoryPageFactRegistryContract string            `yaml:"memory_contract" mapstructure:"memory_contract"`
+	FastSync                       bool              `yaml:"fast_sync" mapstructure:"fast_sync"`
 }
 
 // Config represents the juno configuration.

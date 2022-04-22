@@ -113,21 +113,21 @@ func (d *KeyValueDb) getOne(key []byte) (val []byte, err error) {
 // Get returns the value associated with the provided key in the
 // database or returns an error otherwise.
 func (d *KeyValueDb) Get(key []byte) ([]byte, error) {
-	log.Default.With("Key", key).Info("Getting value using key.")
+	log.Default.With("Key", key).Debug("Getting value using key.")
 	return d.getOne(key)
 }
 
 // Put inserts a key-value pair into the database.
 func (d *KeyValueDb) Put(key, value []byte) error {
-	log.Default.With("Key", string(key)).Info("Putting value at key.")
+	log.Default.With("Key", string(key)).Debug("Putting value at key.")
 	err := d.env.Update(func(txn *mdbx.Txn) error {
-		log.Default.Info("Opening the root database.")
+		log.Default.Debug("Opening the root database.")
 		dbi, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
 			log.Default.With("Error", err, "Key", string(key)).Info("Unable to open root database.")
 			return err
 		}
-		log.Default.Info("Storing item in database.")
+		log.Default.Debug("Storing item in database.")
 		return txn.Put(dbi, key, value, 0)
 	})
 	return err
@@ -135,7 +135,7 @@ func (d *KeyValueDb) Put(key, value []byte) error {
 
 // Delete removes a previous inserted key or returns an error otherwise.
 func (d *KeyValueDb) Delete(key []byte) error {
-	log.Default.With("Key", key).Info("Deleting value associated with key.")
+	log.Default.With("Key", key).Debug("Deleting value associated with key.")
 	err := d.env.Update(func(txn *mdbx.Txn) error {
 		db, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
@@ -154,7 +154,7 @@ func (d *KeyValueDb) Delete(key []byte) error {
 
 // NumberOfItems returns the number of items in the database.
 func (d *KeyValueDb) NumberOfItems() (uint64, error) {
-	log.Default.Info("Getting the number of items in the database.")
+	log.Default.Debug("Getting the number of items in the database.")
 	stats, err := d.env.Stat()
 	if err != nil {
 		log.Default.With("Error", err).Info("Unable to get stats from env.")

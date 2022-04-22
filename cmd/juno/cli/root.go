@@ -5,7 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/NethermindEth/juno/pkg/db"
-	"github.com/NethermindEth/juno/pkg/ethereum"
+	"github.com/NethermindEth/juno/pkg/starknet"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -58,19 +58,19 @@ var (
 			}
 			database := db.New(config.Runtime.DbPath, 0)
 			d := db.Databaser(database)
-			// Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
+			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
-			if config.Runtime.Ethereum.Enabled {
+			if config.Runtime.Starknet.Enabled {
 				// Layer 1 synchronizer for Ethereum State
-				l1Synchronizer := ethereum.NewSynchronizer(&d)
-				processHandler.Add("L1 Synchronizer", l1Synchronizer.UpdateStateRoot,
-					l1Synchronizer.Close)
+				stateSynchronizer := starknet.NewSynchronizer(&d)
+				processHandler.Add("L1 Synchronizer", stateSynchronizer.UpdateState,
+					stateSynchronizer.Close)
 			} // Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
 			// the config.
 			//if config.Runtime.Starknet.Enabled {
 			//	// Layer 1 synchronizer for Ethereum State
 			//	starknetSynchronizer := starknet.NewSynchronizer(config.Runtime.Starknet.FeederGateway, &d)
-			//	processHandler.Add("StarkNet Synchronizer", starknetSynchronizer.UpdateStateRoot,
+			//	processHandler.Add("StarkNet Synchronizer", starknetSynchronizer.UpdateState,
 			//		starknetSynchronizer.Close)
 			//}
 
