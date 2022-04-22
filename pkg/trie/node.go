@@ -28,6 +28,12 @@ func newNode() node {
 	return node{Next: make([]node, 2)}
 }
 
+// bytes returns a JSON byte representation of a node.
+func (n *node) bytes() []byte {
+	b, _ := json.Marshal(n)
+	return b
+}
+
 // clear sets the links in the node n to null. This is done to conserve
 // memory after a node has been committed to storage.
 func (n *node) clear() {
@@ -62,16 +68,6 @@ func (n *node) updateHash() {
 	}
 	// DEBUG.
 	fmt.Println()
-}
-
-// Bytes returns a JSON byte representation of a node.
-func (n *node) Bytes() []byte {
-	b, err := json.Marshal(n)
-	if err != nil {
-		// TODO: Handle properly.
-		fmt.Printf("failed to marshal JSON: %v\n", err)
-	}
-	return b
 }
 
 // DEBUG.
