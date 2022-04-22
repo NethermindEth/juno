@@ -3,6 +3,7 @@
 compile: ## compile:
 	@mkdir -p build
 	@go build -o build/juno cmd/juno/main.go
+	@go build -o build/juno cmd/juno/cliimplementation.go 
 
 run: ## run
 	@./build/juno
@@ -20,10 +21,12 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: ## Install some project dependencies
+install-deps: ## Install some project dependencies / Cairo - lang dependencies
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
 	go get ./...
+	pip install -r requirements.txt
+	
 
 codecov-test:
 	mkdir -p coverage
