@@ -138,13 +138,22 @@ func Execute() {
 
 // executes python script
 func main() {      //replace main with execute or other func if needed or add into just 1 whole function 
-	cmd := exec.Command("python3", "-u", "/home/abcoder/pytest.py")  //REPLACE FILE DIRECTORY & FILE WITH PROPER CAIRO ENV AS A PYTHON SCRIPT
-	fmt.Println(cmd.Args)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
+	cmd := exec.Command("python3.7", "-m", "venv ~/cairo_venv")
+  //	cmd := exec.Command("python3", "-u", "/home/abcoder/pytest.py")  //REPLACE FILE DIRECTORY & FILE WITH PROPER CAIRO ENV AS A PYTHON SCRIPT
+	  fmt.Println(cmd.Args)
+	  out, err := cmd.CombinedOutput()
+	  if err != nil {
+		  fmt.Println(err)
+	  }
+	  fmt.Println(string(out))                //Stores the ouput from test file and prints 
+  
+	cmd2 := exec.Command("source ~/cairo_venv/bin/activate")
+	   fmt.Println(cmd2.Args)
+	   out, err := cmd2.CombinedOutput()
+	   if err != nil {
 		fmt.Println(err)
-	}
-	fmt.Println(string(out))                //Stores the ouput from test file and prints 
+		  }
+		fmt.Println(string(out))                //Stores the ouput from test file and prints 
 
 
 //curently CLI commands not used, add/change code with json RPC, root file, gateway client, etc as such needed 
