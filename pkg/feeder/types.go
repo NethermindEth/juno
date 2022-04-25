@@ -146,14 +146,14 @@ type TransactionExecution struct {
 
 // StarknetBlock Represents a response StarkNet block.
 type StarknetBlock struct {
-	BlockHash           string               `json:"block_hash"`
-	ParentBlockHash     string               `json:"parent_block_hash"`
-	BlockNumber         types.BlockNumber    `json:"block_number"`
-	StateRoot           string               `json:"state_root"`
-	Status              rpc.BlockStatus      `json:"status"`
-	Transactions        TxnSpecificInfo      `json:"transactions"`
-	Timestamp           int64                `json:"timestamp"`
-	TransactionReceipts TransactionExecution `json:"transaction_receipts"`
+	BlockHash           string                 `json:"block_hash"`
+	ParentBlockHash     string                 `json:"parent_block_hash"`
+	BlockNumber         types.BlockNumber      `json:"block_number"`
+	StateRoot           string                 `json:"state_root"`
+	Status              rpc.BlockStatus        `json:"status"`
+	Transactions        []TxnSpecificInfo      `json:"transactions"`
+	Timestamp           int64                  `json:"timestamp"`
+	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.
