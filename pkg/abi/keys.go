@@ -1,9 +1,16 @@
 package abi
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math/big"
+)
 
 func newSimpleKey(contractAddress string) []byte {
-	return []byte(contractAddress)
+	i, ok := new(big.Int).SetString(contractAddress, 16)
+	if !ok {
+		panic(any("invalid contractAddress string format, expected an hex string"))
+	}
+	return i.Bytes()
 }
 
 func newCompoundedKey(contractAddress string, blockNumber uint64) []byte {
