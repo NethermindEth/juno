@@ -99,8 +99,20 @@ func TestSortedList_Add(t *testing.T) {
 		sl := sortedList(l)
 
 		sl.Add(test.Value)
-		if !sl.equalTo(test.Want) {
+		if !equals(sl, test.Want) {
 			t.Errorf("%+v.Add(%d) = %+v, want %+v", test.SortedList, test.Value, sl, test.Want)
 		}
 	}
+}
+
+func equals(x, y sortedList) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	for i := 0; i < len(x); i++ {
+		if x[i] != y[i] {
+			return false
+		}
+	}
+	return true
 }

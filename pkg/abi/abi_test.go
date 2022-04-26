@@ -47,13 +47,19 @@ func TestUnmarshalJSON(t *testing.T) {
 		})
 	}
 	// Add test with the empty ABI
-	tests = append(tests, struct {
+	tests = append(tests, []struct {
 		Data []byte
 		Err  bool
 	}{
-		Data: []byte("[]"),
-		Err:  false,
-	})
+		{
+			Data: []byte("[]"),
+			Err:  false,
+		},
+		{
+			Data: []byte("[{\"type\":\"invalidType\"}]"),
+			Err:  true,
+		},
+	}...)
 	for _, test := range tests {
 		abi := new(Abi)
 		err := json.Unmarshal(test.Data, abi)

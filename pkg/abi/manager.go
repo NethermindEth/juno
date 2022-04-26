@@ -27,6 +27,7 @@ func (m *Manager) GetABI(contractAddress string, blockNumber uint64) (*Abi, erro
 	// Find the best block to fit
 	bestFit, ok := s.Search(blockNumber)
 	if !ok {
+		// notest
 		return nil, fmt.Errorf("ABI for %s at block %d does not exists", contractAddress, blockNumber)
 	}
 	// Get the ABI
