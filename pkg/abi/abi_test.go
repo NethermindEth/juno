@@ -7,14 +7,14 @@ import (
 )
 
 //go:embed test_assets/*
-var test_assets embed.FS
+var testAssets embed.FS
 
 func loadABIPaths() ([]string, error) {
-	items, err := test_assets.ReadDir("test_assets")
+	items, err := testAssets.ReadDir("test_assets")
 	if err != nil {
 		return nil, err
 	}
-	paths := []string{}
+	var paths []string
 	for _, item := range items {
 		if !item.IsDir() {
 			paths = append(paths, "test_assets/"+item.Name())
@@ -28,13 +28,13 @@ func TestUnmarshalJSON(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	var tests = []struct {
+	var tests []struct {
 		Data []byte
 		Err  bool
-	}{}
+	}
 	// Generate tests with ABI files
 	for _, p := range paths {
-		rawData, err := test_assets.ReadFile(p)
+		rawData, err := testAssets.ReadFile(p)
 		if err != nil {
 			t.Error(err)
 		}
