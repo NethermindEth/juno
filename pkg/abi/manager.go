@@ -58,7 +58,10 @@ func (m *Manager) PutABI(contractAddress string, blockNumber uint64, abi *Abi) (
 	// TODO: This operation must be done with a DB transaction
 	key := newSimpleKey(contractAddress)
 	ok, err := m.database.Has(key)
-	if err != nil || !ok {
+	if err != nil {
+		return err
+	}
+	if !ok {
 		err = m.putSortedList(key, []uint64{blockNumber})
 		if err != nil {
 			return err
