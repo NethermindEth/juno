@@ -32,7 +32,7 @@ func TestAddKey(t *testing.T) {
 // TestNumberOfItems Checks that in every moment the collection contains the right amount of items
 func TestNumberOfItems(t *testing.T) {
 	database := setupDatabaseForTest(t.TempDir())
-	n, err := database.Count()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -51,7 +51,7 @@ func TestNumberOfItems(t *testing.T) {
 			return
 		}
 	}
-	n, err = database.Count()
+	n, err = database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -74,7 +74,7 @@ func TestAddMultipleKeys(t *testing.T) {
 			return
 		}
 	}
-	n, err := database.Count()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -220,6 +220,11 @@ func TestClose(t *testing.T) {
 	database.Close()
 }
 
+func TestKeyValueDbIsDatabaser(t *testing.T) {
+	a := new(KeyValueDb)
+	_ = Databaser(a)
+}
+
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
 	database := setupDatabaseForTest(b.TempDir())
@@ -231,7 +236,7 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 			return
 		}
 	}
-	n, err := database.Count()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		b.Errorf("Benchmarking fails, error getting the number of items: %s\n", err)
 		b.Fail()
