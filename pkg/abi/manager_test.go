@@ -35,7 +35,7 @@ type testManagerPutABI struct {
 	Panic           bool
 }
 
-func TestManager_PutABI(t *testing.T) {
+func TestManager(t *testing.T) {
 	// Init the ABI manager
 	database := db.New(t.TempDir(), 0)
 	manager := NewABIManager(database)
