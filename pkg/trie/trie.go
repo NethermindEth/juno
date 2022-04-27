@@ -88,6 +88,7 @@ func (t *Trie) remove(key []byte) {
 // found.
 func (t *Trie) retrive(key []byte) (node, bool) {
 	if bytes.Equal(key, []byte("")) {
+		// notest
 		key = []byte("root")
 	}
 	b, ok := t.store.Get(key)
@@ -96,6 +97,7 @@ func (t *Trie) retrive(key []byte) (node, bool) {
 	}
 	var n node
 	if err := json.Unmarshal(b, &n); err != nil {
+		// notest
 		return node{}, false
 	}
 	return n, true
@@ -197,6 +199,7 @@ func (t *Trie) Put(key, val *big.Int) {
 func (t *Trie) Commitment() *big.Int {
 	root, ok := t.retrive([]byte("root"))
 	if !ok {
+		// notest
 		return nil
 	}
 	return root.Hash
