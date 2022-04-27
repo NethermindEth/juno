@@ -191,9 +191,31 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 	return res, err
 }
 
+type GetCodeResponse struct {
+	Bytecode []string `json:"bytecode"`
+	Abi      []struct {
+		Inputs []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"inputs,omitempty"`
+		Name    string `json:"name"`
+		Outputs []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"outputs,omitempty"`
+		StateMutability string `json:"stateMutability,omitempty"`
+		Type            string `json:"type"`
+		Data            []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"data,omitempty"`
+		Keys []interface{} `json:"keys,omitempty"`
+	} `json:"abi"`
+}
+
 // GetCode creates a new request to get the code of the contract
 // address.
-func (c Client) GetCode(contractAddress, blockHash, blockNumber string) ([]string, error) {
+func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (GetCodeResponse, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -202,14 +224,14 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) ([]strin
 	blockIdentifier["contractAddress"] = contractAddress
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		log.Default.With("Error", err, "Gateway URL", req.URL.RawQuery).Error("Unable to create a request for get_contract_addresses.")
+		return GetCodeResponse{}, err
 	}
-	var res []string
+	var res GetCodeResponse
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return nil, err
+		return GetCodeResponse{}, err
 	}
 	return res, err
 }
