@@ -63,16 +63,9 @@ var (
 			if config.Runtime.Starknet.Enabled {
 				// Layer 1 synchronizer for Ethereum State
 				stateSynchronizer := starknet.NewSynchronizer(&d)
-				processHandler.Add("L1 Synchronizer", stateSynchronizer.UpdateState,
+				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
-			} // Subscribe the Layer 1 Synchronizer to the main loop if it is enabled in
-			// the config.
-			//if config.Runtime.Starknet.Enabled {
-			//	// Layer 1 synchronizer for Ethereum State
-			//	starknetSynchronizer := starknet.NewSynchronizer(config.Runtime.Starknet.FeederGateway, &d)
-			//	processHandler.Add("StarkNet Synchronizer", starknetSynchronizer.UpdateState,
-			//		starknetSynchronizer.Close)
-			//}
+			}
 
 			// endless running process
 			log.Default.Info("Starting all processes...")

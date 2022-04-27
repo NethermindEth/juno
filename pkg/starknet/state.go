@@ -27,8 +27,8 @@ import (
 )
 
 const latestBlockSynced = "latestBlockSynced"
-const blockOfStarknetDeploymentContractMainnet = 13627224
-const blockOfStarknetDeploymentContractGoerli = 5853128
+const blockOfStarknetDeploymentContractMainnet = 13627000
+const blockOfStarknetDeploymentContractGoerli = 5853000
 const MaxChunk = 10000
 
 // Synchronizer represents the base struct for Ethereum Synchronization
@@ -40,7 +40,7 @@ type Synchronizer struct {
 	GpsVerifier            base.Dictionary
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
-	facts                  [][32]byte
+	facts                  []string
 	lock                   sync.RWMutex
 }
 
@@ -57,7 +57,7 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 		db:                  db,
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
-		facts:               make([][32]byte, 0),
+		facts:               make([]string, 0),
 	}
 }
 
@@ -104,6 +104,8 @@ func (s *Synchronizer) updateLatestBlockQueried(block int64) error {
 type contractsStruct struct {
 	contract  abi.ABI
 	eventName string
+	topic     string
+	address   common.Address
 }
 
 type eventStruct struct {
@@ -115,8 +117,13 @@ type eventStruct struct {
 func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, eventChan chan eventStruct) error {
 	addresses := make([]common.Address, 0)
 
-	for k := range contracts {
+	topics := make([][]common.Hash, 0)
+	for k, v := range contracts {
 		addresses = append(addresses, k)
+		topics = append(topics, []common.Hash{common.BytesToHash([]byte(v.contract.Events[v.eventName].Sig))})
+		log.Default.With("Topic to search", topics[len(topics)-1][0].Hex(), "topics from etherscan", v.topic,
+			"Signature", v.contract.Events[v.eventName].Sig, "Bytes2Hex", common.Bytes2Hex([]byte(v.contract.Events[v.eventName].Sig))).
+			Info("Checking topics")
 	}
 	latestBlockNumber, err := s.ethereumClient.BlockNumber(context.Background())
 	if err != nil {
@@ -128,18 +135,25 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, 
 	increment := uint64(MaxChunk)
 	i := uint64(initialBlock)
 	for i < latestBlockNumber {
+		log.Default.With("From Block", i, "To Block", i+increment).Info("Fetching logs....")
 		query := ethereum.FilterQuery{
 			FromBlock: big.NewInt(int64(i)),
 			ToBlock:   big.NewInt(int64(i + increment)),
+			Addresses: addresses,
 			Topics: [][]common.Hash{{
-				common.HexToHash("0x73b132cb33951232d83dc0f1f81c2d10f9a2598f057404ed02756716092097bb")}},
+				common.HexToHash("0x73b132cb33951232d83dc0f1f81c2d10f9a2598f057404ed02756716092097bb"),
+				common.HexToHash("0xb8b9c39aeba1cfd98c38dfeebe11c2f7e02b334cbe9f05f22b442a5d9c1ea0c5"),
+				common.HexToHash("0x9866f8ddfe70bb512b2f2b28b49d4017c43f7ba775f1a20c61c13eea8cdac111"),
+			}},
 		}
+
 		starknetLogs, err := s.ethereumClient.FilterLogs(context.Background(), query)
 		if err != nil {
 			log.Default.With("Error", err, "Initial block", i, "End block", i+increment, "Addresses", addresses).
 				Info("Couldn't get logs")
-			return err
+			break
 		}
+		log.Default.With("Count", len(starknetLogs)).Info("Logs fetched")
 		for _, vLog := range starknetLogs {
 			log.Default.With("Log Fetched", contracts[vLog.Address].eventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
 				"TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
@@ -152,7 +166,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, 
 			}
 			eventChan <- eventStruct{
 				event:           event,
-				address:         vLog.Address,
+				address:         contracts[vLog.Address].address,
 				transactionHash: vLog.TxHash,
 			}
 		}
@@ -184,7 +198,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, 
 			}
 			eventChan <- eventStruct{
 				event:           event,
-				address:         vLog.Address,
+				address:         contracts[vLog.Address].address,
 				transactionHash: vLog.TxHash,
 			}
 		}
@@ -212,35 +226,40 @@ func (s *Synchronizer) FetchStarknetState() error {
 
 	contracts := make(map[common.Address]contractsStruct)
 
-	//starknetAddress := common.HexToAddress(contractAddresses.Starknet)
-	//starknetContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
-	//if err != nil {
-	//	return err
-	//}
-	//contracts[starknetAddress] = contractsStruct{
-	//	contract:  starknetContract,
-	//	eventName: "LogStateTransitionFact",
-	//}
+	// Add Starknet contract
+	starknetAddress := common.HexToAddress(contractAddresses.Starknet)
+	starknetContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
+	if err != nil {
+		return err
+	}
+	contracts[starknetAddress] = contractsStruct{
+		contract:  starknetContract,
+		topic:     "0x9866f8ddfe70bb512b2f2b28b49d4017c43f7ba775f1a20c61c13eea8cdac111",
+		eventName: "LogStateTransitionFact",
+	}
 
-	gpsStatementVerifierAddress := common.HexToAddress(contractAddresses.GpsStatementVerifier)
+	// Add Gps Statement Verifier contract
+	gpsStatementVerifierAddress := common.HexToAddress("0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F")
 	gpsStatementVerifierContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath)
 	if err != nil {
 		return err
 	}
 	contracts[gpsStatementVerifierAddress] = contractsStruct{
 		contract:  gpsStatementVerifierContract,
+		topic:     "0x73b132cb33951232d83dc0f1f81c2d10f9a2598f057404ed02756716092097bb",
 		eventName: "LogMemoryPagesHashes",
 	}
-	//
-	//memoryPageFactRegistryAddress := common.HexToAddress(config.Runtime.Starknet.MemoryPageFactRegistryContract)
-	//memoryContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
-	//if err != nil {
-	//	return err
-	//}
-	//contracts[memoryPageFactRegistryAddress] = contractsStruct{
-	//	contract:  memoryContract,
-	//	eventName: "LogMemoryPageFactContinuous",
-	//}
+	// Add Memory Page Fact Registry contract
+	memoryPageFactRegistryAddress := common.HexToAddress(config.Runtime.Starknet.MemoryPageFactRegistryContract)
+	memoryContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
+	if err != nil {
+		return err
+	}
+	contracts[memoryPageFactRegistryAddress] = contractsStruct{
+		contract:  memoryContract,
+		topic:     "0xb8b9c39aeba1cfd98c38dfeebe11c2f7e02b334cbe9f05f22b442a5d9c1ea0c5",
+		eventName: "LogMemoryPageFactContinuous",
+	}
 	go func() {
 
 		err = s.loadEvents(contracts, event)
@@ -251,7 +270,7 @@ func (s *Synchronizer) FetchStarknetState() error {
 	}()
 
 	go func() {
-		ticker := time.NewTicker(time.Minute * 1)
+		ticker := time.NewTicker(time.Second * 5)
 
 		for {
 			select {
@@ -277,25 +296,36 @@ func (s *Synchronizer) FetchStarknetState() error {
 				return fmt.Errorf("couldn't read event from logs")
 			}
 			// Process GpsStatementVerifier contract
-			if l.address == gpsStatementVerifierAddress {
-				s.GpsVerifier.Add(l.event["factHash"], l.event["pagesHashes"])
+			factHash, ok := l.event["factHash"]
+			pagesHashes, ok1 := l.event["pagesHashes"]
+
+			if ok && ok1 {
+				b := make([]byte, 0)
+				for _, v := range factHash.([32]byte) {
+					b = append(b, v)
+				}
+
+				s.GpsVerifier.Add(common.BytesToHash(b).Hex(), pagesHashes.([][32]byte))
 			}
 			// Process MemoryPageFactRegistry contract
-			//if l.address == memoryPageFactRegistryAddress {
-			//	s.MemoryPageHash.Add(l.event["memoryHash"], l.transactionHash)
-			//} else {
-			//	// Should be a Starknet Log
-			//	// Get Fact
-			//	fact, ok := l.event["stateTransitionFact"]
-			//	if !ok {
-			//		continue
-			//	}
-			//
-			//	s.lock.Lock()
-			//	s.facts = append(s.facts, fact.([32]byte))
-			//	s.lock.Unlock()
-			//
-			//}
+			if memoryHash, ok := l.event["memoryHash"]; ok {
+
+				key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
+				value := l.transactionHash
+				s.MemoryPageHash.Add(key, value)
+			}
+			if fact, ok := l.event["stateTransitionFact"]; ok {
+
+				b := make([]byte, 0)
+				for _, v := range fact.([32]byte) {
+					b = append(b, v)
+				}
+
+				s.lock.Lock()
+				s.facts = append(s.facts, common.BytesToHash(b).Hex())
+				s.lock.Unlock()
+
+			}
 
 		}
 	}
@@ -366,10 +396,10 @@ type factChan struct {
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	if config.Runtime.Starknet.FastSync {
-		s.fastSync()
-		return nil
-	}
+	//if config.Runtime.Starknet.FastSync {
+	//	s.fastSync()
+	//	return nil
+	//}
 
 	err := s.FetchStarknetState()
 	if err != nil {
@@ -508,18 +538,31 @@ func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
 	return nil
 }
 
-func (s *Synchronizer) processMemoryPages(fact [32]byte) {
+func (s *Synchronizer) processMemoryPages(fact string) {
 	pages := make([][]byte, 0)
 
 	// Get memory pages hashes using fact
-	var memoryPages [][]byte
-	memoryPages = (s.GpsVerifier.Get(fact)).([][]byte)
+	var memoryPages [][32]byte
+	memoryPages = (s.GpsVerifier.Get(fact)).([][32]byte)
 
 	// iterate over each memory page
 	for _, v := range memoryPages {
+		h := make([]byte, 0)
+
+		for _, s := range v {
+			h = append(h, s)
+		}
 		// Get transactionsHash based on the memory page
-		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), common.BytesToHash(v))
+		hash := common.BytesToHash(h)
+		transactionHash := s.MemoryPageHash.Get(hash.Hex())
+		//	transaction_str = self.memory_page_transactions_map[
+		//		int.from_bytes(memory_page_hash, "big")
+		//]
+		log.Default.With("Hash", hash.Hex()).Info("Getting transaction...")
+		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(common.Hash))
 		if err != nil {
+			log.Default.With("Error", err, "Transaction Hash", v).
+				Error("Couldn't retrieve transactions")
 			return
 		}
 		// Get the inputs of the transaction from Layer 1
