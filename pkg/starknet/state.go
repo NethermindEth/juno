@@ -10,9 +10,12 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
 	base "github.com/NethermindEth/juno/pkg/common"
+	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -401,25 +404,81 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	if lastBlockHash == update.BlockHash {
 		return blockIterator, lastBlockHash
 	}
-	go func() {
-		err = s.updateState(update)
-		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't update state")
-			return
-		}
-		err = s.updateLatestBlockQueried(int64(blockIterator))
-		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't save latest block queried")
-			return
-		}
-	}()
+	//go func() {
+	err = s.updateState(update)
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't update state")
+		//return
+	}
+	//err = s.updateLatestBlockQueried(int64(blockIterator))
+	//if err != nil {
+	//	log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	//	//return
+	//}
+	//}()
 	return blockIterator + 1, update.BlockHash
+}
+
+func newTrie() trie.Trie {
+	database := store.New()
+	return trie.New(database, 251)
 }
 
 func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
-	//
+
+	stateRoot := newTrie()
+	// Storage root
+	storageRoots := make(map[string]trie.Trie)
+
+	contractHashes := make(map[string]string)
+	for _, v := range update.StateDiff.DeployedContracts {
+		contractHashes[v.Address] = v.ContractHash
+	}
+
+	for k, v := range update.StateDiff.StorageDiffs {
+		// Initialization
+		if _, ok := storageRoots[k]; !ok {
+			//log.Default.With("Address", k).Info("Create new Trie")
+			storageRoots[k] = newTrie()
+		}
+		fmt.Printf("Contract Address: %s\n", k)
+		storageTrie, _ := storageRoots[k]
+		for _, item := range v {
+			keyRaw, _ := new(big.Int).SetString(item.Key[2:], 16)
+			valRaw, _ := new(big.Int).SetString(item.Value[2:], 16)
+			fmt.Printf("Put(%s, %s)", item.Key, item.Value)
+			storageTrie.Put(keyRaw, valRaw)
+		}
+		storageRoot := storageTrie.Commitment()
+		log.Default.With("Storage Root", storageRoot.Text(16),
+			"Contract Address", k).
+			Info("Storage commitment")
+		// h(h(h(contract_hash,storage_root), 0), 0)
+		contractHash, _ := new(big.Int).SetString(contractHashes[k][2:], 16)
+		// Pedersen Hash of (contract_hash, storage_root)
+		p1, err := pedersen.Digest(contractHash, storageRoot)
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't use digest")
+		}
+		// Pedersen Hash of h(contract_hash, storage_root)
+		p2, err := pedersen.Digest(p1, big.NewInt(0))
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't use digest")
+		}
+		// Pedersen Hash of (contract_hash, storage_root)
+		leafValue, err := pedersen.Digest(p2, big.NewInt(0))
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't use digest")
+		}
+		leafKey, _ := new(big.Int).SetString(k[2:], 16)
+		stateRoot.Put(leafKey, leafValue)
+	}
+
+	log.Default.With("State Root", stateRoot.Commitment().Text(16)).
+		Info("Got State commitment")
+
 	s.updateAbiAndCode(update)
 	return nil
 }
@@ -491,8 +550,7 @@ func (s *Synchronizer) updateAbiAndCode(update feeder.StateUpdateResponse) {
 				code.Bytecode, // TODO set how the code is retrieved
 				update.StateDiff.StorageDiffs[v.Address],
 			},
-
-
+		}
 	}
 }
 

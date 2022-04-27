@@ -10,7 +10,7 @@ type Storer interface {
 	Put(key, val []byte)
 }
 
-// Ephemeral defines an temporary key-value store.
+// Ephemeral defines a temporary key-value store.
 type Ephemeral struct {
 	// NOTE: Go does not support []byte keys so as a workaround, a string
 	// is used and the Struct's method will handle the conversion.
