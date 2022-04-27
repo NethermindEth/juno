@@ -220,6 +220,11 @@ func TestClose(t *testing.T) {
 	database.Close()
 }
 
+func TestKeyValueDbIsDatabaser(t *testing.T) {
+	a := new(KeyValueDb)
+	_ = Databaser(a)
+}
+
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
 	database := setupDatabaseForTest(b.TempDir())
