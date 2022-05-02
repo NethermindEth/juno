@@ -16,8 +16,9 @@
 // table is used as a backend to this structure, then the get operation
 // will take as much time as insertions take on that data structure.
 //
-// Put operations on the other hand take at most 1 plus the length of
-// the key database accesses which is optimal.
+// Put and delete operations on the other hand take at most 1  + w
+// database accesses where w represents the bit-length of the key which
+// is optimal.
 //
 // # Space
 //
@@ -56,6 +57,11 @@ import (
 //                   (0,0,1)        (0,0,1)
 //                     / \            / \
 //                    /   \          /   \
+//
+// Put and delete operations work by first committing (or removing) the
+// bottom node from the backend store and then traversing upwards to
+// compute the new node encodings and hashes which result in a new tree
+// commitment.
 
 // Trie represents a binary trie.
 type Trie struct {
@@ -147,8 +153,7 @@ func (t *Trie) triplet(n *node, pre []byte) {
 		n.encoding = encoding{
 			right.Length + 1,
 			right.Path.Add(
-				right.Path,
-				new(big.Int).SetUint64(uint64(math.Pow(2, float64(right.Length))))),
+				right.Path, big.NewInt(int64(math.Pow(2, float64(right.Length))))),
 			new(big.Int).Set(right.Bottom),
 		}
 	default:
@@ -187,10 +192,9 @@ func (t *Trie) Put(key, val *big.Int) {
 	// a copy with the bits reversed is used instead.
 	rev := reversed(key, t.keyLen)
 
-	// TODO: Value has to be h(h(h(contract_hash, storage_root), 0), 0).
-	bottom := node{encoding: encoding{0, new(big.Int), val}}
-	bottom.updateHash()
-	t.commit(prefix(rev, t.keyLen), bottom.bytes())
+	leaf := node{encoding: encoding{0, new(big.Int), val}}
+	leaf.updateHash()
+	t.commit(prefix(rev, t.keyLen), leaf.bytes())
 	t.diff(rev)
 }
 

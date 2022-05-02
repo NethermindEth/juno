@@ -10,6 +10,9 @@ import (
 // encoding represents the enccoding of a node in a binary tree
 // represented by the triplet (length, path, bottom).
 type encoding struct {
+	// Using a uint8 seems safe as the height of the largest key in the
+	// protocol is 251 which is less than the highest number representable
+	// by a uint8, 255.
 	Length uint8    `json:"length"`
 	Path   *big.Int `json:"path"`
 	Bottom *big.Int `json:"bottom"`
@@ -33,6 +36,6 @@ func (n *node) updateHash() {
 		n.Hash = new(big.Int).Set(n.Bottom)
 	} else {
 		h, _ := pedersen.Digest(n.Bottom, n.Path)
-		n.Hash = h.Add(h, new(big.Int).SetUint64(uint64(n.Length)))
+		n.Hash = h.Add(h, big.NewInt(int64(n.Length)))
 	}
 }
