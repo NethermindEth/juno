@@ -276,7 +276,6 @@ func (s *Synchronizer) FetchStarknetState() error {
 					go s.processMemoryPages(s.facts[0])
 					s.facts = s.facts[1:]
 					s.lock.Unlock()
-					return
 				}
 			}
 		}
@@ -327,10 +326,10 @@ func (s *Synchronizer) FetchStarknetState() error {
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	if config.Runtime.Starknet.FastSync {
-		s.fastSync()
-		return nil
-	}
+	//if config.Runtime.Starknet.FastSync {
+	//	s.fastSync()
+	//	return nil
+	//}
 
 	err := s.FetchStarknetState()
 	if err != nil {
@@ -484,11 +483,15 @@ func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
 }
 
 func (s *Synchronizer) processMemoryPages(fact string) {
-	pages := make([][]byte, 0)
+	pages := make([][]*big.Int, 0)
 
 	// Get memory pages hashes using fact
 	var memoryPages [][32]byte
 	memoryPages = (s.GpsVerifier.Get(fact)).([][32]byte)
+	memoryContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
+	if err != nil {
+		return
+	}
 
 	// iterate over each memory page
 	for _, v := range memoryPages {
@@ -507,11 +510,28 @@ func (s *Synchronizer) processMemoryPages(fact string) {
 				Error("Couldn't retrieve transactions")
 			return
 		}
+		method := memoryContract.Methods["registerContinuousMemoryPage"]
+
+		data := txn.Data()
+		if len(txn.Data()) < 5 {
+			log.Default.Error("memory page transaction input has incomplete signature")
+			continue
+		}
+		inputs := make(map[string]interface{})
+
+		// unpack method inputs
+		err = method.Inputs.UnpackIntoMap(inputs, data[4:])
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't unpack into map")
+			return
+		}
+		t, _ := inputs["values"]
 		// Get the inputs of the transaction from Layer 1
 		// Append to the memory pages
-		pages = append(pages, txn.Data())
+		pages = append(pages, t.([]*big.Int))
 	}
 	// pages should contain all txn information
+	s.parsePages(pages)
 }
 
 type stateToSave struct {
@@ -573,5 +593,113 @@ func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResp
 		// TODO: Store transactions, where to store it? How to store it?
 
 	}
+
+}
+
+// KV represents a key-value pair.
+type KV struct {
+	Key   common.Hash `json:"key"`
+	Value common.Hash `json:"value"`
+}
+
+// DeployedContract represent the contracts that have been deployed in this block
+// and the information stored on-chain
+type DeployedContract struct {
+	Address             common.Address `json:"address"`
+	ContractHash        common.Hash    `json:"contract_hash"`
+	ConstructorCallData []*big.Int     `json:"constructor_call_data"`
+}
+
+// StateDiff Represent the deployed contracts and the storage diffs for those and
+// for the one's already deployed
+type StateDiff struct {
+	DeployedContracts []DeployedContract      `json:"deployed_contracts"`
+	StorageDiffs      map[common.Address][]KV `json:"storage_diffs"`
+}
+
+// parsePages parse the pages returned from the interaction with Layer 1
+func (s *Synchronizer) parsePages(pages [][]*big.Int) {
+	// Remove first page
+	pagesWithoutFirst := pages[1:]
+
+	// Flatter the pages recovered from Layer 1
+	pagesFlatter := make([]*big.Int, 0)
+	for _, page := range pagesWithoutFirst {
+		pagesFlatter = append(pagesFlatter, page...)
+	}
+
+	// Get the number of contracts deployed in this block
+	deployedContractsInfoLen := pagesFlatter[0].Int64()
+	pagesFlatter = pagesFlatter[1:]
+	deployedContracts := make([]DeployedContract, 0)
+
+	// Get the info of the deployed contracts
+	deployedContractsData := pagesFlatter[:deployedContractsInfoLen]
+
+	// Iterate while contains contract data to be processed
+	for len(deployedContractsData) > 0 {
+		// Parse the Address of the contract
+		address := common.BytesToAddress(deployedContractsData[0].Bytes())
+		deployedContractsData = deployedContractsData[1:]
+
+		// Parse the Contract Hash
+		contractHash := common.BytesToHash(deployedContractsData[0].Bytes())
+		deployedContractsData = deployedContractsData[1:]
+
+		// Parse the number of Arguments the constructor contains
+		constructorArgumentsLen := deployedContractsData[0].Int64()
+		deployedContractsData = deployedContractsData[1:]
+
+		// Parse constructor arguments
+		constructorArguments := make([]*big.Int, 0)
+		for i := int64(0); i < constructorArgumentsLen; i++ {
+			constructorArguments = append(constructorArguments, deployedContractsData[0])
+			deployedContractsData = deployedContractsData[1:]
+		}
+
+		// Store deployed Contract information
+		deployedContracts = append(deployedContracts, DeployedContract{
+			Address:             address,
+			ContractHash:        contractHash,
+			ConstructorCallData: constructorArguments,
+		})
+	}
+	pagesFlatter = pagesFlatter[deployedContractsInfoLen:]
+
+	// Parse the number of contracts updates
+	numContractsUpdate := pagesFlatter[0].Int64()
+	pagesFlatter = pagesFlatter[1:]
+
+	storageDiffs := make(map[common.Address][]KV, 0)
+
+	// Iterate over all the contracts that had been updated and collect the needed information
+	for i := int64(0); i < numContractsUpdate; i++ {
+		// Parse the Address of the contract
+		address := common.BytesToAddress(pagesFlatter[0].Bytes())
+		pagesFlatter = pagesFlatter[1:]
+
+		// Parse the number storage updates
+		numStorageUpdates := pagesFlatter[0].Int64()
+		pagesFlatter = pagesFlatter[1:]
+
+		kvs := make([]KV, 0)
+		for k := int64(0); k < numStorageUpdates; k++ {
+			key := common.BytesToHash(pagesFlatter[0].Bytes())
+			value := common.BytesToHash(pagesFlatter[1].Bytes())
+			kvs = append(kvs, KV{
+				Key:   key,
+				Value: value,
+			})
+			pagesFlatter = pagesFlatter[2:]
+		}
+		storageDiffs[address] = kvs
+	}
+
+	state := StateDiff{
+		DeployedContracts: deployedContracts,
+		StorageDiffs:      storageDiffs,
+	}
+
+	log.Default.With("State Diff", state).Info("Fetched state diff")
 
 }
