@@ -27,7 +27,6 @@ var (
 	curve weierstrass.Curve
 	// zero is a *big.Int that represents the constant 0.
 	zero *big.Int
-
 	// ErrInvalid indicates an input value that is not a field element
 	// with p = 2²⁵¹ + 17·2¹⁹² + 1.
 	ErrInvalid = errors.New("invalid argument")
@@ -45,14 +44,17 @@ func init() {
 	zero = big.NewInt(0)
 }
 
-// NOTE: The upper bound on the number of `*big.Int`s that can hashed in
-// a single call (≤ 2) is not enforced for now.
-
 // Digest returns a field element that is the result of hashing an input
-// (a, b) ∈ 𝔽²ₚ where p = 2²⁵¹ + 17·2¹⁹² + 1.
+// (a, b) ∈ 𝔽²ₚ where p = 2²⁵¹ + 17·2¹⁹² + 1. This function will panic
+// if len(data) > 2 and return an error if (a, b) ∉ 𝔽²ₚ or the point at
+// infinity.
 func Digest(data ...*big.Int) (*big.Int, error) {
+	n := len(data)
+	if n > 2 {
+		panic("attempted to hash more than 2 field elements")
+	}
 	// Make a defensive copy of the input data.
-	elements := make([]*big.Int, len(data))
+	elements := make([]*big.Int, n)
 	for i, e := range data {
 		elements[i] = new(big.Int).Set(e)
 	}
@@ -61,7 +63,7 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 		if !(x.Cmp(zero) != -1 && x.Cmp(curve.Params().P) == -1) {
 			// notest
 			// x is not in the range 0 < x < 2²⁵¹ + 17·2¹⁹² + 1.
-			return zero, ErrInvalid
+			return nil, ErrInvalid
 		}
 
 		for j := 0; j < 252; j++ {
@@ -69,10 +71,10 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 			if pt1.x.Cmp(pt2.x) == 0 {
 				// notest
 				// Input cannot be hashed.
-				return zero, ErrInvalid
+				return nil, ErrInvalid
 			}
-			cp := new(big.Int).Set(x) // Copy because *big.Int.And mutates.
-			if cp.And(cp, big.NewInt(1)).Cmp(big.NewInt(0)) != 0 {
+			copy := new(big.Int).Set(x) // Copy because *big.Int.And mutates.
+			if copy.And(copy, big.NewInt(1)).Cmp(big.NewInt(0)) != 0 {
 				x1, x2 := curve.Add(pt1.x, pt1.y, pt2.x, pt2.y)
 				pt1 = point{x1, x2}
 			}
@@ -80,4 +82,27 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 		}
 	}
 	return pt1.x, nil
+}
+
+// ArrayDigest returns a field element that is the result of hashing an
+// array of field elements. This is generally used to overcome the
+// limitation of the [Digest] function which has an upper bound on the
+// amount of field elements that can be hashed. See the [array hashing]
+// section of the StarkNet documentation for more details.
+//
+// [array hashing]: https://docs.starknet.io/docs/Hashing/hash-functions#array-hashing
+func ArrayDigest(data ...*big.Int) (*big.Int, error) {
+	n := len(data)
+
+	currentHash := zero
+
+	for _, item := range data {
+		partialResult, err := Digest(currentHash, item)
+		if err != nil {
+			return nil, err
+		}
+		currentHash = partialResult
+	}
+
+	return Digest(currentHash, big.NewInt(int64(n)))
 }

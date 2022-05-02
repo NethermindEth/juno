@@ -32,6 +32,7 @@ func MaybeReadByte(r io.Reader) {
 	select {
 	case <-closedChan:
 		return
+	// notest
 	case <-closedChan:
 		var buf [1]byte
 		r.Read(buf[:])
