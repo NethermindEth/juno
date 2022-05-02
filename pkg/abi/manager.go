@@ -2,97 +2,83 @@ package abi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/NethermindEth/juno/pkg/db"
+	"math/big"
 )
 
+var (
+	DbError                = errors.New("database error")
+	UnmarshalError         = errors.New("unmarshal error")
+	MarshalError           = errors.New("marshal error")
+	InvalidContractAddress = errors.New("invalid contract address")
+)
+
+// Manager is a database to store and get the contracts ABI.
 type Manager struct {
 	database db.Databaser
 }
 
+// NewABIManager creates a new Manager instance.
 func NewABIManager(database db.Databaser) *Manager {
 	return &Manager{database}
 }
 
-func (m *Manager) GetABI(contractAddress string, blockNumber uint64) (*Abi, error) {
-	// Get the sortedList of block version
-	data, err := m.database.Get(newSimpleKey(contractAddress))
+// GetABI gets the ABI associated with the contract address. The contract address
+// must be a hexadecimal string without the 0x prefix, if the contract address encoding
+// is invalid then an InvalidContractAddress error is returned. If the ABI does
+// not exist, then returns nil without error.
+func (m *Manager) GetABI(contractAddress string) (*Abi, error) {
+	// Build the key from contract address
+	key, err := buildKey(contractAddress)
 	if err != nil {
 		return nil, err
 	}
-	s := new(sortedList)
-	if err := json.Unmarshal(data, s); err != nil {
-		return nil, err
-	}
-	// Find the best block to fit
-	bestFit, ok := s.Search(blockNumber)
-	if !ok {
+	// Query to database
+	data, err := m.database.Get(key)
+	if err != nil {
 		// notest
-		return nil, fmt.Errorf("ABI for %s at block %d does not exists", contractAddress, blockNumber)
+		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
-	// Get the ABI
-	data, err = m.database.Get(newCompoundedKey(contractAddress, bestFit))
-	if err != nil {
-		return nil, err
+	if data == nil {
+		return nil, nil
 	}
+	// Unmarshal the data from database
 	abi := new(Abi)
 	if err := json.Unmarshal(data, abi); err != nil {
-		return nil, err
+		// notest
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
 	return abi, nil
 }
 
-func (m *Manager) putSortedList(key []byte, x sortedList) error {
-	data, err := json.Marshal(&x)
+// PutABI puts the ABI to the contract address. The contract address must be a
+// hexadecimal string without the 0x prefix, if the contract address is invalid
+// then an InvalidContractAddress error is returned.
+func (m *Manager) PutABI(contractAddress string, abi *Abi) (err error) {
+	// Build the key from contract address
+	key, err := buildKey(contractAddress)
 	if err != nil {
 		return err
 	}
-	err = m.database.Put(key, data)
+	value, err := json.Marshal(abi)
 	if err != nil {
-		return err
+		// notest
+		panic(any(fmt.Errorf("%w: %s", MarshalError, err.Error())))
+	}
+	err = m.database.Put(key, value)
+	if err != nil {
+		// notest
+		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
 	return nil
 }
 
-func (m *Manager) PutABI(contractAddress string, blockNumber uint64, abi *Abi) (err error) {
-	// TODO: This operation must be done with a DB transaction
-	key := newSimpleKey(contractAddress)
-	ok, err := m.database.Has(key)
-	if err != nil {
-		return err
-	}
+func buildKey(contractAddress string) ([]byte, error) {
+	address, ok := new(big.Int).SetString(contractAddress, 16)
 	if !ok {
-		err = m.putSortedList(key, []uint64{blockNumber})
-		if err != nil {
-			return err
-		}
-	} else {
-		data, err := m.database.Get(key)
-		if err != nil {
-			return err
-		}
-		s := new(sortedList)
-		err = json.Unmarshal(data, s)
-		if err != nil {
-			return err
-		}
-		s.Add(blockNumber)
-		data, err = json.Marshal(s)
-		if err != nil {
-			return err
-		}
-		err = m.database.Put(key, data)
-		if err != nil {
-			return err
-		}
+		return nil, fmt.Errorf("%w: %s", InvalidContractAddress, contractAddress)
 	}
-	data, err := json.Marshal(abi)
-	if err != nil {
-		return err
-	}
-	err = m.database.Put(newCompoundedKey(contractAddress, blockNumber), data)
-	if err != nil {
-		return err
-	}
-	return nil
+	return address.Bytes(), nil
 }

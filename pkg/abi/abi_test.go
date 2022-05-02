@@ -38,11 +38,18 @@ func TestUnmarshalJSON(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
+		var testItem struct {
+			Contract string
+			Abi      json.RawMessage
+		}
+		if err := json.Unmarshal(rawData, &testItem); err != nil {
+			t.Error(err)
+		}
 		tests = append(tests, struct {
 			Data []byte
 			Err  bool
 		}{
-			Data: rawData,
+			Data: testItem.Abi,
 			Err:  false,
 		})
 	}

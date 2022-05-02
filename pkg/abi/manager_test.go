@@ -3,12 +3,15 @@ package abi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/NethermindEth/juno/pkg/db"
 	"testing"
 )
 
-func loadABIsFromFiles() ([]Abi, error) {
-	var result []Abi
+func loadABIsFromFiles() (result []struct {
+	Abi      Abi
+	Contract string
+}, err error) {
 	paths, err := loadABIPaths()
 	if err != nil {
 		return nil, err
@@ -18,11 +21,14 @@ func loadABIsFromFiles() ([]Abi, error) {
 		if err != nil {
 			return nil, err
 		}
-		var abi Abi
-		if err := json.Unmarshal(rawData, &abi); err != nil {
+		var x struct {
+			Abi      Abi
+			Contract string
+		}
+		if err := json.Unmarshal(rawData, &x); err != nil {
 			return nil, err
 		}
-		result = append(result, abi)
+		result = append(result, x)
 	}
 	return result, nil
 }
@@ -30,7 +36,6 @@ func loadABIsFromFiles() ([]Abi, error) {
 type testManagerPutABI struct {
 	Abi             Abi
 	ContractAddress string
-	BlockNumber     uint64
 	Error           bool
 	Panic           bool
 }
@@ -46,20 +51,19 @@ func TestManager(t *testing.T) {
 	}
 	// Build the tests
 	var tests []testManagerPutABI
-	for i, abi := range abis {
+	for _, abi := range abis {
 		tests = append(tests, testManagerPutABI{
-			Abi:             abi,
-			ContractAddress: "05b3796b27c2f4bac1e824f6bee8eb13017a2c4a30ab70ec9a2bd35a63dd0619",
-			BlockNumber:     uint64(i),
+			Abi:             abi.Abi,
+			ContractAddress: abi.Contract,
 		})
 	}
 	// Run all tests
 	for _, test := range tests {
-		err := manager.PutABI(test.ContractAddress, test.BlockNumber, &test.Abi)
+		err := manager.PutABI(test.ContractAddress, &test.Abi)
 		if err != nil {
 			t.Error(err)
 		}
-		abi, err := manager.GetABI(test.ContractAddress, test.BlockNumber)
+		abi, err := manager.GetABI(test.ContractAddress)
 		if err != nil {
 			t.Error(err)
 		}
@@ -74,5 +78,37 @@ func TestManager(t *testing.T) {
 		if bytes.Compare(raw1, raw2) != 0 {
 			t.Error("ABI must be equal before and after put/get operations")
 		}
+	}
+}
+
+func TestManager_PutABI_InvalidAddress(t *testing.T) {
+	// Init the ABI manager
+	database := db.New(t.TempDir(), 0)
+	manager := NewABIManager(database)
+	err := manager.PutABI("0x1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac", &Abi{})
+	if !errors.Is(err, InvalidContractAddress) {
+		t.Errorf("returned error %s, want: %s", err, InvalidContractAddress)
+	}
+}
+
+func TestManager_GetABI_InvalidAddress(t *testing.T) {
+	// Init the ABI manager
+	database := db.New(t.TempDir(), 0)
+	manager := NewABIManager(database)
+	_, err := manager.GetABI("0x1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac")
+	if !errors.Is(err, InvalidContractAddress) {
+		t.Errorf("returned error %s, want: %s", err, InvalidContractAddress)
+	}
+}
+func TestManager_GetABI_NotFound(t *testing.T) {
+	// Init the ABI manager
+	database := db.New(t.TempDir(), 0)
+	manager := NewABIManager(database)
+	abi, err := manager.GetABI("1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac")
+	if err != nil {
+		t.Errorf("unexpected error %s", err)
+	}
+	if abi != nil {
+		t.Errorf("abi must be nil")
 	}
 }
