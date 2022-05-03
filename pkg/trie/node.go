@@ -27,12 +27,12 @@ func (n *node) bytes() []byte {
 	return b
 }
 
-// updateHash updates the node hash.
-func (n *node) updateHash() {
+// hash updates the node hash.
+func (n *node) hash() {
 	if n.Length == 0 {
 		n.Hash = new(big.Int).Set(n.Bottom)
-	} else {
-		h, _ := pedersen.Digest(n.Bottom, n.Path)
-		n.Hash = h.Add(h, new(big.Int).SetUint64(uint64(n.Length)))
+		return
 	}
+	res, _ := pedersen.Digest(n.Bottom, n.Path)
+	n.Hash = res.Add(res, big.NewInt(int64(n.Length)))
 }

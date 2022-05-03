@@ -16,8 +16,9 @@
 // table is used as a backend to this structure, then the get operation
 // will take as much time as insertions take on that data structure.
 //
-// Put operations on the other hand take at most 1 plus the length of
-// the key database accesses which is optimal.
+// Put and delete operations on the other hand take at most 1  + w
+// database accesses where w represents the bit-length of the key which
+// is optimal.
 //
 // # Space
 //
@@ -31,7 +32,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
@@ -56,6 +56,11 @@ import (
 //                   (0,0,1)        (0,0,1)
 //                     / \            / \
 //                    /   \          /   \
+//
+// Put and delete operations work by first committing (or removing) the
+// bottom node from the backend store and then traversing upwards to
+// compute the new node encodings and hashes which result in a new tree
+// commitment.
 
 // Trie represents a binary trie.
 type Trie struct {
@@ -128,7 +133,7 @@ func (t *Trie) diff(key *big.Int) {
 func (t *Trie) newNodeAt(path []byte) {
 	n := node{}
 	t.triplet(&n, path)
-	n.updateHash()
+	n.hash()
 	t.commit(path, n.bytes())
 }
 
@@ -141,14 +146,15 @@ func (t *Trie) triplet(n *node, pre []byte) {
 	switch {
 	case !rightIsNotEmpty && !leftIsNotEmpty:
 		panic("attempted to encode an empty node")
-	case !rightIsNotEmpty && leftIsNotEmpty:
+	case !rightIsNotEmpty:
 		n.encoding = encoding{left.Length + 1, left.Path, new(big.Int).Set(left.Bottom)}
-	case rightIsNotEmpty && !leftIsNotEmpty:
+	case !leftIsNotEmpty:
 		n.encoding = encoding{
 			right.Length + 1,
 			right.Path.Add(
 				right.Path,
-				new(big.Int).SetUint64(uint64(math.Pow(2, float64(right.Length))))),
+				new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(right.Length)), nil),
+			),
 			new(big.Int).Set(right.Bottom),
 		}
 	default:
@@ -183,13 +189,19 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 // Put inserts a [big.Int] key-value pair in the trie.
 func (t *Trie) Put(key, val *big.Int) {
 	// The internal representation of big.Int has the least significant
-	// bit in the 0th position but this algorithm assumes the oppose so
-	// a copy with the bits reversed is used instead.
+	// bit in the 0th position but this algorithm assumes the oppose so a
+	// copy with the bits reversed is used instead.
 	rev := reversed(key, t.keyLen)
-	// TODO: Value has to be h(h(h(contract_hash, storage_root), 0), 0).
-	bottom := node{encoding: encoding{0, new(big.Int), val}}
-	bottom.updateHash()
-	t.commit(prefix(rev, t.keyLen), bottom.bytes())
+
+	if val.Cmp(new(big.Int)) == 0 {
+		t.Delete(rev)
+		return
+	}
+
+	leaf := node{encoding: encoding{0, new(big.Int), val}}
+	leaf.hash()
+	t.commit(prefix(rev, t.keyLen), leaf.bytes())
+
 	t.diff(rev)
 }
 
