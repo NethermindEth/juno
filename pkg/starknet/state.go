@@ -175,7 +175,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, 
 	hLog := make(chan types.Log)
 	sub, err := s.ethereumClient.SubscribeFilterLogs(context.Background(), query, hLog)
 	if err != nil {
-		log.Default.Info("Couldn't subscribe for incomming blocks")
+		log.Default.Info("Couldn't subscribe for incoming blocks")
 		return err
 	}
 	for {
@@ -404,7 +404,12 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 		return blockIterator, lastBlockHash
 	}
 	//go func() {
-	err = s.updateState(update)
+	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
+		Info("Updating state")
+
+	upd := s.convertStateUpdateResponse(update)
+
+	err = s.updateState(upd, update.BlockHash, "")
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't update state")
 		//return
@@ -423,30 +428,52 @@ func newTrie() trie.Trie {
 	return trie.New(database, 251)
 }
 
-func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
-	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
-		Info("Updating state")
+func (s *Synchronizer) convertStateUpdateResponse(update feeder.StateUpdateResponse) StateDiff {
+	var stateDiff StateDiff
+	stateDiff.DeployedContracts = make([]DeployedContract, 0)
+	stateDiff.StorageDiffs = make(map[common.Address][]KV)
+	for _, v := range update.StateDiff.DeployedContracts {
+		deployedContract := DeployedContract{
+			Address:      common.HexToAddress(v.Address),
+			ContractHash: common.HexToHash(v.ContractHash),
+		}
+		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, deployedContract)
+	}
+	for addressDiff, keyVals := range update.StateDiff.StorageDiffs {
+		address := common.HexToAddress(addressDiff)
+		kvs := make([]KV, 0)
+		for _, kv := range keyVals {
+			kvs = append(kvs, KV{
+				Key:   common.HexToHash(kv.Key),
+				Value: common.HexToHash(kv.Value),
+			})
+		}
+		stateDiff.StorageDiffs[address] = kvs
+	}
 
+	return stateDiff
+}
+
+func (s *Synchronizer) updateState(update StateDiff, blockHash, blockNumber string) error {
 	stateRoot := newTrie()
 	// Storage root
-	storageRoots := make(map[string]trie.Trie)
+	storageRoots := make(map[common.Address]trie.Trie)
 
-	contractHashes := make(map[string]string)
-	for _, v := range update.StateDiff.DeployedContracts {
+	contractHashes := make(map[common.Address]common.Hash)
+	for _, v := range update.DeployedContracts {
 		contractHashes[v.Address] = v.ContractHash
 	}
 
-	for k, v := range update.StateDiff.StorageDiffs {
+	for k, v := range update.StorageDiffs {
 		// Initialization
 		if _, ok := storageRoots[k]; !ok {
-			//log.Default.With("Address", k).Info("Create new Trie")
+			// Create new Trie
 			storageRoots[k] = newTrie()
 		}
-		fmt.Printf("Contract Address: %s\n", k)
 		storageTrie, _ := storageRoots[k]
 		for _, item := range v {
-			keyRaw, _ := new(big.Int).SetString(item.Key[2:], 16)
-			valRaw, _ := new(big.Int).SetString(item.Value[2:], 16)
+			keyRaw, _ := new(big.Int).SetString(item.Key.String()[2:], 16)
+			valRaw, _ := new(big.Int).SetString(item.Value.String()[2:], 16)
 			fmt.Printf("Put(%s, %s)", item.Key, item.Value)
 			storageTrie.Put(keyRaw, valRaw)
 		}
@@ -455,7 +482,7 @@ func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
 			"Contract Address", k).
 			Info("Storage commitment")
 		// h(h(h(contract_hash,storage_root), 0), 0)
-		contractHash, _ := new(big.Int).SetString(contractHashes[k][2:], 16)
+		contractHash, _ := new(big.Int).SetString(contractHashes[k].String()[2:], 16)
 		// Pedersen Hash of (contract_hash, storage_root)
 		p1, err := pedersen.Digest(contractHash, storageRoot)
 		if err != nil {
@@ -471,14 +498,14 @@ func (s *Synchronizer) updateState(update feeder.StateUpdateResponse) error {
 		if err != nil {
 			log.Default.With("Error", err).Info("Couldn't use digest")
 		}
-		leafKey, _ := new(big.Int).SetString(k[2:], 16)
+		leafKey, _ := new(big.Int).SetString(k.String()[2:], 16)
 		stateRoot.Put(leafKey, leafValue)
 	}
 
 	log.Default.With("State Root", stateRoot.Commitment().Text(16)).
 		Info("Got State commitment")
 
-	s.updateAbiAndCode(update)
+	s.updateAbiAndCode(update, blockHash, blockNumber)
 	return nil
 }
 
@@ -538,37 +565,32 @@ type stateToSave struct {
 	address       felt.Felt
 	contractState struct {
 		code    []string
-		storage []feeder.KV
+		storage []KV
 	}
 }
 
-func (s *Synchronizer) updateAbiAndCode(update feeder.StateUpdateResponse) {
-	for _, v := range update.StateDiff.DeployedContracts {
-		code, err := s.feederGatewayClient.GetCode(v.Address, update.BlockHash, "")
+func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber string) {
+	for _, v := range update.DeployedContracts {
+		code, err := s.feederGatewayClient.GetCode(v.Address.String(), blockHash, blockNumber)
 		if err != nil {
 			return
 		}
-		log.Default.With("Contract Address", v.Address, "Block Hash", update.BlockHash, "Code", code).
+		log.Default.With("Contract Address", v.Address, "Block Hash", blockHash, "Block Number",
+			blockNumber, "Code", code).
 			Info("Got code and ABI")
 		// TODO: Store code and ABI, where to store it? How to store it?
 
 		var address felt.Felt
-
-		err = address.UnmarshalJSON([]byte(v.Address))
-		if err != nil {
-			log.Default.With("Error", err, "Address", v.Address).Info("Couldn't get felt from address")
-			return
-		}
 
 		// TODO: Save state to trie
 		_ = stateToSave{
 			address: address,
 			contractState: struct {
 				code    []string
-				storage []feeder.KV
+				storage []KV
 			}{
 				code.Bytecode, // TODO set how the code is retrieved
-				update.StateDiff.StorageDiffs[v.Address],
+				update.StorageDiffs[v.Address],
 			},
 		}
 	}
