@@ -3,6 +3,7 @@ package trie
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -137,6 +138,31 @@ func TestInvariant(t *testing.T) {
 			t.Errorf("tries with different values have the same root hashes")
 		}
 	})
+}
+
+func TestSimpleTest(t *testing.T) {
+	db := store.New()
+	trie := New(db, 251)
+
+	k1 := new(big.Int).SetBytes(common.FromHex("0x5"))
+	v1 := new(big.Int).SetBytes(common.FromHex("0x22b"))
+	trie.Put(k1, v1)
+
+	//k2 := new(big.Int).SetBytes(common.FromHex("0x86"))
+	//v2 := new(big.Int).SetBytes(common.FromHex("0x1"))
+	//trie.Put(k2, v2)
+	//
+	//k3 := new(big.Int).SetBytes(common.FromHex("0x87"))
+	//v3 := new(big.Int).SetBytes(common.FromHex("0x2"))
+	//trie.Put(k3, v3)
+
+	commitment := common.BytesToHash(trie.Commitment().Bytes())
+
+	if commitment.String() !=
+		common.HexToHash("0x05ddb19ec8be7357feef0705d6dfeac2e1eba72243109d02436fd9b04ab2f7b8").String() {
+		t.Log(commitment.String())
+		t.Fail()
+	}
 }
 
 // TestRebuild tests that the trie can be reconstructed from storage.

@@ -186,8 +186,6 @@ func (t *Trie) Put(key, val *big.Int) {
 	// bit in the 0th position but this algorithm assumes the oppose so
 	// a copy with the bits reversed is used instead.
 	rev := reversed(key, t.keyLen)
-	fmt.Printf("%08b\n", key)
-	fmt.Printf("%08b\n", rev)
 	// TODO: Value has to be h(h(h(contract_hash, storage_root), 0), 0).
 	bottom := node{encoding: encoding{0, new(big.Int), val}}
 	bottom.updateHash()
