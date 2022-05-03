@@ -190,3 +190,6 @@ func TestPut(t *testing.T) {
 		})
 	}
 }
+
+// TODO: Test for a valid commitment value for a given set of
+// insertions.

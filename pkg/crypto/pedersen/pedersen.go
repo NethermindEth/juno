@@ -60,7 +60,7 @@ func Digest(data ...*big.Int) (*big.Int, error) {
 	}
 	pt1 := points[0] // Shift point.
 	for i, x := range elements {
-		if !(x.Cmp(zero) != -1 && x.Cmp(curve.Params().P) == -1) {
+		if !(x.Cmp(zero) != -1 && curve.Params().P.Cmp(x) == 1) {
 			// notest
 			// x is not in the range 0 < x < 2²⁵¹ + 17·2¹⁹² + 1.
 			return nil, ErrInvalid
@@ -95,7 +95,6 @@ func ArrayDigest(data ...*big.Int) (*big.Int, error) {
 	n := len(data)
 
 	currentHash := zero
-
 	for _, item := range data {
 		partialResult, err := Digest(currentHash, item)
 		if err != nil {
