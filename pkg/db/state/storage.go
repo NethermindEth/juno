@@ -30,7 +30,7 @@ type ContractStorage []contractStorageItem
 func (s *ContractStorage) Marshal() ([]byte, error) {
 	data := make(map[string]string)
 	for _, item := range *s {
-		data["0x"+item.Key.Text(16)] = "0x" + item.Value.Text(16)
+		data[item.Key.Text(16)] = item.Value.Text(16)
 	}
 	return json.Marshal(data)
 }
@@ -42,13 +42,13 @@ func (s *ContractStorage) Unmarshal(data []byte) error {
 	}
 	storage := make([]contractStorageItem, 0, len(m))
 	for k, v := range m {
-		key, ok := new(big.Int).SetString(k[2:], 16)
+		key, ok := new(big.Int).SetString(k, 16)
 		if !ok {
-			return fmt.Errorf("error parsing %s[2:] into an big.Int of base 16", k)
+			return fmt.Errorf("error parsing %s into an big.Int of base 16", k)
 		}
-		value, ok := new(big.Int).SetString(v[2:], 16)
+		value, ok := new(big.Int).SetString(v, 16)
 		if !ok {
-			return fmt.Errorf("error parsing %s[2:] into an big.Int of base 16", v)
+			return fmt.Errorf("error parsing %s into an big.Int of base 16", v)
 		}
 		storage = append(storage, contractStorageItem{*key, *value})
 	}

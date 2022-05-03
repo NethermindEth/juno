@@ -21,6 +21,7 @@ func (c *ContractCode) UnmarshalJSON(data []byte) error {
 	for _, item := range bytecode {
 		value, ok := new(big.Int).SetString(item[2:], 16)
 		if !ok {
+			// notest
 			return fmt.Errorf("error parsing %s[2:] into an big.Int of base 16", item)
 		}
 		code = append(code, *value)
@@ -50,6 +51,7 @@ func (x *Manager) GetCode(contractAddress string) *ContractCode {
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
 	if rawData == nil {
+		// notest
 		return nil
 	}
 	var data ContractCode
