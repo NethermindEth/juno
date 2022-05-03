@@ -13,6 +13,7 @@ type ContractAddress string
 func (x ContractAddress) Marshal() ([]byte, error) {
 	i, ok := new(big.Int).SetString(string(x), 16)
 	if !ok {
+		// notest
 		return nil, InvalidContractAddress
 	}
 	return i.Bytes(), nil
@@ -44,10 +45,12 @@ func (s *ContractStorage) Unmarshal(data []byte) error {
 	for k, v := range m {
 		key, ok := new(big.Int).SetString(k, 16)
 		if !ok {
+			// notest
 			return fmt.Errorf("error parsing %s into an big.Int of base 16", k)
 		}
 		value, ok := new(big.Int).SetString(v, 16)
 		if !ok {
+			// notest
 			return fmt.Errorf("error parsing %s into an big.Int of base 16", v)
 		}
 		storage = append(storage, contractStorageItem{*key, *value})
