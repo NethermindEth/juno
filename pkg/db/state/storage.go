@@ -6,6 +6,8 @@ import (
 	"math/big"
 )
 
+// ContractAddress represents the contract address used
+// as a key in the database
 type ContractAddress string
 
 func (x ContractAddress) Marshal() ([]byte, error) {
@@ -21,6 +23,8 @@ type contractStorageItem struct {
 	Value big.Int
 }
 
+// ContractStorage is the representation of the StarkNet contract
+// storage.
 type ContractStorage []contractStorageItem
 
 func (s *ContractStorage) Marshal() ([]byte, error) {
@@ -52,6 +56,9 @@ func (s *ContractStorage) Unmarshal(data []byte) error {
 	return nil
 }
 
+// GetStorage returns the ContractStorage state of the given contract address and block number.
+// If no exists a version for exactly the given block number, then returns the newest version
+// lower than the given block number.
 func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) (*ContractStorage, bool) {
 	var value ContractStorage
 	ok := x.storageDatabase.Get(ContractAddress(contractAddress), blockNumber, &value)
@@ -61,6 +68,7 @@ func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) (*Contr
 	return &value, true
 }
 
+// PutStorage saves a new version of the contract storage at the given block number.
 func (x *Manager) PutStorage(contractAddress string, blockNumber uint64, storage *ContractStorage) {
 	x.storageDatabase.Put(ContractAddress(contractAddress), blockNumber, storage)
 }

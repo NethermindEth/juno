@@ -6,6 +6,8 @@ import (
 	"math/big"
 )
 
+// ContractCode is the database representation of the StarkNet contract code.
+// The contract code is stored as a byte[], which is the result of the JSON encoding.
 type ContractCode []big.Int
 
 func (c *ContractCode) UnmarshalJSON(data []byte) error {
@@ -36,7 +38,9 @@ func (c *ContractCode) MarshalJSON() ([]byte, error) {
 	return json.Marshal(bytecode)
 }
 
-func (x *Manager) GetCode(contractAddress string) (*ContractCode, bool) {
+// GetCode returns the ContractCode associated with the given contract address.
+// If the contract code is not found, then nil is returned. If any error happens the method panics.
+func (x *Manager) GetCode(contractAddress string) *ContractCode {
 	key, ok := new(big.Int).SetString(contractAddress, 16)
 	if !ok {
 		panic(any(InvalidContractAddress))
@@ -46,15 +50,17 @@ func (x *Manager) GetCode(contractAddress string) (*ContractCode, bool) {
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
 	if rawData == nil {
-		return nil, false
+		return nil
 	}
 	var data ContractCode
 	if err := json.Unmarshal(rawData, &data); err != nil {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err)))
 	}
-	return &data, true
+	return &data
 }
 
+// PutCode stores a new contract code into the database, associated with the given contract address.
+// If the contract address already have a contract code in the database, then the value is updated.
 func (x *Manager) PutCode(contractAddress string, code *ContractCode) {
 	keyInt, ok := new(big.Int).SetString(contractAddress, 16)
 	if !ok {
