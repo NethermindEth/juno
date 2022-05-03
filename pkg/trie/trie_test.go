@@ -144,10 +144,34 @@ func TestSimpleTest(t *testing.T) {
 	db := store.New()
 	trie := New(db, 251)
 
-	k1 := new(big.Int).SetBytes(common.FromHex("0x5"))
-	v1 := new(big.Int).SetBytes(common.FromHex("0x22b"))
-	trie.Put(k1, v1)
-
+	test := [...]struct {
+		key   string
+		value string
+	}{
+		{"0x5", "0x66"},
+		{
+			"0x1BF95D4B58F0741FEA29F94EE5A118D0847C8B7AE0173C2A570C9F74CCA9EA1",
+			"0x7E5",
+		},
+		{
+			"0x3C75C20765D020B0EC41B48BB8C5338AC4B619FC950D59994E844E1E1B9D2A9",
+			"0x7C7",
+		},
+		{
+			"0x4065B936C56F5908A981084DAFA66DC17600937DC80C52EEB834693BB811792",
+			"0x7970C532B764BB36FAF5696B8BC1317505B8A4DC9EEE5DF4994671757975E4D",
+		},
+		{
+			"0x4B5FBB4904167E2E8195C35F7D4E78501A3FE95896794367C85B60B39AEFFC2",
+			"0x232C969EAFC5B30C20648759D7FA1E2F4256AC6604E1921578101DCE4DFDF48",
+		},
+	}
+	for _, v := range test {
+		k1 := new(big.Int).SetBytes(common.FromHex(v.key))
+		v1 := new(big.Int).SetBytes(common.FromHex(v.value))
+		trie.Put(k1, v1)
+	}
+	//
 	//k2 := new(big.Int).SetBytes(common.FromHex("0x86"))
 	//v2 := new(big.Int).SetBytes(common.FromHex("0x1"))
 	//trie.Put(k2, v2)
@@ -159,7 +183,7 @@ func TestSimpleTest(t *testing.T) {
 	commitment := common.BytesToHash(trie.Commitment().Bytes())
 
 	if commitment.String() !=
-		common.HexToHash("0x05ddb19ec8be7357feef0705d6dfeac2e1eba72243109d02436fd9b04ab2f7b8").String() {
+		common.HexToHash("0x06ee9a8202b40f3f76f1a132f953faa2df78b3b33ccb2b4406431abdc99c2dfe").String() {
 		t.Log(commitment.String())
 		t.Fail()
 	}

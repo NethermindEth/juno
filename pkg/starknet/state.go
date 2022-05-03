@@ -326,10 +326,10 @@ func (s *Synchronizer) FetchStarknetState() error {
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	//if config.Runtime.Starknet.FastSync {
-	//	s.fastSync()
-	//	return nil
-	//}
+	if config.Runtime.Starknet.FastSync {
+		s.fastSync()
+		return nil
+	}
 
 	err := s.FetchStarknetState()
 	if err != nil {
@@ -472,10 +472,9 @@ func (s *Synchronizer) updateState(update StateDiff, blockHash, blockNumber stri
 		}
 		storageTrie, _ := storageRoots[k]
 		for _, item := range v {
-			keyRaw, _ := new(big.Int).SetString(item.Key.String()[2:], 16)
-			valRaw, _ := new(big.Int).SetString(item.Value.String()[2:], 16)
-			fmt.Printf("Put(%s, %s)", item.Key, item.Value)
-			storageTrie.Put(keyRaw, valRaw)
+			key, _ := new(big.Int).SetString(item.Key.String()[2:], 16)
+			val, _ := new(big.Int).SetString(item.Key.String()[2:], 16)
+			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
 		log.Default.With("Storage Root", storageRoot.Text(16),
