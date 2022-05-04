@@ -20,7 +20,7 @@ var tests = [...]struct {
 	{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
 	{big.NewInt(3) /* 0b011 */, big.NewInt(1)},
 	{big.NewInt(5) /* 0b101 */, big.NewInt(1)},
-	{big.NewInt(7) /* 0b101 */, big.NewInt(0)},
+	{big.NewInt(7) /* 0b111 */, big.NewInt(0)},
 }
 
 func init() {
