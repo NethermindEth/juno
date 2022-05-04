@@ -20,6 +20,7 @@ var tests = [...]struct {
 	{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
 	{big.NewInt(3) /* 0b011 */, big.NewInt(1)},
 	{big.NewInt(5) /* 0b101 */, big.NewInt(1)},
+	{big.NewInt(7) /* 0b101 */, big.NewInt(0)},
 }
 
 func init() {
@@ -96,7 +97,7 @@ func TestGet(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
 			got, _ := trie.Get(test.key)
-			if got.Cmp(test.val) != 0 {
+			if test.val.Cmp(new(big.Int)) != 0 && got.Cmp(test.val) != 0 {
 				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
 			}
 		})
@@ -179,6 +180,10 @@ func TestPut(t *testing.T) {
 			pre := prefix(reversed(test.key, testKeyLen), testKeyLen)
 			got, ok := db.Get(pre)
 			if !ok {
+				// A key with a value 0 is deleted.
+				if test.val.Cmp(new(big.Int)) == 0 {
+					t.Skip()
+				}
 				t.Fatalf("failed to retrieve value with key %s from database", pre)
 			}
 			var n node
