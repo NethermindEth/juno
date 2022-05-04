@@ -407,9 +407,9 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
 
-	upd := s.convertStateUpdateResponse(update)
+	//upd := s.convertStateUpdateResponse(update)
 
-	err = s.updateState(upd, update.BlockHash, "")
+	err = s.updateState(update, update.BlockHash, "")
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't update state")
 		//return
@@ -454,58 +454,52 @@ func (s *Synchronizer) convertStateUpdateResponse(update feeder.StateUpdateRespo
 	return stateDiff
 }
 
-func (s *Synchronizer) updateState(update StateDiff, blockHash, blockNumber string) error {
-	stateRoot := newTrie()
+func (s *Synchronizer) updateState(update feeder.StateUpdateResponse, blockHash, blockNumber string) error {
+	stateTrie := newTrie()
 	// Storage root
-	storageRoots := make(map[common.Address]trie.Trie)
+	//storageTries := make(map[common.Address]trie.Trie)
 
-	contractHashes := make(map[common.Address]common.Hash)
-	for _, v := range update.DeployedContracts {
+	contractHashes := make(map[string]string)
+	for _, v := range update.StateDiff.DeployedContracts {
 		contractHashes[v.Address] = v.ContractHash
+		log.Default.With("Address", v.Address, "Contract Hash", v.ContractHash).Info("Get contract hash")
 	}
 
-	for k, v := range update.StorageDiffs {
-		// Initialization
-		if _, ok := storageRoots[k]; !ok {
-			// Create new Trie
-			storageRoots[k] = newTrie()
-		}
-		storageTrie, _ := storageRoots[k]
+	for k, v := range update.StateDiff.StorageDiffs {
+		storageTrie := newTrie()
 		for _, item := range v {
-			key, _ := new(big.Int).SetString(item.Key.String()[2:], 16)
-			val, _ := new(big.Int).SetString(item.Key.String()[2:], 16)
+			key, _ := new(big.Int).SetString(clean(item.Key), 16)
+			val, _ := new(big.Int).SetString(clean(item.Value), 16)
 			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
-		log.Default.With("Storage Root", storageRoot.Text(16),
-			"Contract Address", k).
-			Info("Storage commitment")
-		// h(h(h(contract_hash,storage_root), 0), 0)
-		contractHash, _ := new(big.Int).SetString(contractHashes[k].String()[2:], 16)
-		// Pedersen Hash of (contract_hash, storage_root)
-		p1, err := pedersen.Digest(contractHash, storageRoot)
-		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't use digest")
-		}
-		// Pedersen Hash of h(contract_hash, storage_root)
-		p2, err := pedersen.Digest(p1, big.NewInt(0))
-		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't use digest")
-		}
-		// Pedersen Hash of (contract_hash, storage_root)
-		leafValue, err := pedersen.Digest(p2, big.NewInt(0))
-		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't use digest")
-		}
-		leafKey, _ := new(big.Int).SetString(k.String()[2:], 16)
-		stateRoot.Put(leafKey, leafValue)
+		key, _ := new(big.Int).SetString(clean(k), 16)
+
+		// h(h(h(contract_hash, storage_root), 0), 0).
+		hash, _ := new(big.Int).SetString(clean(contractHashes[k]), 16)
+		val, _ := pedersen.Digest(hash, storageRoot)
+		val, _ = pedersen.Digest(val, big.NewInt(0))
+		val, _ = pedersen.Digest(val, big.NewInt(0))
+		stateTrie.Put(key, val)
 	}
 
-	log.Default.With("State Root", stateRoot.Commitment().Text(16)).
+	log.Default.With("State Root", stateTrie.Commitment().Text(16)).
 		Info("Got State commitment")
 
-	s.updateAbiAndCode(update, blockHash, blockNumber)
+	//s.updateAbiAndCode(update, blockHash, blockNumber)
 	return nil
+}
+
+func clean(s string) string {
+	answer := ""
+	found := false
+	for _, char := range s {
+		found = found || (char != '0' && char != 'x')
+		if found {
+			answer = answer + string(char)
+		}
+	}
+	return answer
 }
 
 func (s *Synchronizer) processMemoryPages(fact string) {
