@@ -30,12 +30,14 @@ import (
 	"time"
 )
 
-const latestBlockSynced = "latestBlockSynced"
-const blockOfStarknetDeploymentContractMainnet = 13627000
-const blockOfStarknetDeploymentContractGoerli = 5853000
-const MaxChunk = 10000
+const (
+	latestBlockSynced                        = "latestBlockSynced"
+	blockOfStarknetDeploymentContractMainnet = 13627000
+	blockOfStarknetDeploymentContractGoerli  = 5853000
+	MaxChunk                                 = 10000
+)
 
-// Synchronizer represents the base struct for Ethereum Synchronization
+// Synchronizer represents the base struct for Starknet Synchronization
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
 	feederGatewayClient    *feeder.Client
@@ -45,6 +47,9 @@ type Synchronizer struct {
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
 	facts                  []string
+	stateTrie              trie.Trie
+	contractHashes         map[string]*big.Int
+	storageTries           map[string]trie.Trie
 	lock                   sync.RWMutex
 }
 
@@ -62,7 +67,25 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
 		facts:               make([]string, 0),
+		stateTrie:           newTrie(),
+		contractHashes:      make(map[string]*big.Int),
+		storageTries:        make(map[string]trie.Trie),
 	}
+}
+
+// UpdateState keeps updated the Starknet State in a process
+func (s *Synchronizer) UpdateState() error {
+	log.Default.Info("Starting to update state")
+	if config.Runtime.Starknet.FastSync {
+		s.fastSync()
+		return nil
+	}
+
+	err := s.FetchStarknetState()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Synchronizer) initialBlockForStarknetContract() int64 {
@@ -77,15 +100,15 @@ func (s *Synchronizer) initialBlockForStarknetContract() int64 {
 }
 
 func (s *Synchronizer) latestBlockQueried() (int64, error) {
-	get, err := (*s.db).Get([]byte(latestBlockSynced))
+	blockNumber, err := (*s.db).Get([]byte(latestBlockSynced))
 	if err != nil {
 		return 0, err
 	}
-	if get == nil {
+	if blockNumber == nil {
 		return 0, nil
 	}
 	var ret uint64
-	buf := bytes.NewBuffer(get)
+	buf := bytes.NewBuffer(blockNumber)
 	err = binary.Read(buf, binary.BigEndian, &ret)
 	if err != nil {
 		return 0, err
@@ -105,19 +128,7 @@ func (s *Synchronizer) updateLatestBlockQueried(block int64) error {
 	return nil
 }
 
-type contractsStruct struct {
-	contract  abi.ABI
-	eventName string
-	address   common.Address
-}
-
-type eventStruct struct {
-	address         common.Address
-	event           map[string]interface{}
-	transactionHash common.Hash
-}
-
-func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, eventChan chan eventStruct) error {
+func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eventChan chan eventInfo) error {
 	addresses := make([]common.Address, 0)
 
 	topics := make([]common.Hash, 0)
@@ -160,7 +171,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, 
 				log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
 				continue
 			}
-			eventChan <- eventStruct{
+			eventChan <- eventInfo{
 				event:           event,
 				address:         contracts[vLog.Address].address,
 				transactionHash: vLog.TxHash,
@@ -192,7 +203,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]contractsStruct, 
 				log.Default.With("Error", err).Info("Couldn't get event from log")
 				continue
 			}
-			eventChan <- eventStruct{
+			eventChan <- eventInfo{
 				event:           event,
 				address:         contracts[vLog.Address].address,
 				transactionHash: vLog.TxHash,
@@ -215,44 +226,55 @@ func (s *Synchronizer) FetchStarknetState() error {
 
 	contractAddresses, err := s.feederGatewayClient.GetContractAddresses()
 	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't get Contract Address from Feeder Gateway")
+		log.Default.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
 		return err
 	}
-	event := make(chan eventStruct)
-
-	contracts := make(map[common.Address]contractsStruct)
+	event := make(chan eventInfo)
+	contracts := make(map[common.Address]ContractInfo)
 
 	// Add Starknet contract
-	starknetAddress := common.HexToAddress(contractAddresses.Starknet)
-	starknetContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
+	err = loadContractFromDisk(contractAddresses.Starknet,
+		config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath,
+		"LogStateTransitionFact", contracts)
 	if err != nil {
+		log.Default.With("Address", contractAddresses.Starknet,
+			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath).
+			Panic("Couldn't load contract from disk ")
 		return err
 	}
-	contracts[starknetAddress] = contractsStruct{
-		contract:  starknetContract,
-		eventName: "LogStateTransitionFact",
+	// Add Starknet contract
+	err = loadContractFromDisk(contractAddresses.Starknet,
+		config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath,
+		"LogStateTransitionFact", contracts)
+	if err != nil {
+		log.Default.With("Address", contractAddresses.Starknet,
+			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath).
+			Panic("Couldn't load contract from disk ")
+		return err
 	}
 
 	// Add Gps Statement Verifier contract
-	gpsStatementVerifierAddress := common.HexToAddress("0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F")
-	gpsStatementVerifierContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath)
+	gpsAddress := s.getGpsVerifierAddress()
+	err = loadContractFromDisk(gpsAddress,
+		config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath,
+		"LogMemoryPagesHashes", contracts)
 	if err != nil {
+		log.Default.With("Address", gpsAddress,
+			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
+			Panic("Couldn't load contract from disk ")
 		return err
-	}
-	contracts[gpsStatementVerifierAddress] = contractsStruct{
-		contract:  gpsStatementVerifierContract,
-		eventName: "LogMemoryPagesHashes",
 	}
 	// Add Memory Page Fact Registry contract
-	memoryPageFactRegistryAddress := common.HexToAddress(config.Runtime.Starknet.MemoryPageFactRegistryContract)
-	memoryContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
+	err = loadContractFromDisk(config.Runtime.Starknet.MemoryPageFactRegistryContract,
+		config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath,
+		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
+		log.Default.With("Address", gpsAddress,
+			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
+			Panic("Couldn't load contract from disk ")
 		return err
 	}
-	contracts[memoryPageFactRegistryAddress] = contractsStruct{
-		contract:  memoryContract,
-		eventName: "LogMemoryPageFactContinuous",
-	}
+
 	go func() {
 
 		err = s.loadEvents(contracts, event)
@@ -262,6 +284,7 @@ func (s *Synchronizer) FetchStarknetState() error {
 		}
 	}()
 
+	// Handle frequently if there is any fact that comes from L1 to handle
 	go func() {
 		ticker := time.NewTicker(time.Second * 5)
 
@@ -273,6 +296,8 @@ func (s *Synchronizer) FetchStarknetState() error {
 				}
 				if s.GpsVerifier.Exist(s.facts[0]) {
 					s.lock.Lock()
+					// If already exist the information related to the fact,
+					// fetch the memory pages and updated the State
 					go s.processMemoryPages(s.facts[0])
 					s.facts = s.facts[1:]
 					s.lock.Unlock()
@@ -323,23 +348,36 @@ func (s *Synchronizer) FetchStarknetState() error {
 	}
 }
 
-// UpdateState keeps updated the Starknet State in a process
-func (s *Synchronizer) UpdateState() error {
-	log.Default.Info("Starting to update state")
-	if config.Runtime.Starknet.FastSync {
-		s.fastSync()
-		return nil
+// getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
+func (s *Synchronizer) getGpsVerifierAddress() string {
+	id, err := s.ethereumClient.ChainID(context.Background())
+	if err != nil {
+		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
 	}
+	if id.Int64() == 1 {
+		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+	}
+	// TODO: Return Goerli Network
+	return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+}
 
-	err := s.FetchStarknetState()
+// loadContractFromDisk loads a contract ABI and set the events' thar later we are going yo use
+func loadContractFromDisk(contractAddress, abiPath, logName string, contracts map[common.Address]ContractInfo) error {
+	// Add Starknet contract
+	contractAddressHash := common.HexToAddress(contractAddress)
+	contractFromAbi, err := loadContract(abiPath)
 	if err != nil {
 		return err
+	}
+	contracts[contractAddressHash] = ContractInfo{
+		contract:  contractFromAbi,
+		eventName: logName,
 	}
 	return nil
 }
 
 func loadContract(abiPath string) (abi.ABI, error) {
-	log.Default.With("Contract", abiPath).Info("Loading contract")
+	log.Default.With("ContractInfo", abiPath).Info("Loading contract")
 	b, err := ioutil.ReadFile(abiPath)
 	if err != nil {
 		return abi.ABI{}, err
@@ -407,13 +445,13 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
 
-	//upd := s.convertStateUpdateResponse(update)
+	upd := convertStateUpdateResponse(update)
 
-	err = s.updateState(update, update.BlockHash, "")
+	err = s.updateState(upd, update.NewRoot, update.BlockHash, strconv.Itoa(blockIterator))
 	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't update state")
-		//return
+		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
+	log.Default.With("Block Number", blockIterator).Info("State updated")
 	//err = s.updateLatestBlockQueried(int64(blockIterator))
 	//if err != nil {
 	//	log.Default.With("Error", err).Info("Couldn't save latest block queried")
@@ -428,24 +466,24 @@ func newTrie() trie.Trie {
 	return trie.New(database, 251)
 }
 
-func (s *Synchronizer) convertStateUpdateResponse(update feeder.StateUpdateResponse) StateDiff {
+func convertStateUpdateResponse(update feeder.StateUpdateResponse) StateDiff {
 	var stateDiff StateDiff
 	stateDiff.DeployedContracts = make([]DeployedContract, 0)
-	stateDiff.StorageDiffs = make(map[common.Address][]KV)
+	stateDiff.StorageDiffs = make(map[string][]KV)
 	for _, v := range update.StateDiff.DeployedContracts {
 		deployedContract := DeployedContract{
-			Address:      common.HexToAddress(v.Address),
-			ContractHash: common.HexToHash(v.ContractHash),
+			Address:      v.Address,
+			ContractHash: v.ContractHash,
 		}
 		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, deployedContract)
 	}
 	for addressDiff, keyVals := range update.StateDiff.StorageDiffs {
-		address := common.HexToAddress(addressDiff)
+		address := addressDiff
 		kvs := make([]KV, 0)
 		for _, kv := range keyVals {
 			kvs = append(kvs, KV{
-				Key:   common.HexToHash(kv.Key),
-				Value: common.HexToHash(kv.Value),
+				Key:   kv.Key,
+				Value: kv.Value,
 			})
 		}
 		stateDiff.StorageDiffs[address] = kvs
@@ -454,40 +492,103 @@ func (s *Synchronizer) convertStateUpdateResponse(update feeder.StateUpdateRespo
 	return stateDiff
 }
 
-func (s *Synchronizer) updateState(update feeder.StateUpdateResponse, blockHash, blockNumber string) error {
-	stateTrie := newTrie()
-	// Storage root
-	//storageTries := make(map[common.Address]trie.Trie)
+func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, blockNumber string) error {
 
-	contractHashes := make(map[string]string)
-	for _, v := range update.StateDiff.DeployedContracts {
-		contractHashes[v.Address] = v.ContractHash
-		log.Default.With("Address", v.Address, "Contract Hash", v.ContractHash).Info("Get contract hash")
+	for _, deployedContract := range update.DeployedContracts {
+		contractHash, ok := new(big.Int).SetString(clean(deployedContract.ContractHash), 16)
+		if !ok {
+			log.Default.Panic("Couldn't get contract hash")
+		}
+		s.contractHashes[deployedContract.Address] = contractHash
+		storageTrie, ok := s.storageTries[deployedContract.Address]
+		if !ok {
+			storageTrie = newTrie()
+		}
+		storageRoot := storageTrie.Commitment()
+		address, ok := new(big.Int).SetString(clean(deployedContract.Address), 16)
+		if !ok {
+			log.Default.With("Address", deployedContract.Address).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractStateValue := contractState(contractHash, storageRoot)
+		s.stateTrie.Put(address, contractStateValue)
+		s.storageTries[deployedContract.Address] = storageTrie
 	}
 
-	for k, v := range update.StateDiff.StorageDiffs {
-		storageTrie := newTrie()
-		for _, item := range v {
-			key, _ := new(big.Int).SetString(clean(item.Key), 16)
-			val, _ := new(big.Int).SetString(clean(item.Value), 16)
+	for k, v := range update.StorageDiffs {
+		storageTrie, ok := s.storageTries[k]
+		if !ok {
+			storageTrie = newTrie()
+		}
+		for _, storageSlots := range v {
+			key, ok := new(big.Int).SetString(clean(storageSlots.Key), 16)
+			if !ok {
+				log.Default.With("Storage Slot Key", storageSlots.Key).
+					Panic("Couldn't get the ")
+			}
+			val, ok := new(big.Int).SetString(clean(storageSlots.Value), 16)
+			if !ok {
+				log.Default.With("Storage Slot Value", storageSlots.Value).
+					Panic("Couldn't get the contract Hash")
+			}
 			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
-		key, _ := new(big.Int).SetString(clean(k), 16)
+		s.storageTries[k] = storageTrie
 
-		// h(h(h(contract_hash, storage_root), 0), 0).
-		hash, _ := new(big.Int).SetString(clean(contractHashes[k]), 16)
-		val, _ := pedersen.Digest(hash, storageRoot)
-		val, _ = pedersen.Digest(val, big.NewInt(0))
-		val, _ = pedersen.Digest(val, big.NewInt(0))
-		stateTrie.Put(key, val)
+		address, ok := new(big.Int).SetString(k[2:], 16)
+		if !ok {
+			log.Default.With("Address", k).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractStateValue := contractState(s.contractHashes[k], storageRoot)
+
+		s.stateTrie.Put(address, contractStateValue)
 	}
 
-	log.Default.With("State Root", stateTrie.Commitment().Text(16)).
+	stateCommitment := clean(s.stateTrie.Commitment().Text(16))
+
+	if stateRoot != "" && stateCommitment != clean(stateRoot) {
+		log.Default.With("State Commitment", stateCommitment, "State Root from API", clean(stateRoot)).
+			Panic("stateRoot not equal to the one provided")
+	}
+
+	log.Default.With("State Root", stateCommitment).
 		Info("Got State commitment")
 
-	//s.updateAbiAndCode(update, blockHash, blockNumber)
+	s.updateAbiAndCode(update, blockHash, blockNumber)
 	return nil
+}
+
+// contractState define the function that calculates the values stored in the
+// leaf of the Merkle Patricia Tree that represent the State in StarkNet
+func contractState(contractHash, storageRoot *big.Int) *big.Int {
+	// Is defined as:
+	// h(h(h(contract_hash, storage_root), 0), 0).
+	val, err := pedersen.Digest(contractHash, storageRoot)
+	if err != nil {
+		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
+			"Storage Commitment", storageRoot.String(),
+			"Function", "h(contract_hash, storage_root)").
+			Panic("Couldn't calculate the digest")
+	}
+	val, err = pedersen.Digest(val, big.NewInt(0))
+	if err != nil {
+		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
+			"Storage Commitment", storageRoot.String(),
+			"Function", "h(h(contract_hash, storage_root), 0)",
+			"First Hash", val.String()).
+			Panic("Couldn't calculate the digest")
+	}
+	val, err = pedersen.Digest(val, big.NewInt(0))
+	if err != nil {
+		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
+			"Storage Commitment", storageRoot.String(),
+			"Function", "h(h(h(contract_hash, storage_root), 0), 0)",
+			"Second Hash", val.String()).
+			Panic("Couldn't calculate the digest")
+	}
+	return val
 }
 
 func clean(s string) string {
@@ -498,6 +599,9 @@ func clean(s string) string {
 		if found {
 			answer = answer + string(char)
 		}
+	}
+	if len(answer) == 0 {
+		return "0"
 	}
 	return answer
 }
@@ -564,13 +668,12 @@ type stateToSave struct {
 
 func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber string) {
 	for _, v := range update.DeployedContracts {
-		code, err := s.feederGatewayClient.GetCode(v.Address.String(), blockHash, blockNumber)
+		code, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
 		if err != nil {
 			return
 		}
-		log.Default.With("Contract Address", v.Address, "Block Hash", blockHash, "Block Number",
-			blockNumber, "Code", code).
-			Info("Got code and ABI")
+		log.Default.With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
+			Info("Fetched code and ABI")
 		// TODO: Store code and ABI, where to store it? How to store it?
 
 		var address felt.Felt
@@ -611,27 +714,6 @@ func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResp
 
 }
 
-// KV represents a key-value pair.
-type KV struct {
-	Key   common.Hash `json:"key"`
-	Value common.Hash `json:"value"`
-}
-
-// DeployedContract represent the contracts that have been deployed in this block
-// and the information stored on-chain
-type DeployedContract struct {
-	Address             common.Address `json:"address"`
-	ContractHash        common.Hash    `json:"contract_hash"`
-	ConstructorCallData []*big.Int     `json:"constructor_call_data"`
-}
-
-// StateDiff Represent the deployed contracts and the storage diffs for those and
-// for the one's already deployed
-type StateDiff struct {
-	DeployedContracts []DeployedContract      `json:"deployed_contracts"`
-	StorageDiffs      map[common.Address][]KV `json:"storage_diffs"`
-}
-
 // parsePages parse the pages returned from the interaction with Layer 1
 func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 	// Remove first page
@@ -654,11 +736,11 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 	// Iterate while contains contract data to be processed
 	for len(deployedContractsData) > 0 {
 		// Parse the Address of the contract
-		address := common.BytesToAddress(deployedContractsData[0].Bytes())
+		address := deployedContractsData[0].String()
 		deployedContractsData = deployedContractsData[1:]
 
-		// Parse the Contract Hash
-		contractHash := common.BytesToHash(deployedContractsData[0].Bytes())
+		// Parse the ContractInfo Hash
+		contractHash := deployedContractsData[0].String()
 		deployedContractsData = deployedContractsData[1:]
 
 		// Parse the number of Arguments the constructor contains
@@ -672,7 +754,7 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 			deployedContractsData = deployedContractsData[1:]
 		}
 
-		// Store deployed Contract information
+		// Store deployed ContractInfo information
 		deployedContracts = append(deployedContracts, DeployedContract{
 			Address:             address,
 			ContractHash:        contractHash,
@@ -685,12 +767,12 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 	numContractsUpdate := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
 
-	storageDiffs := make(map[common.Address][]KV, 0)
+	storageDiffs := make(map[string][]KV, 0)
 
 	// Iterate over all the contracts that had been updated and collect the needed information
 	for i := int64(0); i < numContractsUpdate; i++ {
 		// Parse the Address of the contract
-		address := common.BytesToAddress(pagesFlatter[0].Bytes())
+		address := pagesFlatter[0].String()
 		pagesFlatter = pagesFlatter[1:]
 
 		// Parse the number storage updates
@@ -699,11 +781,9 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 
 		kvs := make([]KV, 0)
 		for k := int64(0); k < numStorageUpdates; k++ {
-			key := common.BytesToHash(pagesFlatter[0].Bytes())
-			value := common.BytesToHash(pagesFlatter[1].Bytes())
 			kvs = append(kvs, KV{
-				Key:   key,
-				Value: value,
+				Key:   pagesFlatter[0].String(),
+				Value: pagesFlatter[1].String(),
 			})
 			pagesFlatter = pagesFlatter[2:]
 		}

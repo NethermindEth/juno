@@ -188,15 +188,15 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 
 // Put inserts a [big.Int] key-value pair in the trie.
 func (t *Trie) Put(key, val *big.Int) {
+	if val.Cmp(new(big.Int)) == 0 {
+		t.Delete(key)
+		return
+	}
+
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the oppose so a
 	// copy with the bits reversed is used instead.
 	rev := reversed(key, t.keyLen)
-
-	if val.Cmp(new(big.Int)) == 0 {
-		t.Delete(rev)
-		return
-	}
 
 	leaf := node{encoding: encoding{0, new(big.Int), val}}
 	leaf.hash()
@@ -211,7 +211,10 @@ func (t *Trie) Commitment() *big.Int {
 	root, ok := t.retrive([]byte("root"))
 	if !ok {
 		// notest
-		return nil
+		zero := new(big.Int).SetInt64(0)
+		emptyNode := node{encoding: encoding{0, new(big.Int), zero}}
+		emptyNode.hash()
+		return emptyNode.Hash
 	}
 	return root.Hash
 }
