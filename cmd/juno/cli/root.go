@@ -4,6 +4,7 @@ package cli
 import (
 	_ "embed"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/starknet"
 	"os"
@@ -57,6 +58,11 @@ var (
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 			database := db.New(config.Runtime.DbPath, 0)
+
+			// Initialize ABI Service
+			abiService := services.NewABIService()
+			processHandler.Add("ABI Service", abiService.Run, abiService.Close)
+
 			d := db.Databaser(database)
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.

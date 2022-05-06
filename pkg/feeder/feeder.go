@@ -5,6 +5,7 @@ package feeder
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/NethermindEth/juno/pkg/db/abi"
 	"io"
 	"net/http"
 	"net/url"
@@ -193,24 +194,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 
 type GetCodeResponse struct {
 	Bytecode []string `json:"bytecode"`
-	Abi      []struct {
-		Inputs []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
-		} `json:"inputs,omitempty"`
-		Name    string `json:"name"`
-		Outputs []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
-		} `json:"outputs,omitempty"`
-		StateMutability string `json:"stateMutability,omitempty"`
-		Type            string `json:"type"`
-		Data            []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
-		} `json:"data,omitempty"`
-		Keys []interface{} `json:"keys,omitempty"`
-	} `json:"abi"`
+	Abi      *abi.Abi
 }
 
 // GetCode creates a new request to get the code of the contract

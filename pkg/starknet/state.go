@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/services"
 	base "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
@@ -672,8 +673,11 @@ func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber
 		if err != nil {
 			return
 		}
-		log.Default.With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
+		log.Default.
+			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
 			Info("Fetched code and ABI")
+		abiService := services.GetABIService()
+		abiService.StoreABI(clean(v.Address), *code.Abi)
 		// TODO: Store code and ABI, where to store it? How to store it?
 
 		var address felt.Felt
