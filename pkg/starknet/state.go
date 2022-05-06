@@ -50,6 +50,10 @@ type Synchronizer struct {
 	stateTrie              trie.Trie
 	contractHashes         map[string]*big.Int
 	storageTries           map[string]trie.Trie
+	stateTriePages         trie.Trie
+	contractHashesPages    map[string]*big.Int
+	storageTriesPages      map[string]trie.Trie
+	blockNumber            int
 	lock                   sync.RWMutex
 }
 
@@ -70,16 +74,20 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 		stateTrie:           newTrie(),
 		contractHashes:      make(map[string]*big.Int),
 		storageTries:        make(map[string]trie.Trie),
+		stateTriePages:      newTrie(),
+		contractHashesPages: make(map[string]*big.Int),
+		storageTriesPages:   make(map[string]trie.Trie),
+		blockNumber:         0,
 	}
 }
 
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	if config.Runtime.Starknet.FastSync {
-		s.fastSync()
-		return nil
-	}
+	//if config.Runtime.Starknet.FastSync {
+	//	s.fastSync()
+	//	return nil
+	//}
 
 	err := s.FetchStarknetState()
 	if err != nil {
@@ -298,7 +306,8 @@ func (s *Synchronizer) FetchStarknetState() error {
 					s.lock.Lock()
 					// If already exist the information related to the fact,
 					// fetch the memory pages and updated the State
-					go s.processMemoryPages(s.facts[0])
+					s.processMemoryPages(s.facts[0], strconv.Itoa(s.blockNumber))
+					s.blockNumber += 1
 					s.facts = s.facts[1:]
 					s.lock.Unlock()
 				}
@@ -560,6 +569,63 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	return nil
 }
 
+func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
+
+	for _, deployedContract := range update.DeployedContracts {
+		contractHash, ok := new(big.Int).SetString(clean(deployedContract.ContractHash), 16)
+		if !ok {
+			log.Default.Panic("Couldn't get contract hash")
+		}
+		s.contractHashesPages[deployedContract.Address] = contractHash
+		storageTrie, ok := s.storageTriesPages[deployedContract.Address]
+		if !ok {
+			storageTrie = newTrie()
+		}
+		storageRoot := storageTrie.Commitment()
+		address, ok := new(big.Int).SetString(clean(deployedContract.Address), 16)
+		if !ok {
+			log.Default.With("Address", deployedContract.Address).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractStateValue := contractState(contractHash, storageRoot)
+		s.stateTriePages.Put(address, contractStateValue)
+		s.storageTriesPages[deployedContract.Address] = storageTrie
+	}
+
+	for k, v := range update.StorageDiffs {
+		storageTrie, ok := s.storageTriesPages[k]
+		if !ok {
+			storageTrie = newTrie()
+		}
+		for _, storageSlots := range v {
+			key, ok := new(big.Int).SetString(clean(storageSlots.Key), 16)
+			if !ok {
+				log.Default.With("Storage Slot Key", storageSlots.Key).
+					Panic("Couldn't get the ")
+			}
+			val, ok := new(big.Int).SetString(clean(storageSlots.Value), 16)
+			if !ok {
+				log.Default.With("Storage Slot Value", storageSlots.Value).
+					Panic("Couldn't get the contract Hash")
+			}
+			storageTrie.Put(key, val)
+		}
+		storageRoot := storageTrie.Commitment()
+		s.storageTriesPages[k] = storageTrie
+
+		address, ok := new(big.Int).SetString(k, 16)
+		if !ok {
+			log.Default.With("Address", k).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractStateValue := contractState(s.contractHashesPages[k], storageRoot)
+
+		s.stateTriePages.Put(address, contractStateValue)
+	}
+
+	return nil
+}
+
 // contractState define the function that calculates the values stored in the
 // leaf of the Merkle Patricia Tree that represent the State in StarkNet
 func contractState(contractHash, storageRoot *big.Int) *big.Int {
@@ -606,7 +672,7 @@ func clean(s string) string {
 	return answer
 }
 
-func (s *Synchronizer) processMemoryPages(fact string) {
+func (s *Synchronizer) processMemoryPages(fact, blockNumber string) {
 	pages := make([][]*big.Int, 0)
 
 	// Get memory pages hashes using fact
@@ -655,7 +721,7 @@ func (s *Synchronizer) processMemoryPages(fact string) {
 		pages = append(pages, t.([]*big.Int))
 	}
 	// pages should contain all txn information
-	s.parsePages(pages)
+	s.parsePages(pages, blockNumber)
 }
 
 type stateToSave struct {
@@ -715,7 +781,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResp
 }
 
 // parsePages parse the pages returned from the interaction with Layer 1
-func (s *Synchronizer) parsePages(pages [][]*big.Int) {
+func (s *Synchronizer) parsePages(pages [][]*big.Int, blockNumber string) {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]
 
@@ -736,11 +802,11 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 	// Iterate while contains contract data to be processed
 	for len(deployedContractsData) > 0 {
 		// Parse the Address of the contract
-		address := deployedContractsData[0].String()
+		address := common.Bytes2Hex(deployedContractsData[0].Bytes())
 		deployedContractsData = deployedContractsData[1:]
 
 		// Parse the ContractInfo Hash
-		contractHash := deployedContractsData[0].String()
+		contractHash := common.Bytes2Hex(deployedContractsData[0].Bytes())
 		deployedContractsData = deployedContractsData[1:]
 
 		// Parse the number of Arguments the constructor contains
@@ -772,7 +838,7 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 	// Iterate over all the contracts that had been updated and collect the needed information
 	for i := int64(0); i < numContractsUpdate; i++ {
 		// Parse the Address of the contract
-		address := pagesFlatter[0].String()
+		address := common.Bytes2Hex(pagesFlatter[0].Bytes())
 		pagesFlatter = pagesFlatter[1:]
 
 		// Parse the number storage updates
@@ -782,8 +848,8 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 		kvs := make([]KV, 0)
 		for k := int64(0); k < numStorageUpdates; k++ {
 			kvs = append(kvs, KV{
-				Key:   pagesFlatter[0].String(),
-				Value: pagesFlatter[1].String(),
+				Key:   common.Bytes2Hex(pagesFlatter[0].Bytes()),
+				Value: common.Bytes2Hex(pagesFlatter[1].Bytes()),
 			})
 			pagesFlatter = pagesFlatter[2:]
 		}
@@ -795,6 +861,28 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int) {
 		StorageDiffs:      storageDiffs,
 	}
 
+	s.compareValues(state, blockNumber)
+
 	log.Default.With("State Diff", state).Info("Fetched state diff")
+
+}
+
+func (s *Synchronizer) compareValues(state StateDiff, blockNumber string) {
+	err := s.updateStateBasedOnPages(state)
+	if err != nil {
+		return
+	}
+	blockNumberInt, _ := strconv.Atoi(blockNumber)
+	s.updateStateForOneBlock(blockNumberInt, "")
+	apiCommitment := clean(s.stateTrie.Commitment().Text(16))
+	l1Commitment := clean(s.stateTriePages.Commitment().Text(16))
+
+	if apiCommitment != l1Commitment {
+		log.Default.With("State Commitment From API", apiCommitment,
+			"State Commitment From L1", l1Commitment).
+			Panic("states don't match")
+	}
+
+	log.Default.With("Block Number", blockNumber).Info("Sync the state")
 
 }
