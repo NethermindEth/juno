@@ -742,23 +742,12 @@ func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber
 		log.Default.
 			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
 			Info("Fetched code and ABI")
+		// Save the ABI
 		abiService := services.GetABIService()
 		abiService.StoreABI(clean(v.Address), *code.Abi)
-		// TODO: Store code and ABI, where to store it? How to store it?
-
-		var address felt.Felt
-
-		// TODO: Save state to trie
-		_ = stateToSave{
-			address: address,
-			contractState: struct {
-				code    []string
-				storage []KV
-			}{
-				code.Bytecode, // TODO set how the code is retrieved
-				update.StorageDiffs[v.Address],
-			},
-		}
+		// Save the contract code
+		stateService := services.GetStateService()
+		stateService.StoreCode(clean(v.Address), code.Bytecode)
 	}
 }
 

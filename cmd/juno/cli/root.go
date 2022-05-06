@@ -63,6 +63,10 @@ var (
 			abiService := services.NewABIService()
 			processHandler.Add("ABI Service", abiService.Run, abiService.Close)
 
+			// Initialize State storage service
+			stateService := services.NewStateService()
+			processHandler.Add("State Storage Service", stateService.Run, stateService.Close)
+
 			d := db.Databaser(database)
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.

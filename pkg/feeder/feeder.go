@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/NethermindEth/juno/pkg/db/abi"
+	"github.com/NethermindEth/juno/pkg/db/state"
 	"io"
 	"net/http"
 	"net/url"
@@ -193,7 +194,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 }
 
 type GetCodeResponse struct {
-	Bytecode []string `json:"bytecode"`
+	Bytecode state.ContractCode
 	Abi      *abi.Abi
 }
 
