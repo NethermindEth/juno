@@ -104,6 +104,10 @@ func (db *BlockSpecificDatabase) Put(key Key, blockNumber uint64, value Value) {
 	db.put(rawKey, rawValue)
 }
 
+func (db *BlockSpecificDatabase) Close() {
+	db.database.Close()
+}
+
 func (db *BlockSpecificDatabase) get(key []byte) []byte {
 	data, err := db.database.Get(key)
 	if err != nil {
