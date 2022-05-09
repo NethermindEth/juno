@@ -66,6 +66,7 @@ func TestBlockSpecificDatabase_Put(t *testing.T) {
 	for _, test := range tests {
 		db.Put(&test.Key, test.BlockNumber, &test.Value)
 	}
+	db.Close()
 }
 
 func TestBlockSpecificDatabase_Get(t *testing.T) {
@@ -168,4 +169,5 @@ func TestBlockSpecificDatabase_Get(t *testing.T) {
 			t.Errorf("db.Get(%s, %d) = %s, want: %s", string(test.Key), test.BlockNumber, string(result), test.Want)
 		}
 	}
+	db.Close()
 }
