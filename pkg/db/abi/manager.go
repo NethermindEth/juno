@@ -29,12 +29,9 @@ func NewABIManager(database db.Databaser) *Manager {
 // must be a hexadecimal string without the 0x prefix, if the contract address encoding
 // is invalid then an InvalidContractAddress error is returned. If the ABI does
 // not exist, then returns nil without error.
-func (m *Manager) GetABI(contractAddress string) (*Abi, error) {
+func (m *Manager) GetABI(contractAddress string) *Abi {
 	// Build the key from contract address
-	key, err := buildKey(contractAddress)
-	if err != nil {
-		return nil, err
-	}
+	key := buildKey(contractAddress)
 	// Query to database
 	data, err := m.database.Get(key)
 	if err != nil {
@@ -42,7 +39,7 @@ func (m *Manager) GetABI(contractAddress string) (*Abi, error) {
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
 	if data == nil {
-		return nil, nil
+		return nil
 	}
 	// Unmarshal the data from database
 	abi := new(Abi)
@@ -50,18 +47,15 @@ func (m *Manager) GetABI(contractAddress string) (*Abi, error) {
 		// notest
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
-	return abi, nil
+	return abi
 }
 
 // PutABI puts the ABI to the contract address. The contract address must be a
 // hexadecimal string without the 0x prefix, if the contract address is invalid
 // then an InvalidContractAddress error is returned.
-func (m *Manager) PutABI(contractAddress string, abi *Abi) (err error) {
+func (m *Manager) PutABI(contractAddress string, abi *Abi) {
 	// Build the key from contract address
-	key, err := buildKey(contractAddress)
-	if err != nil {
-		return err
-	}
+	key := buildKey(contractAddress)
 	value, err := json.Marshal(abi)
 	if err != nil {
 		// notest
@@ -72,13 +66,12 @@ func (m *Manager) PutABI(contractAddress string, abi *Abi) (err error) {
 		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
-	return nil
 }
 
-func buildKey(contractAddress string) ([]byte, error) {
+func buildKey(contractAddress string) []byte {
 	address, ok := new(big.Int).SetString(contractAddress, 16)
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", InvalidContractAddress, contractAddress)
+		panic(fmt.Errorf("%w: %s", InvalidContractAddress, contractAddress))
 	}
-	return address.Bytes(), nil
+	return address.Bytes()
 }
