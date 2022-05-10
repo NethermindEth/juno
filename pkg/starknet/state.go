@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
 	base "github.com/NethermindEth/juno/pkg/common"
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/trie"
@@ -534,52 +533,6 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 	}
 
 	return nil
-}
-
-// contractState define the function that calculates the values stored in the
-// leaf of the Merkle Patricia Tree that represent the State in StarkNet
-func contractState(contractHash, storageRoot *big.Int) *big.Int {
-	// Is defined as:
-	// h(h(h(contract_hash, storage_root), 0), 0).
-	val, err := pedersen.Digest(contractHash, storageRoot)
-	if err != nil {
-		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
-			"Storage Commitment", storageRoot.String(),
-			"Function", "h(contract_hash, storage_root)").
-			Panic("Couldn't calculate the digest")
-	}
-	val, err = pedersen.Digest(val, big.NewInt(0))
-	if err != nil {
-		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
-			"Storage Commitment", storageRoot.String(),
-			"Function", "h(h(contract_hash, storage_root), 0)",
-			"First Hash", val.String()).
-			Panic("Couldn't calculate the digest")
-	}
-	val, err = pedersen.Digest(val, big.NewInt(0))
-	if err != nil {
-		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
-			"Storage Commitment", storageRoot.String(),
-			"Function", "h(h(h(contract_hash, storage_root), 0), 0)",
-			"Second Hash", val.String()).
-			Panic("Couldn't calculate the digest")
-	}
-	return val
-}
-
-func clean(s string) string {
-	answer := ""
-	found := false
-	for _, char := range s {
-		found = found || (char != '0' && char != 'x')
-		if found {
-			answer = answer + string(char)
-		}
-	}
-	if len(answer) == 0 {
-		return "0"
-	}
-	return answer
 }
 
 func (s *Synchronizer) processMemoryPages(fact, blockNumber string) {
