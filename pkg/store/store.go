@@ -8,6 +8,8 @@ type Storer interface {
 	Delete(key []byte)
 	Get(key []byte) ([]byte, bool)
 	Put(key, val []byte)
+	Init()
+	Persist()
 }
 
 // Ephemeral defines a temporary key-value store.
@@ -38,4 +40,12 @@ func (e Ephemeral) Get(key []byte) (item []byte, ok bool) {
 // Put commits a key-value pair to ephemeral storage.
 func (e Ephemeral) Put(key, val []byte) {
 	e.table[string(key)] = val
+}
+
+func (e Ephemeral) Init() {
+
+}
+
+func (e Ephemeral) Persist() {
+
 }
