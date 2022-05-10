@@ -3,9 +3,7 @@
 package starknet
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
@@ -16,15 +14,12 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"io/ioutil"
 	"math/big"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -78,52 +73,12 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
 	if config.Runtime.Starknet.FastSync {
-		s.fastSync()
+		s.apiSync()
 		return nil
 	}
 
-	err := s.FetchStarknetState()
+	err := s.l1Sync()
 	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Synchronizer) initialBlockForStarknetContract() int64 {
-	id, err := s.ethereumClient.ChainID(context.Background())
-	if err != nil {
-		return 0
-	}
-	if id.Int64() == 1 {
-		return blockOfStarknetDeploymentContractMainnet
-	}
-	return blockOfStarknetDeploymentContractGoerli
-}
-
-func (s *Synchronizer) latestBlockQueried() (int64, error) {
-	blockNumber, err := (*s.db).Get([]byte(latestBlockSynced))
-	if err != nil {
-		return 0, err
-	}
-	if blockNumber == nil {
-		return 0, nil
-	}
-	var ret uint64
-	buf := bytes.NewBuffer(blockNumber)
-	err = binary.Read(buf, binary.BigEndian, &ret)
-	if err != nil {
-		return 0, err
-	}
-	return int64(ret), nil
-}
-
-func (s *Synchronizer) updateLatestBlockQueried(block int64) error {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(block))
-	err := (*s.db).Put([]byte(latestBlockSynced), b)
-	if err != nil {
-		log.Default.With("Block", block, "Key", latestBlockSynced).
-			Info("Couldn't store the latest synced block")
 		return err
 	}
 	return nil
@@ -143,7 +98,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eve
 		return err
 	}
 
-	initialBlock := s.initialBlockForStarknetContract()
+	initialBlock := initialBlockForStarknetContract(s.ethereumClient)
 	increment := uint64(MaxChunk)
 	i := uint64(initialBlock)
 	for i < latestBlockNumber {
@@ -222,7 +177,7 @@ func (s *Synchronizer) latestBlockOnChain() (uint64, error) {
 	return number, nil
 }
 
-func (s *Synchronizer) FetchStarknetState() error {
+func (s *Synchronizer) l1Sync() error {
 	log.Default.Info("Starting to update state")
 
 	contractAddresses, err := s.feederGatewayClient.GetContractAddresses()
@@ -234,7 +189,7 @@ func (s *Synchronizer) FetchStarknetState() error {
 	contracts := make(map[common.Address]ContractInfo)
 
 	// Add Starknet contract
-	err = loadContractFromDisk(contractAddresses.Starknet,
+	err = loadContractInfo(contractAddresses.Starknet,
 		config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath,
 		"LogStateTransitionFact", contracts)
 	if err != nil {
@@ -244,7 +199,7 @@ func (s *Synchronizer) FetchStarknetState() error {
 		return err
 	}
 	// Add Starknet contract
-	err = loadContractFromDisk(contractAddresses.Starknet,
+	err = loadContractInfo(contractAddresses.Starknet,
 		config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath,
 		"LogStateTransitionFact", contracts)
 	if err != nil {
@@ -256,7 +211,7 @@ func (s *Synchronizer) FetchStarknetState() error {
 
 	// Add Gps Statement Verifier contract
 	gpsAddress := s.getGpsVerifierAddress()
-	err = loadContractFromDisk(gpsAddress,
+	err = loadContractInfo(gpsAddress,
 		config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath,
 		"LogMemoryPagesHashes", contracts)
 	if err != nil {
@@ -266,7 +221,7 @@ func (s *Synchronizer) FetchStarknetState() error {
 		return err
 	}
 	// Add Memory Page Fact Registry contract
-	err = loadContractFromDisk(config.Runtime.Starknet.MemoryPageFactRegistryContract,
+	err = loadContractInfo(config.Runtime.Starknet.MemoryPageFactRegistryContract,
 		config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
@@ -327,7 +282,6 @@ func (s *Synchronizer) FetchStarknetState() error {
 			}
 			// Process MemoryPageFactRegistry contract
 			if memoryHash, ok := l.event["memoryHash"]; ok {
-
 				key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
 				value := l.transactionHash
 				s.MemoryPageHash.Add(key, value)
@@ -359,35 +313,7 @@ func (s *Synchronizer) getGpsVerifierAddress() string {
 	if id.Int64() == 1 {
 		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
 	}
-	// TODO: Return Goerli Network
-	return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
-}
-
-// loadContractFromDisk loads a contract ABI and set the events' thar later we are going yo use
-func loadContractFromDisk(contractAddress, abiPath, logName string, contracts map[common.Address]ContractInfo) error {
-	contractAddressHash := common.HexToAddress(contractAddress)
-	contractFromAbi, err := loadContract(abiPath)
-	if err != nil {
-		return err
-	}
-	contracts[contractAddressHash] = ContractInfo{
-		contract:  contractFromAbi,
-		eventName: logName,
-	}
-	return nil
-}
-
-func loadContract(abiPath string) (abi.ABI, error) {
-	log.Default.With("ContractInfo", abiPath).Info("Loading contract")
-	b, err := ioutil.ReadFile(abiPath)
-	if err != nil {
-		return abi.ABI{}, err
-	}
-	contractAbi, err := abi.JSON(strings.NewReader(string(b)))
-	if err != nil {
-		return abi.ABI{}, err
-	}
-	return contractAbi, nil
+	return "0x5EF3C980Bf970FcE5BbC217835743ea9f0388f4F"
 }
 
 // Close closes the client for the Layer 1 Ethereum node
@@ -401,8 +327,8 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	}
 }
 
-func (s *Synchronizer) fastSync() {
-	latestBlockQueried, err := s.latestBlockQueried()
+func (s *Synchronizer) apiSync() {
+	latestBlockQueried, err := latestBlockQueried(s.db)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return
@@ -442,32 +368,24 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	if lastBlockHash == update.BlockHash {
 		return blockIterator, lastBlockHash
 	}
-	//go func() {
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
 
-	upd := convertStateUpdateResponse(update)
+	upd := stateUpdateResponseToStateDiff(update)
 
 	err = s.updateState(upd, update.NewRoot, update.BlockHash, strconv.Itoa(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	//err = s.updateLatestBlockQueried(int64(blockIterator))
-	//if err != nil {
-	//	log.Default.With("Error", err).Info("Couldn't save latest block queried")
-	//	//return
-	//}
-	//}()
+	err = updateLatestBlockQueried(s.db, int64(blockIterator))
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
 	return blockIterator + 1, update.BlockHash
 }
 
-func newTrie(database *db.Databaser, prefix string) trie.Trie {
-	store := db.NewKeyValueStore(database, prefix)
-	return trie.New(store, 251)
-}
-
-func convertStateUpdateResponse(update feeder.StateUpdateResponse) StateDiff {
+func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) StateDiff {
 	var stateDiff StateDiff
 	stateDiff.DeployedContracts = make([]DeployedContract, 0)
 	stateDiff.StorageDiffs = make(map[string][]KV)
@@ -670,7 +588,7 @@ func (s *Synchronizer) processMemoryPages(fact, blockNumber string) {
 	// Get memory pages hashes using fact
 	var memoryPages [][32]byte
 	memoryPages = (s.GpsVerifier.Get(fact)).([][32]byte)
-	memoryContract, err := loadContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
+	memoryContract, err := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
 	if err != nil {
 		return
 	}
@@ -860,7 +778,7 @@ func (s *Synchronizer) compareValues(state StateDiff, blockNumber string) {
 			"State Commitment From L1", l1Commitment).
 			Panic("states don't match")
 	}
-
 	log.Default.With("Block Number", blockNumber).Info("Sync the state")
 
+	s.updateAbiAndCode(state, "", blockNumber)
 }

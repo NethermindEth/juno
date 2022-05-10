@@ -8,7 +8,7 @@ type IKey interface{}
 // IValue - the value of the dictionary
 type IValue interface{}
 
-// Dictionary - the dictionary object with key of type IKey & vlaue of type IValue
+// Dictionary - the dictionary object with key of type IKey & value of type IValue
 type Dictionary struct {
 	items map[IKey]IValue
 	lock  sync.RWMutex
