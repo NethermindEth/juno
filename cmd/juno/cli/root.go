@@ -116,9 +116,7 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	err := viper.ReadInConfig()
-	if err == nil {
-		log.Default.With("File", viper.ConfigFileUsed()).Info("Using config file:")
-	} else {
+	if err != nil {
 		log.Default.Info("Config file not found.")
 		config.New()
 		err = viper.ReadInConfig()
@@ -128,11 +126,6 @@ func initConfig() {
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
-	log.Default.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.
