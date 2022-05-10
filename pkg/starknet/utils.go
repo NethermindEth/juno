@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -81,7 +82,8 @@ func contractState(contractHash, storageRoot *big.Int) *big.Int {
 	return val
 }
 
-func clean(s string) string {
+// removeOx remove the initial zeros and x at the beginning of the string
+func remove0x(s string) string {
 	answer := ""
 	found := false
 	for _, char := range s {
@@ -94,6 +96,33 @@ func clean(s string) string {
 		return "0"
 	}
 	return answer
+}
+
+// stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
+func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) StateDiff {
+	var stateDiff StateDiff
+	stateDiff.DeployedContracts = make([]DeployedContract, 0)
+	stateDiff.StorageDiffs = make(map[string][]KV)
+	for _, v := range update.StateDiff.DeployedContracts {
+		deployedContract := DeployedContract{
+			Address:      v.Address,
+			ContractHash: v.ContractHash,
+		}
+		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, deployedContract)
+	}
+	for addressDiff, keyVals := range update.StateDiff.StorageDiffs {
+		address := addressDiff
+		kvs := make([]KV, 0)
+		for _, kv := range keyVals {
+			kvs = append(kvs, KV{
+				Key:   kv.Key,
+				Value: kv.Value,
+			})
+		}
+		stateDiff.StorageDiffs[address] = kvs
+	}
+
+	return stateDiff
 }
 
 func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {

@@ -30,7 +30,7 @@ func TestClean(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		answer := clean(test.entry)
+		answer := remove0x(test.entry)
 		if answer != test.expected {
 			t.Fail()
 		}
