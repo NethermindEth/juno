@@ -14,8 +14,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/felt"
-	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -51,9 +49,6 @@ type Synchronizer struct {
 	stateTrie              trie.Trie
 	contractHashes         map[string]*big.Int
 	storageTries           map[string]trie.Trie
-	stateTriePages         trie.Trie
-	contractHashesPages    map[string]*big.Int
-	storageTriesPages      map[string]trie.Trie
 	blockNumber            int
 	lock                   sync.RWMutex
 }
@@ -72,12 +67,9 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
 		facts:               make([]string, 0),
-		stateTrie:           newTrie(),
+		stateTrie:           newTrie(db, "state_trie_"),
 		contractHashes:      make(map[string]*big.Int),
 		storageTries:        make(map[string]trie.Trie),
-		stateTriePages:      newTrie(),
-		contractHashesPages: make(map[string]*big.Int),
-		storageTriesPages:   make(map[string]trie.Trie),
 		blockNumber:         0,
 	}
 }
@@ -85,10 +77,10 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	//if config.Runtime.Starknet.FastSync {
-	//	s.fastSync()
-	//	return nil
-	//}
+	if config.Runtime.Starknet.FastSync {
+		s.fastSync()
+		return nil
+	}
 
 	err := s.FetchStarknetState()
 	if err != nil {
@@ -373,7 +365,6 @@ func (s *Synchronizer) getGpsVerifierAddress() string {
 
 // loadContractFromDisk loads a contract ABI and set the events' thar later we are going yo use
 func loadContractFromDisk(contractAddress, abiPath, logName string, contracts map[common.Address]ContractInfo) error {
-	// Add Starknet contract
 	contractAddressHash := common.HexToAddress(contractAddress)
 	contractFromAbi, err := loadContract(abiPath)
 	if err != nil {
@@ -471,9 +462,9 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	return blockIterator + 1, update.BlockHash
 }
 
-func newTrie() trie.Trie {
-	database := store.New()
-	return trie.New(database, 251)
+func newTrie(database *db.Databaser, prefix string) trie.Trie {
+	store := db.NewKeyValueStore(database, prefix)
+	return trie.New(store, 251)
 }
 
 func convertStateUpdateResponse(update feeder.StateUpdateResponse) StateDiff {
@@ -512,7 +503,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		s.contractHashes[deployedContract.Address] = contractHash
 		storageTrie, ok := s.storageTries[deployedContract.Address]
 		if !ok {
-			storageTrie = newTrie()
+			storageTrie = newTrie(s.db, deployedContract.Address)
 		}
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(clean(deployedContract.Address), 16)
@@ -528,7 +519,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	for k, v := range update.StorageDiffs {
 		storageTrie, ok := s.storageTries[k]
 		if !ok {
-			storageTrie = newTrie()
+			storageTrie = newTrie(s.db, k)
 		}
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(clean(storageSlots.Key), 16)
@@ -577,10 +568,10 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 		if !ok {
 			log.Default.Panic("Couldn't get contract hash")
 		}
-		s.contractHashesPages[deployedContract.Address] = contractHash
-		storageTrie, ok := s.storageTriesPages[deployedContract.Address]
+		s.contractHashes[deployedContract.Address] = contractHash
+		storageTrie, ok := s.storageTries[deployedContract.Address]
 		if !ok {
-			storageTrie = newTrie()
+			storageTrie = newTrie(s.db, deployedContract.Address)
 		}
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(clean(deployedContract.Address), 16)
@@ -589,14 +580,14 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 				Panic("Couldn't convert Address to Big.Int ")
 		}
 		contractStateValue := contractState(contractHash, storageRoot)
-		s.stateTriePages.Put(address, contractStateValue)
-		s.storageTriesPages[deployedContract.Address] = storageTrie
+		s.stateTrie.Put(address, contractStateValue)
+		s.storageTries[deployedContract.Address] = storageTrie
 	}
 
 	for k, v := range update.StorageDiffs {
-		storageTrie, ok := s.storageTriesPages[k]
+		storageTrie, ok := s.storageTries[k]
 		if !ok {
-			storageTrie = newTrie()
+			storageTrie = newTrie(s.db, k)
 		}
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(clean(storageSlots.Key), 16)
@@ -612,16 +603,16 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
-		s.storageTriesPages[k] = storageTrie
+		s.storageTries[k] = storageTrie
 
 		address, ok := new(big.Int).SetString(k, 16)
 		if !ok {
 			log.Default.With("Address", k).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		contractStateValue := contractState(s.contractHashesPages[k], storageRoot)
+		contractStateValue := contractState(s.contractHashes[k], storageRoot)
 
-		s.stateTriePages.Put(address, contractStateValue)
+		s.stateTrie.Put(address, contractStateValue)
 	}
 
 	return nil
@@ -723,14 +714,6 @@ func (s *Synchronizer) processMemoryPages(fact, blockNumber string) {
 	}
 	// pages should contain all txn information
 	s.parsePages(pages, blockNumber)
-}
-
-type stateToSave struct {
-	address       felt.Felt
-	contractState struct {
-		code    []string
-		storage []KV
-	}
 }
 
 func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber string) {
@@ -865,10 +848,12 @@ func (s *Synchronizer) compareValues(state StateDiff, blockNumber string) {
 	if err != nil {
 		return
 	}
-	blockNumberInt, _ := strconv.Atoi(blockNumber)
-	s.updateStateForOneBlock(blockNumberInt, "")
-	apiCommitment := clean(s.stateTrie.Commitment().Text(16))
-	l1Commitment := clean(s.stateTriePages.Commitment().Text(16))
+	update, err := s.feederGatewayClient.GetStateUpdate("", blockNumber)
+	if err != nil {
+		log.Default.Panic("Error loading update from feeder gateway")
+	}
+	apiCommitment := clean(update.NewRoot)
+	l1Commitment := clean(s.stateTrie.Commitment().Text(16))
 
 	if apiCommitment != l1Commitment {
 		log.Default.With("State Commitment From API", apiCommitment,

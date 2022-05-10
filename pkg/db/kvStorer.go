@@ -2,13 +2,12 @@ package db
 
 // KeyValueStore implement the Storer interface that use a Databaser
 type KeyValueStore struct {
-	db         *Databaser
-	prefix     []byte
-	operations Operations
+	db     *Databaser
+	prefix []byte
 }
 
 func NewKeyValueStore(db *Databaser, prefix string) KeyValueStore {
-	return KeyValueStore{db: db, prefix: []byte(prefix), operations: NewOperations()}
+	return KeyValueStore{db: db, prefix: []byte(prefix)}
 }
 
 func (k KeyValueStore) Delete(key []byte) {
