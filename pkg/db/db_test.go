@@ -16,7 +16,7 @@ func init() {
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
 func setupDatabaseForTest(path string) *KeyValueDb {
-	return New(path, 0)
+	return NewKeyValueDb(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -207,14 +207,6 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func TestBegin(t *testing.T) {
-	database := setupDatabaseForTest(t.TempDir())
-	database.Begin()
-}
-func TestRollBack(t *testing.T) {
-	database := setupDatabaseForTest(t.TempDir())
-	database.Rollback()
-}
 func TestClose(t *testing.T) {
 	database := setupDatabaseForTest(t.TempDir())
 	database.Close()

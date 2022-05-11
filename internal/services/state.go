@@ -21,8 +21,8 @@ type StateService struct {
 }
 
 func NewStateService() *StateService {
-	codeDatabase := db.Databaser(db.New(config.Runtime.DbPath+"/code", 0))
-	storageDatabase := db.NewBlockSpecificDatabase(db.New(config.Runtime.DbPath+"/storage", 0))
+	codeDatabase := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/code", 0))
+	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.Runtime.DbPath+"/storage", 0))
 	storeCodeChannel := make(chan storeCodeInstruction, 100)
 	stateService = StateService{
 		started:          false,

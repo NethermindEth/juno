@@ -57,7 +57,7 @@ var (
 				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
-			database := db.New(config.Runtime.DbPath, 0)
+			database := db.NewKeyValueDb(config.Runtime.DbPath, 0)
 
 			// Initialize ABI Service
 			abiService := services.NewABIService()

@@ -169,8 +169,8 @@ func TestManager_Code(t *testing.T) {
 		}
 		tests = append(tests, test)
 	}
-	codeDatabase := db.New(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.New(t.TempDir(), 0))
+	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
+	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
 	manager := NewStateManager(codeDatabase, *storageDatabase)
 	for _, test := range tests {
 		var code ContractCode

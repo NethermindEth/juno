@@ -21,7 +21,7 @@ type ABIService struct {
 }
 
 func NewABIService() *ABIService {
-	database := db.Databaser(db.New(config.Runtime.DbPath+"/abi", 0))
+	database := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/abi", 0))
 	storeChannel := make(chan storeInstruction, 100)
 	abiService = ABIService{
 		started:      false,

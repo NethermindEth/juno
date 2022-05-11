@@ -23,10 +23,6 @@ type Databaser interface {
 	Delete(key []byte) error
 	// NumberOfItems returns the number of items in the database.
 	NumberOfItems() (uint64, error)
-	// Begin starts a new transaction.
-	Begin()
-	// Rollback rollsback the database to a previous state.
-	Rollback()
 	// Close closes the environment.
 	Close()
 }
@@ -37,8 +33,8 @@ type KeyValueDb struct {
 	path string
 }
 
-// New creates a new key-value database.
-func New(path string, flags uint) *KeyValueDb {
+// NewKeyValueDb creates a new key-value database.
+func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 	env, err := mdbx.NewEnv()
 	if err != nil {
 		// notest
@@ -144,12 +140,6 @@ func (d *KeyValueDb) NumberOfItems() (uint64, error) {
 	}
 	return stats.Entries, err
 }
-
-// Begin starts a new transaction.
-func (d KeyValueDb) Begin() {}
-
-// Rollback rolls back the database to a previous state.
-func (d KeyValueDb) Rollback() {}
 
 // Close closes the environment.
 func (d *KeyValueDb) Close() {
