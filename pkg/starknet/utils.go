@@ -18,7 +18,7 @@ import (
 )
 
 // newTrie returns a new Trie
-func newTrie(database *db.Databaser, prefix string) trie.Trie {
+func newTrie(database *db.Transactioner, prefix string) trie.Trie {
 	store := db.NewKeyValueStore(database, prefix)
 	return trie.New(store, 251)
 }

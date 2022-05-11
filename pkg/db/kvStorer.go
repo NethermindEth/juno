@@ -2,11 +2,11 @@ package db
 
 // KeyValueStore implement the Storer interface that use a Databaser
 type KeyValueStore struct {
-	db     *Databaser
+	db     *Transactioner
 	prefix []byte
 }
 
-func NewKeyValueStore(db *Databaser, prefix string) KeyValueStore {
+func NewKeyValueStore(db *Transactioner, prefix string) KeyValueStore {
 	return KeyValueStore{db: db, prefix: []byte(prefix)}
 }
 
@@ -32,10 +32,14 @@ func (k KeyValueStore) Put(key, val []byte) {
 	}
 }
 
-func (k KeyValueStore) Init() {
-
+func (k KeyValueStore) Begin() {
+	(*k.db).Begin()
 }
 
-func (k KeyValueStore) Persist() {
+func (k KeyValueStore) Rollback() {
+	(*k.db).Rollback()
+}
 
+func (k KeyValueStore) Close() {
+	(*k.db).Close()
 }

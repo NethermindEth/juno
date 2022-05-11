@@ -34,7 +34,8 @@ const (
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
 	feederGatewayClient    *feeder.Client
-	db                     *db.Databaser
+	kvDb                   *db.Databaser
+	transactionerDB        *db.Transactioner
 	MemoryPageHash         base.Dictionary
 	GpsVerifier            base.Dictionary
 	latestMemoryPageBlock  int64
@@ -48,7 +49,7 @@ type Synchronizer struct {
 }
 
 // NewSynchronizer creates a new Synchronizer
-func NewSynchronizer(db *db.Databaser) *Synchronizer {
+func NewSynchronizer(txnDb *db.Transactioner, kvDb *db.Databaser) *Synchronizer {
 	client, err := ethclient.Dial(config.Runtime.Ethereum.Node)
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
@@ -57,11 +58,12 @@ func NewSynchronizer(db *db.Databaser) *Synchronizer {
 	return &Synchronizer{
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
-		db:                  db,
+		transactionerDB:     txnDb,
+		kvDb:                kvDb,
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
 		facts:               make([]string, 0),
-		stateTrie:           newTrie(db, "state_trie_"),
+		stateTrie:           newTrie(txnDb, "state_trie_"),
 		contractHashes:      make(map[string]*big.Int),
 		storageTries:        make(map[string]trie.Trie),
 		blockNumber:         0,
@@ -306,7 +308,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 }
 
 func (s *Synchronizer) apiSync() {
-	latestBlockQueried, err := latestBlockQueried(s.db)
+	latestBlockQueried, err := latestBlockQueried(s.kvDb)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return
@@ -356,7 +358,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateLatestBlockQueried(s.db, int64(blockIterator))
+	err = updateLatestBlockQueried(s.kvDb, int64(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
@@ -364,6 +366,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 }
 
 func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, blockNumber string) error {
+	(*s.transactionerDB).Begin()
 
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
@@ -373,7 +376,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		s.contractHashes[deployedContract.Address] = contractHash
 		storageTrie, ok := s.storageTries[deployedContract.Address]
 		if !ok {
-			storageTrie = newTrie(s.db, deployedContract.Address)
+			storageTrie = newTrie(s.transactionerDB, deployedContract.Address)
 		}
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
@@ -389,7 +392,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	for k, v := range update.StorageDiffs {
 		storageTrie, ok := s.storageTries[k]
 		if !ok {
-			storageTrie = newTrie(s.db, k)
+			storageTrie = newTrie(s.transactionerDB, k)
 		}
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
@@ -424,6 +427,12 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 			Panic("stateRoot not equal to the one provided")
 	}
 
+	err := (*s.transactionerDB).Commit()
+	if err != nil {
+		log.Default.With("Error", err).Panic("Couldn't save the values on the database")
+		return err
+	}
+
 	log.Default.With("State Root", stateCommitment).
 		Info("Got State commitment")
 
@@ -441,7 +450,7 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 		s.contractHashes[deployedContract.Address] = contractHash
 		storageTrie, ok := s.storageTries[deployedContract.Address]
 		if !ok {
-			storageTrie = newTrie(s.db, deployedContract.Address)
+			storageTrie = newTrie(s.transactionerDB, deployedContract.Address)
 		}
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
@@ -457,7 +466,7 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 	for k, v := range update.StorageDiffs {
 		storageTrie, ok := s.storageTries[k]
 		if !ok {
-			storageTrie = newTrie(s.db, k)
+			storageTrie = newTrie(s.transactionerDB, k)
 		}
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
