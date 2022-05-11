@@ -136,6 +136,7 @@ func (d *TransactionDb) NumberOfItems() (uint64, error) {
 
 // Close closes the environment.
 func (d *TransactionDb) Close() {
+	d.Rollback()
 	d.env.Close()
 }
 
@@ -144,6 +145,7 @@ func (d *TransactionDb) Commit() error {
 	if d.txn != nil {
 		_, err := d.txn.Commit()
 		if err != nil {
+			d.txn = nil
 			return err
 		}
 	}
