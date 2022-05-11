@@ -1,6 +1,7 @@
-package db
+package db_test
 
 import (
+	"github.com/NethermindEth/juno/pkg/db"
 	"strconv"
 	"testing"
 )
@@ -15,8 +16,8 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
-func setupDatabaseForTest(path string) *KeyValueDb {
-	return NewKeyValueDb(path, 0)
+func setupDatabaseForTest(path string) *db.KeyValueDb {
+	return db.NewKeyValueDb(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -213,8 +214,8 @@ func TestClose(t *testing.T) {
 }
 
 func TestKeyValueDbIsDatabaser(t *testing.T) {
-	a := new(KeyValueDb)
-	_ = Databaser(a)
+	a := new(db.KeyValueDb)
+	_ = db.Databaser(a)
 }
 
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db

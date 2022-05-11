@@ -113,17 +113,14 @@ func (d *TransactionDb) Put(key, value []byte) error {
 
 // Delete removes a previous inserted key or returns an error otherwise.
 func (d *TransactionDb) Delete(key []byte) error {
-	err := d.env.Update(func(txn *mdbx.Txn) error {
-		db, err := txn.OpenRoot(mdbx.Create)
-		if err != nil {
-			return err
-		}
-		err = txn.Del(db, key, nil)
-		if mdbx.IsNotFound(err) {
-			return nil
-		}
+	db, err := d.txn.OpenRoot(mdbx.Create)
+	if err != nil {
 		return err
-	})
+	}
+	err = d.txn.Del(db, key, nil)
+	if mdbx.IsNotFound(err) {
+		return nil
+	}
 	return err
 }
 
