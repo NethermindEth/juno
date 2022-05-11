@@ -125,6 +125,30 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) StateDiff
 	return stateDiff
 }
 
+// getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
+func getGpsVerifierContractAddress(ethereumClient *ethclient.Client) string {
+	id, err := ethereumClient.ChainID(context.Background())
+	if err != nil {
+		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+	}
+	if id.Int64() == 1 {
+		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+	}
+	return "0x5EF3C980Bf970FcE5BbC217835743ea9f0388f4F"
+}
+
+// getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
+func getMemoryPagesContractAddress(ethereumClient *ethclient.Client) string {
+	id, err := ethereumClient.ChainID(context.Background())
+	if err != nil {
+		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+	}
+	if id.Int64() == 1 {
+		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+	}
+	return "0x5EF3C980Bf970FcE5BbC217835743ea9f0388f4F"
+}
+
 func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
 	id, err := ethereumClient.ChainID(context.Background())
 	if err != nil {

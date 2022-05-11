@@ -41,13 +41,7 @@ func (service *ABIService) Run() error {
 			service.logger.
 				With("Contract address", storeInst.ContractAddress).
 				Info("Fetching ABI from contract address")
-			err := service.db.PutABI(storeInst.ContractAddress, storeInst.Abi)
-			if err != nil {
-				service.logger.
-					With("Error", err, "Contract address", storeInst.ContractAddress).
-					Error("Error storing the ABI in the database")
-				return err
-			}
+			service.db.PutABI(storeInst.ContractAddress, storeInst.Abi)
 		}
 	}
 }
@@ -71,7 +65,7 @@ func (service *ABIService) StoreABI(contractAddress string, abi abi.Abi) {
 }
 
 func (service *ABIService) GetABI(contractAddress string) (*abi.Abi, error) {
-	return service.db.GetABI(contractAddress)
+	return service.db.GetABI(contractAddress), nil
 }
 
 func GetABIService() *ABIService {

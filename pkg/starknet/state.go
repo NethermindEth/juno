@@ -197,19 +197,9 @@ func (s *Synchronizer) l1Sync() error {
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
-	// Add Starknet contract
-	err = loadContractInfo(contractAddresses.Starknet,
-		config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath,
-		"LogStateTransitionFact", contracts)
-	if err != nil {
-		log.Default.With("Address", contractAddresses.Starknet,
-			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath).
-			Panic("Couldn't load contract from disk ")
-		return err
-	}
 
 	// Add Gps Statement Verifier contract
-	gpsAddress := s.getGpsVerifierAddress()
+	gpsAddress := getGpsVerifierContractAddress(s.ethereumClient)
 	err = loadContractInfo(gpsAddress,
 		config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath,
 		"LogMemoryPagesHashes", contracts)
@@ -220,7 +210,8 @@ func (s *Synchronizer) l1Sync() error {
 		return err
 	}
 	// Add Memory Page Fact Registry contract
-	err = loadContractInfo(config.Runtime.Starknet.MemoryPageFactRegistryContract,
+	memoryPagesContractAddress := getMemoryPagesContractAddress(s.ethereumClient)
+	err = loadContractInfo(memoryPagesContractAddress,
 		config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
@@ -301,18 +292,6 @@ func (s *Synchronizer) l1Sync() error {
 
 		}
 	}
-}
-
-// getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
-func (s *Synchronizer) getGpsVerifierAddress() string {
-	id, err := s.ethereumClient.ChainID(context.Background())
-	if err != nil {
-		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
-	}
-	if id.Int64() == 1 {
-		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
-	}
-	return "0x5EF3C980Bf970FcE5BbC217835743ea9f0388f4F"
 }
 
 // Close closes the client for the Layer 1 Ethereum node
