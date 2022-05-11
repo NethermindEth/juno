@@ -58,6 +58,7 @@ var (
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 			transactionDb := db.NewTransactionDb(config.Runtime.DbPath, 0)
+			keyValueDb := db.NewKeyValueDb(config.Runtime.DbPath, 0)
 
 			// Initialize ABI Service
 			abiService := services.NewABIService()
@@ -68,11 +69,12 @@ var (
 			processHandler.Add("State Storage Service", stateService.Run, stateService.Close)
 
 			txnDb := db.Transactioner(transactionDb)
+			kvDb := db.Databaser(keyValueDb)
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
 				// Layer 1 synchronizer for Ethereum State
-				stateSynchronizer := starknet.NewSynchronizer(&txnDb)
+				stateSynchronizer := starknet.NewSynchronizer(&txnDb, &kvDb)
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
