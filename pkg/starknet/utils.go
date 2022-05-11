@@ -141,12 +141,12 @@ func getGpsVerifierContractAddress(ethereumClient *ethclient.Client) string {
 func getMemoryPagesContractAddress(ethereumClient *ethclient.Client) string {
 	id, err := ethereumClient.ChainID(context.Background())
 	if err != nil {
-		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+		return "0x96375087b2F6eFc59e5e0dd5111B4d090EBFDD8B"
 	}
 	if id.Int64() == 1 {
-		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+		return "0x96375087b2F6eFc59e5e0dd5111B4d090EBFDD8B"
 	}
-	return "0x5EF3C980Bf970FcE5BbC217835743ea9f0388f4F"
+	return "0x743789ff2fF82Bfb907009C9911a7dA636D34FA7"
 }
 
 func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
