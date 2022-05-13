@@ -34,7 +34,6 @@ const (
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
 	feederGatewayClient    *feeder.Client
-	kvDb                   *db.Databaser
 	transactionerDB        *db.Transactioner
 	MemoryPageHash         base.Dictionary
 	GpsVerifier            base.Dictionary
@@ -42,14 +41,14 @@ type Synchronizer struct {
 	latestGpsVerifierBlock int64
 	facts                  []string
 	stateTrie              trie.Trie
-	contractHashes         map[string]*big.Int
-	storageTries           map[string]trie.Trie
-	blockNumber            int
-	lock                   sync.RWMutex
+	//contractHashes         map[string]*big.Int
+	storageTries map[string]trie.Trie
+	blockNumber  int
+	lock         sync.RWMutex
 }
 
 // NewSynchronizer creates a new Synchronizer
-func NewSynchronizer(txnDb *db.Transactioner, kvDb *db.Databaser) *Synchronizer {
+func NewSynchronizer(txnDb *db.Transactioner) *Synchronizer {
 	client, err := ethclient.Dial(config.Runtime.Ethereum.Node)
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
@@ -59,14 +58,13 @@ func NewSynchronizer(txnDb *db.Transactioner, kvDb *db.Databaser) *Synchronizer 
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
 		transactionerDB:     txnDb,
-		kvDb:                kvDb,
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
 		facts:               make([]string, 0),
 		stateTrie:           newTrie(txnDb, "state_trie_"),
-		contractHashes:      make(map[string]*big.Int),
-		storageTries:        make(map[string]trie.Trie),
-		blockNumber:         0,
+		//contractHashes:      make(map[string]*big.Int),
+		storageTries: make(map[string]trie.Trie),
+		blockNumber:  0,
 	}
 }
 
@@ -195,7 +193,7 @@ func (s *Synchronizer) l1Sync() error {
 		"LogStateTransitionFact", contracts)
 	if err != nil {
 		log.Default.With("Address", contractAddresses.Starknet,
-			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath).
+			"Value Path", config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -207,7 +205,7 @@ func (s *Synchronizer) l1Sync() error {
 		"LogMemoryPagesHashes", contracts)
 	if err != nil {
 		log.Default.With("Address", gpsAddress,
-			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
+			"Value Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -218,7 +216,7 @@ func (s *Synchronizer) l1Sync() error {
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
 		log.Default.With("Address", gpsAddress,
-			"Abi Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
+			"Value Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -300,18 +298,20 @@ func (s *Synchronizer) l1Sync() error {
 func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
-	select {
-	case <-ctx.Done():
-		s.ethereumClient.Close()
-	default:
-	}
+	s.ethereumClient.Close()
+	(*s.transactionerDB).Close()
 }
 
 func (s *Synchronizer) apiSync() {
-	latestBlockQueried, err := latestBlockQueried(s.kvDb)
+	(*s.transactionerDB).Begin()
+	latestBlockQueried, err := latestBlockQueried(s.transactionerDB)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return
+	}
+	err = (*s.transactionerDB).Commit()
+	if err != nil {
+		log.Default.With("Error", err).Panic("Couldn't load the latest Block Queried")
 	}
 	blockIterator := int(latestBlockQueried)
 	lastBlockHash := ""
@@ -358,9 +358,14 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateLatestBlockQueried(s.kvDb, int64(blockIterator))
+	(*s.transactionerDB).Begin()
+	err = updateLatestBlockQueried(s.transactionerDB, int64(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
+	err = (*s.transactionerDB).Commit()
+	if err != nil {
+		log.Default.With("Error", err).Panic("Couldn't store the latest Block Queried")
 	}
 	return blockIterator + 1, update.BlockHash
 }
@@ -368,40 +373,51 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, blockNumber string) error {
 	(*s.transactionerDB).Begin()
 
+	if blockNumber == "91" {
+		log.Default.Info("Block_91")
+	}
+
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
 		if !ok {
+			(*s.transactionerDB).Rollback()
 			log.Default.Panic("Couldn't get contract hash")
 		}
-		s.contractHashes[deployedContract.Address] = contractHash
-		storageTrie, ok := s.storageTries[deployedContract.Address]
+		storeContractHash(deployedContract.Address, contractHash)
+		storageTrie, ok := s.storageTries[remove0x(deployedContract.Address)]
 		if !ok {
-			storageTrie = newTrie(s.transactionerDB, deployedContract.Address)
+			storageTrie = newTrie(s.transactionerDB, remove0x(deployedContract.Address))
 		}
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
+			(*s.transactionerDB).Rollback()
 			log.Default.With("Address", deployedContract.Address).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
 		contractStateValue := contractState(contractHash, storageRoot)
 		s.stateTrie.Put(address, contractStateValue)
-		s.storageTries[deployedContract.Address] = storageTrie
+		s.storageTries[remove0x(deployedContract.Address)] = storageTrie
 	}
 
 	for k, v := range update.StorageDiffs {
-		storageTrie, ok := s.storageTries[k]
+		storageTrie, ok := s.storageTries[remove0x(k)]
 		if !ok {
-			storageTrie = newTrie(s.transactionerDB, k)
+			storageTrie = newTrie(s.transactionerDB, remove0x(k))
 		}
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
+				(*s.transactionerDB).Rollback()
 				log.Default.With("Storage Slot Key", storageSlots.Key).
 					Panic("Couldn't get the ")
 			}
+			if storageSlots.Value == "0x0" {
+				log.Default.Info("some...")
+			}
 			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
 			if !ok {
+				(*s.transactionerDB).Rollback()
 				log.Default.With("Storage Slot Value", storageSlots.Value).
 					Panic("Couldn't get the contract Hash")
 			}
@@ -410,12 +426,14 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		storageRoot := storageTrie.Commitment()
 		s.storageTries[k] = storageTrie
 
-		address, ok := new(big.Int).SetString(k[2:], 16)
+		address, ok := new(big.Int).SetString(remove0x(k), 16)
 		if !ok {
+			(*s.transactionerDB).Rollback()
 			log.Default.With("Address", k).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		contractStateValue := contractState(s.contractHashes[k], storageRoot)
+		//contractStateValue := contractState(s.contractHashes[k], storageRoot)
+		contractStateValue := contractState(loadContractHash(k), storageRoot)
 
 		s.stateTrie.Put(address, contractStateValue)
 	}
@@ -423,6 +441,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	stateCommitment := remove0x(s.stateTrie.Commitment().Text(16))
 
 	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
+		(*s.transactionerDB).Rollback()
 		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
 			Panic("stateRoot not equal to the one provided")
 	}
@@ -447,7 +466,8 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 		if !ok {
 			log.Default.Panic("Couldn't get contract hash")
 		}
-		s.contractHashes[deployedContract.Address] = contractHash
+		storeContractHash(deployedContract.Address, contractHash)
+		//s.contractHashes[deployedContract.Address] = contractHash
 		storageTrie, ok := s.storageTries[deployedContract.Address]
 		if !ok {
 			storageTrie = newTrie(s.transactionerDB, deployedContract.Address)
@@ -489,7 +509,8 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 			log.Default.With("Address", k).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		contractStateValue := contractState(s.contractHashes[k], storageRoot)
+		//contractStateValue := contractState(s.contractHashes[k], storageRoot)
+		contractStateValue := contractState(loadContractHash(k), storageRoot)
 
 		s.stateTrie.Put(address, contractStateValue)
 	}

@@ -33,7 +33,14 @@ type KeyValueDb struct {
 	path string
 }
 
-// NewKeyValueDb creates a new key-value database.
+// NewKeyValueDbWithEnv creates a new key-value database based on an already created env.
+func NewKeyValueDbWithEnv(env *mdbx.Env, path string) *KeyValueDb {
+	return &KeyValueDb{
+		env:  env,
+		path: path,
+	}
+}
+
 func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 	env, err := mdbx.NewEnv()
 	if err != nil {
@@ -54,7 +61,7 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 		// notest
 		return nil
 	}
-	err = env.Open(path, flags, 0664)
+	err = env.Open(path, flags|mdbx.Exclusive, 0664)
 	if err != nil {
 		// notest
 		return nil

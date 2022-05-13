@@ -77,7 +77,7 @@ func (service *ContractHashService) GetContractHash(contractHash string) *big.In
 }
 
 func GetContractHashService() *ContractHashService {
-	if abiService.started {
+	if contractHashService.started {
 		return &contractHashService
 	}
 	return nil

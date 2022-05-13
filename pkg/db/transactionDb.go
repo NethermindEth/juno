@@ -3,6 +3,7 @@ package db
 import (
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/torquem-ch/mdbx-go/mdbx"
+	"math/bits"
 	"runtime"
 )
 
@@ -45,7 +46,7 @@ func NewTransactionDb(path string, flags uint) *TransactionDb {
 		// notest
 		return nil
 	}
-	err = env.Open(path, flags, 0664)
+	err = env.Open(path, bits.Reverse(mdbx.Exclusive), 0664)
 	if err != nil {
 		// notest
 		return nil
@@ -53,6 +54,9 @@ func NewTransactionDb(path string, flags uint) *TransactionDb {
 	return &TransactionDb{env: env, path: path}
 }
 
+func (d *TransactionDb) GetEnv() *mdbx.Env {
+	return d.env
+}
 func (d *TransactionDb) initTransaction() {
 	txn, err := d.env.BeginTxn(nil, 0)
 	if err != nil {
