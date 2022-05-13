@@ -16,9 +16,9 @@
 // table is used as a backend to this structure, then the get operation
 // will take as much time as insertions take on that data structure.
 //
-// Put and delete operations on the other hand take at most 1  + w
-// database accesses where w represents the bit-length of the key which
-// is optimal.
+// Put and delete operations on the other hand take at most 1 + w read
+// and writes in the underlying database store where w represents the
+// bit-length of the key which is optimal.
 //
 // # Space
 //
@@ -188,15 +188,15 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 
 // Put inserts a [big.Int] key-value pair in the trie.
 func (t *Trie) Put(key, val *big.Int) {
+	if val.Cmp(new(big.Int)) == 0 {
+		t.Delete(key)
+		return
+	}
+
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the oppose so a
 	// copy with the bits reversed is used instead.
 	rev := reversed(key, t.keyLen)
-
-	if val.Cmp(new(big.Int)) == 0 {
-		t.Delete(rev)
-		return
-	}
 
 	leaf := node{encoding: encoding{0, new(big.Int), val}}
 	leaf.hash()
@@ -209,8 +209,7 @@ func (t *Trie) Put(key, val *big.Int) {
 func (t *Trie) Commitment() *big.Int {
 	root, ok := t.retrive([]byte("root"))
 	if !ok {
-		// notest
-		return nil
+		return new(big.Int)
 	}
 	return root.Hash
 }
