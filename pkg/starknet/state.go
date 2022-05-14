@@ -34,7 +34,7 @@ const (
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
 	feederGatewayClient    *feeder.Client
-	transactionerDB        *db.Transactioner
+	transactionerDB        db.Databaser
 	MemoryPageHash         base.Dictionary
 	GpsVerifier            base.Dictionary
 	latestMemoryPageBlock  int64
@@ -48,7 +48,7 @@ type Synchronizer struct {
 }
 
 // NewSynchronizer creates a new Synchronizer
-func NewSynchronizer(txnDb *db.Transactioner) *Synchronizer {
+func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 	client, err := ethclient.Dial(config.Runtime.Ethereum.Node)
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
@@ -299,19 +299,14 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	s.ethereumClient.Close()
-	(*s.transactionerDB).Close()
+	//(*s.transactionerDB).Close()
 }
 
 func (s *Synchronizer) apiSync() {
-	(*s.transactionerDB).Begin()
 	latestBlockQueried, err := latestBlockQueried(s.transactionerDB)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return
-	}
-	err = (*s.transactionerDB).Commit()
-	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't load the latest Block Queried")
 	}
 	blockIterator := int(latestBlockQueried)
 	lastBlockHash := ""
@@ -358,12 +353,10 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	(*s.transactionerDB).Begin()
 	err = updateLatestBlockQueried(s.transactionerDB, int64(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
-	err = (*s.transactionerDB).Commit()
 	if err != nil {
 		log.Default.With("Error", err).Panic("Couldn't store the latest Block Queried")
 	}
@@ -371,7 +364,6 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 }
 
 func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, blockNumber string) error {
-	(*s.transactionerDB).Begin()
 
 	if blockNumber == "91" {
 		log.Default.Info("Block_91")
@@ -380,7 +372,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
 		if !ok {
-			(*s.transactionerDB).Rollback()
 			log.Default.Panic("Couldn't get contract hash")
 		}
 		storeContractHash(deployedContract.Address, contractHash)
@@ -391,7 +382,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
-			(*s.transactionerDB).Rollback()
 			log.Default.With("Address", deployedContract.Address).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
@@ -408,7 +398,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
-				(*s.transactionerDB).Rollback()
 				log.Default.With("Storage Slot Key", storageSlots.Key).
 					Panic("Couldn't get the ")
 			}
@@ -417,7 +406,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 			}
 			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
 			if !ok {
-				(*s.transactionerDB).Rollback()
 				log.Default.With("Storage Slot Value", storageSlots.Value).
 					Panic("Couldn't get the contract Hash")
 			}
@@ -428,7 +416,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 
 		address, ok := new(big.Int).SetString(remove0x(k), 16)
 		if !ok {
-			(*s.transactionerDB).Rollback()
 			log.Default.With("Address", k).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
@@ -441,21 +428,14 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	stateCommitment := remove0x(s.stateTrie.Commitment().Text(16))
 
 	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
-		(*s.transactionerDB).Rollback()
 		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
 			Panic("stateRoot not equal to the one provided")
-	}
-
-	err := (*s.transactionerDB).Commit()
-	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't save the values on the database")
-		return err
 	}
 
 	log.Default.With("State Root", stateCommitment).
 		Info("Got State commitment")
 
-	s.updateAbiAndCode(update, blockHash, blockNumber)
+	//s.updateAbiAndCode(update, blockHash, blockNumber)
 	return nil
 }
 

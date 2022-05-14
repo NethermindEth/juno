@@ -19,17 +19,29 @@ import (
 )
 
 // newTrie returns a new Trie
-func newTrie(database *db.Transactioner, prefix string) trie.Trie {
+func newTrie(database db.Databaser, prefix string) trie.Trie {
 	store := db.NewKeyValueStore(database, prefix)
 	return trie.New(store, 251)
 }
 
+//
+//var contractHashes map[string]big.Int
+//
+//func init() {
+//	contractHashes = make(map[string]big.Int)
+//}
+
 func loadContractHash(contractHash string) *big.Int {
+	//if ch, ok := contractHashes[contractHash]; ok {
+	//	return &ch
+	//}
+	//return nil
 	contractHashService := services.GetContractHashService()
 	return contractHashService.GetContractHash(remove0x(contractHash))
 }
 
 func storeContractHash(contractHash string, value *big.Int) {
+	//contractHashes[contractHash] = *value
 	contractHashService := services.GetContractHashService()
 	contractHashService.StoreContractHash(remove0x(contractHash), value)
 }
@@ -171,8 +183,8 @@ func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
 	return blockOfStarknetDeploymentContractGoerli
 }
 
-func latestBlockQueried(database *db.Transactioner) (int64, error) {
-	blockNumber, err := (*database).Get([]byte(latestBlockSynced))
+func latestBlockQueried(database db.Databaser) (int64, error) {
+	blockNumber, err := database.Get([]byte(latestBlockSynced))
 	if err != nil {
 		return 0, err
 	}
@@ -188,10 +200,10 @@ func latestBlockQueried(database *db.Transactioner) (int64, error) {
 	return int64(ret), nil
 }
 
-func updateLatestBlockQueried(database *db.Transactioner, block int64) error {
+func updateLatestBlockQueried(database db.Databaser, block int64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(block))
-	err := (*database).Put([]byte(latestBlockSynced), b)
+	err := database.Put([]byte(latestBlockSynced), b)
 	if err != nil {
 		log.Default.With("Block", block, "Key", latestBlockSynced).
 			Info("Couldn't store the latest synced block")

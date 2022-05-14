@@ -50,13 +50,13 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 
 	// Set flags.
 	// Based on https://github.com/torquem-ch/mdbx-go/blob/96f31f483af593377e52358a079e834256d5af55/mdbx/env_test.go#L495
-	err = env.SetOption(mdbx.OptMaxDB, 1024)
+	err = env.SetOption(mdbx.OptMaxDB, 1)
 	if err != nil {
 		// notest
 		return nil
 	}
 	const pageSize = 4096
-	err = env.SetGeometry(-1, -1, 64*1024*pageSize, -1, -1, pageSize)
+	err = env.SetGeometry(268435456, 268435456, 25769803776, 268435456, 268435456, pageSize)
 	if err != nil {
 		// notest
 		return nil
@@ -112,6 +112,7 @@ func (d *KeyValueDb) Get(key []byte) ([]byte, error) {
 
 // Put inserts a key-value pair into the database.
 func (d *KeyValueDb) Put(key, value []byte) error {
+	//fmt.Printf("%s Put %d %d\n", d.path, len(key), len(key)*8)
 	err := d.env.Update(func(txn *mdbx.Txn) error {
 		dbi, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
