@@ -41,10 +41,8 @@ type Synchronizer struct {
 	latestGpsVerifierBlock int64
 	facts                  []string
 	stateTrie              trie.Trie
-	//contractHashes         map[string]*big.Int
-	storageTries map[string]trie.Trie
-	blockNumber  int
-	lock         sync.RWMutex
+	blockNumber            int
+	lock                   sync.RWMutex
 }
 
 // NewSynchronizer creates a new Synchronizer
@@ -63,8 +61,7 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 		facts:               make([]string, 0),
 		stateTrie:           newTrie(txnDb, "state_trie_"),
 		//contractHashes:      make(map[string]*big.Int),
-		storageTries: make(map[string]trie.Trie),
-		blockNumber:  0,
+		blockNumber: 0,
 	}
 }
 
@@ -375,10 +372,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 			log.Default.Panic("Couldn't get contract hash")
 		}
 		storeContractHash(deployedContract.Address, contractHash)
-		storageTrie, ok := s.storageTries[remove0x(deployedContract.Address)]
-		if !ok {
-			storageTrie = newTrie(s.transactionerDB, remove0x(deployedContract.Address))
-		}
+		storageTrie := newTrie(s.transactionerDB, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
@@ -387,14 +381,10 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		}
 		contractStateValue := contractState(contractHash, storageRoot)
 		s.stateTrie.Put(address, contractStateValue)
-		s.storageTries[remove0x(deployedContract.Address)] = storageTrie
 	}
 
 	for k, v := range update.StorageDiffs {
-		storageTrie, ok := s.storageTries[remove0x(k)]
-		if !ok {
-			storageTrie = newTrie(s.transactionerDB, remove0x(k))
-		}
+		storageTrie := newTrie(s.transactionerDB, remove0x(k))
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
@@ -412,7 +402,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
-		s.storageTries[k] = storageTrie
 
 		address, ok := new(big.Int).SetString(remove0x(k), 16)
 		if !ok {
@@ -448,10 +437,7 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 		}
 		storeContractHash(deployedContract.Address, contractHash)
 		//s.contractHashes[deployedContract.Address] = contractHash
-		storageTrie, ok := s.storageTries[deployedContract.Address]
-		if !ok {
-			storageTrie = newTrie(s.transactionerDB, deployedContract.Address)
-		}
+		storageTrie := newTrie(s.transactionerDB, deployedContract.Address)
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
@@ -460,14 +446,10 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 		}
 		contractStateValue := contractState(contractHash, storageRoot)
 		s.stateTrie.Put(address, contractStateValue)
-		s.storageTries[deployedContract.Address] = storageTrie
 	}
 
 	for k, v := range update.StorageDiffs {
-		storageTrie, ok := s.storageTries[k]
-		if !ok {
-			storageTrie = newTrie(s.transactionerDB, k)
-		}
+		storageTrie := newTrie(s.transactionerDB, k)
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
@@ -482,7 +464,6 @@ func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
-		s.storageTries[k] = storageTrie
 
 		address, ok := new(big.Int).SetString(k, 16)
 		if !ok {
