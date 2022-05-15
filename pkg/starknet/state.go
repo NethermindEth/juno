@@ -126,6 +126,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eve
 				continue
 			}
 			eventChan <- eventInfo{
+				block:           vLog.BlockNumber,
 				event:           event,
 				address:         contracts[vLog.Address].address,
 				transactionHash: vLog.TxHash,
@@ -158,6 +159,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eve
 				continue
 			}
 			eventChan <- eventInfo{
+				block:           vLog.BlockNumber,
 				event:           event,
 				address:         contracts[vLog.Address].address,
 				transactionHash: vLog.TxHash,

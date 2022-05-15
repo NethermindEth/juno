@@ -36,6 +36,7 @@ type ContractInfo struct {
 
 // eventInfo represent the information retrieved from events that comes from L1
 type eventInfo struct {
+	block           uint64
 	address         common.Address
 	event           map[string]interface{}
 	transactionHash common.Hash

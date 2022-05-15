@@ -24,24 +24,14 @@ func newTrie(database db.Databaser, prefix string) trie.Trie {
 	return trie.New(store, 251)
 }
 
-//
-//var contractHashes map[string]big.Int
-//
-//func init() {
-//	contractHashes = make(map[string]big.Int)
-//}
-
+// loadContractHash returns the value associated to one contract hash
 func loadContractHash(contractHash string) *big.Int {
-	//if ch, ok := contractHashes[contractHash]; ok {
-	//	return &ch
-	//}
-	//return nil
 	contractHashService := services.GetContractHashService()
 	return contractHashService.GetContractHash(remove0x(contractHash))
 }
 
+// storeContractHash store in the service associated the value of the contract hash
 func storeContractHash(contractHash string, value *big.Int) {
-	//contractHashes[contractHash] = *value
 	contractHashService := services.GetContractHashService()
 	contractHashService.StoreContractHash(remove0x(contractHash), value)
 }
@@ -172,6 +162,7 @@ func getMemoryPagesContractAddress(ethereumClient *ethclient.Client) string {
 	return "0x743789ff2fF82Bfb907009C9911a7dA636D34FA7"
 }
 
+// initialBlockForStarknetContract Returns the first block that we need to start to fetch the facts from l1
 func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
 	id, err := ethereumClient.ChainID(context.Background())
 	if err != nil {
@@ -183,6 +174,8 @@ func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
 	return blockOfStarknetDeploymentContractGoerli
 }
 
+// latestBlockQueried fetch from the database the value associated to the latest block that have been queried while
+// updating the state. Otherwise, it returns 0
 func latestBlockQueried(database db.Databaser) (int64, error) {
 	blockNumber, err := database.Get([]byte(latestBlockSynced))
 	if err != nil {
@@ -200,9 +193,10 @@ func latestBlockQueried(database db.Databaser) (int64, error) {
 	return int64(ret), nil
 }
 
+// updateLatestBlockQueried store locally the latest block queried used for state processing
 func updateLatestBlockQueried(database db.Databaser, block int64) error {
 	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(block))
+	binary.BigEndian.PutUint64(b, uint64(block+1))
 	err := database.Put([]byte(latestBlockSynced), b)
 	if err != nil {
 		log.Default.With("Block", block, "Key", latestBlockSynced).
