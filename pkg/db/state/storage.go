@@ -2,7 +2,6 @@ package state
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 )
 
@@ -19,21 +18,12 @@ func (x ContractAddress) Marshal() ([]byte, error) {
 	return i.Bytes(), nil
 }
 
-type contractStorageItem struct {
-	Key   big.Int
-	Value big.Int
-}
-
 // ContractStorage is the representation of the StarkNet contract
 // storage.
-type ContractStorage []contractStorageItem
+type ContractStorage map[string]string
 
 func (s *ContractStorage) Marshal() ([]byte, error) {
-	data := make(map[string]string)
-	for _, item := range *s {
-		data[item.Key.Text(16)] = item.Value.Text(16)
-	}
-	return json.Marshal(data)
+	return json.Marshal(s)
 }
 
 func (s *ContractStorage) Unmarshal(data []byte) error {
@@ -41,34 +31,20 @@ func (s *ContractStorage) Unmarshal(data []byte) error {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
-	storage := make([]contractStorageItem, 0, len(m))
-	for k, v := range m {
-		key, ok := new(big.Int).SetString(k, 16)
-		if !ok {
-			// notest
-			return fmt.Errorf("error parsing %s into an big.Int of base 16", k)
-		}
-		value, ok := new(big.Int).SetString(v, 16)
-		if !ok {
-			// notest
-			return fmt.Errorf("error parsing %s into an big.Int of base 16", v)
-		}
-		storage = append(storage, contractStorageItem{*key, *value})
-	}
-	*s = storage
+	*s = m
 	return nil
 }
 
 // GetStorage returns the ContractStorage state of the given contract address and block number.
 // If no exists a version for exactly the given block number, then returns the newest version
-// lower than the given block number.
-func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) (*ContractStorage, bool) {
+// lower than the given block number. If the contract storage does not exists then returns nil.
+func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *ContractStorage {
 	var value ContractStorage
 	ok := x.storageDatabase.Get(ContractAddress(contractAddress), blockNumber, &value)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return &value, true
+	return &value
 }
 
 // PutStorage saves a new version of the contract storage at the given block number.
