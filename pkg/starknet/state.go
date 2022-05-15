@@ -11,7 +11,6 @@ import (
 	base "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -34,15 +33,17 @@ const (
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
 	feederGatewayClient    *feeder.Client
-	transactionerDB        db.Databaser
+	database               db.Databaser
+	transactioner          db.Transactioner
+	transactionerDb        db.Transactioner
 	MemoryPageHash         base.Dictionary
 	GpsVerifier            base.Dictionary
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
 	facts                  []string
-	stateTrie              trie.Trie
-	blockNumber            int
-	lock                   sync.RWMutex
+	//stateTrie              trie.Trie
+	blockNumber int
+	lock        sync.RWMutex
 }
 
 // NewSynchronizer creates a new Synchronizer
@@ -55,11 +56,12 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 	return &Synchronizer{
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
-		transactionerDB:     txnDb,
+		database:            txnDb,
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
 		facts:               make([]string, 0),
-		stateTrie:           newTrie(txnDb, "state_trie_"),
+		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
+		//stateTrie:           newTrie(txnDb, "state_trie_"),
 		//contractHashes:      make(map[string]*big.Int),
 		blockNumber: 0,
 	}
@@ -296,11 +298,11 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	s.ethereumClient.Close()
-	//(*s.transactionerDB).Close()
+	//(*s.database).Close()
 }
 
 func (s *Synchronizer) apiSync() {
-	latestBlockQueried, err := latestBlockQueried(s.transactionerDB)
+	latestBlockQueried, err := latestBlockQueried(s.database)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return
@@ -350,7 +352,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateLatestBlockQueried(s.transactionerDB, int64(blockIterator))
+	err = updateLatestBlockQueried(s.database, int64(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
@@ -361,6 +363,9 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 }
 
 func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, blockNumber string) error {
+	txn := s.transactioner.Begin()
+
+	stateTrie := newTrie(txn, "state_trie_")
 
 	if blockNumber == "91" {
 		log.Default.Info("Block_91")
@@ -372,7 +377,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 			log.Default.Panic("Couldn't get contract hash")
 		}
 		storeContractHash(deployedContract.Address, contractHash)
-		storageTrie := newTrie(s.transactionerDB, remove0x(deployedContract.Address))
+		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
@@ -380,11 +385,11 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 				Panic("Couldn't convert Address to Big.Int ")
 		}
 		contractStateValue := contractState(contractHash, storageRoot)
-		s.stateTrie.Put(address, contractStateValue)
+		stateTrie.Put(address, contractStateValue)
 	}
 
 	for k, v := range update.StorageDiffs {
-		storageTrie := newTrie(s.transactionerDB, remove0x(k))
+		storageTrie := newTrie(txn, remove0x(k))
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
@@ -411,14 +416,19 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 		//contractStateValue := contractState(s.contractHashes[k], storageRoot)
 		contractStateValue := contractState(loadContractHash(k), storageRoot)
 
-		s.stateTrie.Put(address, contractStateValue)
+		stateTrie.Put(address, contractStateValue)
 	}
 
-	stateCommitment := remove0x(s.stateTrie.Commitment().Text(16))
+	stateCommitment := remove0x(stateTrie.Commitment().Text(16))
 
 	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
 		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
 			Panic("stateRoot not equal to the one provided")
+	}
+	err := txn.Commit()
+	if err != nil {
+		log.Default.Panic("Couldn't commit to the database")
+		return err
 	}
 
 	log.Default.With("State Root", stateCommitment).
@@ -430,51 +440,51 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 
 func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
 
-	for _, deployedContract := range update.DeployedContracts {
-		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
-		if !ok {
-			log.Default.Panic("Couldn't get contract hash")
-		}
-		storeContractHash(deployedContract.Address, contractHash)
-		//s.contractHashes[deployedContract.Address] = contractHash
-		storageTrie := newTrie(s.transactionerDB, deployedContract.Address)
-		storageRoot := storageTrie.Commitment()
-		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
-		if !ok {
-			log.Default.With("Address", deployedContract.Address).
-				Panic("Couldn't convert Address to Big.Int ")
-		}
-		contractStateValue := contractState(contractHash, storageRoot)
-		s.stateTrie.Put(address, contractStateValue)
-	}
-
-	for k, v := range update.StorageDiffs {
-		storageTrie := newTrie(s.transactionerDB, k)
-		for _, storageSlots := range v {
-			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
-			if !ok {
-				log.Default.With("Storage Slot Key", storageSlots.Key).
-					Panic("Couldn't get the ")
-			}
-			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
-			if !ok {
-				log.Default.With("Storage Slot Value", storageSlots.Value).
-					Panic("Couldn't get the contract Hash")
-			}
-			storageTrie.Put(key, val)
-		}
-		storageRoot := storageTrie.Commitment()
-
-		address, ok := new(big.Int).SetString(k, 16)
-		if !ok {
-			log.Default.With("Address", k).
-				Panic("Couldn't convert Address to Big.Int ")
-		}
-		//contractStateValue := contractState(s.contractHashes[k], storageRoot)
-		contractStateValue := contractState(loadContractHash(k), storageRoot)
-
-		s.stateTrie.Put(address, contractStateValue)
-	}
+	//for _, deployedContract := range update.DeployedContracts {
+	//	contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
+	//	if !ok {
+	//		log.Default.Panic("Couldn't get contract hash")
+	//	}
+	//	storeContractHash(deployedContract.Address, contractHash)
+	//	//s.contractHashes[deployedContract.Address] = contractHash
+	//	storageTrie := newTrie(s.database, deployedContract.Address)
+	//	storageRoot := storageTrie.Commitment()
+	//	address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
+	//	if !ok {
+	//		log.Default.With("Address", deployedContract.Address).
+	//			Panic("Couldn't convert Address to Big.Int ")
+	//	}
+	//	contractStateValue := contractState(contractHash, storageRoot)
+	//	s.stateTrie.Put(address, contractStateValue)
+	//}
+	//
+	//for k, v := range update.StorageDiffs {
+	//	storageTrie := newTrie(s.database, k)
+	//	for _, storageSlots := range v {
+	//		key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
+	//		if !ok {
+	//			log.Default.With("Storage Slot Key", storageSlots.Key).
+	//				Panic("Couldn't get the ")
+	//		}
+	//		val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
+	//		if !ok {
+	//			log.Default.With("Storage Slot Value", storageSlots.Value).
+	//				Panic("Couldn't get the contract Hash")
+	//		}
+	//		storageTrie.Put(key, val)
+	//	}
+	//	storageRoot := storageTrie.Commitment()
+	//
+	//	address, ok := new(big.Int).SetString(k, 16)
+	//	if !ok {
+	//		log.Default.With("Address", k).
+	//			Panic("Couldn't convert Address to Big.Int ")
+	//	}
+	//	//contractStateValue := contractState(s.contractHashes[k], storageRoot)
+	//	contractStateValue := contractState(loadContractHash(k), storageRoot)
+	//
+	//	s.stateTrie.Put(address, contractStateValue)
+	//}
 
 	return nil
 }
@@ -659,23 +669,23 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, blockNumber string) {
 }
 
 func (s *Synchronizer) compareValues(state StateDiff, blockNumber string) {
-	err := s.updateStateBasedOnPages(state)
-	if err != nil {
-		return
-	}
-	update, err := s.feederGatewayClient.GetStateUpdate("", blockNumber)
-	if err != nil {
-		log.Default.Panic("Error loading update from feeder gateway")
-	}
-	apiCommitment := remove0x(update.NewRoot)
-	l1Commitment := remove0x(s.stateTrie.Commitment().Text(16))
-
-	if apiCommitment != l1Commitment {
-		log.Default.With("State Commitment From API", apiCommitment,
-			"State Commitment From L1", l1Commitment).
-			Panic("states don't match")
-	}
-	log.Default.With("Block Number", blockNumber).Info("Sync the state")
-
-	s.updateAbiAndCode(state, "", blockNumber)
+	//err := s.updateStateBasedOnPages(state)
+	//if err != nil {
+	//	return
+	//}
+	//update, err := s.feederGatewayClient.GetStateUpdate("", blockNumber)
+	//if err != nil {
+	//	log.Default.Panic("Error loading update from feeder gateway")
+	//}
+	//apiCommitment := remove0x(update.NewRoot)
+	//l1Commitment := remove0x(s.stateTrie.Commitment().Text(16))
+	//
+	//if apiCommitment != l1Commitment {
+	//	log.Default.With("State Commitment From API", apiCommitment,
+	//		"State Commitment From L1", l1Commitment).
+	//		Panic("states don't match")
+	//}
+	//log.Default.With("Block Number", blockNumber).Info("Sync the state")
+	//
+	//s.updateAbiAndCode(state, "", blockNumber)
 }

@@ -25,12 +25,19 @@ type Databaser interface {
 	NumberOfItems() (uint64, error)
 	// Close closes the environment.
 	Close()
+	// GetEnv returns the environment of the database
+	GetEnv() *mdbx.Env
 }
 
 // KeyValueDb represents the middleware for an MDBX key-value store.
 type KeyValueDb struct {
 	env  *mdbx.Env
 	path string
+}
+
+// GetEnv returns the environment of the database
+func (d *KeyValueDb) GetEnv() *mdbx.Env {
+	return d.env
 }
 
 // NewKeyValueDbWithEnv creates a new key-value database based on an already created env.
