@@ -1,0 +1,221 @@
+{
+  "contract": "004ba0bca2ee5c2842a5529a1548f4c18fb6378deb54300fe38caeb88072b30d",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "name": "signer",
+          "type": "felt"
+        },
+        {
+          "name": "guardian",
+          "type": "felt"
+        }
+      ],
+      "name": "constructor",
+      "outputs": [],
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "name": "to",
+          "type": "felt"
+        },
+        {
+          "name": "selector",
+          "type": "felt"
+        },
+        {
+          "name": "calldata_len",
+          "type": "felt"
+        },
+        {
+          "name": "calldata",
+          "type": "felt*"
+        },
+        {
+          "name": "nonce",
+          "type": "felt"
+        }
+      ],
+      "name": "execute",
+      "outputs": [
+        {
+          "name": "response",
+          "type": "felt"
+        }
+      ],
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "new_signer",
+          "type": "felt"
+        }
+      ],
+      "name": "change_signer",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "new_guardian",
+          "type": "felt"
+        }
+      ],
+      "name": "change_guardian",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "trigger_escape_guardian",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "trigger_escape_signer",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "cancel_escape",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "new_guardian",
+          "type": "felt"
+        }
+      ],
+      "name": "escape_guardian",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "new_signer",
+          "type": "felt"
+        }
+      ],
+      "name": "escape_signer",
+      "outputs": [],
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "hash",
+          "type": "felt"
+        },
+        {
+          "name": "sig_len",
+          "type": "felt"
+        },
+        {
+          "name": "sig",
+          "type": "felt*"
+        }
+      ],
+      "name": "is_valid_signature",
+      "outputs": [],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get_nonce",
+      "outputs": [
+        {
+          "name": "nonce",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get_signer",
+      "outputs": [
+        {
+          "name": "signer",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get_guardian",
+      "outputs": [
+        {
+          "name": "guardian",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get_escape",
+      "outputs": [
+        {
+          "name": "active_at",
+          "type": "felt"
+        },
+        {
+          "name": "caller",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get_version",
+      "outputs": [
+        {
+          "name": "version",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get_block_timestamp",
+      "outputs": [
+        {
+          "name": "block_timestamp",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "new_block_timestamp",
+          "type": "felt"
+        }
+      ],
+      "name": "set_block_timestamp",
+      "outputs": [],
+      "type": "function"
+    }
+  ]
+}

@@ -60,6 +60,25 @@ func TestDigest(t *testing.T) {
 	}
 }
 
+func TestDigestLimit(t *testing.T) {
+	var tests = [...]string{
+		"800000000000011000000000000000000000000000000000000000000000001",
+		"80000000000001100000000000000000000000000000000000000024b8b90c3",
+		"90000000000001100000000000000000000000000000000000000024b8b90c3",
+		"80000000000001100000000000000300000000000000000000000024b8b90c3",
+	}
+	for _, test := range tests {
+		a, ok := new(big.Int).SetString(test, 16)
+		if !ok {
+			t.Error("error decoding hex-string")
+		}
+		_, err := Digest(a)
+		if err != ErrInvalid {
+			t.Errorf("expected error %s for Digest(%s) because is out of the limits", ErrInvalid, a)
+		}
+	}
+}
+
 func initBenchmarkArrayDigest() {
 	// max = 2**252 - 1
 	max := new(big.Int)
