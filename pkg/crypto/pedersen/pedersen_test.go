@@ -3,15 +3,17 @@ package pedersen
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 )
 
+// FIXME: See initBenchmarkArrayDigest below.
+/*
 var benchmarkArrayDigestData []*big.Int
 
 func init() {
 	initBenchmarkArrayDigest()
 }
+*/
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
 // *big.Int with a value of 0 N times.
@@ -60,6 +62,8 @@ func TestDigest(t *testing.T) {
 	}
 }
 
+// FIXME: Some values generated here are outside 𝔽ₚ.
+/*
 func initBenchmarkArrayDigest() {
 	// max = 2**252 - 1
 	max := new(big.Int)
@@ -76,6 +80,7 @@ func BenchmarkArrayDigest(b *testing.B) {
 		ArrayDigest(benchmarkArrayDigestData...)
 	}
 }
+*/
 
 func TestArrayDigest(t *testing.T) {
 	var tests = [...]struct {
