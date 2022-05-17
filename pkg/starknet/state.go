@@ -22,28 +22,18 @@ import (
 	"time"
 )
 
-const (
-	latestBlockSynced                        = "latestBlockSynced"
-	blockOfStarknetDeploymentContractMainnet = 13627000
-	blockOfStarknetDeploymentContractGoerli  = 5853000
-	MaxChunk                                 = 10000
-)
-
 // Synchronizer represents the base struct for Starknet Synchronization
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
 	feederGatewayClient    *feeder.Client
 	database               db.Databaser
 	transactioner          db.Transactioner
-	transactionerDb        db.Transactioner
 	MemoryPageHash         base.Dictionary
 	GpsVerifier            base.Dictionary
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
-	facts                  []string
-	//stateTrie              trie.Trie
-	blockNumber int
-	lock        sync.RWMutex
+	facts                  []Fact
+	lock                   sync.RWMutex
 }
 
 // NewSynchronizer creates a new Synchronizer
@@ -59,21 +49,18 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 		database:            txnDb,
 		MemoryPageHash:      base.Dictionary{},
 		GpsVerifier:         base.Dictionary{},
-		facts:               make([]string, 0),
+		facts:               make([]Fact, 0),
 		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
-		//stateTrie:           newTrie(txnDb, "state_trie_"),
-		//contractHashes:      make(map[string]*big.Int),
-		blockNumber: 0,
 	}
 }
 
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	if config.Runtime.Starknet.FastSync {
-		s.apiSync()
-		return nil
-	}
+	//if config.Runtime.Starknet.FastSync {
+	//	s.apiSync()
+	//	return nil
+	//}
 
 	err := s.l1Sync()
 	if err != nil {
@@ -241,12 +228,11 @@ func (s *Synchronizer) l1Sync() error {
 				if len(s.facts) == 0 {
 					continue
 				}
-				if s.GpsVerifier.Exist(s.facts[0]) {
+				if s.GpsVerifier.Exist(s.facts[0].value) {
 					s.lock.Lock()
 					// If already exist the information related to the fact,
 					// fetch the memory pages and updated the State
-					s.processMemoryPages(s.facts[0], strconv.Itoa(s.blockNumber))
-					s.blockNumber += 1
+					s.processMemoryPages(s.facts[0].value, s.facts[0].stateRoot, s.facts[0].blockNumber)
 					s.facts = s.facts[1:]
 					s.lock.Unlock()
 				}
@@ -284,14 +270,51 @@ func (s *Synchronizer) l1Sync() error {
 				for _, v := range fact.([32]byte) {
 					b = append(b, v)
 				}
+				abi, _ := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
+				starknetAddress := common.HexToAddress(contractAddresses.Starknet)
+				fullFact := getFactInfo(s.ethereumClient, ContractInfo{contract: abi, eventName: "LogStateUpdate",
+					address: starknetAddress}, l.block, common.BytesToHash(b).Hex())
 
 				s.lock.Lock()
-				s.facts = append(s.facts, common.BytesToHash(b).Hex())
+				s.facts = append(s.facts, fullFact)
 				s.lock.Unlock()
 
 			}
 
 		}
+	}
+}
+
+func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact string) Fact {
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(int64(block)),
+		ToBlock:   big.NewInt(int64(block)),
+		Addresses: []common.Address{info.address},
+		Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(info.contract.Events["LogStateUpdate"].Sig))}},
+	}
+
+	starknetLogs, err := client.FilterLogs(context.Background(), query)
+	if err != nil {
+		log.Default.With("Error", err, "Initial block", block, "End block", block+1).
+			Info("Couldn't get logs")
+	}
+	if len(starknetLogs) != 1 {
+
+	}
+	vLog := starknetLogs[0]
+	log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
+		"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
+	event := map[string]interface{}{}
+
+	err = info.contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
+		return Fact{}
+	}
+	return Fact{
+		stateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
+		blockNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
+		value:       fact,
 	}
 }
 
@@ -349,7 +372,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 
 	upd := stateUpdateResponseToStateDiff(update)
 
-	err = s.updateState(upd, update.NewRoot, update.BlockHash, strconv.Itoa(blockIterator))
+	err = s.updateState(upd, update.NewRoot, strconv.Itoa(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	}
@@ -358,20 +381,15 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
-	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't store the latest Block Queried")
-	}
 	return blockIterator + 1, update.BlockHash
 }
 
-func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, blockNumber string) error {
+func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockNumber string) error {
+	log.Default.With("Block Number", blockNumber).Info("Processing block")
+
 	txn := s.transactioner.Begin()
 
 	stateTrie := newTrie(txn, "state_trie_")
-
-	if blockNumber == "91" {
-		log.Default.Info("Block_91")
-	}
 
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
@@ -398,9 +416,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 				log.Default.With("Storage Slot Key", storageSlots.Key).
 					Panic("Couldn't get the ")
 			}
-			if storageSlots.Value == "0x0" {
-				log.Default.Info("some...")
-			}
 			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
 			if !ok {
 				log.Default.With("Storage Slot Value", storageSlots.Value).
@@ -415,7 +430,6 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 			log.Default.With("Address", k).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		//contractStateValue := contractState(s.contractHashes[k], storageRoot)
 		contractStateValue := contractState(loadContractHash(k), storageRoot)
 
 		stateTrie.Put(address, contractStateValue)
@@ -440,58 +454,7 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockHash, block
 	return nil
 }
 
-func (s *Synchronizer) updateStateBasedOnPages(update StateDiff) error {
-
-	//for _, deployedContract := range update.DeployedContracts {
-	//	contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
-	//	if !ok {
-	//		log.Default.Panic("Couldn't get contract hash")
-	//	}
-	//	storeContractHash(deployedContract.Address, contractHash)
-	//	//s.contractHashes[deployedContract.Address] = contractHash
-	//	storageTrie := newTrie(s.database, deployedContract.Address)
-	//	storageRoot := storageTrie.Commitment()
-	//	address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
-	//	if !ok {
-	//		log.Default.With("Address", deployedContract.Address).
-	//			Panic("Couldn't convert Address to Big.Int ")
-	//	}
-	//	contractStateValue := contractState(contractHash, storageRoot)
-	//	s.stateTrie.Put(address, contractStateValue)
-	//}
-	//
-	//for k, v := range update.StorageDiffs {
-	//	storageTrie := newTrie(s.database, k)
-	//	for _, storageSlots := range v {
-	//		key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
-	//		if !ok {
-	//			log.Default.With("Storage Slot Key", storageSlots.Key).
-	//				Panic("Couldn't get the ")
-	//		}
-	//		val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
-	//		if !ok {
-	//			log.Default.With("Storage Slot Value", storageSlots.Value).
-	//				Panic("Couldn't get the contract Hash")
-	//		}
-	//		storageTrie.Put(key, val)
-	//	}
-	//	storageRoot := storageTrie.Commitment()
-	//
-	//	address, ok := new(big.Int).SetString(k, 16)
-	//	if !ok {
-	//		log.Default.With("Address", k).
-	//			Panic("Couldn't convert Address to Big.Int ")
-	//	}
-	//	//contractStateValue := contractState(s.contractHashes[k], storageRoot)
-	//	contractStateValue := contractState(loadContractHash(k), storageRoot)
-	//
-	//	s.stateTrie.Put(address, contractStateValue)
-	//}
-
-	return nil
-}
-
-func (s *Synchronizer) processMemoryPages(fact, blockNumber string) {
+func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 	pages := make([][]*big.Int, 0)
 
 	// Get memory pages hashes using fact
@@ -540,7 +503,7 @@ func (s *Synchronizer) processMemoryPages(fact, blockNumber string) {
 		pages = append(pages, t.([]*big.Int))
 	}
 	// pages should contain all txn information
-	s.parsePages(pages, blockNumber)
+	s.parsePages(pages, stateRoot, blockNumber)
 }
 
 func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber string) {
@@ -584,7 +547,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResp
 }
 
 // parsePages parse the pages returned from the interaction with Layer 1
-func (s *Synchronizer) parsePages(pages [][]*big.Int, blockNumber string) {
+func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber string) {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]
 
@@ -664,30 +627,14 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, blockNumber string) {
 		StorageDiffs:      storageDiffs,
 	}
 
-	s.compareValues(state, blockNumber)
-
-	log.Default.With("State Diff", state).Info("Fetched state diff")
-
-}
-
-func (s *Synchronizer) compareValues(state StateDiff, blockNumber string) {
-	//err := s.updateStateBasedOnPages(state)
-	//if err != nil {
-	//	return
-	//}
-	//update, err := s.feederGatewayClient.GetStateUpdate("", blockNumber)
-	//if err != nil {
-	//	log.Default.Panic("Error loading update from feeder gateway")
-	//}
-	//apiCommitment := remove0x(update.NewRoot)
-	//l1Commitment := remove0x(s.stateTrie.Commitment().Text(16))
-	//
-	//if apiCommitment != l1Commitment {
-	//	log.Default.With("State Commitment From API", apiCommitment,
-	//		"State Commitment From L1", l1Commitment).
-	//		Panic("states don't match")
-	//}
-	//log.Default.With("Block Number", blockNumber).Info("Sync the state")
-	//
-	//s.updateAbiAndCode(state, "", blockNumber)
+	err := s.updateState(state, stateRoot, blockNumber)
+	if err != nil {
+		log.Default.With("Error", err).Panic("Couldn't update state")
+	}
+	log.Default.With("Block Number", blockNumber).Info("State updated")
+	bNumber, _ := strconv.Atoi(blockNumber)
+	err = updateLatestBlockQueried(s.database, int64(bNumber))
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
 }

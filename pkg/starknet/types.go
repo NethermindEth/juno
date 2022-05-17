@@ -6,6 +6,14 @@ import (
 	"math/big"
 )
 
+const (
+	latestBlockSynced                        = "latestBlockSynced"
+	latestFactSaved                          = "latestFactSaved"
+	blockOfStarknetDeploymentContractMainnet = 13627000
+	blockOfStarknetDeploymentContractGoerli  = 5853000
+	MaxChunk                                 = 10000
+)
+
 // KV represents a key-value pair.
 type KV struct {
 	Key   string `json:"key"`
@@ -40,4 +48,10 @@ type eventInfo struct {
 	address         common.Address
 	event           map[string]interface{}
 	transactionHash common.Hash
+}
+
+type Fact struct {
+	stateRoot   string
+	blockNumber string
+	value       string
 }
