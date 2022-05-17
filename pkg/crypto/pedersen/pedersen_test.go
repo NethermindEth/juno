@@ -25,6 +25,7 @@ func ExampleDigest() {
 	a, _ := new(big.Int).SetString("3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb", 16)
 	b, _ := new(big.Int).SetString("208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a", 16)
 	fmt.Printf("%x\n", Digest(a, b))
+
 	// Output:
 	// 30e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662
 }
