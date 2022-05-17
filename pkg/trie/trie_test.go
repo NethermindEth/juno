@@ -87,6 +87,14 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+// TestEmptyTrie asserts that the commitment of an empty trie is zero.
+func TestEmptyTrie(t *testing.T) {
+	trie := New(store.New(), testKeyLen)
+	if trie.Commitment().Cmp(new(big.Int)) != 0 {
+		t.Error("trie.Commitment() != 0 for empty trie")
+	}
+}
+
 func TestGet(t *testing.T) {
 	db := store.New()
 	trie := New(db, testKeyLen)

@@ -98,6 +98,7 @@ func (t *Trie) retrive(key []byte) (node, bool) {
 	}
 	var n node
 	if err := json.Unmarshal(b, &n); err != nil {
+		// notest
 		return node{}, false
 	}
 	return n, true
