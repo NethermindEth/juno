@@ -119,7 +119,6 @@ func (d *KeyValueDb) Get(key []byte) ([]byte, error) {
 
 // Put inserts a key-value pair into the database.
 func (d *KeyValueDb) Put(key, value []byte) error {
-	//fmt.Printf("%s Put %d %d\n", d.path, len(key), len(key)*8)
 	err := d.env.Update(func(txn *mdbx.Txn) error {
 		dbi, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
@@ -150,6 +149,7 @@ func (d *KeyValueDb) Delete(key []byte) error {
 func (d *KeyValueDb) NumberOfItems() (uint64, error) {
 	stats, err := d.env.Stat()
 	if err != nil {
+		// notest
 		log.Default.With("Error", err).Info("Unable to get stats from env.")
 		return 0, err
 	}

@@ -17,6 +17,8 @@ func TestInsertKeyOnTransactionDbAndCommit(t *testing.T) {
 
 	database := dbTest.Begin()
 
+	_ = database.GetEnv()
+
 	err := database.Put([]byte("key"), []byte("value"))
 
 	if err != nil {
@@ -93,7 +95,13 @@ func TestDeletionOnTransactionDb(t *testing.T) {
 
 	database := dbTest.Begin()
 
-	err := database.Put([]byte("key"), []byte("value"))
+	err := database.Delete([]byte("not_key"))
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+	}
+
+	err = database.Put([]byte("key"), []byte("value"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()

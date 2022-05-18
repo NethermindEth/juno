@@ -218,6 +218,15 @@ func TestKeyValueDbIsDatabaser(t *testing.T) {
 	_ = db.Databaser(a)
 }
 
+func TestKeyValueDb_GetEnv(t *testing.T) {
+	database := setupDatabaseForTest(t.TempDir())
+	p := db.NewKeyValueDbWithEnv(database.GetEnv(), t.TempDir())
+	items, err := p.NumberOfItems()
+	if err != nil || items != 0 {
+		return
+	}
+}
+
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
 func BenchmarkEntriesInDatabase(b *testing.B) {
 	database := setupDatabaseForTest(b.TempDir())

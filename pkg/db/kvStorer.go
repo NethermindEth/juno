@@ -16,6 +16,7 @@ func NewKeyValueStore(db Databaser, prefix string) KeyValueStore {
 func (k KeyValueStore) Delete(key []byte) {
 	err := k.db.Delete(append(k.prefix, key...))
 	if err != nil {
+		// notest
 		return
 	}
 }
@@ -23,6 +24,7 @@ func (k KeyValueStore) Delete(key []byte) {
 func (k KeyValueStore) Get(key []byte) ([]byte, bool) {
 	get, err := k.db.Get(append(k.prefix, key...))
 	if err != nil {
+		// notest
 		return nil, false
 	}
 	return get, get != nil
@@ -31,6 +33,7 @@ func (k KeyValueStore) Get(key []byte) ([]byte, bool) {
 func (k KeyValueStore) Put(key, val []byte) {
 	err := k.db.Put(append(k.prefix, key...), val)
 	if err != nil {
+		// notest
 		return
 	}
 }
