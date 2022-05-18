@@ -6,35 +6,20 @@ import (
 )
 
 // setupTransactionDbTest creates a new TransactionDb for Tests
-func setupKvStoreTest(database db.Databaser) *db.TransactionDb {
-	return db.NewTransactionDb(database.GetEnv())
+func setupKvStoreTest(database db.Databaser) db.KeyValueStore {
+	return db.NewKeyValueStore(database, "test")
 }
 
 // TestAddKeyToTransaction Check that a single value is stored after made commit
 func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
 	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
-	dbTest := setupKvStoreTest(dbKV)
+	database := setupKvStoreTest(dbKV)
+	database.Begin()
 
-	database := dbTest.Begin()
+	database.Put([]byte("key"), []byte("value"))
 
-	err := database.Put([]byte("key"), []byte("value"))
-
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
-	err = database.Commit()
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
-	database = dbTest.Begin()
-
-	get, err := database.Get([]byte("key"))
-	if err != nil || get == nil {
-		t.Log(err)
+	get, has := database.Get([]byte("key"))
+	if !has || get == nil {
 		t.Fail()
 	}
 
@@ -42,90 +27,13 @@ func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
 		t.Fail()
 	}
 
-	database.Close()
-}
+	database.Delete([]byte("key"))
 
-// TestInsertKeyOnTransactionDbAndRollback Check that a single is deleted after a rollback
-func TestKvStoreInsertKeyOnTransactionDbAndRollback(t *testing.T) {
-	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
-	dbTest := setupKvStoreTest(dbKV)
-	database := dbTest.Begin()
-
-	numItems, _ := database.NumberOfItems()
-	if numItems != 0 {
+	get, has = database.Get([]byte("key"))
+	if has || get != nil {
 		t.Fail()
 	}
-
-	err := database.Put([]byte("key"), []byte("value"))
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
-	numItems, _ = database.NumberOfItems()
-	if numItems != 1 {
-		t.Fail()
-	}
-
 	database.Rollback()
-
-	database = dbTest.Begin()
-
-	has, err := database.Has([]byte("key"))
-	if err != nil || has {
-		t.Log(err)
-		t.Fail()
-	}
-
-	numItems, _ = database.NumberOfItems()
-	if numItems != 0 {
-		t.Fail()
-	}
-
-	database.Close()
-}
-
-// TestKvStoreDeletionOnTransactionDb Check that a key is inserted and deleted properly
-func TestKvStoreDeletionOnTransactionDb(t *testing.T) {
-	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
-	dbTest := setupKvStoreTest(dbKV)
-
-	database := dbTest.Begin()
-
-	err := database.Put([]byte("key"), []byte("value"))
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
-	err = database.Commit()
-	if err != nil {
-		t.Fail()
-		return
-	}
-
-	database = dbTest.Begin()
-
-	err = database.Delete([]byte("key"))
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
-	has, err := database.Has([]byte("key"))
-	if err != nil || has {
-		t.Log(err)
-		t.Fail()
-	}
-
-	database.Rollback()
-
-	database = dbTest.Begin()
-	has, err = database.Has([]byte("key"))
-	if err != nil || !has {
-		t.Log(err)
-		t.Fail()
-	}
 
 	database.Close()
 }
