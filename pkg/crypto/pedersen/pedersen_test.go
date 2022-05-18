@@ -56,11 +56,12 @@ func TestDigest(t *testing.T) {
 }
 
 func BenchmarkArrayDigest(b *testing.B) {
-	max := curve.Params().P
 	n := 20
 	data := make([]*big.Int, n)
+	max := curve.Params().P
+	seed := time.Now().Unix()
 	for i := range data {
-		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(time.Now().Unix())), max)
+		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), max)
 	}
 
 	b.Run(fmt.Sprintf("%v_random_felts", n), func(b *testing.B) {
