@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -28,12 +27,11 @@ type Synchronizer struct {
 	feederGatewayClient    *feeder.Client
 	database               db.Databaser
 	transactioner          db.Transactioner
-	MemoryPageHash         base.Dictionary
-	GpsVerifier            base.Dictionary
+	MemoryPageHash         *base.Dictionary
+	GpsVerifier            *base.Dictionary
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
-	facts                  []Fact
-	lock                   sync.RWMutex
+	facts                  *base.Dictionary
 }
 
 // NewSynchronizer creates a new Synchronizer
@@ -47,9 +45,9 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
 		database:            txnDb,
-		MemoryPageHash:      base.Dictionary{},
-		GpsVerifier:         base.Dictionary{},
-		facts:               make([]Fact, 0),
+		MemoryPageHash:      base.NewDictionary(txnDb, "memory_pages"),
+		GpsVerifier:         base.NewDictionary(txnDb, "gps_verifier"),
+		facts:               base.NewDictionary(txnDb, "facts"),
 		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
 	}
 }
@@ -223,18 +221,27 @@ func (s *Synchronizer) l1Sync() error {
 		ticker := time.NewTicker(time.Second * 5)
 
 		for {
-			select {
-			case <-ticker.C:
-				if len(s.facts) == 0 {
-					continue
-				}
-				if s.GpsVerifier.Exist(s.facts[0].value) {
-					s.lock.Lock()
-					// If already exist the information related to the fact,
-					// fetch the memory pages and updated the State
-					s.processMemoryPages(s.facts[0].value, s.facts[0].stateRoot, s.facts[0].blockNumber)
-					s.facts = s.facts[1:]
-					s.lock.Unlock()
+			<-ticker.C
+			factSynced, err := getNumericValueFromDB(s.database, latestFactSynced)
+			if err != nil {
+				log.Default.With("Error", err).
+					Info("Unable to get the Value of the latest fact synced")
+				continue
+			}
+			if !s.facts.Exist(strconv.FormatInt(factSynced, 10)) {
+				continue
+			}
+			f := Fact{}
+			fact, err := s.facts.Get(strconv.FormatInt(factSynced, 10), f)
+
+			if s.GpsVerifier.Exist(fact.(Fact).Value) {
+				// If already exist the information related to the fact,
+				// fetch the memory pages and updated the State
+				s.processMemoryPages(fact.(Fact).Value, fact.(Fact).StateRoot, fact.(Fact).BlockNumber)
+				s.facts.Remove(strconv.FormatInt(factSynced, 10))
+				err = updateNumericValueFromDB(s.database, latestFactSynced, factSynced)
+				if err != nil {
+					return
 				}
 			}
 		}
@@ -255,12 +262,13 @@ func (s *Synchronizer) l1Sync() error {
 				for _, v := range factHash.([32]byte) {
 					b = append(b, v)
 				}
-				s.GpsVerifier.Add(common.BytesToHash(b).Hex(), pagesHashes.([][32]byte))
+				value := PagesHash{bytes: pagesHashes.([][32]byte)}
+				s.GpsVerifier.Add(common.BytesToHash(b).Hex(), value)
 			}
 			// Process MemoryPageFactRegistry contract
 			if memoryHash, ok := l.event["memoryHash"]; ok {
 				key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
-				value := l.transactionHash
+				value := TransactionHash{hash: l.transactionHash}
 				s.MemoryPageHash.Add(key, value)
 			}
 			// Process Starknet logs
@@ -272,12 +280,26 @@ func (s *Synchronizer) l1Sync() error {
 				}
 				abi, _ := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
 				starknetAddress := common.HexToAddress(contractAddresses.Starknet)
-				fullFact := getFactInfo(s.ethereumClient, ContractInfo{contract: abi, eventName: "LogStateUpdate",
-					address: starknetAddress}, l.block, common.BytesToHash(b).Hex())
 
-				s.lock.Lock()
-				s.facts = append(s.facts, fullFact)
-				s.lock.Unlock()
+				factSaved, err := getNumericValueFromDB(s.database, latestFactSaved)
+				if err != nil {
+					log.Default.With("Error", err).
+						Info("Unable to get the Value of the latest fact synced")
+					return err
+				}
+
+				fullFact := getFactInfo(s.ethereumClient, ContractInfo{contract: abi, eventName: "LogStateUpdate",
+					address: starknetAddress}, l.block, common.BytesToHash(b).Hex(), factSaved)
+
+				// Safe Fact for block x
+				s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
+
+				err = updateNumericValueFromDB(s.database, latestFactSaved, factSaved)
+				if err != nil {
+					log.Default.With("Error", err).
+						Info("Unable to set the Value of the latest block synced")
+					return err
+				}
 
 			}
 
@@ -285,7 +307,7 @@ func (s *Synchronizer) l1Sync() error {
 	}
 }
 
-func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact string) Fact {
+func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact string, latestBlockSynced int64) Fact {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(int64(block)),
 		ToBlock:   big.NewInt(int64(block)),
@@ -298,24 +320,28 @@ func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact
 		log.Default.With("Error", err, "Initial block", block, "End block", block+1).
 			Info("Couldn't get logs")
 	}
-	if len(starknetLogs) != 1 {
+	for _, vLog := range starknetLogs {
+		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
+			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
+		event := map[string]interface{}{}
+
+		err = info.contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
+			return Fact{}
+		}
+		factVal := Fact{
+			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
+			BlockNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
+			Value:       fact,
+		}
+		if factVal.BlockNumber == strconv.FormatInt(latestBlockSynced, 10) {
+			return factVal
+		}
 
 	}
-	vLog := starknetLogs[0]
-	log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
-		"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
-	event := map[string]interface{}{}
-
-	err = info.contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
-		return Fact{}
-	}
-	return Fact{
-		stateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
-		blockNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
-		value:       fact,
-	}
+	log.Default.Panic("Couldn't find a block number that match in the logs for given fact")
+	return Fact{}
 }
 
 // Close closes the client for the Layer 1 Ethereum node
@@ -458,15 +484,21 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 	pages := make([][]*big.Int, 0)
 
 	// Get memory pages hashes using fact
-	var memoryPages [][32]byte
-	memoryPages = (s.GpsVerifier.Get(fact)).([][32]byte)
+	valInterface := PagesHash{}
+	memoryPages, err := s.GpsVerifier.Get(fact, valInterface)
+	if err != nil {
+		return
+	}
+	if err != nil {
+		return
+	}
 	memoryContract, err := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
 	if err != nil {
 		return
 	}
 
 	// iterate over each memory page
-	for _, v := range memoryPages {
+	for _, v := range memoryPages.(PagesHash).bytes {
 		h := make([]byte, 0)
 
 		for _, s := range v {
@@ -474,9 +506,13 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 		}
 		// Get transactionsHash based on the memory page
 		hash := common.BytesToHash(h)
-		transactionHash := s.MemoryPageHash.Get(hash.Hex())
+		valInter := TransactionHash{}
+		transactionHash, err := s.MemoryPageHash.Get(hash.Hex(), &valInter)
+		if err != nil {
+			return
+		}
 		log.Default.With("Hash", hash.Hex()).Info("Getting transaction...")
-		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(common.Hash))
+		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(TransactionHash).hash)
 		if err != nil {
 			log.Default.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")

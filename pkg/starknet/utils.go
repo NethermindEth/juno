@@ -24,13 +24,13 @@ func newTrie(database db.Databaser, prefix string) trie.Trie {
 	return trie.New(store, 251)
 }
 
-// loadContractHash returns the value associated to one contract hash
+// loadContractHash returns the Value associated to one contract hash
 func loadContractHash(contractHash string) *big.Int {
 	contractHashService := services.GetContractHashService()
 	return contractHashService.GetContractHash(remove0x(contractHash))
 }
 
-// storeContractHash store in the service associated the value of the contract hash
+// storeContractHash store in the service associated the Value of the contract hash
 func storeContractHash(contractHash string, value *big.Int) {
 	contractHashService := services.GetContractHashService()
 	contractHashService.StoreContractHash(remove0x(contractHash), value)
@@ -174,7 +174,7 @@ func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
 	return blockOfStarknetDeploymentContractGoerli
 }
 
-// latestBlockQueried fetch from the database the value associated to the latest block that have been queried while
+// latestBlockQueried fetch from the database the Value associated to the latest block that have been queried while
 // updating the state. Otherwise, it returns 0
 func latestBlockQueried(database db.Databaser) (int64, error) {
 	blockNumber, err := database.Get([]byte(latestBlockSynced))
@@ -201,6 +201,36 @@ func updateLatestBlockQueried(database db.Databaser, block int64) error {
 	if err != nil {
 		log.Default.With("Block", block, "Key", latestBlockSynced).
 			Info("Couldn't store the latest synced block")
+		return err
+	}
+	return nil
+}
+
+func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
+	value, err := database.Get([]byte(key))
+	if err != nil {
+		return 0, err
+	}
+	if value == nil {
+		return 0, nil
+	}
+	var ret uint64
+	buf := bytes.NewBuffer(value)
+	err = binary.Read(buf, binary.BigEndian, &ret)
+	if err != nil {
+		return 0, err
+	}
+	return int64(ret), nil
+
+}
+
+func updateNumericValueFromDB(database db.Databaser, key string, value int64) error {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(value+1))
+	err := database.Put([]byte(key), b)
+	if err != nil {
+		log.Default.With("Value", value, "Key", key).
+			Info("Couldn't store the kv-pair on the database")
 		return err
 	}
 	return nil
