@@ -117,10 +117,14 @@ func TestGetStateUpdate(t *testing.T) {
 }
 
 func TestGetCode(t *testing.T) {
-	body := "[\"one\",\"two\",\"three\"]\n"
+	a := feeder.GetCodeResponse{}
+	body, err := StructFaker(a)
+	if err != nil {
+		t.Fatal()
+	}
 	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig []string
-	err := json.Unmarshal([]byte(body), &cOrig)
+	var cOrig feeder.GetCodeResponse
+	err = json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
 		t.Fatal()
 	}
