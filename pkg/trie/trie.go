@@ -16,9 +16,8 @@
 // table is used as a backend to this structure, then the get operation
 // will take as much time as insertions take on that data structure.
 //
-// Put and delete operations on the other hand take at most 1  + w
-// database accesses where w represents the bit-length of the key which
-// is optimal.
+// Put and delete operations on the other hand take at most 1 + (w * 3)
+// database accesses where w represents the bit-length of the key.
 //
 // # Space
 //
@@ -29,9 +28,7 @@
 package trie
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
@@ -73,9 +70,9 @@ func New(store store.Storer, keyLen int) Trie {
 	return Trie{keyLen: keyLen, store: store}
 }
 
-// commit persits the given key-value pair in storage.
+// commit persists the given key-value pair in storage.
 func (t *Trie) commit(key, val []byte) {
-	if bytes.Equal(key, []byte("")) {
+	if len(key) == 0 {
 		key = []byte("root")
 	}
 	t.store.Put(key, val)
@@ -83,7 +80,7 @@ func (t *Trie) commit(key, val []byte) {
 
 // remove deletes a key-value pair from storage.
 func (t *Trie) remove(key []byte) {
-	if bytes.Equal(key, []byte("")) {
+	if len(key) == 0 {
 		key = []byte("root")
 	}
 	t.store.Delete(key)
@@ -91,9 +88,8 @@ func (t *Trie) remove(key []byte) {
 
 // retrieve gets a node from storage and returns true if the node was
 // found.
-func (t *Trie) retrive(key []byte) (node, bool) {
-	if bytes.Equal(key, []byte("")) {
-		// notest
+func (t *Trie) retrieve(key []byte) (node, bool) {
+	if len(key) == 0 {
 		key = []byte("root")
 	}
 	b, ok := t.store.Get(key)
@@ -116,50 +112,43 @@ func (t *Trie) diff(key *big.Int) {
 	for height := t.keyLen - 1; height >= 0; height-- {
 		parent := prefix(key, height)
 
-		_, leftChildIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s0", parent)))
-		_, rightChildIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s1", parent)))
+		leftChild, leftChildIsNotEmpty := t.retrieve(append(parent, 48 /* "0" */))
+		rightChild, rightChildIsNotEmpty := t.retrieve(append(parent, 49 /* "1" */))
 
 		if !leftChildIsNotEmpty && !rightChildIsNotEmpty {
 			t.remove(parent)
 		} else {
-			t.newNodeAt(parent)
+			// Overwrite the parent node.
+			n := new(node)
+
+			// Compute its encoding.
+			switch {
+			case !rightChildIsNotEmpty:
+				n.encoding = encoding{
+					leftChild.Length + 1, leftChild.Path, new(big.Int).Set(leftChild.Bottom),
+				}
+			case !leftChildIsNotEmpty:
+				n.encoding = encoding{
+					rightChild.Length + 1,
+					rightChild.Path.Add(
+						rightChild.Path,
+						new(big.Int).Exp(
+							new(big.Int).SetUint64(2),
+							new(big.Int).SetUint64(uint64(rightChild.Length)), nil)),
+					new(big.Int).Set(rightChild.Bottom),
+				}
+			default:
+				n.encoding = encoding{
+					0, new(big.Int), pedersen.Digest(leftChild.Hash, rightChild.Hash),
+				}
+			}
+
+			// Compute its hash.
+			n.hash()
+
+			// Commit to the database.
+			t.commit(parent, n.bytes())
 		}
-	}
-}
-
-// newNodeAt creates a new parent node at the specified path. Note that
-// this should only be used to create parent nodes as nodes that contain
-// values are encoded differently.
-func (t *Trie) newNodeAt(path []byte) {
-	n := node{}
-	t.triplet(&n, path)
-	n.hash()
-	t.commit(path, n.bytes())
-}
-
-// triplet encodes a given (parent) node in the trie according to the
-// specification (see package documentation for more details).
-func (t *Trie) triplet(n *node, pre []byte) {
-	left, leftIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s0", pre)))
-	right, rightIsNotEmpty := t.retrive([]byte(fmt.Sprintf("%s1", pre)))
-
-	switch {
-	case !rightIsNotEmpty && !leftIsNotEmpty:
-		panic("attempted to encode an empty node")
-	case !rightIsNotEmpty:
-		n.encoding = encoding{left.Length + 1, left.Path, new(big.Int).Set(left.Bottom)}
-	case !leftIsNotEmpty:
-		n.encoding = encoding{
-			right.Length + 1,
-			right.Path.Add(
-				right.Path,
-				new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(right.Length)), nil),
-			),
-			new(big.Int).Set(right.Bottom),
-		}
-	default:
-		h, _ := pedersen.Digest(left.Hash, right.Hash)
-		n.encoding = encoding{0, new(big.Int), h}
 	}
 }
 
@@ -179,7 +168,7 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
-	node, ok := t.retrive(prefix(reversed(key, t.keyLen), t.keyLen))
+	node, ok := t.retrieve(prefix(reversed(key, t.keyLen), t.keyLen))
 	if !ok {
 		return nil, false
 	}
@@ -201,20 +190,15 @@ func (t *Trie) Put(key, val *big.Int) {
 	leaf := node{encoding: encoding{0, new(big.Int), val}}
 	leaf.hash()
 	t.commit(prefix(rev, t.keyLen), leaf.bytes())
-
 	t.diff(rev)
 }
 
 // Commitment returns the root hash of the trie. If the tree is empty,
 // this value is nil.
 func (t *Trie) Commitment() *big.Int {
-	root, ok := t.retrive([]byte("root"))
+	root, ok := t.retrieve([]byte{})
 	if !ok {
-		// notest
-		zero := new(big.Int).SetInt64(0)
-		emptyNode := node{encoding: encoding{0, new(big.Int), zero}}
-		emptyNode.hash()
-		return emptyNode.Hash
+		return new(big.Int)
 	}
 	return root.Hash
 }

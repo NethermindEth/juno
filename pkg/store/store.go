@@ -8,12 +8,9 @@ type Storer interface {
 	Delete(key []byte)
 	Get(key []byte) ([]byte, bool)
 	Put(key, val []byte)
-	Begin()
-	Rollback()
-	Close()
 }
 
-// Ephemeral defines a temporary key-value store.
+// Ephemeral defines an temporary key-value store.
 type Ephemeral struct {
 	// NOTE: Go does not support []byte keys so as a workaround, a string
 	// is used and the Struct's method will handle the conversion.
@@ -41,16 +38,4 @@ func (e Ephemeral) Get(key []byte) (item []byte, ok bool) {
 // Put commits a key-value pair to ephemeral storage.
 func (e Ephemeral) Put(key, val []byte) {
 	e.table[string(key)] = val
-}
-
-func (e Ephemeral) Begin() {
-
-}
-
-func (e Ephemeral) Rollback() {
-
-}
-
-func (e Ephemeral) Close() {
-
 }

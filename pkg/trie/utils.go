@@ -2,8 +2,8 @@ package trie
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
+	"strconv"
 )
 
 // prefix returns a byte representation of a binary key up to a given
@@ -11,7 +11,7 @@ import (
 func prefix(key *big.Int, height int) []byte {
 	var buf bytes.Buffer
 	for i := 0; i < height; i++ {
-		buf.WriteString(fmt.Sprintf("%d", key.Bit(i)))
+		buf.WriteString(strconv.FormatUint(uint64(key.Bit(i)), 10))
 	}
 	return buf.Bytes()
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 )
 
-// encoding represents the enccoding of a node in a binary tree
+// encoding represents the encoding of a node in a binary tree
 // represented by the triplet (length, path, bottom).
 type encoding struct {
 	Length uint8    `json:"length"`
@@ -33,6 +33,6 @@ func (n *node) hash() {
 		n.Hash = new(big.Int).Set(n.Bottom)
 		return
 	}
-	res, _ := pedersen.Digest(n.Bottom, n.Path)
-	n.Hash = res.Add(res, big.NewInt(int64(n.Length)))
+	h := pedersen.Digest(n.Bottom, n.Path)
+	n.Hash = h.Add(h, new(big.Int).SetUint64(uint64(n.Length)))
 }
