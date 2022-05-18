@@ -5,8 +5,7 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-
-	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
+	"time"
 )
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
@@ -57,13 +56,14 @@ func TestDigest(t *testing.T) {
 }
 
 func BenchmarkArrayDigest(b *testing.B) {
-	max := weierstrass.Stark().Params().P
-	data := make([]*big.Int, 20)
+	max := curve.Params().P
+	n := 20
+	data := make([]*big.Int, n)
 	for i := range data {
-		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(1)), max)
+		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(time.Now().Unix())), max)
 	}
 
-	b.Run("-", func(b *testing.B) {
+	b.Run(fmt.Sprintf("%v_random_felts", n), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			ArrayDigest(data...)
 		}
