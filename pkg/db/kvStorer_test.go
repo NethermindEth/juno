@@ -6,18 +6,16 @@ import (
 )
 
 // setupTransactionDbTest creates a new TransactionDb for Tests
-func setupTransactionDbTest(database db.Databaser) *db.TransactionDb {
+func setupKvStoreTest(database db.Databaser) *db.TransactionDb {
 	return db.NewTransactionDb(database.GetEnv())
 }
 
 // TestAddKeyToTransaction Check that a single value is stored after made commit
-func TestInsertKeyOnTransactionDbAndCommit(t *testing.T) {
+func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
 	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
-	dbTest := setupTransactionDbTest(dbKV)
+	dbTest := setupKvStoreTest(dbKV)
 
 	database := dbTest.Begin()
-
-	_ = database.GetEnv()
 
 	err := database.Put([]byte("key"), []byte("value"))
 
@@ -48,10 +46,9 @@ func TestInsertKeyOnTransactionDbAndCommit(t *testing.T) {
 }
 
 // TestInsertKeyOnTransactionDbAndRollback Check that a single is deleted after a rollback
-func TestInsertKeyOnTransactionDbAndRollback(t *testing.T) {
+func TestKvStoreInsertKeyOnTransactionDbAndRollback(t *testing.T) {
 	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
-	dbTest := setupTransactionDbTest(dbKV)
-
+	dbTest := setupKvStoreTest(dbKV)
 	database := dbTest.Begin()
 
 	numItems, _ := database.NumberOfItems()
@@ -88,20 +85,14 @@ func TestInsertKeyOnTransactionDbAndRollback(t *testing.T) {
 	database.Close()
 }
 
-// TestDeletionOnTransactionDb Check that a key is inserted and deleted properly
-func TestDeletionOnTransactionDb(t *testing.T) {
+// TestKvStoreDeletionOnTransactionDb Check that a key is inserted and deleted properly
+func TestKvStoreDeletionOnTransactionDb(t *testing.T) {
 	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
-	dbTest := setupTransactionDbTest(dbKV)
+	dbTest := setupKvStoreTest(dbKV)
 
 	database := dbTest.Begin()
 
-	err := database.Delete([]byte("not_key"))
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
-	err = database.Put([]byte("key"), []byte("value"))
+	err := database.Put([]byte("key"), []byte("value"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()
