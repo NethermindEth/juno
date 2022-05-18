@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 )
 
-// encoding represents the enccoding of a node in a binary tree
+// encoding represents the encoding of a node in a binary tree
 // represented by the triplet (length, path, bottom).
 type encoding struct {
 	Length uint8    `json:"length"`
