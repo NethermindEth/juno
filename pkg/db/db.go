@@ -119,7 +119,6 @@ func (d *KeyValueDb) Get(key []byte) ([]byte, error) {
 
 // Put inserts a key-value pair into the database.
 func (d *KeyValueDb) Put(key, value []byte) error {
-	//fmt.Printf("%s Put %d %d\n", d.path, len(key), len(key)*8)
 	err := d.env.Update(func(txn *mdbx.Txn) error {
 		dbi, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
