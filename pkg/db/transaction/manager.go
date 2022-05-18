@@ -37,10 +37,12 @@ func (m *Manager) PutTransaction(tx *Transaction) {
 	rawKey := tx.TxHash.Bytes()
 	rawData, err := tx.Marshal()
 	if err != nil {
+		// notest
 		log.Default.With("error", err).Panic("error marshalling Transaction")
 	}
 	err = m.database.Put(rawKey, rawData)
 	if err != nil {
+		// notest
 		log.Default.With("error", err).Panicf("database error")
 	}
 }
@@ -69,11 +71,13 @@ func (m *Manager) GetTransaction(key big.Int) *Transaction {
 	rawKey := key.Bytes()
 	rawData, err := m.database.Get(rawKey)
 	if err != nil {
+		// notest
 		log.Default.With("error", err).Panicf("database error")
 	}
 	tx := &Transaction{}
 	err = tx.Unmarshal(rawData)
 	if err != nil {
+		// notest
 		log.Default.With("error", err).Panicf("unmarshalling error")
 	}
 	return tx

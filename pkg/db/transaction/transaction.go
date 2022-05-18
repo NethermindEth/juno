@@ -57,10 +57,12 @@ type transactionContainer struct {
 // Transaction is not a DeployTransaction, then panics.
 func (tx *Transaction) AsDeploy() *DeployTransaction {
 	if tx.TxType != TxDeploy {
+		// notest
 		log.Default.Panicf("can't convert transaction of type %d to type %d", tx.TxType, TxDeploy)
 	}
 	fields, ok := tx.specificFields.(DeployFields)
 	if !ok {
+		// notest
 		log.Default.Panicf("TxType missmatch with the specificFields type")
 	}
 	return &DeployTransaction{
@@ -73,10 +75,12 @@ func (tx *Transaction) AsDeploy() *DeployTransaction {
 // If the Transaction is not an InvokeFunctionTransaction, then panics.
 func (tx *Transaction) AsInvokeFunction() *InvokeFunctionTransaction {
 	if tx.TxType != TxInvokeFunction {
+		// notest
 		log.Default.Panicf("can't convert transaction of type %d to type %d", tx.TxType, TxInvokeFunction)
 	}
 	fields, ok := tx.specificFields.(InvokeFunctionFields)
 	if !ok {
+		// notest
 		log.Default.Panicf("TxType missmatch with the specificFields type")
 	}
 	return &InvokeFunctionTransaction{
@@ -95,6 +99,7 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 	case TxDeploy:
 		fields, ok := tx.specificFields.(DeployFields)
 		if !ok {
+			// notest
 			return nil, fmt.Errorf("TxType is Deploy but not the fields")
 		}
 		rawFields, err := json.Marshal(&fields)
@@ -105,6 +110,7 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 	case TxInvokeFunction:
 		fields, ok := tx.specificFields.(InvokeFunctionFields)
 		if !ok {
+			// notest
 			return nil, fmt.Errorf("TxType is InvokeFunction but not the fields")
 		}
 		rawFields, err := json.Marshal(&fields)
@@ -113,6 +119,7 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 		}
 		container.SpecificFields = rawFields
 	default:
+		// notest
 		return nil, fmt.Errorf("unknown TxType")
 	}
 	return json.Marshal(container)
@@ -142,6 +149,7 @@ func (tx *Transaction) Unmarshal(data []byte) error {
 		}
 		tx.specificFields = fields
 	default:
+		// notest
 		return fmt.Errorf("unknown TxType")
 	}
 	tx.Common = container.Common
