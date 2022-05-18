@@ -149,6 +149,7 @@ func (d *KeyValueDb) Delete(key []byte) error {
 func (d *KeyValueDb) NumberOfItems() (uint64, error) {
 	stats, err := d.env.Stat()
 	if err != nil {
+		// notest
 		log.Default.With("Error", err).Info("Unable to get stats from env.")
 		return 0, err
 	}

@@ -94,7 +94,7 @@ var (
 )
 
 func TestManager_PutTransaction(t *testing.T) {
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	manager := NewManager(database)
 	for _, tx := range invokeTransactions {
 		manager.PutTransaction(tx.AsTransaction())
@@ -106,7 +106,7 @@ func TestManager_PutTransaction(t *testing.T) {
 }
 
 func TestManager_GetTransaction(t *testing.T) {
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	manager := NewManager(database)
 	// Insert all the transactions
 	for _, tx := range invokeTransactions {
