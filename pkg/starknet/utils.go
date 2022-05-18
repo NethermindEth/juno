@@ -69,29 +69,9 @@ func loadAbiOfContract(abiPath string) (abi.ABI, error) {
 func contractState(contractHash, storageRoot *big.Int) *big.Int {
 	// Is defined as:
 	// h(h(h(contract_hash, storage_root), 0), 0).
-	val, err := pedersen.Digest(contractHash, storageRoot)
-	if err != nil {
-		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
-			"Storage Commitment", storageRoot.String(),
-			"Function", "h(contract_hash, storage_root)").
-			Panic("Couldn't calculate the digest")
-	}
-	val, err = pedersen.Digest(val, big.NewInt(0))
-	if err != nil {
-		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
-			"Storage Commitment", storageRoot.String(),
-			"Function", "h(h(contract_hash, storage_root), 0)",
-			"First Hash", val.String()).
-			Panic("Couldn't calculate the digest")
-	}
-	val, err = pedersen.Digest(val, big.NewInt(0))
-	if err != nil {
-		log.Default.With("Error", err, "ContractInfo Hash", contractHash.String(),
-			"Storage Commitment", storageRoot.String(),
-			"Function", "h(h(h(contract_hash, storage_root), 0), 0)",
-			"Second Hash", val.String()).
-			Panic("Couldn't calculate the digest")
-	}
+	val := pedersen.Digest(contractHash, storageRoot)
+	val = pedersen.Digest(val, big.NewInt(0))
+	val = pedersen.Digest(val, big.NewInt(0))
 	return val
 }
 
