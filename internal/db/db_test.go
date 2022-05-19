@@ -1,7 +1,6 @@
-package db_test
+package db
 
 import (
-	"github.com/NethermindEth/juno/internal/db"
 	"strconv"
 	"testing"
 )
@@ -16,8 +15,8 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
-func setupDatabaseForTest(path string) *db.KeyValueDb {
-	return db.NewKeyValueDb(path, 0)
+func setupDatabaseForTest(path string) *KeyValueDb {
+	return NewKeyValueDb(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -214,13 +213,13 @@ func TestClose(t *testing.T) {
 }
 
 func TestKeyValueDbIsDatabaser(t *testing.T) {
-	a := new(db.KeyValueDb)
-	_ = db.Databaser(a)
+	a := new(KeyValueDb)
+	_ = Databaser(a)
 }
 
 func TestKeyValueDb_GetEnv(t *testing.T) {
 	database := setupDatabaseForTest(t.TempDir())
-	p := db.NewKeyValueDbWithEnv(database.GetEnv(), t.TempDir())
+	p := NewKeyValueDbWithEnv(database.GetEnv(), t.TempDir())
 	items, err := p.NumberOfItems()
 	if err != nil || items != 0 {
 		return
