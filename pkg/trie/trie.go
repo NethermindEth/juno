@@ -70,7 +70,7 @@ func New(store store.Storer, keyLen int) Trie {
 	return Trie{keyLen: keyLen, store: store}
 }
 
-// commit persits the given key-value pair in storage.
+// commit persists the given key-value pair in storage.
 func (t *Trie) commit(key, val []byte) {
 	if len(key) == 0 {
 		key = []byte("root")
@@ -88,7 +88,7 @@ func (t *Trie) remove(key []byte) {
 
 // retrieve gets a node from storage and returns true if the node was
 // found.
-func (t *Trie) retrive(key []byte) (node, bool) {
+func (t *Trie) retrieve(key []byte) (node, bool) {
 	if len(key) == 0 {
 		key = []byte("root")
 	}
@@ -112,8 +112,8 @@ func (t *Trie) diff(key *big.Int) {
 	for height := t.keyLen - 1; height >= 0; height-- {
 		parent := prefix(key, height)
 
-		leftChild, leftChildIsNotEmpty := t.retrive(append(parent, 48 /* "0" */))
-		rightChild, rightChildIsNotEmpty := t.retrive(append(parent, 49 /* "1" */))
+		leftChild, leftChildIsNotEmpty := t.retrieve(append(parent, 48 /* "0" */))
+		rightChild, rightChildIsNotEmpty := t.retrieve(append(parent, 49 /* "1" */))
 
 		if !leftChildIsNotEmpty && !rightChildIsNotEmpty {
 			t.remove(parent)
@@ -168,7 +168,7 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
-	node, ok := t.retrive(prefix(reversed(key, t.keyLen), t.keyLen))
+	node, ok := t.retrieve(prefix(reversed(key, t.keyLen), t.keyLen))
 	if !ok {
 		return nil, false
 	}
@@ -196,7 +196,7 @@ func (t *Trie) Put(key, val *big.Int) {
 // Commitment returns the root hash of the trie. If the tree is empty,
 // this value is nil.
 func (t *Trie) Commitment() *big.Int {
-	root, ok := t.retrive([]byte{})
+	root, ok := t.retrieve([]byte{})
 	if !ok {
 		return new(big.Int)
 	}
