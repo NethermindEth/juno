@@ -96,6 +96,7 @@ var (
 )
 
 func TestTransactionService_StoreTransaction(t *testing.T) {
+	defer resetTransactionService()
 	database := db.New(t.TempDir(), 0)
 	TransactionService.Setup(database)
 	err := TransactionService.Run()
@@ -113,6 +114,7 @@ func TestTransactionService_StoreTransaction(t *testing.T) {
 }
 
 func TestManager_GetTransaction(t *testing.T) {
+	defer resetTransactionService()
 	database := db.New(t.TempDir(), 0)
 	TransactionService.Setup(database)
 	err := TransactionService.Run()
@@ -142,8 +144,38 @@ func TestManager_GetTransaction(t *testing.T) {
 	TransactionService.Close(context.Background())
 }
 
+// TestTransactionService_Run tests call Run method if the service is already
+// running
+func TestTransactionService_Run(t *testing.T) {
+	defer resetTransactionService()
+	database := db.New(t.TempDir(), 0)
+	TransactionService.Setup(database)
+	err := TransactionService.Run()
+	if err != nil {
+		t.Errorf("error running the service: %s", err)
+	}
+	err = TransactionService.Run()
+	if err != nil {
+		t.Errorf("error running the service with service already running: %s", err)
+	}
+}
+
+// TestTransactionService_Close closes the service and closes again without
+// a second run, in both cases, an error should not occur.
+func TestTransactionService_Close(t *testing.T) {
+	defer resetTransactionService()
+	database := db.New(t.TempDir(), 0)
+	TransactionService.Setup(database)
+	err := TransactionService.Run()
+	if err != nil {
+		t.Errorf("error running the service: %s", err)
+	}
+	TransactionService.Close(context.Background())
+	TransactionService.Close(context.Background())
+}
+
 //
-//// Util functions
+//  Util functions
 //
 func fromHexString(s string) big.Int {
 	x, ok := new(big.Int).SetString(s, 16)
@@ -198,4 +230,8 @@ func compareBigIntArray(a, b []big.Int) bool {
 		}
 	}
 	return true
+}
+
+func resetTransactionService() {
+	TransactionService = transactionService{}
 }

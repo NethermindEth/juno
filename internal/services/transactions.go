@@ -41,6 +41,7 @@ func (s *transactionService) Run() error {
 	s.logger = log.Default.Named("Transaction Service")
 
 	if s.manager == nil {
+		// notest
 		database := db.New(config.DataDir+"/transaction", 0)
 		s.manager = transaction.NewManager(database)
 	}
@@ -73,6 +74,7 @@ func (s *transactionService) GetTransaction(transactionHash string) *transaction
 
 	key, ok := new(big.Int).SetString(transactionHash, 16)
 	if !ok {
+		// notest
 		log.Default.
 			With("transactionHash", transactionHash).
 			Panicf("error decoding transaction type into big.Int")
