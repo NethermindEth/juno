@@ -2,7 +2,7 @@ package state
 
 import (
 	"errors"
-	"github.com/NethermindEth/juno/pkg/db"
+	db2 "github.com/NethermindEth/juno/internal/db"
 )
 
 var (
@@ -15,11 +15,11 @@ var (
 // Manager is a database manager, with the objective of managing
 // the contract codes and contract storages databases.
 type Manager struct {
-	codeDatabase    db.Databaser
-	storageDatabase db.BlockSpecificDatabase
+	codeDatabase    db2.Databaser
+	storageDatabase db2.BlockSpecificDatabase
 }
 
 // NewStateManager returns a new instance of Manager with the given database sources.
-func NewStateManager(codeDatabase db.Databaser, storageDatabase db.BlockSpecificDatabase) *Manager {
+func NewStateManager(codeDatabase db2.Databaser, storageDatabase db2.BlockSpecificDatabase) *Manager {
 	return &Manager{codeDatabase, storageDatabase}
 }

@@ -1,18 +1,18 @@
 package db_test
 
 import (
-	"github.com/NethermindEth/juno/pkg/db"
+	db2 "github.com/NethermindEth/juno/internal/db"
 	"testing"
 )
 
 // setupTransactionDbTest creates a new TransactionDb for Tests
-func setupKvStoreTest(database db.Databaser) db.KeyValueStore {
-	return db.NewKeyValueStore(database, "test")
+func setupKvStoreTest(database db2.Databaser) db2.KeyValueStore {
+	return db2.NewKeyValueStore(database, "test")
 }
 
 // TestAddKeyToTransaction Check that a single value is stored after made commit
 func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
-	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
+	dbKV := db2.NewKeyValueDb(t.TempDir(), 0)
 	database := setupKvStoreTest(dbKV)
 	database.Begin()
 

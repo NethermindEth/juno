@@ -3,7 +3,7 @@ package abi
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/internal/db"
 	"testing"
 )
 

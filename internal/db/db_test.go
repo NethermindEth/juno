@@ -1,7 +1,7 @@
 package db_test
 
 import (
-	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/internal/db"
 	"strconv"
 	"testing"
 )

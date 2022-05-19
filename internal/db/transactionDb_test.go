@@ -1,18 +1,18 @@
 package db_test
 
 import (
-	"github.com/NethermindEth/juno/pkg/db"
+	db2 "github.com/NethermindEth/juno/internal/db"
 	"testing"
 )
 
 // setupTransactionDbTest creates a new TransactionDb for Tests
-func setupTransactionDbTest(database db.Databaser) *db.TransactionDb {
-	return db.NewTransactionDb(database.GetEnv())
+func setupTransactionDbTest(database db2.Databaser) *db2.TransactionDb {
+	return db2.NewTransactionDb(database.GetEnv())
 }
 
 // TestAddKeyToTransaction Check that a single value is stored after made commit
 func TestInsertKeyOnTransactionDbAndCommit(t *testing.T) {
-	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
+	dbKV := db2.NewKeyValueDb(t.TempDir(), 0)
 	dbTest := setupTransactionDbTest(dbKV)
 
 	database := dbTest.Begin()
@@ -49,7 +49,7 @@ func TestInsertKeyOnTransactionDbAndCommit(t *testing.T) {
 
 // TestInsertKeyOnTransactionDbAndRollback Check that a single is deleted after a rollback
 func TestInsertKeyOnTransactionDbAndRollback(t *testing.T) {
-	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
+	dbKV := db2.NewKeyValueDb(t.TempDir(), 0)
 	dbTest := setupTransactionDbTest(dbKV)
 
 	database := dbTest.Begin()
@@ -90,7 +90,7 @@ func TestInsertKeyOnTransactionDbAndRollback(t *testing.T) {
 
 // TestDeletionOnTransactionDb Check that a key is inserted and deleted properly
 func TestDeletionOnTransactionDb(t *testing.T) {
-	dbKV := db.NewKeyValueDb(t.TempDir(), 0)
+	dbKV := db2.NewKeyValueDb(t.TempDir(), 0)
 	dbTest := setupTransactionDbTest(dbKV)
 
 	database := dbTest.Begin()
