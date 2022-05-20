@@ -18,7 +18,7 @@ type abiService struct {
 
 // Setup sets the service configuration, service must be not running.
 func (s *abiService) Setup(database db.Databaser) {
-	if !s.service.Running() {
+	if s.service.Running() {
 		s.logger.Panic("try to Setup with serv")
 	}
 	s.manager = abi.NewABIManager(database)
