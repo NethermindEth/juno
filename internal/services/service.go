@@ -25,7 +25,8 @@ type service struct {
 // like updating the running state and writing the logs.
 func (s *service) Run() error {
 	// Check if the service is already started
-	if s.running {
+	if s.Running() {
+		// notest
 		s.logger.Warn("service is already running")
 		return nil
 	}
@@ -39,7 +40,8 @@ func (s *service) Run() error {
 // process.
 func (s *service) Close(_ context.Context) {
 	// Check if the service is already running
-	if !s.running {
+	if !s.Running() {
+		// notest
 		s.logger.Warn("service is not running")
 		return
 	}
