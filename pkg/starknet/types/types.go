@@ -1,19 +1,18 @@
-package starknet
+package types
 
 import (
 	"encoding/json"
-	base "github.com/NethermindEth/juno/pkg/common"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
 
 const (
-	latestBlockSynced                        = "latestBlockSynced"
-	latestFactSaved                          = "latestFactSaved"
-	latestFactSynced                         = "latestFactSynced"
-	blockOfStarknetDeploymentContractMainnet = 13627000
-	blockOfStarknetDeploymentContractGoerli  = 5853000
+	LatestBlockSynced                        = "latestBlockSynced"
+	LatestFactSaved                          = "latestFactSaved"
+	LatestFactSynced                         = "latestFactSynced"
+	BlockOfStarknetDeploymentContractMainnet = 13627000
+	BlockOfStarknetDeploymentContractGoerli  = 5853000
 	MaxChunk                                 = 10000
 )
 
@@ -23,7 +22,7 @@ type KV struct {
 	Value string `json:"Value"`
 }
 
-// DeployedContract represent the contracts that have been deployed in this block
+// DeployedContract represent the contracts that have been deployed in this Block
 // and the information stored on-chain
 type DeployedContract struct {
 	Address             string     `json:"address"`
@@ -40,17 +39,17 @@ type StateDiff struct {
 
 // ContractInfo represent the info associated to one contract
 type ContractInfo struct {
-	contract  abi.ABI
-	eventName string
-	address   common.Address
+	Contract  abi.ABI
+	EventName string
+	Address   common.Address
 }
 
-// eventInfo represent the information retrieved from events that comes from L1
-type eventInfo struct {
-	block           uint64
-	address         common.Address
-	event           map[string]interface{}
-	transactionHash common.Hash
+// EventInfo represent the information retrieved from events that comes from L1
+type EventInfo struct {
+	Block           uint64
+	Address         common.Address
+	Event           map[string]interface{}
+	TransactionHash common.Hash
 }
 
 type Fact struct {
@@ -63,7 +62,7 @@ func (f Fact) Marshal() ([]byte, error) {
 	return json.Marshal(f)
 }
 
-func (f Fact) UnMarshal(bytes []byte) (base.IValue, error) {
+func (f Fact) UnMarshal(bytes []byte) (IValue, error) {
 	var val Fact
 	err := json.Unmarshal(bytes, &val)
 	if err != nil {
@@ -73,30 +72,30 @@ func (f Fact) UnMarshal(bytes []byte) (base.IValue, error) {
 }
 
 type TransactionHash struct {
-	hash common.Hash
+	Hash common.Hash
 }
 
 func (t TransactionHash) Marshal() ([]byte, error) {
-	return t.hash.Bytes(), nil
+	return t.Hash.Bytes(), nil
 }
 
-func (t TransactionHash) UnMarshal(bytes []byte) (base.IValue, error) {
+func (t TransactionHash) UnMarshal(bytes []byte) (IValue, error) {
 	return TransactionHash{
-		hash: common.BytesToHash(bytes),
+		Hash: common.BytesToHash(bytes),
 	}, nil
 }
 
 type PagesHash struct {
-	bytes [][32]byte
+	Bytes [][32]byte
 }
 
 func (p PagesHash) Marshal() ([]byte, error) {
-	return json.Marshal(p.bytes)
+	return json.Marshal(p.Bytes)
 }
 
-func (p PagesHash) UnMarshal(bytes []byte) (base.IValue, error) {
+func (p PagesHash) UnMarshal(bytes []byte) (IValue, error) {
 	var val PagesHash
-	err := json.Unmarshal(bytes, &val.bytes)
+	err := json.Unmarshal(bytes, &val.Bytes)
 	if err != nil {
 		return nil, err
 	}

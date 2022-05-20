@@ -1,4 +1,4 @@
-package common
+package types
 
 import (
 	"github.com/NethermindEth/juno/pkg/db"
@@ -32,10 +32,12 @@ func NewDictionary(database db.Databaser, prefix string) *Dictionary {
 func (dict *Dictionary) Add(key string, value IValue) {
 	v, err := value.Marshal()
 	if err != nil {
+		// notest
 		return
 	}
 	err = dict.database.Put(append(dict.prefix, []byte(key)...), v)
 	if err != nil {
+		// notest
 		return
 	}
 }
@@ -44,6 +46,7 @@ func (dict *Dictionary) Add(key string, value IValue) {
 func (dict *Dictionary) Remove(key string) bool {
 	err := dict.database.Delete(append(dict.prefix, []byte(key)...))
 	if err != nil {
+		// notest
 		return false
 	}
 	return true
@@ -53,6 +56,7 @@ func (dict *Dictionary) Remove(key string) bool {
 func (dict *Dictionary) Exist(key string) bool {
 	has, err := dict.database.Has(append(dict.prefix, []byte(key)...))
 	if err != nil {
+		// notest
 		return false
 	}
 	return has

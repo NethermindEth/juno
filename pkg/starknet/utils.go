@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,15 +38,15 @@ func storeContractHash(contractHash string, value *big.Int) {
 }
 
 // loadContractInfo loads a contract ABI and set the events' thar later we are going yo use
-func loadContractInfo(contractAddress, abiPath, logName string, contracts map[common.Address]ContractInfo) error {
+func loadContractInfo(contractAddress, abiPath, logName string, contracts map[common.Address]starknetTypes.ContractInfo) error {
 	contractAddressHash := common.HexToAddress(contractAddress)
 	contractFromAbi, err := loadAbiOfContract(abiPath)
 	if err != nil {
 		return err
 	}
-	contracts[contractAddressHash] = ContractInfo{
-		contract:  contractFromAbi,
-		eventName: logName,
+	contracts[contractAddressHash] = starknetTypes.ContractInfo{
+		Contract:  contractFromAbi,
+		EventName: logName,
 	}
 	return nil
 }
@@ -92,12 +93,12 @@ func remove0x(s string) string {
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
-func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) StateDiff {
-	var stateDiff StateDiff
-	stateDiff.DeployedContracts = make([]DeployedContract, 0)
-	stateDiff.StorageDiffs = make(map[string][]KV)
+func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) starknetTypes.StateDiff {
+	var stateDiff starknetTypes.StateDiff
+	stateDiff.DeployedContracts = make([]starknetTypes.DeployedContract, 0)
+	stateDiff.StorageDiffs = make(map[string][]starknetTypes.KV)
 	for _, v := range update.StateDiff.DeployedContracts {
-		deployedContract := DeployedContract{
+		deployedContract := starknetTypes.DeployedContract{
 			Address:      v.Address,
 			ContractHash: v.ContractHash,
 		}
@@ -105,9 +106,9 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) StateDiff
 	}
 	for addressDiff, keyVals := range update.StateDiff.StorageDiffs {
 		address := addressDiff
-		kvs := make([]KV, 0)
+		kvs := make([]starknetTypes.KV, 0)
 		for _, kv := range keyVals {
-			kvs = append(kvs, KV{
+			kvs = append(kvs, starknetTypes.KV{
 				Key:   kv.Key,
 				Value: kv.Value,
 			})
@@ -149,41 +150,20 @@ func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
 		return 0
 	}
 	if id.Int64() == 1 {
-		return blockOfStarknetDeploymentContractMainnet
+		return starknetTypes.BlockOfStarknetDeploymentContractMainnet
 	}
-	return blockOfStarknetDeploymentContractGoerli
+	return starknetTypes.BlockOfStarknetDeploymentContractGoerli
 }
 
 // latestBlockQueried fetch from the database the Value associated to the latest block that have been queried while
 // updating the state. Otherwise, it returns 0
 func latestBlockQueried(database db.Databaser) (int64, error) {
-	blockNumber, err := database.Get([]byte(latestBlockSynced))
-	if err != nil {
-		return 0, err
-	}
-	if blockNumber == nil {
-		return 0, nil
-	}
-	var ret uint64
-	buf := bytes.NewBuffer(blockNumber)
-	err = binary.Read(buf, binary.BigEndian, &ret)
-	if err != nil {
-		return 0, err
-	}
-	return int64(ret), nil
+	return getNumericValueFromDB(database, starknetTypes.LatestBlockSynced)
 }
 
 // updateLatestBlockQueried store locally the latest block queried used for state processing
 func updateLatestBlockQueried(database db.Databaser, block int64) error {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(block+1))
-	err := database.Put([]byte(latestBlockSynced), b)
-	if err != nil {
-		log.Default.With("Block", block, "Key", latestBlockSynced).
-			Info("Couldn't store the latest synced block")
-		return err
-	}
-	return nil
+	return updateNumericValueFromDB(database, starknetTypes.LatestBlockSynced, block)
 }
 
 func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {

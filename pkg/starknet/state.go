@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	base "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,11 +27,11 @@ type Synchronizer struct {
 	feederGatewayClient    *feeder.Client
 	database               db.Databaser
 	transactioner          db.Transactioner
-	MemoryPageHash         *base.Dictionary
-	GpsVerifier            *base.Dictionary
+	MemoryPageHash         *starknetTypes.Dictionary
+	GpsVerifier            *starknetTypes.Dictionary
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
-	facts                  *base.Dictionary
+	facts                  *starknetTypes.Dictionary
 }
 
 // NewSynchronizer creates a new Synchronizer
@@ -45,9 +45,9 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
 		database:            txnDb,
-		MemoryPageHash:      base.NewDictionary(txnDb, "memory_pages"),
-		GpsVerifier:         base.NewDictionary(txnDb, "gps_verifier"),
-		facts:               base.NewDictionary(txnDb, "facts"),
+		MemoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
+		GpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
+		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
 		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
 	}
 }
@@ -55,10 +55,10 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	//if config.Runtime.Starknet.FastSync {
-	//	s.apiSync()
-	//	return nil
-	//}
+	if config.Runtime.Starknet.FastSync {
+		s.apiSync()
+		return nil
+	}
 
 	err := s.l1Sync()
 	if err != nil {
@@ -67,13 +67,13 @@ func (s *Synchronizer) UpdateState() error {
 	return nil
 }
 
-func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eventChan chan eventInfo) error {
+func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.ContractInfo, eventChan chan starknetTypes.EventInfo) error {
 	addresses := make([]common.Address, 0)
 
 	topics := make([]common.Hash, 0)
 	for k, v := range contracts {
 		addresses = append(addresses, k)
-		topics = append(topics, crypto.Keccak256Hash([]byte(v.contract.Events[v.eventName].Sig)))
+		topics = append(topics, crypto.Keccak256Hash([]byte(v.Contract.Events[v.EventName].Sig)))
 	}
 	latestBlockNumber, err := s.ethereumClient.BlockNumber(context.Background())
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eve
 	}
 
 	initialBlock := initialBlockForStarknetContract(s.ethereumClient)
-	increment := uint64(MaxChunk)
+	increment := uint64(starknetTypes.MaxChunk)
 	i := uint64(initialBlock)
 	for i < latestBlockNumber {
 		log.Default.With("From Block", i, "To Block", i+increment).Info("Fetching logs....")
@@ -101,20 +101,20 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eve
 		}
 		log.Default.With("Count", len(starknetLogs)).Info("Logs fetched")
 		for _, vLog := range starknetLogs {
-			log.Default.With("Log Fetched", contracts[vLog.Address].eventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
+			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
 				"TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
 			event := map[string]interface{}{}
 
-			err = contracts[vLog.Address].contract.UnpackIntoMap(event, contracts[vLog.Address].eventName, vLog.Data)
+			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
 			if err != nil {
 				log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
 				continue
 			}
-			eventChan <- eventInfo{
-				block:           vLog.BlockNumber,
-				event:           event,
-				address:         contracts[vLog.Address].address,
-				transactionHash: vLog.TxHash,
+			eventChan <- starknetTypes.EventInfo{
+				Block:           vLog.BlockNumber,
+				Event:           event,
+				Address:         contracts[vLog.Address].Address,
+				TransactionHash: vLog.TxHash,
 			}
 		}
 		i += increment
@@ -134,20 +134,20 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]ContractInfo, eve
 		case err := <-sub.Err():
 			log.Default.With("Error", err).Info("Error getting the latest logs")
 		case vLog := <-hLog:
-			log.Default.With("Log Fetched", contracts[vLog.Address].eventName, "BlockHash", vLog.BlockHash.Hex(),
+			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(),
 				"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).
 				Info("Event Fetched")
 			event := map[string]interface{}{}
-			err = contracts[vLog.Address].contract.UnpackIntoMap(event, contracts[vLog.Address].eventName, vLog.Data)
+			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
 			if err != nil {
 				log.Default.With("Error", err).Info("Couldn't get event from log")
 				continue
 			}
-			eventChan <- eventInfo{
-				block:           vLog.BlockNumber,
-				event:           event,
-				address:         contracts[vLog.Address].address,
-				transactionHash: vLog.TxHash,
+			eventChan <- starknetTypes.EventInfo{
+				Block:           vLog.BlockNumber,
+				Event:           event,
+				Address:         contracts[vLog.Address].Address,
+				TransactionHash: vLog.TxHash,
 			}
 		}
 	}
@@ -170,8 +170,8 @@ func (s *Synchronizer) l1Sync() error {
 		log.Default.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
 		return err
 	}
-	event := make(chan eventInfo)
-	contracts := make(map[common.Address]ContractInfo)
+	event := make(chan starknetTypes.EventInfo)
+	contracts := make(map[common.Address]starknetTypes.ContractInfo)
 
 	// Add Starknet contract
 	err = loadContractInfo(contractAddresses.Starknet,
@@ -222,7 +222,7 @@ func (s *Synchronizer) l1Sync() error {
 
 		for {
 			<-ticker.C
-			factSynced, err := getNumericValueFromDB(s.database, latestFactSynced)
+			factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
 			if err != nil {
 				log.Default.With("Error", err).
 					Info("Unable to get the Value of the latest fact synced")
@@ -231,15 +231,15 @@ func (s *Synchronizer) l1Sync() error {
 			if !s.facts.Exist(strconv.FormatInt(factSynced, 10)) {
 				continue
 			}
-			f := Fact{}
+			f := starknetTypes.Fact{}
 			fact, err := s.facts.Get(strconv.FormatInt(factSynced, 10), f)
 
-			if s.GpsVerifier.Exist(fact.(Fact).Value) {
+			if s.GpsVerifier.Exist(fact.(starknetTypes.Fact).Value) {
 				// If already exist the information related to the fact,
 				// fetch the memory pages and updated the State
-				s.processMemoryPages(fact.(Fact).Value, fact.(Fact).StateRoot, fact.(Fact).BlockNumber)
+				s.processMemoryPages(fact.(starknetTypes.Fact).Value, fact.(starknetTypes.Fact).StateRoot, fact.(starknetTypes.Fact).BlockNumber)
 				s.facts.Remove(strconv.FormatInt(factSynced, 10))
-				err = updateNumericValueFromDB(s.database, latestFactSynced, factSynced)
+				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
 				if err != nil {
 					return
 				}
@@ -254,25 +254,25 @@ func (s *Synchronizer) l1Sync() error {
 				return fmt.Errorf("couldn't read event from logs")
 			}
 			// Process GpsStatementVerifier contract
-			factHash, ok := l.event["factHash"]
-			pagesHashes, ok1 := l.event["pagesHashes"]
+			factHash, ok := l.Event["factHash"]
+			pagesHashes, ok1 := l.Event["pagesHashes"]
 
 			if ok && ok1 {
 				b := make([]byte, 0)
 				for _, v := range factHash.([32]byte) {
 					b = append(b, v)
 				}
-				value := PagesHash{bytes: pagesHashes.([][32]byte)}
+				value := starknetTypes.PagesHash{Bytes: pagesHashes.([][32]byte)}
 				s.GpsVerifier.Add(common.BytesToHash(b).Hex(), value)
 			}
 			// Process MemoryPageFactRegistry contract
-			if memoryHash, ok := l.event["memoryHash"]; ok {
+			if memoryHash, ok := l.Event["memoryHash"]; ok {
 				key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
-				value := TransactionHash{hash: l.transactionHash}
+				value := starknetTypes.TransactionHash{Hash: l.TransactionHash}
 				s.MemoryPageHash.Add(key, value)
 			}
 			// Process Starknet logs
-			if fact, ok := l.event["stateTransitionFact"]; ok {
+			if fact, ok := l.Event["stateTransitionFact"]; ok {
 
 				b := make([]byte, 0)
 				for _, v := range fact.([32]byte) {
@@ -281,20 +281,20 @@ func (s *Synchronizer) l1Sync() error {
 				abi, _ := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
 				starknetAddress := common.HexToAddress(contractAddresses.Starknet)
 
-				factSaved, err := getNumericValueFromDB(s.database, latestFactSaved)
+				factSaved, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSaved)
 				if err != nil {
 					log.Default.With("Error", err).
 						Info("Unable to get the Value of the latest fact synced")
 					return err
 				}
 
-				fullFact := getFactInfo(s.ethereumClient, ContractInfo{contract: abi, eventName: "LogStateUpdate",
-					address: starknetAddress}, l.block, common.BytesToHash(b).Hex(), factSaved)
+				fullFact := getFactInfo(s.ethereumClient, starknetTypes.ContractInfo{Contract: abi, EventName: "LogStateUpdate",
+					Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
 
 				// Safe Fact for block x
 				s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
 
-				err = updateNumericValueFromDB(s.database, latestFactSaved, factSaved)
+				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 				if err != nil {
 					log.Default.With("Error", err).
 						Info("Unable to set the Value of the latest block synced")
@@ -307,12 +307,12 @@ func (s *Synchronizer) l1Sync() error {
 	}
 }
 
-func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact string, latestBlockSynced int64) Fact {
+func getFactInfo(client *ethclient.Client, info starknetTypes.ContractInfo, block uint64, fact string, latestBlockSynced int64) starknetTypes.Fact {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(int64(block)),
 		ToBlock:   big.NewInt(int64(block)),
-		Addresses: []common.Address{info.address},
-		Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(info.contract.Events["LogStateUpdate"].Sig))}},
+		Addresses: []common.Address{info.Address},
+		Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(info.Contract.Events["LogStateUpdate"].Sig))}},
 	}
 
 	starknetLogs, err := client.FilterLogs(context.Background(), query)
@@ -325,12 +325,12 @@ func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact
 			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
 		event := map[string]interface{}{}
 
-		err = info.contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
+		err = info.Contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
 			log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
-			return Fact{}
+			return starknetTypes.Fact{}
 		}
-		factVal := Fact{
+		factVal := starknetTypes.Fact{
 			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
 			BlockNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
 			Value:       fact,
@@ -341,7 +341,7 @@ func getFactInfo(client *ethclient.Client, info ContractInfo, block uint64, fact
 
 	}
 	log.Default.Panic("Couldn't find a block number that match in the logs for given fact")
-	return Fact{}
+	return starknetTypes.Fact{}
 }
 
 // Close closes the client for the Layer 1 Ethereum node
@@ -410,7 +410,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	return blockIterator + 1, update.BlockHash
 }
 
-func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockNumber string) error {
+func (s *Synchronizer) updateState(update starknetTypes.StateDiff, stateRoot, blockNumber string) error {
 	log.Default.With("Block Number", blockNumber).Info("Processing block")
 
 	txn := s.transactioner.Begin()
@@ -430,6 +430,8 @@ func (s *Synchronizer) updateState(update StateDiff, stateRoot, blockNumber stri
 			log.Default.With("Address", deployedContract.Address).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
+		log.Default.With("ContractHash", contractHash.Text(16), "StorageRoot", storageRoot.Text(16)).
+			Info("ContracState")
 		contractStateValue := contractState(contractHash, storageRoot)
 		stateTrie.Put(address, contractStateValue)
 	}
@@ -484,7 +486,7 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 	pages := make([][]*big.Int, 0)
 
 	// Get memory pages hashes using fact
-	valInterface := PagesHash{}
+	valInterface := starknetTypes.PagesHash{}
 	memoryPages, err := s.GpsVerifier.Get(fact, valInterface)
 	if err != nil {
 		return
@@ -498,7 +500,7 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 	}
 
 	// iterate over each memory page
-	for _, v := range memoryPages.(PagesHash).bytes {
+	for _, v := range memoryPages.(starknetTypes.PagesHash).Bytes {
 		h := make([]byte, 0)
 
 		for _, s := range v {
@@ -506,13 +508,13 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 		}
 		// Get transactionsHash based on the memory page
 		hash := common.BytesToHash(h)
-		valInter := TransactionHash{}
+		valInter := starknetTypes.TransactionHash{}
 		transactionHash, err := s.MemoryPageHash.Get(hash.Hex(), &valInter)
 		if err != nil {
 			return
 		}
 		log.Default.With("Hash", hash.Hex()).Info("Getting transaction...")
-		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(TransactionHash).hash)
+		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(starknetTypes.TransactionHash).Hash)
 		if err != nil {
 			log.Default.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")
@@ -542,7 +544,7 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 	s.parsePages(pages, stateRoot, blockNumber)
 }
 
-func (s *Synchronizer) updateAbiAndCode(update StateDiff, blockHash, blockNumber string) {
+func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
 	for _, v := range update.DeployedContracts {
 		code, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
 		if err != nil {
@@ -596,7 +598,7 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber str
 	// Get the number of contracts deployed in this block
 	deployedContractsInfoLen := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
-	deployedContracts := make([]DeployedContract, 0)
+	deployedContracts := make([]starknetTypes.DeployedContract, 0)
 
 	// Get the info of the deployed contracts
 	deployedContractsData := pagesFlatter[:deployedContractsInfoLen]
@@ -623,7 +625,7 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber str
 		}
 
 		// Store deployed ContractInfo information
-		deployedContracts = append(deployedContracts, DeployedContract{
+		deployedContracts = append(deployedContracts, starknetTypes.DeployedContract{
 			Address:             address,
 			ContractHash:        contractHash,
 			ConstructorCallData: constructorArguments,
@@ -635,7 +637,7 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber str
 	numContractsUpdate := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
 
-	storageDiffs := make(map[string][]KV, 0)
+	storageDiffs := make(map[string][]starknetTypes.KV, 0)
 
 	// Iterate over all the contracts that had been updated and collect the needed information
 	for i := int64(0); i < numContractsUpdate; i++ {
@@ -647,9 +649,9 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber str
 		numStorageUpdates := pagesFlatter[0].Int64()
 		pagesFlatter = pagesFlatter[1:]
 
-		kvs := make([]KV, 0)
+		kvs := make([]starknetTypes.KV, 0)
 		for k := int64(0); k < numStorageUpdates; k++ {
-			kvs = append(kvs, KV{
+			kvs = append(kvs, starknetTypes.KV{
 				Key:   common.Bytes2Hex(pagesFlatter[0].Bytes()),
 				Value: common.Bytes2Hex(pagesFlatter[1].Bytes()),
 			})
@@ -658,7 +660,7 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber str
 		storageDiffs[address] = kvs
 	}
 
-	state := StateDiff{
+	state := starknetTypes.StateDiff{
 		DeployedContracts: deployedContracts,
 		StorageDiffs:      storageDiffs,
 	}
