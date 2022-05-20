@@ -90,12 +90,32 @@ func TestArrayDigest(t *testing.T) {
 			},
 			want: "3b4649f0914d7a85ae0bae94c33125bcbbe6a8a60091466b5d15b0c3d77c53e",
 		},
+		// Contract address computation (https://docs.starknet.io/docs/Contracts/contract-address/)
+		// The data below comes from the following command:
+		// `starknet get_transaction --hash 0x1b50380d45ebd70876518203f131a12428b2ac1a3a75f1a74241a4abdd614e8 --network=alpha-goerli`
+		{
+			input: []string{
+				// big-endian hex representation of `STARKNET_CONTRACT_ADDRESS`
+				"535441524b4e45545f434f4e54524143545f41444452455353",
+				// caller_address (always zero in current starknet version)
+				"0",
+				// salt
+				"5bebda1b28ba6daa824126577b9fbc984033e8b18360f5e1ef694cb172c7aa5",
+				// contract_hash
+				// see `starknet get_block --blockHash <hash> --network=alpha-goerli` where `<hash>` is from get_transaction output
+				"0439218681f9108b470d2379cf589ef47e60dc5888ee49ec70071671d74ca9c6",
+				// calldata_hash (empty calldata for this contract, hash is defined to be h(0, 0))
+				// see https://docs.starknet.io/docs/Hashing/hash-functions/#array-hashing
+				Digest(new(big.Int), new(big.Int)).Text(16),
+			},
+			// contract_address
+			want: "43c6817e70b3fd99a4f120790b2e82c6843df62b573fdadf9e2d677b60ac5eb",
+		},
 	}
 	for _, test := range tests {
-		data := []*big.Int{}
-		for _, item := range test.input {
-			v, _ := new(big.Int).SetString(item, 16)
-			data = append(data, v)
+		data := make([]*big.Int, len(test.input))
+		for i, item := range test.input {
+			data[i], _ = new(big.Int).SetString(item, 16)
 		}
 		want, _ := new(big.Int).SetString(test.want, 16)
 		got := ArrayDigest(data...)
