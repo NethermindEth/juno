@@ -3,9 +3,9 @@ package services
 import (
 	"context"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/db"
-	"github.com/NethermindEth/juno/pkg/db/transaction"
 	"go.uber.org/zap"
 	"math/big"
 	"sync"
@@ -42,7 +42,7 @@ func (s *transactionService) Run() error {
 
 	if s.manager == nil {
 		// notest
-		database := db.New(config.DataDir+"/transaction", 0)
+		database := db.NewKeyValueDb(config.DataDir+"/transaction", 0)
 		s.manager = transaction.NewManager(database)
 	}
 

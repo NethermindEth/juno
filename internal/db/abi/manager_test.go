@@ -3,7 +3,7 @@ package abi
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/internal/db"
 	"testing"
 )
 
@@ -41,7 +41,7 @@ type testManagerPutABI struct {
 
 func TestManager(t *testing.T) {
 	// Init the ABI manager
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	manager := NewABIManager(database)
 	// Load ABI test files
 	abis, err := loadABIsFromFiles()
@@ -76,7 +76,7 @@ func TestManager(t *testing.T) {
 
 func TestManager_GetABI_NotFound(t *testing.T) {
 	// Init the ABI manager
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	manager := NewABIManager(database)
 	abi := manager.GetABI("1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac")
 	if abi != nil {
