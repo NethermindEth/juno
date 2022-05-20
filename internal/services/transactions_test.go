@@ -130,34 +130,18 @@ func TestManager_GetTransaction(t *testing.T) {
 	}
 	// Get all the transactions and compare
 	for _, tx := range invokeTransactions {
-		outTx := TransactionService.GetTransaction(tx.TxHash.Text(16))
+		outTx := TransactionService.GetTransaction(tx.TxHash)
 		if !compareTransaction(tx.AsTransaction(), outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
 		}
 	}
 	for _, tx := range deployTransactions {
-		outTx := TransactionService.GetTransaction(tx.TxHash.Text(16))
+		outTx := TransactionService.GetTransaction(tx.TxHash)
 		if !compareTransaction(tx.AsTransaction(), outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
 		}
 	}
 	TransactionService.Close(context.Background())
-}
-
-// TestTransactionService_Run tests call Run method if the service is already
-// running
-func TestTransactionService_Run(t *testing.T) {
-	defer resetTransactionService()
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	TransactionService.Setup(database)
-	err := TransactionService.Run()
-	if err != nil {
-		t.Errorf("error running the service: %s", err)
-	}
-	err = TransactionService.Run()
-	if err != nil {
-		t.Errorf("error running the service with service already running: %s", err)
-	}
 }
 
 // TestTransactionService_Close closes the service and closes again without

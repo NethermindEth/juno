@@ -27,8 +27,7 @@ func (s *service) Run() error {
 	// Check if the service is already started
 	if s.Running() {
 		// notest
-		s.logger.Warn("service is already running")
-		return nil
+		s.logger.Panic("service is already running")
 	}
 	s.running = true
 	s.logger.Info("Service started")

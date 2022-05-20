@@ -9,7 +9,10 @@ import (
 	"math/big"
 )
 
-// AbiService is the service to store and put the contracts ABI.
+// AbiService is the service to store and put the contracts ABI. Before
+// using the service, it must be configured with the Setup method;
+// otherwise, the value will be the default. To stop the service, call the
+// Close method.
 var AbiService abiService
 
 type abiService struct {
@@ -21,19 +24,23 @@ type abiService struct {
 func (s *abiService) Setup(database db.Databaser) {
 	if s.service.Running() {
 		// notest
-		s.logger.Panic("try to Setup with serv")
+		s.logger.Panic("trying to Setup with service running")
 	}
 	s.manager = abi.NewABIManager(database)
 }
 
 // Run starts the service.
 func (s *abiService) Run() error {
-	s.logger = log.Default.Named("AbiService")
-	s.setDefaults()
+	if s.logger == nil {
+		s.logger = log.Default.Named("AbiService")
+	}
+
 	if err := s.service.Run(); err != nil {
 		// notest
-		return nil
+		return err
 	}
+
+	s.setDefaults()
 	return nil
 }
 
@@ -48,8 +55,8 @@ func (s *abiService) setDefaults() {
 
 // Close closes the service.
 func (s *abiService) Close(ctx context.Context) {
-	s.manager.Close()
 	s.service.Close(ctx)
+	s.manager.Close()
 }
 
 // StoreAbi stores an ABI in the database. If the key (contractAddress) already
@@ -57,6 +64,10 @@ func (s *abiService) Close(ctx context.Context) {
 func (s *abiService) StoreAbi(contractAddress big.Int, abi *abi.Abi) {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Info("StoreAbi")
 
 	s.manager.PutABI(contractAddress, abi)
 }
@@ -66,6 +77,10 @@ func (s *abiService) StoreAbi(contractAddress big.Int, abi *abi.Abi) {
 func (s *abiService) GetAbi(contractAddress big.Int) *abi.Abi {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Info("GetAbi")
 
 	return s.manager.GetABI(contractAddress)
 }
