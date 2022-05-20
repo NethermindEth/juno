@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/pkg/db"
-	"github.com/NethermindEth/juno/pkg/db/transaction"
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	"math/big"
 	"testing"
 )
@@ -97,7 +97,7 @@ var (
 
 func TestTransactionService_StoreTransaction(t *testing.T) {
 	defer resetTransactionService()
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
@@ -115,7 +115,7 @@ func TestTransactionService_StoreTransaction(t *testing.T) {
 
 func TestManager_GetTransaction(t *testing.T) {
 	defer resetTransactionService()
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
@@ -148,7 +148,7 @@ func TestManager_GetTransaction(t *testing.T) {
 // running
 func TestTransactionService_Run(t *testing.T) {
 	defer resetTransactionService()
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
@@ -164,7 +164,7 @@ func TestTransactionService_Run(t *testing.T) {
 // a second run, in both cases, an error should not occur.
 func TestTransactionService_Close(t *testing.T) {
 	defer resetTransactionService()
-	database := db.New(t.TempDir(), 0)
+	database := db.NewKeyValueDb(t.TempDir(), 0)
 	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {

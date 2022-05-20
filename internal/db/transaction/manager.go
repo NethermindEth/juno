@@ -1,8 +1,8 @@
 package transaction
 
 import (
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/db"
 	"math/big"
 )
 
