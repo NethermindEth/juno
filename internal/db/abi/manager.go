@@ -66,3 +66,8 @@ func (m *Manager) PutABI(contractAddress big.Int, abi *Abi) {
 		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
 }
+
+// Close closes the associated database
+func (m *Manager) Close() {
+	m.database.Close()
+}
