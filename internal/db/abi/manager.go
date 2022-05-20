@@ -9,10 +9,9 @@ import (
 )
 
 var (
-	DbError                = errors.New("database error")
-	UnmarshalError         = errors.New("unmarshal error")
-	MarshalError           = errors.New("marshal error")
-	InvalidContractAddress = errors.New("invalid contract address")
+	DbError        = errors.New("database error")
+	UnmarshalError = errors.New("unmarshal error")
+	MarshalError   = errors.New("marshal error")
 )
 
 // Manager is a database to store and get the contracts ABI.
@@ -29,9 +28,9 @@ func NewABIManager(database db.Databaser) *Manager {
 // must be a hexadecimal string without the 0x prefix, if the contract address encoding
 // is invalid then an InvalidContractAddress error is returned. If the ABI does
 // not exist, then returns nil without error.
-func (m *Manager) GetABI(contractAddress string) *Abi {
+func (m *Manager) GetABI(contractAddress big.Int) *Abi {
 	// Build the key from contract address
-	key := buildKey(contractAddress)
+	key := contractAddress.Bytes()
 	// Query to database
 	data, err := m.database.Get(key)
 	if err != nil {
@@ -53,9 +52,9 @@ func (m *Manager) GetABI(contractAddress string) *Abi {
 // PutABI puts the ABI to the contract address. The contract address must be a
 // hexadecimal string without the 0x prefix, if the contract address is invalid
 // then an InvalidContractAddress error is returned.
-func (m *Manager) PutABI(contractAddress string, abi *Abi) {
+func (m *Manager) PutABI(contractAddress big.Int, abi *Abi) {
 	// Build the key from contract address
-	key := buildKey(contractAddress)
+	key := contractAddress.Bytes()
 	value, err := json.Marshal(abi)
 	if err != nil {
 		// notest
@@ -66,12 +65,4 @@ func (m *Manager) PutABI(contractAddress string, abi *Abi) {
 		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
-}
-
-func buildKey(contractAddress string) []byte {
-	address, ok := new(big.Int).SetString(contractAddress, 16)
-	if !ok {
-		panic(fmt.Errorf("%w: %s", InvalidContractAddress, contractAddress))
-	}
-	return address.Bytes()
 }
