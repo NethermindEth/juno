@@ -1,6 +1,9 @@
 package block
 
-import "github.com/NethermindEth/juno/pkg/db"
+import (
+	"github.com/NethermindEth/juno/pkg/db"
+	"math/big"
+)
 
 // Manager is a Block database manager to save and search the blocks.
 type Manager struct {
@@ -14,16 +17,13 @@ func NewManager(databaser db.Databaser) *Manager {
 
 // GetBlock search the block with the given block hash. If the block does not
 // exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlock(hash BlockHashKey) *BlockValue {
-	key, err := hash.Marshal()
+func (manager *Manager) GetBlock(blockHash big.Int) *BlockData {
+	rawKeys := blockHash.Bytes()
+	rawResult, err := manager.database.Get(rawKeys)
 	if err != nil {
 		panic(any(err))
 	}
-	rawResult, err := manager.database.Get(key)
-	if err != nil {
-		panic(any(err))
-	}
-	var block BlockValue
+	var block BlockData
 	err = block.Unmarshal(rawResult)
 	if err != nil {
 		panic(any(err))
@@ -33,16 +33,13 @@ func (manager *Manager) GetBlock(hash BlockHashKey) *BlockValue {
 
 // PutBlock saves the given block with the given hash as key. If any error happens
 // then panic.
-func (manager *Manager) PutBlock(hash BlockHashKey, block BlockValue) {
-	key, err := hash.Marshal()
-	if err != nil {
-		panic(any(err))
-	}
+func (manager *Manager) PutBlock(blockHash big.Int, block BlockData) {
+	rawKey := blockHash.Bytes()
 	rawValue, err := block.Marshal()
 	if err != nil {
 		panic(any(err))
 	}
-	err = manager.database.Put(key, rawValue)
+	err = manager.database.Put(rawKey, rawValue)
 	if err != nil {
 		panic(any(err))
 	}
