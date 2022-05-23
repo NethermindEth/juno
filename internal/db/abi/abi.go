@@ -1,5 +1,7 @@
 package abi
 
+// notest
+
 func (x *Abi) Equal(y *Abi) bool {
 	if x == y {
 		return true
