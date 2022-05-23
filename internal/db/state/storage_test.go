@@ -82,4 +82,5 @@ func TestManager_Storage(t *testing.T) {
 			}
 		}
 	}
+	manager.Close()
 }

@@ -34,4 +34,5 @@ func TestManager_Code(t *testing.T) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}
 	}
+	manager.Close()
 }

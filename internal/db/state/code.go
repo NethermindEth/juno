@@ -7,13 +7,16 @@ import (
 
 func (x *Code) Equal(y *Code) bool {
 	if x == y {
+		// notest
 		return true
 	}
 	if len(x.Code) != len(y.Code) {
+		// notest
 		return false
 	}
 	for i, inst := range y.Code {
 		if inst != y.Code[i] {
+			// notest
 			return false
 		}
 	}

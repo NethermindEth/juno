@@ -35,6 +35,7 @@ func (m *Manager) GetABI(contractAddress string) *Abi {
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
 	if data == nil {
+		// notest
 		return nil
 	}
 	// Unmarshal the data from database

@@ -6,6 +6,7 @@ import (
 )
 
 func (s *Storage) Update(other *Storage) {
+	// notest
 	for key, value := range other.Storage {
 		s.Storage[key] = value
 	}
