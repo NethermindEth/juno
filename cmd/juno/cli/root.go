@@ -33,8 +33,6 @@ var (
 		Short: "Starknet client implementation in Go.",
 		Long:  longMsg,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(longMsg)
-
 			handler := process.NewHandler()
 
 			// Handle signal interrupts and exits.
@@ -66,6 +64,7 @@ var (
 
 // init defines flags and handles configuration.
 func init() {
+	fmt.Println(longMsg)
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
 
