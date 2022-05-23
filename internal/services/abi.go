@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/log"
-	"math/big"
 )
 
 // AbiService is the service to store and put the contracts ABI. Before
@@ -22,7 +21,7 @@ type abiService struct {
 
 // Setup sets the service configuration, service must be not running.
 func (s *abiService) Setup(database db.Databaser) {
-	if s.service.Running() {
+	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
@@ -61,7 +60,7 @@ func (s *abiService) Close(ctx context.Context) {
 
 // StoreAbi stores an ABI in the database. If the key (contractAddress) already
 // exists then the value is overwritten for the given ABI.
-func (s *abiService) StoreAbi(contractAddress big.Int, abi *abi.Abi) {
+func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
 
@@ -74,7 +73,7 @@ func (s *abiService) StoreAbi(contractAddress big.Int, abi *abi.Abi) {
 
 // GetAbi search in the database for the ABI associated with the given contract
 // address.
-func (s *abiService) GetAbi(contractAddress big.Int) *abi.Abi {
+func (s *abiService) GetAbi(contractAddress string) *abi.Abi {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
 

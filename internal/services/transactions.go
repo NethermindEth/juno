@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
-	"math/big"
 )
 
 // TransactionService is a service to manage the transaction database. Before
@@ -64,7 +63,7 @@ func (s *transactionService) Close(ctx context.Context) {
 // GetTransaction searches for the transaction associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetTransaction(transactionHash big.Int) *transaction.Transaction {
+func (s *transactionService) GetTransaction(transactionHash string) *transaction.Transaction {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -78,7 +77,7 @@ func (s *transactionService) GetTransaction(transactionHash big.Int) *transactio
 // StoreTransaction stores the given transaction into the database. The key used
 // to map the transaction it's the hash of the transaction. If the database
 // already has a transaction with the same key, then the value is overwritten.
-func (s *transactionService) StoreTransaction(tx *transaction.Transaction) {
+func (s *transactionService) StoreTransaction(key string, tx *transaction.Transaction) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -86,5 +85,5 @@ func (s *transactionService) StoreTransaction(tx *transaction.Transaction) {
 		With("transactionHash").
 		Debug("StoreTransaction")
 
-	s.manager.PutTransaction(tx)
+	s.manager.PutTransaction(key, tx)
 }

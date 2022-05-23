@@ -1,80 +1,186 @@
 package abi
 
-import (
-	"embed"
-	"encoding/json"
-	"testing"
-)
-
-//go:embed test_assets/*
-var testAssets embed.FS
-
-func loadABIPaths() ([]string, error) {
-	items, err := testAssets.ReadDir("test_assets")
-	if err != nil {
-		return nil, err
-	}
-	var paths []string
-	for _, item := range items {
-		if !item.IsDir() {
-			paths = append(paths, "test_assets/"+item.Name())
-		}
-	}
-	return paths, nil
-}
-
-func TestUnmarshalJSON(t *testing.T) {
-	paths, err := loadABIPaths()
-	if err != nil {
-		t.Error(err)
-	}
-	var tests []struct {
-		Data []byte
-		Err  bool
-	}
-	// Generate tests with ABI files
-	for _, p := range paths {
-		rawData, err := testAssets.ReadFile(p)
-		if err != nil {
-			t.Error(err)
-		}
-		var testItem struct {
-			Contract string
-			Abi      json.RawMessage
-		}
-		if err := json.Unmarshal(rawData, &testItem); err != nil {
-			t.Error(err)
-		}
-		tests = append(tests, struct {
-			Data []byte
-			Err  bool
-		}{
-			Data: testItem.Abi,
-			Err:  false,
-		})
-	}
-	// Add test with the empty ABI
-	tests = append(tests, []struct {
-		Data []byte
-		Err  bool
-	}{
-		{
-			Data: []byte("[]"),
-			Err:  false,
+var abis = map[string]Abi{
+	"1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac": {
+		Functions: []*Function{
+			{
+				Name: "initialize",
+				Inputs: []*Function_Input{
+					{
+						Name: "signer",
+						Type: "felt",
+					},
+					{
+						Name: "guardian",
+						Type: "felt",
+					},
+				},
+				Outputs: nil,
+			},
+			{
+				Name: "__execute__",
+				Inputs: []*Function_Input{
+					{
+						Name: "call_array_len",
+						Type: "felt",
+					},
+					{
+						Name: "call_array",
+						Type: "felt",
+					},
+					{
+						Name: "calldata_len",
+						Type: "felt",
+					},
+					{
+						Name: "calldata",
+						Type: "felt*",
+					},
+					{
+						Name: "nonce",
+						Type: "felt",
+					},
+				},
+				Outputs: []*Function_Output{
+					{
+						Name: "retdata_size",
+						Type: "felt",
+					},
+					{
+						Name: "retdata",
+						Type: "felt*",
+					},
+				},
+			},
+			{
+				Name: "upgrade",
+				Inputs: []*Function_Input{
+					{
+						Name: "implementation",
+						Type: "felt",
+					},
+				},
+				Outputs: nil,
+			},
 		},
-		{
-			Data: []byte("[{\"type\":\"invalidType\"}]"),
-			Err:  true,
+		Events: []*Event{
+			{
+				Data: []*Event_Data{
+					{
+						Name: "new_signer",
+						Type: "felt",
+					},
+				},
+				Keys: nil,
+				Name: "signer_changed",
+			},
+			{
+				Data: []*Event_Data{
+					{
+						Name: "new_guardian",
+						Type: "felt",
+					},
+				},
+				Keys: nil,
+				Name: "guardian_changed",
+			},
+			{
+				Data: []*Event_Data{
+					{
+						Name: "new_guardian",
+						Type: "felt",
+					},
+				},
+				Keys: nil,
+				Name: "guardian_backup_changed",
+			},
+			{
+				Data: []*Event_Data{
+					{
+						Name: "active_at",
+						Type: "felt",
+					},
+				},
+				Keys: nil,
+				Name: "escape_guardian_triggered",
+			},
+			{
+				Data: []*Event_Data{
+					{
+						Name: "active_at",
+						Type: "felt",
+					},
+				},
+				Keys: nil,
+				Name: "escape_signer_triggered",
+			},
+			{
+				Data: nil,
+				Keys: nil,
+				Name: "escape_canceled",
+			},
 		},
-	}...)
-	for _, test := range tests {
-		abi := new(Abi)
-		err := json.Unmarshal(test.Data, abi)
-		if err != nil && !test.Err {
-			t.Errorf("unexpected error: %s", err.Error())
-		}
-		if err == nil && test.Err {
-			t.Error("expected error")
-		}
-	}
+		Structs: []*Struct{
+			{
+				Fields: []*Struct_Field{
+					{
+						Name:   "to",
+						Type:   "felt",
+						Offset: 0,
+					},
+					{
+						Name:   "selector",
+						Type:   "felt",
+						Offset: 1,
+					},
+					{
+						Name:   "data_offset",
+						Type:   "felt",
+						Offset: 2,
+					},
+					{
+						Name:   "data_len",
+						Type:   "felt",
+						Offset: 3,
+					},
+				},
+				Name: "CallArray",
+				Size: 4,
+			},
+		},
+		L1Handlers: []*Function{
+			{
+				Name: "__l1_default__",
+				Inputs: []*Function_Input{
+					{
+						Name: "selector",
+						Type: "felt",
+					},
+					{
+						Name: "calldata_size",
+						Type: "felt",
+					},
+					{
+						Name: "calldata",
+						Type: "felt*",
+					},
+				},
+				Outputs: nil,
+			},
+		},
+		Constructor: &Function{
+			Name: "constructor",
+			Inputs: []*Function_Input{
+				{
+					Name: "signer",
+					Type: "felt",
+				},
+				{
+					Name: "guardian",
+					Type: "felt",
+				},
+			},
+			Outputs: nil,
+		},
+	},
 }

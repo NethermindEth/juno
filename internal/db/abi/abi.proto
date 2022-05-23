@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option go_package = "github.com/NethermindEth/juno/internal/abi";
+
+message Abi {
+  repeated Function functions = 1;
+  repeated Event events = 2;
+  repeated Struct structs = 3;
+  repeated Function l1Handlers = 4;
+  Function constructor = 5;
+}
+
+message Function {
+  message Input {
+    string name = 1;
+    string type = 2;
+  }
+  message Output {
+    string name = 1;
+    string type = 2;
+  }
+  string name = 1;
+  repeated Input inputs = 2;
+  repeated Output outputs = 3;
+}
+
+message Event {
+  message Data {
+    string name = 1;
+    string type = 2;
+  }
+  string name = 1;
+  repeated Data data = 2;
+  repeated string keys = 3;
+}
+
+message Struct {
+  message Field {
+    string name = 1;
+    string type = 2;
+    uint32 offset = 3;
+  }
+  repeated Field fields = 1;
+  string name = 2;
+  uint64 size = 3;
+}
