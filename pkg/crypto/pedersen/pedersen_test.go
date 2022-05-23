@@ -111,6 +111,24 @@ func TestArrayDigest(t *testing.T) {
 			// contract_address
 			want: "43c6817e70b3fd99a4f120790b2e82c6843df62b573fdadf9e2d677b60ac5eb",
 		},
+		// Transaction hash calculation
+		// This was the first deploy transaction on alpha-mainnet (index 0 in block 0)
+		// see https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75
+		{
+			input: []string{
+				// Big-endian hex representation of `deploy`
+				"6465706c6f79",
+				// contract_address
+				"20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+				// keccak.Digest250([]byte("constructor")) (big-endian hex representation)
+				"28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+				// calldata_hash (big-endian hex representation)
+				"7885ba4f628b6cdcd0b5e6282d2a1b17fe7cd4dd536230c5db3eac890528b4d",
+				// chain_id (big-endian hex representation of `SN_MAIN`)
+				"534e5f4d41494e",
+			},
+			want: "e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
+		},
 	}
 	for _, test := range tests {
 		data := make([]*big.Int, len(test.input))
