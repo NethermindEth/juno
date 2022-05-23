@@ -193,7 +193,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 
 // GetCode creates a new request to get the code of the contract
 // address.
-func (c Client) GetCode(contractAddress, blockHash, blockNumber string) ([]string, error) {
+func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (CodeInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -203,13 +203,13 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) ([]strin
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
+		return CodeInfo{}, err
 	}
-	var res []string
+	var res CodeInfo
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return nil, err
+		return CodeInfo{}, err
 	}
 	return res, err
 }
@@ -239,7 +239,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 }
 
 // GetStorageAt creates a new request to get contract storage.
-func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string) (string, error) {
+func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string) (StorageInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -252,13 +252,13 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 		blockIdentifier, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return "", err
+		return StorageInfo{}, err
 	}
-	var res string
+	var res StorageInfo
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return "", err
+		return StorageInfo{}, err
 	}
 	return res, err
 }

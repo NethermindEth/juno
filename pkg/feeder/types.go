@@ -100,9 +100,9 @@ type TxnSpecificInfo struct {
 type L1ToL2Message struct {
 	FromAddress string   `json:"from_address"`
 	ToAddress   string   `json:"to_address"`
-	Selector    int64    `json:"selector"`
+	Selector    string   `json:"selector"`
 	Payload     []string `json:"payload"`
-	Nonce       int64    `json:"nonce"`
+	Nonce       string   `json:"nonce"`
 }
 
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
@@ -115,9 +115,9 @@ type L2ToL1Message struct {
 // Event Represents a StarkNet event; contains all the fields that will
 // be included in the block hash.
 type Event struct {
-	FromAddress string  `json:"from_address"`
-	Keys        []int64 `json:"keys"`
-	Data        []int64 `json:"data"`
+	FromAddress string   `json:"from_address"`
+	Keys        []string `json:"keys"`
+	Data        []string `json:"data"`
 }
 
 // ExecutionResources Indicates how many steps the program should run,
@@ -158,6 +158,25 @@ type StarknetBlock struct {
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
+}
+
+//struct to store Storage info
+type StorageInfo struct {
+	Storage string `json:"storage"`
+}
+
+//ABI input struct
+type Input struct {
+	Name    string  `json:"name"`
+	Type    string  `json:"type"`
+	Outputs []Input `json:"outputs"`
+	Inputs  []Input `json:"inputs"`
+}
+
+//struct for code type
+type CodeInfo struct {
+	Bytecode []string `json:"bytecode"`
+	ABI      []Input  `json:"abi"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.
