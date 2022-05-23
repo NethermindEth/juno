@@ -1,5 +1,7 @@
 package transaction
 
+// notest
+
 func (x *Transaction) Equal(y *Transaction) bool {
 	if x == y {
 		return true

@@ -17,6 +17,7 @@ type stateService struct {
 
 func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
+		// notest
 		s.logger.Panic("service is already running")
 	}
 	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
@@ -38,6 +39,7 @@ func (s *stateService) Run() error {
 
 func (s *stateService) setDefaults() {
 	if s.manager == nil {
+		// notest
 		codeDatabase := db.NewKeyValueDb(config.DataDir+"/code", 0)
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
 		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
@@ -103,6 +105,7 @@ func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64,
 
 	oldStorage := s.GetStorage(contractAddress, blockNumber)
 	if oldStorage == nil {
+		// notest
 		s.StoreStorage(contractAddress, blockNumber, storage)
 	} else {
 		oldStorage.Update(storage)
