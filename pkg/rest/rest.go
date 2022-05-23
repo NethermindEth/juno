@@ -22,6 +22,7 @@ import (
 // 	json.NewEncoder(w).Encode(sb)
 // }
 
+//cannot unmarshal array into Go struct field StarknetBlock.transactions of type feeder.TxnSpecificInfo
 func getBlock(w http.ResponseWriter, r *http.Request) {
 
 	var (
@@ -99,8 +100,8 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		sb := string(strings.Join(res, ""))
-		json.NewEncoder(w).Encode(sb)
+		//sb := string(strings.Join(res, ""))
+		json.NewEncoder(w).Encode(res)
 		return
 	}
 
@@ -116,8 +117,8 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Fprintf(w, res)
-	//json.NewEncoder(w).Encode(res)
+	//fmt.Fprintf(w, res)
+	json.NewEncoder(w).Encode(res)
 }
 
 //works
@@ -157,7 +158,7 @@ func main() {
 	//get_block endpoint
 	router.HandleFunc("/get_block", getBlock).Methods("GET")
 	//get_code endpoint
-	router.HandleFunc("/juno/get_code", getCode).Methods("GET")
+	router.HandleFunc("/get_code", getCode).Methods("GET")
 	//get_storage endpoint
 	router.HandleFunc("/get_storage_at", getStorageAt).Methods("GET")
 	//get_transaction endpoint
