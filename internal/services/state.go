@@ -15,7 +15,7 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase db.BlockSpecificDatabase) {
+func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
 		s.logger.Panic("service is already running")
 	}
@@ -40,7 +40,7 @@ func (s *stateService) setDefaults() {
 	if s.manager == nil {
 		codeDatabase := db.NewKeyValueDb(config.DataDir+"/code", 0)
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
-		s.manager = state.NewStateManager(codeDatabase, *storageDatabase)
+		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
 	}
 }
 
