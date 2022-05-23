@@ -31,7 +31,7 @@ func TestManager_Storage(t *testing.T) {
 	}
 	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
 	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	manager := NewStateManager(codeDatabase, *storageDatabase)
+	manager := NewStateManager(codeDatabase, storageDatabase)
 	for _, data := range initialData {
 		manager.PutStorage(data.Contract, data.BlockNumber, &data.Storage)
 	}

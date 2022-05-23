@@ -26,7 +26,7 @@ var codes = []struct {
 func TestManager_Code(t *testing.T) {
 	codeDatabase := db2.NewKeyValueDb(t.TempDir(), 0)
 	storageDatabase := db2.NewBlockSpecificDatabase(db2.NewKeyValueDb(t.TempDir(), 0))
-	manager := NewStateManager(codeDatabase, *storageDatabase)
+	manager := NewStateManager(codeDatabase, storageDatabase)
 	for _, code := range codes {
 		manager.PutCode(code.Address, code.Code)
 		obtainedCode := manager.GetCode(code.Address)
