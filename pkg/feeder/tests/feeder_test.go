@@ -119,7 +119,7 @@ func TestGetStateUpdate(t *testing.T) {
 func TestGetCode(t *testing.T) {
 	body := "[\"one\",\"two\",\"three\"]\n"
 	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig []string
+	var cOrig feeder.CodeInfo
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
 		t.Fatal()
@@ -149,7 +149,7 @@ func TestGetFullContract(t *testing.T) {
 func TestGetStorageAt(t *testing.T) {
 	body := "\"hash\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig string
+	var cOrig feeder.StorageInfo
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
 		t.Fatal()
