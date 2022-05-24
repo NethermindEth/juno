@@ -138,16 +138,14 @@ func (curve *CurveParams) Add(
 
 	m := DivMod(yDelta, xDelta, curve.P)
 
-	xm := new(big.Int).Mul(m, m)
-
-	x = new(big.Int).Sub(xm, x1)
-	x = x.Sub(x, x2)
-	x = x.Mod(x, curve.P)
+	x = new(big.Int).Sub(new(big.Int).Mul(m, m), x1)
+	x.Sub(x, x2)
+	x.Mod(x, curve.P)
 
 	y = new(big.Int).Sub(x1, x)
-	y = y.Mul(m, y)
-	y = y.Sub(y, y1)
-	y = y.Mod(y, curve.P)
+	y.Mul(m, y)
+	y.Sub(y, y1)
+	y.Mod(y, curve.P)
 
 	return x, y
 }
@@ -156,7 +154,7 @@ func DivMod(n, m, p *big.Int) *big.Int {
 	q := new(big.Int)
 	gx := new(big.Int)
 	gy := new(big.Int)
-	q = q.GCD(gx, gy, m, p)
+	q.GCD(gx, gy, m, p)
 
 	r := new(big.Int).Mul(n, gx)
 	r = r.Mod(r, p)
