@@ -6,6 +6,7 @@ require (
 	github.com/bxcodec/faker v2.0.1+incompatible
 	github.com/ethereum/go-ethereum v1.10.17
 	github.com/goccy/go-json v0.9.5
+	github.com/gorilla/mux v1.8.0
 	github.com/iancoleman/strcase v0.2.0
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
