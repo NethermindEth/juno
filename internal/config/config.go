@@ -19,11 +19,18 @@ type rpcConfig struct {
 	Port    int  `yaml:"port" mapstructure:"port"`
 }
 
+// restConfig represents the juno REST configuration.
+type restConfig struct {
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	Port    int  `yaml:"port" mapstructure:"port"`
+}
+
 // Config represents the juno configuration.
 type Config struct {
-	RPC     rpcConfig `yaml:"rpc" mapstructure:"rpc"`
-	DbPath  string    `yaml:"db_path" mapstructure:"db_path"`
-	Network string    `yaml:"starknet_network" mapstructure:"starknet_network"`
+	RPC     rpcConfig  `yaml:"rpc" mapstructure:"rpc"`
+	REST    restConfig `yaml:"rest" mapstructure:"rest"`
+	DbPath  string     `yaml:"db_path" mapstructure:"db_path"`
+	Network string     `yaml:"starknet_network" mapstructure:"starknet_network"`
 }
 
 var (
@@ -83,6 +90,7 @@ func New() {
 	}
 	data, err := yaml.Marshal(&Config{
 		RPC:     rpcConfig{Enabled: false, Port: 8080},
+		REST:    restConfig{Enabled: false, Port: 8070},
 		DbPath:  Dir,
 		Network: goerli,
 	})
