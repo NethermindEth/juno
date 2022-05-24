@@ -63,7 +63,7 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 		return nil
 	}
 	const pageSize = 4096
-	err = env.SetGeometry(268435456, 268435456, 25769803776, 268435456, 268435456, pageSize)
+	err = env.SetGeometry(268435456, 268435456, 1025769803776, 268435456, 268435456, pageSize)
 	if err != nil {
 		// notest
 		return nil

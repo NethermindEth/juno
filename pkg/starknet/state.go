@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,8 +28,8 @@ type Synchronizer struct {
 	feederGatewayClient    *feeder.Client
 	database               db.Databaser
 	transactioner          db.Transactioner
-	MemoryPageHash         *starknetTypes.Dictionary
-	GpsVerifier            *starknetTypes.Dictionary
+	memoryPageHash         *starknetTypes.Dictionary
+	gpsVerifier            *starknetTypes.Dictionary
 	latestMemoryPageBlock  int64
 	latestGpsVerifierBlock int64
 	facts                  *starknetTypes.Dictionary
@@ -45,8 +46,8 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
 		database:            txnDb,
-		MemoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
-		GpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
+		memoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
+		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
 		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
 	}
@@ -55,7 +56,7 @@ func NewSynchronizer(txnDb db.Databaser) *Synchronizer {
 // UpdateState keeps updated the Starknet State in a process
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
-	if config.Runtime.Starknet.FastSync {
+	if config.Runtime.Starknet.ApiSync {
 		s.apiSync()
 		return nil
 	}
@@ -175,11 +176,10 @@ func (s *Synchronizer) l1Sync() error {
 
 	// Add Starknet contract
 	err = loadContractInfo(contractAddresses.Starknet,
-		config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath,
+		abi.StarknetAbi,
 		"LogStateTransitionFact", contracts)
 	if err != nil {
-		log.Default.With("Address", contractAddresses.Starknet,
-			"Value Path", config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath).
+		log.Default.With("Address", contractAddresses.Starknet).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -187,22 +187,20 @@ func (s *Synchronizer) l1Sync() error {
 	// Add Gps Statement Verifier contract
 	gpsAddress := getGpsVerifierContractAddress(s.ethereumClient)
 	err = loadContractInfo(gpsAddress,
-		config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath,
+		abi.GpsVerifierAbi,
 		"LogMemoryPagesHashes", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress,
-			"Value Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
+		log.Default.With("Address", gpsAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
 	// Add Memory Page Fact Registry contract
 	memoryPagesContractAddress := getMemoryPagesContractAddress(s.ethereumClient)
 	err = loadContractInfo(memoryPagesContractAddress,
-		config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath,
+		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress,
-			"Value Path", config.Runtime.Starknet.ContractAbiPathConfig.GpsVerifierAbiPath).
+		log.Default.With("Address", gpsAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -234,7 +232,7 @@ func (s *Synchronizer) l1Sync() error {
 			f := starknetTypes.Fact{}
 			fact, err := s.facts.Get(strconv.FormatInt(factSynced, 10), f)
 
-			if s.GpsVerifier.Exist(fact.(starknetTypes.Fact).Value) {
+			if s.gpsVerifier.Exist(fact.(starknetTypes.Fact).Value) {
 				// If already exist the information related to the fact,
 				// fetch the memory pages and updated the State
 				s.processMemoryPages(fact.(starknetTypes.Fact).Value, fact.(starknetTypes.Fact).StateRoot, fact.(starknetTypes.Fact).BlockNumber)
@@ -263,13 +261,13 @@ func (s *Synchronizer) l1Sync() error {
 					b = append(b, v)
 				}
 				value := starknetTypes.PagesHash{Bytes: pagesHashes.([][32]byte)}
-				s.GpsVerifier.Add(common.BytesToHash(b).Hex(), value)
+				s.gpsVerifier.Add(common.BytesToHash(b).Hex(), value)
 			}
 			// Process MemoryPageFactRegistry contract
 			if memoryHash, ok := l.Event["memoryHash"]; ok {
 				key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
 				value := starknetTypes.TransactionHash{Hash: l.TransactionHash}
-				s.MemoryPageHash.Add(key, value)
+				s.memoryPageHash.Add(key, value)
 			}
 			// Process Starknet logs
 			if fact, ok := l.Event["stateTransitionFact"]; ok {
@@ -278,7 +276,7 @@ func (s *Synchronizer) l1Sync() error {
 				for _, v := range fact.([32]byte) {
 					b = append(b, v)
 				}
-				abi, _ := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.StarknetAbiPath)
+				abiOfContract, _ := loadAbiOfContract(abi.StarknetAbi)
 				starknetAddress := common.HexToAddress(contractAddresses.Starknet)
 
 				factSaved, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSaved)
@@ -288,7 +286,7 @@ func (s *Synchronizer) l1Sync() error {
 					return err
 				}
 
-				fullFact := getFactInfo(s.ethereumClient, starknetTypes.ContractInfo{Contract: abi, EventName: "LogStateUpdate",
+				fullFact := getFactInfo(s.ethereumClient, starknetTypes.ContractInfo{Contract: abiOfContract, EventName: "LogStateUpdate",
 					Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
 
 				// Safe Fact for block x
@@ -430,8 +428,6 @@ func (s *Synchronizer) updateState(update starknetTypes.StateDiff, stateRoot, bl
 			log.Default.With("Address", deployedContract.Address).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		log.Default.With("ContractHash", contractHash.Text(16), "StorageRoot", storageRoot.Text(16)).
-			Info("ContracState")
 		contractStateValue := contractState(contractHash, storageRoot)
 		stateTrie.Put(address, contractStateValue)
 	}
@@ -487,14 +483,14 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 
 	// Get memory pages hashes using fact
 	valInterface := starknetTypes.PagesHash{}
-	memoryPages, err := s.GpsVerifier.Get(fact, valInterface)
+	memoryPages, err := s.gpsVerifier.Get(fact, valInterface)
 	if err != nil {
 		return
 	}
 	if err != nil {
 		return
 	}
-	memoryContract, err := loadAbiOfContract(config.Runtime.Starknet.ContractAbiPathConfig.MemoryPageAbiPath)
+	memoryContract, err := loadAbiOfContract(abi.MemoryPagesAbi)
 	if err != nil {
 		return
 	}
@@ -509,7 +505,7 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 		// Get transactionsHash based on the memory page
 		hash := common.BytesToHash(h)
 		valInter := starknetTypes.TransactionHash{}
-		transactionHash, err := s.MemoryPageHash.Get(hash.Hex(), &valInter)
+		transactionHash, err := s.memoryPageHash.Get(hash.Hex(), &valInter)
 		if err != nil {
 			return
 		}

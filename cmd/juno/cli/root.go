@@ -51,6 +51,11 @@ var (
 				os.Exit(0)
 			}()
 
+			// Breaking initial cases
+			if config.Runtime.Ethereum.Node == "" || config.Runtime.Starknet.FeederGateway == "" {
+				log.Default.Panic("Ethereum client needed")
+			}
+
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
@@ -112,7 +117,7 @@ func initConfig() {
 		// Use the default path for user configuration.
 		viper.AddConfigPath(config.Dir)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName("juno")
+		viper.SetConfigName("juno1")
 	}
 
 	// Check whether the environment variables match any of the existing

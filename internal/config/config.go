@@ -21,23 +21,14 @@ type rpcConfig struct {
 
 // ethereumConfig represents the juno Ethereum configuration.
 type ethereumConfig struct {
-	Enabled bool   `yaml:"enabled" mapstructure:"enabled"`
-	Node    string `yaml:"node" mapstructure:"node"`
-}
-
-type contractAbiConfig struct {
-	StarknetAbiPath    string `yaml:"starknet"  mapstructure:"starknet"`
-	GpsVerifierAbiPath string `yaml:"gps_verifier" mapstructure:"gps_verifier"`
-	MemoryPageAbiPath  string `yaml:"memory_page" mapstructure:"memory_page"`
+	Node string `yaml:"node" mapstructure:"node"`
 }
 
 // starknetConfig represents the juno StarkNet configuration.
 type starknetConfig struct {
-	Enabled                        bool              `yaml:"enabled" mapstructure:"enabled"`
-	FeederGateway                  string            `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
-	ContractAbiPathConfig          contractAbiConfig `yaml:"contract_abi_path" mapstructure:"contract_abi_path"`
-	MemoryPageFactRegistryContract string            `yaml:"memory_contract" mapstructure:"memory_contract"`
-	FastSync                       bool              `yaml:"fast_sync" mapstructure:"fast_sync"`
+	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
+	FeederGateway string `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
 }
 
 // Config represents the juno configuration.
@@ -97,7 +88,7 @@ func init() {
 
 // New creates a new configuration file with default values.
 func New() {
-	f := filepath.Join(Dir, "juno.yaml")
+	f := filepath.Join(Dir, "juno1.yaml")
 	log.Default.With("Path", f).Info("Creating default config.")
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
@@ -106,8 +97,8 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		Ethereum: ethereumConfig{Enabled: false},
-		Starknet: starknetConfig{Enabled: false},
+		Ethereum: ethereumConfig{Node: "your_node_here"},
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "goe"},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
 		DbPath:   Dir,
 	})

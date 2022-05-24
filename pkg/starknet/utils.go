@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"io/ioutil"
 	"math/big"
 	"strings"
 )
@@ -38,9 +37,9 @@ func storeContractHash(contractHash string, value *big.Int) {
 }
 
 // loadContractInfo loads a contract ABI and set the events' thar later we are going yo use
-func loadContractInfo(contractAddress, abiPath, logName string, contracts map[common.Address]starknetTypes.ContractInfo) error {
+func loadContractInfo(contractAddress, abiValue, logName string, contracts map[common.Address]starknetTypes.ContractInfo) error {
 	contractAddressHash := common.HexToAddress(contractAddress)
-	contractFromAbi, err := loadAbiOfContract(abiPath)
+	contractFromAbi, err := loadAbiOfContract(abiValue)
 	if err != nil {
 		return err
 	}
@@ -52,13 +51,8 @@ func loadContractInfo(contractAddress, abiPath, logName string, contracts map[co
 }
 
 // loadAbiOfContract loads the ABI of the contract from the
-func loadAbiOfContract(abiPath string) (abi.ABI, error) {
-	log.Default.With("ContractInfo", abiPath).Info("Loading contract")
-	b, err := ioutil.ReadFile(abiPath)
-	if err != nil {
-		return abi.ABI{}, err
-	}
-	contractAbi, err := abi.JSON(strings.NewReader(string(b)))
+func loadAbiOfContract(abiVal string) (abi.ABI, error) {
+	contractAbi, err := abi.JSON(strings.NewReader(abiVal))
 	if err != nil {
 		return abi.ABI{}, err
 	}
