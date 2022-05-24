@@ -25,12 +25,19 @@ type restConfig struct {
 	Port    int  `yaml:"port" mapstructure:"port"`
 }
 
+type starknetConfig struct {
+	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
+	FeederGateway string `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
+}
+
 // Config represents the juno configuration.
 type Config struct {
-	RPC     rpcConfig  `yaml:"rpc" mapstructure:"rpc"`
-	REST    restConfig `yaml:"rest" mapstructure:"rest"`
-	DbPath  string     `yaml:"db_path" mapstructure:"db_path"`
-	Network string     `yaml:"starknet_network" mapstructure:"starknet_network"`
+	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
+	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
+	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
+	Network  string         `yaml:"starknet_network" mapstructure:"starknet_network"`
+	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
 }
 
 var (

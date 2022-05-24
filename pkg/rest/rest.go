@@ -1,4 +1,4 @@
-package main
+package rest
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/gorilla/mux"
 )
@@ -98,13 +99,13 @@ func getTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Transaction Status failed: invalid input")
 }
 
-func main() {
+func NewServer(port string) {
 
 	router := mux.NewRouter()
 	router.UseEncodedPath()
 
 	//globally defined feed_gateway_client
-	feederClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway", nil)
+	feederClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 
 	//get_block endpoint
 	router.HandleFunc("/get_block", getBlock).Methods("GET")
@@ -115,5 +116,5 @@ func main() {
 	//get_transaction endpoint
 	router.HandleFunc("/juno/get_transaction_status", getTransactionStatus).Methods("GET")
 	//port :8100
-	log.Fatal(http.ListenAndServe(":8100", router))
+	log.Fatal(http.ListenAndServe(port, router))
 }
