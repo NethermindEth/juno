@@ -40,15 +40,20 @@ func add(
 	y.Sub(y, y1)
 	y.Mod(y, p)
 
+	// If either x1 is zero, the result should be equal to x2 and vice-versa. 
+	// Same for y1 and y2.
 	if x1.Sign() == 0 {
+		// notest
 		x.Set(x2)
 	} else if x2.Sign() == 0 {
+		// notest
 		x.Set(x1)
 	}
-
 	if y1.Sign() == 0 {
+		// notest
 		y.Set(y2)
 	} else if y2.Sign() == 0 {
+		// notest
 		y.Set(y1)
 	}
 
