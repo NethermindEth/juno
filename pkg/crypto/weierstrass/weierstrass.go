@@ -132,33 +132,10 @@ func (curve *CurveParams) affineFromJacobian(
 // Add returns the sum of (x1, y1) and (x2, y2).
 func (curve *CurveParams) Add(
 	x1, y1, x2, y2 *big.Int,
-) (x, y *big.Int) {
-	yDelta := new(big.Int).Sub(y1, y2)
-	xDelta := new(big.Int).Sub(x1, x2)
-
-	m := DivMod(yDelta, xDelta, curve.P)
-
-	x = new(big.Int).Sub(new(big.Int).Mul(m, m), x1)
-	x.Sub(x, x2)
-	x.Mod(x, curve.P)
-
-	y = new(big.Int).Sub(x1, x)
-	y.Mul(m, y)
-	y.Sub(y, y1)
-	y.Mod(y, curve.P)
-
-	return x, y
-}
-
-func DivMod(n, m, p *big.Int) *big.Int {
-	q := new(big.Int)
-	gx := new(big.Int)
-	gy := new(big.Int)
-	q.GCD(gx, gy, m, p)
-
-	r := new(big.Int).Mul(n, gx)
-	r = r.Mod(r, p)
-	return r
+) (*big.Int, *big.Int) {
+	z1 := zForAffine(x1, y1)
+	z2 := zForAffine(x2, y2)
+	return curve.affineFromJacobian(curve.addJacobian(x1, y1, z1, x2, y2, z2))
 }
 
 // addJacobian takes two points in Jacobian coordinates, (x1, y1, z1)

@@ -14,7 +14,7 @@ var (
 	points [506]point
 	// curve is the elliptic (STARK) curve used to compute the Pedersen
 	// hash.
-	curve weierstrass.Curve
+	p *big.Int
 )
 
 func init() {
@@ -2049,5 +2049,5 @@ func init() {
 		y, _ := new(big.Int).SetString(p[1], 16)
 		points[i] = point{x, y}
 	}
-	curve = weierstrass.Stark()
+	p = weierstrass.Stark().Params().P
 }
