@@ -117,18 +117,17 @@ func TestGetStateUpdate(t *testing.T) {
 }
 
 func TestGetCode(t *testing.T) {
-	body := "[\"one\",\"two\",\"three\"]\n"
-	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig feeder.CodeInfo
-	err := json.Unmarshal([]byte(body), &cOrig)
+	a := feeder.CodeInfo{}
+	body, err := StructFaker(a)
 	if err != nil {
 		t.Fatal()
 	}
+	httpClient.DoReturns(generateResponse(body), nil)
 	getCode, err := client.GetCode("hash", "", "latest")
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, cOrig, getCode, "GetCode response don't match")
+	assert.Equal(t, a, getCode, "GetCode response don't match")
 }
 
 func TestGetFullContract(t *testing.T) {
@@ -147,18 +146,17 @@ func TestGetFullContract(t *testing.T) {
 }
 
 func TestGetStorageAt(t *testing.T) {
-	body := "\"hash\"\n"
+	a := feeder.StorageInfo{}
+	body, err := StructFaker(a)
+	if err != nil {
+		t.Fatal()
+	}
 	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig feeder.StorageInfo
-	err := json.Unmarshal([]byte(body), &cOrig)
+	getStorage, err := client.GetStorageAt("hash", "key", "hash", "")
 	if err != nil {
 		t.Fatal()
 	}
-	getStorageAt, err := client.GetStorageAt("hash", "key", "hash", "")
-	if err != nil {
-		t.Fatal()
-	}
-	assert.Equal(t, cOrig, getStorageAt, "GetStorageAt response don't match")
+	assert.Equal(t, a, getStorage, "GetCode response don't match")
 }
 
 func TestGetTransactionStatus(t *testing.T) {
