@@ -63,27 +63,27 @@ func (s *transactionService) Close(ctx context.Context) {
 // GetTransaction searches for the transaction associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetTransaction(transactionHash string) *transaction.Transaction {
+func (s *transactionService) GetTransaction(txHash []byte) *transaction.Transaction {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
-		With("transactionHash", transactionHash).
+		With("txHash", txHash).
 		Debug("GetTransaction")
 
-	return s.manager.GetTransaction(transactionHash)
+	return s.manager.GetTransaction(txHash)
 }
 
 // StoreTransaction stores the given transaction into the database. The key used
 // to map the transaction it's the hash of the transaction. If the database
 // already has a transaction with the same key, then the value is overwritten.
-func (s *transactionService) StoreTransaction(key string, tx *transaction.Transaction) {
+func (s *transactionService) StoreTransaction(txHash []byte, tx *transaction.Transaction) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
-		With("transactionHash").
+		With("txHash", txHash).
 		Debug("StoreTransaction")
 
-	s.manager.PutTransaction(key, tx)
+	s.manager.PutTransaction(txHash, tx)
 }

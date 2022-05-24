@@ -51,7 +51,7 @@ func (s *stateService) Close(ctx context.Context) {
 	s.manager.Close()
 }
 
-func (s *stateService) StoreCode(contractAddress string, code *state.Code) {
+func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -62,7 +62,7 @@ func (s *stateService) StoreCode(contractAddress string, code *state.Code) {
 	s.manager.PutCode(contractAddress, code)
 }
 
-func (s *stateService) GetCode(contractAddress string) *state.Code {
+func (s *stateService) GetCode(contractAddress []byte) *state.Code {
 	s.AddProcess()
 	defer s.DoneProcess()
 

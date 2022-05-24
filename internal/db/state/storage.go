@@ -22,12 +22,12 @@ func (s *Storage) Update(other *Storage) {
 func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *Storage {
 	rawData, err := x.storageDatabase.Get([]byte(contractAddress), blockNumber)
 	if err != nil {
-		panic(fmt.Errorf("database error: %s", err))
+		panic(any(fmt.Errorf("database error: %s", err)))
 	}
 	value := new(Storage)
 	err = proto.Unmarshal(rawData, value)
 	if err != nil {
-		panic(fmt.Errorf("unmarshal error: %s", err))
+		panic(any(fmt.Errorf("unmarshal error: %s", err)))
 	}
 	return value
 }
@@ -37,10 +37,10 @@ func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *Storag
 func (x *Manager) PutStorage(contractAddress string, blockNumber uint64, storage *Storage) {
 	rawValue, err := proto.Marshal(storage)
 	if err != nil {
-		panic(fmt.Errorf("marshal error: %s", err))
+		panic(any(fmt.Errorf("marshal error: %s", err)))
 	}
 	err = x.storageDatabase.Put([]byte(contractAddress), blockNumber, rawValue)
 	if err != nil {
-		panic(fmt.Errorf("database error: %s", err))
+		panic(any(fmt.Errorf("database error: %s", err)))
 	}
 }

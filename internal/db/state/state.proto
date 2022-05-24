@@ -3,7 +3,7 @@ syntax = "proto3";
 option go_package = "github.com/NethermindEth/juno/internal/state";
 
 message Code {
-  repeated string code = 1;
+  repeated bytes code = 1;
 }
 
 message Storage {

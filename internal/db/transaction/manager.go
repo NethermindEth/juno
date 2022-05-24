@@ -21,14 +21,13 @@ func NewManager(database db.Databaser) *Manager {
 // PutTransaction stores new transactions in the database. This method does not
 // check if the key already exists. In the case, that the key already exists the
 // value is overwritten.
-func (m *Manager) PutTransaction(key string, tx *Transaction) {
-	rawKey := []byte(key)
+func (m *Manager) PutTransaction(key []byte, tx *Transaction) {
 	rawData, err := proto.Marshal(tx)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("error marshalling Transaction")
 	}
-	err = m.database.Put(rawKey, rawData)
+	err = m.database.Put(key, rawData)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -37,9 +36,8 @@ func (m *Manager) PutTransaction(key string, tx *Transaction) {
 
 // GetTransaction searches in the database for the transaction associated with the
 // given key. If the key does not exist then returns nil.
-func (m *Manager) GetTransaction(key string) *Transaction {
-	rawKey := []byte(key)
-	rawData, err := m.database.Get(rawKey)
+func (m *Manager) GetTransaction(key []byte) *Transaction {
+	rawData, err := m.database.Get(key)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
