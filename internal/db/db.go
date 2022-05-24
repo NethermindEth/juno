@@ -23,12 +23,10 @@ type Databaser interface {
 	Delete(key []byte) error
 	// NumberOfItems returns the number of items in the database.
 	NumberOfItems() (uint64, error)
-	// Begin starts a new transaction.
-	Begin()
-	// Rollback rollsback the database to a previous state.
-	Rollback()
 	// Close closes the environment.
 	Close()
+	// GetEnv returns the environment of the database
+	GetEnv() *mdbx.Env
 }
 
 // KeyValueDb represents the middleware for an MDBX key-value store.
@@ -37,35 +35,42 @@ type KeyValueDb struct {
 	path string
 }
 
-// New creates a new key-value database.
-func New(path string, flags uint) *KeyValueDb {
-	log.Default.With("Path", path, "Flags", flags).Info("Creating new database.")
+// GetEnv returns the environment of the database
+func (d *KeyValueDb) GetEnv() *mdbx.Env {
+	return d.env
+}
+
+// NewKeyValueDbWithEnv creates a new key-value database based on an already created env.
+func NewKeyValueDbWithEnv(env *mdbx.Env, path string) *KeyValueDb {
+	return &KeyValueDb{
+		env:  env,
+		path: path,
+	}
+}
+
+func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 	env, err := mdbx.NewEnv()
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Info("Failed to initialise and allocate new mdbx.Env.")
 		return nil
 	}
 
 	// Set flags.
 	// Based on https://github.com/torquem-ch/mdbx-go/blob/96f31f483af593377e52358a079e834256d5af55/mdbx/env_test.go#L495
-	err = env.SetOption(mdbx.OptMaxDB, 1024)
+	err = env.SetOption(mdbx.OptMaxDB, 1)
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Info("Failed to set mdbx.Env options.")
 		return nil
 	}
 	const pageSize = 4096
-	err = env.SetGeometry(-1, -1, 64*1024*pageSize, -1, -1, pageSize)
+	err = env.SetGeometry(268435456, 268435456, 25769803776, 268435456, 268435456, pageSize)
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Info("Failed to set geometry.")
 		return nil
 	}
-	err = env.Open(path, flags, 0664)
+	err = env.Open(path, flags|mdbx.Exclusive, 0664)
 	if err != nil {
 		// notest
-		log.Default.With("Error", err).Info("Failed to open mdbx.Env.")
 		return nil
 	}
 	return &KeyValueDb{env: env, path: path}
@@ -76,7 +81,6 @@ func New(path string, flags uint) *KeyValueDb {
 func (d *KeyValueDb) Has(key []byte) (has bool, err error) {
 	val, err := d.getOne(key)
 	if err != nil {
-		log.Default.With("Error", err, "Key", string(key)).Info("Key provided does not exist.")
 		return false, err
 	}
 	return val != nil, nil
@@ -89,17 +93,14 @@ func (d *KeyValueDb) getOne(key []byte) (val []byte, err error) {
 	if err := d.env.View(func(txn *mdbx.Txn) error {
 		dbi, err = txn.OpenRoot(mdbx.Create)
 		if err != nil {
-			log.Default.With("Error", err).Info("Failed to open database.")
 			return err
 		}
 		val, err = txn.Get(dbi, key)
 		if err != nil {
 			if mdbx.IsNotFound(err) {
-				log.Default.With("Error", err, "Key", string(key)).Info("Failed to get value.")
 				err = nil
 				return nil
 			}
-			log.Default.With("Error", err, "Key", string(key)).Info("Failed to get value.")
 			return err
 		}
 		return nil
@@ -113,21 +114,16 @@ func (d *KeyValueDb) getOne(key []byte) (val []byte, err error) {
 // Get returns the value associated with the provided key in the
 // database or returns an error otherwise.
 func (d *KeyValueDb) Get(key []byte) ([]byte, error) {
-	log.Default.With("Key", key).Info("Getting value using key.")
 	return d.getOne(key)
 }
 
 // Put inserts a key-value pair into the database.
 func (d *KeyValueDb) Put(key, value []byte) error {
-	log.Default.With("Key", string(key)).Info("Putting value at key.")
 	err := d.env.Update(func(txn *mdbx.Txn) error {
-		log.Default.Info("Opening the root database.")
 		dbi, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
-			log.Default.With("Error", err, "Key", string(key)).Info("Unable to open root database.")
 			return err
 		}
-		log.Default.Info("Storing item in database.")
 		return txn.Put(dbi, key, value, 0)
 	})
 	return err
@@ -135,16 +131,13 @@ func (d *KeyValueDb) Put(key, value []byte) error {
 
 // Delete removes a previous inserted key or returns an error otherwise.
 func (d *KeyValueDb) Delete(key []byte) error {
-	log.Default.With("Key", key).Info("Deleting value associated with key.")
 	err := d.env.Update(func(txn *mdbx.Txn) error {
 		db, err := txn.OpenRoot(mdbx.Create)
 		if err != nil {
-			log.Default.With("Error", err, "Key", string(key)).Info("Unable to open database.")
 			return err
 		}
 		err = txn.Del(db, key, nil)
 		if mdbx.IsNotFound(err) {
-			log.Default.With("Error", err, "Key", string(key)).Info("Unable to get value.")
 			return nil
 		}
 		return err
@@ -154,20 +147,14 @@ func (d *KeyValueDb) Delete(key []byte) error {
 
 // NumberOfItems returns the number of items in the database.
 func (d *KeyValueDb) NumberOfItems() (uint64, error) {
-	log.Default.Info("Getting the number of items in the database.")
 	stats, err := d.env.Stat()
 	if err != nil {
+		// notest
 		log.Default.With("Error", err).Info("Unable to get stats from env.")
 		return 0, err
 	}
 	return stats.Entries, err
 }
-
-// Begin starts a new transaction.
-func (d KeyValueDb) Begin() {}
-
-// Rollback rolls back the database to a previous state.
-func (d KeyValueDb) Rollback() {}
 
 // Close closes the environment.
 func (d *KeyValueDb) Close() {

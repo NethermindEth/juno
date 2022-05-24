@@ -2,7 +2,7 @@ package state
 
 import (
 	"bytes"
-	"github.com/NethermindEth/juno/pkg/db"
+	db2 "github.com/NethermindEth/juno/internal/db"
 	"math/big"
 	"testing"
 )
@@ -117,8 +117,8 @@ func TestManager_Storage(t *testing.T) {
 			5,
 		},
 	}
-	codeDatabase := db.New(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.New(t.TempDir(), 0))
+	codeDatabase := db2.NewKeyValueDb(t.TempDir(), 0)
+	storageDatabase := db2.NewBlockSpecificDatabase(db2.NewKeyValueDb(t.TempDir(), 0))
 	manager := NewStateManager(codeDatabase, *storageDatabase)
 	for _, data := range initialData {
 		manager.PutStorage(data.Contract, data.BlockNumber, &data.Storage)

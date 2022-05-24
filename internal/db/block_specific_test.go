@@ -60,7 +60,7 @@ func TestBlockSpecificDatabase_Put(t *testing.T) {
 		},
 	}
 
-	database := New(t.TempDir(), 0)
+	database := NewKeyValueDb(t.TempDir(), 0)
 	db := NewBlockSpecificDatabase(database)
 
 	for _, test := range tests {
@@ -97,7 +97,7 @@ func TestBlockSpecificDatabase_Get(t *testing.T) {
 		},
 	}
 
-	database := New(t.TempDir(), 0)
+	database := NewKeyValueDb(t.TempDir(), 0)
 	db := NewBlockSpecificDatabase(database)
 
 	for _, d := range data {

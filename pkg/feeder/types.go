@@ -86,37 +86,38 @@ func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
 
 // TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
-	Calldata           []string `json:"calldata"`
-	ContractAddress    string   `json:"contract_address"`
-	EntryPointSelector string   `json:"entry_point_selector"`
-	EntryPointType     string   `json:"entry_point_type"`
-	Signature          []string `json:"signature"`
-	TransactionHash    string   `json:"transaction_hash"`
-	Type               TxnType  `json:"type"`
+	Calldata            []string `json:"constructor_calldata"`
+	ContractAddress     string   `json:"contract_address"`
+	ContractAddressSalt string   `json:"contract_address_salt"`
+	EntryPointSelector  string   `json:"entry_point_selector"`
+	EntryPointType      string   `json:"entry_point_type"`
+	Signature           []string `json:"signature"`
+	TransactionHash     string   `json:"transaction_hash"`
+	Type                string   `json:"type"`
 }
 
 // L1ToL2Message Represents a StarkNet L1-to-L2 message.
 type L1ToL2Message struct {
-	FromAddress string  `json:"from_address"`
-	ToAddress   string  `json:"to_address"`
-	Selector    int64   `json:"selector"`
-	Payload     []int64 `json:"payload"`
-	Nonce       int64   `json:"nonce"`
+	FromAddress string   `json:"from_address"`
+	ToAddress   string   `json:"to_address"`
+	Selector    string   `json:"selector"`
+	Payload     []string `json:"payload"`
+	Nonce       string   `json:"nonce"`
 }
 
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
-	FromAddress string  `json:"from_address"`
-	ToAddress   string  `json:"to_address"`
-	Payload     []int64 `json:"payload"`
+	FromAddress string   `json:"from_address"`
+	ToAddress   string   `json:"to_address"`
+	Payload     []string `json:"payload"`
 }
 
 // Event Represents a StarkNet event; contains all the fields that will
 // be included in the block hash.
 type Event struct {
-	FromAddress string  `json:"from_address"`
-	Keys        []int64 `json:"keys"`
-	Data        []int64 `json:"data"`
+	FromAddress string   `json:"from_address"`
+	Keys        []string `json:"keys"`
+	Data        []string `json:"data"`
 }
 
 // ExecutionResources Indicates how many steps the program should run,
@@ -125,7 +126,7 @@ type Event struct {
 type ExecutionResources struct {
 	NSteps                 int64            `json:"n_steps"`
 	BuiltinInstanceCounter map[string]int64 `json:"builtin_instance_counter"`
-	NMemoryHoles           map[string]int64 `json:"n_memory_holes"`
+	NMemoryHoles           int64            `json:"n_memory_holes"`
 }
 
 // TransactionExecution Represents a receipt of an executed transaction.
@@ -142,18 +143,40 @@ type TransactionExecution struct {
 	Events []Event `json:"events"`
 	// The resources needed by the transaction.
 	ExecutionResources ExecutionResources `json:"execution_resources"`
+	ActualFee          string             `json:"actual_fee"`
 }
 
 // StarknetBlock Represents a response StarkNet block.
 type StarknetBlock struct {
-	BlockHash           string               `json:"block_hash"`
-	ParentBlockHash     string               `json:"parent_block_hash"`
-	BlockNumber         types.BlockNumber    `json:"block_number"`
-	StateRoot           string               `json:"state_root"`
-	Status              rpc.BlockStatus      `json:"status"`
-	Transactions        TxnSpecificInfo      `json:"transactions"`
-	Timestamp           int64                `json:"timestamp"`
-	TransactionReceipts TransactionExecution `json:"transaction_receipts"`
+	BlockHash           string                 `json:"block_hash"`
+	ParentBlockHash     string                 `json:"parent_block_hash"`
+	BlockNumber         types.BlockNumber      `json:"block_number"`
+	GasPrice            string                 `json:"gas_price"`
+	SequencerAddress    string                 `json:"sequencer_address"`
+	StateRoot           string                 `json:"state_root"`
+	Status              rpc.BlockStatus        `json:"status"`
+	Transactions        []TxnSpecificInfo      `json:"transactions"`
+	Timestamp           int64                  `json:"timestamp"`
+	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
+}
+
+//struct to store Storage info
+type StorageInfo struct {
+	Storage string `json:"storage"`
+}
+
+//ABI input struct
+type Input struct {
+	Name    string  `json:"name"`
+	Type    string  `json:"type"`
+	Outputs []Input `json:"outputs"`
+	Inputs  []Input `json:"inputs"`
+}
+
+//struct for code type
+type CodeInfo struct {
+	Bytecode []string `json:"bytecode"`
+	ABI      []Input  `json:"abi"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.
@@ -163,11 +186,10 @@ type TransactionFailureReason struct {
 	ErrorMsg string `json:"error_message"`
 }
 
-// XXX: Document.
 // TransactionInfo store all the transaction Inf
 type TransactionInfo struct {
 	// The status of a transaction, see TransactionStatus.
-	Status rpc.TxnStatus
+	Status rpc.TxnStatus `json:"status"`
 	// The reason for the transaction failure, if applicable.
 	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
 	// The unique identifier of the block on the active chain containing
@@ -175,8 +197,8 @@ type TransactionInfo struct {
 	BlockHash string `json:"block_hash"`
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
-	BlockNumber string `json:"block_number"`
-	//	The index of the transaction within the block corresponding to
+	BlockNumber int `json:"block_number"`
+	// The index of the transaction within the block corresponding to
 	// block_hash.
 	TransactionIndex int64           `json:"transaction_index"`
 	Transaction      TxnSpecificInfo `json:"transaction"`

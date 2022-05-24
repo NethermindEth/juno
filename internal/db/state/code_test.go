@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
-	"github.com/NethermindEth/juno/pkg/db"
+	db2 "github.com/NethermindEth/juno/internal/db"
 	"math/big"
 	"testing"
 )
@@ -169,8 +169,8 @@ func TestManager_Code(t *testing.T) {
 		}
 		tests = append(tests, test)
 	}
-	codeDatabase := db.New(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.New(t.TempDir(), 0))
+	codeDatabase := db2.NewKeyValueDb(t.TempDir(), 0)
+	storageDatabase := db2.NewBlockSpecificDatabase(db2.NewKeyValueDb(t.TempDir(), 0))
 	manager := NewStateManager(codeDatabase, *storageDatabase)
 	for _, test := range tests {
 		var code ContractCode
