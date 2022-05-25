@@ -96,10 +96,11 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		RPC:     rpcConfig{Enabled: false, Port: 8080},
-		REST:    restConfig{Enabled: false, Port: 8070},
-		DbPath:  Dir,
-		Network: goerli,
+		RPC:      rpcConfig{Enabled: false, Port: 8080},
+		REST:     restConfig{Enabled: true, Port: 8100},
+		DbPath:   Dir,
+		Network:  goerli,
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0644)

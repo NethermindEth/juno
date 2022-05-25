@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/gorilla/mux"
 )
@@ -105,7 +104,8 @@ func NewServer(port string) {
 	router.UseEncodedPath()
 
 	//globally defined feed_gateway_client
-	feederClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+	//config.Runtime.Starknet.FeederGateway
+	feederClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway", nil)
 
 	//get_block endpoint
 	router.HandleFunc("/get_block", getBlock).Methods("GET")
