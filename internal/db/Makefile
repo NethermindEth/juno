@@ -9,4 +9,4 @@ generate:
 	@protoc --proto_path=./state --go_out=./state --go_opt=paths=source_relative state.proto
 
 add-notest:
-	find . -name '*.pb.go' -exec sed -i '' -e '1s/^/\/\/ notest\n/' {} \;
+	find . -name '*.pb.go' -exec sh -c "awk '/func/ { print \"// notest\"; }; 1;' {} > tmp_file && mv tmp_file {}" \;

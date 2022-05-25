@@ -30,6 +30,7 @@ install-deps: ## Install some project dependencies
 
 codecov-test:
 	mkdir -p coverage
+	@cd internal/db && $(MAKE) add-notest
 	courtney/courtney -v -o coverage/coverage.out ./...
 
 gomod_tidy: ## add missing and remove unused modules
