@@ -388,7 +388,8 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 		log.Default.With("Error", err).Info("Couldn't get state update")
 		return blockIterator, lastBlockHash
 	}
-	if lastBlockHash == update.BlockHash {
+	if lastBlockHash == update.BlockHash || update.BlockHash == "" || update.NewRoot == "" {
+		log.Default.With("Block Number", blockIterator).Info("Block is pending ...")
 		return blockIterator, lastBlockHash
 	}
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
@@ -415,6 +416,7 @@ func (s *Synchronizer) updateState(update starknetTypes.StateDiff, stateRoot, bl
 
 	stateTrie := newTrie(txn, "state_trie_")
 
+	log.Default.With("Block Number", blockNumber).Info("Processing deployed contracts")
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
 		if !ok {
@@ -432,6 +434,7 @@ func (s *Synchronizer) updateState(update starknetTypes.StateDiff, stateRoot, bl
 		stateTrie.Put(address, contractStateValue)
 	}
 
+	log.Default.With("Block Number", blockNumber).Info("Processing storage diffs")
 	for k, v := range update.StorageDiffs {
 		storageTrie := newTrie(txn, remove0x(k))
 		for _, storageSlots := range v {

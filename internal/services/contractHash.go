@@ -38,9 +38,6 @@ func (service *ContractHashService) Run() error {
 		// TODO: Check if the channel is closed
 		select {
 		case storeInst := <-service.storeChannel:
-			service.logger.
-				With("Contract Hash", storeInst.ContractHash).
-				Info("Fetching Contract from contract address")
 			err := (*service.db).Put([]byte(storeInst.ContractHash), storeInst.Value)
 			if err != nil {
 				log.Default.With("Error", err).Panic("Couldn't save contract hash in database")
