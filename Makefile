@@ -1,6 +1,6 @@
 .DEFAULT_GOAL 	:= help
 
-compile: generate ## compile:
+compile: ## compile:
 	@mkdir -p build
 	@go build -o build/juno cmd/juno/main.go
 
