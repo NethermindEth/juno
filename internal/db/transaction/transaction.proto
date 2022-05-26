@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "github.com/NethermindEth/juno/internal/transaction";
+
+message Transaction {
+  bytes hash = 1;
+  oneof tx {
+    Deploy deploy = 2;
+    InvokeFunction invoke = 3;
+  }
+}
+
+message Deploy {
+  bytes contractAddressSalt = 1;
+  repeated bytes constructorCallData = 2;
+}
+
+message InvokeFunction {
+  bytes contractAddress = 2;
+  bytes entryPointSelector = 3;
+  repeated bytes callData = 4;
+  repeated bytes signature = 5;
+  bytes maxFee = 6;
+}
