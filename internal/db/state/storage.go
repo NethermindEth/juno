@@ -1,53 +1,46 @@
 package state
 
 import (
-	"encoding/json"
-	"math/big"
+	"fmt"
+	"google.golang.org/protobuf/proto"
 )
 
-// ContractAddress represents the contract address used
-// as a key in the database
-type ContractAddress string
-
-func (x ContractAddress) Marshal() ([]byte, error) {
-	i, ok := new(big.Int).SetString(string(x), 16)
-	if !ok {
-		// notest
-		return nil, InvalidContractAddress
+func (s *Storage) Update(other *Storage) {
+	if s.Storage == nil {
+		s.Storage = make(map[string]string)
 	}
-	return i.Bytes(), nil
-}
-
-// ContractStorage is the representation of the StarkNet contract
-// storage.
-type ContractStorage map[string]string
-
-func (s *ContractStorage) Marshal() ([]byte, error) {
-	return json.Marshal(s)
-}
-
-func (s *ContractStorage) Unmarshal(data []byte) error {
-	m := make(map[string]string)
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
+	// notest
+	for key, value := range other.Storage {
+		s.Storage[key] = value
 	}
-	*s = m
-	return nil
 }
 
-// GetStorage returns the ContractStorage state of the given contract address and block number.
-// If no exists a version for exactly the given block number, then returns the newest version
-// lower than the given block number. If the contract storage does not exists then returns nil.
-func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *ContractStorage {
-	var value ContractStorage
-	ok := x.storageDatabase.Get(ContractAddress(contractAddress), blockNumber, &value)
-	if !ok {
-		return nil
+// GetStorage returns the ContractStorage state of the given contract address
+// and block number. If no exists a version for exactly the given block number,
+// then returns the newest version lower than the given block number. If the
+// contract storage does not exist then returns nil.
+func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *Storage {
+	rawData, err := x.storageDatabase.Get([]byte(contractAddress), blockNumber)
+	if err != nil {
+		panic(any(fmt.Errorf("database error: %s", err)))
 	}
-	return &value
+	value := new(Storage)
+	err = proto.Unmarshal(rawData, value)
+	if err != nil {
+		panic(any(fmt.Errorf("unmarshal error: %s", err)))
+	}
+	return value
 }
 
-// PutStorage saves a new version of the contract storage at the given block number.
-func (x *Manager) PutStorage(contractAddress string, blockNumber uint64, storage *ContractStorage) {
-	x.storageDatabase.Put(ContractAddress(contractAddress), blockNumber, storage)
+// PutStorage saves a new version of the contract storage at the given block
+// number.
+func (x *Manager) PutStorage(contractAddress string, blockNumber uint64, storage *Storage) {
+	rawValue, err := proto.Marshal(storage)
+	if err != nil {
+		panic(any(fmt.Errorf("marshal error: %s", err)))
+	}
+	err = x.storageDatabase.Put([]byte(contractAddress), blockNumber, rawValue)
+	if err != nil {
+		panic(any(fmt.Errorf("database error: %s", err)))
+	}
 }
