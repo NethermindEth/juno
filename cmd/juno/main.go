@@ -1,7 +1,7 @@
 package main
 
-import "github.com/NethermindEth/juno/cmd/juno/cli"
+import "github.com/NethermindEth/juno/cmd/juno/cmd"
 
 func main() {
-	cli.Execute()
+	cmd.Execute()
 }

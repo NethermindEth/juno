@@ -1,4 +1,4 @@
-package cli
+package cmd
 
 // notest
 import (
@@ -215,7 +215,7 @@ func initConfig() {
 func Execute() {
 	// pwdCli := os.Getenv("PWD") + "/cmd/juno/cli/tests/"
 	// FIXME: Once app is compiled, change the path back to point from main app dir.
-	pwdCli := os.Getenv("PWD") + "/cli/tests/"
+	pwdCli := os.Getenv("PWD") + "/tests/"
 	err := exec.Command("cairo-compile", pwdCli+"test.cairo", "--output", pwdCli+"test_compiled.json").Run()
 	if err != nil {
 		fmt.Println(err)
