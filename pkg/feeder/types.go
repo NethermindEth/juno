@@ -2,6 +2,7 @@ package feeder
 
 // notest
 import (
+	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/types"
 	"github.com/NethermindEth/juno/pkg/rpc"
 )
@@ -165,18 +166,45 @@ type StorageInfo struct {
 	Storage string `json:"storage"`
 }
 
-//ABI input struct
-type Input struct {
-	Name    string  `json:"name"`
-	Type    string  `json:"type"`
-	Outputs []Input `json:"outputs"`
-	Inputs  []Input `json:"inputs"`
-}
+// //ABI Struct struct
+// type Struct struct {
+// 	Name string `json:"name"`
+// 	Type string `json:"type"`
+// 	Size string `json:"size"`
+// }
+
+// //ABI L1Handler Function struct type:l1_handler
+// type L1Handler struct {
+// 	Inputs          []Function `json:"inputs"`
+// 	Name            string     `json:"name"`
+// 	Type            string     `json:"type"`
+// 	Outputs         []Function `json:"outputs"`
+// 	Statemutability string     `json:"stateMutability"`
+// }
+
+// //ABI Function struct
+// type Function struct {
+// 	Inputs          []Function `json:"inputs"`
+// 	Name            string     `json:"name"`
+// 	Type            string     `json:"type"`
+// 	Outputs         []Function `json:"outputs"`
+// 	StateMutability string     `json:"stateMutability"`
+// }
+
+// //ABI struct
+// type ABI struct {
+// 	Functions   []Function
+// 	Events      []Event
+// 	Structs     []Struct
+// 	L1Handlers  []L1Handler
+// 	Constructor Function
+// }
 
 //struct for code type
 type CodeInfo struct {
-	Bytecode []string `json:"bytecode"`
-	ABI      []Input  `json:"abi"`
+	Bytecode []string               `json:"bytecode"`
+	Abi      abi.Abi                //`json:"abi"`
+	X        map[string]interface{} `json:"-"` // Manual Handling of ABI feilds
 }
 
 // TransactionFailureReason store reason of failure in transactions.

@@ -123,6 +123,41 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	return res, err
 }
 
+// doCodeWithABI executes a request and waits for response and returns an error
+// otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
+func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
+	res, err := (*c.httpClient).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			// notest
+			log.Default.With("Error", err).Error("Error closing body of response.")
+			return
+		}
+	}(res.Body)
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Default.With("Error", err).Debug("Error reading response.")
+		return nil, err
+	}
+
+	if err := json.Unmarshal(b, &v.X); err != nil {
+		log.Default.With("Error", err).Debug("Error recieving unmapped input.")
+		return nil, err
+	}
+	if n, ok := v.X["b"].([]string); ok {
+		v.Bytecode = n
+	}
+	if n, ok := v.X["ABI"].([]byte); ok {
+		v.Abi.UnmarshalJSON(n)
+	}
+	v.X = nil
+	return res, err
+}
+
 // GetContractAddresses creates a new request to get contract addresses
 // from the gateway.
 func (c Client) GetContractAddresses() (ContractAddresses, error) {
@@ -191,8 +226,6 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 	return res, err
 }
 
-// GetCode creates a new request to get the code of the contract
-// address.
 func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (CodeInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
@@ -206,7 +239,7 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (CodeInf
 		return CodeInfo{}, err
 	}
 	var res CodeInfo
-	_, err = c.do(req, &res)
+	_, err = c.doCodeWithABI(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return CodeInfo{}, err

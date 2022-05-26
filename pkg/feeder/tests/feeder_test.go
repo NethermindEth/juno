@@ -156,7 +156,7 @@ func TestGetStorageAt(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, a, getStorage, "GetCode response don't match")
+	assert.Equal(t, a, getStorage, "GetStorageAt response don't match")
 }
 
 func TestGetTransactionStatus(t *testing.T) {
