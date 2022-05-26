@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "github.com/NethermindEth/juno/internal/block";
+
+message Block {
+  bytes hash = 1;
+  uint64 blockNumber = 2;
+  bytes parentBlockHash = 3;
+  string status = 4;
+  bytes sequencerAddress = 5;
+  bytes globalStateRoot = 6;
+  bytes oldRoot = 7;
+  int64 acceptedTime = 8;
+  int64 timeStamp = 9;
+  uint64 txCount = 10;
+  bytes txCommitment = 11;
+  uint64 eventCount = 12;
+  bytes eventCommitment = 13;
+  repeated bytes TxHashes = 14;
+}
