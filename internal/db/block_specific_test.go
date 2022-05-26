@@ -5,27 +5,10 @@ import (
 	"testing"
 )
 
-type TestKey []byte
-
-func (x *TestKey) Marshal() ([]byte, error) {
-	return *x, nil
-}
-
-type TestValue []byte
-
-func (x *TestValue) Marshal() ([]byte, error) {
-	return *x, nil
-}
-
-func (x *TestValue) Unmarshal(data []byte) error {
-	*x = data
-	return nil
-}
-
 func TestBlockSpecificDatabase_Put(t *testing.T) {
 	tests := [...]struct {
-		Key         TestKey
-		Value       TestValue
+		Key         []byte
+		Value       []byte
 		BlockNumber uint64
 	}{
 		{
@@ -64,15 +47,18 @@ func TestBlockSpecificDatabase_Put(t *testing.T) {
 	db := NewBlockSpecificDatabase(database)
 
 	for _, test := range tests {
-		db.Put(&test.Key, test.BlockNumber, &test.Value)
+		err := db.Put(test.Key, test.BlockNumber, test.Value)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+		}
 	}
 	db.Close()
 }
 
 func TestBlockSpecificDatabase_Get(t *testing.T) {
 	data := [...]struct {
-		Key         TestKey
-		Value       TestValue
+		Key         []byte
+		Value       []byte
 		BlockNumber uint64
 	}{
 		{
@@ -101,71 +87,64 @@ func TestBlockSpecificDatabase_Get(t *testing.T) {
 	db := NewBlockSpecificDatabase(database)
 
 	for _, d := range data {
-		db.Put(&d.Key, d.BlockNumber, &d.Value)
+		err := db.Put(d.Key, d.BlockNumber, d.Value)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+		}
 	}
 
 	tests := [...]struct {
-		Key         TestKey
+		Key         []byte
 		BlockNumber uint64
-		Want        TestValue
-		Ok          bool
+		Want        []byte
 	}{
 		{
 			Key:         []byte("Key1"),
 			Want:        []byte("Value1"),
 			BlockNumber: 0,
-			Ok:          true,
 		},
 		{
 			Key:         []byte("Key1"),
 			Want:        []byte("Value1"),
 			BlockNumber: 1,
-			Ok:          true,
 		},
 		{
 			Key:         []byte("Key1"),
 			Want:        []byte("Value2"),
 			BlockNumber: 2,
-			Ok:          true,
 		},
 		{
 			Key:         []byte("Key1"),
 			Want:        []byte("Value2"),
 			BlockNumber: 3,
-			Ok:          true,
 		},
 		{
 			Key:         []byte("Key1"),
 			Want:        []byte("Value3"),
 			BlockNumber: 5,
-			Ok:          true,
 		},
 		{
 			Key:         []byte("Key1"),
 			Want:        []byte("Value3"),
 			BlockNumber: 50000,
-			Ok:          true,
 		},
 		{
 			Key:         []byte("Key2"),
-			Want:        []byte{},
+			Want:        nil,
 			BlockNumber: 1,
-			Ok:          false,
 		},
 		{
 			Key:         []byte("Key3"),
-			Want:        []byte{},
+			Want:        nil,
 			BlockNumber: 50000,
-			Ok:          false,
 		},
 	}
 	for _, test := range tests {
-		var result TestValue
-		ok := db.Get(&test.Key, test.BlockNumber, &result)
-		if ok != test.Ok {
-			t.Errorf("unexpected OK result for Get(%s,%d)", string(test.Key), test.BlockNumber)
+		result, err := db.Get(test.Key, test.BlockNumber)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 		}
-		if ok && bytes.Compare(result, test.Want) != 0 {
+		if bytes.Compare(result, test.Want) != 0 {
 			t.Errorf("db.Get(%s, %d) = %s, want: %s", string(test.Key), test.BlockNumber, string(result), test.Want)
 		}
 	}
