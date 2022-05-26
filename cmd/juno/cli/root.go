@@ -2,7 +2,7 @@ package cli
 
 // notest
 import (
-	"embed"
+	_ "embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -213,22 +213,21 @@ func initConfig() {
 // Execute handle flags for Cobra execution.
 func Execute() {
 
-	cmd := exec.Command("python3.7", "-m", "venv ~/cairo_venv")
-	//	cmd := exec.Command("python3", "-u", "/home/abcoder/pytest.py")  //REPLACE FILE DIRECTORY & FILE WITH PROPER CAIRO ENV AS A PYTHON SCRIPT
-	fmt.Println(cmd.Args)
-	out1, err1 := cmd.CombinedOutput()
-	if err1 != nil {
-		fmt.Println(err1)
+	// cmd := exec.Command("python3.7", "-m", "venv ~/cairo_venv")
+	// //	cmd := exec.Command("python3", "-u", "/home/abcoder/pytest.py")  //REPLACE FILE DIRECTORY & FILE WITH PROPER CAIRO ENV AS A PYTHON SCRIPT
+	// fmt.Println(cmd.Args)
+	// out1, err1 := cmd.CombinedOutput()
+	// if err1 != nil {
+	// 	fmt.Println(err1)
+	// }
+	// fmt.Println(string(out1)) //Stores the ouput from test file and prints
+	// Assume user has working cairo-lang installation
+	cmd := exec.Command("pip", "list", "|", "grep cairo*")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(err)
 	}
-	fmt.Println(string(out1)) //Stores the ouput from test file and prints
-
-	cmd2 := exec.Command("source ~/cairo_venv/bin/activate")
-	fmt.Println(cmd2.Args)
-	out2, err2 := cmd2.CombinedOutput()
-	if err2 != nil {
-		fmt.Println(err2)
-	}
-	fmt.Println(string(out2)) //Stores the ouput from test file and prints
+	fmt.Println(string(out))
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Default.With("Error", err).Error("Failed to execute CLI.")
