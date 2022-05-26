@@ -36,7 +36,7 @@ var (
 		Use:   "juno [options]",
 		Short: "Starknet client implementation in Go.",
 		Long:  longMsg,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			fmt.Println(longMsg)
 
 			processHandler = process.NewHandler()
@@ -62,7 +62,6 @@ var (
 				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
-			transactionDb := db.NewKeyValueDb(config.Runtime.DbPath, 0)
 
 			// Initialize ABI Service
 			abiService := services.NewABIService()
@@ -76,17 +75,16 @@ var (
 			contractHashService := services.NewContractHashService()
 			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, stateService.Close)
 
-			txnDb := db.Databaser(transactionDb)
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
 				// Layer 1 synchronizer for Ethereum State
-				stateSynchronizer := starknet.NewSynchronizer(txnDb)
+				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0))
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
 
-			// endless running process
+			// Endless running process
 			log.Default.Info("Starting all processes...")
 			processHandler.Run()
 			cleanup()

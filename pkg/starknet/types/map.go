@@ -45,11 +45,7 @@ func (dict *Dictionary) Add(key string, value IValue) {
 // Remove removes a value from the dictionary, given its key
 func (dict *Dictionary) Remove(key string) bool {
 	err := dict.database.Delete(append(dict.prefix, []byte(key)...))
-	if err != nil {
-		// notest
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // Exist returns true if the key exists in the dictionary
