@@ -194,7 +194,7 @@ func TestPut(t *testing.T) {
 				}
 				t.Fatalf("failed to retrieve value with key %s from database", pre)
 			}
-			var n node
+			var n Node
 			if err := json.Unmarshal(got, &n); err != nil {
 				t.Fatal("failed to unmarshal value from database")
 			}
