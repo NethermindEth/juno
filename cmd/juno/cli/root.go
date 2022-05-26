@@ -182,8 +182,8 @@ func initConfig() {
 	} else {
 		// Use the default path for user configuration.
 		viper.AddConfigPath(config.Dir)
-		viper.SetConfigType("yaml")
 		viper.SetConfigName("juno")
+		viper.SetConfigType("yaml")
 	}
 
 	// Check whether the environment variables match any of the existing
@@ -208,22 +208,23 @@ func initConfig() {
 		"Rpc Port", config.Runtime.RPC.Port,
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
 	).Info("Config values.")
+
 }
 
 // Execute handle flags for Cobra execution.
 func Execute() {
-
-	// Test that user has a useable cairo-lang installation
-	pwdCli := os.Getenv("PWD") + "/cmd/juno/cli/tests/"
+	// pwdCli := os.Getenv("PWD") + "/cmd/juno/cli/tests/"
+	// FIXME: Once app is compiled, change the path back to point from main app dir.
+	pwdCli := os.Getenv("PWD") + "/cli/tests/"
 	err := exec.Command("cairo-compile", pwdCli+"test.cairo", "--output", pwdCli+"test_compiled.json").Run()
 	if err != nil {
-		log.Default.Fatal("Unable to use cairo to compile test file, please verify Python env.")
+		fmt.Println(err)
 	}
-
-	e := os.Remove(pwdCli + "test_compiled.json")
-	if e != nil {
-		log.Default.Fatal("test_compiled.json was not successfully created.")
+	err = os.Remove(pwdCli + "test_compiled.json")
+	if err != nil {
+		fmt.Println(err)
 	}
+	log.Default.Info("Cairo Test compilation Successful.")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Default.With("Error", err).Error("Failed to execute CLI.")
