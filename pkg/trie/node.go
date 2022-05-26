@@ -7,28 +7,28 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 )
 
-// encoding represents the encoding of a node in a binary tree
+// Encoding represents the Encoding of a node in a binary tree
 // represented by the triplet (length, path, bottom).
-type encoding struct {
+type Encoding struct {
 	Length uint8    `json:"length"`
 	Path   *big.Int `json:"path"`
 	Bottom *big.Int `json:"bottom"`
 }
 
-// node represents a node in a binary tree.
-type node struct {
-	encoding
+// Node represents a Node in a binary tree.
+type Node struct {
+	Encoding
 	Hash *big.Int `json:"hash"`
 }
 
 // bytes returns a JSON byte representation of a node.
-func (n *node) bytes() []byte {
+func (n *Node) bytes() []byte {
 	b, _ := json.Marshal(n)
 	return b
 }
 
 // hash updates the node hash.
-func (n *node) hash() {
+func (n *Node) hash() {
 	if n.Length == 0 {
 		n.Hash = new(big.Int).Set(n.Bottom)
 		return

@@ -88,18 +88,18 @@ func (t *Trie) remove(key []byte) {
 
 // retrieve gets a node from storage and returns true if the node was
 // found.
-func (t *Trie) retrieve(key []byte) (node, bool) {
+func (t *Trie) retrieve(key []byte) (Node, bool) {
 	if len(key) == 0 {
 		key = []byte("root")
 	}
 	b, ok := t.store.Get(key)
 	if !ok {
-		return node{}, false
+		return Node{}, false
 	}
-	var n node
+	var n Node
 	if err := json.Unmarshal(b, &n); err != nil {
 		// notest
-		return node{}, false
+		return Node{}, false
 	}
 	return n, true
 }
@@ -119,16 +119,16 @@ func (t *Trie) diff(key *big.Int) {
 			t.remove(parent)
 		} else {
 			// Overwrite the parent node.
-			n := new(node)
+			n := new(Node)
 
 			// Compute its encoding.
 			switch {
 			case !rightChildIsNotEmpty:
-				n.encoding = encoding{
+				n.Encoding = Encoding{
 					leftChild.Length + 1, leftChild.Path, new(big.Int).Set(leftChild.Bottom),
 				}
 			case !leftChildIsNotEmpty:
-				n.encoding = encoding{
+				n.Encoding = Encoding{
 					rightChild.Length + 1,
 					rightChild.Path.Add(
 						rightChild.Path,
@@ -138,7 +138,7 @@ func (t *Trie) diff(key *big.Int) {
 					new(big.Int).Set(rightChild.Bottom),
 				}
 			default:
-				n.encoding = encoding{
+				n.Encoding = Encoding{
 					0, new(big.Int), pedersen.Digest(leftChild.Hash, rightChild.Hash),
 				}
 			}
@@ -187,8 +187,7 @@ func (t *Trie) Put(key, val *big.Int) {
 	// copy with the bits reversed is used instead.
 	rev := Reversed(key, t.keyLen)
 
-	leaf := node{encoding: encoding{0, new(big.Int), val}}
-	leaf.hash()
+	leaf := Node{Encoding{0, new(big.Int), val}, val}
 	t.commit(Prefix(rev, t.keyLen), leaf.bytes())
 	t.diff(rev)
 }
