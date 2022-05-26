@@ -1,3 +1,4 @@
+export CC = clang
 .DEFAULT_GOAL 	:= help
 
 compile: ## compile:
