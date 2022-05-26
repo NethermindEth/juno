@@ -12,12 +12,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/pkg/rpc"
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -72,14 +74,20 @@ var (
 			processHandler.Add("State Storage Service", stateService.Run, stateService.Close)
 
 			// Initialize Contract Hash storage service
-			contractHashService := services.NewContractHashService()
+			database := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/contractHash", 0))
+			contractHashService := services.NewContractHashService(database)
 			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, stateService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
+				client, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+				if err != nil {
+					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				}
+				fClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 				// Layer 1 synchronizer for Ethereum State
-				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0))
+				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), client, fClient)
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}

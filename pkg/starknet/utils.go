@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -24,19 +23,7 @@ func newTrie(database db.Databaser, prefix string) trie.Trie {
 	return trie.New(store, 251)
 }
 
-// loadContractHash returns the Value associated to one contract hash
-func loadContractHash(contractHash string) *big.Int {
-	contractHashService := services.GetContractHashService()
-	return contractHashService.GetContractHash(remove0x(contractHash))
-}
-
-// storeContractHash store in the service associated the Value of the contract hash
-func storeContractHash(contractHash string, value *big.Int) {
-	contractHashService := services.GetContractHashService()
-	contractHashService.StoreContractHash(remove0x(contractHash), value)
-}
-
-// loadContractInfo loads a contract ABI and set the events' thar later we are going yo use
+// loadContractInfo loads a contract ABI and set the events' that later we are going to use
 func loadContractInfo(contractAddress, abiValue, logName string, contracts map[common.Address]starknetTypes.ContractInfo) error {
 	contractAddressHash := common.HexToAddress(contractAddress)
 	contractFromAbi, err := loadAbiOfContract(abiValue)
@@ -89,15 +76,14 @@ func remove0x(s string) string {
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
 func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) starknetTypes.StateDiff {
 	var stateDiff starknetTypes.StateDiff
-	stateDiff.DeployedContracts = make([]starknetTypes.DeployedContract, 0)
-	stateDiff.StorageDiffs = make(map[string][]starknetTypes.KV)
-	for _, v := range update.StateDiff.DeployedContracts {
-		deployedContract := starknetTypes.DeployedContract{
+	stateDiff.DeployedContracts = make([]starknetTypes.DeployedContract, len(update.StateDiff.DeployedContracts))
+	for i, v := range update.StateDiff.DeployedContracts {
+		stateDiff.DeployedContracts[i] = starknetTypes.DeployedContract{
 			Address:      v.Address,
 			ContractHash: v.ContractHash,
 		}
-		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, deployedContract)
 	}
+	stateDiff.StorageDiffs = make(map[string][]starknetTypes.KV)
 	for addressDiff, keyVals := range update.StateDiff.StorageDiffs {
 		address := addressDiff
 		kvs := make([]starknetTypes.KV, 0)
@@ -117,24 +103,24 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) starknetT
 func getGpsVerifierContractAddress(ethereumClient *ethclient.Client) string {
 	id, err := ethereumClient.ChainID(context.Background())
 	if err != nil {
-		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+		return "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
 	}
 	if id.Int64() == 1 {
-		return "0xa739B175325cCA7b71fcB51C3032935Ef7Ac338F"
+		return "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
 	}
-	return "0x5EF3C980Bf970FcE5BbC217835743ea9f0388f4F"
+	return "0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"
 }
 
 // getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
 func getMemoryPagesContractAddress(ethereumClient *ethclient.Client) string {
 	id, err := ethereumClient.ChainID(context.Background())
 	if err != nil {
-		return "0x96375087b2F6eFc59e5e0dd5111B4d090EBFDD8B"
+		return "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
 	}
 	if id.Int64() == 1 {
-		return "0x96375087b2F6eFc59e5e0dd5111B4d090EBFDD8B"
+		return "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
 	}
-	return "0x743789ff2fF82Bfb907009C9911a7dA636D34FA7"
+	return "0x743789ff2ff82bfb907009c9911a7da636d34fa7"
 }
 
 // initialBlockForStarknetContract Returns the first block that we need to start to fetch the facts from l1
@@ -175,7 +161,6 @@ func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
 		return 0, err
 	}
 	return int64(ret), nil
-
 }
 
 func updateNumericValueFromDB(database db.Databaser, key string, value int64) error {
