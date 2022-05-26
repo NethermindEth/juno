@@ -110,7 +110,7 @@ func (t *Trie) retrieve(key []byte) (node, bool) {
 // encoding and hashes otherwise.
 func (t *Trie) diff(key *big.Int) {
 	for height := t.keyLen - 1; height >= 0; height-- {
-		parent := prefix(key, height)
+		parent := Prefix(key, height)
 
 		leftChild, leftChildIsNotEmpty := t.retrieve(append(parent, 48 /* "0" */))
 		rightChild, rightChildIsNotEmpty := t.retrieve(append(parent, 49 /* "1" */))
@@ -157,9 +157,9 @@ func (t *Trie) Delete(key *big.Int) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the oppose so
 	// a copy with the bits reversed is used instead.
-	rev := reversed(key, t.keyLen)
+	rev := Reversed(key, t.keyLen)
 
-	t.remove(prefix(rev, t.keyLen))
+	t.remove(Prefix(rev, t.keyLen))
 	t.diff(rev)
 }
 
@@ -168,7 +168,7 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
-	node, ok := t.retrieve(prefix(reversed(key, t.keyLen), t.keyLen))
+	node, ok := t.retrieve(Prefix(Reversed(key, t.keyLen), t.keyLen))
 	if !ok {
 		return nil, false
 	}
@@ -185,11 +185,11 @@ func (t *Trie) Put(key, val *big.Int) {
 	// The internal representation of big.Int has the least significant
 	// bit in the 0th position but this algorithm assumes the oppose so a
 	// copy with the bits reversed is used instead.
-	rev := reversed(key, t.keyLen)
+	rev := Reversed(key, t.keyLen)
 
 	leaf := node{encoding: encoding{0, new(big.Int), val}}
 	leaf.hash()
-	t.commit(prefix(rev, t.keyLen), leaf.bytes())
+	t.commit(Prefix(rev, t.keyLen), leaf.bytes())
 	t.diff(rev)
 }
 
