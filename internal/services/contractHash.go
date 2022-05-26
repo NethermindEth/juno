@@ -1,8 +1,6 @@
 package services
 
 import (
-	"context"
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/db"
 	"go.uber.org/zap"
@@ -20,8 +18,7 @@ type ContractHashService struct {
 	logger       *zap.SugaredLogger
 }
 
-func NewContractHashService() *ContractHashService {
-	database := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/contractHash", 0))
+func NewContractHashService(database db.Databaser) *ContractHashService {
 	storeChannel := make(chan contractHashInstruction, 100)
 	contractHashService = ContractHashService{
 		started:      false,
@@ -34,19 +31,16 @@ func NewContractHashService() *ContractHashService {
 
 func (service *ContractHashService) Run() error {
 	service.started = true
-	for {
-		// TODO: Check if the channel is closed
-		select {
-		case storeInst := <-service.storeChannel:
-			err := (*service.db).Put([]byte(storeInst.ContractHash), storeInst.Value)
-			if err != nil {
-				log.Default.With("Error", err).Panic("Couldn't save contract hash in database")
-			}
+	for storeInst := range service.storeChannel {
+		err := (*service.db).Put([]byte(storeInst.ContractHash), storeInst.Value)
+		if err != nil {
+			log.Default.With("Error", err).Panic("Couldn't save contract hash in database")
 		}
 	}
+	return nil
 }
 
-func (service *ContractHashService) Close(ctx context.Context) {
+func (service *ContractHashService) Close() {
 	service.logger.Info("Closing service...")
 	close(service.storeChannel)
 	(*service.db).Close()
@@ -68,7 +62,7 @@ func (service *ContractHashService) StoreContractHash(contractHash string, value
 func (service *ContractHashService) GetContractHash(contractHash string) *big.Int {
 	get, err := (*service.db).Get([]byte(contractHash))
 	if err != nil || get == nil {
-		return new(big.Int).SetInt64(0)
+		return new(big.Int)
 	}
 	return new(big.Int).SetBytes(get)
 }
