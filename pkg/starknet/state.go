@@ -274,7 +274,7 @@ func (s *Synchronizer) l1Sync() error {
 			}
 
 			fullFact := getFactInfo(s.ethereumClient, starknetTypes.ContractInfo{Contract: abiOfContract, EventName: "LogStateUpdate",
-			Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
+				Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
 
 			// Safe Fact for block x
 			s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
@@ -346,7 +346,7 @@ func (s *Synchronizer) apiSync() error {
 	for {
 		newValueForIterator, newBlockHash := s.updateStateForOneBlock(blockIterator, lastBlockHash)
 		if newBlockHash == lastBlockHash {
-			// Assume we are completely synced or an error has occured
+			// Assume we are completely synced or an error has occurred
 			time.Sleep(time.Minute * 2)
 		}
 		blockIterator, lastBlockHash = newValueForIterator, newBlockHash
