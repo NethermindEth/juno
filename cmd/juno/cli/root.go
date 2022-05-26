@@ -213,21 +213,17 @@ func initConfig() {
 // Execute handle flags for Cobra execution.
 func Execute() {
 
-	// cmd := exec.Command("python3.7", "-m", "venv ~/cairo_venv")
-	// //	cmd := exec.Command("python3", "-u", "/home/abcoder/pytest.py")  //REPLACE FILE DIRECTORY & FILE WITH PROPER CAIRO ENV AS A PYTHON SCRIPT
-	// fmt.Println(cmd.Args)
-	// out1, err1 := cmd.CombinedOutput()
-	// if err1 != nil {
-	// 	fmt.Println(err1)
-	// }
-	// fmt.Println(string(out1)) //Stores the ouput from test file and prints
-	// Assume user has working cairo-lang installation
-	cmd := exec.Command("pip", "list", "|", "grep cairo*")
-	out, err := cmd.CombinedOutput()
+	// Test that user has a useable cairo-lang installation
+	pwdCli := os.Getenv("PWD") + "/cmd/juno/cli/tests/"
+	err := exec.Command("cairo-compile", pwdCli+"test.cairo", "--output", pwdCli+"test_compiled.json").Run()
 	if err != nil {
-		fmt.Println(err)
+		log.Default.Fatal("Unable to use cairo to compile test file, please verify Python env.")
 	}
-	fmt.Println(string(out))
+
+	e := os.Remove(pwdCli + "test_compiled.json")
+	if e != nil {
+		log.Default.Fatal("test_compiled.json was not successfully created.")
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Default.With("Error", err).Error("Failed to execute CLI.")
