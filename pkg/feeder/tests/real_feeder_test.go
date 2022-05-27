@@ -33,6 +33,9 @@ func TestRealGetCode(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
+
+	//a.Bytecode = nil
+
 	assert.Equal(t, a, getCode, "GetCode response don't match")
 }
 

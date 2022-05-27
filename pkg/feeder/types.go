@@ -2,7 +2,7 @@ package feeder
 
 // notest
 import (
-	"github.com/NethermindEth/juno/internal/db/abi"
+	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/types"
 	"github.com/NethermindEth/juno/pkg/rpc"
 )
@@ -168,8 +168,8 @@ type StorageInfo struct {
 
 //struct for code type
 type CodeInfo struct {
-	Bytecode []string `json:"bytecode"`
-	Abi      abi.Abi  //`json:"abi"`
+	Bytecode []string   `json:"bytecode"`
+	Abi      feeder.Abi //`json:"abi"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.

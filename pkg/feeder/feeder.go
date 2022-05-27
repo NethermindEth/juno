@@ -146,12 +146,12 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 		return nil, err
 	}
 
-	// var reciever map[string]interface{}
+	var reciever map[string]interface{}
 
-	// if err := json.Unmarshal(b, &reciever); err != nil {
-	// 	log.Default.With("Error", err).Debug("Error recieving unmapped input.")
-	// 	return nil, err
-	// }
+	if err := json.Unmarshal(b, &reciever); err != nil {
+		log.Default.With("Error", err).Debug("Error recieving unmapped input.")
+		return nil, err
+	}
 
 	// aInterface := reciever["bytecode"].([]interface{})
 	// aString := make([]string, len(aInterface))
@@ -159,12 +159,25 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 	// 	aString[i] = v.(string)
 	// }
 	// v.Bytecode = aString
-	json.Unmarshal(b, &v)
 
-	// if n, ok := reciever["abi"].([]byte); ok {
-	// 	println("better")
-	// 	v.Abi.UnmarshalJSON(n)
-	// }
+	//unmarshal bytecode
+	json.Unmarshal(b, &v)
+	//unmarshal abi
+
+	abi_interface := reciever["abi"]
+	//abi_string := abi_interface.(string)
+	// println(abi_string)
+	//n, ok := []byte(abi_interface)
+
+	n, ok := abi_interface.([]byte)
+	if !ok {
+		log.Default.With("Error", err).Debug("Error reading abi")
+		return nil, err
+	}
+	if err := v.Abi.UnmarshalAbiJSON(n); err != nil {
+		log.Default.With("Error", err).Debug("Error reading abi")
+		return nil, err
+	}
 
 	return res, err
 }
