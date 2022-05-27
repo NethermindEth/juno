@@ -2,6 +2,7 @@ package feeder
 
 // notest
 import (
+	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/types"
 	"github.com/NethermindEth/juno/pkg/rpc"
 )
@@ -162,21 +163,13 @@ type StarknetBlock struct {
 
 //struct to store Storage info
 type StorageInfo struct {
-	Storage string `json:"storage"`
-}
-
-//ABI input struct
-type Input struct {
-	Name    string  `json:"name"`
-	Type    string  `json:"type"`
-	Outputs []Input `json:"outputs"`
-	Inputs  []Input `json:"inputs"`
+	Storage string //`json:"storage"`
 }
 
 //struct for code type
 type CodeInfo struct {
 	Bytecode []string `json:"bytecode"`
-	ABI      []Input  `json:"abi"`
+	Abi      abi.Abi  //`json:"abi"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.

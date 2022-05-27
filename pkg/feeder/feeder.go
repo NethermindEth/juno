@@ -123,26 +123,72 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	return res, err
 }
 
+//	X        map[string]interface{} `json:"-"`
+
+// doCodeWithABI executes a request and waits for response and returns an error
+// otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
+func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
+	res, err := (*c.httpClient).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			// notest
+			log.Default.With("Error", err).Error("Error closing body of response.")
+			return
+		}
+	}(res.Body)
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Default.With("Error", err).Debug("Error reading response.")
+		return nil, err
+	}
+
+	// var reciever map[string]interface{}
+
+	// if err := json.Unmarshal(b, &reciever); err != nil {
+	// 	log.Default.With("Error", err).Debug("Error recieving unmapped input.")
+	// 	return nil, err
+	// }
+
+	// aInterface := reciever["bytecode"].([]interface{})
+	// aString := make([]string, len(aInterface))
+	// for i, v := range aInterface {
+	// 	aString[i] = v.(string)
+	// }
+	// v.Bytecode = aString
+	json.Unmarshal(b, &v)
+
+	// if n, ok := reciever["abi"].([]byte); ok {
+	// 	println("better")
+	// 	v.Abi.UnmarshalJSON(n)
+	// }
+
+	return res, err
+}
+
 // GetContractAddresses creates a new request to get contract addresses
 // from the gateway.
-func (c Client) GetContractAddresses() (ContractAddresses, error) {
+func (c Client) GetContractAddresses() (*ContractAddresses, error) {
 	log.Default.With("Gateway URL", c.BaseURL).Info("Getting contract address from gateway.")
 	req, err := c.newRequest("GET", "/get_contract_addresses", nil, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return ContractAddresses{}, err
+		return nil, err
 	}
 	var res ContractAddresses
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return ContractAddresses{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // CallContract creates a new request to call a contract in the gateway.
-func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber string) (map[string][]string, error) {
+func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber string) (*map[string][]string, error) {
 	req, err := c.newRequest("POST", "/call_contract", formattedBlockIdentifier(blockHash, blockNumber), invokeFunc)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
@@ -154,46 +200,44 @@ func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber s
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetBlock creates a new request to get a block from the gateway.
-func (c Client) GetBlock(blockHash, blockNumber string) (StarknetBlock, error) {
+func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) {
 	req, err := c.newRequest("GET", "/get_block", formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return StarknetBlock{}, err
+		return nil, err
 	}
 	var res StarknetBlock
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return StarknetBlock{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetStateUpdate creates a new request to get the contract addresses
 // from the gateway.
-func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateResponse, error) {
+func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return StateUpdateResponse{}, err
+		return nil, err
 	}
 
 	var res StateUpdateResponse
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return StateUpdateResponse{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
-// GetCode creates a new request to get the code of the contract
-// address.
-func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (CodeInfo, error) {
+func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -203,15 +247,15 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (CodeInf
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return CodeInfo{}, err
+		return nil, err
 	}
 	var res CodeInfo
-	_, err = c.do(req, &res)
+	_, err = c.doCodeWithABI(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return CodeInfo{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetFullContract creates a new request to get the full state of a
@@ -229,17 +273,17 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res any
+	var res []any
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetStorageAt creates a new request to get contract storage.
-func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string) (StorageInfo, error) {
+func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string) (*StorageInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -252,15 +296,15 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 		blockIdentifier, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return StorageInfo{}, err
+		return nil, err
 	}
 	var res StorageInfo
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return StorageInfo{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetTransactionStatus creates a new request to get the transaction
@@ -271,117 +315,117 @@ func (c Client) GetTransactionStatus(txHash, txID string) (any, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res any
+	var res []any
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetTransaction creates a new request to get a TransactionInfo.
-func (c Client) GetTransaction(txHash, txID string) (TransactionInfo, error) {
+func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	req, err := c.newRequest("GET", "/get_transaction", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return TransactionInfo{}, err
+		return nil, err
 	}
 	var res TransactionInfo
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return TransactionInfo{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetTransactionReceipt creates a new request to get a
 // TransactionReceipt.
-func (c Client) GetTransactionReceipt(txHash, txID string) (TransactionReceipt, error) {
+func (c Client) GetTransactionReceipt(txHash, txID string) (*TransactionReceipt, error) {
 	req, err := c.newRequest("GET", "/get_transaction_receipt", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return TransactionReceipt{}, err
+		return nil, err
 	}
 	var res TransactionReceipt
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return TransactionReceipt{}, err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetBlockHashById creates a new request to get block hash by on ID.
-func (c Client) GetBlockHashById(blockID string) (string, error) {
+func (c Client) GetBlockHashById(blockID string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_hash_by_id", map[string]string{"blockId": blockID}, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return "", err
+		return nil, err
 	}
 	var res string
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return "", err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetBlockIDByHash creates a new request to get the block ID by hash.
-func (c Client) GetBlockIDByHash(blockHash string) (string, error) {
+func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_id_by_hash", map[string]string{"blockHash": blockHash}, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return "", err
+		return nil, err
 	}
 	var res string
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return "", err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetTransactionHashByID creates a new request to get a transaction
 // hash by ID.
-func (c Client) GetTransactionHashByID(txID string) (string, error) {
+func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_transaction_hash_by_id",
 		map[string]string{"transactionId": txID}, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return "", err
+		return nil, err
 	}
 	var res string
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return "", err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
 
 // GetTransactionIDByHash creates a new request to get a transaction ID
 // by hash.
-func (c Client) GetTransactionIDByHash(txHash string) (string, error) {
+func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_transaction_id_by_hash",
 		map[string]string{"transactionHash": txHash}, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return "", err
+		return nil, err
 	}
 	var res string
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).
 			Error("Error connecting to the gateway.")
-		return "", err
+		return nil, err
 	}
-	return res, err
+	return &res, err
 }
