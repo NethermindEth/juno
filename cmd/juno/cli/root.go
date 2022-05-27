@@ -107,6 +107,7 @@ func cleanup() {
 
 // init defines flags and handles configuration.
 func init() {
+	fmt.Println(longMsg)
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
 

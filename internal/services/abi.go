@@ -3,74 +3,83 @@ package services
 import (
 	"context"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/db"
-	"github.com/NethermindEth/juno/pkg/db/abi"
-	"go.uber.org/zap"
 )
 
-var (
-	abiService ABIService
-)
+// AbiService is the service to store and put the contracts ABI. Before
+// using the service, it must be configured with the Setup method;
+// otherwise, the value will be the default. To stop the service, call the
+// Close method.
+var AbiService abiService
 
-type ABIService struct {
-	started      bool
-	storeChannel chan storeInstruction
-	db           *abi.Manager
-	logger       *zap.SugaredLogger
+type abiService struct {
+	service
+	manager *abi.Manager
 }
 
-func NewABIService() *ABIService {
-	database := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/abi", 0))
-	storeChannel := make(chan storeInstruction, 100)
-	abiService = ABIService{
-		started:      false,
-		storeChannel: storeChannel,
-		db:           abi.NewABIManager(database),
-		logger:       log.Default.Named("ABI service"),
+// Setup sets the service configuration, service must be not running.
+func (s *abiService) Setup(database db.Databaser) {
+	if s.Running() {
+		// notest
+		s.logger.Panic("trying to Setup with service running")
 	}
-	return &abiService
+	s.manager = abi.NewABIManager(database)
 }
 
-func (service *ABIService) Run() error {
-	service.started = true
-	for {
-		// TODO: Check if the channel is closed
-		select {
-		case storeInst := <-service.storeChannel:
-			service.logger.
-				With("Contract address", storeInst.ContractAddress).
-				Info("Fetching ABI from contract address")
-			service.db.PutABI(storeInst.ContractAddress, storeInst.Abi)
-		}
+// Run starts the service.
+func (s *abiService) Run() error {
+	if s.logger == nil {
+		s.logger = log.Default.Named("AbiService")
 	}
-}
 
-func (service *ABIService) Close(ctx context.Context) {
-	service.logger.Info("Closing service...")
-	close(service.storeChannel)
-	service.logger.Info("Closed")
-}
-
-type storeInstruction struct {
-	ContractAddress string
-	Abi             *abi.Abi
-}
-
-func (service *ABIService) StoreABI(contractAddress string, abi abi.Abi) {
-	service.storeChannel <- storeInstruction{
-		ContractAddress: contractAddress,
-		Abi:             &abi,
+	if err := s.service.Run(); err != nil {
+		// notest
+		return err
 	}
-}
 
-func (service *ABIService) GetABI(contractAddress string) (*abi.Abi, error) {
-	return service.db.GetABI(contractAddress), nil
-}
-
-func GetABIService() *ABIService {
-	if abiService.started {
-		return &abiService
-	}
+	s.setDefaults()
 	return nil
+}
+
+// setDefaults sets the default value for properties that are not set.
+func (s *abiService) setDefaults() {
+	if s.manager == nil {
+		// notest
+		database := db.NewKeyValueDb(config.Dir+"/abi", 0)
+		s.manager = abi.NewABIManager(database)
+	}
+}
+
+// Close closes the service.
+func (s *abiService) Close(ctx context.Context) {
+	s.service.Close(ctx)
+	s.manager.Close()
+}
+
+// StoreAbi stores an ABI in the database. If the key (contractAddress) already
+// exists then the value is overwritten for the given ABI.
+func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) {
+	s.service.AddProcess()
+	defer s.service.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Info("StoreAbi")
+
+	s.manager.PutABI(contractAddress, abi)
+}
+
+// GetAbi search in the database for the ABI associated with the given contract
+// address.
+func (s *abiService) GetAbi(contractAddress string) *abi.Abi {
+	s.service.AddProcess()
+	defer s.service.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Info("GetAbi")
+
+	return s.manager.GetABI(contractAddress)
 }
