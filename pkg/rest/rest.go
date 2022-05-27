@@ -16,7 +16,7 @@ var feederClient *feeder.Client
 //Returns Starknet Block
 func getBlock(w http.ResponseWriter, r *http.Request) {
 	var (
-		res feeder.StarknetBlock
+		res *feeder.StarknetBlock
 		err error
 	)
 	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
@@ -114,7 +114,7 @@ func NewServer(port string) {
 	//get_storage endpoint
 	router.HandleFunc("/get_storage_at", getStorageAt).Methods("GET")
 	//get_transaction endpoint
-	router.HandleFunc("/juno/get_transaction_status", getTransactionStatus).Methods("GET")
+	router.HandleFunc("/get_transaction_status", getTransactionStatus).Methods("GET")
 	//port :8100
 	log.Fatal(http.ListenAndServe(port, router))
 }
