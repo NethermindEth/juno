@@ -169,7 +169,7 @@ type StorageInfo struct {
 //struct for code type
 type CodeInfo struct {
 	Bytecode []string   `json:"bytecode"`
-	Abi      feeder.Abi //`json:"abi"`
+	Abi      feeder.Abi `json:"abi"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.

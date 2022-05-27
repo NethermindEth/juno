@@ -168,13 +168,13 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 	//abi_string := abi_interface.(string)
 	// println(abi_string)
 	//n, ok := []byte(abi_interface)
-
-	n, ok := abi_interface.([]byte)
-	if !ok {
-		log.Default.With("Error", err).Debug("Error reading abi")
-		return nil, err
-	}
-	if err := v.Abi.UnmarshalAbiJSON(n); err != nil {
+	p, err := json.Marshal(abi_interface)
+	//n, ok := abi_interface.([]byte)
+	//if !ok {
+	//	log.Default.With("Error", err).Debug("Error reading abi")
+	//	return nil, err
+	//}
+	if err := v.Abi.UnmarshalAbiJSON(p); err != nil {
 		log.Default.With("Error", err).Debug("Error reading abi")
 		return nil, err
 	}
