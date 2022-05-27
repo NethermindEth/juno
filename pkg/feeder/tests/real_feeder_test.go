@@ -56,12 +56,3 @@ func TestRealGetStateUpdate(t *testing.T) {
 	}
 	assert.Equal(t, a, getStateUpdate, "GetCode response don't match")
 }
-
-// func TestRealGetFullContract(t *testing.T) {
-// 	a := feederfakes.ReturnFakeStateUpdateInfo()
-// 	getStateUpdate, err := realClient.GetStateUpdate("", "2")
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	assert.Equal(t, a, getStateUpdate, "GetCode response don't match")
-// }

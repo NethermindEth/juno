@@ -123,8 +123,6 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	return res, err
 }
 
-//	X        map[string]interface{} `json:"-"`
-
 // doCodeWithABI executes a request and waits for response and returns an error
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
@@ -153,27 +151,14 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 		return nil, err
 	}
 
-	// aInterface := reciever["bytecode"].([]interface{})
-	// aString := make([]string, len(aInterface))
-	// for i, v := range aInterface {
-	// 	aString[i] = v.(string)
-	// }
-	// v.Bytecode = aString
-
 	//unmarshal bytecode
 	json.Unmarshal(b, &v)
-	//unmarshal abi
 
+	//separate "abi" bytes
 	abi_interface := reciever["abi"]
-	//abi_string := abi_interface.(string)
-	// println(abi_string)
-	//n, ok := []byte(abi_interface)
 	p, err := json.Marshal(abi_interface)
-	//n, ok := abi_interface.([]byte)
-	//if !ok {
-	//	log.Default.With("Error", err).Debug("Error reading abi")
-	//	return nil, err
-	//}
+
+	//Unmarshal Abi bytes into Abi object
 	if err := v.Abi.UnmarshalAbiJSON(p); err != nil {
 		log.Default.With("Error", err).Debug("Error reading abi")
 		return nil, err
