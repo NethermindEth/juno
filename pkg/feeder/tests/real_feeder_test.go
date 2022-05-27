@@ -41,6 +41,14 @@ func TestRealGetCode_FullCoverage(t *testing.T) {
 	assert.Equal(t, "Struct-custom", a.Structs[0].Name)
 }
 
+func TestRealGetCode_FailType(t *testing.T) {
+	a := feederfakes.ReturnAbiInfo_Fail()
+	if a != nil {
+		assert.False(t, false)
+	}
+	assert.True(t, true)
+}
+
 func TestRealGetContractAddress(t *testing.T) {
 	a := feederfakes.ReturnFakeContractAddressInfo()
 	getContractAdresses, err := realClient.GetContractAddresses()

@@ -42,7 +42,6 @@ func ReturnFakeCodeInfo() *feeder.CodeInfo {
 
 //returns ABI for contractAddress=0x0090bff87efa37c2a8d0fd8b903ca1220dbb375ad18346e0da59af7f7e6c4285
 func ReturnAbiInfo() *abi.Abi {
-	//var json []byte
 	_json := "[{\"inputs\": [{\"name\": \"implementation\", \"type\": \"felt\"}], \"name\": \"constructor\", \"outputs\": [], \"type\": \"constructor\"}, {\"inputs\": [{\"name\": \"selector\", \"type\": \"felt\"}, {\"name\": \"calldata_size\", \"type\": \"felt\"}, {\"name\": \"calldata\", \"type\": \"felt*\"}], \"name\": \"__default__\", \"outputs\": [{\"name\": \"retdata_size\", \"type\": \"felt\"}, {\"name\": \"retdata\", \"type\": \"felt*\"}], \"type\": \"function\"}, {\"inputs\": [{\"name\": \"selector\", \"type\": \"felt\"}, {\"name\": \"calldata_size\", \"type\": \"felt\"}, {\"name\": \"calldata\", \"type\": \"felt*\"}], \"name\": \"__l1_default__\", \"outputs\": [], \"type\": \"l1_handler\"}, {\"inputs\": [], \"name\": \"get_implementation\", \"outputs\": [{\"name\": \"implementation\", \"type\": \"felt\"}], \"stateMutability\": \"view\", \"type\": \"function\"}]"
 	bjson := []byte(_json)
 	var a abi.Abi
@@ -53,13 +52,22 @@ func ReturnAbiInfo() *abi.Abi {
 
 //returns ABI with full coverage
 func ReturnAbiInfo_Full() *abi.Abi {
-	//var json []byte
 	_json := "[{\"inputs\": [{\"name\": \"funct\", \"type\": \"felt\"}], \"name\": \"function-custom\", \"outputs\": [], \"type\": \"function\"}, {\"inputs\": [{\"name\": \"implementation\", \"type\": \"felt\"}], \"name\": \"L1Handler-custom\", \"outputs\": [], \"type\": \"l1_handler\"}, {\"members\": [{\"offset\": 1, \"name\": \"member\", \"type\": \"struct\"}], \"name\": \"Struct-custom\", \"size\": 3, \"type\": \"struct\"}, {\"inputs\": [{\"name\": \"constr\", \"type\": \"felt\"}], \"name\": \"constructor-custom\", \"outputs\": [], \"type\": \"constructor\"}, {\"data\": [{\"name\": \"storage_cells_len\", \"type\": \"felt\"}, {\"name\": \"storage_cells\", \"type\": \"StorageCell*\"}], \"keys\": [], \"name\": \"log_storage_cells\", \"type\": \"event\"}]"
 	bjson := []byte(_json)
 	var a abi.Abi
 	a.UnmarshalAbiJSON(bjson)
 
 	return &a
+}
+
+//returns ABI with full coverage
+func ReturnAbiInfo_Fail() error {
+	_json := "[{\"inputs\": [{\"name\": \"funct\", \"type\": \"felt\"}], \"name\": \"function-custom\", \"outputs\": [], \"type\": \"function\"}, {\"inputs\": [{\"name\": \"implementation\", \"type\": \"unknown\"}], \"name\": \"L1Handler-custom\", \"outputs\": [], \"type\": \"l1_handler\"}, {\"members\": [{\"offset\": 1, \"name\": \"member\", \"type\": \"struct\"}], \"name\": \"Struct-custom\", \"size\": 3, \"type\": \"struct\"}, {\"inputs\": [{\"name\": \"constr\", \"type\": \"felt\"}], \"name\": \"constructor-custom\", \"outputs\": [], \"type\": \"constructor\"}, {\"data\": [{\"name\": \"storage_cells_len\", \"type\": \"felt\"}, {\"name\": \"storage_cells\", \"type\": \"StorageCell*\"}], \"keys\": [], \"name\": \"log_storage_cells\", \"type\": \"event\"}]"
+	bjson := []byte(_json)
+	var a abi.Abi
+	err := a.UnmarshalAbiJSON(bjson)
+
+	return err
 }
 
 //Block info for blockNumber=0
