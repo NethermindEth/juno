@@ -31,7 +31,8 @@ var (
 
 	// rootCmd is the root command of the application.
 	rootCmd = &cobra.Command{
-		Use:   "juno [options]",
+		// TODO: What is the usual description of Root command?
+		Use:   "juno [command] [flags]",
 		Short: "Starknet client implementation in Go.",
 		Long:  longMsg,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -60,37 +61,6 @@ var (
 			handler.Run()
 			handler.Close()
 			log.Default.Info("App closing...Bye!!!")
-		},
-	}
-
-	getTransaction = &cobra.Command{ // Get_Transaction CLI command
-		Use:   "juno get_transaction --hash TRANSACTION_HASH",
-		Short: "The result contains transaction information",
-		Long:  `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction`,
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Print: " + strings.Join(args, " "))
-		},
-	}
-
-	getTransactionReceipt = &cobra.Command{ // Get_Transaction Receipt CLI command
-		Use:   "juno get_transaction_receipt --hash TRANSACTION_HASH",
-		Short: "Transaction receipt contains execution information, such as L1<->L2 interaction and consumed resources, in addition to its block information, similar to get_transaction",
-		Long:  `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction-receipt`,
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Print: " + strings.Join(args, " "))
-		},
-	}
-
-	getTransactionTrace = &cobra.Command{ // Get_Transaction Trace CLI command
-		Use: "juno get_transaction_trace --hash TRANSACTION_HASH",
-		Short: `Transaction trace contains execution information in a nested structure of calls; every call, starting from the external transaction, contains a list of inner calls,
-         ordered chronologically. For each such call, the trace holds the following: caller/callee addresses, selector, calldata along with execution information such as its return value, emitted events, and sent messages.`,
-		Long: `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction-trace`,
-		Args: cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Print: " + strings.Join(args, " "))
 		},
 	}
 
@@ -169,9 +139,13 @@ func init() {
 	fmt.Println(longMsg)
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf(
 		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
+
+	// TODO: Add network flag. Read in values from viper or the config.
+	rootCmd.PersistentFlags().StringP("network", "n", viper.GetString("starknet.network"), fmt.Sprintf(
+		"network selected (set in config file)", viper.GetString("starknet.network")))
+
 }
 
 // initConfig reads in Config file or environment variables if set.
@@ -200,14 +174,16 @@ func initConfig() {
 		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
 	}
 
+	// Print out all of the key value pairs available in viper for debugging purposes.
+	for _, key := range viper.AllKeys() {
+		log.Default.With("Key", key).With("Value", viper.Get(key)).Info("Config:")
+	}
+
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
+	os.Setenv("STARKNET_NETWORK", viper.GetString("starknet.network"))
+	os.Setenv("STARKNET_AVAILABLE_NETWORKS", viper.GetString("starknet.available_networks"))
 	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
-	log.Default.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-	).Info("Config values.")
 
 }
 
@@ -215,6 +191,9 @@ func initConfig() {
 func Execute() {
 	// pwdCli := os.Getenv("PWD") + "/cmd/juno/cli/tests/"
 	// FIXME: Once app is compiled, change the path back to point from main app dir.
+
+	// TODO: Remove test below once proper handling of Python env done
+	// Small test to see that cairo-compile is installed and active. Deleting compiled test after.
 	pwdCli := os.Getenv("PWD") + "/tests/"
 	err := exec.Command("cairo-compile", pwdCli+"test.cairo", "--output", pwdCli+"test_compiled.json").Run()
 	if err != nil {
