@@ -5,6 +5,7 @@ package tests
 // different package.
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -43,10 +44,8 @@ func TestRealGetCode_FullCoverage(t *testing.T) {
 
 func TestRealGetCode_FailType(t *testing.T) {
 	a := feederfakes.ReturnAbiInfo_Fail()
-	if a != nil {
-		assert.False(t, false)
-	}
-	assert.True(t, true)
+	err := fmt.Errorf("unexpected type %s", "unknown")
+	assert.Equal(t, err, a)
 }
 
 func TestRealGetContractAddress(t *testing.T) {
