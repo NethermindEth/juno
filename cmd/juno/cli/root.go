@@ -57,7 +57,8 @@ var (
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.REST.Enabled {
-				rest.NewServer(":" + strconv.Itoa(config.Runtime.REST.Port))
+				s := rest.NewServer(":" + strconv.Itoa(config.Runtime.REST.Port))
+				handler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
 			// endless running process
