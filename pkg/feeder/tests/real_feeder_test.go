@@ -33,10 +33,12 @@ func TestRealGetCode(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-
-	//a.Bytecode = nil
-
 	assert.Equal(t, a, getCode, "GetCode response don't match")
+}
+
+func TestRealGetCode_FullCoverage(t *testing.T) {
+	a := feederfakes.ReturnAbiInfo_Full()
+	assert.Equal(t, "Struct-custom", a.Structs[0].Name)
 }
 
 func TestRealGetContractAddress(t *testing.T) {

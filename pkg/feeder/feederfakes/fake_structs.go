@@ -51,6 +51,17 @@ func ReturnAbiInfo() *abi.Abi {
 	return &a
 }
 
+//returns ABI with full coverage
+func ReturnAbiInfo_Full() *abi.Abi {
+	//var json []byte
+	_json := "[{\"inputs\": [{\"name\": \"funct\", \"type\": \"felt\"}], \"name\": \"function-custom\", \"outputs\": [], \"type\": \"function\"}, {\"inputs\": [{\"name\": \"implementation\", \"type\": \"felt\"}], \"name\": \"L1Handler-custom\", \"outputs\": [], \"type\": \"l1_handler\"}, {\"members\": [{\"offset\": 1, \"name\": \"member\", \"type\": \"struct\"}], \"name\": \"Struct-custom\", \"size\": 3, \"type\": \"struct\"}, {\"inputs\": [{\"name\": \"constr\", \"type\": \"felt\"}], \"name\": \"constructor-custom\", \"outputs\": [], \"type\": \"constructor\"}, {\"data\": [{\"name\": \"storage_cells_len\", \"type\": \"felt\"}, {\"name\": \"storage_cells\", \"type\": \"StorageCell*\"}], \"keys\": [], \"name\": \"log_storage_cells\", \"type\": \"event\"}]"
+	bjson := []byte(_json)
+	var a abi.Abi
+	a.UnmarshalAbiJSON(bjson)
+
+	return &a
+}
+
 //Block info for blockNumber=0
 func ReturnFakeBlockInfo() *feeder.StarknetBlock {
 	var block feeder.StarknetBlock
