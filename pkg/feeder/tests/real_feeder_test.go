@@ -35,3 +35,30 @@ func TestRealGetCode(t *testing.T) {
 	}
 	assert.Equal(t, a, getCode, "GetCode response don't match")
 }
+
+func TestRealGetContractAddress(t *testing.T) {
+	a := feederfakes.ReturnFakeContractAddressInfo()
+	getContractAdresses, err := realClient.GetContractAddresses()
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, a, getContractAdresses, "GetCode response don't match")
+}
+
+func TestRealGetStateUpdate(t *testing.T) {
+	a := feederfakes.ReturnFakeStateUpdateInfo()
+	getStateUpdate, err := realClient.GetStateUpdate("", "2")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, a, getStateUpdate, "GetCode response don't match")
+}
+
+// func TestRealGetFullContract(t *testing.T) {
+// 	a := feederfakes.ReturnFakeStateUpdateInfo()
+// 	getStateUpdate, err := realClient.GetStateUpdate("", "2")
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	assert.Equal(t, a, getStateUpdate, "GetCode response don't match")
+// }
