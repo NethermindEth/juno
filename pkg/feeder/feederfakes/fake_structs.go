@@ -9,6 +9,13 @@ import (
 )
 
 //Returns feeder_gateway response for contract_addresses
+func ReturnFakeStorageAt() *feeder.StorageInfo {
+	var storageInfo feeder.StorageInfo
+	storageInfo.Storage = "0x456"
+	return &storageInfo
+}
+
+//Returns feeder_gateway response for contract_addresses
 func ReturnFakeContractAddressInfo() *feeder.ContractAddresses {
 	var contractAddresses *feeder.ContractAddresses
 	rjson := "{\"Starknet\": \"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4\", \"GpsStatementVerifier\": \"0x47312450B3Ac8b5b8e247a6bB6d523e7605bDb60\"}"
@@ -108,3 +115,11 @@ func ReturnFakeBlockInfo() *feeder.StarknetBlock {
 	json.Unmarshal(bjson, &block)
 	return &block
 }
+
+// func ReturnFakeFullContract() *feeder.ContractAddresses {
+// 	var contractAddresses *feeder.ContractAddresses
+// 	rjson := "{\"Starknet\": \"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4\", \"GpsStatementVerifier\": \"0x47312450B3Ac8b5b8e247a6bB6d523e7605bDb60\"}"
+// 	bjson := []byte(rjson)
+// 	json.Unmarshal(bjson, &contractAddresses)
+// 	return contractAddresses
+// }

@@ -19,6 +19,15 @@ func init() {
 	realClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway", nil)
 }
 
+// func TestRealGetFullContract(t *testing.T) {
+// 	a := feederfakes.ReturnFakeFullContract()
+// 	getBlock, err := realClient.GetFullContract("", "", "100")
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	assert.Equal(t, a, getBlock, "Full Contract response don't match")
+// }
+
 func TestRealGetBlock(t *testing.T) {
 	a := feederfakes.ReturnFakeBlockInfo()
 	getBlock, err := realClient.GetBlock("", "0")
@@ -92,4 +101,13 @@ func TestRealGetTransactionStatus(t *testing.T) {
 		t.Fatal()
 	}
 	assert.Equal(t, a, getTransactionStatus, "GetCode response don't match")
+}
+
+func TestRealGetGetStorageAt(t *testing.T) {
+	a := feederfakes.ReturnFakeStorageAt()
+	getStorageAt, err := realClient.GetStorageAt("0x2f64e2c2650a3663169758c92d58acae85177fe218469e7e07a358f3ea1654d", "5", "", "100")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, a, getStorageAt, "GetCode response don't match")
 }

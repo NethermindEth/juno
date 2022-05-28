@@ -297,7 +297,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 		return nil, err
 	}
 	var res StorageInfo
-	_, err = c.do(req, &res)
+	_, err = c.do(req, &res.Storage)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
@@ -307,7 +307,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 
 // GetTransactionStatus creates a new request to get the transaction
 // status.
-func (c Client) GetTransactionStatus(txHash, txID string) (any, error) {
+func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, error) {
 	req, err := c.newRequest("GET", "/get_transaction_status", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")

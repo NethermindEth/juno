@@ -179,7 +179,7 @@ type TransactionFailureReason struct {
 	ErrorMsg string `json:"error_message"`
 }
 
-type TxnStatus string
+//type TxnStatus string
 
 // TransactionInfo store all the transaction Information
 type TransactionInfo struct {
@@ -204,7 +204,7 @@ type TransactionInfo struct {
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The status of a transaction, see TransactionStatus.
-	Status TxnStatus `json:"status"`
+	Status string `json:"status"`
 	// The reason for the transaction failure, if applicable.
 	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
 	// The unique identifier of the block on the active chain containing
@@ -219,8 +219,8 @@ type TransactionInBlockInfo struct {
 }
 
 type TransactionStatus struct {
-	Status    TxnStatus `json:"tx_status"`
-	BlockHash string    `json:"block_hash"`
+	Status    string `json:"tx_status"`
+	BlockHash string `json:"block_hash"`
 }
 
 // TransactionReceipt represents a receipt of a StarkNet transaction;
