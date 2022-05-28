@@ -1,86 +1,124 @@
-require('dotenv').config();
-const math = require('remark-math');
-const katex = require('rehype-katex');
+// @ts-check
+// Note: type annotations allow type checking and IDEs autocompletion
+
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
-// With JSDoc @type annotations, IDEs can provide config autocompletion
-/** @type {import('@docusaurus/types').DocusaurusConfig} */
-(
-  module.exports = {
-    title: 'Juno docs',
-    tagline: 'Juno docs',
-    baseUrl: process.env.BASE_URL,
+/** @type {import('@docusaurus/types').Config} */
+const config = {
+    title: 'Juno Documentation 🌠',
+    tagline: 'Starknet is cool',
+    url: 'https://your-docusaurus-test-site.com',
+    baseUrl: '/',
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
-    favicon: 'img/juno.jpg',
-    organizationName: 'NethermindEth',
-    projectName: 'juno',
-    url: process.env.TARGET_URL,
-    stylesheets: [
-      {
-        href: 'https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css',
-        type: 'text/css',
-        integrity:
-          'sha384-AfEj0r4/OFrOo5t7NnNe46zW/tFgW6x/bCJG8FqQCEo3+Aro6EYUG4+cU+KJWu/X',
-        crossorigin: 'anonymous',
-      },
-    ],
-    themeConfig:
-      /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-      ({
-        algolia: {
-          apiKey: '************************',
-          indexName: 'juno',
-          // Optional: see doc section below
-          appId: '**********',
-        },
-        prism: {
-          theme: lightCodeTheme,
-          darkTheme: darkCodeTheme,
-          additionalLanguages: ['solidity'],
-        },
-        hideableSidebar: true,
-        navbar: {
-          title: 'Juno Docs',
-          logo: {
-            alt: 'Juno Logo',
-            src: 'img/juno_small.jpg',
-          },
-          items: [
-            {
-              href: 'https://github.com/NethermindEth/juno/',
-              label: 'GitHub',
-              position: 'right',
-            },
-          ],
-        },
-      }),
+    favicon: 'img/juno_small.jpg',
+
+    // GitHub pages deployment config.
+    // If you aren't using GitHub pages, you don't need these.
+    organizationName: 'NethermindEth', // Usually your GitHub org/user name.
+    projectName: 'juno', // Usually your repo name.
+
+    // Even if you don't use internalization, you can use this field to set useful
+    // metadata like html lang. For example, if your site is Chinese, you may want
+    // to replace "en" with "zh-Hans".
+    i18n: {
+        defaultLocale: 'en',
+        locales: ['en'],
+    },
+
     presets: [
-      [
-        '@docusaurus/preset-classic',
-        /** @type {import('@docusaurus/preset-classic').Options} */
+        [
+            'classic',
+            /** @type {import('@docusaurus/preset-classic').Options} */
+            ({
+                docs: {
+                    sidebarPath: require.resolve('./sidebars.js'),
+                    // Please change this to your repo.
+                    // Remove this to remove the "edit this page" links.
+                    editUrl:
+                        'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+                },
+                blog: {
+                    showReadingTime: true,
+                    // Please change this to your repo.
+                    // Remove this to remove the "edit this page" links.
+                    editUrl:
+                        'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+                },
+                theme: {
+                    customCss: require.resolve('./src/css/custom.css'),
+                },
+            }),
+        ],
+    ],
+
+    themeConfig:
+    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
         ({
-          docs: {
-            sidebarPath: require.resolve('./docs/sidebars.js'),
-            // Please change this to your repo.
-            routeBasePath: '/',
-            remarkPlugins: [math],
-            rehypePlugins: [katex],
-          },
-          theme: {
-            customCss: require.resolve('./src/css/custom.css'),
-          },
+            navbar: {
+                title: 'Juno',
+                logo: {
+                    alt: 'Juno Logo',
+                    src: 'img/juno.svg',
+                },
+                items: [
+                    {
+                        type: 'doc',
+                        docId: 'intro',
+                        position: 'left',
+                        label: 'Docs',
+                    },
+                    {to: '/blog', label: 'Blog', position: 'left'},
+                    {
+                        href: 'https://github.com/NethermindEth/juno',
+                        label: 'GitHub',
+                        position: 'right',
+                    },
+                ],
+            },
+            footer: {
+                style: 'dark',
+                links: [
+                    {
+                        title: 'Docs',
+                        items: [
+                            {
+                                label: 'Documentation',
+                                to: '/docs/intro',
+                            },
+                        ],
+                    },
+                    {
+                        title: 'Community',
+                        items: [
+                            {
+                                label: 'Discord',
+                                href: 'https://discord.gg/sqFY2D48GS',
+                            },
+                        ],
+                    },
+                    {
+                        title: 'More',
+                        items: [
+                            {
+                                label: 'Blog',
+                                to: '/blog',
+                            },
+                            {
+                                label: 'Nethermind',
+                                href: 'https://nethermind.io/',
+                            },
+                        ],
+                    },
+                ],
+                copyright: `Copyright © ${new Date().getFullYear()} Juno. Made with ❤️ by Nethermind.`,
+            },
+            prism: {
+                theme: lightCodeTheme,
+                darkTheme: darkCodeTheme,
+            },
         }),
-      ],
-    ],
-    plugins: [
-      [
-        'docusaurus2-dotenv',
-        {
-          systemvars: true,
-        },
-      ],
-    ],
-  }
-);
+};
+
+module.exports = config;
