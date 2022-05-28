@@ -123,6 +123,30 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	return res, err
 }
 
+// do executes a request and waits for response and returns an error
+// otherwise.
+func (c *Client) do_with_string(req *http.Request, v any) (*http.Response, error) {
+	res, err := (*c.httpClient).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			// notest
+			log.Default.With("Error", err).Error("Error closing body of response.")
+			return
+		}
+	}(res.Body)
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Default.With("Error", err).Debug("Error reading response.")
+		return nil, err
+	}
+	println(string(b))
+	return res, err
+}
+
 // doCodeWithABI executes a request and waits for response and returns an error
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
@@ -258,7 +282,7 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 
 // GetFullContract creates a new request to get the full state of a
 // contract.
-func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) (any, error) {
+func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) (map[string]interface{}, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -271,13 +295,14 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res []any
+	//var res []any
+	var res map[string]interface{}
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	return &res, err
+	return res, err
 }
 
 // GetStorageAt creates a new request to get contract storage.
@@ -297,7 +322,8 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 		return nil, err
 	}
 	var res StorageInfo
-	_, err = c.do(req, &res.Storage)
+	_, err = c.do(req, &res)
+
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err

@@ -162,9 +162,7 @@ type StarknetBlock struct {
 }
 
 //struct to store Storage info
-type StorageInfo struct {
-	Storage string //`json:"storage"`
-}
+type StorageInfo string
 
 //struct for code type
 type CodeInfo struct {
@@ -183,20 +181,9 @@ type TransactionFailureReason struct {
 
 // TransactionInfo store all the transaction Information
 type TransactionInfo struct {
-	// // The status of a transaction, see TransactionStatus.
-	// Status TxnStatus `json:"status"`
-	// // The reason for the transaction failure, if applicable.
-	// TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	// // The unique identifier of the block on the active chain containing
-	// // the transaction.
-	// BlockHash string `json:"block_hash"`
-	// // The sequence number of the block corresponding to block_hash, which
-	// // is the number of blocks prior to it in the active chain.
-	// BlockNumber int `json:"block_number"`
+	// // Block information that Transaction occured in
 	TransactionInBlockInformation TransactionInBlockInfo
-	// The index of the transaction within the block corresponding to
-	// block_hash.
-	//TransactionIndex int64           `json:"transaction_index"`
+	// Transaction Specific Information
 	Transaction TxnSpecificInfo `json:"transaction"`
 }
 

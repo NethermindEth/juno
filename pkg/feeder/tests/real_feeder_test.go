@@ -19,14 +19,20 @@ func init() {
 	realClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway", nil)
 }
 
-// func TestRealGetFullContract(t *testing.T) {
-// 	a := feederfakes.ReturnFakeFullContract()
-// 	getBlock, err := realClient.GetFullContract("", "", "100")
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	assert.Equal(t, a, getBlock, "Full Contract response don't match")
-// }
+func TestRealGetFullContract(t *testing.T) {
+	//a := feederfakes.ReturnFakeFullContract()
+	getBlock, err := realClient.GetFullContract("0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3", "", "3")
+	if err != nil {
+		t.Fatal()
+	}
+	//k := (getBlock
+	m := getBlock["abi"]
+	if m != nil {
+		assert.True(t, true, "Full Contract response don't match")
+	} else {
+		assert.True(t, false, "Ful Contract does not contain abi - failed")
+	}
+}
 
 func TestRealGetBlock(t *testing.T) {
 	a := feederfakes.ReturnFakeBlockInfo()
@@ -63,7 +69,7 @@ func TestRealGetContractAddress(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, a, getContractAdresses, "GetCode response don't match")
+	assert.Equal(t, a, getContractAdresses, "GetContractAddress response don't match")
 }
 
 func TestRealGetStateUpdate(t *testing.T) {
@@ -72,7 +78,7 @@ func TestRealGetStateUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, a, getStateUpdate, "GetCode response don't match")
+	assert.Equal(t, a, getStateUpdate, "GetStateUpdate response don't match")
 }
 
 func TestRealGetTransactionReceipt(t *testing.T) {
@@ -81,7 +87,7 @@ func TestRealGetTransactionReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, a, getTransactionReceipt, "GetCode response don't match")
+	assert.Equal(t, a, getTransactionReceipt, "GetTransactionReceipt response don't match")
 }
 
 func TestRealGetTransaction(t *testing.T) {
@@ -91,7 +97,7 @@ func TestRealGetTransaction(t *testing.T) {
 		t.Fatal()
 	}
 	println(a.TransactionInBlockInformation.BlockHash)
-	assert.Equal(t, a, getTransaction, "GetCode response don't match")
+	assert.Equal(t, a, getTransaction, "GetTransaction response don't match")
 }
 
 func TestRealGetTransactionStatus(t *testing.T) {
@@ -100,14 +106,15 @@ func TestRealGetTransactionStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, a, getTransactionStatus, "GetCode response don't match")
+	assert.Equal(t, a, getTransactionStatus, "GetTransactionStatus response don't match")
 }
 
-func TestRealGetGetStorageAt(t *testing.T) {
+func TestRealGetStorageAt(t *testing.T) {
 	a := feederfakes.ReturnFakeStorageAt()
-	getStorageAt, err := realClient.GetStorageAt("0x2f64e2c2650a3663169758c92d58acae85177fe218469e7e07a358f3ea1654d", "5", "", "100")
+	getStorageAt, err := realClient.GetStorageAt("0x2f64e2c2650a3663169758c92d58acae85177fe218469e7e07a358f3ea1654d", "5", "0x4223f3e4f2d1e6c9753b04974acdf045e602ccfe784ea6d3722697bda0fc4d2", "100")
 	if err != nil {
+		t.Error(err)
 		t.Fatal()
 	}
-	assert.Equal(t, a, getStorageAt, "GetCode response don't match")
+	assert.Equal(t, a, getStorageAt, "GetStorageAt responses didn't match")
 }
