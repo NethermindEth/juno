@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -531,11 +531,9 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
 			Info("Fetched code and ABI")
 		// Save the ABI
-		abiService := services.GetABIService()
-		abiService.StoreABI(remove0x(v.Address), *code.Abi)
+		services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
 		// Save the contract code
-		stateService := services.GetStateService()
-		stateService.StoreCode(remove0x(v.Address), code.Bytecode)
+		services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
 	}
 }
 

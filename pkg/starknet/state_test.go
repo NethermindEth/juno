@@ -1,12 +1,13 @@
 package starknet
 
 import (
-	"math/big"
-	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/store"
-	"github.com/NethermindEth/juno/pkg/db"
+	"context"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
+	"math/big"
 	"testing"
 )
 
@@ -15,15 +16,15 @@ func TestUpdateState(t *testing.T) {
 	// This will never happen in practice, but we do that here so we can test the DeployedContract
 	// and StorageDiff code paths in `updateState` easily.
 	contract := starknetTypes.DeployedContract{
-		Address: "1",
-		ContractHash: "1",
+		Address:             "1",
+		ContractHash:        "1",
 		ConstructorCallData: nil,
 	}
-	storageDiff := starknetTypes.KV{ Key: "a", Value: "b", }
+	storageDiff := starknetTypes.KV{Key: "a", Value: "b"}
 	stateDiff := starknetTypes.StateDiff{
-		DeployedContracts: []starknetTypes.DeployedContract{ contract, },
-		StorageDiffs: map[string][]starknetTypes.KV{ 
-			 contract.Address: { storageDiff, },
+		DeployedContracts: []starknetTypes.DeployedContract{contract},
+		StorageDiffs: map[string][]starknetTypes.KV{
+			contract.Address: {storageDiff},
 		},
 	}
 
@@ -38,13 +39,13 @@ func TestUpdateState(t *testing.T) {
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	database := db.Databaser(db.NewKeyValueDb(t.TempDir() + "/contractHash", 0))
+	database := db.Databaser(db.NewKeyValueDb(t.TempDir()+"/contractHash", 0))
 	hashService := services.NewContractHashService(database)
 	go hashService.Run()
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
 	txn := txnDb.Begin()
 	stateCommitment, err := updateState(txn, hashService, stateDiff, "", "0")
-	hashService.Close()
+	hashService.Close(context.Background())
 	if err != nil {
 		t.Error("Error updating state")
 	}

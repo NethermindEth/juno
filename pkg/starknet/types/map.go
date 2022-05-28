@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/internal/db"
 )
 
 // IKey - the key of the dictionary

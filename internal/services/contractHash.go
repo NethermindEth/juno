@@ -1,8 +1,9 @@
 package services
 
 import (
+	"context"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/db"
 	"go.uber.org/zap"
 	"math/big"
 )
@@ -40,7 +41,7 @@ func (service *ContractHashService) Run() error {
 	return nil
 }
 
-func (service *ContractHashService) Close() {
+func (service *ContractHashService) Close(ctx context.Context) {
 	service.logger.Info("Closing service...")
 	close(service.storeChannel)
 	(*service.db).Close()

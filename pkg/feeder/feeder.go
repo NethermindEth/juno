@@ -5,8 +5,8 @@ package feeder
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/NethermindEth/juno/pkg/db/abi"
-	"github.com/NethermindEth/juno/pkg/db/state"
+	"github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"io"
 	"net/http"
 	"net/url"
@@ -194,7 +194,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (StateUpdateRespon
 }
 
 type GetCodeResponse struct {
-	Bytecode state.ContractCode
+	Bytecode *state.Code
 	Abi      *abi.Abi
 }
 
