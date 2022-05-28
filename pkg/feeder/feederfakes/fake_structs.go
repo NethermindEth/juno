@@ -17,6 +17,36 @@ func ReturnFakeContractAddressInfo() *feeder.ContractAddresses {
 	return contractAddresses
 }
 
+//Returns feeder_gateway response for get_transaction
+//transactionHash=0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75
+func ReturnFakeTransactionInfo() *feeder.TransactionInfo {
+	var transaction *feeder.TransactionInfo
+	rjson := "{\"status\": \"ACCEPTED_ON_L1\", \"block_hash\": \"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943\", \"block_number\": 0, \"transaction_index\": 0, \"transaction\": {\"contract_address\": \"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6\", \"contract_address_salt\": \"0x546c86dc6e40a5e5492b782d8964e9a4274ff6ecb16d31eb09cee45a3564015\", \"class_hash\": \"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8\", \"constructor_calldata\": [\"0x6cf6c2f36d36b08e591e4489e92ca882bb67b9c39a3afccf011972a8de467f0\", \"0x7ab344d88124307c07b56f6c59c12f4543e9c96398727854a322dea82c73240\"], \"transaction_hash\": \"0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75\", \"type\": \"DEPLOY\"}}"
+	bjson := []byte(rjson)
+	json.Unmarshal(bjson, &transaction)
+	return transaction
+}
+
+//Returns feeder_gateway response for get_transaction
+//transactionHash=0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75
+func ReturnFakeTransactionStatusInfo() *feeder.TransactionStatus {
+	var transactionStatus *feeder.TransactionStatus
+	rjson := "{\"tx_status\": \"ACCEPTED_ON_L1\", \"block_hash\": \"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943\"}"
+	bjson := []byte(rjson)
+	json.Unmarshal(bjson, &transactionStatus)
+	return transactionStatus
+}
+
+//Returns feeder_gateway response for transaction_receipt
+//transactionHash=0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75
+func ReturnFakeTransactionReceiptInfo() *feeder.TransactionReceipt {
+	var transactionReceipt *feeder.TransactionReceipt
+	rjson := "{\"status\": \"ACCEPTED_ON_L1\", \"block_hash\": \"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943\", \"block_number\": 0, \"transaction_index\": 0, \"transaction_hash\": \"0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75\", \"l2_to_l1_messages\": [], \"events\": [], \"execution_resources\": {\"n_steps\": 29, \"builtin_instance_counter\": {\"pedersen_builtin\": 0, \"range_check_builtin\": 0, \"bitwise_builtin\": 0, \"output_builtin\": 0, \"ecdsa_builtin\": 0, \"ec_op_builtin\": 0}, \"n_memory_holes\": 0}, \"actual_fee\": \"0x0\"}"
+	bjson := []byte(rjson)
+	json.Unmarshal(bjson, &transactionReceipt)
+	return transactionReceipt
+}
+
 //Returns feeder_gateway response for state_update on blockNumber = 2
 //blockHash=0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6
 func ReturnFakeStateUpdateInfo() *feeder.StateUpdateResponse {

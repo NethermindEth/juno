@@ -313,7 +313,7 @@ func (c Client) GetTransactionStatus(txHash, txID string) (any, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res []any
+	var res TransactionStatus
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")

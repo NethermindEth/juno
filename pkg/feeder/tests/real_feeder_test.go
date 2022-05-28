@@ -65,3 +65,31 @@ func TestRealGetStateUpdate(t *testing.T) {
 	}
 	assert.Equal(t, a, getStateUpdate, "GetCode response don't match")
 }
+
+func TestRealGetTransactionReceipt(t *testing.T) {
+	a := feederfakes.ReturnFakeTransactionReceiptInfo()
+	getTransactionReceipt, err := realClient.GetTransactionReceipt("0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75", "")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, a, getTransactionReceipt, "GetCode response don't match")
+}
+
+func TestRealGetTransaction(t *testing.T) {
+	a := feederfakes.ReturnFakeTransactionInfo()
+	getTransaction, err := realClient.GetTransaction("0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75", "")
+	if err != nil {
+		t.Fatal()
+	}
+	println(a.TransactionInBlockInformation.BlockHash)
+	assert.Equal(t, a, getTransaction, "GetCode response don't match")
+}
+
+func TestRealGetTransactionStatus(t *testing.T) {
+	a := feederfakes.ReturnFakeTransactionStatusInfo()
+	getTransactionStatus, err := realClient.GetTransactionStatus("0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75", "")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, a, getTransactionStatus, "GetCode response don't match")
+}
