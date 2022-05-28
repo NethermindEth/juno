@@ -123,30 +123,6 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	return res, err
 }
 
-// do executes a request and waits for response and returns an error
-// otherwise.
-func (c *Client) do_with_string(req *http.Request, v any) (*http.Response, error) {
-	res, err := (*c.httpClient).Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			// notest
-			log.Default.With("Error", err).Error("Error closing body of response.")
-			return
-		}
-	}(res.Body)
-	b, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Default.With("Error", err).Debug("Error reading response.")
-		return nil, err
-	}
-	println(string(b))
-	return res, err
-}
-
 // doCodeWithABI executes a request and waits for response and returns an error
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
