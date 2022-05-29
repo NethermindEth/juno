@@ -26,7 +26,7 @@ var (
 type Handler interface {
 	ServeJSONRPC(
 		c context.Context, params *json.RawMessage,
-	) (result interface{}, err *Error)
+	) (result any, err *Error)
 }
 
 // HandlerFunc type is an adapter that allows the use of Go functions as
@@ -34,12 +34,12 @@ type Handler interface {
 // signature, HandlerFunc(f) is a JSON-RPC.Handler that calls f.
 type HandlerFunc func(
 	c context.Context, params *json.RawMessage,
-) (result interface{}, err *Error)
+) (result any, err *Error)
 
 // ServeJSONRPC calls a function f(w, r).
 func (f HandlerFunc) ServeJSONRPC(
 	c context.Context, params *json.RawMessage,
-) (result interface{}, err *Error) {
+) (result any, err *Error) {
 	// notest
 	return f(c, params)
 }
@@ -207,7 +207,6 @@ func parseArgSlice(
 				log.Default.With("Type", t, "Tag", tag).Debug("Parsing parameter.")
 				if strings.Contains(tag, "true") && fields.Field(i).IsZero() {
 					// notest
-					// XXX: Highlight which missing field this is.
 					return args, errors.New("missing required field")
 				}
 			}
@@ -228,7 +227,7 @@ func callFunc(
 	receiver reflect.Value,
 	hasContext bool,
 	errResponsePosition int,
-) (res interface{}, errRes error) {
+) (res any, errRes error) {
 	log.Default.With("Method", method).Info("Calling RPC function.")
 	// Create the argument slice.
 	fullArgs := make([]reflect.Value, 0, 2+len(args))
@@ -243,7 +242,9 @@ func callFunc(
 	// Catch panic while running the callback.
 	defer func() {
 		// notest
-		if err := recover(); err != nil {
+		err := recover()
+		val := reflect.ValueOf(err)
+		if val.IsValid() && !val.IsNil() {
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
@@ -299,8 +300,6 @@ func (h *HandlerJsonRpc) InvokeMethod(
 		// types of the function that is going to be called.
 		args, err = parseArgs(*r.Params, argTypes)
 		if err != nil {
-			// XXX: Use more robust error handling instead of just matching
-			// against a substring.
 			if err == errorTooManyArgs {
 				log.Default.Info("Searching for overload...")
 				structToCall = reflect.ValueOf(h.StructRpc)

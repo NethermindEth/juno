@@ -16,7 +16,7 @@ func init() {
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
 func setupDatabaseForTest(path string) *KeyValueDb {
-	return New(path, 0)
+	return NewKeyValueDb(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -32,7 +32,7 @@ func TestAddKey(t *testing.T) {
 // TestNumberOfItems Checks that in every moment the collection contains the right amount of items
 func TestNumberOfItems(t *testing.T) {
 	database := setupDatabaseForTest(t.TempDir())
-	n, err := database.Count()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -51,7 +51,7 @@ func TestNumberOfItems(t *testing.T) {
 			return
 		}
 	}
-	n, err = database.Count()
+	n, err = database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -74,7 +74,7 @@ func TestAddMultipleKeys(t *testing.T) {
 			return
 		}
 	}
-	n, err := database.Count()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -207,17 +207,23 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func TestBegin(t *testing.T) {
-	database := setupDatabaseForTest(t.TempDir())
-	database.Begin()
-}
-func TestRollBack(t *testing.T) {
-	database := setupDatabaseForTest(t.TempDir())
-	database.Rollback()
-}
 func TestClose(t *testing.T) {
 	database := setupDatabaseForTest(t.TempDir())
 	database.Close()
+}
+
+func TestKeyValueDbIsDatabaser(t *testing.T) {
+	a := new(KeyValueDb)
+	_ = Databaser(a)
+}
+
+func TestKeyValueDb_GetEnv(t *testing.T) {
+	database := setupDatabaseForTest(t.TempDir())
+	p := NewKeyValueDbWithEnv(database.GetEnv(), t.TempDir())
+	items, err := p.NumberOfItems()
+	if err != nil || items != 0 {
+		return
+	}
 }
 
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
@@ -231,7 +237,7 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 			return
 		}
 	}
-	n, err := database.Count()
+	n, err := database.NumberOfItems()
 	if err != nil {
 		b.Errorf("Benchmarking fails, error getting the number of items: %s\n", err)
 		b.Fail()

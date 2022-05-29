@@ -389,6 +389,7 @@ func GenerateKey(
 		pvt[1] ^= 0x42
 
 		// If the scalar is out of range, sample another random number.
+		// notest
 		if new(big.Int).SetBytes(pvt).Cmp(N) >= 0 {
 			continue
 		}
