@@ -518,7 +518,28 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 		pages = append(pages, t.([]*big.Int))
 	}
 	// pages should contain all txn information
-	s.parsePages(pages, stateRoot, blockNumber)
+	state := parsePages(pages)
+
+	txn := s.transactioner.Begin()
+	hashService := services.GetContractHashService()
+	if hashService == nil {
+		log.Default.Panic("Contract hash service is unavailable")
+	}
+	_, err = updateState(txn, services.GetContractHashService(), *state, stateRoot, blockNumber)
+	if err != nil {
+		log.Default.With("Error", err).Panic("Couldn't update state")
+	} else {
+		err := txn.Commit()
+		if err != nil {
+			log.Default.Panic("Couldn't commit to the database")
+		}
+	}
+	log.Default.With("Block Number", blockNumber).Info("State updated")
+	bNumber, _ := strconv.Atoi(blockNumber)
+	err = updateLatestBlockQueried(s.database, int64(bNumber))
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
 }
 
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
@@ -562,7 +583,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResp
 }
 
 // parsePages parse the pages returned from the interaction with Layer 1
-func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber string) {
+func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]
 
@@ -637,29 +658,8 @@ func (s *Synchronizer) parsePages(pages [][]*big.Int, stateRoot, blockNumber str
 		storageDiffs[address] = kvs
 	}
 
-	state := starknetTypes.StateDiff{
+	return &starknetTypes.StateDiff{
 		DeployedContracts: deployedContracts,
 		StorageDiffs:      storageDiffs,
-	}
-
-	txn := s.transactioner.Begin()
-	hashService := services.GetContractHashService()
-	if hashService == nil {
-		log.Default.Panic("Contract hash service is unavailable")
-	}
-	_, err := updateState(txn, services.GetContractHashService(), state, stateRoot, blockNumber)
-	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't update state")
-	} else {
-		err := txn.Commit()
-		if err != nil {
-			log.Default.Panic("Couldn't commit to the database")
-		}
-	}
-	log.Default.With("Block Number", blockNumber).Info("State updated")
-	bNumber, _ := strconv.Atoi(blockNumber)
-	err = updateLatestBlockQueried(s.database, int64(bNumber))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
 }
