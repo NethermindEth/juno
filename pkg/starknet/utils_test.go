@@ -4,6 +4,8 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	"github.com/ethereum/go-ethereum/common"
+	"io/ioutil"
 	"testing"
 )
 
@@ -175,6 +177,36 @@ func TestFixedValues(t *testing.T) {
 	if initialBlock != starknetTypes.BlockOfStarknetDeploymentContractGoerli {
 		t.Fail()
 		return
+	}
+
+}
+
+func TestLoadContractInfo(t *testing.T) {
+	contractAddress := "0x0"
+	abiPath := "./abi/test_abi.json"
+
+	abiAsBytes, err := ioutil.ReadFile(abiPath)
+	if err != nil {
+		t.Fail()
+		return
+	}
+
+	contracts := make(map[common.Address]starknetTypes.ContractInfo)
+
+	err = loadContractInfo(contractAddress, string(abiAsBytes), "logName", contracts)
+	if err != nil {
+		t.Fail()
+		return
+	}
+	info, ok := contracts[common.HexToAddress(contractAddress)]
+	if !ok {
+		t.Fail()
+	}
+	if remove0x(info.Address.Hex()) != remove0x(contractAddress) {
+		t.Fail()
+	}
+	if len(contracts) != 1 {
+		t.Fail()
 	}
 
 }
