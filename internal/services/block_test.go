@@ -42,9 +42,18 @@ func TestService(t *testing.T) {
 	for _, b := range blocks {
 		key := b.Hash
 		BlockService.StoreBlock(key, b)
-		returnedBlock := BlockService.GetBlock(key)
+		// Get block by hash
+		returnedBlock := BlockService.GetBlockByHash(key)
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with hash %s", hex.EncodeToString(b.Hash))
+		}
+		if !equalData(t, b, returnedBlock) {
+			t.Errorf("b")
+		}
+		// Get block by number
+		returnedBlock = BlockService.GetBlockByNumber(b.BlockNumber)
+		if returnedBlock == nil {
+			t.Errorf("unexpected nil after search for block with number %d", b.BlockNumber)
 		}
 		if !equalData(t, b, returnedBlock) {
 			t.Errorf("b")
