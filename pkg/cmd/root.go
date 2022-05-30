@@ -194,7 +194,7 @@ func Execute() {
 
 	// TODO: Remove test below once proper handling of Python env done
 	// Small test to see that cairo-compile is installed and active. Deleting compiled test after.
-	pwdCli := os.Getenv("PWD") + "/tests/"
+	pwdCli := os.Getenv("PWD") + "/../pkg/cmd/tests/"
 	err := exec.Command("cairo-compile", pwdCli+"test.cairo", "--output", pwdCli+"test_compiled.json").Run()
 	if err != nil {
 		fmt.Println(err)
@@ -203,7 +203,7 @@ func Execute() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	log.Default.Info("Cairo Test compilation Successful.")
+	log.Default.Debug("Cairo Test compilation Successful.")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Default.With("Error", err).Error("Failed to execute CLI.")
