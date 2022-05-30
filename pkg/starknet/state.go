@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -258,7 +259,7 @@ func (s *Synchronizer) l1Sync() error {
 			for _, v := range fact.([32]byte) {
 				b = append(b, v)
 			}
-			abiOfContract, _ := loadAbiOfContract(abi.StarknetAbi)
+			contractAbi, _ := loadAbiOfContract(abi.StarknetAbi)
 			starknetAddress := common.HexToAddress(contractAddresses.Starknet)
 
 			factSaved, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSaved)
@@ -268,8 +269,20 @@ func (s *Synchronizer) l1Sync() error {
 				return err
 			}
 
-			fullFact := getFactInfo(s.ethereumClient, starknetTypes.ContractInfo{Contract: abiOfContract, EventName: "LogStateUpdate",
-				Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
+			query := ethereum.FilterQuery{
+				FromBlock: big.NewInt(int64(l.Block)),
+				ToBlock:   big.NewInt(int64(l.Block)),
+				Addresses: []common.Address{starknetAddress},
+				Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(contractAbi.Events["LogStateUpdate"].Sig))}},
+			}
+
+			starknetLogs, err := s.ethereumClient.FilterLogs(context.Background(), query)
+			if err != nil {
+				log.Default.With("Error", err, "Initial block", l.Block, "End block", l.Block+1).
+					Info("Couldn't get logs")
+			}
+			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
+			// TODO test for err	
 
 			// Safe Fact for block x
 			s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
@@ -285,41 +298,32 @@ func (s *Synchronizer) l1Sync() error {
 	return fmt.Errorf("couldn't read event from logs")
 }
 
-func getFactInfo(client *ethclient.Client, info starknetTypes.ContractInfo, block uint64, fact string, latestBlockSynced int64) starknetTypes.Fact {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(block)),
-		ToBlock:   big.NewInt(int64(block)),
-		Addresses: []common.Address{info.Address},
-		Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(info.Contract.Events["LogStateUpdate"].Sig))}},
-	}
-
-	starknetLogs, err := client.FilterLogs(context.Background(), query)
-	if err != nil {
-		log.Default.With("Error", err, "Initial block", block, "End block", block+1).
-			Info("Couldn't get logs")
-	}
+func getFactInfo(
+	starknetLogs []types.Log,
+	contract ethAbi.ABI,
+	fact string,
+	latestBlockSynced int64,
+) (*starknetTypes.Fact, error) {
 	for _, vLog := range starknetLogs {
 		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
-			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
+			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex())
 		event := map[string]interface{}{}
-
-		err = info.Contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
+		err := contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
-			return starknetTypes.Fact{}
+			log.Default.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+			return nil, err
 		}
-		factVal := starknetTypes.Fact{
+		factVal := &starknetTypes.Fact{
 			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
 			BlockNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
 			Value:       fact,
 		}
 		if factVal.BlockNumber == strconv.FormatInt(latestBlockSynced, 10) {
-			return factVal
+			return factVal, nil
 		}
-
 	}
 	log.Default.Panic("Couldn't find a block number that match in the logs for given fact")
-	return starknetTypes.Fact{}
+	return nil, nil
 }
 
 // Close closes the client for the Layer 1 Ethereum node
