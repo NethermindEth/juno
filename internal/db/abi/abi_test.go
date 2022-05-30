@@ -63,9 +63,9 @@ var abis = map[string]Abi{
 				Outputs: nil,
 			},
 		},
-		Events: []*Event{
+		Events: []*AbiEvent{
 			{
-				Data: []*Event_Data{
+				Data: []*AbiEvent_Data{
 					{
 						Name: "new_signer",
 						Type: "felt",
@@ -75,7 +75,7 @@ var abis = map[string]Abi{
 				Name: "signer_changed",
 			},
 			{
-				Data: []*Event_Data{
+				Data: []*AbiEvent_Data{
 					{
 						Name: "new_guardian",
 						Type: "felt",
@@ -85,7 +85,7 @@ var abis = map[string]Abi{
 				Name: "guardian_changed",
 			},
 			{
-				Data: []*Event_Data{
+				Data: []*AbiEvent_Data{
 					{
 						Name: "new_guardian",
 						Type: "felt",
@@ -95,7 +95,7 @@ var abis = map[string]Abi{
 				Name: "guardian_backup_changed",
 			},
 			{
-				Data: []*Event_Data{
+				Data: []*AbiEvent_Data{
 					{
 						Name: "active_at",
 						Type: "felt",
@@ -105,7 +105,7 @@ var abis = map[string]Abi{
 				Name: "escape_guardian_triggered",
 			},
 			{
-				Data: []*Event_Data{
+				Data: []*AbiEvent_Data{
 					{
 						Name: "active_at",
 						Type: "felt",
