@@ -60,17 +60,30 @@ func (s *blockService) Close(ctx context.Context) {
 	s.manager.Close()
 }
 
-// GetBlock searches for the block associated with the given block hash. If the
-// block does not exist on the database, then returns nil.
-func (s *blockService) GetBlock(blockHash []byte) *block.Block {
+// GetBlockByHash searches for the block associated with the given block hash.
+// If the block does not exist on the database, then returns nil.
+func (s *blockService) GetBlockByHash(blockHash []byte) *block.Block {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
 		With("blockHash", blockHash).
-		Debug("GetBlock")
+		Debug("GetBlockByHash")
 
-	return s.manager.GetBlock(blockHash)
+	return s.manager.GetBlockByHash(blockHash)
+}
+
+// GetBlockByNumber searches for the block associated with the given block
+// number. If the block does not exist on the database, then returns nil.
+func (s *blockService) GetBlockByNumber(blockNumber uint64) *block.Block {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("blockNumber", blockNumber).
+		Debug("GetBlockByNumber")
+
+	return s.manager.GetBlockByNumber(blockNumber)
 }
 
 // StoreBlock stores the given block into the database. The key used to map the
