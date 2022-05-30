@@ -4,32 +4,29 @@ import styles from './styles.module.css';
 
 const FeatureList = [
     {
-        title: 'Easy to Use',
-        Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+        title: 'Starknet in your hands',
+        Svg: require('@site/static/img/starknet.svg').default,
         description: (
             <>
-                Docusaurus was designed from the ground up to be easily installed and
-                used to get your website up and running quickly.
+                You can get all the Starknet information directly from us.
             </>
         ),
     },
     {
-        title: 'Focus on What Matters',
-        Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+        title: 'Oriented to Services',
+        Svg: require('@site/static/img/cloud.svg').default,
         description: (
             <>
-                Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-                ahead and move your docs into the <code>docs</code> directory.
+                Each of the parts of the application is oriented to services,
             </>
         ),
     },
     {
         title: 'Powered by Golang',
-        Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+        Svg: require('@site/static/img/go_saiyan.svg').default,
         description: (
             <>
-                Extend or customize your website layout by reusing React. Docusaurus can
-                be extended while reusing the same header and footer.
+                Go made it easy for us to write maintainable, testable, lightweight and performant code.
             </>
         ),
     },
