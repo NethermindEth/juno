@@ -134,7 +134,7 @@ var (
 	}
 )
 
-// init defines flags and handles configuration.
+// Define flags and load config.
 func init() {
 	fmt.Println(longMsg)
 	// Set the functions to be run when rootCmd.Execute() is called.
@@ -144,7 +144,7 @@ func init() {
 
 	// TODO: Add network flag. Read in values from viper or the config.
 	rootCmd.PersistentFlags().StringP("network", "n", viper.GetString("starknet.network"), fmt.Sprintf(
-		"network selected (set in config file)", viper.GetString("starknet.network")))
+		"network selected (set in config %s )", viper.GetString("starknet.network")))
 
 }
 
