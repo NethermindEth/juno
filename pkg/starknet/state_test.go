@@ -1,12 +1,16 @@
 package starknet
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"context"
+	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/starknet/abi"
+	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"testing"
 )
@@ -55,6 +59,43 @@ func TestUpdateState(t *testing.T) {
 	commitment, _ := new(big.Int).SetString(stateCommitment, 16)
 	if commitment.Cmp(want) != 0 {
 		t.Error("State roots do not match")
+	}
+}
+
+func TestGetFactInfo(t *testing.T) {
+	contractAbi, err := loadAbiOfContract(abi.StarknetAbi)
+	if err != nil {
+		t.Errorf("Could not finish test: failed to load contract ABI")
+	}
+	test := struct {
+		logs []types.Log
+		abi ethAbi.ABI
+		fact string
+		latestBlockSynced int64
+	}{
+		logs: []types.Log{
+			{
+				BlockNumber: 1,
+				BlockHash: common.Hash{1},
+				TxHash: common.Hash{2},
+				Data: []byte("067aa4a01cc374131818ab8aaaed7b7609448c922fe8956d07a9420cc5bb0bf500000000000000000000000000000000000000000000000000000000000009a5"),
+			},
+		},
+		abi: contractAbi,
+		fact: "1",
+		latestBlockSynced: 7148728157378602549,
+	}
+	want := &starknetTypes.Fact{
+		StateRoot: "0x3036376161346130316363333734313331383138616238616161656437623736",
+		BlockNumber: "7148728157378602549",
+		Value: test.fact,
+	}
+
+	res, err := getFactInfo(test.logs, test.abi, test.fact, test.latestBlockSynced)
+	if err != nil {
+		t.Errorf("Error while searching for fact: %v", err)
+	} else if res.Value != want.Value || res.BlockNumber != want.BlockNumber || res.StateRoot != want.StateRoot {
+		t.Errorf("Incorrect fact:\n%+v\n, want\n%+v", res, want)
 	}
 }
 
