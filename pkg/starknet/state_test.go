@@ -1,10 +1,11 @@
 package starknet
 
 import (
+	"context"
 	"math/big"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/store"
-	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"testing"
@@ -44,7 +45,7 @@ func TestUpdateState(t *testing.T) {
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
 	txn := txnDb.Begin()
 	stateCommitment, err := updateState(txn, hashService, stateDiff, "", "0")
-	hashService.Close()
+	hashService.Close(context.Background())
 	if err != nil {
 		t.Error("Error updating state")
 	}

@@ -3,17 +3,10 @@ package pedersen
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
+	"time"
 )
-
-// FIXME: See initBenchmarkArrayDigest below.
-/*
-var benchmarkArrayDigestData []*big.Int
-
-func init() {
-	initBenchmarkArrayDigest()
-}
-*/
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
 // *big.Int with a value of 0 N times.
@@ -62,25 +55,21 @@ func TestDigest(t *testing.T) {
 	}
 }
 
-// FIXME: Some values generated here are outside 𝔽ₚ.
-/*
-func initBenchmarkArrayDigest() {
-	// max = 2**252 - 1
-	max := new(big.Int)
-	max.Exp(big.NewInt(2), big.NewInt(252), nil).Sub(max, big.NewInt(1))
-	// Building a batch of 20 random big.Int between 0 and 2**252-1.
-	for i := 0; i < 20; i++ {
-		value := new(big.Int).Rand(rand.New(rand.NewSource(1)), max)
-		benchmarkArrayDigestData = append(benchmarkArrayDigestData, value)
-	}
-}
-
 func BenchmarkArrayDigest(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		ArrayDigest(benchmarkArrayDigestData...)
+	n := 20
+	data := make([]*big.Int, n)
+	max := curve.Params().P
+	seed := time.Now().UnixNano()
+	for i := range data {
+		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), max)
 	}
+
+	b.Run(fmt.Sprintf("Benchmark pedersen.ArrayDigest over %d big.Ints", n), func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ArrayDigest(data...)
+		}
+	})
 }
-*/
 
 func TestArrayDigest(t *testing.T) {
 	var tests = [...]struct {

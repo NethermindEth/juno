@@ -3,80 +3,112 @@ package services
 import (
 	"context"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/db"
-	"github.com/NethermindEth/juno/pkg/db/state"
-	"go.uber.org/zap"
 )
 
-var (
-	stateService StateService
-)
+var StateService stateService
 
-type StateService struct {
-	started          bool
-	storeCodeChannel chan storeCodeInstruction
-	manager          *state.Manager
-	logger           *zap.SugaredLogger
+type stateService struct {
+	service
+	manager *state.Manager
 }
 
-func NewStateService() *StateService {
-	codeDatabase := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/code", 0))
-	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.Runtime.DbPath+"/storage", 0))
-	storeCodeChannel := make(chan storeCodeInstruction, 100)
-	stateService = StateService{
-		started:          false,
-		storeCodeChannel: storeCodeChannel,
-		manager:          state.NewStateManager(codeDatabase, *storageDatabase),
-		logger:           log.Default.Named("Contract Code Service"),
+func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+	if s.Running() {
+		// notest
+		s.logger.Panic("service is already running")
 	}
-	return &stateService
+	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
 }
 
-func (service *StateService) Run() error {
-	service.started = true
-	service.logger.Info("Service started")
-	for {
-		// TODO: Check if the channel is closed
-		select {
-		case storeInst := <-service.storeCodeChannel:
-			service.logger.
-				With("Contract address", storeInst.ContractAddress).
-				Info("Fetching contract code from contract address")
-			service.manager.PutCode(storeInst.ContractAddress, &storeInst.Code)
-			service.logger.
-				With("Contract address", storeInst.ContractAddress).
-				Info("Contract code saved")
-		}
+func (s *stateService) Run() error {
+	if s.logger == nil {
+		s.logger = log.Default.Named("StateService")
 	}
-}
 
-func (service *StateService) Close(ctx context.Context) {
-	service.logger.Info("Closing service...")
-	close(service.storeCodeChannel)
-	service.logger.Info("Closed")
-}
-
-type storeCodeInstruction struct {
-	ContractAddress string
-	Code            state.ContractCode
-}
-
-func (service *StateService) StoreCode(contractAddress string, code state.ContractCode) {
-	service.storeCodeChannel <- storeCodeInstruction{
-		ContractAddress: contractAddress,
-		Code:            code,
+	if err := s.service.Run(); err != nil {
+		// notest
+		return err
 	}
-}
 
-func (service *StateService) GetCode(contractAddress string) *state.ContractCode {
-	contractCode := service.manager.GetCode(contractAddress)
-	return contractCode
-}
-
-func GetStateService() *StateService {
-	if stateService.started {
-		return &stateService
-	}
+	s.setDefaults()
 	return nil
+}
+
+func (s *stateService) setDefaults() {
+	if s.manager == nil {
+		// notest
+		codeDatabase := db.NewKeyValueDb(config.DataDir+"/code", 0)
+		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
+		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+	}
+}
+
+func (s *stateService) Close(ctx context.Context) {
+	s.service.Close(ctx)
+	s.manager.Close()
+}
+
+func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Debug("StoreCode")
+
+	s.manager.PutCode(contractAddress, code)
+}
+
+func (s *stateService) GetCode(contractAddress []byte) *state.Code {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Debug("GetCode")
+
+	return s.manager.GetCode(contractAddress)
+}
+
+func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, storage *state.Storage) {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress, "blockNumber", blockNumber).
+		Debug("StoreStorage")
+
+	s.manager.PutStorage(contractAddress, blockNumber, storage)
+}
+
+func (s *stateService) GetStorage(contractAddress string, blockNumber uint64) *state.Storage {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress, "blockNumber", blockNumber).
+		Debug("GetStorage")
+
+	return s.manager.GetStorage(contractAddress, blockNumber)
+}
+
+func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64, storage *state.Storage) {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress, "blockNumber", blockNumber).
+		Debug("UpdateStorage")
+
+	oldStorage := s.GetStorage(contractAddress, blockNumber)
+	if oldStorage == nil {
+		// notest
+		s.StoreStorage(contractAddress, blockNumber, storage)
+	} else {
+		oldStorage.Update(storage)
+		s.StoreStorage(contractAddress, blockNumber, oldStorage)
+	}
 }

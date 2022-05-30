@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/NethermindEth/juno/pkg/db"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/ethereum/go-ethereum/common"
 	"testing"
 )

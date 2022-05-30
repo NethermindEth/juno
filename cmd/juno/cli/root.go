@@ -4,22 +4,22 @@ package cli
 import (
 	_ "embed"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/starknet"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
-	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -66,28 +66,32 @@ var (
 			}
 
 			// Initialize ABI Service
-			abiService := services.NewABIService()
-			processHandler.Add("ABI Service", abiService.Run, abiService.Close)
+			processHandler.Add("ABI Service", services.AbiService.Run, services.AbiService.Close)
 
 			// Initialize State storage service
-			stateService := services.NewStateService()
-			processHandler.Add("State Storage Service", stateService.Run, stateService.Close)
+			processHandler.Add("State Storage Service", services.StateService.Run, services.StateService.Close)
+
+			// Initialize Transactions Storage Service
+			processHandler.Add("Transactions Storage Service", services.TransactionService.Run, services.TransactionService.Close)
+
+			// Initialize Block Storage Service
+			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
 			database := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/contractHash", 0))
 			contractHashService := services.NewContractHashService(database)
-			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, stateService.Close)
+			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, contractHashService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
-				client, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+				ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
 				if err != nil {
 					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 				}
-				fClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
-				// Layer 1 synchronizer for Ethereum State
-				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), client, fClient)
+				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+				// Synchronizer for Starknet State
+				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), ethereumClient, feederGatewayClient)
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
@@ -107,6 +111,7 @@ func cleanup() {
 
 // init defines flags and handles configuration.
 func init() {
+	fmt.Println(longMsg)
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
 

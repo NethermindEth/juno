@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -269,7 +269,7 @@ func (s *Synchronizer) l1Sync() error {
 			}
 
 			fullFact := getFactInfo(s.ethereumClient, starknetTypes.ContractInfo{Contract: abiOfContract, EventName: "LogStateUpdate",
-			Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
+				Address: starknetAddress}, l.Block, common.BytesToHash(b).Hex(), factSaved)
 
 			// Safe Fact for block x
 			s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
@@ -341,7 +341,7 @@ func (s *Synchronizer) apiSync() error {
 	for {
 		newValueForIterator, newBlockHash := s.updateStateForOneBlock(blockIterator, lastBlockHash)
 		if newBlockHash == lastBlockHash {
-			// Assume we are completely synced or an error has occured
+			// Assume we are completely synced or an error has occurred
 			time.Sleep(time.Minute * 2)
 		}
 		blockIterator, lastBlockHash = newValueForIterator, newBlockHash
@@ -552,11 +552,9 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
 			Info("Fetched code and ABI")
 		// Save the ABI
-		abiService := services.GetABIService()
-		abiService.StoreABI(remove0x(v.Address), *code.Abi)
+		services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
 		// Save the contract code
-		stateService := services.GetStateService()
-		stateService.StoreCode(remove0x(v.Address), code.Bytecode)
+		services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
 	}
 }
 
