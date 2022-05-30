@@ -40,14 +40,6 @@ func (d *KeyValueDb) GetEnv() *mdbx.Env {
 	return d.env
 }
 
-// NewKeyValueDbWithEnv creates a new key-value database based on an already created env.
-func NewKeyValueDbWithEnv(env *mdbx.Env, path string) *KeyValueDb {
-	return &KeyValueDb{
-		env:  env,
-		path: path,
-	}
-}
-
 func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 	env, err := mdbx.NewEnv()
 	if err != nil {

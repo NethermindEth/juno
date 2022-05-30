@@ -134,6 +134,14 @@ func TestGetAndUpdateValueOnDB(t *testing.T) {
 	if int64(value+1) != fromDB {
 		t.Fail()
 	}
+
+	zero, err := getNumericValueFromDB(database, "empty")
+	if err != nil {
+		t.Fail()
+	}
+	if zero != 0 {
+		t.Fail()
+	}
 }
 
 func TestFixedValues(t *testing.T) {
