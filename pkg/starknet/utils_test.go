@@ -3,12 +3,10 @@ package starknet
 import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"testing"
 )
 
-//func ethereumFaker() *ethclient.Client {
-//	return geth.NewEthereumClient()
-//}
 func TestRemove0x(t *testing.T) {
 	tests := [...]struct {
 		entry    string
@@ -134,4 +132,49 @@ func TestGetAndUpdateValueOnDB(t *testing.T) {
 	if int64(value+1) != fromDB {
 		t.Fail()
 	}
+}
+
+func TestFixedValues(t *testing.T) {
+	// Test Mainnet address for Memory Pages Contract
+	memoryAddressContract := getMemoryPagesContractAddress(1)
+	if memoryAddressContract != starknetTypes.MemoryPagesContractAddressMainnet {
+		t.Fail()
+		return
+	}
+
+	// Test Goerli address for Memory Pages Contract
+	memoryAddressContract = getMemoryPagesContractAddress(0)
+	if memoryAddressContract != starknetTypes.MemoryPagesContractAddressGoerli {
+		t.Fail()
+		return
+	}
+
+	// Test Mainnet address for Gps Verifier Contract
+	gpsVerifierContract := getGpsVerifierContractAddress(1)
+	if gpsVerifierContract != starknetTypes.GpsVerifierContractAddressMainnet {
+		t.Fail()
+		return
+	}
+
+	// Test Goerli address for Gps Verifier Contract
+	gpsVerifierContract = getGpsVerifierContractAddress(0)
+	if gpsVerifierContract != starknetTypes.GpsVerifierContractAddressGoerli {
+		t.Fail()
+		return
+	}
+
+	// Test Initial Block for Starknet Contract in Mainnet
+	initialBlock := initialBlockForStarknetContract(1)
+	if initialBlock != starknetTypes.BlockOfStarknetDeploymentContractMainnet {
+		t.Fail()
+		return
+	}
+
+	// Test Initial Block For Starknet Contract in Goerli
+	initialBlock = initialBlockForStarknetContract(0)
+	if initialBlock != starknetTypes.BlockOfStarknetDeploymentContractGoerli {
+		t.Fail()
+		return
+	}
+
 }

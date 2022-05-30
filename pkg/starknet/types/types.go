@@ -14,6 +14,11 @@ const (
 	BlockOfStarknetDeploymentContractMainnet = 13627000
 	BlockOfStarknetDeploymentContractGoerli  = 5853000
 	MaxChunk                                 = 10000
+
+	MemoryPagesContractAddressMainnet = "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
+	MemoryPagesContractAddressGoerli  = "0x743789ff2ff82bfb907009c9911a7da636d34fa7"
+	GpsVerifierContractAddressMainnet = "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
+	GpsVerifierContractAddressGoerli  = "0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"
 )
 
 // KV represents a key-Value pair.

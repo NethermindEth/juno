@@ -100,17 +100,17 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) starknetT
 // getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
 func getGpsVerifierContractAddress(id int64) string {
 	if id == 1 {
-		return "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
+		return starknetTypes.GpsVerifierContractAddressMainnet
 	}
-	return "0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"
+	return starknetTypes.GpsVerifierContractAddressGoerli
 }
 
 // getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
 func getMemoryPagesContractAddress(id int64) string {
 	if id == 1 {
-		return "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
+		return starknetTypes.MemoryPagesContractAddressMainnet
 	}
-	return "0x743789ff2ff82bfb907009c9911a7da636d34fa7"
+	return starknetTypes.MemoryPagesContractAddressGoerli
 }
 
 // initialBlockForStarknetContract Returns the first block that we need to start to fetch the facts from l1
