@@ -164,28 +164,38 @@ var receipts = []*transaction.TransactionReceipt{
 }
 
 func TestManager_PutReceipt(t *testing.T) {
+	defer resetTransactionService()
 	database := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := transaction.NewManager(database)
-	for _, receipt := range receipts {
-		manager.PutReceipt(receipt.TxHash, receipt)
+	TransactionService.Setup(database)
+	err := TransactionService.Run()
+	if err != nil {
+		t.Errorf("error running the service: %s", err)
 	}
-	manager.Close()
+	for _, receipt := range receipts {
+		TransactionService.StoreReceipt(receipt.TxHash, receipt)
+	}
+	TransactionService.Close(context.Background())
 }
 
 func TestManager_GetReceipt(t *testing.T) {
+	defer resetTransactionService()
 	database := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := transaction.NewManager(database)
-	for _, receipt := range receipts {
-		manager.PutReceipt(receipt.TxHash, receipt)
+	TransactionService.Setup(database)
+	err := TransactionService.Run()
+	if err != nil {
+		t.Errorf("error running the service: %s", err)
 	}
 	for _, receipt := range receipts {
-		outReceipt := manager.GetReceipt(receipt.TxHash)
+		TransactionService.StoreReceipt(receipt.TxHash, receipt)
+	}
+	for _, receipt := range receipts {
+		outReceipt := TransactionService.GetReceipt(receipt.TxHash)
 
 		if !equalMessage(t, receipt, outReceipt) {
 			t.Errorf("receipt not equal after Put/Get operations")
 		}
 	}
-	manager.Close()
+	TransactionService.Close(context.Background())
 }
 
 func equalMessage(t *testing.T, a, b proto.Message) bool {
