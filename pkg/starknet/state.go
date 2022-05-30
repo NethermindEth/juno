@@ -24,19 +24,22 @@ import (
 
 // Synchronizer represents the base struct for Starknet Synchronization
 type Synchronizer struct {
-	ethereumClient         *ethclient.Client
-	feederGatewayClient    *feeder.Client
-	database               db.Databaser
-	transactioner          db.Transactioner
-	memoryPageHash         *starknetTypes.Dictionary
-	gpsVerifier            *starknetTypes.Dictionary
-	latestMemoryPageBlock  int64
-	latestGpsVerifierBlock int64
-	facts                  *starknetTypes.Dictionary
+	ethereumClient      *ethclient.Client
+	feederGatewayClient *feeder.Client
+	database            db.Databaser
+	transactioner       db.Transactioner
+	memoryPageHash      *starknetTypes.Dictionary
+	gpsVerifier         *starknetTypes.Dictionary
+	facts               *starknetTypes.Dictionary
+	chainID             int64
 }
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
+	chainID, err := client.ChainID(context.Background())
+	if err != nil {
+		log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+	}
 	return &Synchronizer{
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
@@ -44,6 +47,7 @@ func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feed
 		memoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
 		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
+		chainID:             chainID.Int64(),
 		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
 	}
 }
@@ -71,7 +75,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 		return err
 	}
 
-	initialBlock := initialBlockForStarknetContract(s.ethereumClient)
+	initialBlock := initialBlockForStarknetContract(s.chainID)
 	increment := uint64(starknetTypes.MaxChunk)
 	i := uint64(initialBlock)
 	for i < latestBlockNumber {
@@ -174,7 +178,7 @@ func (s *Synchronizer) l1Sync() error {
 	}
 
 	// Add Gps Statement Verifier contract
-	gpsAddress := getGpsVerifierContractAddress(s.ethereumClient)
+	gpsAddress := getGpsVerifierContractAddress(s.chainID)
 	err = loadContractInfo(gpsAddress,
 		abi.GpsVerifierAbi,
 		"LogMemoryPagesHashes", contracts)
@@ -184,7 +188,7 @@ func (s *Synchronizer) l1Sync() error {
 		return err
 	}
 	// Add Memory Page Fact Registry contract
-	memoryPagesContractAddress := getMemoryPagesContractAddress(s.ethereumClient)
+	memoryPagesContractAddress := getMemoryPagesContractAddress(s.chainID)
 	err = loadContractInfo(memoryPagesContractAddress,
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
@@ -331,7 +335,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 }
 
 func (s *Synchronizer) apiSync() error {
-	latestBlockQueried, err := latestBlockQueried(s.database)
+	latestBlockQueried, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return err
@@ -382,7 +386,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	s.updateAbiAndCode(upd, lastBlockHash, string(rune(blockIterator)))
 
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateLatestBlockQueried(s.database, int64(blockIterator))
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
@@ -536,7 +540,7 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 	}
 	log.Default.With("Block Number", blockNumber).Info("State updated")
 	bNumber, _ := strconv.Atoi(blockNumber)
-	err = updateLatestBlockQueried(s.database, int64(bNumber))
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(bNumber))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}

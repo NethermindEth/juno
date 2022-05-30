@@ -2,7 +2,6 @@ package starknet
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
@@ -12,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"strings"
 )
@@ -23,7 +21,7 @@ func newTrie(database db.Databaser, prefix string) trie.Trie {
 	return trie.New(store, 251)
 }
 
-// loadContractInfo loads a contract ABI and set the events' that later we are going to use
+// loadContractInfo loads a contract ABI and set the events that later we are going to use
 func loadContractInfo(contractAddress, abiValue, logName string, contracts map[common.Address]starknetTypes.ContractInfo) error {
 	contractAddressHash := common.HexToAddress(contractAddress)
 	contractFromAbi, err := loadAbiOfContract(abiValue)
@@ -100,52 +98,30 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) starknetT
 }
 
 // getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
-func getGpsVerifierContractAddress(ethereumClient *ethclient.Client) string {
-	id, err := ethereumClient.ChainID(context.Background())
-	if err != nil {
-		return "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
-	}
-	if id.Int64() == 1 {
+func getGpsVerifierContractAddress(id int64) string {
+	if id == 1 {
 		return "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
 	}
 	return "0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"
 }
 
 // getGpsVerifierAddress returns the address of the GpsVerifierStatement in the current chain
-func getMemoryPagesContractAddress(ethereumClient *ethclient.Client) string {
-	id, err := ethereumClient.ChainID(context.Background())
-	if err != nil {
-		return "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
-	}
-	if id.Int64() == 1 {
+func getMemoryPagesContractAddress(id int64) string {
+	if id == 1 {
 		return "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
 	}
 	return "0x743789ff2ff82bfb907009c9911a7da636d34fa7"
 }
 
 // initialBlockForStarknetContract Returns the first block that we need to start to fetch the facts from l1
-func initialBlockForStarknetContract(ethereumClient *ethclient.Client) int64 {
-	id, err := ethereumClient.ChainID(context.Background())
-	if err != nil {
-		return 0
-	}
-	if id.Int64() == 1 {
+func initialBlockForStarknetContract(id int64) int64 {
+	if id == 1 {
 		return starknetTypes.BlockOfStarknetDeploymentContractMainnet
 	}
 	return starknetTypes.BlockOfStarknetDeploymentContractGoerli
 }
 
-// latestBlockQueried fetch from the database the Value associated to the latest block that have been queried while
-// updating the state. Otherwise, it returns 0
-func latestBlockQueried(database db.Databaser) (int64, error) {
-	return getNumericValueFromDB(database, starknetTypes.LatestBlockSynced)
-}
-
-// updateLatestBlockQueried store locally the latest block queried used for state processing
-func updateLatestBlockQueried(database db.Databaser, block int64) error {
-	return updateNumericValueFromDB(database, starknetTypes.LatestBlockSynced, block)
-}
-
+// getNumericValueFromDB get the value associated to a key and convert it to integer
 func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
@@ -163,6 +139,7 @@ func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
 	return int64(ret), nil
 }
 
+// updateNumericValueFromDB update the value in the database for a key increasing the value in 1
 func updateNumericValueFromDB(database db.Databaser, key string, value int64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(value+1))

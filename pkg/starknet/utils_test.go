@@ -1,6 +1,7 @@
 package starknet
 
 import (
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"testing"
 )
@@ -110,5 +111,27 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 				t.Fail()
 			}
 		}
+	}
+}
+
+func TestGetAndUpdateValueOnDB(t *testing.T) {
+	database := db.NewKeyValueDb(t.TempDir(), 0)
+
+	key := "key"
+	value := 0
+
+	err := updateNumericValueFromDB(database, key, int64(value))
+	if err != nil {
+		t.Fail()
+		return
+	}
+	fromDB, err := getNumericValueFromDB(database, key)
+	if err != nil {
+		t.Fail()
+		return
+	}
+
+	if int64(value+1) != fromDB {
+		t.Fail()
 	}
 }
