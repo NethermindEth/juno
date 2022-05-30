@@ -96,7 +96,7 @@ func TestManager_GetTransaction(t *testing.T) {
 	for _, tx := range txs {
 		outTx := manager.GetTransaction(tx.Hash)
 
-		if !equalTx(t, tx, outTx) {
+		if !equalMessage(t, tx, outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
 		}
 	}
@@ -108,7 +108,76 @@ func decodeString(s string) []byte {
 	return x
 }
 
-func equalTx(t *testing.T, a, b *Transaction) bool {
+var receipts = []*TransactionReceipt{
+	{
+		TxHash:       decodeString("7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+		ActualFee:    decodeString("0"),
+		Status:       0,
+		StatusData:   "",
+		MessagesSent: nil,
+		L1OriginMessage: &MessageToL2{
+			FromAddress: "0x659a00c33263d9254Fed382dE81349426C795BB6",
+			Payload: [][]byte{
+				decodeString("68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
+				decodeString("2616da7c393d14000"),
+				decodeString("0"),
+				decodeString("b9d83d298d46c4dd73618f19a2a40084ce36476a"),
+			},
+		},
+		Events: []*Event{
+			{
+				FromAddress: decodeString("da114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3"),
+				Keys: [][]byte{
+					decodeString("99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+				},
+				Data: [][]byte{
+					decodeString("0"),
+					decodeString("68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
+					decodeString("2616da7c393d14000"),
+					decodeString("0"),
+				},
+			},
+			{
+				FromAddress: decodeString("1108cdbe5d82737b9057590adaf97d34e74b5452f0628161d237746b6fe69e"),
+				Keys: [][]byte{
+					decodeString("221e5a5008f7a28564f0eaa32cdeb0848d10657c449aed3e15d12150a7c2db3"),
+				},
+				Data: [][]byte{
+					decodeString("68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
+					decodeString("2616da7c393d14000"),
+					decodeString("0"),
+				},
+			},
+		},
+	},
+}
+
+func TestManager_PutReceipt(t *testing.T) {
+	database := db.NewKeyValueDb(t.TempDir(), 0)
+	manager := NewManager(database)
+	for _, receipt := range receipts {
+		manager.PutReceipt(receipt.TxHash, receipt)
+	}
+	manager.Close()
+}
+
+func TestManager_GetReceipt(t *testing.T) {
+	database := db.NewKeyValueDb(t.TempDir(), 0)
+	manager := NewManager(database)
+	for _, receipt := range receipts {
+		manager.PutReceipt(receipt.TxHash, receipt)
+	}
+	for _, receipt := range receipts {
+		outReceipt := manager.GetReceipt(receipt.TxHash)
+
+		if !equalMessage(t, receipt, outReceipt) {
+			t.Errorf("receipt not equal after Put/Get operations")
+		}
+	}
+	manager.Close()
+}
+
+func equalMessage(t *testing.T, a, b proto.Message) bool {
 	aRaw, err := proto.Marshal(a)
 	if err != nil {
 		t.Errorf("marshal error: %s", err)
