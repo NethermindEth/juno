@@ -208,5 +208,12 @@ func TestLoadContractInfo(t *testing.T) {
 	if len(contracts) != 1 {
 		t.Fail()
 	}
+	method, ok := contracts[common.HexToAddress(contractAddress)].Contract.Methods["f"]
+	if !ok {
+		t.Fail()
+	}
+	if method.Sig != "f((uint256,uint256[],(uint256,uint256)[]),(uint256,uint256),uint256)" {
+		t.Fail()
+	}
 
 }
