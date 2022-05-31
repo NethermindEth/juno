@@ -11,9 +11,13 @@ import (
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"testing"
 )
+
+type mockClient struct {}
 
 func TestUpdateState(t *testing.T) {
 	// Note: `contract` in `DeployedContracts` and `StorageDiffs`.
@@ -87,16 +91,35 @@ func TestGetFactInfo(t *testing.T) {
 	}
 	want := &starknetTypes.Fact{
 		StateRoot: "0x3036376161346130316363333734313331383138616238616161656437623736",
-		BlockNumber: "7148728157378602549",
+		SequenceNumber: "7148728157378602549",
 		Value: test.fact,
 	}
 
 	res, err := getFactInfo(test.logs, test.abi, test.fact, test.latestBlockSynced)
 	if err != nil {
 		t.Errorf("Error while searching for fact: %v", err)
-	} else if res.Value != want.Value || res.BlockNumber != want.BlockNumber || res.StateRoot != want.StateRoot {
+	} else if res.Value != want.Value || res.SequenceNumber != want.SequenceNumber || res.StateRoot != want.StateRoot {
 		t.Errorf("Incorrect fact:\n%+v\n, want\n%+v", res, want)
 	}
+}
+
+func TestProcessPagesHashes(t *testing.T) {
+	// Instantiate pagesHashes and memoryContract
+	//memoryContract, err := loadAbiOfContract(abi.MemoryPagesAbi)
+	//if err != nil {
+	//	t.Errorf("Could not finish test: failed to load contract ABI")
+	//}
+	hash := "c89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6"
+	pagesHashes := [][32]byte{}
+	numHash, _ := new(big.Int).SetString(hash, 16)
+	numHash.FillBytes(pagesHashes[0][:])
+
+	// Instantiate synchronizer
+	// TODO find a way to mock the ethclient
+	//s := NewSynchronizer(nil, ethclient.NewClient(rpc), nil)
+	//s.memoryPageHash.Add(hash, starknetTypes.TransactionHash{Hash: common.Hash{1}})
+
+	//s.processPagesHashes(pagesHashes, memoryContract)
 }
 
 func TestParsePages(t *testing.T) {

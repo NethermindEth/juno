@@ -54,7 +54,7 @@ type EventInfo struct {
 
 type Fact struct {
 	StateRoot   string `json:"state_root"`
-	BlockNumber string `json:"block_number"`
+	SequenceNumber string `json:"block_number"`
 	Value       string `json:"value"`
 }
 

@@ -98,7 +98,7 @@ func TestMapUsingFact(t *testing.T) {
 	// Set a new value, in this case TransactionHash
 	fact := Fact{
 		StateRoot:   "stateRoot",
-		BlockNumber: "BlockNumber",
+		SequenceNumber: "BlockNumber",
 		Value:       "Value",
 	}
 
@@ -116,7 +116,7 @@ func TestMapUsingFact(t *testing.T) {
 		return
 	}
 	// check that retrieved value match the one that was saved
-	if get.(Fact).StateRoot != fact.StateRoot || get.(Fact).BlockNumber != fact.BlockNumber ||
+	if get.(Fact).StateRoot != fact.StateRoot || get.(Fact).SequenceNumber != fact.SequenceNumber ||
 		get.(Fact).Value != fact.Value {
 		t.Fail()
 	}

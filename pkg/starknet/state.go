@@ -23,6 +23,11 @@ import (
 	"time"
 )
 
+// We create this interface so we can mock the ethclient struct from go-ethereum
+type l1Client interface {
+	TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error)
+}
+
 // Synchronizer represents the base struct for Starknet Synchronization
 type Synchronizer struct {
 	ethereumClient         *ethclient.Client
@@ -196,40 +201,10 @@ func (s *Synchronizer) l1Sync() error {
 	}
 
 	go func() {
-
 		err = s.loadEvents(contracts, event)
 		if err != nil {
 			log.Default.With("Error", err).Info("Couldn't get events")
 			close(event)
-		}
-	}()
-
-	// Handle frequently if there is any fact that comes from L1 to handle
-	go func() {
-		ticker := time.NewTicker(time.Second * 5)
-		for range ticker.C {
-			factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
-			if err != nil {
-				log.Default.With("Error", err).
-					Info("Unable to get the Value of the latest fact synced")
-				continue
-			}
-			if !s.facts.Exist(strconv.FormatInt(factSynced, 10)) {
-				continue
-			}
-			f := starknetTypes.Fact{}
-			fact, _ := s.facts.Get(strconv.FormatInt(factSynced, 10), f)
-
-			if s.gpsVerifier.Exist(fact.(starknetTypes.Fact).Value) {
-				// If already exist the information related to the fact,
-				// fetch the memory pages and updated the State
-				s.processMemoryPages(fact.(starknetTypes.Fact).Value, fact.(starknetTypes.Fact).StateRoot, fact.(starknetTypes.Fact).BlockNumber)
-				s.facts.Remove(strconv.FormatInt(factSynced, 10))
-				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
-				if err != nil {
-					return
-				}
-			}
 		}
 	}()
 
@@ -284,8 +259,7 @@ func (s *Synchronizer) l1Sync() error {
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
 			// TODO test for err	
 
-			// Safe Fact for block x
-			s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
+			go s.transitionState(fullFact, l.Block, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
 
 			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 			if err != nil {
@@ -296,6 +270,58 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}
 	return fmt.Errorf("couldn't read event from logs")
+}
+
+func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64, pageRegistryContract ethAbi.ABI) {
+	factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
+	if err != nil {
+		log.Default.With("Error", err).
+			Info("Unable to get the Value of the latest fact synced")
+	}
+	// Get memory pages hashes using fact
+	pagesHashes, err := s.gpsVerifier.Get(fact.Value, starknetTypes.PagesHash{})
+	if err != nil {
+		log.Default.With("Error").Panic("Fact has not been verified")
+	}
+	// If already exist the information related to the fact,
+	// fetch and parse the memory pages
+	pages := s.processPagesHashes(
+		s.ethereumClient,
+		pagesHashes.(starknetTypes.PagesHash).Bytes, 
+		pageRegistryContract,
+	)
+	stateDiff := parsePages(pages)
+
+	// Update state
+	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
+	bNumber, _ := strconv.Atoi(fact.SequenceNumber)
+	err = updateLatestBlockQueried(s.database, int64(bNumber))
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
+
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't update latest block synced")
+	}
+}
+
+func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber string) {
+	txn := s.transactioner.Begin()
+	hashService := services.GetContractHashService()
+	if hashService == nil {
+		log.Default.Panic("Contract hash service is unavailable")
+	}
+	_, err := updateState(txn, services.GetContractHashService(), stateDiff, newRoot, sequenceNumber)
+	if err != nil {
+		log.Default.With("Error", err).Panic("Couldn't update state")
+	} else {
+		err := txn.Commit()
+		if err != nil {
+			log.Default.Panic("Couldn't commit to the database")
+		}
+	}
+	log.Default.With("Block Number", sequenceNumber).Info("State updated")
 }
 
 func getFactInfo(
@@ -315,10 +341,10 @@ func getFactInfo(
 		}
 		factVal := &starknetTypes.Fact{
 			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
-			BlockNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
+			SequenceNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
 			Value:       fact,
 		}
-		if factVal.BlockNumber == strconv.FormatInt(latestBlockSynced, 10) {
+		if factVal.SequenceNumber == strconv.FormatInt(latestBlockSynced, 10) {
 			return factVal, nil
 		}
 	}
@@ -368,20 +394,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 
 	upd := stateUpdateResponseToStateDiff(update)
 
-	txn := s.transactioner.Begin()
-	hashService := services.GetContractHashService()
-	if hashService == nil {
-		log.Default.Panic("Contract hash service is unavailable")
-	}
-	_, err = updateState(txn, hashService, upd, update.NewRoot, strconv.Itoa(blockIterator))
-	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't update state")
-	} else {
-		err := txn.Commit()
-		if err != nil {
-			log.Default.Panic("Couldn't commit to the database")
-		}
-	}
+	s.updateAndCommitState(&upd, update.NewRoot, strconv.Itoa(blockIterator))
 
 	s.updateAbiAndCode(upd, lastBlockHash, string(rune(blockIterator)))
 
@@ -396,7 +409,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 func updateState(
 	txn db.Transaction,
 	hashService *services.ContractHashService,
-	update starknetTypes.StateDiff,
+	update *starknetTypes.StateDiff,
 	stateRoot, blockNumber string,
 ) (string, error) {
 	log.Default.With("Block Number", blockNumber).Info("Processing block")
@@ -463,87 +476,39 @@ func updateState(
 	return stateCommitment, nil
 }
 
-func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
+func (s *Synchronizer) processPagesHashes(ethereumClient l1Client, pagesHashes [][32]byte, memoryContract ethAbi.ABI) ([][]*big.Int) {
 	pages := make([][]*big.Int, 0)
-
-	// Get memory pages hashes using fact
-	valInterface := starknetTypes.PagesHash{}
-	memoryPages, err := s.gpsVerifier.Get(fact, valInterface)
-	if err != nil {
-		return
-	}
-	if err != nil {
-		return
-	}
-	memoryContract, err := loadAbiOfContract(abi.MemoryPagesAbi)
-	if err != nil {
-		return
-	}
-
-	// iterate over each memory page
-	for _, v := range memoryPages.(starknetTypes.PagesHash).Bytes {
-		h := make([]byte, 0)
-
-		for _, s := range v {
-			h = append(h, s)
-		}
+	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page
-		hash := common.BytesToHash(h)
-		valInter := starknetTypes.TransactionHash{}
-		transactionHash, err := s.memoryPageHash.Get(hash.Hex(), &valInter)
+		hash := common.BytesToHash(v[:])
+		transactionHash, err := s.memoryPageHash.Get(hash.Hex(), &starknetTypes.TransactionHash{})
 		if err != nil {
-			return
+			return nil
 		}
 		log.Default.With("Hash", hash.Hex()).Info("Getting transaction...")
-		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(starknetTypes.TransactionHash).Hash)
+		txn, _, err := ethereumClient.TransactionByHash(context.Background(), transactionHash.(starknetTypes.TransactionHash).Hash)
 		if err != nil {
 			log.Default.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")
-			return
+			return nil
 		}
-		method := memoryContract.Methods["registerContinuousMemoryPage"]
 
+		// Parse Ethereum transaction calldata for Starknet transaction information
 		data := txn.Data()
 		if len(txn.Data()) < 5 {
 			log.Default.Error("memory page transaction input has incomplete signature")
 			continue
 		}
 		inputs := make(map[string]interface{})
-
-		// unpack method inputs
-		err = method.Inputs.UnpackIntoMap(inputs, data[4:])
+		err = memoryContract.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, data[4:])
 		if err != nil {
 			log.Default.With("Error", err).Info("Couldn't unpack into map")
-			return
+			return nil
 		}
-		t := inputs["values"]
-		// Get the inputs of the transaction from Layer 1
-		// Append to the memory pages
-		pages = append(pages, t.([]*big.Int))
+		// Append calldata to pages
+		pages = append(pages, inputs["values"].([]*big.Int))
 	}
-	// pages should contain all txn information
-	state := parsePages(pages)
-
-	txn := s.transactioner.Begin()
-	hashService := services.GetContractHashService()
-	if hashService == nil {
-		log.Default.Panic("Contract hash service is unavailable")
-	}
-	_, err = updateState(txn, services.GetContractHashService(), *state, stateRoot, blockNumber)
-	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't update state")
-	} else {
-		err := txn.Commit()
-		if err != nil {
-			log.Default.Panic("Couldn't commit to the database")
-		}
-	}
-	log.Default.With("Block Number", blockNumber).Info("State updated")
-	bNumber, _ := strconv.Atoi(blockNumber)
-	err = updateLatestBlockQueried(s.database, int64(bNumber))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
-	}
+	return pages
 }
 
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
