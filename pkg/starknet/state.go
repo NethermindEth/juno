@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
-	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum"
+	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -286,7 +286,7 @@ func (s *Synchronizer) l1Sync() error {
 					Info("Couldn't get logs")
 			}
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
-			// TODO test for err	
+			// TODO test for err
 
 			// Safe Fact for block x
 			s.facts.Add(strconv.FormatInt(factSaved, 10), fullFact)
@@ -370,7 +370,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
 
-	upd := stateUpdateResponseToStateDiff(update)
+	upd := stateUpdateResponseToStateDiff(*update)
 
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
@@ -552,17 +552,18 @@ func (s *Synchronizer) processMemoryPages(fact, stateRoot, blockNumber string) {
 
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
 	for _, v := range update.DeployedContracts {
-		code, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
+		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
 		if err != nil {
 			return
 		}
 		log.Default.
 			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
 			Info("Fetched code and ABI")
+		// TODO: Convert ABI and Code in Database
 		// Save the ABI
-		services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
+		//services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
 		// Save the contract code
-		services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
+		//services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
 	}
 }
 

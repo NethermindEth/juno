@@ -5,8 +5,6 @@ package feeder
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/db/state"
 	"io"
 	"net/http"
 	"net/url"
@@ -247,13 +245,13 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", req.URL.RawQuery).Error("Unable to create a request for get_contract_addresses.")
-		return GetCodeResponse{}, err
+		return nil, err
 	}
 	var res CodeInfo
 	_, err = c.doCodeWithABI(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return GetCodeResponse{}, err
+		return nil, err
 	}
 	return &res, err
 }
