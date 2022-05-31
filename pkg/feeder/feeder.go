@@ -277,7 +277,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	return &res, err
+	return res, err
 }
 
 // GetStorageAt creates a new request to get contract storage.

@@ -7,6 +7,8 @@ package tests
 import (
 	"testing"
 
+	"fmt"
+
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/stretchr/testify/assert"
