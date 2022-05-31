@@ -1,183 +1,137 @@
 package abi
 
-import (
-	"encoding/json"
-	"fmt"
-)
+// notest
 
-// Abi represents an ABI of a Starknet contract
-type Abi struct {
-	Functions   []Function
-	Events      []Event
-	Structs     []Struct
-	L1Handlers  []L1Handler
-	Constructor *Constructor
-}
-
-func (x *Abi) UnmarshalJSON(data []byte) error {
-	// Unmarshal all the common parts of the fields to get the field types
-	var common []FieldCommon
-	if err := json.Unmarshal(data, &common); err != nil {
-		return err
+func (x *Abi) Equal(y *Abi) bool {
+	if x == y {
+		return true
 	}
-	// Unmarshal as a list of raw fields to then unmarshal each to the correct
-	// type stored at the same index in the common array
-	items := make([]json.RawMessage, len(common))
-	if err := json.Unmarshal(data, &items); err != nil {
-		return err
+	// Compare functions
+	if len(x.Functions) != len(y.Functions) {
+		return false
 	}
-	// Unmarshal each raw field
-	abi := new(Abi)
-	for i, item := range items {
-		switch common[i].Type {
-		case TypeEvent:
-			decodedItem := &Event{}
-			if err := json.Unmarshal(item, decodedItem); err != nil {
-				return err
-			}
-			abi.Events = append(abi.Events, *decodedItem)
-		case TypeFunction:
-			decodedItem := &Function{}
-			if err := json.Unmarshal(item, decodedItem); err != nil {
-				return err
-			}
-			abi.Functions = append(abi.Functions, *decodedItem)
-		case TypeStruct:
-			decodedItem := &Struct{}
-			if err := json.Unmarshal(item, decodedItem); err != nil {
-				return err
-			}
-			abi.Structs = append(abi.Structs, *decodedItem)
-		case TypeConstructor:
-			decodedItem := &Constructor{}
-			if err := json.Unmarshal(item, decodedItem); err != nil {
-				return err
-			}
-			abi.Constructor = decodedItem
-		case TypeL1Handler:
-			decodedItem := &L1Handler{}
-			if err := json.Unmarshal(item, decodedItem); err != nil {
-				return err
-			}
-			abi.L1Handlers = append(abi.L1Handlers, *decodedItem)
-		default:
-			return fmt.Errorf("unexpected type %s", common[i].Type)
+	for i, f := range x.Functions {
+		if !f.Equal(y.Functions[i]) {
+			return false
 		}
 	}
-	*x = *abi
-	return nil
-}
-
-func (x *Abi) MarshalJSON() ([]byte, error) {
-	n := len(x.Functions) + len(x.Events) + len(x.Structs)
-	if x.Constructor != nil {
-		n += 1
+	// Compare events
+	if len(x.Events) != len(y.Events) {
+		return false
 	}
-	rawFields := make([]json.RawMessage, 0, n)
-	// Marshal events
-	for _, event := range x.Events {
-		rawEvent, err := json.Marshal(&event)
-		if err != nil {
-			return nil, err
+	for i, e := range x.Events {
+		if !e.Equal(y.Events[i]) {
+			return false
 		}
-		rawFields = append(rawFields, rawEvent)
 	}
-	// Marshal structs
-	for _, _struct := range x.Structs {
-		rawStruct, err := json.Marshal(&_struct)
-		if err != nil {
-			return nil, err
+	// Compare structs
+	if len(x.Structs) != len(y.Structs) {
+		return false
+	}
+	for i, s := range x.Structs {
+		if !s.Equal(y.Structs[i]) {
+			return false
 		}
-		rawFields = append(rawFields, rawStruct)
 	}
-	// Marshal functions
-	for _, function := range x.Functions {
-		rawFunction, err := json.Marshal(&function)
-		if err != nil {
-			return nil, err
+	// Compare L1 Handlers
+	if len(x.L1Handlers) != len(y.L1Handlers) {
+		return false
+	}
+	for i, f := range x.L1Handlers {
+		if !f.Equal(y.L1Handlers[i]) {
+			return false
 		}
-		rawFields = append(rawFields, rawFunction)
 	}
-	// Marshal l1 handlers
-	for _, l1Handler := range x.L1Handlers {
-		rawL1Handler, err := json.Marshal(&l1Handler)
-		if err != nil {
-			return nil, err
+	// Compare constructor
+	if !x.Constructor.Equal(y.Constructor) {
+		return false
+	}
+
+	return true
+}
+
+func (x *Function) Equal(y *Function) bool {
+	if x == y {
+		return true
+	}
+	// Compare name
+	if x.Name != y.Name {
+		return false
+	}
+	// Compare inputs
+	if len(x.Inputs) != len(y.Inputs) {
+		return false
+	}
+	for i, input := range x.Inputs {
+		if input.Name != y.Inputs[i].Name ||
+			input.Type != y.Inputs[i].Type {
+			return false
 		}
-		rawFields = append(rawFields, rawL1Handler)
 	}
-	// Marshal constructor
-	if x.Constructor != nil {
-		rawConstructor, err := json.Marshal(x.Constructor)
-		if err != nil {
-			return nil, err
+	// Compare outputs
+	if len(x.Outputs) != len(y.Outputs) {
+		return false
+	}
+	for i, output := range x.Outputs {
+		if output.Name != y.Outputs[i].Name ||
+			output.Type != y.Outputs[i].Type {
+			return false
 		}
-		rawFields = append(rawFields, rawConstructor)
 	}
-	return json.Marshal(rawFields)
+	return true
 }
 
-// Variable represents a variable item of the ABI, and at the same time, is a
-// variable in the Cairo contract code
-type Variable struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+func (x *AbiEvent) Equal(y *AbiEvent) bool {
+	if x == y {
+		return true
+	}
+	// Compare name
+	if x.Name != y.Name {
+		return false
+	}
+	// Compare data
+	if len(x.Data) != len(y.Data) {
+		return false
+	}
+	for i, data := range x.Data {
+		if data.Name != y.Data[i].Name ||
+			data.Type != y.Data[i].Type {
+			return false
+		}
+	}
+	// Compare keys
+	if len(x.Keys) != len(y.Keys) {
+		return false
+	}
+	for i, key := range x.Keys {
+		if key != y.Keys[i] {
+			return false
+		}
+	}
+	return true
 }
 
-// FieldType represents the type name of the all possible field types in an
-// ABI
-type FieldType string
-
-const (
-	TypeFunction    = "function"
-	TypeEvent       = "event"
-	TypeStruct      = "struct"
-	TypeConstructor = "constructor"
-	TypeL1Handler   = "l1_handler"
-)
-
-// FieldCommon has all the fields in common between all the possible ABI
-// field types
-type FieldCommon struct {
-	Type FieldType `json:"type"`
-}
-
-// Function represents an ABI field of type function
-type Function struct {
-	FieldCommon
-	Inputs  []Variable `json:"inputs"`
-	Name    string     `json:"name"`
-	Outputs []Variable `json:"outputs"`
-}
-
-// Constructor represents an ABI field of type constructor
-type Constructor struct {
-	Function
-}
-
-// L1Handler represents an ABI field of type l1_handler
-type L1Handler struct {
-	Function
-}
-
-// Event represents an ABI field of type event
-type Event struct {
-	FieldCommon
-	Data []Variable `json:"data"`
-	Keys []string   `json:"keys"`
-	Name string     `json:"name"`
-}
-
-// StructMember represents a member of the ABI Struct field
-type StructMember struct {
-	Variable
-	Offset int64 `json:"offset"`
-}
-
-// Struct represents an ABI field of type Struct
-type Struct struct {
-	FieldCommon
-	Members []StructMember `json:"members"`
-	Name    string         `json:"name"`
-	Size    int64          `json:"size"`
+func (x *Struct) Equal(y *Struct) bool {
+	if x == y {
+		return true
+	}
+	// Compare size
+	if x.Size != y.Size {
+		return false
+	}
+	// Compare name
+	if x.Name != y.Name {
+		return false
+	}
+	// Compare fields
+	if len(x.Fields) != len(y.Fields) {
+		return false
+	}
+	for i, field := range x.Fields {
+		if field.Name != y.Fields[i].Name ||
+			field.Type != y.Fields[i].Type {
+			return false
+		}
+	}
+	return true
 }

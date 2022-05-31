@@ -131,50 +131,6 @@ func TestGetCode(t *testing.T) {
 	assert.Equal(t, &a, getCode, "GetCode response don't match")
 }
 
-func TestGetFullContract(t *testing.T) {
-	body := "[\"hash\"]\n"
-	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig []interface{}
-	err := json.Unmarshal([]byte(body), &cOrig)
-	if err != nil {
-		t.Fatal()
-	}
-	getFullContract, err := client.GetFullContract("hash", "hash", "")
-	if err != nil {
-		t.Fatal()
-	}
-	assert.Equal(t, &cOrig, getFullContract, "GetFullContract response don't match")
-}
-
-func TestGetStorageAt(t *testing.T) {
-	a := feeder.StorageInfo{}
-	body, err := StructFaker(a)
-	if err != nil {
-		t.Fatal()
-	}
-	httpClient.DoReturns(generateResponse(body), nil)
-	getStorage, err := client.GetStorageAt("hash", "key", "hash", "")
-	if err != nil {
-		t.Fatal()
-	}
-	assert.Equal(t, &a, getStorage, "GetStorageAt response don't match")
-}
-
-func TestGetTransactionStatus(t *testing.T) {
-	body := "[\"TxnOk\"]\n"
-	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig []interface{}
-	err := json.Unmarshal([]byte(body), &cOrig)
-	if err != nil {
-		t.Fatal()
-	}
-	getTransactionStatus, err := client.GetTransactionStatus("hash", "")
-	if err != nil {
-		t.Fatal()
-	}
-	assert.Equal(t, &cOrig, getTransactionStatus, "GetTransactionStatus response don't match")
-}
-
 func TestGetTransaction(t *testing.T) {
 	a := feeder.TransactionInfo{}
 	err := faker.FakeData(&a)

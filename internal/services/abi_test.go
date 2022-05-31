@@ -1,11 +1,40 @@
-package abi
+package services
 
-var abis = map[string]Abi{
+import (
+	"context"
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/abi"
+	"testing"
+)
+
+func TestAbiService_StoreGet(t *testing.T) {
+	database := db.NewKeyValueDb(t.TempDir(), 0)
+	AbiService.Setup(database)
+	if err := AbiService.Run(); err != nil {
+		t.Errorf("unexpeted error in Run: %s", err)
+	}
+	defer AbiService.Close(context.Background())
+
+	for address, a := range abis {
+		AbiService.StoreAbi(address, a)
+	}
+	for address, a := range abis {
+		result := AbiService.GetAbi(address)
+		if result == nil {
+			t.Errorf("abi not foud for key: %s", address)
+		}
+		if !a.Equal(result) {
+			t.Errorf("ABI are not equal after Store-Get operations, address: %s", address)
+		}
+	}
+}
+
+var abis = map[string]*abi.Abi{
 	"1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac": {
-		Functions: []*Function{
+		Functions: []*abi.Function{
 			{
 				Name: "initialize",
-				Inputs: []*Function_Input{
+				Inputs: []*abi.Function_Input{
 					{
 						Name: "signer",
 						Type: "felt",
@@ -19,7 +48,7 @@ var abis = map[string]Abi{
 			},
 			{
 				Name: "__execute__",
-				Inputs: []*Function_Input{
+				Inputs: []*abi.Function_Input{
 					{
 						Name: "call_array_len",
 						Type: "felt",
@@ -41,7 +70,7 @@ var abis = map[string]Abi{
 						Type: "felt",
 					},
 				},
-				Outputs: []*Function_Output{
+				Outputs: []*abi.Function_Output{
 					{
 						Name: "retdata_size",
 						Type: "felt",
@@ -54,7 +83,7 @@ var abis = map[string]Abi{
 			},
 			{
 				Name: "upgrade",
-				Inputs: []*Function_Input{
+				Inputs: []*abi.Function_Input{
 					{
 						Name: "implementation",
 						Type: "felt",
@@ -63,9 +92,9 @@ var abis = map[string]Abi{
 				Outputs: nil,
 			},
 		},
-		Events: []*AbiEvent{
+		Events: []*abi.AbiEvent{
 			{
-				Data: []*AbiEvent_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "new_signer",
 						Type: "felt",
@@ -75,7 +104,7 @@ var abis = map[string]Abi{
 				Name: "signer_changed",
 			},
 			{
-				Data: []*AbiEvent_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "new_guardian",
 						Type: "felt",
@@ -85,7 +114,7 @@ var abis = map[string]Abi{
 				Name: "guardian_changed",
 			},
 			{
-				Data: []*AbiEvent_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "new_guardian",
 						Type: "felt",
@@ -95,7 +124,7 @@ var abis = map[string]Abi{
 				Name: "guardian_backup_changed",
 			},
 			{
-				Data: []*AbiEvent_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "active_at",
 						Type: "felt",
@@ -105,7 +134,7 @@ var abis = map[string]Abi{
 				Name: "escape_guardian_triggered",
 			},
 			{
-				Data: []*AbiEvent_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "active_at",
 						Type: "felt",
@@ -120,9 +149,9 @@ var abis = map[string]Abi{
 				Name: "escape_canceled",
 			},
 		},
-		Structs: []*Struct{
+		Structs: []*abi.Struct{
 			{
-				Fields: []*Struct_Field{
+				Fields: []*abi.Struct_Field{
 					{
 						Name:   "to",
 						Type:   "felt",
@@ -148,10 +177,10 @@ var abis = map[string]Abi{
 				Size: 4,
 			},
 		},
-		L1Handlers: []*Function{
+		L1Handlers: []*abi.Function{
 			{
 				Name: "__l1_default__",
-				Inputs: []*Function_Input{
+				Inputs: []*abi.Function_Input{
 					{
 						Name: "selector",
 						Type: "felt",
@@ -168,9 +197,9 @@ var abis = map[string]Abi{
 				Outputs: nil,
 			},
 		},
-		Constructor: &Function{
+		Constructor: &abi.Function{
 			Name: "constructor",
-			Inputs: []*Function_Input{
+			Inputs: []*abi.Function_Input{
 				{
 					Name: "signer",
 					Type: "felt",

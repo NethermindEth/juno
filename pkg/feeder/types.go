@@ -2,7 +2,7 @@ package feeder
 
 // notest
 import (
-	"github.com/NethermindEth/juno/internal/db/abi"
+	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/types"
 	"github.com/NethermindEth/juno/pkg/rpc"
 )
@@ -162,14 +162,12 @@ type StarknetBlock struct {
 }
 
 //struct to store Storage info
-type StorageInfo struct {
-	Storage string //`json:"storage"`
-}
+type StorageInfo string
 
 //struct for code type
 type CodeInfo struct {
-	Bytecode []string `json:"bytecode"`
-	Abi      abi.Abi  //`json:"abi"`
+	Bytecode []string   `json:"bytecode"`
+	Abi      feeder.Abi `json:"abi"`
 }
 
 // TransactionFailureReason store reason of failure in transactions.
@@ -179,29 +177,21 @@ type TransactionFailureReason struct {
 	ErrorMsg string `json:"error_message"`
 }
 
-// TransactionInfo store all the transaction Inf
+//type TxnStatus string
+
+// TransactionInfo store all the transaction Information
 type TransactionInfo struct {
-	// The status of a transaction, see TransactionStatus.
-	Status rpc.TxnStatus `json:"status"`
-	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	// The unique identifier of the block on the active chain containing
-	// the transaction.
-	BlockHash string `json:"block_hash"`
-	// The sequence number of the block corresponding to block_hash, which
-	// is the number of blocks prior to it in the active chain.
-	BlockNumber int `json:"block_number"`
-	// The index of the transaction within the block corresponding to
-	// block_hash.
-	TransactionIndex int64           `json:"transaction_index"`
-	Transaction      TxnSpecificInfo `json:"transaction"`
+	// // Block information that Transaction occured in
+	TransactionInBlockInformation TransactionInBlockInfo
+	// Transaction Specific Information
+	Transaction TxnSpecificInfo `json:"transaction"`
 }
 
 // TransactionInBlockInfo represents the information regarding a
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The status of a transaction, see TransactionStatus.
-	Status rpc.TxnStatus
+	Status string `json:"status"`
 	// The reason for the transaction failure, if applicable.
 	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
 	// The unique identifier of the block on the active chain containing
@@ -209,10 +199,15 @@ type TransactionInBlockInfo struct {
 	BlockHash string `json:"block_hash"`
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
-	BlockNumber string `json:"block_number"`
+	BlockNumber int64 `json:"block_number"`
 	//	The index of the transaction within the block corresponding to
 	// block_hash.
 	TransactionIndex int64 `json:"transaction_index"`
+}
+
+type TransactionStatus struct {
+	Status    string `json:"tx_status"`
+	BlockHash string `json:"block_hash"`
 }
 
 // TransactionReceipt represents a receipt of a StarkNet transaction;

@@ -123,8 +123,6 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	return res, err
 }
 
-//	X        map[string]interface{} `json:"-"`
-
 // doCodeWithABI executes a request and waits for response and returns an error
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
@@ -146,25 +144,25 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 		return nil, err
 	}
 
-	// var reciever map[string]interface{}
+	var reciever map[string]interface{}
 
-	// if err := json.Unmarshal(b, &reciever); err != nil {
-	// 	log.Default.With("Error", err).Debug("Error recieving unmapped input.")
-	// 	return nil, err
-	// }
+	if err := json.Unmarshal(b, &reciever); err != nil {
+		log.Default.With("Error", err).Debug("Error recieving unmapped input.")
+		return nil, err
+	}
 
-	// aInterface := reciever["bytecode"].([]interface{})
-	// aString := make([]string, len(aInterface))
-	// for i, v := range aInterface {
-	// 	aString[i] = v.(string)
-	// }
-	// v.Bytecode = aString
+	//unmarshal bytecode
 	json.Unmarshal(b, &v)
 
-	// if n, ok := reciever["abi"].([]byte); ok {
-	// 	println("better")
-	// 	v.Abi.UnmarshalJSON(n)
-	// }
+	//separate "abi" bytes
+	abi_interface := reciever["abi"]
+	p, err := json.Marshal(abi_interface)
+
+	//Unmarshal Abi bytes into Abi object
+	if err := v.Abi.UnmarshalAbiJSON(p); err != nil {
+		log.Default.With("Error", err).Debug("Error reading abi")
+		return nil, err
+	}
 
 	return res, err
 }
@@ -260,7 +258,7 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 
 // GetFullContract creates a new request to get the full state of a
 // contract.
-func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) (any, error) {
+func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) (map[string]interface{}, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -273,7 +271,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res []any
+	var res map[string]interface{}
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
@@ -300,6 +298,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 	}
 	var res StorageInfo
 	_, err = c.do(req, &res)
+
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
@@ -309,13 +308,13 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 
 // GetTransactionStatus creates a new request to get the transaction
 // status.
-func (c Client) GetTransactionStatus(txHash, txID string) (any, error) {
+func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, error) {
 	req, err := c.newRequest("GET", "/get_transaction_status", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res []any
+	var res TransactionStatus
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
