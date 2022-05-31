@@ -2,8 +2,6 @@ package pedersen
 
 import (
 	"math/big"
-
-	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 )
 
 // point represents the affine coordinates of an elliptic curve point.
@@ -12,8 +10,7 @@ type point struct{ x, y *big.Int }
 var (
 	// points is a slice of *big.Int that contains the constant points.
 	points [506]point
-	// curve is the elliptic (STARK) curve used to compute the Pedersen
-	// hash.
+	// p is the characteristic of our field
 	p *big.Int
 )
 
@@ -2049,5 +2046,5 @@ func init() {
 		y, _ := new(big.Int).SetString(p[1], 16)
 		points[i] = point{x, y}
 	}
-	p = weierstrass.Stark().Params().P
+	p, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
 }

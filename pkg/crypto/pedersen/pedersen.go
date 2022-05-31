@@ -9,53 +9,43 @@ import (
 )
 
 // See https://github.com/dontpanicdao/caigo/blob/e34006317632c87334fa29e770a00b5c7c94cb20/curve.go#L339-L351
+
+// divMod finds a nonnegative integer x < p such that (m * x) % p == n.
+// Assumes that m and p are coprime. This implementation is only meant to be used
+// in `pedersen.add`, where this assumption holds.
+// Based on https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L23-L29
 func divMod(n, m, p *big.Int) *big.Int {
+	/*
+	a, _, _ := igcdex(m, p)
+	r := new(big.Int).Mul(n, a)
+	return r.Mod(r, p)
+	*/
 	q := new(big.Int)
 	gx := new(big.Int)
-	gy := new(big.Int)
-	q.GCD(gx, gy, m, p)
-
+	q.GCD(gx, new(big.Int), m, p)
 	r := new(big.Int).Mul(n, gx)
 	r = r.Mod(r, p)
 	return r
 }
 
-// Add returns the sum of (x1, y1) and (x2, y2).
-// This is based on the implementation in caigo
+// add returns the sum of (x1, y1) and (x2, y2). It assumes that x1, x2 ∈ 𝔽²ₚ
+// and x1 != x2. This is based on the implementation in caigo.
 // See https://github.com/dontpanicdao/caigo/blob/e34006317632c87334fa29e770a00b5c7c94cb20/curve.go#L160-L182
-func add(
-	x1, y1, x2, y2 *big.Int,
-) (x, y *big.Int) {
+func add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	xDelta := new(big.Int).Sub(x1, x2)
 	yDelta := new(big.Int).Sub(y1, y2)
 
 	m := divMod(yDelta, xDelta, p)
-	x = new(big.Int).Mul(m, m)
+
+	x := new(big.Int).Mul(m, m)
 	x.Sub(x, x1)
 	x.Sub(x, x2)
 	x.Mod(x, p)
 
-	y = new(big.Int).Sub(x1, x)
+	y := new(big.Int).Sub(x1, x)
 	y.Mul(m, y)
 	y.Sub(y, y1)
 	y.Mod(y, p)
-
-	// If either x1 is zero, the result should be equal to x2 and vice-versa. 
-	// Same for y1 and y2.
-	if x1.Sign() == 0 {
-		// notest
-		x.Set(x2)
-	} else if x2.Sign() == 0 {
-		// notest
-		x.Set(x1)
-	}
-	if y1.Sign() == 0 {
-		// notest
-		y.Set(y2)
-	} else if y2.Sign() == 0 {
-		// notest
-		y.Set(y1)
-	}
 
 	return x, y
 }
