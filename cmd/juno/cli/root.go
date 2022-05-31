@@ -140,7 +140,7 @@ func initConfig() {
 		// Use the default path for user configuration.
 		viper.AddConfigPath(config.Dir)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName("juno1")
+		viper.SetConfigName("juno")
 	}
 
 	// Check whether the environment variables match any of the existing
