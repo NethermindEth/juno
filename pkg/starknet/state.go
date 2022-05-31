@@ -23,26 +23,24 @@ import (
 	"time"
 )
 
-// We create this interface so we can mock the ethclient struct from go-ethereum
-type l1Client interface {
-	TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error)
-}
-
 // Synchronizer represents the base struct for Starknet Synchronization
 type Synchronizer struct {
-	ethereumClient         *ethclient.Client
-	feederGatewayClient    *feeder.Client
-	database               db.Databaser
-	transactioner          db.Transactioner
-	memoryPageHash         *starknetTypes.Dictionary
-	gpsVerifier            *starknetTypes.Dictionary
-	latestMemoryPageBlock  int64
-	latestGpsVerifierBlock int64
-	facts                  *starknetTypes.Dictionary
+	ethereumClient      *ethclient.Client
+	feederGatewayClient *feeder.Client
+	database            db.Databaser
+	transactioner       db.Transactioner
+	memoryPageHash      *starknetTypes.Dictionary
+	gpsVerifier         *starknetTypes.Dictionary
+	facts               *starknetTypes.Dictionary
+	chainID             int64
 }
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
+	chainID, err := client.ChainID(context.Background())
+	if err != nil {
+		log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+	}
 	return &Synchronizer{
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
@@ -50,6 +48,7 @@ func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feed
 		memoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
 		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
+		chainID:             chainID.Int64(),
 		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
 	}
 }
@@ -77,7 +76,7 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 		return err
 	}
 
-	initialBlock := initialBlockForStarknetContract(s.ethereumClient)
+	initialBlock := initialBlockForStarknetContract(s.chainID)
 	increment := uint64(starknetTypes.MaxChunk)
 	i := uint64(initialBlock)
 	for i < latestBlockNumber {
@@ -180,7 +179,7 @@ func (s *Synchronizer) l1Sync() error {
 	}
 
 	// Add Gps Statement Verifier contract
-	gpsAddress := getGpsVerifierContractAddress(s.ethereumClient)
+	gpsAddress := getGpsVerifierContractAddress(s.chainID)
 	err = loadContractInfo(gpsAddress,
 		abi.GpsVerifierAbi,
 		"LogMemoryPagesHashes", contracts)
@@ -190,7 +189,7 @@ func (s *Synchronizer) l1Sync() error {
 		return err
 	}
 	// Add Memory Page Fact Registry contract
-	memoryPagesContractAddress := getMemoryPagesContractAddress(s.ethereumClient)
+	memoryPagesContractAddress := getMemoryPagesContractAddress(s.chainID)
 	err = loadContractInfo(memoryPagesContractAddress,
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
@@ -257,7 +256,7 @@ func (s *Synchronizer) l1Sync() error {
 					Info("Couldn't get logs")
 			}
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
-			// TODO test for err	
+			// TODO test for err
 
 			go s.transitionState(fullFact, l.Block, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
 
@@ -286,7 +285,6 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 	// If already exist the information related to the fact,
 	// fetch and parse the memory pages
 	pages := s.processPagesHashes(
-		s.ethereumClient,
 		pagesHashes.(starknetTypes.PagesHash).Bytes, 
 		pageRegistryContract,
 	)
@@ -295,7 +293,7 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 	// Update state
 	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
 	bNumber, _ := strconv.Atoi(fact.SequenceNumber)
-	err = updateLatestBlockQueried(s.database, int64(bNumber))
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(bNumber))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
@@ -361,7 +359,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 }
 
 func (s *Synchronizer) apiSync() error {
-	latestBlockQueried, err := latestBlockQueried(s.database)
+	latestBlockQueried, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return err
@@ -392,14 +390,14 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
 
-	upd := stateUpdateResponseToStateDiff(update)
+	upd := stateUpdateResponseToStateDiff(*update)
 
 	s.updateAndCommitState(&upd, update.NewRoot, strconv.Itoa(blockIterator))
 
 	s.updateAbiAndCode(upd, lastBlockHash, string(rune(blockIterator)))
 
 	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateLatestBlockQueried(s.database, int64(blockIterator))
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(blockIterator))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
@@ -476,7 +474,7 @@ func updateState(
 	return stateCommitment, nil
 }
 
-func (s *Synchronizer) processPagesHashes(ethereumClient l1Client, pagesHashes [][32]byte, memoryContract ethAbi.ABI) ([][]*big.Int) {
+func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) ([][]*big.Int) {
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page
@@ -486,7 +484,7 @@ func (s *Synchronizer) processPagesHashes(ethereumClient l1Client, pagesHashes [
 			return nil
 		}
 		log.Default.With("Hash", hash.Hex()).Info("Getting transaction...")
-		txn, _, err := ethereumClient.TransactionByHash(context.Background(), transactionHash.(starknetTypes.TransactionHash).Hash)
+		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(starknetTypes.TransactionHash).Hash)
 		if err != nil {
 			log.Default.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")
@@ -513,17 +511,18 @@ func (s *Synchronizer) processPagesHashes(ethereumClient l1Client, pagesHashes [
 
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
 	for _, v := range update.DeployedContracts {
-		code, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
+		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
 		if err != nil {
 			return
 		}
 		log.Default.
 			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
 			Info("Fetched code and ABI")
+		// TODO: Convert ABI and Code in Database
 		// Save the ABI
-		services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
+		//services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
 		// Save the contract code
-		services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
+		//services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
 	}
 }
 

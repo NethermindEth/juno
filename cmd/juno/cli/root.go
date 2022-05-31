@@ -28,6 +28,9 @@ import (
 var (
 	// cfgFile is the path of the juno configuration file.
 	cfgFile string
+	// dataDir is the path of the directory to read and save user-specific
+	// application data
+	dataDir string
 	// longMsg is the long message shown in the "juno --help" output.
 	//go:embed long.txt
 	longMsg string
@@ -117,10 +120,19 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf(
 		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
+	rootCmd.PersistentFlags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
+		"data path (default is %s)", config.DataDir))
 }
 
 // initConfig reads in Config file or environment variables if set.
 func initConfig() {
+	if dataDir != "" {
+		info, err := os.Stat(dataDir)
+		if err != nil || !info.IsDir() {
+			log.Default.Info("Invalid data directory. The default data directory will be used")
+			dataDir = config.DataDir
+		}
+	}
 	if cfgFile != "" {
 		// Use Config file specified by the flag.
 		viper.SetConfigFile(cfgFile)
@@ -138,7 +150,10 @@ func initConfig() {
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Default.Info("Config file not found.")
-		config.New()
+		if !config.Exists() {
+			config.New()
+		}
+		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
 	}

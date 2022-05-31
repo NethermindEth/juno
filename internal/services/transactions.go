@@ -87,3 +87,26 @@ func (s *transactionService) StoreTransaction(txHash []byte, tx *transaction.Tra
 
 	s.manager.PutTransaction(txHash, tx)
 }
+
+// GetReceipt searches for the transaction receipt associated with the given
+// transaction hash. If the transaction does not exists on the database, then
+// returns nil.
+func (s *transactionService) GetReceipt(txHash []byte) *transaction.TransactionReceipt {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.With("txHash", txHash).Debug("GetReceipt")
+
+	return s.manager.GetReceipt(txHash)
+}
+
+// StoreReceipt stores the given transaction receipt into the database. If the
+// database already has a receipt with the same key, the value is overwritten.
+func (s *transactionService) StoreReceipt(txHash []byte, receipt *transaction.TransactionReceipt) {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.With("txHash", txHash).Debug("StoreReceipt")
+
+	s.manager.PutReceipt(txHash, receipt)
+}
