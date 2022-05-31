@@ -98,7 +98,7 @@ func New() {
 	}
 	data, err := yaml.Marshal(&Config{
 		Ethereum: ethereumConfig{Node: "your_node_here"},
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "goe"},
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: ""},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
 		DbPath:   Dir,
 	})
