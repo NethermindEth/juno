@@ -46,6 +46,7 @@ func (m *Manager) GetTransaction(txHash []byte) *Transaction {
 	}
 	// Check not found
 	if rawData == nil {
+		// notest
 		return nil
 	}
 	tx := new(Transaction)
@@ -85,6 +86,7 @@ func (m *Manager) GetReceipt(txHash []byte) *TransactionReceipt {
 	}
 	// Check not found
 	if rawData == nil {
+		// notest
 		return nil
 	}
 	tx := new(TransactionReceipt)

@@ -28,6 +28,7 @@ func (manager *Manager) GetBlockByHash(blockHash []byte) *Block {
 	}
 	// Check not found
 	if rawResult == nil {
+		// notest
 		return nil
 	}
 	// Unmarshal the data
@@ -51,6 +52,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) *Block {
 	}
 	// Check not found
 	if hashKey == nil {
+		// notest
 		return nil
 	}
 	// Search for the block
@@ -60,6 +62,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) *Block {
 	}
 	// Check not found
 	if rawResult == nil {
+		// notest
 		return nil
 	}
 	// Unmarshal the data
