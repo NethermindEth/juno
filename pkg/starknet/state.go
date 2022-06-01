@@ -284,8 +284,7 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 
 	// Update state
 	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
-	bNumber, _ := strconv.Atoi(fact.SequenceNumber)
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(bNumber))
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, fact.SequenceNumber)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
@@ -296,7 +295,7 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 	}
 }
 
-func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber string) {
+func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber int64) {
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
@@ -331,10 +330,10 @@ func getFactInfo(
 		}
 		factVal := &starknetTypes.Fact{
 			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
-			SequenceNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
+			SequenceNumber: event["blockNumber"].(*big.Int).Int64(),
 			Value:       fact,
 		}
-		if factVal.SequenceNumber == strconv.FormatInt(latestBlockSynced, 10) {
+		if factVal.SequenceNumber == latestBlockSynced {
 			return factVal, nil
 		}
 	}
@@ -351,12 +350,11 @@ func (s *Synchronizer) Close(ctx context.Context) {
 }
 
 func (s *Synchronizer) apiSync() error {
-	latestBlockQueried, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
+	blockIterator, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return err
 	}
-	blockIterator := int(latestBlockQueried)
 	lastBlockHash := ""
 	for {
 		newValueForIterator, newBlockHash := s.updateStateForOneBlock(blockIterator, lastBlockHash)
@@ -368,9 +366,9 @@ func (s *Synchronizer) apiSync() error {
 	}
 }
 
-func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash string) (int, string) {
+func (s *Synchronizer) updateStateForOneBlock(blockIterator int64, lastBlockHash string) (int64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
-	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.Itoa(blockIterator))
+	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatInt(blockIterator, 10))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get state update")
 		return blockIterator, lastBlockHash
@@ -384,9 +382,9 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 
 	upd := stateUpdateResponseToStateDiff(*update)
 
-	s.updateAndCommitState(&upd, update.NewRoot, strconv.Itoa(blockIterator))
+	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	s.updateAbiAndCode(upd, lastBlockHash, string(rune(blockIterator)))
+	s.updateAbiAndCode(upd, lastBlockHash, blockIterator)
 
 	log.Default.With("Block Number", blockIterator).Info("State updated")
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(blockIterator))
@@ -428,14 +426,14 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	return pages
 }
 
-func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
+func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber int64) {
 	for _, v := range update.DeployedContracts {
-		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
+		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, strconv.FormatInt(sequenceNumber, 10))
 		if err != nil {
 			return
 		}
 		log.Default.
-			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
+			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", sequenceNumber).
 			Info("Fetched code and ABI")
 		// TODO: Convert ABI and Code in Database
 		// Save the ABI

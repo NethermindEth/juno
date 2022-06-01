@@ -111,7 +111,7 @@ func TestGetFactInfo(t *testing.T) {
 	}
 	want := &starknetTypes.Fact{
 		StateRoot: "0x3036376161346130316363333734313331383138616238616161656437623736",
-		SequenceNumber: "7148728157378602549",
+		SequenceNumber: 7148728157378602549,
 		Value: test.fact,
 	}
 

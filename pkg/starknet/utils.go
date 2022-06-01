@@ -159,13 +159,14 @@ func updateState(
 	txn db.Transaction,
 	hashService *services.ContractHashService,
 	update *starknetTypes.StateDiff,
-	stateRoot, blockNumber string,
+	stateRoot string,
+	sequenceNumber int64,
 ) (string, error) {
-	log.Default.With("Block Number", blockNumber).Info("Processing block")
+	log.Default.With("Block Number", sequenceNumber).Info("Processing block")
 
 	stateTrie := newTrie(txn, "state_trie_")
 
-	log.Default.With("Block Number", blockNumber).Info("Processing deployed contracts")
+	log.Default.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
 		if !ok {
@@ -183,7 +184,7 @@ func updateState(
 		stateTrie.Put(address, contractStateValue)
 	}
 
-	log.Default.With("Block Number", blockNumber).Info("Processing storage diffs")
+	log.Default.With("Block Number", sequenceNumber).Info("Processing storage diffs")
 	for k, v := range update.StorageDiffs {
 		formattedAddress := remove0x(k)
 		storageTrie := newTrie(txn, formattedAddress)

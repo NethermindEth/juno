@@ -264,7 +264,7 @@ func TestUpdateState(t *testing.T) {
 	go hashService.Run()
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
 	txn := txnDb.Begin()
-	stateCommitment, err := updateState(txn, hashService, &stateDiff, "", "0")
+	stateCommitment, err := updateState(txn, hashService, &stateDiff, "", 0)
 	hashService.Close(context.Background())
 	if err != nil {
 		t.Error("Error updating state")
