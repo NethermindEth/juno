@@ -123,7 +123,7 @@ func initialBlockForStarknetContract(id int64) int64 {
 }
 
 // getNumericValueFromDB get the value associated to a key and convert it to integer
-func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
+func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
 		return 0, err
@@ -137,11 +137,11 @@ func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return int64(ret), nil
+	return uint64(ret), nil
 }
 
 // updateNumericValueFromDB update the value in the database for a key increasing the value in 1
-func updateNumericValueFromDB(database db.Databaser, key string, value int64) error {
+func updateNumericValueFromDB(database db.Databaser, key string, value uint64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(value+1))
 	err := database.Put([]byte(key), b)
@@ -160,7 +160,7 @@ func updateState(
 	hashService *services.ContractHashService,
 	update *starknetTypes.StateDiff,
 	stateRoot string,
-	sequenceNumber int64,
+	sequenceNumber uint64,
 ) (string, error) {
 	log.Default.With("Block Number", sequenceNumber).Info("Processing block")
 

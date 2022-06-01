@@ -82,8 +82,8 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 	for i < latestBlockNumber {
 		log.Default.With("From Block", i, "To Block", i+increment).Info("Fetching logs....")
 		query := ethereum.FilterQuery{
-			FromBlock: big.NewInt(int64(i)),
-			ToBlock:   big.NewInt(int64(i + increment)),
+			FromBlock: new(big.Int).SetUint64(i),
+			ToBlock:   new(big.Int).SetUint64(i + increment),
 			Addresses: addresses,
 			Topics:    [][]common.Hash{topics},
 		}
@@ -234,9 +234,10 @@ func (s *Synchronizer) l1Sync() error {
 				return err
 			}
 
+			blockNumber := new(big.Int).SetUint64(l.Block)
 			query := ethereum.FilterQuery{
-				FromBlock: big.NewInt(int64(l.Block)),
-				ToBlock:   big.NewInt(int64(l.Block)),
+				FromBlock: blockNumber,
+				ToBlock:   blockNumber,
 				Addresses: []common.Address{starknetAddress},
 				Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(contractAbi.Events["LogStateUpdate"].Sig))}},
 			}
@@ -249,7 +250,7 @@ func (s *Synchronizer) l1Sync() error {
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
 			// TODO test for err
 
-			go s.transitionState(fullFact, l.Block, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
+			go s.transitionState(fullFact, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
 
 			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 			if err != nil {
@@ -262,7 +263,7 @@ func (s *Synchronizer) l1Sync() error {
 	return fmt.Errorf("couldn't read event from logs")
 }
 
-func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64, pageRegistryContract ethAbi.ABI) {
+func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, pageRegistryContract ethAbi.ABI) {
 	factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
 	if err != nil {
 		log.Default.With("Error", err).
@@ -291,7 +292,7 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 	}
 }
 
-func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber int64) {
+func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber uint64) {
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
@@ -318,7 +319,7 @@ func getFactInfo(
 	starknetLogs []types.Log,
 	contract ethAbi.ABI,
 	fact string,
-	latestBlockSynced int64,
+	latestBlockSynced uint64,
 ) (*starknetTypes.Fact, error) {
 	for _, vLog := range starknetLogs {
 		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
@@ -331,7 +332,7 @@ func getFactInfo(
 		}
 		factVal := &starknetTypes.Fact{
 			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
-			SequenceNumber: event["blockNumber"].(*big.Int).Int64(),
+			SequenceNumber: event["blockNumber"].(*big.Int).Uint64(),
 			Value:       fact,
 		}
 		if factVal.SequenceNumber == latestBlockSynced {
@@ -367,9 +368,9 @@ func (s *Synchronizer) apiSync() error {
 	}
 }
 
-func (s *Synchronizer) updateStateForOneBlock(blockIterator int64, lastBlockHash string) (int64, string) {
+func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
-	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatInt(blockIterator, 10))
+	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get state update")
 		return blockIterator, lastBlockHash
@@ -422,9 +423,9 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	return pages
 }
 
-func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber int64) {
+func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber uint64) {
 	for _, v := range update.DeployedContracts {
-		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, strconv.FormatInt(sequenceNumber, 10))
+		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, strconv.FormatUint(sequenceNumber, 10))
 		if err != nil {
 			return
 		}

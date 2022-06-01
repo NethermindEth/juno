@@ -58,9 +58,9 @@ type EventInfo struct {
 }
 
 type Fact struct {
-	StateRoot   string `json:"state_root"`
-	SequenceNumber int64 `json:"block_number"`
-	Value       string `json:"value"`
+	StateRoot      string `json:"state_root"`
+	SequenceNumber uint64 `json:"block_number"`
+	Value          string `json:"value"`
 }
 
 func (f Fact) Marshal() ([]byte, error) {

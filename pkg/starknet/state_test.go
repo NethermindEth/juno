@@ -95,7 +95,7 @@ func TestGetFactInfo(t *testing.T) {
 		logs []types.Log
 		abi ethAbi.ABI
 		fact string
-		latestBlockSynced int64
+		latestBlockSynced uint64
 	}{
 		logs: []types.Log{
 			{

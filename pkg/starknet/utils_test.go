@@ -125,7 +125,7 @@ func TestGetAndUpdateValueOnDB(t *testing.T) {
 	key := "key"
 	value := 0
 
-	err := updateNumericValueFromDB(database, key, int64(value))
+	err := updateNumericValueFromDB(database, key, uint64(value))
 	if err != nil {
 		t.Fail()
 		return
@@ -136,7 +136,7 @@ func TestGetAndUpdateValueOnDB(t *testing.T) {
 		return
 	}
 
-	if int64(value+1) != fromDB {
+	if uint64(value+1) != fromDB {
 		t.Fail()
 	}
 
