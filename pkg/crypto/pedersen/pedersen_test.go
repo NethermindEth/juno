@@ -27,24 +27,23 @@ func ExampleDigest() {
 	// 30e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662
 }
 
-
 func TestAdd(t *testing.T) {
 	curve := weierstrass.Stark()
 	var tests = [][]*big.Int{
-		{ 
+		{
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(3),
 			big.NewInt(4),
 		},
-		{ 
+		{
 			// p - 1
 			new(big.Int).Sub(curve.Params().P, big.NewInt(1)),
 			big.NewInt(10),
 			big.NewInt(1),
 			big.NewInt(5),
 		},
-		{ 
+		{
 			big.NewInt(1),
 			big.NewInt(10),
 			// p - 1
@@ -54,12 +53,13 @@ func TestAdd(t *testing.T) {
 	}
 	for _, test := range tests {
 		actualX, actualY := add(test[0], test[1], test[2], test[3])
-		wantX, wantY := curve.Add(test[0], test[1], test[2], test[3]) 
+		wantX, wantY := curve.Add(test[0], test[1], test[2], test[3])
 		if actualX.Cmp(wantX) != 0 || actualY.Cmp(wantY) != 0 {
 			t.Errorf("add(%d, %d, %d, %d) = (%d, %d), want (%d, %d)", test[0], test[1], test[2], test[3], actualX, actualY, wantX, wantY)
 		}
 	}
 }
+
 // TestDigest does a basic test of the Pedersen hash function where the
 // test cases chosen are the canonical ones that appear in the Python
 // implementation of the same function by Starkware.

@@ -9,7 +9,7 @@ import (
 )
 
 // divMod finds a nonnegative integer x < p such that (m * x) % p == n.
-// Assumes that m and p are coprime. This implementation is only meant 
+// Assumes that m and p are coprime. This implementation is only meant
 // to be used in `pedersen.add`, where this assumption holds.
 // See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56
 func divMod(n, m, p *big.Int) *big.Int {
@@ -19,8 +19,8 @@ func divMod(n, m, p *big.Int) *big.Int {
 	return r.Mod(r, p)
 }
 
-// add returns the sum of (x1, y1) and (x2, y2). It assumes that 
-// x1, x2 ∈ 𝔽²ₚ and x1 != x2. 
+// add returns the sum of (x1, y1) and (x2, y2). It assumes that
+// x1, x2 ∈ 𝔽²ₚ and x1 != x2.
 // See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L59-L68
 func add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	xDelta := new(big.Int).Sub(x1, x2)
