@@ -6,10 +6,10 @@ import (
 )
 
 func (s *Storage) Update(other *Storage) {
+	// notest
 	if s.Storage == nil {
 		s.Storage = make(map[string]string)
 	}
-	// notest
 	for key, value := range other.Storage {
 		s.Storage[key] = value
 	}
