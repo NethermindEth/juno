@@ -24,6 +24,10 @@ func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *Storag
 	if err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
+	// Check not found
+	if rawData == nil {
+		return nil
+	}
 	value := new(Storage)
 	err = proto.Unmarshal(rawData, value)
 	if err != nil {
