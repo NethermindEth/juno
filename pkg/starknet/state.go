@@ -284,6 +284,8 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, pageRegistryCon
 	// Update state
 	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
 	bNumber, _ := strconv.Atoi(fact.SequenceNumber)
+
+	s.updateServices(*stateDiff, "", fact.SequenceNumber)
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(bNumber))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
@@ -385,7 +387,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 
 	s.updateAndCommitState(&upd, update.NewRoot, strconv.Itoa(blockIterator))
 
-	s.updateAbiAndCode(upd, lastBlockHash, string(rune(blockIterator)))
+	s.updateServices(upd, lastBlockHash, string(rune(blockIterator)))
 
 	log.Default.With("Block Number", blockIterator).Info("State updated")
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(blockIterator))
@@ -497,6 +499,11 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	return pages
 }
 
+func (s *Synchronizer) updateServices(update starknetTypes.StateDiff, blockHash, blockNumber string) {
+	s.updateAbiAndCode(update, blockHash, blockNumber)
+	s.updateBlocksAndTransactions(blockHash, blockNumber)
+}
+
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
 	for _, v := range update.DeployedContracts {
 		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
@@ -514,12 +521,12 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 	}
 }
 
-func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResponse) {
-	block, err := s.feederGatewayClient.GetBlock(update.BlockHash, "")
+func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string) {
+	block, err := s.feederGatewayClient.GetBlock(blockHash, blockNumber)
 	if err != nil {
 		return
 	}
-	log.Default.With("Block Hash", update.BlockHash).
+	log.Default.With("Block Hash", blockHash).
 		Info("Got block")
 	// TODO: Store block, where to store it? How to store it?
 
