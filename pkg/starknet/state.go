@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
-	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum"
+	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -148,15 +148,6 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 	}
 }
 
-func (s *Synchronizer) latestBlockOnChain() (uint64, error) {
-	number, err := s.ethereumClient.BlockNumber(context.Background())
-	if err != nil {
-		log.Default.With("Error", err).Error("Couldn't get the latest block")
-		return 0, err
-	}
-	return number, nil
-}
-
 func (s *Synchronizer) l1Sync() error {
 	log.Default.Info("Starting to update state")
 
@@ -258,7 +249,7 @@ func (s *Synchronizer) l1Sync() error {
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
 			// TODO test for err
 
-			go s.transitionState(fullFact, l.Block, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
+			go s.transitionState(fullFact, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
 
 			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 			if err != nil {
@@ -271,7 +262,7 @@ func (s *Synchronizer) l1Sync() error {
 	return fmt.Errorf("couldn't read event from logs")
 }
 
-func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64, pageRegistryContract ethAbi.ABI) {
+func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, pageRegistryContract ethAbi.ABI) {
 	factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
 	if err != nil {
 		log.Default.With("Error", err).
@@ -285,7 +276,7 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 	// If already exist the information related to the fact,
 	// fetch and parse the memory pages
 	pages := s.processPagesHashes(
-		pagesHashes.(starknetTypes.PagesHash).Bytes, 
+		pagesHashes.(starknetTypes.PagesHash).Bytes,
 		pageRegistryContract,
 	)
 	stateDiff := parsePages(pages)
@@ -338,9 +329,9 @@ func getFactInfo(
 			return nil, err
 		}
 		factVal := &starknetTypes.Fact{
-			StateRoot:   common.BigToHash(event["globalRoot"].(*big.Int)).String(),
+			StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
 			SequenceNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
-			Value:       fact,
+			Value:          fact,
 		}
 		if factVal.SequenceNumber == strconv.FormatInt(latestBlockSynced, 10) {
 			return factVal, nil
@@ -474,7 +465,7 @@ func updateState(
 	return stateCommitment, nil
 }
 
-func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) ([][]*big.Int) {
+func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) [][]*big.Int {
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page

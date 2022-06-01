@@ -1,25 +1,25 @@
 package starknet
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"context"
-	"github.com/ethereum/go-ethereum/core/types"
-	"math/big"
-	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
-	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/node"
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
+	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
+	"math/big"
 	"testing"
 )
 
@@ -32,17 +32,17 @@ func newTestBackend(t *testing.T, alloc core.GenesisAlloc, txs ...*types.Transac
 	// Create Ethereum Service
 	config := &ethconfig.Config{
 		Genesis: &core.Genesis{
-			Alloc: alloc,
+			Alloc:     alloc,
 			Timestamp: 9000,
 			ExtraData: []byte("test genesis"),
-			BaseFee: big.NewInt(params.InitialBaseFee),
-			Config: params.AllEthashProtocolChanges,
+			BaseFee:   big.NewInt(params.InitialBaseFee),
+			Config:    params.AllEthashProtocolChanges,
 		},
 		Ethash: ethash.Config{
 			PowMode: ethash.ModeFake,
 		},
 	}
-	ethservice, err := eth.New(n, config)
+	ethService, err := eth.New(n, config)
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
 	}
@@ -51,7 +51,7 @@ func newTestBackend(t *testing.T, alloc core.GenesisAlloc, txs ...*types.Transac
 		t.Fatalf("can't start test node: %v", err)
 	}
 	blocks := generateTestChain(config.Genesis, txs...)
-	if _, err := ethservice.BlockChain().InsertChain(blocks[1:]); err != nil {
+	if _, err := ethService.BlockChain().InsertChain(blocks[1:]); err != nil {
 		t.Fatalf("can't import test blocks: %v", err)
 	}
 	return n, blocks
@@ -95,15 +95,15 @@ func TestUpdateState(t *testing.T) {
 	// This will never happen in practice, but we do that here so we can test the DeployedContract
 	// and StorageDiff code paths in `updateState` easily.
 	contract := starknetTypes.DeployedContract{
-		Address: "1",
-		ContractHash: "1",
+		Address:             "1",
+		ContractHash:        "1",
 		ConstructorCallData: nil,
 	}
-	storageDiff := starknetTypes.KV{ Key: "a", Value: "b", }
+	storageDiff := starknetTypes.KV{Key: "a", Value: "b"}
 	stateDiff := starknetTypes.StateDiff{
-		DeployedContracts: []starknetTypes.DeployedContract{ contract, },
-		StorageDiffs: map[string][]starknetTypes.KV{ 
-			contract.Address: { storageDiff, },
+		DeployedContracts: []starknetTypes.DeployedContract{contract},
+		StorageDiffs: map[string][]starknetTypes.KV{
+			contract.Address: {storageDiff},
 		},
 	}
 
@@ -118,7 +118,7 @@ func TestUpdateState(t *testing.T) {
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	database := db.Databaser(db.NewKeyValueDb(t.TempDir() + "/contractHash", 0))
+	database := db.Databaser(db.NewKeyValueDb(t.TempDir()+"/contractHash", 0))
 	hashService := services.NewContractHashService(database)
 	go hashService.Run()
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
@@ -143,27 +143,27 @@ func TestGetFactInfo(t *testing.T) {
 		t.Errorf("Could not finish test: failed to load contract ABI")
 	}
 	test := struct {
-		logs []types.Log
-		abi ethAbi.ABI
-		fact string
+		logs              []types.Log
+		abi               ethAbi.ABI
+		fact              string
 		latestBlockSynced int64
 	}{
 		logs: []types.Log{
 			{
 				BlockNumber: 1,
-				BlockHash: common.Hash{1},
-				TxHash: common.Hash{2},
-				Data: []byte("067aa4a01cc374131818ab8aaaed7b7609448c922fe8956d07a9420cc5bb0bf500000000000000000000000000000000000000000000000000000000000009a5"),
+				BlockHash:   common.Hash{1},
+				TxHash:      common.Hash{2},
+				Data:        []byte("067aa4a01cc374131818ab8aaaed7b7609448c922fe8956d07a9420cc5bb0bf500000000000000000000000000000000000000000000000000000000000009a5"),
 			},
 		},
-		abi: contractAbi,
-		fact: "1",
+		abi:               contractAbi,
+		fact:              "1",
 		latestBlockSynced: 7148728157378602549,
 	}
 	want := &starknetTypes.Fact{
-		StateRoot: "0x3036376161346130316363333734313331383138616238616161656437623736",
+		StateRoot:      "0x3036376161346130316363333734313331383138616238616161656437623736",
 		SequenceNumber: "7148728157378602549",
-		Value: test.fact,
+		Value:          test.fact,
 	}
 
 	res, err := getFactInfo(test.logs, test.abi, test.fact, test.latestBlockSynced)
@@ -188,16 +188,16 @@ func TestProcessPagesHashes(t *testing.T) {
 	to := common.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b")
 	r, _ := new(big.Int).SetString("a681faea68ff81d191169010888bbbe90ec3eb903e31b0572cd34f13dae281b9", 16)
 	s, _ := new(big.Int).SetString("3f59b0fa5ce6cf38aff2cfeb68e7a503ceda2a72b4442c7e2844d63544383e3", 16)
-	// See https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=0xbc78ab8a9e9a0bca7d0321a27b2c03addeae08ba81ea98b03cd3dd237eabed44 
+	// See https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=0xbc78ab8a9e9a0bca7d0321a27b2c03addeae08ba81ea98b03cd3dd237eabed44
 	tx := &types.DynamicFeeTx{
-		ChainID: params.AllEthashProtocolChanges.ChainID, // for the mock geth backend
-		Nonce: 0, // First transaction in the fake chain
-		GasTipCap: big.NewInt(1000000000),
-		GasFeeCap: big.NewInt(135000000000),
-		Gas: 53896,
-		To: &to,
-		Value: big.NewInt(7165918000000000),
-		Data: common.Hex2Bytes("5578ceae0000000000000000000000000000000000000000000000000000000004ddf9d100000000000000000000000000000000000000000000000000000000000000a0075575fe6501ef399f6ae493918c4f4baf7958116ba67c45d70c40f88865835c04e3bcc23e0d0e792a8697ce7167a42aece29db8b431e44639acdcc95e8711280800000000000011000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001a02bae43711f26ae111ab92461ec41ea93031f031b2b5bc943db0d863c77176b9066644b5899132aeedb2617607aa8aa91028780e8056eba13aaff13716275a9804ecafe9423cfac4498b51d375f7ed2d330246c6be6a7c8f46ccaad87ae5a8db069a9ba8bd284ed6f6c530f1524b0b4d9cd28d92c3e7854b1678b8c7a9f91010000000000000000000000000000000000000000000000000000000000007036d000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000003f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000037e11c9c9817ce9f3cb31ed7f00491478a7689bb8442b9ff37596ac35f4168003db9d83c9328d408e4b27f5f8e6e97ba4dc3d0f751331c273645ce39eaaf3250000000000000000000000000000000000000000000000017ffffdf653b3fc7c000000000000000000000000a350122a590fc6c8bee981a06039436fff79c02a02c77fdc97759f654a74b6ba9845219df635f53ffa877bdfc69f4dbf7028885a0000000000000000000000000000000000000000000000007ffffe47458b28cf02ac7d20744d8eaa13caa5465eef3d392f83d0e22d3c19c17bedf4f61e38978f032187f7d3db76378152d69d5ff22a5761496596ff4e91708d72d0c939d8282500000000000000000000000000000000000000006437795b80000000023a828f066364750c682c034cd551ea39126bd2f5d85396f85882d09ff5c8cdecebdc0f00081aa49c199a78e0a085fc5552cc9fa460b111a730d2e4cd37ac8dd58ba1170000000000000000000000000000000000000000501c31ad800ef931baebc3f00353716ea5c217d72631de338cba3bd27918e1b1386432f96ee0f34a0e232c8902f3ca9ce08216101aa1dc5cf0bf34f4fceb54f09ec3304263124e10b6e807eb"),
+		ChainID:    params.AllEthashProtocolChanges.ChainID, // for the mock geth backend
+		Nonce:      0,                                       // First transaction in the fake chain
+		GasTipCap:  big.NewInt(1000000000),
+		GasFeeCap:  big.NewInt(135000000000),
+		Gas:        53896,
+		To:         &to,
+		Value:      big.NewInt(7165918000000000),
+		Data:       common.Hex2Bytes("5578ceae0000000000000000000000000000000000000000000000000000000004ddf9d100000000000000000000000000000000000000000000000000000000000000a0075575fe6501ef399f6ae493918c4f4baf7958116ba67c45d70c40f88865835c04e3bcc23e0d0e792a8697ce7167a42aece29db8b431e44639acdcc95e8711280800000000000011000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001a02bae43711f26ae111ab92461ec41ea93031f031b2b5bc943db0d863c77176b9066644b5899132aeedb2617607aa8aa91028780e8056eba13aaff13716275a9804ecafe9423cfac4498b51d375f7ed2d330246c6be6a7c8f46ccaad87ae5a8db069a9ba8bd284ed6f6c530f1524b0b4d9cd28d92c3e7854b1678b8c7a9f91010000000000000000000000000000000000000000000000000000000000007036d000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000003f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000037e11c9c9817ce9f3cb31ed7f00491478a7689bb8442b9ff37596ac35f4168003db9d83c9328d408e4b27f5f8e6e97ba4dc3d0f751331c273645ce39eaaf3250000000000000000000000000000000000000000000000017ffffdf653b3fc7c000000000000000000000000a350122a590fc6c8bee981a06039436fff79c02a02c77fdc97759f654a74b6ba9845219df635f53ffa877bdfc69f4dbf7028885a0000000000000000000000000000000000000000000000007ffffe47458b28cf02ac7d20744d8eaa13caa5465eef3d392f83d0e22d3c19c17bedf4f61e38978f032187f7d3db76378152d69d5ff22a5761496596ff4e91708d72d0c939d8282500000000000000000000000000000000000000006437795b80000000023a828f066364750c682c034cd551ea39126bd2f5d85396f85882d09ff5c8cdecebdc0f00081aa49c199a78e0a085fc5552cc9fa460b111a730d2e4cd37ac8dd58ba1170000000000000000000000000000000000000000501c31ad800ef931baebc3f00353716ea5c217d72631de338cba3bd27918e1b1386432f96ee0f34a0e232c8902f3ca9ce08216101aa1dc5cf0bf34f4fceb54f09ec3304263124e10b6e807eb"),
 		AccessList: types.AccessList{},
 		// Signature values
 		V: new(big.Int),
@@ -265,7 +265,7 @@ func TestProcessPagesHashes(t *testing.T) {
 			if x.Cmp(wantPages[i][j]) != 0 {
 				t.Fatal("Pages are not equal")
 			}
-		}	
+		}
 	}
 }
 
@@ -299,17 +299,17 @@ func TestParsePages(t *testing.T) {
 	}
 
 	wantDiff := starknetTypes.StateDiff{
-		DeployedContracts: []starknetTypes.DeployedContract{ 
-			{ 
-				Address: "02", // Contract address
-				ContractHash: "03", // Contract hash
-				ConstructorCallData: []*big.Int{ big.NewInt(2), }, // Constructor argument
-			}, 
+		DeployedContracts: []starknetTypes.DeployedContract{
+			{
+				Address:             "02",                      // Contract address
+				ContractHash:        "03",                      // Contract hash
+				ConstructorCallData: []*big.Int{big.NewInt(2)}, // Constructor argument
+			},
 		},
 		StorageDiffs: map[string][]starknetTypes.KV{
 			"03": { // Contract address
 				{
-					Key: "03", // Cairo memory address
+					Key:   "03", // Cairo memory address
 					Value: "04",
 				},
 			},
@@ -324,7 +324,7 @@ func TestParsePages(t *testing.T) {
 			t.Errorf("Incorrect contract address: %s, want %s", testContract.Address, contract.Address)
 		}
 		if contract.ContractHash != testContract.ContractHash {
-			t.Errorf("Incorrect contract hash: %s, want %s", testContract.ContractHash, contract.ContractHash, )
+			t.Errorf("Incorrect contract hash: %s, want %s", testContract.ContractHash, contract.ContractHash)
 		}
 		for j, arg := range contract.ConstructorCallData {
 			if arg.Cmp(testContract.ConstructorCallData[j]) != 0 {
@@ -344,4 +344,4 @@ func TestParsePages(t *testing.T) {
 			t.Error("Too many storage diffs: expected one diff")
 		}
 	}
-} 
+}
