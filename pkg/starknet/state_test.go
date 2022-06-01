@@ -23,36 +23,25 @@ import (
 	"testing"
 )
 
-var (
-	gpsVerifierAddr = common.HexToAddress("0x4cecc7cf83d99cf6d80dd94a6917d38df9bef4e5")
-	fromAddr = common.HexToAddress("0x211b9e844ee92de0b2ac38760a5bb004b2637796")
-	otherAddr = common.HexToAddress("0x3eb3ef36108789c2993117cfcd8c05e879f54284")
-	otherAddr2 = common.HexToAddress("0x1Fb17006d0B4FeC8592dF10c76B48437d85A5E2f")
-	testBalance = big.NewInt(2e18)
-)
-
-var genesis = &core.Genesis{
-	Config: params.AllEthashProtocolChanges,
-	Alloc: core.GenesisAlloc{
-		fromAddr: {Balance: testBalance},
-		gpsVerifierAddr: {Balance: testBalance},
-		otherAddr: {Balance: testBalance},
-		otherAddr2: {Balance: testBalance},
-	},
-	ExtraData: []byte("test genesis"),
-	Timestamp: 9000,
-	BaseFee: big.NewInt(params.InitialBaseFee),
-}
-
-func newTestBackend(t *testing.T, txs ...*types.Transaction) (*node.Node, []*types.Block) {
+func newTestBackend(t *testing.T, alloc core.GenesisAlloc, txs ...*types.Transaction) (*node.Node, []*types.Block) {
 	// Create node
 	n, err := node.New(&node.Config{})
 	if err != nil {
 		t.Fatalf("can't create new node: %v", err)
 	}
 	// Create Ethereum Service
-	config := &ethconfig.Config{Genesis: genesis}
-	config.Ethash.PowMode = ethash.ModeFake
+	config := &ethconfig.Config{
+		Genesis: &core.Genesis{
+			Alloc: alloc,
+			Timestamp: 9000,
+			ExtraData: []byte("test genesis"),
+			BaseFee: big.NewInt(params.InitialBaseFee),
+			Config: params.AllEthashProtocolChanges,
+		},
+		Ethash: ethash.Config{
+			PowMode: ethash.ModeFake,
+		},
+	}
 	ethservice, err := eth.New(n, config)
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
@@ -61,14 +50,14 @@ func newTestBackend(t *testing.T, txs ...*types.Transaction) (*node.Node, []*typ
 	if err := n.Start(); err != nil {
 		t.Fatalf("can't start test node: %v", err)
 	}
-	blocks := generateTestChain(txs...)
+	blocks := generateTestChain(config.Genesis, txs...)
 	if _, err := ethservice.BlockChain().InsertChain(blocks[1:]); err != nil {
 		t.Fatalf("can't import test blocks: %v", err)
 	}
 	return n, blocks
 }
 
-func generateTestChain(txs ...*types.Transaction) []*types.Block {
+func generateTestChain(genesis *core.Genesis, txs ...*types.Transaction) []*types.Block {
 	db := rawdb.NewMemoryDatabase()
 	generate := func(i int, g *core.BlockGen) {
 		g.OffsetTime(5)
@@ -85,6 +74,20 @@ func generateTestChain(txs ...*types.Transaction) []*types.Block {
 	blocks, _ := core.GenerateChain(genesis.Config, gblock, engine, db, 2, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
 	return blocks
+}
+
+func newMockEthclient(
+	t *testing.T,
+	addresses []common.Address,
+	txs ...*types.Transaction,
+) (func() error, func(), *ethclient.Client) {
+	alloc := make(core.GenesisAlloc, len(addresses))
+	for _, addr := range addresses {
+		alloc[addr] = core.GenesisAccount{Balance: big.NewInt(2e18)}
+	}
+	backend, _ := newTestBackend(t, alloc, txs...)
+	rpcClient, _ := backend.Attach()
+	return backend.Close, rpcClient.Close, ethclient.NewClient(rpcClient)
 }
 
 func TestUpdateState(t *testing.T) {
@@ -187,11 +190,11 @@ func TestProcessPagesHashes(t *testing.T) {
 	s, _ := new(big.Int).SetString("3f59b0fa5ce6cf38aff2cfeb68e7a503ceda2a72b4442c7e2844d63544383e3", 16)
 	// See https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=0xbc78ab8a9e9a0bca7d0321a27b2c03addeae08ba81ea98b03cd3dd237eabed44 
 	tx := &types.DynamicFeeTx{
-		ChainID: params.AllEthashProtocolChanges.ChainID, // 1337 is for the mock geth backend
-		Nonce: 0, // not actual: wanted because we insert transaction on empty chain 
+		ChainID: params.AllEthashProtocolChanges.ChainID, // for the mock geth backend
+		Nonce: 0, // First transaction in the fake chain
 		GasTipCap: big.NewInt(1000000000),
 		GasFeeCap: big.NewInt(135000000000),
-		Gas: 53896, // TODO why? this isn't what is on chain
+		Gas: 53896,
 		To: &to,
 		Value: big.NewInt(7165918000000000),
 		Data: common.Hex2Bytes("5578ceae0000000000000000000000000000000000000000000000000000000004ddf9d100000000000000000000000000000000000000000000000000000000000000a0075575fe6501ef399f6ae493918c4f4baf7958116ba67c45d70c40f88865835c04e3bcc23e0d0e792a8697ce7167a42aece29db8b431e44639acdcc95e8711280800000000000011000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001a02bae43711f26ae111ab92461ec41ea93031f031b2b5bc943db0d863c77176b9066644b5899132aeedb2617607aa8aa91028780e8056eba13aaff13716275a9804ecafe9423cfac4498b51d375f7ed2d330246c6be6a7c8f46ccaad87ae5a8db069a9ba8bd284ed6f6c530f1524b0b4d9cd28d92c3e7854b1678b8c7a9f91010000000000000000000000000000000000000000000000000000000000007036d000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000003f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000037e11c9c9817ce9f3cb31ed7f00491478a7689bb8442b9ff37596ac35f4168003db9d83c9328d408e4b27f5f8e6e97ba4dc3d0f751331c273645ce39eaaf3250000000000000000000000000000000000000000000000017ffffdf653b3fc7c000000000000000000000000a350122a590fc6c8bee981a06039436fff79c02a02c77fdc97759f654a74b6ba9845219df635f53ffa877bdfc69f4dbf7028885a0000000000000000000000000000000000000000000000007ffffe47458b28cf02ac7d20744d8eaa13caa5465eef3d392f83d0e22d3c19c17bedf4f61e38978f032187f7d3db76378152d69d5ff22a5761496596ff4e91708d72d0c939d8282500000000000000000000000000000000000000006437795b80000000023a828f066364750c682c034cd551ea39126bd2f5d85396f85882d09ff5c8cdecebdc0f00081aa49c199a78e0a085fc5552cc9fa460b111a730d2e4cd37ac8dd58ba1170000000000000000000000000000000000000000501c31ad800ef931baebc3f00353716ea5c217d72631de338cba3bd27918e1b1386432f96ee0f34a0e232c8902f3ca9ce08216101aa1dc5cf0bf34f4fceb54f09ec3304263124e10b6e807eb"),
@@ -202,12 +205,16 @@ func TestProcessPagesHashes(t *testing.T) {
 		S: s,
 	}
 	// Get ethclient mock
+	addresses := []common.Address{
+		common.HexToAddress("0x4cecc7cf83d99cf6d80dd94a6917d38df9bef4e5"), // gpsVerifier
+		common.HexToAddress("0x211b9e844ee92de0b2ac38760a5bb004b2637796"), // fromAddr
+		common.HexToAddress("0x3eb3ef36108789c2993117cfcd8c05e879f54284"),
+		common.HexToAddress("0x1Fb17006d0B4FeC8592dF10c76B48437d85A5E2f"),
+	}
 	finalTx := types.NewTx(tx)
-	backend, _ := newTestBackend(t, finalTx)
-	rpcClient, _ := backend.Attach()
-	defer backend.Close()
-	defer rpcClient.Close()
-	ec := ethclient.NewClient(rpcClient)
+	backendClose, rpcClose, ec := newMockEthclient(t, addresses, finalTx)
+	defer backendClose()
+	defer rpcClose()
 
 	sync := NewSynchronizer(db.NewKeyValueDb(t.TempDir(), 0), ec, nil)
 	sync.memoryPageHash.Add(hash[2:], starknetTypes.TransactionHash{Hash: finalTx.Hash()})
@@ -215,6 +222,7 @@ func TestProcessPagesHashes(t *testing.T) {
 	pages := sync.processPagesHashes(pagesHashes, memoryContract)
 
 	wantPagesStrings := [][]string{
+		// The value of the `values` parameter in the call to `registerContinuousMemoryPage`
 		{
 			"1234834334069480936175124601702828278893792771629334247197322562958869493433",
 			"2894569705096436988202241476149584659847938276142739122446927701442245909144",
