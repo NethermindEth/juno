@@ -88,7 +88,7 @@ func init() {
 
 // New creates a new configuration file with default values.
 func New() {
-	f := filepath.Join(Dir, "juno1.yaml")
+	f := filepath.Join(Dir, "juno.yaml")
 	log.Default.With("Path", f).Info("Creating default config.")
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
@@ -98,7 +98,7 @@ func New() {
 	}
 	data, err := yaml.Marshal(&Config{
 		Ethereum: ethereumConfig{Node: "your_node_here"},
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "goe"},
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: ""},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
 		DbPath:   Dir,
 	})
