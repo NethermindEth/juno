@@ -249,7 +249,7 @@ func (s *Synchronizer) l1Sync() error {
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
 			// TODO test for err
 
-			go s.transitionState(fullFact, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
+			s.transitionState(fullFact, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
 
 			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 			if err != nil {
