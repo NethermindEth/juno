@@ -148,15 +148,6 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 	}
 }
 
-func (s *Synchronizer) latestBlockOnChain() (uint64, error) {
-	number, err := s.ethereumClient.BlockNumber(context.Background())
-	if err != nil {
-		log.Default.With("Error", err).Error("Couldn't get the latest block")
-		return 0, err
-	}
-	return number, nil
-}
-
 func (s *Synchronizer) l1Sync() error {
 	log.Default.Info("Starting to update state")
 
@@ -284,11 +275,12 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 	}
 	// If already exist the information related to the fact,
 	// fetch and parse the memory pages
-	pages := s.processPagesHashes(
-		pagesHashes.(starknetTypes.PagesHash).Bytes, 
-		pageRegistryContract,
+	stateDiff := parsePages(
+		s.processPagesHashes(
+			pagesHashes.(starknetTypes.PagesHash).Bytes, 
+			pageRegistryContract,
+		),
 	)
-	stateDiff := parsePages(pages)
 
 	// Update state
 	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
