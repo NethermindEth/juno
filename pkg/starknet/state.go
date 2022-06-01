@@ -478,13 +478,14 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page
-		hash := common.BytesToHash(v[:])
-		transactionHash, err := s.memoryPageHash.Get(hash.Hex(), &starknetTypes.TransactionHash{})
+		hash := common.Bytes2Hex(v[:])
+		transactionHash, err := s.memoryPageHash.Get(hash, starknetTypes.TransactionHash{})
+		txHash := transactionHash.(starknetTypes.TransactionHash).Hash
 		if err != nil {
 			return nil
 		}
-		log.Default.With("Hash", hash.Hex()).Info("Getting transaction...")
-		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), transactionHash.(starknetTypes.TransactionHash).Hash)
+		log.Default.With("Hash", txHash.Hex()).Info("Getting transaction...")
+		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), txHash)
 		if err != nil {
 			log.Default.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")
@@ -492,13 +493,9 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 		}
 
 		// Parse Ethereum transaction calldata for Starknet transaction information
-		data := txn.Data()
-		if len(txn.Data()) < 5 {
-			log.Default.Error("memory page transaction input has incomplete signature")
-			continue
-		}
+		data := txn.Data()[4:] // Remove the method signature hash
 		inputs := make(map[string]interface{})
-		err = memoryContract.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, data[4:])
+		err = memoryContract.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, data)
 		if err != nil {
 			log.Default.With("Error", err).Info("Couldn't unpack into map")
 			return nil
