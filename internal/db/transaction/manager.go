@@ -44,6 +44,11 @@ func (m *Manager) GetTransaction(txHash []byte) *Transaction {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
 	}
+	// Check not found
+	if rawData == nil {
+		// notest
+		return nil
+	}
 	tx := new(Transaction)
 	err = proto.Unmarshal(rawData, tx)
 	if err != nil {
@@ -78,6 +83,11 @@ func (m *Manager) GetReceipt(txHash []byte) *TransactionReceipt {
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
+	}
+	// Check not found
+	if rawData == nil {
+		// notest
+		return nil
 	}
 	tx := new(TransactionReceipt)
 	err = proto.Unmarshal(rawData, tx)
