@@ -26,6 +26,7 @@ func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *Storag
 	}
 	// Check not found
 	if rawData == nil {
+		// notest
 		return nil
 	}
 	value := new(Storage)
