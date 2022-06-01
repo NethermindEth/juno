@@ -42,8 +42,6 @@ var (
 		Short: "Starknet client implementation in Go.",
 		Long:  longMsg,
 		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Println(longMsg)
-
 			processHandler = process.NewHandler()
 
 			// Handle signal interrupts and exits.
