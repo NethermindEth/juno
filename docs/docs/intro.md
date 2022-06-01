@@ -4,44 +4,30 @@ sidebar_position: 1
 
 # Tutorial Intro
 
-Let's discover **Docusaurus in less than 5 minutes**.
+Let's discover **Juno in less than 5 min**.
 
-## Getting Started
+## What you'll need
 
-Get started by **creating a new site**.
+- [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
+- [Cairo-lang](https://www.cairo-lang.org/docs/quickstart.html) if you want to do `starknet_call` command.
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
+### Installing dependencies
 
-### What you'll need
-
-- [Node.js](https://nodejs.org/en/download/) version 14 or above:
-  - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
-
-## Generate a new site
-
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
-
+You can get all the dependencies running the next command:
 ```bash
-npm init docusaurus@latest my-website classic
+$ make install-deps
 ```
 
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
+## Running the node
 
-The command also installs all necessary dependencies you need to run Docusaurus.
-
-## Start your site
-
-Run the development server:
-
+### Compiling directly
+If you want to run the node, you can compile directly the app using:
 ```bash
-cd my-website
-npm run start
+$ make compile
 ```
 
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
+### Using Docker
 
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
+In the other side, if you want to keep your environment clean, and running it using docker, 
 
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+you can follow this guide.
