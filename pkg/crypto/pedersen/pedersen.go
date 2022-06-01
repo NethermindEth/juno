@@ -8,29 +8,20 @@ import (
 	"math/big"
 )
 
-// See https://github.com/dontpanicdao/caigo/blob/e34006317632c87334fa29e770a00b5c7c94cb20/curve.go#L339-L351
-
 // divMod finds a nonnegative integer x < p such that (m * x) % p == n.
-// Assumes that m and p are coprime. This implementation is only meant to be used
-// in `pedersen.add`, where this assumption holds.
-// Based on https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L23-L29
+// Assumes that m and p are coprime. This implementation is only meant 
+// to be used in `pedersen.add`, where this assumption holds.
+// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56
 func divMod(n, m, p *big.Int) *big.Int {
-	/*
-	a, _, _ := igcdex(m, p)
+	a := new(big.Int)
+	new(big.Int).GCD(a, new(big.Int), m, p)
 	r := new(big.Int).Mul(n, a)
 	return r.Mod(r, p)
-	*/
-	q := new(big.Int)
-	gx := new(big.Int)
-	q.GCD(gx, new(big.Int), m, p)
-	r := new(big.Int).Mul(n, gx)
-	r = r.Mod(r, p)
-	return r
 }
 
-// add returns the sum of (x1, y1) and (x2, y2). It assumes that x1, x2 ∈ 𝔽²ₚ
-// and x1 != x2. This is based on the implementation in caigo.
-// See https://github.com/dontpanicdao/caigo/blob/e34006317632c87334fa29e770a00b5c7c94cb20/curve.go#L160-L182
+// add returns the sum of (x1, y1) and (x2, y2). It assumes that 
+// x1, x2 ∈ 𝔽²ₚ and x1 != x2. 
+// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L59-L68
 func add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	xDelta := new(big.Int).Sub(x1, x2)
 	yDelta := new(big.Int).Sub(y1, y2)
