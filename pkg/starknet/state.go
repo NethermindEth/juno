@@ -284,10 +284,6 @@ func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, blockNum uint64
 
 	// Update state
 	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, fact.SequenceNumber)
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
-	}
 
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
 	if err != nil {
@@ -311,6 +307,11 @@ func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, 
 		}
 	}
 	log.Default.With("Block Number", sequenceNumber).Info("State updated")
+
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, sequenceNumber)
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
 }
 
 func getFactInfo(
@@ -386,11 +387,6 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int64, lastBlockHash
 
 	s.updateAbiAndCode(upd, lastBlockHash, blockIterator)
 
-	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(blockIterator))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
-	}
 	return blockIterator + 1, update.BlockHash
 }
 
