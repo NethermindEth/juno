@@ -153,8 +153,8 @@ func updateNumericValueFromDB(database db.Databaser, key string, value uint64) e
 	return nil
 }
 
-// updateState is a pure function that applies the `update` StateDiff to
-// the database transaction `txn`.
+// updateState is a pure function (besides logging) that applies the
+// `update` StateDiff to the database transaction `txn`.
 func updateState(
 	txn db.Transaction,
 	hashService *services.ContractHashService,
@@ -225,4 +225,3 @@ func updateState(
 
 	return stateCommitment, nil
 }
-

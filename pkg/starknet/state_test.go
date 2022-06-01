@@ -1,9 +1,11 @@
 package starknet
 
 import (
+	"context"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -294,3 +296,38 @@ func TestParsePages(t *testing.T) {
 		}
 	}
 } 
+
+func TestUpdateAndCommitState(t *testing.T) {
+	hashService := services.NewContractHashService(db.NewKeyValueDb(t.TempDir(), 0))
+	go hashService.Run()
+	defer hashService.Close(context.Background())
+	stateDiff := &starknetTypes.StateDiff{
+		DeployedContracts: []starknetTypes.DeployedContract{
+			{
+				Address: "1",
+				ContractHash: "1",
+				ConstructorCallData: nil,
+			},
+		},
+	}
+	// Manually create the synchronizer without calling NewSynchronizer because
+	// we don't want to create an ethclient mock for this test
+	txnDb := db.NewKeyValueDb(t.TempDir(), 0)
+	s := &Synchronizer{
+		database:            txnDb,
+		memoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
+		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
+		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
+		chainID:             1,
+		transactioner:       db.NewTransactionDb(txnDb.GetEnv()),
+	}
+	sequenceNumber := uint64(0)
+	s.updateAndCommitState(stateDiff, "", sequenceNumber)
+	newSequenceNumber, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
+	if err != nil {
+		t.Error("error reading from database", err)
+	}
+	if newSequenceNumber != sequenceNumber + 1 {
+		t.Errorf("wrong value for sequence number: %d, want 1", newSequenceNumber)
+	}
+}
