@@ -15,7 +15,6 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - name: Install gofumpt
-        run: go install mvdan.cc/gofumpt@latest
+        run: make install-deps
       - name: Run gofumpt
-        run: '[ "$(gofumpt -l | wc -l)" = "0" ] && true'
-
+        run: make format-check

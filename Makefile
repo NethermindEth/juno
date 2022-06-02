@@ -42,6 +42,10 @@ tidy: ## add missing and remove unused modules
 format: ## run go formatter
 	gofumpt -l -w .
 
+format-check: ## check formatting
+	# assert `gofumpt -l` produces no output
+	test ! $$(gofumpt -l . | tee /dev/stderr)
+
 clean: ## Clean project builds
 	@rm -rf ./build/juno
 	@cd internal/db && $(MAKE) clean
