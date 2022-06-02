@@ -120,33 +120,21 @@ func TestGetStateUpdate(t *testing.T) {
 	assert.Equal(t, &cOrig, getStateUpdate, "State Update response don't match")
 }
 
-// func TestGetFullContract(t *testing.T) {
+func TestGetFullContract(t *testing.T) {
 
-// 	body := "{\"block_hash\": \"0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3\", \"block_number\": \"3\"}\n"
-// 	httpClient.DoReturns(generateResponse(body), nil)
-// 	var cOrig feeder.map
-// 	err := json.Unmarshal([]byte(body), &cOrig)
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	getStateUpdate, err := client.GetStateUpdate("hash", "")
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	assert.Equal(t, &cOrig, getStateUpdate, "State Update response don't match")
-// 	//a := feederfakes.ReturnFakeFullContract()
-// 	getBlock, err := realClient.GetFullContract("0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3", "", "3")
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	//k := (getBlock
-// 	m := getBlock["abi"]
-// 	if m != nil {
-// 		assert.True(t, true, "Full Contract response don't match")
-// 	} else {
-// 		assert.True(t, false, "Ful Contract does not contain abi - failed")
-// 	}
-// }
+	body := "{\"block_hash\": \"0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3\", \"block_number\": \"3\"}\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig map[string]interface{}
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	getStateUpdate, err := client.GetFullContract("address", "hash", "number")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, cOrig, getStateUpdate, "State Update response don't match")
+}
 
 //empty
 func TestGetCode(t *testing.T) {
@@ -325,3 +313,22 @@ func TestGetTransactionIdByHash(t *testing.T) {
 	}
 	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response don't match")
 }
+
+func TestGetStorageAt(t *testing.T) {
+	var body feeder.StorageInfo
+	body = "\"storage\"\n"
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.StorageInfo
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionId, err := client.GetStorageAt("address", "key", "hash", "")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response don't match")
+}
+
+//getfullContract
+//getStorageAt
