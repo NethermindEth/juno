@@ -7,6 +7,7 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -25,7 +26,7 @@ func init() {
 	var p feeder.HttpClient
 	p = httpClient
 	client = feeder.NewClient("https:/local", "/feeder_gateway/", &p)
-	realClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway/", &p)
+	//realClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway/", &p)
 }
 
 func generateResponse(body string) *http.Response {
@@ -72,6 +73,8 @@ func TestGetContractAddress(t *testing.T) {
 		t.Fatal()
 		return
 	}
+	println(&cOrig)
+	println(contractAddresses)
 	assert.Equal(t, &cOrig, contractAddresses, "Contract Address don't match")
 }
 
@@ -87,6 +90,7 @@ func TestCallContract(t *testing.T) {
 	assert.Equal(t, &a, contractResponse, "CallContract response don't match")
 }
 
+//empty
 func TestGetBlock(t *testing.T) {
 	a := feeder.StarknetBlock{}
 	body, err := StructFaker(a)
@@ -98,6 +102,8 @@ func TestGetBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
+	println(starknetBlock.BlockHash)
+	println("empty")
 	assert.Equal(t, &a, starknetBlock, "StarknetBlock don't match")
 }
 
@@ -117,6 +123,35 @@ func TestGetStateUpdate(t *testing.T) {
 	assert.Equal(t, &cOrig, getStateUpdate, "State Update response don't match")
 }
 
+// func TestGetFullContract(t *testing.T) {
+
+// 	body := "{\"block_hash\": \"0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3\", \"block_number\": \"3\"}\n"
+// 	httpClient.DoReturns(generateResponse(body), nil)
+// 	var cOrig feeder.map
+// 	err := json.Unmarshal([]byte(body), &cOrig)
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	getStateUpdate, err := client.GetStateUpdate("hash", "")
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	assert.Equal(t, &cOrig, getStateUpdate, "State Update response don't match")
+// 	//a := feederfakes.ReturnFakeFullContract()
+// 	getBlock, err := realClient.GetFullContract("0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3", "", "3")
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	//k := (getBlock
+// 	m := getBlock["abi"]
+// 	if m != nil {
+// 		assert.True(t, true, "Full Contract response don't match")
+// 	} else {
+// 		assert.True(t, false, "Ful Contract does not contain abi - failed")
+// 	}
+// }
+
+//empty
 func TestGetCode(t *testing.T) {
 	a := feeder.CodeInfo{}
 	body, err := StructFaker(a)
@@ -128,7 +163,19 @@ func TestGetCode(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
+	//println(getCode.Bytecode[0])
 	assert.Equal(t, &a, getCode, "GetCode response don't match")
+}
+
+func TestGetCode_FullCoverage(t *testing.T) {
+	a := feederfakes.ReturnAbiInfo_Full()
+	assert.Equal(t, "Struct-custom", a.Structs[0].Name)
+}
+
+func TestGetCode_FailType(t *testing.T) {
+	a := feederfakes.ReturnAbiInfo_Fail()
+	err := fmt.Errorf("unexpected type %s", "unknown")
+	assert.Equal(t, err, a)
 }
 
 func TestGetTransaction(t *testing.T) {
