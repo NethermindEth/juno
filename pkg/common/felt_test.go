@@ -15,7 +15,7 @@ func TestBigToFelt(t *testing.T) {
 		input, _ := new(big.Int).SetString(hexValue[2:], 16)
 		return TestCase{input, want}
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		newTestCase(
 			"0xa",
 			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
@@ -46,7 +46,7 @@ func TestHexToFelt(t *testing.T) {
 		Input string
 		Want  Felt
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		{
 			"0xa",
 			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
@@ -85,7 +85,7 @@ func TestFelt_Bytes(t *testing.T) {
 			Want:  b,
 		}
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		newTestCase([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10}),
 		newTestCase([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 167, 196, 156, 155, 127, 88, 38, 90}),
 		newTestCase([]byte{0, 0, 0, 0, 0, 0, 0, 156, 177, 124, 130, 73, 170, 89, 212, 86, 29, 235, 77, 30, 81, 214, 64, 196, 159, 53, 91, 247, 76, 118, 166, 195}),
@@ -104,7 +104,7 @@ func TestFelt_Big(t *testing.T) {
 		Input Felt
 		Want  *big.Int
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		{
 			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
 			new(big.Int).SetBytes([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10}),
@@ -135,7 +135,7 @@ func TestFelt_Hex(t *testing.T) {
 		Input Felt
 		Want  string
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		{
 			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
 			"0xa",
@@ -166,7 +166,7 @@ func TestFelt_String(t *testing.T) {
 		Input Felt
 		Want  string
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		{
 			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
 			"0xa",
@@ -205,7 +205,7 @@ func TestFelt_SetBytes(t *testing.T) {
 			Want:  f,
 		}
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		newTestCase([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10}),
 		newTestCase([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 167, 196, 156, 155, 127, 88, 38, 90}),
 		newTestCase([]byte{0, 0, 0, 0, 0, 0, 0, 156, 177, 124, 130, 73, 170, 89, 212, 86, 29, 235, 77, 30, 81, 214, 64, 196, 159, 53, 91, 247, 76, 118, 166, 195}),
