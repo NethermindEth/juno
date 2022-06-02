@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -122,7 +123,7 @@ func initialBlockForStarknetContract(id int64) int64 {
 }
 
 // getNumericValueFromDB get the value associated to a key and convert it to integer
-func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
+func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
 		return 0, err
@@ -136,11 +137,11 @@ func getNumericValueFromDB(database db.Databaser, key string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return int64(ret), nil
+	return uint64(ret), nil
 }
 
 // updateNumericValueFromDB update the value in the database for a key increasing the value in 1
-func updateNumericValueFromDB(database db.Databaser, key string, value int64) error {
+func updateNumericValueFromDB(database db.Databaser, key string, value uint64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(value+1))
 	err := database.Put([]byte(key), b)
@@ -150,4 +151,77 @@ func updateNumericValueFromDB(database db.Databaser, key string, value int64) er
 		return err
 	}
 	return nil
+}
+
+// updateState is a pure function (besides logging) that applies the
+// `update` StateDiff to the database transaction `txn`.
+func updateState(
+	txn db.Transaction,
+	hashService *services.ContractHashService,
+	update *starknetTypes.StateDiff,
+	stateRoot string,
+	sequenceNumber uint64,
+) (string, error) {
+	log.Default.With("Block Number", sequenceNumber).Info("Processing block")
+
+	stateTrie := newTrie(txn, "state_trie_")
+
+	log.Default.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
+	for _, deployedContract := range update.DeployedContracts {
+		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
+		if !ok {
+			log.Default.Panic("Couldn't get contract hash")
+		}
+		hashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
+		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
+		storageRoot := storageTrie.Commitment()
+		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
+		if !ok {
+			log.Default.With("Address", deployedContract.Address).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractStateValue := contractState(contractHash, storageRoot)
+		stateTrie.Put(address, contractStateValue)
+	}
+
+	log.Default.With("Block Number", sequenceNumber).Info("Processing storage diffs")
+	for k, v := range update.StorageDiffs {
+		formattedAddress := remove0x(k)
+		storageTrie := newTrie(txn, formattedAddress)
+		for _, storageSlots := range v {
+			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
+			if !ok {
+				log.Default.With("Storage Slot Key", storageSlots.Key).
+					Panic("Couldn't get the ")
+			}
+			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
+			if !ok {
+				log.Default.With("Storage Slot Value", storageSlots.Value).
+					Panic("Couldn't get the contract Hash")
+			}
+			storageTrie.Put(key, val)
+		}
+		storageRoot := storageTrie.Commitment()
+
+		address, ok := new(big.Int).SetString(formattedAddress, 16)
+		if !ok {
+			log.Default.With("Address", formattedAddress).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractHash := hashService.GetContractHash(formattedAddress)
+		contractStateValue := contractState(contractHash, storageRoot)
+
+		stateTrie.Put(address, contractStateValue)
+	}
+
+	stateCommitment := remove0x(stateTrie.Commitment().Text(16))
+
+	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
+		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
+			Panic("stateRoot not equal to the one provided")
+	}
+	log.Default.With("State Root", stateCommitment).
+		Info("Got State commitment")
+
+	return stateCommitment, nil
 }

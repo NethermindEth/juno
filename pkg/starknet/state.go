@@ -53,7 +53,8 @@ func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feed
 	}
 }
 
-// UpdateState keeps updated the Starknet State in a process
+// UpdateState initiates network syncing. Syncing will occur against the
+// feeder gateway or Layer 1 depending on the configuration.
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
 	if config.Runtime.Starknet.ApiSync {
@@ -62,7 +63,13 @@ func (s *Synchronizer) UpdateState() error {
 	return s.l1Sync()
 }
 
-func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.ContractInfo, eventChan chan starknetTypes.EventInfo) error {
+// loadEvents sends all logs ever emitted by `contracts` and adds them
+// to `eventChan`. Once caught up with the main chain, it will listen
+// for events originating from `contracts` indefinitely.
+func (s *Synchronizer) loadEvents(
+	contracts map[common.Address]starknetTypes.ContractInfo,
+	eventChan chan starknetTypes.EventInfo,
+) error {
 	addresses := make([]common.Address, 0)
 
 	topics := make([]common.Hash, 0)
@@ -82,8 +89,8 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 	for i < latestBlockNumber {
 		log.Default.With("From Block", i, "To Block", i+increment).Info("Fetching logs....")
 		query := ethereum.FilterQuery{
-			FromBlock: big.NewInt(int64(i)),
-			ToBlock:   big.NewInt(int64(i + increment)),
+			FromBlock: new(big.Int).SetUint64(i),
+			ToBlock:   new(big.Int).SetUint64(i + increment),
 			Addresses: addresses,
 			Topics:    [][]common.Hash{topics},
 		}
@@ -148,6 +155,29 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 	}
 }
 
+// l1Sync syncs against the starknet data stored on layer 1. It calls
+// `loadEvents` to obtain events from three of the Starknet contracts on
+// Ethereum:
+//
+// 1. MemoryPageFactRegistry: stores a mapping between a fact (usually
+// a hash of some data) and a memory page hash. A memory page is the
+// memory of a Cairo contract.
+//
+// 2. GpsStatementVerifier: verifies proofs from layer 2. We listen for
+// the `LogMemoryPagesHashes` event, which contains a fact and an array
+// memory pages' hashes. This log is emitted after the proof for a set
+// of Cairo transactions is verified.
+//
+// 3. Starknet: responsible for Starknet state transitions. It emits a
+// `LogStateTransitionFact` event with a fact corresponding to the
+// state transition being processed. Once it completes additional
+// safety checks, it will officially transition the state and emit a
+// `LogStateUpdate` event with the new state root and Starknet block
+// number (sequence number).
+//
+// Once this function sees a `LogStateTransitionFact` event, it works
+// backward through the steps above to reconstruct the original Starknet
+// transactions.
 func (s *Synchronizer) l1Sync() error {
 	log.Default.Info("Starting to update state")
 
@@ -198,6 +228,54 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}()
 
+	// Handle frequently if there is any fact that comes from L1 to handle
+	go func() {
+		ticker := time.NewTicker(time.Second * 5)
+		for range ticker.C {
+			factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
+			if err != nil {
+				log.Default.With("Error", err).
+					Info("Unable to get the Value of the latest fact synced")
+				continue
+			}
+			if !s.facts.Exist(strconv.FormatUint(factSynced, 10)) {
+				continue
+			}
+			f, _ := s.facts.Get(strconv.FormatUint(factSynced, 10), starknetTypes.Fact{})
+			fact := f.(starknetTypes.Fact)
+
+			if s.gpsVerifier.Exist(fact.Value) {
+				// Get memory pages hashes using fact
+				pagesHashes, err := s.gpsVerifier.Get(fact.Value, starknetTypes.PagesHash{})
+				if err != nil {
+					log.Default.With("Error").Panic("Fact has not been verified")
+				}
+				// If already exist the information related to the fact,
+				// fetch the memory pages and updated the State
+				pages := s.processPagesHashes(
+					pagesHashes.(starknetTypes.PagesHash).Bytes,
+					contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
+				)
+
+				stateDiff := parsePages(pages)
+
+				// Update state
+				s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
+
+				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
+				if err != nil {
+					log.Default.With("Error", err).Info("Couldn't update latest block synced")
+				}
+
+				s.facts.Remove(strconv.FormatUint(factSynced, 10))
+				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
+				if err != nil {
+					return
+				}
+			}
+		}
+	}()
+
 	for l := range event {
 		// Process GpsStatementVerifier contract
 		factHash, ok := l.Event["factHash"]
@@ -234,9 +312,10 @@ func (s *Synchronizer) l1Sync() error {
 				return err
 			}
 
+			blockNumber := new(big.Int).SetUint64(l.Block)
 			query := ethereum.FilterQuery{
-				FromBlock: big.NewInt(int64(l.Block)),
-				ToBlock:   big.NewInt(int64(l.Block)),
+				FromBlock: blockNumber,
+				ToBlock:   blockNumber,
 				Addresses: []common.Address{starknetAddress},
 				Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(contractAbi.Events["LogStateUpdate"].Sig))}},
 			}
@@ -247,9 +326,9 @@ func (s *Synchronizer) l1Sync() error {
 					Info("Couldn't get logs")
 			}
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
-			// TODO test for err
 
-			s.transitionState(fullFact, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
+			// Safe Fact for block x
+			s.facts.Add(strconv.FormatUint(factSaved, 10), fullFact)
 
 			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 			if err != nil {
@@ -262,42 +341,13 @@ func (s *Synchronizer) l1Sync() error {
 	return fmt.Errorf("couldn't read event from logs")
 }
 
-func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, pageRegistryContract ethAbi.ABI) {
-	factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
-	if err != nil {
-		log.Default.With("Error", err).
-			Info("Unable to get the Value of the latest fact synced")
-	}
-	// Get memory pages hashes using fact
-	pagesHashes, err := s.gpsVerifier.Get(fact.Value, starknetTypes.PagesHash{})
-	if err != nil {
-		log.Default.With("Error").Panic("Fact has not been verified")
-	}
-	// If already exist the information related to the fact,
-	// fetch and parse the memory pages
-	pages := s.processPagesHashes(
-		pagesHashes.(starknetTypes.PagesHash).Bytes,
-		pageRegistryContract,
-	)
-	stateDiff := parsePages(pages)
-
-	// Update state
-	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
-	bNumber, _ := strconv.Atoi(fact.SequenceNumber)
-
-	s.updateServices(*stateDiff, "", fact.SequenceNumber)
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(bNumber))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
-	}
-
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't update latest block synced")
-	}
-}
-
-func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber string) {
+// updateAndCommitState applies `stateDiff` to the local state and
+// commits the changes to the database.
+func (s *Synchronizer) updateAndCommitState(
+	stateDiff *starknetTypes.StateDiff,
+	newRoot string,
+	sequenceNumber uint64,
+) {
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
@@ -313,13 +363,20 @@ func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, 
 		}
 	}
 	log.Default.With("Block Number", sequenceNumber).Info("State updated")
+
+	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, sequenceNumber)
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	}
 }
 
+// getFactInfo gets the state root and sequence number associated with
+// a given StateTransitionFact.
 func getFactInfo(
 	starknetLogs []types.Log,
 	contract ethAbi.ABI,
 	fact string,
-	latestBlockSynced int64,
+	latestBlockSynced uint64,
 ) (*starknetTypes.Fact, error) {
 	for _, vLog := range starknetLogs {
 		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
@@ -332,10 +389,10 @@ func getFactInfo(
 		}
 		factVal := &starknetTypes.Fact{
 			StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
-			SequenceNumber: strconv.FormatInt(event["blockNumber"].(*big.Int).Int64(), 10),
+			SequenceNumber: event["blockNumber"].(*big.Int).Uint64(),
 			Value:          fact,
 		}
-		if factVal.SequenceNumber == strconv.FormatInt(latestBlockSynced, 10) {
+		if factVal.SequenceNumber == latestBlockSynced {
 			return factVal, nil
 		}
 	}
@@ -351,13 +408,13 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	//(*s.database).Close()
 }
 
+// apiSync syncs against the feeder gateway.
 func (s *Synchronizer) apiSync() error {
-	latestBlockQueried, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
+	blockIterator, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
 		return err
 	}
-	blockIterator := int(latestBlockQueried)
 	lastBlockHash := ""
 	for {
 		newValueForIterator, newBlockHash := s.updateStateForOneBlock(blockIterator, lastBlockHash)
@@ -369,9 +426,11 @@ func (s *Synchronizer) apiSync() error {
 	}
 }
 
-func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash string) (int, string) {
+// updateStateForOneBlock will fetch state transition from the feeder
+// gateway and apply it to the local state.
+func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
-	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.Itoa(blockIterator))
+	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't get state update")
 		return blockIterator, lastBlockHash
@@ -385,88 +444,15 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator int, lastBlockHash s
 
 	upd := stateUpdateResponseToStateDiff(*update)
 
-	s.updateAndCommitState(&upd, update.NewRoot, strconv.Itoa(blockIterator))
+	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	s.updateServices(upd, lastBlockHash, string(rune(blockIterator)))
+	s.updateServices(upd, lastBlockHash, blockIterator)
 
-	log.Default.With("Block Number", blockIterator).Info("State updated")
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, int64(blockIterator))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
-	}
 	return blockIterator + 1, update.BlockHash
 }
 
-func updateState(
-	txn db.Transaction,
-	hashService *services.ContractHashService,
-	update *starknetTypes.StateDiff,
-	stateRoot, blockNumber string,
-) (string, error) {
-	log.Default.With("Block Number", blockNumber).Info("Processing block")
-
-	stateTrie := newTrie(txn, "state_trie_")
-
-	log.Default.With("Block Number", blockNumber).Info("Processing deployed contracts")
-	for _, deployedContract := range update.DeployedContracts {
-		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
-		if !ok {
-			log.Default.Panic("Couldn't get contract hash")
-		}
-		hashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
-		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
-		storageRoot := storageTrie.Commitment()
-		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
-		if !ok {
-			log.Default.With("Address", deployedContract.Address).
-				Panic("Couldn't convert Address to Big.Int ")
-		}
-		contractStateValue := contractState(contractHash, storageRoot)
-		stateTrie.Put(address, contractStateValue)
-	}
-
-	log.Default.With("Block Number", blockNumber).Info("Processing storage diffs")
-	for k, v := range update.StorageDiffs {
-		formattedAddress := remove0x(k)
-		storageTrie := newTrie(txn, formattedAddress)
-		for _, storageSlots := range v {
-			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
-			if !ok {
-				log.Default.With("Storage Slot Key", storageSlots.Key).
-					Panic("Couldn't get the ")
-			}
-			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
-			if !ok {
-				log.Default.With("Storage Slot Value", storageSlots.Value).
-					Panic("Couldn't get the contract Hash")
-			}
-			storageTrie.Put(key, val)
-		}
-		storageRoot := storageTrie.Commitment()
-
-		address, ok := new(big.Int).SetString(formattedAddress, 16)
-		if !ok {
-			log.Default.With("Address", formattedAddress).
-				Panic("Couldn't convert Address to Big.Int ")
-		}
-		contractHash := hashService.GetContractHash(formattedAddress)
-		contractStateValue := contractState(contractHash, storageRoot)
-
-		stateTrie.Put(address, contractStateValue)
-	}
-
-	stateCommitment := remove0x(stateTrie.Commitment().Text(16))
-
-	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
-		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
-			Panic("stateRoot not equal to the one provided")
-	}
-	log.Default.With("State Root", stateCommitment).
-		Info("Got State commitment")
-
-	return stateCommitment, nil
-}
-
+// processPagesHashes takes an arrays of arrays of pages' hashes and
+// converts them into memory pages by querying an ethereum client.
 func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) [][]*big.Int {
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
@@ -504,14 +490,14 @@ func (s *Synchronizer) updateServices(update starknetTypes.StateDiff, blockHash,
 	s.updateBlocksAndTransactions(blockHash, blockNumber)
 }
 
-func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash, blockNumber string) {
+func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber uint64) {
 	for _, v := range update.DeployedContracts {
-		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, blockNumber)
+		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, strconv.FormatUint(sequenceNumber, 10))
 		if err != nil {
 			return
 		}
 		log.Default.
-			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", blockNumber).
+			With("ContractInfo Address", v.Address, "Block Hash", blockHash, "Block Number", sequenceNumber).
 			Info("Fetched code and ABI")
 		// TODO: Convert ABI and Code in Database
 		// Save the ABI
@@ -543,7 +529,8 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 
 }
 
-// parsePages parse the pages returned from the interaction with Layer 1
+// parsePages converts an array of memory pages into a state diff that
+// can be used to update the local state.
 func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]

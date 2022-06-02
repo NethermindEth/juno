@@ -98,7 +98,7 @@ func TestMapUsingFact(t *testing.T) {
 	// Set a new value, in this case TransactionHash
 	fact := Fact{
 		StateRoot:   "stateRoot",
-		SequenceNumber: "BlockNumber",
+		SequenceNumber: 0,
 		Value:       "Value",
 	}
 
