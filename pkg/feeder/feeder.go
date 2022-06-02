@@ -244,7 +244,6 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 	blockIdentifier["contractAddress"] = contractAddress
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", req.URL.RawQuery).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
 	var res CodeInfo
