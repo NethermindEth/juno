@@ -2054,7 +2054,7 @@ func init() {
 
 // Add returns the sum of (x1, y1) and (x2, y2) on an
 // elliptic curve mod P.
-// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L59-L68
+// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164
 func (p *point) Add(p2 point) {
 	if p.x.Sign() == 0 && p.y.Sign() == 0 {
 		p.x.Set(p2.x)
