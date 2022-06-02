@@ -73,8 +73,6 @@ func TestGetContractAddress(t *testing.T) {
 		t.Fatal()
 		return
 	}
-	println(&cOrig)
-	println(contractAddresses)
 	assert.Equal(t, &cOrig, contractAddresses, "Contract Address don't match")
 }
 
@@ -102,8 +100,6 @@ func TestGetBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	println(starknetBlock.BlockHash)
-	println("empty")
 	assert.Equal(t, &a, starknetBlock, "StarknetBlock don't match")
 }
 
@@ -163,7 +159,6 @@ func TestGetCode(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	//println(getCode.Bytecode[0])
 	assert.Equal(t, &a, getCode, "GetCode response don't match")
 }
 
