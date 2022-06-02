@@ -18,8 +18,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var httpClient = &feederfakes.FakeHttpClient{}
-var client *feeder.Client
+var (
+	httpClient = &feederfakes.FakeHttpClient{}
+	client     *feeder.Client
+)
 
 func init() {
 	var p feeder.HttpClient
