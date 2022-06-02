@@ -11,3 +11,6 @@ generate:
 
 add-notest:
 	find . -name '*.pb.go' -exec sh -c "awk '/func/ { print \"// notest\"; }; 1;' {} > tmp_file && mv tmp_file {}" \;
+
+rm-notest:
+	find . -name '*.pb.go' -exec sh -c "awk '!/\/\/ notest/' {} > tmp_file && mv tmp_file {}" \;
