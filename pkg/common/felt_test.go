@@ -228,7 +228,7 @@ func TestFelt_MarshalJSON(t *testing.T) {
 		Input Felt
 		Want  []byte
 	}
-	var tests = [...]TestCase{
+	tests := [...]TestCase{
 		{
 			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
 			[]byte("\"0xa\""),
