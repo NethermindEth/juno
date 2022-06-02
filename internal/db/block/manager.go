@@ -27,6 +27,11 @@ func (manager *Manager) GetBlockByHash(blockHash []byte) *Block {
 	if err != nil {
 		panic(any(err))
 	}
+	// Check not found
+	if rawResult == nil {
+		// notest
+		return nil
+	}
 	// Unmarshal the data
 	block := &Block{}
 	err = proto.Unmarshal(rawResult, block)
@@ -46,10 +51,20 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) *Block {
 	if err != nil {
 		panic(any(err))
 	}
+	// Check not found
+	if hashKey == nil {
+		// notest
+		return nil
+	}
 	// Search for the block
 	rawResult, err := manager.database.Get(hashKey)
 	if err != nil {
 		panic(any(err))
+	}
+	// Check not found
+	if rawResult == nil {
+		// notest
+		return nil
 	}
 	// Unmarshal the data
 	block := &Block{}

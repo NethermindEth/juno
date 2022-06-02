@@ -33,6 +33,7 @@ codecov-test:
 	mkdir -p coverage
 	@cd internal/db && $(MAKE) add-notest
 	courtney/courtney -v -o coverage/coverage.out ./...
+	@cd internal/db && $(MAKE) rm-notest
 
 gomod_tidy: ## add missing and remove unused modules
 	 go mod tidy

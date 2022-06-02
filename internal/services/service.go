@@ -56,6 +56,10 @@ func (s *service) Close(_ context.Context) {
 // AddProcess must be used at the beginning of each service process. It adds 1
 // to the counter of the waiting group of process.
 func (s *service) AddProcess() {
+	if !s.Running() {
+		// notest
+		s.logger.Panic("service is not running")
+	}
 	s.wg.Add(1)
 }
 
