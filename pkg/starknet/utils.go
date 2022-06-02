@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
+	common2 "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -230,4 +232,15 @@ func updateState(
 		Info("Got State commitment")
 
 	return stateCommitment, nil
+}
+
+// byteCodeToStoreCode convert an array of strings to the Code
+func byteCodeToStoreCode(bytecode []string) *state.Code {
+	code := state.Code{}
+
+	for _, bCode := range bytecode {
+		code.Code = append(code.Code, common2.HexToFelt(bCode).Bytes())
+	}
+
+	return &code
 }
