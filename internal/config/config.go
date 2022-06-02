@@ -26,21 +26,19 @@ type Config struct {
 	Network string    `yaml:"starknet_network" mapstructure:"starknet_network"`
 }
 
-var (
-	// Dir is the default root directory for user-specific
-	// configuration data.
-	//
-	// On Darwin this is $HOME/Library/Application Support/juno/, on other
-	// Unix systems $XDG_CONFIG_HOME/juno/, and on Windows,
-	// %APPDATA%/juno.
-	Dir,
+// Dir is the default root directory for user-specific
+// configuration data.
+//
+// On Darwin this is $HOME/Library/Application Support/juno/, on other
+// Unix systems $XDG_CONFIG_HOME/juno/, and on Windows,
+// %APPDATA%/juno.
+var Dir,
 	// DataDir is the is the default root directory for user-specific
 	// application data.
 	//
 	// On Unix this is $XDG_DATA_HOME/juno/ and on Windows,
 	// %APPDATA%/juno/.
 	DataDir string
-)
 
 // Runtime is the runtime configuration of the application.
 var Runtime *Config
@@ -78,7 +76,7 @@ func New() {
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
 		// notest
-		err := os.MkdirAll(Dir, 0755)
+		err := os.MkdirAll(Dir, 0o755)
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
@@ -87,7 +85,7 @@ func New() {
 		Network: goerli,
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
-	err = os.WriteFile(f, data, 0644)
+	err = os.WriteFile(f, data, 0o644)
 	errpkg.CheckFatal(err, "Failed to write config file.")
 }
 
