@@ -27,6 +27,8 @@ test-cover: ## tests with coverage
 install-deps: ## Install some project dependencies
 	# install courtney fork
 	go install github.com/stdevMac/courtney@latest
+	# install gofumpt
+	go install mvdan.cc/gofumpt@latest
 
 codecov-test:
 	mkdir -p coverage
