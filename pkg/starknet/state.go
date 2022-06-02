@@ -198,6 +198,54 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}()
 
+	// Handle frequently if there is any fact that comes from L1 to handle
+	go func() {
+		ticker := time.NewTicker(time.Second * 5)
+		for range ticker.C {
+			factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
+			if err != nil {
+				log.Default.With("Error", err).
+					Info("Unable to get the Value of the latest fact synced")
+				continue
+			}
+			if !s.facts.Exist(strconv.FormatUint(factSynced, 10)) {
+				continue
+			}
+			f, _ := s.facts.Get(strconv.FormatUint(factSynced, 10), starknetTypes.Fact{})
+			fact := f.(starknetTypes.Fact)
+
+			if s.gpsVerifier.Exist(fact.Value) {
+				// Get memory pages hashes using fact
+				pagesHashes, err := s.gpsVerifier.Get(fact.Value, starknetTypes.PagesHash{})
+				if err != nil {
+					log.Default.With("Error").Panic("Fact has not been verified")
+				}
+				// If already exist the information related to the fact,
+				// fetch the memory pages and updated the State
+				pages := s.processPagesHashes(
+					pagesHashes.(starknetTypes.PagesHash).Bytes,
+					contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
+				)
+
+				stateDiff := parsePages(pages)
+
+				// Update state
+				s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
+
+				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
+				if err != nil {
+					log.Default.With("Error", err).Info("Couldn't update latest block synced")
+				}
+
+				s.facts.Remove(strconv.FormatUint(factSynced, 10))
+				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
+				if err != nil {
+					return
+				}
+			}
+		}
+	}()
+
 	for l := range event {
 		// Process GpsStatementVerifier contract
 		factHash, ok := l.Event["factHash"]
@@ -248,9 +296,9 @@ func (s *Synchronizer) l1Sync() error {
 					Info("Couldn't get logs")
 			}
 			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
-			// TODO test for err
 
-			go s.transitionState(fullFact, contracts[common.HexToAddress(memoryPagesContractAddress)].Contract)
+			// Safe Fact for block x
+			s.facts.Add(strconv.FormatUint(factSaved, 10), fullFact)
 
 			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
 			if err != nil {
@@ -261,35 +309,6 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}
 	return fmt.Errorf("couldn't read event from logs")
-}
-
-func (s *Synchronizer) transitionState(fact *starknetTypes.Fact, pageRegistryContract ethAbi.ABI) {
-	factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
-	if err != nil {
-		log.Default.With("Error", err).
-			Info("Unable to get the Value of the latest fact synced")
-	}
-	// Get memory pages hashes using fact
-	pagesHashes, err := s.gpsVerifier.Get(fact.Value, starknetTypes.PagesHash{})
-	if err != nil {
-		log.Default.With("Error").Panic("Fact has not been verified")
-	}
-	// If already exist the information related to the fact,
-	// fetch and parse the memory pages
-	stateDiff := parsePages(
-		s.processPagesHashes(
-			pagesHashes.(starknetTypes.PagesHash).Bytes, 
-			pageRegistryContract,
-		),
-	)
-
-	// Update state
-	s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
-
-	err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't update latest block synced")
-	}
 }
 
 func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber uint64) {
