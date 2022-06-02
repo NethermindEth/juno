@@ -2,6 +2,8 @@ package common
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -217,6 +219,32 @@ func TestFelt_SetBytes(t *testing.T) {
 		f.SetBytes(test.Input)
 		if bytes.Compare(f[:], test.Want[:]) != 0 {
 			t.Errorf("SetBytes(%v) = %v, want %v", test.Input, f, test.Want)
+		}
+	}
+}
+
+func TestFelt_MarshalJSON(t *testing.T) {
+	type TestCase struct {
+		Input Felt
+		Want  []byte
+	}
+	var tests = [...]TestCase{
+		{
+			[FeltLength]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
+			[]byte("\"0xa\""),
+		},
+		{
+			[FeltLength]byte{193, 227, 113, 138, 194, 41, 57, 125, 25, 37, 48, 192, 202, 55, 152, 47, 214, 96, 154, 43, 158, 250, 47, 188, 9, 193, 223, 152, 63, 67, 210, 37},
+			[]byte("\"0xc1e3718ac229397d192530c0ca37982fd6609a2b9efa2fbc09c1df983f43d225\""),
+		},
+	}
+	for _, test := range tests {
+		data, err := json.Marshal(test.Input)
+		if err != nil {
+			t.Error(fmt.Errorf("json.Marshal(%s): %w", test.Input, err))
+		}
+		if bytes.Compare(data, test.Want) != 0 {
+			t.Errorf("json.Marshal(%s) = %s, want: %s", test.Input, data, test.Want)
 		}
 	}
 }
