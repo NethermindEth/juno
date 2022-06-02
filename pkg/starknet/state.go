@@ -39,6 +39,7 @@ type Synchronizer struct {
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
+		// notest
 		log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
 	}
 	return &Synchronizer{
@@ -55,6 +56,7 @@ func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feed
 
 // UpdateState initiates network syncing. Syncing will occur against the
 // feeder gateway or Layer 1 depending on the configuration.
+// notest
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
 	if config.Runtime.Starknet.ApiSync {
@@ -66,6 +68,7 @@ func (s *Synchronizer) UpdateState() error {
 // loadEvents sends all logs ever emitted by `contracts` and adds them
 // to `eventChan`. Once caught up with the main chain, it will listen
 // for events originating from `contracts` indefinitely.
+// notest
 func (s *Synchronizer) loadEvents(
 	contracts map[common.Address]starknetTypes.ContractInfo,
 	eventChan chan starknetTypes.EventInfo,
@@ -178,6 +181,7 @@ func (s *Synchronizer) loadEvents(
 // Once this function sees a `LogStateTransitionFact` event, it works
 // backward through the steps above to reconstruct the original Starknet
 // transactions.
+// notest
 func (s *Synchronizer) l1Sync() error {
 	log.Default.Info("Starting to update state")
 
@@ -343,6 +347,7 @@ func (s *Synchronizer) l1Sync() error {
 
 // updateAndCommitState applies `stateDiff` to the local state and
 // commits the changes to the database.
+// notest
 func (s *Synchronizer) updateAndCommitState(
 	stateDiff *starknetTypes.StateDiff,
 	newRoot string,
@@ -372,6 +377,7 @@ func (s *Synchronizer) updateAndCommitState(
 
 // getFactInfo gets the state root and sequence number associated with
 // a given StateTransitionFact.
+// notest
 func getFactInfo(
 	starknetLogs []types.Log,
 	contract ethAbi.ABI,
@@ -409,6 +415,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 }
 
 // apiSync syncs against the feeder gateway.
+// notest
 func (s *Synchronizer) apiSync() error {
 	blockIterator, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
@@ -428,6 +435,7 @@ func (s *Synchronizer) apiSync() error {
 
 // updateStateForOneBlock will fetch state transition from the feeder
 // gateway and apply it to the local state.
+// notest
 func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
 	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
@@ -453,6 +461,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 // processPagesHashes takes an arrays of arrays of pages' hashes and
 // converts them into memory pages by querying an ethereum client.
+// notest
 func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) [][]*big.Int {
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
@@ -485,11 +494,13 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	return pages
 }
 
+// notest
 func (s *Synchronizer) updateServices(update starknetTypes.StateDiff, blockHash, blockNumber string) {
 	s.updateAbiAndCode(update, blockHash, blockNumber)
 	s.updateBlocksAndTransactions(blockHash, blockNumber)
 }
 
+// notest
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber string) {
 	for _, v := range update.DeployedContracts {
 		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, sequenceNumber)
@@ -507,6 +518,7 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 	}
 }
 
+// notest
 func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string) {
 	block, err := s.feederGatewayClient.GetBlock(blockHash, blockNumber)
 	if err != nil {
