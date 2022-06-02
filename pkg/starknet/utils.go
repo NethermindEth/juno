@@ -5,10 +5,10 @@ import (
 	"encoding/binary"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -170,6 +170,7 @@ func updateState(
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
 		if !ok {
+			// notest
 			log.Default.Panic("Couldn't get contract hash")
 		}
 		hashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
@@ -177,6 +178,7 @@ func updateState(
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
+			// notest
 			log.Default.With("Address", deployedContract.Address).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
@@ -191,11 +193,13 @@ func updateState(
 		for _, storageSlots := range v {
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
+				// notest
 				log.Default.With("Storage Slot Key", storageSlots.Key).
 					Panic("Couldn't get the ")
 			}
 			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
 			if !ok {
+				// notest
 				log.Default.With("Storage Slot Value", storageSlots.Value).
 					Panic("Couldn't get the contract Hash")
 			}
@@ -205,6 +209,7 @@ func updateState(
 
 		address, ok := new(big.Int).SetString(formattedAddress, 16)
 		if !ok {
+			// notest
 			log.Default.With("Address", formattedAddress).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
@@ -217,6 +222,7 @@ func updateState(
 	stateCommitment := remove0x(stateTrie.Commitment().Text(16))
 
 	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
+		// notest
 		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
 			Panic("stateRoot not equal to the one provided")
 	}

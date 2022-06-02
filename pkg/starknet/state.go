@@ -446,7 +446,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	s.updateServices(upd, lastBlockHash, blockIterator)
+	s.updateServices(upd, lastBlockHash, strconv.FormatUint(blockIterator, 10))
 
 	return blockIterator + 1, update.BlockHash
 }
@@ -490,9 +490,9 @@ func (s *Synchronizer) updateServices(update starknetTypes.StateDiff, blockHash,
 	s.updateBlocksAndTransactions(blockHash, blockNumber)
 }
 
-func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber uint64) {
+func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber string) {
 	for _, v := range update.DeployedContracts {
-		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, strconv.FormatUint(sequenceNumber, 10))
+		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, sequenceNumber)
 		if err != nil {
 			return
 		}
