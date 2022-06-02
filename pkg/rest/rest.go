@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
-	// "github.com/gorilla/mux"
 )
 
 var feederClient *feeder.Client
