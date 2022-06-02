@@ -120,7 +120,6 @@ func TestGetStateUpdate(t *testing.T) {
 }
 
 func TestGetFullContract(t *testing.T) {
-
 	body := "{\"block_hash\": \"0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3\", \"block_number\": \"3\"}\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig map[string]interface{}

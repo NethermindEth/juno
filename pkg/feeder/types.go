@@ -161,7 +161,6 @@ type StarknetBlock struct {
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
 }
 
-
 // struct to store Storage info
 type StorageInfo string
 
