@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
+	common2 "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -503,7 +504,7 @@ func (s *Synchronizer) updateServices(update starknetTypes.StateDiff, blockHash,
 // notest
 func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHash string, sequenceNumber string) {
 	for _, v := range update.DeployedContracts {
-		_, err := s.feederGatewayClient.GetCode(v.Address, blockHash, sequenceNumber)
+		code, err := s.feederGatewayClient.GetCode(v.Address, blockHash, sequenceNumber)
 		if err != nil {
 			return
 		}
@@ -512,9 +513,9 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 			Info("Fetched code and ABI")
 		// TODO: Convert ABI and Code in Database
 		// Save the ABI
-		//services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
+		services.AbiService.StoreAbi(remove0x(v.Address), code.Abi)
 		// Save the contract code
-		//services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
+		services.StateService.StoreCode(common.Hex2Bytes(v.Address), code.Bytecode)
 	}
 }
 
@@ -526,6 +527,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	}
 	log.Default.With("Block Hash", blockHash).
 		Info("Got block")
+	services.BlockService.StoreBlock(common.Hex2Bytes(blockHash), block)
 	// TODO: Store block, where to store it? How to store it?
 
 	for _, bTxn := range block.Transactions {
@@ -535,10 +537,10 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		}
 		log.Default.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
+		services.TransactionService.StoreTransaction(common2.HexToFelt(bTxn.TransactionHash).Bytes(), transactionInfo)
 		// TODO: Store transactions, where to store it? How to store it?
 
 	}
-
 }
 
 // parsePages converts an array of memory pages into a state diff that
