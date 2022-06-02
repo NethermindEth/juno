@@ -26,14 +26,16 @@ test-cover: ## tests with coverage
 
 install-deps: ## Install some project dependencies
 	# install courtney fork
-	go install github.com/stdevMac/courtney@latest
+	git clone https://github.com/stdevMac/courtney
+	(cd courtney && go get  ./... && go build courtney.go)
+	go get ./...
 	# install gofumpt
 	go install mvdan.cc/gofumpt@latest
 
 codecov-test:
 	mkdir -p coverage
 	@cd internal/db && $(MAKE) add-notest
-	courtney -v -o coverage/coverage.out ./...
+	courtney/courtney -v -o coverage/coverage.out ./...
 	@cd internal/db && $(MAKE) rm-notest
 
 tidy: ## add missing and remove unused modules
