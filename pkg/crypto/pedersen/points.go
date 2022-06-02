@@ -10,8 +10,10 @@ type point struct{ x, y *big.Int }
 var (
 	// points is a slice of *big.Int that contains the constant points.
 	points [506]point
-	// p is the characteristic of our field
-	p *big.Int
+	// P is the characteristic of our field
+	P *big.Int
+	// A is alpha in the equation of the curve
+	A *big.Int
 )
 
 func init() {
@@ -2046,5 +2048,71 @@ func init() {
 		y, _ := new(big.Int).SetString(p[1], 16)
 		points[i] = point{x, y}
 	}
-	p, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
+	P, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
+	A = big.NewInt(1)
+}
+
+// Add returns the sum of (x1, y1) and (x2, y2) on an
+// elliptic curve mod P.
+// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L59-L68
+func (p *point) Add(p2 point) {
+	if p.x.Sign() == 0 && p.y.Sign() == 0 {
+		p.x.Set(p2.x)
+		p.y.Set(p2.y)
+		return
+	}
+
+	if p2.x.Sign() == 0 && p2.y.Sign() == 0 {
+		return	
+	}
+
+	x1, y1 := new(big.Int).Mod(p.x, P), new(big.Int).Mod(p.y, P)
+	x2, y2 := new(big.Int).Mod(p2.x, P), new(big.Int).Mod(p2.y, P)
+	if x1.Cmp(x2) == 0 {
+		if y1.Cmp(new(big.Int).Sub(P, y2)) == 0 {
+			p.x.SetInt64(0)
+			p.y.SetInt64(0)
+		} else {
+			big2 := big.NewInt(2)
+
+			x := new(big.Int).Mul(x1, x1)
+			x.Mul(x, big.NewInt(3))
+			x.Add(x, A)
+			y := new(big.Int).Mul(y1, big2)
+			m := divMod(x, y, P)
+
+			p.x.Mul(m, m)
+			p.x.Sub(p.x, new(big.Int).Mul(big2, x1))
+			p.x.Mod(p.x, P)
+
+			y.Sub(x1, p.x)
+			y.Mul(y, m)
+			y.Sub(y, y1)
+			p.y.Mod(y, P)
+		}
+	} else {
+		// FIXME this is broken
+		// Works with weierstrass.Stark().Add(...), not this implementation
+		m := divMod(new(big.Int).Sub(y1, y2), new(big.Int).Sub(x1, x2), P)
+
+		p.x.Mul(m, m)
+		p.x.Sub(p.x, x1)
+		p.x.Sub(p.x, x2)
+		p.x.Mod(p.x, P)
+
+		p.y.Sub(x1, p.x)
+		p.y.Mul(m, p.y)
+		p.y.Sub(p.y, y1)
+		p.y.Mod(p.y, P)
+	}
+}
+
+// divMod finds a nonnegative integer x < p such that (m * x) % p == n.
+// Assumes that m and p are coprime.
+// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56
+func divMod(n, m, p *big.Int) *big.Int {
+	a := new(big.Int)
+	new(big.Int).GCD(a, new(big.Int), m, p)
+	r := new(big.Int).Mul(n, a)
+	return r.Mod(r, p)
 }
