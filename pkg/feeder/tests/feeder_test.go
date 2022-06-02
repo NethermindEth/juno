@@ -89,7 +89,6 @@ func TestCallContract(t *testing.T) {
 	assert.Equal(t, &a, contractResponse, "CallContract response don't match")
 }
 
-//empty
 func TestGetBlock(t *testing.T) {
 	a := feeder.StarknetBlock{}
 	body, err := StructFaker(a)
@@ -136,7 +135,6 @@ func TestGetFullContract(t *testing.T) {
 	assert.Equal(t, cOrig, getStateUpdate, "State Update response don't match")
 }
 
-//empty
 func TestGetCode(t *testing.T) {
 	a := feeder.CodeInfo{}
 	body, err := StructFaker(a)
@@ -329,6 +327,3 @@ func TestGetStorageAt(t *testing.T) {
 	}
 	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response don't match")
 }
-
-//getfullContract
-//getStorageAt

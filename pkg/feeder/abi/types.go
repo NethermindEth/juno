@@ -1,6 +1,5 @@
 package feeder
 
-
 // represents ABI type
 type Abi struct {
 	Functions   []Function
@@ -10,7 +9,6 @@ type Abi struct {
 	Constructor *Constructor
 }
 
-
 // Represents Function abi
 type Function struct {
 	FieldCommon
@@ -18,7 +16,6 @@ type Function struct {
 	Name    string     `json:"name"`
 	Outputs []Variable `json:"outputs"`
 }
-
 
 // Represents Event abi
 type Event struct {
@@ -28,7 +25,6 @@ type Event struct {
 	Name string     `json:"name"`
 }
 
-
 // Represents Struct abi
 type Struct struct {
 	FieldCommon
@@ -37,12 +33,10 @@ type Struct struct {
 	Size    int64          `json:"size"`
 }
 
-
 // Represents L1Handler abi
 type L1Handler struct {
 	Function
 }
-
 
 // Represents Constructor abi
 type Constructor struct {

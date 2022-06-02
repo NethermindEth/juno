@@ -13,7 +13,6 @@ const (
 	TypeL1Handler   = "l1_handler"
 )
 
-
 // Unmarshals JSON into abi object
 func (abi *Abi) UnmarshalAbiJSON(data []byte) error {
 	// Unmarshal all the common parts of the fields to get the field types
