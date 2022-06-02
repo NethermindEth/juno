@@ -1,9 +1,10 @@
 package types
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/ethereum/go-ethereum/common"
-	"testing"
 )
 
 func newDict(database db.Databaser, prefix string) *Dictionary {
@@ -46,8 +47,8 @@ func TestMapUsingTransactionHash(t *testing.T) {
 	if exist {
 		t.Fail()
 	}
-
 }
+
 func TestMapUsingPagesHash(t *testing.T) {
 	database := db.NewKeyValueDb(t.TempDir(), 0)
 
@@ -89,6 +90,7 @@ func TestMapUsingPagesHash(t *testing.T) {
 		t.Fail()
 	}
 }
+
 func TestMapUsingFact(t *testing.T) {
 	database := db.NewKeyValueDb(t.TempDir(), 0)
 
@@ -97,9 +99,9 @@ func TestMapUsingFact(t *testing.T) {
 
 	// Set a new value, in this case TransactionHash
 	fact := Fact{
-		StateRoot:   "stateRoot",
+		StateRoot:      "stateRoot",
 		SequenceNumber: 0,
-		Value:       "Value",
+		Value:          "Value",
 	}
 
 	dict.Add("fact", fact)
@@ -130,5 +132,4 @@ func TestMapUsingFact(t *testing.T) {
 	if exist {
 		t.Fail()
 	}
-
 }

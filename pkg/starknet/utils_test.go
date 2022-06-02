@@ -2,16 +2,17 @@ package starknet
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/common"
-	"io/ioutil"
-	"testing"
 )
 
 func TestRemove0x(t *testing.T) {
@@ -191,7 +192,6 @@ func TestFixedValues(t *testing.T) {
 		t.Fail()
 		return
 	}
-
 }
 
 func TestLoadContractInfo(t *testing.T) {
@@ -228,7 +228,6 @@ func TestLoadContractInfo(t *testing.T) {
 	if method.Sig != "f((uint256,uint256[],(uint256,uint256)[]),(uint256,uint256),uint256)" {
 		t.Fail()
 	}
-
 }
 
 func TestUpdateState(t *testing.T) {
@@ -236,15 +235,15 @@ func TestUpdateState(t *testing.T) {
 	// This will never happen in practice, but we do that here so we can test the DeployedContract
 	// and StorageDiff code paths in `updateState` easily.
 	contract := starknetTypes.DeployedContract{
-		Address: "1",
-		ContractHash: "1",
+		Address:             "1",
+		ContractHash:        "1",
 		ConstructorCallData: nil,
 	}
-	storageDiff := starknetTypes.KV{ Key: "a", Value: "b", }
+	storageDiff := starknetTypes.KV{Key: "a", Value: "b"}
 	stateDiff := starknetTypes.StateDiff{
-		DeployedContracts: []starknetTypes.DeployedContract{ contract, },
-		StorageDiffs: map[string][]starknetTypes.KV{ 
-			contract.Address: { storageDiff, },
+		DeployedContracts: []starknetTypes.DeployedContract{contract},
+		StorageDiffs: map[string][]starknetTypes.KV{
+			contract.Address: {storageDiff},
 		},
 	}
 
@@ -259,7 +258,7 @@ func TestUpdateState(t *testing.T) {
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	database := db.Databaser(db.NewKeyValueDb(t.TempDir() + "/contractHash", 0))
+	database := db.Databaser(db.NewKeyValueDb(t.TempDir()+"/contractHash", 0))
 	hashService := services.NewContractHashService(database)
 	go hashService.Run()
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())

@@ -1,9 +1,10 @@
 package db_test
 
 import (
-	"github.com/NethermindEth/juno/internal/db"
 	"strconv"
 	"testing"
+
+	"github.com/NethermindEth/juno/internal/db"
 )
 
 var keyValueTest = map[string]string{}

@@ -2,15 +2,14 @@ package services
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
 	"go.uber.org/zap"
-	"math/big"
 )
 
-var (
-	contractHashService ContractHashService
-)
+var contractHashService ContractHashService
 
 type ContractHashService struct {
 	started      bool

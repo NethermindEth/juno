@@ -3,6 +3,9 @@ package starknet
 import (
 	"bytes"
 	"encoding/binary"
+	"math/big"
+	"strings"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
@@ -14,8 +17,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
-	"strings"
 )
 
 // newTrie returns a new Trie

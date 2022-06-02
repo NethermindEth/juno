@@ -5,6 +5,10 @@ package starknet
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
@@ -19,9 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"math/big"
-	"strconv"
-	"time"
 )
 
 // Synchronizer represents the base struct for Starknet Synchronization

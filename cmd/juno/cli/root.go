@@ -4,15 +4,16 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/starknet"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/starknet"
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
