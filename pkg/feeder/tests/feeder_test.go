@@ -220,6 +220,29 @@ func TestGetTransactionReceipt(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionReceipt, "GetTransactionReceipt response don't match")
 }
 
+func TestGetTransactionStatus(t *testing.T) {
+	a := feeder.TransactionStatus{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.TransactionStatus
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionStatus, err := client.GetTransactionStatus("", "id")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionStatus, "GetTransactionStatus response don't match")
+}
+
 func TestGetBlockHashById(t *testing.T) {
 	body := "\"hash\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
