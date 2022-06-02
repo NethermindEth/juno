@@ -197,6 +197,29 @@ func TestGetTransaction(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionInfo, "GetTransaction response don't match")
 }
 
+func TestGetTransactionbyHash(t *testing.T) {
+	a := feeder.TransactionInfo{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.TransactionInfo
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionInfo, err := client.GetTransaction("hash", "id")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionInfo, "GetTransaction response don't match")
+}
+
 func TestGetTransactionReceipt(t *testing.T) {
 	a := feeder.TransactionReceipt{}
 	err := faker.FakeData(&a)
