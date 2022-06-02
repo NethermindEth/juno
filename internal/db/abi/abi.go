@@ -81,7 +81,7 @@ func (x *Function) Equal(y *Function) bool {
 	return true
 }
 
-func (x *Event) Equal(y *Event) bool {
+func (x *AbiEvent) Equal(y *AbiEvent) bool {
 	if x == y {
 		return true
 	}
