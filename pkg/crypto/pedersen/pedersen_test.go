@@ -30,7 +30,7 @@ func ExampleDigest() {
 // implementation of the same function by Starkware.
 func TestDigest(t *testing.T) {
 	// See https://github.com/starkware-libs/starkex-resources/blob/44a15c7d1bdafda15766ea0fc2e0866e970e39c1/crypto/starkware/crypto/signature/signature_test_data.json#L85-L96.
-	var tests = [...]struct {
+	tests := [...]struct {
 		input1, input2, want string
 	}{
 		{
@@ -72,7 +72,7 @@ func BenchmarkArrayDigest(b *testing.B) {
 }
 
 func TestArrayDigest(t *testing.T) {
-	var tests = [...]struct {
+	tests := [...]struct {
 		input []string
 		want  string
 	}{

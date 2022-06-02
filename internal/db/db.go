@@ -60,7 +60,7 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 		// notest
 		return nil
 	}
-	err = env.Open(path, flags|mdbx.Exclusive, 0664)
+	err = env.Open(path, flags|mdbx.Exclusive, 0o664)
 	if err != nil {
 		// notest
 		log.Default.With("Error", err).Panic("Couldn't open db")

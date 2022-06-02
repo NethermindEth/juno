@@ -63,7 +63,6 @@ func TxnIdentifier(txHash, txId string) map[string]string {
 		return map[string]string{"transactionId": txId}
 	}
 	return map[string]string{"transactionHash": txHash}
-
 }
 
 // newRequest creates a new request based on params and returns an
@@ -151,14 +150,14 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 		return nil, err
 	}
 
-	//unmarshal bytecode
+	// unmarshal bytecode
 	json.Unmarshal(b, &v)
 
-	//separate "abi" bytes
+	// separate "abi" bytes
 	abi_interface := reciever["abi"]
 	p, err := json.Marshal(abi_interface)
 
-	//Unmarshal Abi bytes into Abi object
+	// Unmarshal Abi bytes into Abi object
 	if err := v.Abi.UnmarshalAbiJSON(p); err != nil {
 		log.Default.With("Error", err).Debug("Error reading abi")
 		return nil, err
@@ -270,7 +269,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	//var res []any
+	// var res []any
 	var res map[string]interface{}
 	_, err = c.do(req, &res)
 	if err != nil {
