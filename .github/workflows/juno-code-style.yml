@@ -1,0 +1,21 @@
+name: Juno Code Style
+on: pull_request
+
+jobs:
+  format:
+    name: Run Gofumpt
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ['1.18']
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Install gofumpt
+        run: go install mvdan.cc/gofumpt@latest
+      - name: Run gofumpt
+        run: '[ "$(gofumpt -l | wc -l)" = "0" ] && true'
+
