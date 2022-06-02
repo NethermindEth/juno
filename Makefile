@@ -25,17 +25,16 @@ test-cover: ## tests with coverage
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: ## Install some project dependencies
-	git clone https://github.com/stdevMac/courtney
-	(cd courtney && go get  ./... && go build courtney.go)
-	go get ./...
+	# install courtney fork
+	go install github.com/stdevMac/courtney@latest
 
 codecov-test:
 	mkdir -p coverage
 	@cd internal/db && $(MAKE) add-notest
-	courtney/courtney -v -o coverage/coverage.out ./...
+	courtney -v -o coverage/coverage.out ./...
 	@cd internal/db && $(MAKE) rm-notest
 
-gomod_tidy: ## add missing and remove unused modules
+tidy: ## add missing and remove unused modules
 	 go mod tidy
 
 format: ## run go formatter
