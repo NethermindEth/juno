@@ -19,14 +19,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var httpClient = &feederfakes.FakeHttpClient{}
-var client *feeder.Client
+var (
+	httpClient = &feederfakes.FakeHttpClient{}
+	client     *feeder.Client
+)
 
 func init() {
 	var p feeder.HttpClient
 	p = httpClient
 	client = feeder.NewClient("https:/local", "/feeder_gateway/", &p)
-	//realClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway/", &p)
 }
 
 func generateResponse(body string) *http.Response {

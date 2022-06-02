@@ -161,10 +161,11 @@ type StarknetBlock struct {
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
 }
 
-//struct to store Storage info
+
+// struct to store Storage info
 type StorageInfo string
 
-//struct for code type
+// struct for code type
 type CodeInfo struct {
 	Bytecode []string   `json:"bytecode"`
 	Abi      feeder.Abi `json:"abi"`
@@ -177,7 +178,7 @@ type TransactionFailureReason struct {
 	ErrorMsg string `json:"error_message"`
 }
 
-//type TxnStatus string
+// type TxnStatus string
 
 // TransactionInfo store all the transaction Information
 type TransactionInfo struct {

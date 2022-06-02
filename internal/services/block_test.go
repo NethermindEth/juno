@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"google.golang.org/protobuf/proto"
-	"math/big"
-	"testing"
 )
 
 func TestService(t *testing.T) {
@@ -42,9 +43,18 @@ func TestService(t *testing.T) {
 	for _, b := range blocks {
 		key := b.Hash
 		BlockService.StoreBlock(key, b)
-		returnedBlock := BlockService.GetBlock(key)
+		// Get block by hash
+		returnedBlock := BlockService.GetBlockByHash(key)
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with hash %s", hex.EncodeToString(b.Hash))
+		}
+		if !equalData(t, b, returnedBlock) {
+			t.Errorf("b")
+		}
+		// Get block by number
+		returnedBlock = BlockService.GetBlockByNumber(b.BlockNumber)
+		if returnedBlock == nil {
+			t.Errorf("unexpected nil after search for block with number %d", b.BlockNumber)
 		}
 		if !equalData(t, b, returnedBlock) {
 			t.Errorf("b")

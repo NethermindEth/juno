@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/db"
-	"google.golang.org/protobuf/proto"
 	"math/big"
 	"testing"
+
+	"github.com/NethermindEth/juno/internal/db"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestManager_PutBlock(t *testing.T) {
@@ -36,14 +37,24 @@ func TestManager_PutBlock(t *testing.T) {
 	for _, block := range blocks {
 		key := block.Hash
 		manager.PutBlock(key, block)
-		returnedBlock := manager.GetBlock(key)
+		// Get block by hash
+		returnedBlock := manager.GetBlockByHash(key)
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with hash %s", hex.EncodeToString(block.Hash))
 		}
 		if !equalData(t, block, returnedBlock) {
 			t.Errorf("block")
 		}
+		// Get block by number
+		returnedBlock = manager.GetBlockByNumber(block.BlockNumber)
+		if returnedBlock == nil {
+			t.Errorf("unexpected nil after search for block with number %d", block.BlockNumber)
+		}
+		if !equalData(t, block, returnedBlock) {
+			t.Errorf("block")
+		}
 	}
+	manager.Close()
 }
 
 func equalData(t *testing.T, a, b *Block) bool {
