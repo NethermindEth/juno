@@ -53,7 +53,8 @@ func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feed
 	}
 }
 
-// UpdateState keeps updated the Starknet State in a process
+// UpdateState initiates network syncing. Syncing will occur against the
+// feeder gateway or Layer 1 depending on the configuration.
 func (s *Synchronizer) UpdateState() error {
 	log.Default.Info("Starting to update state")
 	if config.Runtime.Starknet.ApiSync {
@@ -62,7 +63,13 @@ func (s *Synchronizer) UpdateState() error {
 	return s.l1Sync()
 }
 
-func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.ContractInfo, eventChan chan starknetTypes.EventInfo) error {
+// loadEvents sends all logs ever emitted by `contracts` and adds them
+// to `eventChan`. Once caught up with the main chain, it will listen
+// for events originating from `contracts` indefinitely.
+func (s *Synchronizer) loadEvents(
+	contracts map[common.Address]starknetTypes.ContractInfo,
+	eventChan chan starknetTypes.EventInfo,
+) error {
 	addresses := make([]common.Address, 0)
 
 	topics := make([]common.Hash, 0)
@@ -148,6 +155,29 @@ func (s *Synchronizer) loadEvents(contracts map[common.Address]starknetTypes.Con
 	}
 }
 
+// l1Sync syncs against the starknet data stored on layer 1. It calls
+// `loadEvents` to obtain events from three of the Starknet contracts on
+// Ethereum:
+//
+// 1. MemoryPageFactRegistry: stores a mapping between a fact (usually
+// a hash of some data) and a memory page hash. A memory page is the
+// memory of a Cairo contract.
+//
+// 2. GpsStatementVerifier: verifies proofs from layer 2. We listen for
+// the `LogMemoryPagesHashes` event, which contains a fact and an array
+// memory pages' hashes. This log is emitted after the proof for a set
+// of Cairo transactions is verified.
+//
+// 3. Starknet: responsible for Starknet state transitions. It emits a
+// `LogStateTransitionFact` event with a fact corresponding to the
+// state transition being processed. Once it completes additional
+// safety checks, it will officially transition the state and emit a
+// `LogStateUpdate` event with the new state root and Starknet block
+// number (sequence number).
+//
+// Once this function sees a `LogStateTransitionFact` event, it works
+// backward through the steps above to reconstruct the original Starknet
+// transactions.
 func (s *Synchronizer) l1Sync() error {
 	log.Default.Info("Starting to update state")
 
@@ -311,7 +341,13 @@ func (s *Synchronizer) l1Sync() error {
 	return fmt.Errorf("couldn't read event from logs")
 }
 
-func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string, sequenceNumber uint64) {
+// updateAndCommitState applies `stateDiff` to the local state and
+// commits the changes to the database.
+func (s *Synchronizer) updateAndCommitState(
+	stateDiff *starknetTypes.StateDiff,
+	newRoot string,
+	sequenceNumber uint64,
+) {
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
@@ -334,6 +370,8 @@ func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, 
 	}
 }
 
+// getFactInfo gets the state root and sequence number associated with
+// a given StateTransitionFact.
 func getFactInfo(
 	starknetLogs []types.Log,
 	contract ethAbi.ABI,
@@ -370,6 +408,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	//(*s.database).Close()
 }
 
+// apiSync syncs against the feeder gateway.
 func (s *Synchronizer) apiSync() error {
 	blockIterator, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
@@ -387,6 +426,8 @@ func (s *Synchronizer) apiSync() error {
 	}
 }
 
+// updateStateForOneBlock will fetch state transition from the feeder
+// gateway and apply it to the local state.
 func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
 	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
@@ -410,6 +451,8 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 	return blockIterator + 1, update.BlockHash
 }
 
+// processPagesHashes takes an arrays of arrays of pages' hashes and
+// converts them into memory pages by querying an ethereum client.
 func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) ([][]*big.Int) {
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
@@ -481,7 +524,8 @@ func (s *Synchronizer) updateBlocksAndTransactions(update feeder.StateUpdateResp
 
 }
 
-// parsePages parse the pages returned from the interaction with Layer 1
+// parsePages converts an array of memory pages into a state diff that
+// can be used to update the local state.
 func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]

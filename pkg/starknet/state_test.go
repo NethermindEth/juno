@@ -21,7 +21,8 @@ import (
 	"testing"
 )
 
-func newTestBackend(t *testing.T, alloc core.GenesisAlloc, txs ...*types.Transaction) (*node.Node, []*types.Block) {
+// newTestBackend creates a fake chain and returns an associated node.
+func newTestBackend(t *testing.T, alloc core.GenesisAlloc, txs ...*types.Transaction) *node.Node {
 	// Create node
 	n, err := node.New(&node.Config{})
 	if err != nil {
@@ -52,9 +53,10 @@ func newTestBackend(t *testing.T, alloc core.GenesisAlloc, txs ...*types.Transac
 	if _, err := ethservice.BlockChain().InsertChain(blocks[1:]); err != nil {
 		t.Fatalf("can't import test blocks: %v", err)
 	}
-	return n, blocks
+	return n
 }
 
+// generateTestChain generates a test chain from the given transactions.
 func generateTestChain(genesis *core.Genesis, txs ...*types.Transaction) []*types.Block {
 	db := rawdb.NewMemoryDatabase()
 	generate := func(i int, g *core.BlockGen) {
@@ -74,6 +76,8 @@ func generateTestChain(genesis *core.Genesis, txs ...*types.Transaction) []*type
 	return blocks
 }
 
+// newMockEthclient returns a mock eth client. The close methods for the
+// backend and rpc client are meant to be defered immediately.
 func newMockEthclient(
 	t *testing.T,
 	addresses []common.Address,
@@ -83,7 +87,7 @@ func newMockEthclient(
 	for _, addr := range addresses {
 		alloc[addr] = core.GenesisAccount{Balance: big.NewInt(2e18)}
 	}
-	backend, _ := newTestBackend(t, alloc, txs...)
+	backend := newTestBackend(t, alloc, txs...)
 	rpcClient, _ := backend.Attach()
 	return backend.Close, rpcClient.Close, ethclient.NewClient(rpcClient)
 }
