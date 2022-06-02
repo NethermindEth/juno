@@ -37,8 +37,8 @@ codecov-test:
 gomod_tidy: ## add missing and remove unused modules
 	 go mod tidy
 
-gofmt: ## run go formatter
-	go fmt -x ./...
+format: ## run go formatter
+	gofumpt -l -w .
 
 clean: ## Clean project builds
 	@rm -rf ./build/juno
