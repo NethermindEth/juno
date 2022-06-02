@@ -353,11 +353,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 	resFromCall, err := callFunc(
 		c, r.Method, args, fn.Func, structToCall, hasContext, errPos)
 	if err != nil {
-		// notest
-		log.Default.With(
-			"Method", r.Method, "Params", r.Params,
-		).Error("Internal error occurred while calling the function.")
-		res.Error = ErrInternal()
+		res.Error = &Error{Message: err.Error()}
 		res.Result = nil
 	}
 	log.Default.With("Method", r.Method).Info("Request successful.")
