@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"strings"
 )
@@ -50,4 +51,8 @@ func (f *Felt) SetBytes(b []byte) {
 		b = b[len(b)-FeltLength:]
 	}
 	copy(f[FeltLength-len(b):], b)
+}
+
+func (f Felt) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.Hex())
 }
