@@ -14,6 +14,7 @@ Let's discover **Juno in less than 5 min**.
 ### Installing dependencies
 
 You can get all the dependencies running the next command:
+
 ```bash
 $ make install-deps
 ```
@@ -21,13 +22,22 @@ $ make install-deps
 ## Running the node
 
 ### Compiling directly
+
 If you want to run the node, you can compile directly the app using:
+
 ```bash
 $ make compile
 ```
 
+and after you execute the building process, you can run the node using this command:
+
+```bash
+$ make run
+```
+
+If 
+
 ### Using Docker
 
-In the other side, if you want to keep your environment clean, and running it using docker, 
-
-you can follow this guide.
+In the other side, if you want to keep your environment clean, and running it using docker, you can
+follow [this](../running/docker.mdx) guide.
