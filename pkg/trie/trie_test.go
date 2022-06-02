@@ -28,7 +28,7 @@ func init() {
 }
 
 func Example() {
-	pairs := [...]struct {
+	var pairs = [...]struct {
 		key, val *big.Int
 	}{
 		{big.NewInt(2) /* 0b010 */, big.NewInt(1)},

@@ -1,10 +1,9 @@
 package db
 
 import (
-	"runtime"
-
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/torquem-ch/mdbx-go/mdbx"
+	"runtime"
 )
 
 // Transactioner describes methods relating to an abstract key-value

@@ -14,7 +14,7 @@ func P() *big.Int {
 }
 
 func TestInt(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		input *Felt
 		want  *big.Int
 	}{
@@ -30,7 +30,7 @@ func TestInt(t *testing.T) {
 }
 
 func TestReduce(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		input *Felt
 		want  *Felt
 	}{
@@ -48,7 +48,7 @@ func TestReduce(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		input int64
 		want  *Felt
 	}{
@@ -65,7 +65,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		z, x *Felt
 	}{
 		{New(0), New(1)},
@@ -83,7 +83,7 @@ func TestSet(t *testing.T) {
 }
 
 func TestSetString(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		s    string
 		base int
 		want *Felt
@@ -123,7 +123,7 @@ func TestSetString(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		a, b, want *Felt
 	}{
 		{New(0), New(10), New(10)},
@@ -139,7 +139,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestSub(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		a, b, want *Felt
 	}{
 		{New(0), New(1), (*Felt)(new(big.Int).Sub(P(), big.NewInt(1)))},
@@ -156,7 +156,7 @@ func TestSub(t *testing.T) {
 }
 
 func TestMul(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		a, b, want *Felt
 	}{
 		{New(0), New(10), New(0)},
@@ -178,7 +178,7 @@ func TestMul(t *testing.T) {
 
 func TestExp(t *testing.T) {
 	// a ** b.
-	tests := [...]struct {
+	var tests = [...]struct {
 		a, b, want *Felt
 	}{
 		{New(2), New(2), New(4)},
@@ -194,7 +194,7 @@ func TestExp(t *testing.T) {
 }
 
 func TestDiv(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		a, b, want *Felt
 	}{
 		{New(6), New(3), New(2)},
@@ -216,7 +216,7 @@ func TestDiv(t *testing.T) {
 }
 
 func TestCmp(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		a, b *Felt
 		want int
 	}{
@@ -233,7 +233,7 @@ func TestCmp(t *testing.T) {
 }
 
 func TestText(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		a    *Felt
 		base int
 		want string
@@ -264,7 +264,7 @@ func TestText(t *testing.T) {
 }
 
 func TestFeltUnmarshalJSON(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		data []byte
 		felt *Felt
 		err  bool
@@ -294,7 +294,7 @@ func TestFeltUnmarshalJSON(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	tests := [...]struct {
+	var tests = [...]struct {
 		felt *Felt
 		want string
 	}{

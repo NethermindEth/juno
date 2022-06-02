@@ -3,7 +3,6 @@ package abi
 import (
 	"errors"
 	"fmt"
-
 	"github.com/NethermindEth/juno/internal/db"
 	"google.golang.org/protobuf/proto"
 )

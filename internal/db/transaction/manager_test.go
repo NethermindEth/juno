@@ -3,10 +3,9 @@ package transaction
 import (
 	"bytes"
 	"encoding/hex"
-	"testing"
-
 	"github.com/NethermindEth/juno/internal/db"
 	"google.golang.org/protobuf/proto"
+	"testing"
 )
 
 var txs = []*Transaction{

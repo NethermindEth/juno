@@ -2,9 +2,8 @@ package services
 
 import (
 	"context"
-	"sync"
-
 	"go.uber.org/zap"
+	"sync"
 )
 
 // Service describes the basic functionalities that all the services have in

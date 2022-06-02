@@ -1,9 +1,8 @@
 package abi
 
 import (
-	"testing"
-
 	"github.com/NethermindEth/juno/internal/db"
+	"testing"
 )
 
 func TestManager(t *testing.T) {

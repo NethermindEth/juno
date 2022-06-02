@@ -2,10 +2,9 @@ package services
 
 import (
 	"context"
-	"testing"
-
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
+	"testing"
 )
 
 func TestAbiService_StoreGet(t *testing.T) {

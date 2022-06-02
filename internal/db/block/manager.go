@@ -2,7 +2,6 @@ package block
 
 import (
 	"encoding/binary"
-
 	"github.com/NethermindEth/juno/internal/db"
 	"google.golang.org/protobuf/proto"
 )

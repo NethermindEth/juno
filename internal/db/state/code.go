@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-
 	"google.golang.org/protobuf/proto"
 )
 

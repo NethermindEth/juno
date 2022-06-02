@@ -20,12 +20,12 @@ func init() {
 }
 
 func TestRealGetFullContract(t *testing.T) {
-	// a := feederfakes.ReturnFakeFullContract()
+	//a := feederfakes.ReturnFakeFullContract()
 	getBlock, err := realClient.GetFullContract("0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3", "", "3")
 	if err != nil {
 		t.Fatal()
 	}
-	// k := (getBlock
+	//k := (getBlock
 	m := getBlock["abi"]
 	if m != nil {
 		assert.True(t, true, "Full Contract response don't match")

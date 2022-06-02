@@ -1,13 +1,12 @@
 package state
 
 import (
-	"testing"
-
 	"github.com/NethermindEth/juno/internal/db"
+	"testing"
 )
 
 func TestManager_Storage(t *testing.T) {
-	initialData := [...]struct {
+	var initialData = [...]struct {
 		Contract    string
 		Storage     Storage
 		BlockNumber uint64
@@ -36,7 +35,7 @@ func TestManager_Storage(t *testing.T) {
 	for _, data := range initialData {
 		manager.PutStorage(data.Contract, data.BlockNumber, &data.Storage)
 	}
-	tests := [...]struct {
+	var tests = [...]struct {
 		Contract    string
 		BlockNumber uint64
 		Ok          bool

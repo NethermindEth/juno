@@ -5,12 +5,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"math/big"
-	"testing"
-
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"google.golang.org/protobuf/proto"
+	"math/big"
+	"testing"
 )
 
 func TestService(t *testing.T) {

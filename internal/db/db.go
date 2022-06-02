@@ -68,7 +68,7 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 		// notest
 		return nil
 	}
-	err = env.Open(path, flags|mdbx.Exclusive, 0o664)
+	err = env.Open(path, flags|mdbx.Exclusive, 0664)
 	if err != nil {
 		// notest
 		return nil

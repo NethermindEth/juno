@@ -13,8 +13,9 @@ const (
 	TypeL1Handler   = "l1_handler"
 )
 
-// Unmarshals JSON into abi object
+//Unmarshals JSON into abi object
 func (abi *Abi) UnmarshalAbiJSON(data []byte) error {
+
 	// Unmarshal all the common parts of the fields to get the field types
 	var common []FieldCommon
 	if err := json.Unmarshal(data, &common); err != nil {
@@ -27,7 +28,7 @@ func (abi *Abi) UnmarshalAbiJSON(data []byte) error {
 		return err
 	}
 	// Unmarshal each raw field
-	// abi := new(Abi)
+	//abi := new(Abi)
 	for i, item := range items {
 		switch common[i].Type {
 		case TypeEvent:

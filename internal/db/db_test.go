@@ -248,6 +248,7 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 		b.Fail()
 		return
 	}
+
 }
 
 // BenchmarkConsultsToDatabase Benchmark the consult to a db
