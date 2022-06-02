@@ -49,7 +49,7 @@ func (s *blockService) Run() error {
 func (s *blockService) setDefaults() {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.DataDir+"/block", 0)
+		database := db.NewKeyValueDb(config.Dir+"/block", 0)
 		s.manager = block.NewManager(database)
 	}
 }

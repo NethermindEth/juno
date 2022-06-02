@@ -49,7 +49,7 @@ func (s *transactionService) Run() error {
 func (s *transactionService) setDefaults() {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.DataDir+"/transaction", 0)
+		database := db.NewKeyValueDb(config.Dir+"/transaction", 0)
 		s.manager = transaction.NewManager(database)
 	}
 }

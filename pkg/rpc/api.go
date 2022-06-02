@@ -30,7 +30,7 @@ func (HandlerRPC) StarknetGetBlockByHash(
 	c context.Context, blockHash BlockHashOrTag,
 ) (BlockResponse, error) {
 	// TODO See if is possible to support overhead without another method
-	return BlockResponse{BlockHash: string(blockHash)}, nil
+	return BlockResponse{}, nil
 }
 
 // StarknetGetBlockByHashOpt represent the handler for getting a block
@@ -39,10 +39,7 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(
 	c context.Context, blockHash BlockHashOrTag, requestedScope RequestedScope,
 ) (BlockResponse, error) {
 	// TODO See if is possible to support overhead without another method
-	return BlockResponse{
-		BlockHash:  string(blockHash),
-		ParentHash: string(requestedScope),
-	}, nil
+	return BlockResponse{}, nil
 }
 
 // type bNumber string `json:"int,int,omitempty"`
