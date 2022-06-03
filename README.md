@@ -33,7 +33,7 @@ Run the following command.
 
 - **macOS** - `$HOME/Library/Application Support/juno/`.
 - Other **Unix** systems - `$XDG_CONFIG_HOME/juno/` or `$HOME/.config/juno/` if the `$XDG_CONFIG_HOME` variable is not set.
-- **Windows** -  `%AppData%/juno/`.
+- **Windows** - `%AppData%/juno/`.
 
 It generally looks like the following and a default will be generated if one does not exist.
 
