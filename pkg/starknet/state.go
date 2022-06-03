@@ -528,7 +528,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	}
 	log.Default.With("Block Hash", blockHash).
 		Info("Got block")
-	//services.BlockService.StoreBlock(common.Hex2Bytes(blockHash), block)
+	services.BlockService.StoreBlock(common.Hex2Bytes(blockHash), feederBlockToDBBlock(block))
 
 	for _, bTxn := range block.Transactions {
 		transactionInfo, err := s.feederGatewayClient.GetTransaction(bTxn.TransactionHash, "")

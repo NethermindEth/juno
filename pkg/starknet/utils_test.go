@@ -1,16 +1,17 @@
 package starknet
 
 import (
-	"reflect"
 	"context"
 	"io/ioutil"
 	"math/big"
+	"reflect"
 	"testing"
-	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
-	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
+
 	"github.com/NethermindEth/juno/internal/db"
+	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/trie"
@@ -283,52 +284,51 @@ func TestToDbAbi(t *testing.T) {
 	inputAbi := feederAbi.Abi{
 		Functions: []feederAbi.Function{
 			{
-				Name: "a",
-				Inputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
-				Outputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+				Name:    "a",
+				Inputs:  []feederAbi.Variable{{Type: "a", Name: "a"}},
+				Outputs: []feederAbi.Variable{{Type: "a", Name: "a"}},
 			},
 		},
 		Events: []feederAbi.Event{
 			{
 				Name: "a",
-				Data: []feederAbi.Variable{ { Type: "a", Name: "a" } },
-				Keys: []string{ "a" },
+				Data: []feederAbi.Variable{{Type: "a", Name: "a"}},
+				Keys: []string{"a"},
 			},
 		},
 		Structs: []feederAbi.Struct{
 			{
 				Members: []feederAbi.StructMember{
-					{ Variable: feederAbi.Variable{Name: "a", Type: "a"}, Offset: 0, },
+					{Variable: feederAbi.Variable{Name: "a", Type: "a"}, Offset: 0},
 				},
 				FieldCommon: feederAbi.FieldCommon{Type: "a"},
-				Name: "a",
-				Size: 1,
+				Name:        "a",
+				Size:        1,
 			},
 		},
 		L1Handlers: []feederAbi.L1Handler{
 			{
 				Function: feederAbi.Function{
-					Name: "a",
-					Inputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
-					Outputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+					Name:    "a",
+					Inputs:  []feederAbi.Variable{{Type: "a", Name: "a"}},
+					Outputs: []feederAbi.Variable{{Type: "a", Name: "a"}},
 				},
 			},
 		},
 		Constructor: &feederAbi.Constructor{
 			Function: feederAbi.Function{
-				Name: "a",
-				Inputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
-				Outputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+				Name:    "a",
+				Inputs:  []feederAbi.Variable{{Type: "a", Name: "a"}},
+				Outputs: []feederAbi.Variable{{Type: "a", Name: "a"}},
 			},
 		},
-
 	}
 	want := &dbAbi.Abi{
 		Functions: []*dbAbi.Function{
 			{
-				Name: "a",
-				Inputs: []*dbAbi.Function_Input{{ Name: "a", Type: "a", }},
-				Outputs: []*dbAbi.Function_Output{{ Name: "a", Type: "a", }},
+				Name:    "a",
+				Inputs:  []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
+				Outputs: []*dbAbi.Function_Output{{Name: "a", Type: "a"}},
 			},
 		},
 		Events: []*dbAbi.AbiEvent{
@@ -341,20 +341,20 @@ func TestToDbAbi(t *testing.T) {
 		Structs: []*dbAbi.Struct{
 			{
 				Fields: []*dbAbi.Struct_Field{{Name: "a", Type: "a", Offset: uint32(0)}},
-				Name: "a",
-				Size: uint64(1),
+				Name:   "a",
+				Size:   uint64(1),
 			},
 		},
 		L1Handlers: []*dbAbi.Function{
 			{
-				Name: "a",
-				Inputs: []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
+				Name:    "a",
+				Inputs:  []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
 				Outputs: []*dbAbi.Function_Output{{Name: "a", Type: "a"}},
 			},
 		},
 		Constructor: &dbAbi.Function{
-			Name: "a",
-			Inputs: []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
+			Name:    "a",
+			Inputs:  []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
 			Outputs: []*dbAbi.Function_Output{{Name: "a", Type: "a"}},
 		},
 	}

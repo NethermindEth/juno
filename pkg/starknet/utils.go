@@ -3,8 +3,12 @@ package starknet
 import (
 	"bytes"
 	"encoding/binary"
+	"math/big"
+	"strings"
+
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
@@ -17,8 +21,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
-	"strings"
 )
 
 // newTrie returns a new Trie
@@ -248,9 +250,8 @@ func byteCodeToStoreCode(bytecode []string) *state.Code {
 	return &code
 }
 
-// feederTransactionToDBTransaction convert the feeder Transaction info to the transaction stored in DB
+// feederTransactionToDBTransaction convert the feeder TransactionInfo to the transaction stored in DB
 func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction.Transaction {
-
 	calldata := make([][]byte, 0)
 	for _, data := range info.Transaction.Calldata {
 		calldata = append(calldata, common2.HexToFelt(data).Bytes())
@@ -279,6 +280,26 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction
 			ContractAddressSalt: common2.HexToFelt(info.Transaction.ContractAddressSalt).Bytes(),
 			ConstructorCallData: calldata,
 		}},
+	}
+}
+
+// feederBlockToDBBlock convert the feeder block to the block stored in the database
+func feederBlockToDBBlock(b *feeder.StarknetBlock) *block.Block {
+	txnsHash := make([][]byte, 0)
+	for _, data := range b.Transactions {
+		txnsHash = append(txnsHash, common2.HexToFelt(data.TransactionHash).Bytes())
+	}
+	return &block.Block{
+		Hash:             common2.HexToFelt(b.BlockHash).Bytes(),
+		BlockNumber:      uint64(b.BlockNumber),
+		ParentBlockHash:  common2.HexToFelt(b.ParentBlockHash).Bytes(),
+		Status:           string(b.Status),
+		SequencerAddress: common2.HexToFelt(b.SequencerAddress).Bytes(),
+		GlobalStateRoot:  common2.HexToFelt(b.StateRoot).Bytes(),
+		OldRoot:          common2.HexToFelt(b.OldStateRoot).Bytes(),
+		TimeStamp:        b.Timestamp,
+		TxCount:          uint64(len(b.Transactions)),
+		TxHashes:         txnsHash,
 	}
 }
 

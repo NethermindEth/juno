@@ -155,6 +155,7 @@ type StarknetBlock struct {
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
+	OldStateRoot        string                 `json:"old_state_root"`
 	Status              rpc.BlockStatus        `json:"status"`
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
