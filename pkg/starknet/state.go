@@ -516,7 +516,7 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 		// Save the ABI
 		services.AbiService.StoreAbi(remove0x(v.Address), toDbAbi(code.Abi))
 		// Save the contract code
-		services.StateService.StoreCode(common.Hex2Bytes(v.Address), byteCodeToStoreCode(code.Bytecode))
+		services.StateService.StoreCode(common.Hex2Bytes(v.Address), byteCodeToStateCode(code.Bytecode))
 	}
 }
 

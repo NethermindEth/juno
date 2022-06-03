@@ -239,8 +239,8 @@ func updateState(
 	return stateCommitment, nil
 }
 
-// byteCodeToStoreCode convert an array of strings to the Code
-func byteCodeToStoreCode(bytecode []string) *state.Code {
+// byteCodeToStateCode convert an array of strings to the Code
+func byteCodeToStateCode(bytecode []string) *state.Code {
 	code := state.Code{}
 
 	for _, bCode := range bytecode {

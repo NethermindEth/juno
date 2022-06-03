@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"context"
+	common2 "github.com/NethermindEth/juno/pkg/common"
 	"io/ioutil"
 	"math/big"
 	"reflect"
@@ -363,5 +364,21 @@ func TestToDbAbi(t *testing.T) {
 
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect abi: want %v, got %v", want, got)
+	}
+}
+
+func TestByteCodeToStateCode(t *testing.T) {
+	sample := []string{"0x1", "0x123"}
+
+	stateCode := byteCodeToStateCode(sample)
+
+	if stateCode != nil && stateCode.Code != nil && len(stateCode.Code) != len(sample) {
+		t.Fail()
+	}
+	for i, s := range sample {
+		if string(stateCode.Code[i]) != string(common2.HexToFelt(s).Bytes()) {
+			t.Error("state code didn't match", s)
+			t.Fail()
+		}
 	}
 }
