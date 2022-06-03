@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	common2 "github.com/NethermindEth/juno/pkg/common"
+	commonLocal "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
@@ -244,7 +244,7 @@ func byteCodeToStateCode(bytecode []string) *state.Code {
 	code := state.Code{}
 
 	for _, bCode := range bytecode {
-		code.Code = append(code.Code, common2.HexToFelt(bCode).Bytes())
+		code.Code = append(code.Code, commonLocal.HexToFelt(bCode).Bytes())
 	}
 
 	return &code
@@ -254,19 +254,19 @@ func byteCodeToStateCode(bytecode []string) *state.Code {
 func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction.Transaction {
 	calldata := make([][]byte, 0)
 	for _, data := range info.Transaction.Calldata {
-		calldata = append(calldata, common2.HexToFelt(data).Bytes())
+		calldata = append(calldata, commonLocal.HexToFelt(data).Bytes())
 	}
 
 	if info.Transaction.Type == "INVOKE" {
 		signature := make([][]byte, 0)
 		for _, data := range info.Transaction.Signature {
-			signature = append(signature, common2.HexToFelt(data).Bytes())
+			signature = append(signature, commonLocal.HexToFelt(data).Bytes())
 		}
 		return &transaction.Transaction{
-			Hash: common2.HexToFelt(info.Transaction.TransactionHash).Bytes(),
+			Hash: commonLocal.HexToFelt(info.Transaction.TransactionHash).Bytes(),
 			Tx: &transaction.Transaction_Invoke{Invoke: &transaction.InvokeFunction{
-				ContractAddress:    common2.HexToFelt(info.Transaction.ContractAddress).Bytes(),
-				EntryPointSelector: common2.HexToFelt(info.Transaction.EntryPointSelector).Bytes(),
+				ContractAddress:    commonLocal.HexToFelt(info.Transaction.ContractAddress).Bytes(),
+				EntryPointSelector: commonLocal.HexToFelt(info.Transaction.EntryPointSelector).Bytes(),
 				CallData:           calldata,
 				Signature:          signature,
 			}},
@@ -275,9 +275,9 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction
 
 	// Is a DEPLOY Transaction
 	return &transaction.Transaction{
-		Hash: common2.HexToFelt(info.Transaction.TransactionHash).Bytes(),
+		Hash: commonLocal.HexToFelt(info.Transaction.TransactionHash).Bytes(),
 		Tx: &transaction.Transaction_Deploy{Deploy: &transaction.Deploy{
-			ContractAddressSalt: common2.HexToFelt(info.Transaction.ContractAddressSalt).Bytes(),
+			ContractAddressSalt: commonLocal.HexToFelt(info.Transaction.ContractAddressSalt).Bytes(),
 			ConstructorCallData: calldata,
 		}},
 	}
@@ -287,16 +287,16 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction
 func feederBlockToDBBlock(b *feeder.StarknetBlock) *block.Block {
 	txnsHash := make([][]byte, 0)
 	for _, data := range b.Transactions {
-		txnsHash = append(txnsHash, common2.HexToFelt(data.TransactionHash).Bytes())
+		txnsHash = append(txnsHash, commonLocal.HexToFelt(data.TransactionHash).Bytes())
 	}
 	return &block.Block{
-		Hash:             common2.HexToFelt(b.BlockHash).Bytes(),
+		Hash:             commonLocal.HexToFelt(b.BlockHash).Bytes(),
 		BlockNumber:      uint64(b.BlockNumber),
-		ParentBlockHash:  common2.HexToFelt(b.ParentBlockHash).Bytes(),
+		ParentBlockHash:  commonLocal.HexToFelt(b.ParentBlockHash).Bytes(),
 		Status:           string(b.Status),
-		SequencerAddress: common2.HexToFelt(b.SequencerAddress).Bytes(),
-		GlobalStateRoot:  common2.HexToFelt(b.StateRoot).Bytes(),
-		OldRoot:          common2.HexToFelt(b.OldStateRoot).Bytes(),
+		SequencerAddress: commonLocal.HexToFelt(b.SequencerAddress).Bytes(),
+		GlobalStateRoot:  commonLocal.HexToFelt(b.StateRoot).Bytes(),
+		OldRoot:          commonLocal.HexToFelt(b.OldStateRoot).Bytes(),
 		TimeStamp:        b.Timestamp,
 		TxCount:          uint64(len(b.Transactions)),
 		TxHashes:         txnsHash,

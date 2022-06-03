@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	common2 "github.com/NethermindEth/juno/pkg/common"
+	commonLocal "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -537,7 +537,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		}
 		log.Default.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
-		services.TransactionService.StoreTransaction(common2.HexToFelt(bTxn.TransactionHash).Bytes(),
+		services.TransactionService.StoreTransaction(commonLocal.HexToFelt(bTxn.TransactionHash).Bytes(),
 			feederTransactionToDBTransaction(transactionInfo))
 	}
 }

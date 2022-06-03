@@ -2,7 +2,8 @@ package starknet
 
 import (
 	"context"
-	common2 "github.com/NethermindEth/juno/pkg/common"
+	commonLocal "github.com/NethermindEth/juno/pkg/common"
+	"github.com/bxcodec/faker"
 	"io/ioutil"
 	"math/big"
 	"reflect"
@@ -376,9 +377,44 @@ func TestByteCodeToStateCode(t *testing.T) {
 		t.Fail()
 	}
 	for i, s := range sample {
-		if string(stateCode.Code[i]) != string(common2.HexToFelt(s).Bytes()) {
+		if string(stateCode.Code[i]) != string(commonLocal.HexToFelt(s).Bytes()) {
 			t.Error("state code didn't match", s)
 			t.Fail()
 		}
+	}
+}
+
+func TestTransactionToDBTransaction(t *testing.T) {
+	var txnSample feeder.TransactionInfo
+
+	err := faker.FakeData(&txnSample)
+	if err != nil {
+		t.Fail()
+		return
+	}
+
+	txn := feederTransactionToDBTransaction(&txnSample)
+
+	if string(txn.Hash) != string(commonLocal.HexToFelt(txnSample.Transaction.TransactionHash).Bytes()) {
+		t.Fail()
+	}
+}
+
+func TestFeederBlockToBlock(t *testing.T) {
+	var b feeder.StarknetBlock
+
+	err := faker.FakeData(&b)
+	if err != nil {
+		t.Fail()
+		return
+	}
+
+	block := feederBlockToDBBlock(&b)
+
+	if string(block.Hash) != string(commonLocal.HexToFelt(b.BlockHash).Bytes()) {
+		t.Fail()
+	}
+	if string(block.GlobalStateRoot) != string(commonLocal.HexToFelt(b.StateRoot).Bytes()) {
+		t.Fail()
 	}
 }
