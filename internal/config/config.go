@@ -47,7 +47,7 @@ var (
 	// On Darwin this is $HOME/Library/Application Support/juno/, on other
 	// Unix systems $XDG_CONFIG_HOME/juno/, and on Windows,
 	// %APPDATA%/juno.
-	Dir,
+	Dir string
 	// DataDir is the is the default root directory for user-specific
 	// application data.
 	//
@@ -92,7 +92,7 @@ func New() {
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
 		// notest
-		err := os.MkdirAll(Dir, 0755)
+		err := os.MkdirAll(Dir, 0o755)
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
@@ -103,7 +103,7 @@ func New() {
 		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
-	err = os.WriteFile(f, data, 0644)
+	err = os.WriteFile(f, data, 0o644)
 	errpkg.CheckFatal(err, "Failed to write config file.")
 }
 

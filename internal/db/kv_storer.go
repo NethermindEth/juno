@@ -39,11 +39,9 @@ func (k KeyValueStore) Put(key, val []byte) {
 }
 
 func (k KeyValueStore) Begin() {
-
 }
 
 func (k KeyValueStore) Rollback() {
-
 }
 
 func (k KeyValueStore) Close() {

@@ -7,6 +7,7 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -18,14 +19,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var httpClient = &feederfakes.FakeHttpClient{}
-var client *feeder.Client
+var (
+	httpClient = &feederfakes.FakeHttpClient{}
+	client     *feeder.Client
+)
 
 func init() {
 	var p feeder.HttpClient
 	p = httpClient
 	client = feeder.NewClient("https:/local", "/feeder_gateway/", &p)
-	realClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway/", &p)
 }
 
 func generateResponse(body string) *http.Response {
@@ -117,6 +119,21 @@ func TestGetStateUpdate(t *testing.T) {
 	assert.Equal(t, &cOrig, getStateUpdate, "State Update response don't match")
 }
 
+func TestGetFullContract(t *testing.T) {
+	body := "{\"block_hash\": \"0x03a0ae1aaefeed60bafd6990f06d0b68fb593b5d9395ff726868ee61a6e1beb3\", \"block_number\": \"3\"}\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var cOrig map[string]interface{}
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	getStateUpdate, err := client.GetFullContract("address", "hash", "number")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, cOrig, getStateUpdate, "State Update response don't match")
+}
+
 func TestGetCode(t *testing.T) {
 	a := feeder.CodeInfo{}
 	body, err := StructFaker(a)
@@ -129,6 +146,17 @@ func TestGetCode(t *testing.T) {
 		t.Fatal()
 	}
 	assert.Equal(t, &a, getCode, "GetCode response don't match")
+}
+
+func TestGetCode_FullCoverage(t *testing.T) {
+	a := feederfakes.ReturnAbiInfo_Full()
+	assert.Equal(t, "Struct-custom", a.Structs[0].Name)
+}
+
+func TestGetCode_FailType(t *testing.T) {
+	a := feederfakes.ReturnAbiInfo_Fail()
+	err := fmt.Errorf("unexpected type %s", "unknown")
+	assert.Equal(t, err, a)
 }
 
 func TestGetTransaction(t *testing.T) {
@@ -148,6 +176,29 @@ func TestGetTransaction(t *testing.T) {
 		t.Fatal()
 	}
 	transactionInfo, err := client.GetTransaction("", "id")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionInfo, "GetTransaction response don't match")
+}
+
+func TestGetTransactionbyHash(t *testing.T) {
+	a := feeder.TransactionInfo{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.TransactionInfo
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionInfo, err := client.GetTransaction("hash", "id")
 	if err != nil {
 		t.Fatal()
 	}
@@ -175,6 +226,29 @@ func TestGetTransactionReceipt(t *testing.T) {
 		t.Fatal()
 	}
 	assert.Equal(t, &cOrig, transactionReceipt, "GetTransactionReceipt response don't match")
+}
+
+func TestGetTransactionStatus(t *testing.T) {
+	a := feeder.TransactionStatus{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.TransactionStatus
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionStatus, err := client.GetTransactionStatus("", "id")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionStatus, "GetTransactionStatus response don't match")
 }
 
 func TestGetBlockHashById(t *testing.T) {
@@ -231,6 +305,22 @@ func TestGetTransactionIdByHash(t *testing.T) {
 		t.Fatal()
 	}
 	transactionId, err := client.GetTransactionIDByHash("hash")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response don't match")
+}
+
+func TestGetStorageAt(t *testing.T) {
+	var body feeder.StorageInfo
+	body = "\"storage\"\n"
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.StorageInfo
+	err := json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionId, err := client.GetStorageAt("address", "key", "hash", "")
 	if err != nil {
 		t.Fatal()
 	}
