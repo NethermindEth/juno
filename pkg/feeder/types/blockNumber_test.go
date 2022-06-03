@@ -3,7 +3,7 @@ package types
 import "testing"
 
 func TestIsPending(t *testing.T) {
-	var tests = [...]struct {
+	tests := [...]struct {
 		blockNumber BlockNumber
 		want        bool
 	}{
@@ -29,7 +29,7 @@ func TestIsPending(t *testing.T) {
 }
 
 func TestBlockNumberUnmarshalJSON(t *testing.T) {
-	var tests = [...]struct {
+	tests := [...]struct {
 		data []byte
 		want BlockNumber
 		err  bool

@@ -43,7 +43,7 @@ func ExampleDigest256() {
 // TestDigest250 does a basic test of the 256-bit Keccak hash function
 // digest where the first 6 bits have been set to zero.
 func TestDigest250(t *testing.T) {
-	var tests = [...]struct {
+	tests := [...]struct {
 		input, want string
 	}{
 		{"", "3d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},
@@ -73,7 +73,7 @@ func TestDigest250Size(t *testing.T) {
 // TestDigest256 does a basic test of the 256-bit Keccak hash function
 // digest.
 func TestDigest256(t *testing.T) {
-	var tests = [...]struct {
+	tests := [...]struct {
 		input, want string
 	}{
 		{"", "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},

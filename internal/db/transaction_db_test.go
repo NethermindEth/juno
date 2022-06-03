@@ -19,7 +19,6 @@ func TestInsertKeyOnTransactionDbAndCommit(t *testing.T) {
 	_ = database.GetEnv()
 
 	err := database.Put([]byte("key"), []byte("value"))
-
 	if err != nil {
 		t.Log(err)
 		t.Fail()
