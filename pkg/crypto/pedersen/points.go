@@ -2063,7 +2063,7 @@ func (p *point) Add(p2 point) {
 	}
 
 	if p2.x.Sign() == 0 && p2.y.Sign() == 0 {
-		return	
+		return
 	}
 
 	x1, y1 := new(big.Int).Mod(p.x, P), new(big.Int).Mod(p.y, P)

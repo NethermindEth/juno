@@ -10,7 +10,7 @@ import (
 
 // TestAdd does a basic test of the point.Add function.
 func TestAdd(t *testing.T) {
-	var tests = [][]point{
+	tests := [][]point{
 		// (0, 0) + (1, 1)
 		{
 			point{big.NewInt(0), big.NewInt(0)},
