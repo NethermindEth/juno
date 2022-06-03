@@ -1,11 +1,13 @@
 package starknet
 
 import (
+	"reflect"
 	"context"
 	"io/ioutil"
 	"math/big"
 	"testing"
-
+	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
+	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -274,5 +276,92 @@ func TestUpdateState(t *testing.T) {
 	commitment, _ := new(big.Int).SetString(stateCommitment, 16)
 	if commitment.Cmp(want) != 0 {
 		t.Error("State roots do not match")
+	}
+}
+
+func TestToDbAbi(t *testing.T) {
+	inputAbi := feederAbi.Abi{
+		Functions: []feederAbi.Function{
+			{
+				Name: "a",
+				Inputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+				Outputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+			},
+		},
+		Events: []feederAbi.Event{
+			{
+				Name: "a",
+				Data: []feederAbi.Variable{ { Type: "a", Name: "a" } },
+				Keys: []string{ "a" },
+			},
+		},
+		Structs: []feederAbi.Struct{
+			{
+				Members: []feederAbi.StructMember{
+					{ Variable: feederAbi.Variable{Name: "a", Type: "a"}, Offset: 0, },
+				},
+				FieldCommon: feederAbi.FieldCommon{Type: "a"},
+				Name: "a",
+				Size: 1,
+			},
+		},
+		L1Handlers: []feederAbi.L1Handler{
+			{
+				Function: feederAbi.Function{
+					Name: "a",
+					Inputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+					Outputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+				},
+			},
+		},
+		Constructor: &feederAbi.Constructor{
+			Function: feederAbi.Function{
+				Name: "a",
+				Inputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+				Outputs: []feederAbi.Variable{ { Type: "a", Name: "a", }, },
+			},
+		},
+
+	}
+	want := &dbAbi.Abi{
+		Functions: []*dbAbi.Function{
+			{
+				Name: "a",
+				Inputs: []*dbAbi.Function_Input{{ Name: "a", Type: "a", }},
+				Outputs: []*dbAbi.Function_Output{{ Name: "a", Type: "a", }},
+			},
+		},
+		Events: []*dbAbi.AbiEvent{
+			{
+				Name: "a",
+				Data: []*dbAbi.AbiEvent_Data{{Name: "a", Type: "a"}},
+				Keys: []string{"a"},
+			},
+		},
+		Structs: []*dbAbi.Struct{
+			{
+				Fields: []*dbAbi.Struct_Field{{Name: "a", Type: "a", Offset: uint32(0)}},
+				Name: "a",
+				Size: uint64(1),
+			},
+		},
+		L1Handlers: []*dbAbi.Function{
+			{
+				Name: "a",
+				Inputs: []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
+				Outputs: []*dbAbi.Function_Output{{Name: "a", Type: "a"}},
+			},
+		},
+		Constructor: &dbAbi.Function{
+			Name: "a",
+			Inputs: []*dbAbi.Function_Input{{Name: "a", Type: "a"}},
+			Outputs: []*dbAbi.Function_Output{{Name: "a", Type: "a"}},
+		},
+	}
+
+	got := toDbAbi(inputAbi)
+
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("incorrect abi: want %v, got %v", want, got)
 	}
 }
