@@ -3,21 +3,22 @@ package starknet
 import (
 	"bytes"
 	"encoding/binary"
-	"math/big"
-	"strings"
-	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
-	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db"
+	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
 	common2 "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
+	"strings"
 )
 
 // newTrie returns a new Trie
@@ -247,12 +248,46 @@ func byteCodeToStoreCode(bytecode []string) *state.Code {
 	return &code
 }
 
+// feederTransactionToDBTransaction convert the feeder Transaction info to the transaction stored in DB
+func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction.Transaction {
+
+	calldata := make([][]byte, 0)
+	for _, data := range info.Transaction.Calldata {
+		calldata = append(calldata, common2.HexToFelt(data).Bytes())
+	}
+
+	if info.Transaction.Type == "INVOKE" {
+		signature := make([][]byte, 0)
+		for _, data := range info.Transaction.Signature {
+			signature = append(signature, common2.HexToFelt(data).Bytes())
+		}
+		return &transaction.Transaction{
+			Hash: common2.HexToFelt(info.Transaction.TransactionHash).Bytes(),
+			Tx: &transaction.Transaction_Invoke{Invoke: &transaction.InvokeFunction{
+				ContractAddress:    common2.HexToFelt(info.Transaction.ContractAddress).Bytes(),
+				EntryPointSelector: common2.HexToFelt(info.Transaction.EntryPointSelector).Bytes(),
+				CallData:           calldata,
+				Signature:          signature,
+			}},
+		}
+	}
+
+	// Is a DEPLOY Transaction
+	return &transaction.Transaction{
+		Hash: common2.HexToFelt(info.Transaction.TransactionHash).Bytes(),
+		Tx: &transaction.Transaction_Deploy{Deploy: &transaction.Deploy{
+			ContractAddressSalt: common2.HexToFelt(info.Transaction.ContractAddressSalt).Bytes(),
+			ConstructorCallData: calldata,
+		}},
+	}
+}
+
 func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	functions := make([]*dbAbi.Function, len(abi.Functions))
 	for i, function := range abi.Functions {
 		functions[i] = &dbAbi.Function{
-			Name: function.Name,
-			Inputs: make([]*dbAbi.Function_Input, len(function.Inputs)),
+			Name:    function.Name,
+			Inputs:  make([]*dbAbi.Function_Input, len(function.Inputs)),
 			Outputs: make([]*dbAbi.Function_Output, len(function.Outputs)),
 		}
 		for j, input := range function.Inputs {
@@ -287,14 +322,14 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	structs := make([]*dbAbi.Struct, len(abi.Structs))
 	for i, structure := range abi.Structs {
 		structs[i] = &dbAbi.Struct{
-			Name: structure.Name,
-			Size: uint64(structure.Size),
+			Name:   structure.Name,
+			Size:   uint64(structure.Size),
 			Fields: make([]*dbAbi.Struct_Field, len(structure.Members)),
 		}
 		for j, field := range structure.Members {
 			structs[i].Fields[j] = &dbAbi.Struct_Field{
-				Name: field.Name,
-				Type: field.Type,
+				Name:   field.Name,
+				Type:   field.Type,
 				Offset: uint32(field.Offset),
 			}
 		}
@@ -303,8 +338,8 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	l1Handlers := make([]*dbAbi.Function, len(abi.L1Handlers))
 	for i, handler := range abi.L1Handlers {
 		l1Handlers[i] = &dbAbi.Function{
-			Name: handler.Name,
-			Inputs: make([]*dbAbi.Function_Input, len(handler.Inputs)),
+			Name:    handler.Name,
+			Inputs:  make([]*dbAbi.Function_Input, len(handler.Inputs)),
 			Outputs: make([]*dbAbi.Function_Output, len(handler.Outputs)),
 		}
 		for j, input := range handler.Inputs {
@@ -322,8 +357,8 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	}
 
 	constructor := dbAbi.Function{
-		Name: abi.Constructor.Name,
-		Inputs: make([]*dbAbi.Function_Input, len(abi.Constructor.Inputs)),
+		Name:    abi.Constructor.Name,
+		Inputs:  make([]*dbAbi.Function_Input, len(abi.Constructor.Inputs)),
 		Outputs: make([]*dbAbi.Function_Output, len(abi.Constructor.Outputs)),
 	}
 	for j, input := range abi.Constructor.Inputs {
@@ -340,10 +375,10 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	}
 
 	return &dbAbi.Abi{
-		Functions: functions,
-		Events: events,
-		Structs: structs,
-		L1Handlers: l1Handlers,
+		Functions:   functions,
+		Events:      events,
+		Structs:     structs,
+		L1Handlers:  l1Handlers,
 		Constructor: &constructor,
 	}
 }
