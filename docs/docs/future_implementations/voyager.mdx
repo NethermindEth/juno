@@ -1,18 +1,10 @@
 ---
-title: Voyager Integration
+title: Feeder Gateway Middleware
+description: Api exposed from the node.
 ---
 
-With the [Voyager](https://github.com/DemerzelSolutions/voyager) integration, we expect to work for now as a middleware
-between Voyager and the Starknet Gateway, and make Voyager start to rely on Juno.
+We have plans for expose an API that act as a middleware between any app that connects to the Feeder Gateway. With this
+feature, any app should be able to connect directly to the node and fetch the info that we have stored locally or in
+the worst case scenario, call the feeder gateway.
 
-To make this possible, we should implement the [Feeder Gateway Client](../features/feeder-gateway.mdx).
-
-They only use the next endpoints to connect to the Gateway:
-- get_full_contract
-- get_block
-
-Once the Feeder Gateway is ready, we should implement a server for these endpoints and just call the methods directly
-connecting now to the gateway.
-
-Later, when we were ready, we should be able to handle these responses by our own, connection to Starknet State.
-
+To make this possible, we implemented the [Feeder Gateway Client](../features/feeder-gateway.mdx).

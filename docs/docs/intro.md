@@ -1,8 +1,9 @@
 ---
+title: Welcome
 sidebar_position: 1
 ---
 
-# Tutorial Intro
+# Welcome Juno
 
 Let's discover **Juno in less than 5 min**.
 
