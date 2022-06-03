@@ -6,6 +6,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -60,7 +61,10 @@ func StructFaker(a interface{}) (string, error) {
 }
 
 func TestClient(t *testing.T) {
-	_ = feeder.NewClient("https:/local", "/feeder_gateway/", nil)
+	var r rest.Server
+	r.ListenAndServe()
+	cx, _ := context.WithCancel(context.Background())
+	r.Close(cx)
 }
 
 func TestGetContractAddress(t *testing.T) {
