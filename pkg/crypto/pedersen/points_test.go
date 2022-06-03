@@ -10,42 +10,25 @@ import (
 
 func TestAdd(t *testing.T) {
 	var tests = [][]point{
-		// (0, 0) + (0, 0)
+		// (0, 0) + (1, 1)
 		{
 			point{big.NewInt(0), big.NewInt(0)},
+			point{big.NewInt(1), big.NewInt(1)},
+		},
+		// (1, 1) + (0, 0)
+		{
+			point{big.NewInt(1), big.NewInt(1)},
 			point{big.NewInt(0), big.NewInt(0)},
 		},
-		// (0, 0) + (3, 0)
+		// (1, 1) + (1, 1)
 		{
-			point{big.NewInt(0), big.NewInt(0)},
-			point{big.NewInt(3), big.NewInt(0)},
+			point{big.NewInt(1), big.NewInt(1)},
+			point{big.NewInt(1), big.NewInt(1)},
 		},
-		// (3, 0) + (0, 0)
+		// (1, P - 1) + (1, 1)
 		{
-			point{big.NewInt(3), big.NewInt(0)},
-			point{big.NewInt(0), big.NewInt(0)},
-		},
-		{
-			point{big.NewInt(1), big.NewInt(2)},
-			point{big.NewInt(3), big.NewInt(4)},
-		},
-		{
-			// p - 1
-			point{new(big.Int).Sub(P, big.NewInt(1)), big.NewInt(10)},
-			point{big.NewInt(1), big.NewInt(5)},
-		},
-		{
-			point{big.NewInt(1), big.NewInt(10)},
-			// p - 1
-			point{new(big.Int).Sub(P, big.NewInt(1)), big.NewInt(5)},
-		},
-		{
-			point{big.NewInt(1), big.NewInt(10)},
-			point{new(big.Int).Set(P), big.NewInt(5)},
-		},
-		{
-			point{new(big.Int).Set(P), big.NewInt(5)},
-			point{big.NewInt(1), big.NewInt(10)},
+			point{big.NewInt(1), new(big.Int).Sub(P, big.NewInt(1))},
+			point{big.NewInt(1), big.NewInt(1)},
 		},
 	}
 	curve := weierstrass.Stark()

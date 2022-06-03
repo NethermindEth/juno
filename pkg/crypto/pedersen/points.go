@@ -2069,39 +2069,44 @@ func (p *point) Add(p2 point) {
 	x1, y1 := new(big.Int).Mod(p.x, P), new(big.Int).Mod(p.y, P)
 	x2, y2 := new(big.Int).Mod(p2.x, P), new(big.Int).Mod(p2.y, P)
 	if x1.Cmp(x2) == 0 {
-		if y1.Cmp(new(big.Int).Sub(P, y2)) == 0 {
+		temp := new(big.Int).Sub(P, y2)
+		temp.Mod(temp, P)
+		if y1.Cmp(temp) == 0 {
 			p.x.SetInt64(0)
 			p.y.SetInt64(0)
 		} else {
 			big2 := big.NewInt(2)
 
-			x := new(big.Int).Mul(x1, x1)
-			x.Mul(x, big.NewInt(3))
-			x.Add(x, A)
-			y := new(big.Int).Mul(y1, big2)
-			m := divMod(x, y, P)
+			p.x = new(big.Int).Mul(x1, x1)
+			p.x.Mul(p.x, big.NewInt(3))
+			p.x.Add(p.x, A)
+			m := divMod(p.x, new(big.Int).Mul(y1, big2), P)
 
-			p.x.Mul(m, m)
+			p.x = new(big.Int).Mul(m, m)
 			p.x.Sub(p.x, new(big.Int).Mul(big2, x1))
 			p.x.Mod(p.x, P)
 
-			y.Sub(x1, p.x)
-			y.Mul(y, m)
-			y.Sub(y, y1)
-			p.y.Mod(y, P)
+			p.y = new(big.Int).Sub(x1, p.x)
+			p.y.Mul(p.y, m)
+			p.y.Sub(p.y, y1)
+			p.y.Mod(p.y, P)
 		}
 	} else {
-		// FIXME this is broken
-		// Works with weierstrass.Stark().Add(...), not this implementation
-		m := divMod(new(big.Int).Sub(y1, y2), new(big.Int).Sub(x1, x2), P)
+		x1, y1 := new(big.Int).Mod(p.x, P), new(big.Int).Mod(p.y, P)
+		x2, y2 := new(big.Int).Mod(p2.x, P), new(big.Int).Mod(p2.y, P)
 
-		p.x.Mul(m, m)
+		xDelta := new(big.Int).Sub(x1, x2)
+		yDelta := new(big.Int).Sub(y1, y2)
+
+		m := divMod(yDelta, xDelta, P)
+
+		p.x = new(big.Int).Mul(m, m)
 		p.x.Sub(p.x, x1)
 		p.x.Sub(p.x, x2)
 		p.x.Mod(p.x, P)
 
-		p.y.Sub(x1, p.x)
-		p.y.Mul(m, p.y)
+		p.y = new(big.Int).Sub(x1, p.x)
+		p.y.Mul(p.y, m)
 		p.y.Sub(p.y, y1)
 		p.y.Mod(p.y, P)
 	}
