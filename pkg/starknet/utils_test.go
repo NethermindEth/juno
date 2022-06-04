@@ -384,15 +384,23 @@ func TestByteCodeToStateCode(t *testing.T) {
 	}
 }
 
-func TestTransactionToDBTransaction(t *testing.T) {
-	var txnSample feeder.TransactionInfo
+func TestTransactionToDBTransactionInvoke(t *testing.T) {
+	TxnTest(t, "INVOKE")
+}
 
+func TestTransactionToDBTransactionDeploy(t *testing.T) {
+	TxnTest(t, "DEPLOY")
+}
+
+func TxnTest(t *testing.T, txnType string) {
+	var txnSample feeder.TransactionInfo
 	err := faker.FakeData(&txnSample)
 	if err != nil {
 		t.Fail()
 		return
 	}
 
+	txnSample.Transaction.Type = txnType
 	txn := feederTransactionToDBTransaction(&txnSample)
 
 	if string(txn.Hash) != string(commonLocal.HexToFelt(txnSample.Transaction.TransactionHash).Bytes()) {
