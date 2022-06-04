@@ -2,12 +2,13 @@ package starknet
 
 import (
 	"context"
-	commonLocal "github.com/NethermindEth/juno/pkg/common"
-	"github.com/bxcodec/faker"
 	"io/ioutil"
 	"math/big"
 	"reflect"
 	"testing"
+
+	commonLocal "github.com/NethermindEth/juno/pkg/common"
+	"github.com/bxcodec/faker"
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
