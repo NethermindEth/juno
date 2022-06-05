@@ -41,4 +41,4 @@ If
 ### Using Docker
 
 In the other side, if you want to keep your environment clean, and running it using docker, you can
-follow [this](../running/docker.mdx) guide.
+follow [this](./running/docker.mdx) guide.
