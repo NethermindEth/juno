@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/types"
 )
 
 // Echo replies with the same message.
@@ -89,11 +88,11 @@ func (HandlerRPC) StarknetGetStateUpdateByHash(
 // address and key.
 func (HandlerRPC) StarknetGetStorageAt(
 	c context.Context,
-	contractAddress types.Felt,
-	key types.Felt,
+	contractAddress Address,
+	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
-	panic("implement me")
+	return "Storage", nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
