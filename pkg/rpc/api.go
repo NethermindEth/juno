@@ -2,8 +2,11 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 // Echo replies with the same message.
@@ -92,7 +95,15 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
-	return "Storage", nil
+	block := services.BlockService.GetBlockByHash(types.HexToFelt(string(blockHash)).Bytes())
+	if block == nil {
+		return "", fmt.Errorf("block not found")
+	}
+	storage := services.StateService.GetStorage(string(contractAddress), block.BlockNumber)
+	if storage == nil {
+		return "", fmt.Errorf("storage not found")
+	}
+	return Felt(storage.Storage[string(key)]), nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
