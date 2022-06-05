@@ -264,7 +264,7 @@ func TestUpdateState(t *testing.T) {
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	database := db.Databaser(db.NewKeyValueDb(t.TempDir()+"/contractHash", 0))
+	database := db.Databaser(db.NewKeyValueDb(filepath.Join(t.TempDir(), "contractHash"), 0))
 	hashService := services.NewContractHashService(database)
 	go hashService.Run()
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())

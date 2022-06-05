@@ -4,12 +4,13 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -79,7 +80,7 @@ var (
 			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
-			database := db.Databaser(db.NewKeyValueDb(config.Runtime.DbPath+"/contractHash", 0))
+			database := db.Databaser(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "contractHash"), 0))
 			contractHashService := services.NewContractHashService(database)
 			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, contractHashService.Close)
 

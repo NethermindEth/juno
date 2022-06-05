@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -49,7 +50,7 @@ func (s *blockService) Run() error {
 func (s *blockService) setDefaults() {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.DataDir+"/block", 0)
+		database := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "block"), 0)
 		s.manager = block.NewManager(database)
 	}
 }
