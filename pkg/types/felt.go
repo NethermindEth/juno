@@ -1,10 +1,12 @@
-package common
+package types
 
 import (
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"strings"
+
+	"github.com/NethermindEth/juno/pkg/common"
 )
 
 const (
@@ -25,7 +27,7 @@ func BigToFelt(b *big.Int) Felt {
 }
 
 func HexToFelt(s string) Felt {
-	return BytesToFelt(FromHex(s))
+	return BytesToFelt(common.FromHex(s))
 }
 
 func (f Felt) Bytes() []byte {
