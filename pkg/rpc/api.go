@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/log"
@@ -144,7 +145,23 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress Address,
 ) (CodeResult, error) {
-	return CodeResult{}, nil
+	abi := services.AbiService.GetAbi(string(contractAddress))
+	if abi == nil {
+		return CodeResult{}, fmt.Errorf("abi not found")
+	}
+	code := services.StateService.GetCode(types.HexToFelt(string(contractAddress)).Bytes())
+	if code == nil {
+		return CodeResult{}, fmt.Errorf("code not found")
+	}
+	marshalledAbi, err := json.Marshal(abi)
+	if err != nil {
+		return CodeResult{}, err
+	}
+	bytecode := make([]Felt, len(code.Code))
+	for i, b := range code.Code {
+		bytecode[i] = Felt(types.BytesToFelt(b).Hex())
+	}
+	return CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
