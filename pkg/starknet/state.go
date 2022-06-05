@@ -247,8 +247,8 @@ func (s *Synchronizer) l1Sync() error {
 			if !s.facts.Exist(strconv.FormatUint(factSynced, 10)) {
 				continue
 			}
-			var fact starknetTypes.Fact
-			_, _ = s.facts.Get(strconv.FormatUint(factSynced, 10), &fact)
+			f, _ := s.facts.Get(strconv.FormatUint(factSynced, 10), &starknetTypes.Fact{})
+			fact := f.(starknetTypes.Fact)
 
 			if s.gpsVerifier.Exist(fact.Value) {
 				// Get memory pages hashes using fact
@@ -468,12 +468,12 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	pages := make([][]*big.Int, 0)
 	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page
-		hash := common.Bytes2Hex(v[:])
-		transactionHash, err := s.memoryPageHash.Get(hash, starknetTypes.TransactionHash{})
-		txHash := transactionHash.(starknetTypes.TransactionHash).Hash
+		hash := common.BytesToHash(v[:])
+		transactionHash, err := s.memoryPageHash.Get(hash.Hex(), starknetTypes.TransactionHash{})
 		if err != nil {
 			return nil
 		}
+		txHash := transactionHash.(starknetTypes.TransactionHash).Hash
 		log.Default.With("Hash", txHash.Hex()).Info("Getting transaction...")
 		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), txHash)
 		if err != nil {
