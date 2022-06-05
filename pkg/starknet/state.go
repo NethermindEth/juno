@@ -247,8 +247,8 @@ func (s *Synchronizer) l1Sync() error {
 			if !s.facts.Exist(strconv.FormatUint(factSynced, 10)) {
 				continue
 			}
-			f, _ := s.facts.Get(strconv.FormatUint(factSynced, 10), starknetTypes.Fact{})
-			fact := f.(starknetTypes.Fact)
+			var fact starknetTypes.Fact
+			_, _ = s.facts.Get(strconv.FormatUint(factSynced, 10), &fact)
 
 			if s.gpsVerifier.Exist(fact.Value) {
 				// Get memory pages hashes using fact
@@ -456,7 +456,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	s.updateServices(upd, lastBlockHash, strconv.FormatUint(blockIterator, 10))
+	s.updateServices(upd, update.BlockHash, strconv.FormatUint(blockIterator, 10))
 
 	return blockIterator + 1, update.BlockHash
 }

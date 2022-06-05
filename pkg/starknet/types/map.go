@@ -64,9 +64,9 @@ func (dict *Dictionary) Get(key string, value IValue) (IValue, error) {
 	if err != nil {
 		return value, err
 	}
-	marshal, err := value.UnMarshal(val)
+	_, err = value.UnMarshal(val)
 	if err != nil {
 		return nil, err
 	}
-	return marshal, nil
+	return value, nil
 }

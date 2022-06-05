@@ -4,23 +4,22 @@ package cli
 import (
 	_ "embed"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
 
-	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/starknet"
-	"github.com/ethereum/go-ethereum/ethclient"
-
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rpc"
+	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
