@@ -98,10 +98,12 @@ func (HandlerRPC) StarknetGetStorageAt(
 ) (Felt, error) {
 	block := services.BlockService.GetBlockByHash(types.HexToFelt(string(blockHash)).Bytes())
 	if block == nil {
+		// notest
 		return "", fmt.Errorf("block not found")
 	}
 	storage := services.StateService.GetStorage(string(contractAddress), block.BlockNumber)
 	if storage == nil {
+		// notest
 		return "", fmt.Errorf("storage not found")
 	}
 	return Felt(storage.Storage[string(key)]), nil
@@ -147,10 +149,12 @@ func (HandlerRPC) StarknetGetCode(
 ) (CodeResult, error) {
 	abi := services.AbiService.GetAbi(string(contractAddress))
 	if abi == nil {
+		// notest
 		return CodeResult{}, fmt.Errorf("abi not found")
 	}
 	code := services.StateService.GetCode(types.HexToFelt(string(contractAddress)).Bytes())
 	if code == nil {
+		// notest
 		return CodeResult{}, fmt.Errorf("code not found")
 	}
 	marshalledAbi, err := json.Marshal(abi)
