@@ -350,13 +350,14 @@ func (h *HandlerJsonRpc) InvokeMethod(
 	// (Methods should always return and report an error).
 	errPos := checkReturn(fn.Type)
 	// Call the function
-	resFromCall, err := callFunc(
-		c, r.Method, args, fn.Func, structToCall, hasContext, errPos)
-	if err != nil {
+	if resFromCall, err := callFunc(c, r.Method, args, fn.Func, structToCall, hasContext, errPos); err != nil {
+		log.Default.With("Method", r.Method).Info("Request returned error.")
 		res.Error = &Error{Message: err.Error()}
 		res.Result = nil
+	} else {
+		log.Default.With("Method", r.Method).Info("Request successful.")
+		res.Error = nil
+		res.Result = resFromCall
 	}
-	log.Default.With("Method", r.Method).Info("Request successful.")
-	res.Result = resFromCall
 	return res
 }
