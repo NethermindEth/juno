@@ -36,8 +36,6 @@ and after you execute the building process, you can run the node using this comm
 $ make run
 ```
 
-If 
-
 ### Using Docker
 
 In the other side, if you want to keep your environment clean, and running it using docker, you can
