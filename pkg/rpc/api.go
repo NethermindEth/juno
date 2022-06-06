@@ -15,6 +15,11 @@ func (HandlerRPC) Echo(c context.Context, message string) (string, error) {
 	return message, nil
 }
 
+// EchoErr replies with the same message as an error.
+func (HandlerRPC) EchoErr(c context.Context, message string) (string, error) {
+	return "", fmt.Errorf("%s", message)
+}
+
 // StarknetCall represents the handler of "starknet_call" rpc call.
 func (HandlerRPC) StarknetCall(
 	c context.Context, request FunctionCall, blockHash BlockHashOrTag,
