@@ -2,10 +2,12 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/services"
@@ -58,6 +60,8 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpected error starting block service: %s", err)
 	}
+	defer services.BlockService.Close(context.Background())
+
 	blockHash := testFelt1
 	blockNumber := uint64(2175)
 	services.BlockService.StoreBlock(blockHash.Bytes(), &block.Block{
@@ -80,10 +84,15 @@ func TestStarknetGetStorageAt(t *testing.T) {
 		},
 	})
 
-	services.StateService.Setup(db.NewKeyValueDb(t.TempDir(), 0), db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)))
+	services.StateService.Setup(
+		db.NewKeyValueDb(t.TempDir(), 0),
+		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
+	)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
+	defer services.StateService.Close(context.Background())
+
 	address := testFelt2
 	key := testFelt3
 	value := testFelt4
@@ -98,63 +107,132 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	testServer(t, []rpcTest{
 		{
 			Request:  buildRequest("starknet_getStorageAt", address.Hex(), key.Hex(), blockHash.Hex()),
-			Response: buildResponse(value),
+			Response: buildResponse(Felt(value.Hex())),
 		},
 	})
 }
 
-// func TestStarknetGetCode(t *testing.T) {
-// 	// setup
+func TestStarknetGetCode(t *testing.T) {
+	// setup
+	services.AbiService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.AbiService.Run(); err != nil {
+		t.Fatalf("unexpected error starting abi service: %s", err)
+	}
+	defer services.AbiService.Close(context.Background())
 
-// 	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
-// 	if err := services.BlockService.Run(); err != nil {
-// 		t.Fatalf("unexpected error starting block service: %s", err)
-// 	}
-// 	hash := common.Hex2Bytes("43950c9e3565cba1f2627b219d4863380f93a8548818ce26019d1bd5eebb0fb")
-// 	services.BlockService.StoreBlock(hash, &block.Block{
-// 		Hash:             hash,
-// 		BlockNumber:      2175,
-// 		ParentBlockHash:  common.Hex2Bytes("f8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
-// 		Status:           "ACCEPTED_ON_L2",
-// 		SequencerAddress: common.Hex2Bytes("0"),
-// 		GlobalStateRoot:  common.Hex2Bytes("6a42d697b5b735eef03bb71841ed5099d57088f7b5eec8e356fe2601d5ba08f"),
-// 		OldRoot:          common.Hex2Bytes("1d932dcf7da6c4f7605117cf514d953147161ab2d8f762dcebbb6dad427e519"),
-// 		AcceptedTime:     1652492749,
-// 		TimeStamp:        1652488132,
-// 		TxCount:          2,
-// 		TxCommitment:     common.Hex2Bytes("0"),
-// 		EventCount:       19,
-// 		EventCommitment:  common.Hex2Bytes("0"),
-// 		TxHashes: [][]byte{
-// 			common.Hex2Bytes("5ce76214481ebb29f912cb5d31abdff34fd42217f5ece9dda76d9fcfd62dc73"),
-// 			common.Hex2Bytes("4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
-// 		},
-// 	})
+	address := testFelt2
+	abi := &abi.Abi{
+		Functions: []*abi.Function{
+			{
+				Name: "initialize",
+				Inputs: []*abi.Function_Input{
+					{
+						Name: "signer",
+						Type: "felt",
+					},
+					{
+						Name: "guardian",
+						Type: "felt",
+					},
+				},
+				Outputs: nil,
+			},
+		},
+		Events: []*abi.AbiEvent{
+			{
+				Data: []*abi.AbiEvent_Data{
+					{
+						Name: "new_signer",
+						Type: "felt",
+					},
+				},
+				Keys: nil,
+				Name: "signer_changed",
+			},
+		},
+		Structs: []*abi.Struct{
+			{
+				Fields: []*abi.Struct_Field{
+					{
+						Name:   "to",
+						Type:   "felt",
+						Offset: 0,
+					},
+					{
+						Name:   "selector",
+						Type:   "felt",
+						Offset: 1,
+					},
+					{
+						Name:   "data_offset",
+						Type:   "felt",
+						Offset: 2,
+					},
+					{
+						Name:   "data_len",
+						Type:   "felt",
+						Offset: 3,
+					},
+				},
+				Name: "CallArray",
+				Size: 4,
+			},
+		},
+		L1Handlers: []*abi.Function{
+			{
+				Name: "__l1_default__",
+				Inputs: []*abi.Function_Input{
+					{
+						Name: "selector",
+						Type: "felt",
+					},
+				},
+				Outputs: nil,
+			},
+		},
+		Constructor: &abi.Function{
+			Name: "constructor",
+			Inputs: []*abi.Function_Input{
+				{
+					Name: "signer",
+					Type: "felt",
+				},
+			},
+			Outputs: nil,
+		},
+	}
+	services.AbiService.StoreAbi(address.Hex(), abi)
 
-// 	services.StateService.Setup(db.NewKeyValueDb(t.TempDir(), 0), db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)))
-// 	if err := services.StateService.Run(); err != nil {
-// 		t.Fatalf("unexpected error starting state service: %s", err)
-// 	}
-// 	address := common.Hex2Bytes("1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac")
-// 	code := &state.Code{Code: [][]byte{
-// 		common.Hex2Bytes("40780017fff7fff"),
-// 		common.Hex2Bytes("1"),
-// 		common.Hex2Bytes("208b7fff7fff7ffe"),
-// 		common.Hex2Bytes("400380007ffb7ffc"),
-// 		common.Hex2Bytes("400380017ffb7ffd"),
-// 		common.Hex2Bytes("800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb"),
-// 		common.Hex2Bytes("107a2e2e5a8b6552e977246c45bfac446305174e86be2e5c74e8c0a20fd1de7"),
-// 	}}
-// 	services.StateService.StoreCode(address, code)
+	services.StateService.Setup(
+		db.NewKeyValueDb(t.TempDir(), 0),
+		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
+	)
+	if err := services.StateService.Run(); err != nil {
+		t.Fatalf("unexpected error starting state service: %s", err)
+	}
+	defer services.StateService.Close(context.Background())
 
-// 	// create tests
-// 	tests := []rpcTest{
-// 		{
-// 			Request:  buildRequest("starknet_getStorageAt", "0x0000000000000000000000000000000000000000", "0x0"),
-// 			Response: buildResponse("0x0000000000000000000000000000000000000000000000000000000000000000"),
-// 		},
-// 	}
+	code := &state.Code{
+		Code: [][]byte{
+			types.HexToFelt("0x1111").Bytes(),
+			types.HexToFelt("0x1112").Bytes(),
+			types.HexToFelt("0x1113").Bytes(),
+			types.HexToFelt("0x1114").Bytes(),
+		},
+	}
+	services.StateService.StoreCode(address.Bytes(), code)
 
-// 	// test
-// 	testServer(t, tests)
-// }
+	abiResponse, _ := json.Marshal(abi)
+	codeResponse := make([]Felt, len(code.Code))
+	for i, bcode := range code.Code {
+		codeResponse[i] = Felt(types.BytesToFelt(bcode).Hex())
+	}
+
+	// test
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_getCode", address.Hex()),
+			Response: buildResponse(CodeResult{Bytecode: codeResponse, Abi: string(abiResponse)}),
+		},
+	})
+}
