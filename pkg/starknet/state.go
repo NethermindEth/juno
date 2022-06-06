@@ -4,6 +4,7 @@ package starknet
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -268,11 +269,6 @@ func (s *Synchronizer) l1Sync() error {
 				// Update state
 				s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
 
-				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
-				if err != nil {
-					log.Default.With("Error", err).Info("Couldn't update latest block synced")
-				}
-
 				s.facts.Remove(strconv.FormatUint(factSynced, 10))
 				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
 				if err != nil {
@@ -281,6 +277,15 @@ func (s *Synchronizer) l1Sync() error {
 			}
 		}
 	}()
+
+	// If Juno was restarted, we only have the state leading up to and including the last
+	// Starknet block we synced (latestFactSynced). If this is Juno's first run, both
+	// latestFactSaved and will be zero and this will have no effect.
+	latestFactSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
+	if err != nil {
+		log.Default.Panic("LatestFactSynced cannot be retrieved from database")
+	}
+	updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, latestFactSynced-1)
 
 	for l := range event {
 		// Process GpsStatementVerifier contract
@@ -331,7 +336,10 @@ func (s *Synchronizer) l1Sync() error {
 				log.Default.With("Error", err, "Initial block", l.Block, "End block", l.Block+1).
 					Info("Couldn't get logs")
 			}
-			fullFact, _ := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
+			fullFact, err := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
+			if err != nil {
+				continue // continue syncing
+			}
 
 			// Safe Fact for block x
 			s.facts.Add(strconv.FormatUint(factSaved, 10), fullFact)
@@ -384,8 +392,9 @@ func getFactInfo(
 	starknetLogs []types.Log,
 	contract ethAbi.ABI,
 	fact string,
-	latestBlockSynced uint64,
+	latestFactSaved uint64,
 ) (*starknetTypes.Fact, error) {
+	var sequenceNumber uint64
 	for _, vLog := range starknetLogs {
 		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
 			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex())
@@ -393,16 +402,21 @@ func getFactInfo(
 		err := contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
 			log.Default.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
-			return nil, err
+			continue // TODO Can we recover from this? Should we panic?
 		}
 		factVal := &starknetTypes.Fact{
 			StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
 			SequenceNumber: event["blockNumber"].(*big.Int).Uint64(),
 			Value:          fact,
 		}
-		if factVal.SequenceNumber == latestBlockSynced {
+		if factVal.SequenceNumber == latestFactSaved {
 			return factVal, nil
 		}
+		sequenceNumber = factVal.SequenceNumber
+	}
+	if sequenceNumber < latestFactSaved {
+		log.Default.Info("Catching up to saved state.")
+		return nil, errors.New("catching up to saved state")
 	}
 	log.Default.Panic("Couldn't find a block number that match in the logs for given fact")
 	return nil, nil
