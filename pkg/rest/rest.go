@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
@@ -97,7 +95,7 @@ func getTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Transaction Status failed: invalid input")
 }
 
-func NewServer(port string) *Server {
+func NewServer(rest_port string, feeder_gateway string) *Server {
 	m := http.NewServeMux()
 
 	m.HandleFunc("/get_block", getBlock)
@@ -106,7 +104,7 @@ func NewServer(port string) *Server {
 	m.HandleFunc("/get_transaction_status", getTransactionStatus)
 	//m.HandleFunc("/get_full_contract", getTransactionStatus)
 
-	feederClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+	feederClient = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
 
-	return &Server{server: http.Server{Addr: strconv.Itoa(config.Runtime.REST.Port), Handler: m}}
+	return &Server{server: http.Server{Addr: rest_port, Handler: m}}
 }
