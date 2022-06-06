@@ -13,7 +13,7 @@ import (
 var feederClient *feeder.Client
 
 //Returns Starknet Block
-func getBlock(w http.ResponseWriter, r *http.Request) {
+func GetBlock(w http.ResponseWriter, r *http.Request) {
 	var (
 		res *feeder.StarknetBlock
 		err error
@@ -32,11 +32,11 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(res)
 		return
 	}
-	fmt.Fprintf(w, "Transaction Status failed: invalid input")
+	fmt.Fprintf(w, "Get Block failed: blockNumber or blockHash not present")
 }
 
 //returns CodeInfo
-func getCode(w http.ResponseWriter, r *http.Request) {
+func GetCode(w http.ResponseWriter, r *http.Request) {
 
 	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
 	var _blockNumber string
@@ -66,7 +66,7 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 }
 
 //returns StorageInfo
-func getStorageAt(w http.ResponseWriter, r *http.Request) {
+func GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	query_args := r.URL.Query()
 	res, err := feederClient.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
 	if err != nil {
@@ -76,7 +76,7 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 }
 
 //Returns Transaction Status
-func getTransactionStatus(w http.ResponseWriter, r *http.Request) {
+func GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 
 	txHash, ok_txHash := r.URL.Query()["transactionHash"]
 	_txHash := strings.Join(txHash, "")
@@ -98,10 +98,10 @@ func getTransactionStatus(w http.ResponseWriter, r *http.Request) {
 func NewServer(rest_port string, feeder_gateway string) *Server {
 	m := http.NewServeMux()
 
-	m.HandleFunc("/get_block", getBlock)
-	m.HandleFunc("/get_code", getCode)
-	m.HandleFunc("/get_storage_at", getStorageAt)
-	m.HandleFunc("/get_transaction_status", getTransactionStatus)
+	m.HandleFunc("/get_block", GetBlock)
+	m.HandleFunc("/get_code", GetCode)
+	m.HandleFunc("/get_storage_at", GetStorageAt)
+	m.HandleFunc("/get_transaction_status", GetTransactionStatus)
 	//m.HandleFunc("/get_full_contract", getTransactionStatus)
 
 	feederClient = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
