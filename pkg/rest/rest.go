@@ -13,7 +13,7 @@ import (
 var feederClient *feeder.Client
 
 //Returns Starknet Block
-func GetBlock(w http.ResponseWriter, r *http.Request) {
+func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 	var (
 		res *feeder.StarknetBlock
 		err error
@@ -25,7 +25,7 @@ func GetBlock(w http.ResponseWriter, r *http.Request) {
 	_blockHash := strings.Join(blockHash, "")
 
 	if ok_blockNumber || ok_blockHash {
-		res, err = feederClient.GetBlock(_blockHash, _blockNumber)
+		res, err = rh.RestFeeder.GetBlock(_blockHash, _blockNumber)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -98,7 +98,7 @@ func GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 func NewServer(rest_port string, feeder_gateway string) *Server {
 	m := http.NewServeMux()
 
-	m.HandleFunc("/get_block", GetBlock)
+	//m.HandleFunc("/get_block", GetBlock)
 	m.HandleFunc("/get_code", GetCode)
 	m.HandleFunc("/get_storage_at", GetStorageAt)
 	m.HandleFunc("/get_transaction_status", GetTransactionStatus)
