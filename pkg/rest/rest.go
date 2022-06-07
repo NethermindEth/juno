@@ -10,8 +10,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
-var feederClient *feeder.Client
-
 //Returns Starknet Block
 func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 	var (
@@ -36,7 +34,7 @@ func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 }
 
 //GetCode returns CodeInfo using Block Identifier & Contract Address
-func GetCode(w http.ResponseWriter, r *http.Request) {
+func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 
 	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
 	var _blockNumber string
@@ -54,7 +52,7 @@ func GetCode(w http.ResponseWriter, r *http.Request) {
 
 	if ok_contractAddress && (ok_blockHash || ok_blockNumber) {
 
-		res, err := feederClient.GetCode(_contractAddress, _blockHash, _blockNumber)
+		res, err := rh.RestFeeder.GetCode(_contractAddress, _blockHash, _blockNumber)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -66,9 +64,9 @@ func GetCode(w http.ResponseWriter, r *http.Request) {
 }
 
 //GetStorageAt returns StorageInfo
-func GetStorageAt(w http.ResponseWriter, r *http.Request) {
+func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	query_args := r.URL.Query()
-	res, err := feederClient.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
+	res, err := rh.RestFeeder.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -76,7 +74,7 @@ func GetStorageAt(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetTransactionStatus returns Transaction Status
-func GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
+func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 
 	txHash, ok_txHash := r.URL.Query()["transactionHash"]
 	_txHash := strings.Join(txHash, "")
@@ -85,7 +83,7 @@ func GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	_txId := strings.Join(txId, "")
 
 	if ok_txHash || ok_txId {
-		res, err := feederClient.GetTransactionStatus(_txHash, _txId)
+		res, err := rh.RestFeeder.GetTransactionStatus(_txHash, _txId)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -93,18 +91,4 @@ func GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, "Transaction Status failed: invalid input")
-}
-
-func NewServer(rest_port string, feeder_gateway string) *Server {
-	m := http.NewServeMux()
-
-	//m.HandleFunc("/get_block", GetBlock)
-	m.HandleFunc("/get_code", GetCode)
-	m.HandleFunc("/get_storage_at", GetStorageAt)
-	m.HandleFunc("/get_transaction_status", GetTransactionStatus)
-	//m.HandleFunc("/get_full_contract", getTransactionStatus)
-
-	feederClient = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
-
-	return &Server{server: http.Server{Addr: rest_port, Handler: m}}
 }
