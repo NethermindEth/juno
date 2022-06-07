@@ -16,12 +16,12 @@ Let's discover **Juno in less than 5 min**.
 - [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
 - [Cairo-lang](https://www.cairo-lang.org/docs/quickstart.html) if you want to do `starknet_call` command.
 
-### Installing dependencies
+### Installing
 
 You can get all the dependencies running the next command:
 
 ```bash
-$ make install-deps
+$ go get -u github.com/NethermindEth/juno 
 ```
 
 ## Running the node
@@ -44,7 +44,9 @@ If
 
 ### Using Docker
 
-In the other side, if you want to keep your environment clean, and running it using docker, you can use the next command:
+In the other side, if you want to keep your environment clean, and running it using docker, you can use the next
+command:
+
 ```bash 
 docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
 ```
