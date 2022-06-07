@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "github.com/NethermindEth/juno/internal/services/vmrpc";
+
+message GetValueRequest {
+  bytes key = 1;
+}
+
+message GetValueResponse {
+  bytes value = 1;
+}
+
+service StorageAdapter {
+    rpc GetValue (GetValueRequest) returns (GetValueResponse) {}
+}
+
+message VMCallRequest {
+    bytes root = 1;
+    bytes contract_address = 2;
+    bytes selector = 3;
+    bytes calldata = 4;
+    bytes caller_address = 5;
+    bytes signature = 6;
+}
+
+message VMCallResponse {
+    repeated bytes retdata = 1;
+}
+
+service VM {
+    rpc Call (VMCallRequest) returns (VMCallResponse) {}
+}
