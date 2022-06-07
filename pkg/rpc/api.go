@@ -2,9 +2,12 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 // Echo replies with the same message.
@@ -98,7 +101,17 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
-	return "Storage", nil
+	block := services.BlockService.GetBlockByHash(types.HexToFelt(string(blockHash)).Bytes())
+	if block == nil {
+		// notest
+		return "", fmt.Errorf("block not found")
+	}
+	storage := services.StateService.GetStorage(string(contractAddress), block.BlockNumber)
+	if storage == nil {
+		// notest
+		return "", fmt.Errorf("storage not found")
+	}
+	return Felt(storage.Storage[string(key)]), nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
@@ -139,7 +152,25 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress Address,
 ) (CodeResult, error) {
-	return CodeResult{}, nil
+	abi := services.AbiService.GetAbi(string(contractAddress))
+	if abi == nil {
+		// notest
+		return CodeResult{}, fmt.Errorf("abi not found")
+	}
+	code := services.StateService.GetCode(types.HexToFelt(string(contractAddress)).Bytes())
+	if code == nil {
+		// notest
+		return CodeResult{}, fmt.Errorf("code not found")
+	}
+	marshalledAbi, err := json.Marshal(abi)
+	if err != nil {
+		return CodeResult{}, err
+	}
+	bytecode := make([]Felt, len(code.Code))
+	for i, b := range code.Code {
+		bytecode[i] = Felt(types.BytesToFelt(b).Hex())
+	}
+	return CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
