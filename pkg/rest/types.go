@@ -7,7 +7,7 @@ import (
 )
 
 type RestHandler struct {
-	//GetBlock             func(http.ResponseWriter, *http.Request)
+	GetBlock             func(http.ResponseWriter, *http.Request)
 	GetStorageAt         func(http.ResponseWriter, *http.Request)
 	GetTransactionStatus func(http.ResponseWriter, *http.Request)
 	GetCode              func(http.ResponseWriter, *http.Request)

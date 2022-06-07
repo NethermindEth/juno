@@ -33,7 +33,7 @@ func init() {
 	p = httpClient
 	client = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &p)
 	restHandler.RestFeeder = client
-	//restHandler.GetBlock = rest.GetBlock
+	restHandler.GetBlock = rest.GetBlock
 	restHandler.GetCode = rest.GetCode
 	restHandler.GetTransactionStatus = rest.GetTransactionStatus
 	restHandler.GetStorageAt = rest.GetStorageAt
