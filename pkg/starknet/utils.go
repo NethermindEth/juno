@@ -150,7 +150,7 @@ func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 // updateNumericValueFromDB update the value in the database for a key increasing the value in 1
 func updateNumericValueFromDB(database db.Databaser, key string, value uint64) error {
 	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(value+1))
+	binary.BigEndian.PutUint64(b, value+1)
 	err := database.Put([]byte(key), b)
 	if err != nil {
 		log.Default.With("Value", value, "Key", key).

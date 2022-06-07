@@ -5,7 +5,6 @@ package starknet
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 	"strconv"
 	"time"
@@ -278,16 +277,8 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}()
 
-	// If Juno was restarted, we only have the state leading up to and including the last
-	// Starknet block we synced (latestFactSynced). If this is Juno's first run, both
-	// latestFactSaved and will be zero and this will have no effect.
-	latestFactSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
-	if err != nil {
-		log.Default.Panic("LatestFactSynced cannot be retrieved from database")
-	}
-	updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, latestFactSynced-1)
-
-	for l := range event {
+	for {
+		l := <-event
 		// Process GpsStatementVerifier contract
 		factHash, ok := l.Event["factHash"]
 		pagesHashes, ok1 := l.Event["pagesHashes"]
@@ -352,7 +343,6 @@ func (s *Synchronizer) l1Sync() error {
 			}
 		}
 	}
-	return fmt.Errorf("couldn't read event from logs")
 }
 
 // updateAndCommitState applies `stateDiff` to the local state and
