@@ -106,12 +106,20 @@ func TestGetBlockHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	//build response
-	a := feeder.StarknetBlock{BlockHash: "hash"}
-	body, err := StructFaker(a)
+	a := feeder.StarknetBlock{}
+	err = faker.FakeData(&a)
 	if err != nil {
 		t.Fatal()
 	}
-	httpClient.DoReturns(generateResponse(body), nil)
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+	//httpClient.DoReturns(generateResponse(body), nil)
 
 	//Get Block from rest API
 	restHandler.GetBlock(rr, req)
@@ -123,12 +131,13 @@ func TestGetBlockHandler(t *testing.T) {
 	}
 	// Expect block with number 0
 	var testBlock feeder.StarknetBlock
-	testBlock.BlockNumber = 0
+	testBlock.BlockNumber = 10
 
 	var cOrig feeder.StarknetBlock
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
-	assert.Equal(t, cOrig.BlockNumber, testBlock.BlockNumber, "Get Block did not match")
+	//assert.Equal(t, &cOrig.BlockNumber, &testBlock.BlockNumber, "Get Block is empty")
+	assert.Equal(t, &a.BlockHash, &cOrig.BlockHash, "Get Block does not match expected")
 }
 
 // Produces empty
@@ -152,11 +161,20 @@ func TestGetCodeHandler(t *testing.T) {
 
 	//build response
 	a := feeder.CodeInfo{}
-	body, err := StructFaker(a)
+	// body, err := StructFaker(a)
+	err = faker.FakeData(&a)
 	if err != nil {
 		t.Fatal()
 	}
-	httpClient.DoReturns(generateResponse(body), nil)
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+	//httpClient.DoReturns(generateResponse(body), nil)
 
 	restHandler.GetCode(rr, req)
 	if err != nil {
@@ -186,8 +204,15 @@ func TestGetStorageAtHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	var body feeder.StorageInfo
-	body = "\"storage\"\n"
+	var b feeder.StorageInfo
+	err = faker.FakeData(&b)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(b)
+	if err != nil {
+		t.Fatal()
+	}
 	httpClient.DoReturns(generateResponse(string(body)), nil)
 	var a feeder.StorageInfo
 	err = json.Unmarshal([]byte(body), &a)
@@ -200,8 +225,6 @@ func TestGetStorageAtHandler(t *testing.T) {
 	}
 	var cOrig feeder.StorageInfo
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
-	// println(rr.Body)
-	// println(&cOrig)
 	assert.Equal(t, &a, &cOrig, "Storage response don't match")
 }
 
