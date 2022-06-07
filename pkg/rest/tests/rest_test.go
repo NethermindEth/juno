@@ -69,7 +69,6 @@ func TestRestClient(t *testing.T) {
 	cancel()
 }
 
-// Produces empty
 // TestGetBlockHandler
 func TestGetBlockHandler(t *testing.T) {
 
@@ -117,7 +116,6 @@ func TestGetBlockHandler(t *testing.T) {
 	assert.DeepEqual(t, &a, &cOrig)
 }
 
-// Produces empty
 // TestGetCodeHandler
 func TestGetCodeHandler(t *testing.T) {
 
