@@ -4,20 +4,20 @@ import styles from './styles.module.css';
 
 const FeatureList = [
     {
-        title: 'Starknet in your hands',
+        title: 'StarkNet in your hands',
         Svg: require('@site/static/img/starknet.svg').default,
         description: (
             <>
-                You can get all the Starknet information directly from us.
+                Get StarkNet data directly from Juno.
             </>
         ),
     },
     {
-        title: 'Oriented to Services',
+        title: 'Service Orientated Architecture',
         Svg: require('@site/static/img/cloud.svg').default,
         description: (
             <>
-                Each of the parts of the application is oriented to services,
+                Different parts of Juno's functionality are encapsulated as separate services.
             </>
         ),
     },
@@ -26,7 +26,7 @@ const FeatureList = [
         Svg: require('@site/static/img/go_saiyan.svg').default,
         description: (
             <>
-                Go made it easy for us to write maintainable, testable, lightweight and performant code.
+                Go makes it easy for us to write maintainable, testable, lightweight and performant code.
             </>
         ),
     },

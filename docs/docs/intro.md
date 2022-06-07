@@ -3,16 +3,16 @@ title: Welcome
 sidebar_position: 1
 ---
 
-# Welcome Juno
+# Welcome to Juno
 
-Let's discover **Juno in less than 5 min**.
+Let's discover **Juno in less than 5 minutes**.
 
-## What you'll need
+## What You'll Need
 
 - [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
 - [Cairo-lang](https://www.cairo-lang.org/docs/quickstart.html) if you want to do `starknet_call` command.
 
-### Installing dependencies
+### Installing Dependencies
 
 You can get all the dependencies running the next command:
 
@@ -20,17 +20,17 @@ You can get all the dependencies running the next command:
 $ make install-deps
 ```
 
-## Running the node
+## Running Juno
 
-### Compiling directly
+### Compiling Directly
 
-If you want to run the node, you can compile directly the app using:
+Compile Juno:
 
 ```bash
 $ make compile
 ```
 
-and after you execute the building process, you can run the node using this command:
+Run Juno:
 
 ```bash
 $ make run
@@ -38,5 +38,5 @@ $ make run
 
 ### Using Docker
 
-In the other side, if you want to keep your environment clean, and running it using docker, you can
+If you prefer to use docker, you can
 follow [this](./running/docker.mdx) guide.
