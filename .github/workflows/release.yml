@@ -1,0 +1,34 @@
+# workflow name
+name: release
+
+# on events
+on:
+  release:
+    types:
+      - created
+
+# jobs
+jobs:
+  # generate build cross-platform build files
+  generate:
+    name: Generate cross-platform builds
+    runs-on: ubuntu-latest
+    steps:
+      # step 1: checkout repository code
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+
+      # step 2: generate build files
+      - name: Generate build files
+        uses: actions/setup-go@v3
+        run: |
+        sudo apt install upx
+        ./go-executable-build.sh github.com/NethermindEth/juno/cmd/juno
+
+      # step 3: upload build-artifacts
+      - name: Upload build-artifacts
+        uses: skx/github-action-publish-binaries@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: "./dist/*"
