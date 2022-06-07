@@ -35,7 +35,7 @@ func GetBlock(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Get Block failed: blockNumber or blockHash not present")
 }
 
-//returns CodeInfo
+//GetCode returns CodeInfo using Block Identifier & Contract Address
 func GetCode(w http.ResponseWriter, r *http.Request) {
 
 	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
@@ -65,7 +65,7 @@ func GetCode(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "GetCode Request Failed: invalid inputs")
 }
 
-//returns StorageInfo
+//GetStorageAt returns StorageInfo
 func GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	query_args := r.URL.Query()
 	res, err := feederClient.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
@@ -75,7 +75,7 @@ func GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-//Returns Transaction Status
+// GetTransactionStatus returns Transaction Status
 func GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 
 	txHash, ok_txHash := r.URL.Query()["transactionHash"]
