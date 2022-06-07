@@ -1,9 +1,6 @@
 // package rest_test
 package tests
 
-// NOTE: feederfakes creates an import cycle so testing has to be in a
-// different package.
-
 import (
 	"bytes"
 	"context"
@@ -61,21 +58,6 @@ func StructFaker(a interface{}) (string, error) {
 	return string(body), nil
 }
 
-// You can use testing.T, if you want to test the code without benchmarking
-// func setupRestTests(t testing.T) func(t testing.T) {
-// 	println("setup")
-// 	r := rest.NewServer(":8100", "http://localhost/")
-// 	go func() {
-// 		_ = r.ListenAndServe()
-// 	}()
-// 	// Return a function to teardown the test
-// 	return func(t testing.T) {
-// 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
-// 		r.Close(ctx)
-// 		cancel()
-// 	}
-// }
-
 //TestRestClient
 func TestRestClient(t *testing.T) {
 	r := rest.NewServer(":8100", "http://localhost/")
@@ -119,7 +101,6 @@ func TestGetBlockHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	//httpClient.DoReturns(generateResponse(body), nil)
 
 	//Get Block from rest API
 	restHandler.GetBlock(rr, req)
@@ -129,15 +110,11 @@ func TestGetBlockHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
-	// Expect block with number 0
-	var testBlock feeder.StarknetBlock
-	testBlock.BlockNumber = 10
 
 	var cOrig feeder.StarknetBlock
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
-	//assert.Equal(t, &cOrig.BlockNumber, &testBlock.BlockNumber, "Get Block is empty")
-	assert.Equal(t, &a.BlockHash, &cOrig.BlockHash, "Get Block does not match expected")
+	assert.DeepEqual(t, &a, &cOrig)
 }
 
 // Produces empty
@@ -161,20 +138,15 @@ func TestGetCodeHandler(t *testing.T) {
 
 	//build response
 	a := feeder.CodeInfo{}
-	// body, err := StructFaker(a)
-	err = faker.FakeData(&a)
+	body, err := StructFaker(a)
 	if err != nil {
 		t.Fatal()
 	}
-	body, err := json.Marshal(a)
+
+	httpClient.DoReturns(generateResponse(body), nil)
 	if err != nil {
 		t.Fatal()
 	}
-	httpClient.DoReturns(generateResponse(string(body)), nil)
-	if err != nil {
-		t.Fatal()
-	}
-	//httpClient.DoReturns(generateResponse(body), nil)
 
 	restHandler.GetCode(rr, req)
 	if err != nil {
@@ -182,10 +154,9 @@ func TestGetCodeHandler(t *testing.T) {
 	}
 	var cOrig feeder.CodeInfo
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
-	assert.Equal(t, &a, &cOrig, "GetCode response don't match")
+	assert.DeepEqual(t, &a, &cOrig)
 }
 
-// produces string data but they do not match
 // TestGetStorageAtHandler
 func TestGetStorageAtHandler(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_storage_at"
@@ -223,12 +194,11 @@ func TestGetStorageAtHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	var cOrig feeder.StorageInfo
+	var cOrig *feeder.StorageInfo
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
-	assert.Equal(t, &a, &cOrig, "Storage response don't match")
+	assert.DeepEqual(t, &a, cOrig)
 }
 
-// Produces data, they match, but fails
 // TestGetTransactionStatusHandler
 func TestGetTransactionStatusHandler(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
@@ -267,5 +237,5 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 	var cOrig feeder.TransactionStatus
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
-	assert.Equal(t, &b, &cOrig, "GetTransactionStatus response don't match")
+	assert.DeepEqual(t, &b, &cOrig)
 }
