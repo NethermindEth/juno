@@ -44,7 +44,7 @@ If
 
 ### Using Docker
 
-In the other side, if you want to keep your environment clean, and running it using docker, you can the next command:
+In the other side, if you want to keep your environment clean, and running it using docker, you can use the next command:
 ```bash 
 docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
 ```
