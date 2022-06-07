@@ -7,7 +7,7 @@ tags: [hello, juno]
 
 Juno is a Go implementation of a StarkNet full node client made with ❤️ by Nethermind.
 
-We are working hard for our first release, until that happen, what you can do? 
+We are working hard for our first release, until that happen, what you can do?
 
 Let's discover **Juno in less than 5 min**.
 
@@ -44,5 +44,9 @@ If
 
 ### Using Docker
 
-In the other side, if you want to keep your environment clean, and running it using docker, you can
-follow [this](../../docs/running/docker.mdx) guide.
+In the other side, if you want to keep your environment clean, and running it using docker, you can the next command:
+```bash 
+docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
+```
+
+For more details, watch the docker documentation page.
