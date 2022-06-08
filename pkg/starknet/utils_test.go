@@ -73,10 +73,7 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 		},
 	}
 	diff := feeder.StateDiff{
-		DeployedContracts: []struct {
-			Address      string `json:"address"`
-			ContractHash string `json:"contract_hash"`
-		}{
+		DeployedContracts: []feeder.DeployedContract{
 			{
 				"address1",
 				"contract_hash1",
@@ -366,7 +363,7 @@ func TestToDbAbi(t *testing.T) {
 	got := toDbAbi(inputAbi)
 
 	if !reflect.DeepEqual(want, got) {
-		t.Errorf("incorrect abi: want %v, got %v", want, got)
+		t.Errorf("incorrect abi: want:\n%v, got:\n%v", want, got)
 	}
 }
 

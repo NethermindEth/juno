@@ -106,10 +106,7 @@ func (s *Synchronizer) loadEvents(
 				Info("Couldn't get logs")
 			break
 		}
-		log.Default.With("Count", len(starknetLogs)).Info("Logs fetched")
 		for _, vLog := range starknetLogs {
-			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
-				"TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
 			event := map[string]interface{}{}
 
 			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
@@ -141,9 +138,6 @@ func (s *Synchronizer) loadEvents(
 		case err := <-sub.Err():
 			log.Default.With("Error", err).Info("Error getting the latest logs")
 		case vLog := <-hLog:
-			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(),
-				"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).
-				Info("Event Fetched")
 			event := map[string]interface{}{}
 			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
 			if err != nil {
@@ -442,10 +436,20 @@ func (s *Synchronizer) apiSync() error {
 // notest
 func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
-	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't get state update")
-		return blockIterator, lastBlockHash
+	var update *feeder.StateUpdateResponse
+	var err error
+	if s.chainID == 1 {
+		update, err = s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't get state update")
+			return blockIterator, lastBlockHash
+		}
+	} else {
+		update, err = s.feederGatewayClient.GetStateUpdateGoerli("", strconv.FormatUint(blockIterator, 10))
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't get state update")
+			return blockIterator, lastBlockHash
+		}
 	}
 	if lastBlockHash == update.BlockHash || update.BlockHash == "" || update.NewRoot == "" {
 		log.Default.With("Block Number", blockIterator).Info("Block is pending ...")
@@ -458,7 +462,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	// Update services
+	//Update services
 	go s.updateServices(upd, update.BlockHash, strconv.FormatUint(blockIterator, 10))
 
 	return blockIterator + 1, update.BlockHash

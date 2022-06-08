@@ -3,6 +3,7 @@ package starknet
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"math/big"
 	"strings"
 
@@ -304,102 +305,15 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *block.Block {
 }
 
 func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
-	functions := make([]*dbAbi.Function, len(abi.Functions))
-	for i, function := range abi.Functions {
-		functions[i] = &dbAbi.Function{
-			Name:    function.Name,
-			Inputs:  make([]*dbAbi.Function_Input, len(function.Inputs)),
-			Outputs: make([]*dbAbi.Function_Output, len(function.Outputs)),
-		}
-		for j, input := range function.Inputs {
-			functions[i].Inputs[j] = &dbAbi.Function_Input{
-				Name: input.Name,
-				Type: input.Type,
-			}
-		}
-		for j, output := range function.Outputs {
-			functions[i].Outputs[j] = &dbAbi.Function_Output{
-				Name: output.Name,
-				Type: output.Type,
-			}
-		}
+	marshal, err := json.Marshal(abi)
+	if err != nil {
+		return nil
 	}
+	var abiResponse dbAbi.Abi
 
-	events := make([]*dbAbi.AbiEvent, len(abi.Events))
-	for i, event := range abi.Events {
-		events[i] = &dbAbi.AbiEvent{
-			Name: event.Name,
-			Data: make([]*dbAbi.AbiEvent_Data, len(event.Data)),
-			Keys: event.Keys,
-		}
-		for j, data := range event.Data {
-			events[i].Data[j] = &dbAbi.AbiEvent_Data{
-				Name: data.Name,
-				Type: data.Type,
-			}
-		}
+	err = json.Unmarshal(marshal, &abiResponse)
+	if err != nil {
+		return nil
 	}
-
-	structs := make([]*dbAbi.Struct, len(abi.Structs))
-	for i, structure := range abi.Structs {
-		structs[i] = &dbAbi.Struct{
-			Name:   structure.Name,
-			Size:   uint64(structure.Size),
-			Fields: make([]*dbAbi.Struct_Field, len(structure.Members)),
-		}
-		for j, field := range structure.Members {
-			structs[i].Fields[j] = &dbAbi.Struct_Field{
-				Name:   field.Name,
-				Type:   field.Type,
-				Offset: uint32(field.Offset),
-			}
-		}
-	}
-
-	l1Handlers := make([]*dbAbi.Function, len(abi.L1Handlers))
-	for i, handler := range abi.L1Handlers {
-		l1Handlers[i] = &dbAbi.Function{
-			Name:    handler.Name,
-			Inputs:  make([]*dbAbi.Function_Input, len(handler.Inputs)),
-			Outputs: make([]*dbAbi.Function_Output, len(handler.Outputs)),
-		}
-		for j, input := range handler.Inputs {
-			l1Handlers[i].Inputs[j] = &dbAbi.Function_Input{
-				Name: input.Name,
-				Type: input.Type,
-			}
-		}
-		for j, output := range handler.Outputs {
-			l1Handlers[i].Outputs[j] = &dbAbi.Function_Output{
-				Name: output.Name,
-				Type: output.Type,
-			}
-		}
-	}
-
-	constructor := dbAbi.Function{
-		Name:    abi.Constructor.Name,
-		Inputs:  make([]*dbAbi.Function_Input, len(abi.Constructor.Inputs)),
-		Outputs: make([]*dbAbi.Function_Output, len(abi.Constructor.Outputs)),
-	}
-	for j, input := range abi.Constructor.Inputs {
-		constructor.Inputs[j] = &dbAbi.Function_Input{
-			Name: input.Name,
-			Type: input.Type,
-		}
-	}
-	for j, output := range abi.Constructor.Outputs {
-		constructor.Outputs[j] = &dbAbi.Function_Output{
-			Name: output.Name,
-			Type: output.Type,
-		}
-	}
-
-	return &dbAbi.Abi{
-		Functions:   functions,
-		Events:      events,
-		Structs:     structs,
-		L1Handlers:  l1Handlers,
-		Constructor: &constructor,
-	}
+	return &abiResponse
 }
