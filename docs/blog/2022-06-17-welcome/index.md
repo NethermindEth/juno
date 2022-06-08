@@ -40,15 +40,12 @@ and after you execute the building process, you can run the node using this comm
 $ make run
 ```
 
-If
-
 ### Using Docker
 
-In the other side, if you want to keep your environment clean, and running it using docker, you can use the next
-command:
+If you want to keep your environment clean and run Juno in a Docker container, use the following command:
 
 ```bash 
 docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
 ```
 
-For more details, watch the docker documentation page.
+For more details, see the docker documentation page.
