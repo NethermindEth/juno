@@ -2,8 +2,9 @@ package services
 
 import (
 	"context"
-	"fmt"
+	_ "embed"
 	"net"
+	"os"
 	"os/exec"
 
 	"github.com/NethermindEth/juno/internal/config"
@@ -16,11 +17,28 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+//go:embed vmrpc/vm.py
+var pyMain []byte
+
+//go:embed vmrpc/vm_pb2.py
+var pyPb []byte
+
+//go:embed vmrpc/vm_pb2_grpc.py
+var pyPbGRpc []byte
+
 var VMService vmService
 
 type vmService struct {
 	service
 	manager *state.Manager
+
+	vmDir string
+	vmCmd *exec.Cmd
+
+	rpcServer      *grpc.Server
+	rpcNet         string
+	rpcVMAddr      string
+	rpcStorageAddr string
 }
 
 // Setup sets the service configuration, service must be not running.
@@ -44,26 +62,51 @@ func (s *vmService) Run() error {
 
 	s.setDefaults()
 
-	// start the go vm rpc server (serving storage)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8082))
+	s.rpcServer = grpc.NewServer()
+
+	// generate the py environment in the data dir
+	var err error
+	s.vmDir, err = os.MkdirTemp("", "vm") // TODO: we should use datadir
 	if err != nil {
-		s.logger.Fatalf("failed to listen: %v", err)
+		s.logger.Errorf("failed to create vm dir: %v", err)
+		return err
 	}
-	server := grpc.NewServer()
-	vmrpc.RegisterStorageAdapterServer(server, &vmrpc.StorageRPCServer{})
-	go func() {
-		s.logger.Infof("server listening at %v", lis.Addr())
-		if err := server.Serve(lis); err != nil {
-			s.logger.Fatalf("failed to serve: %v", err)
-		}
-	}()
+
+	if err = os.WriteFile(s.vmDir+"/vm.py", pyMain, 0o644); err != nil {
+		s.logger.Errorf("failed to write main.py: %v", err)
+		return err
+	}
+	if err = os.WriteFile(s.vmDir+"/vm_pb2.py", pyPb, 0o644); err != nil {
+		s.logger.Errorf("failed to write vm_pb2.py: %v", err)
+		return err
+	}
+	if err = os.WriteFile(s.vmDir+"/vm_pb2_grpc.py", pyPbGRpc, 0o644); err != nil {
+		s.logger.Errorf("failed to write vm_pb2_grpc.py: %v", err)
+		return err
+	}
+
+	s.logger.Infof("vm dir: %s", s.vmDir)
 
 	// start the py vm rpc server (serving vm)
-	cmd := exec.Command("python", "./vmrpc/vm.py", "localhost:8081", lis.Addr().String())
+	s.vmCmd = exec.Command("python", s.vmDir+"/vm.py", s.rpcVMAddr, "localhost:8082")
+	if err := s.vmCmd.Start(); err != nil {
+		s.logger.Errorf("failed to start python vm rpc: %v", err)
+		return err
+	}
+
+	// start the go vm rpc server (serving storage)
+	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
+	if err != nil {
+		s.logger.Errorf("failed to listen: %v", err)
+	}
+	storageServer := vmrpc.NewStorageRPCServer()
+	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
+
+	// run the grpc server
 	go func() {
-		s.logger.Infof("server listening at %v", "localhost:8081")
-		if err := cmd.Run(); err != nil {
-			s.logger.Fatalf("failed to serve: %v\n%v", err)
+		s.logger.Infof("grpc server listening at %v", lis.Addr())
+		if err := s.rpcServer.Serve(lis); err != nil {
+			s.logger.Errorf("failed to serve: %v", err)
 		}
 	}()
 
@@ -77,11 +120,18 @@ func (s *vmService) setDefaults() {
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
 		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
 	}
+
+	s.rpcNet = "tcp"
+	s.rpcVMAddr = "localhost:8081"
+	s.rpcStorageAddr = "localhost:8082"
 }
 
 func (s *vmService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.manager.Close()
+	s.rpcServer.Stop()
+	s.vmCmd.Process.Kill()
+	os.RemoveAll(s.vmDir)
 }
 
 func (s *vmService) Call(
@@ -96,10 +146,10 @@ func (s *vmService) Call(
 	s.AddProcess()
 	defer s.DoneProcess()
 
-	conn, err := grpc.Dial("localhost:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// TODO: right now rpcVMAddr will probably only work if using tcp
+	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		s.logger.Errorf("failed to dial: %v", err)
-		// notest
 		return nil, err
 	}
 	defer conn.Close()
@@ -115,7 +165,7 @@ func (s *vmService) Call(
 		Signature:       signature.Bytes(),
 	})
 	if err != nil {
-		s.logger.Errorf("failed to call: %v", err.Error())
+		s.logger.Errorf("failed to call: %v", err)
 		return nil, err
 	}
 

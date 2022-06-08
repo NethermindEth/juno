@@ -6,6 +6,7 @@ import vm_pb2
 import vm_pb2_grpc
 from starkware.storage.storage import Storage
 from starkware.starknet.business_logic.state.state import (
+    BlockInfo,
     SharedState,
     StateSelector,
 )

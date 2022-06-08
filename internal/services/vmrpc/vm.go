@@ -4,10 +4,14 @@ import (
 	"context"
 )
 
-type StorageRPCServer struct {
+type storageRPCServer struct {
 	UnimplementedStorageAdapterServer
 }
 
-func (s *StorageRPCServer) GetValue(ctx context.Context, request *GetValueRequest) (*GetValueResponse, error) {
+func NewStorageRPCServer() *storageRPCServer {
+	return &storageRPCServer{}
+}
+
+func (s *storageRPCServer) GetValue(ctx context.Context, request *GetValueRequest) (*GetValueResponse, error) {
 	return &GetValueResponse{Value: request.GetKey()}, nil
 }
