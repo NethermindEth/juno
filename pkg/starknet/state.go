@@ -236,15 +236,14 @@ func (s *Synchronizer) l1Sync() error {
 
 	// Handle frequently if there is any fact that comes from L1 to handle
 	go func() {
-		ticker := time.NewTicker(time.Second * 5)
-		for range ticker.C {
-			factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
-			if err != nil {
-				log.Default.With("Error", err).
-					Info("Unable to get the Value of the latest fact synced")
-				continue
-			}
+		factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
+		if err != nil {
+			log.Default.With("Error", err).
+				Info("Unable to get the Value of the latest fact synced")
+		}
+		for {
 			if !s.facts.Exist(strconv.FormatUint(factSynced, 10)) {
+				time.Sleep(time.Second * 5)
 				continue
 			}
 			f, _ := s.facts.Get(strconv.FormatUint(factSynced, 10), &starknetTypes.Fact{})
@@ -269,13 +268,14 @@ func (s *Synchronizer) l1Sync() error {
 				s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
 
 				// update services
-				go s.updateServices(*stateDiff, "", strconv.FormatUint(fact.SequenceNumber, 10))
+				go s.updateServices(*stateDiff, "", strconv.FormatUint(factSynced, 10))
 
 				s.facts.Remove(strconv.FormatUint(factSynced, 10))
 				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
 				if err != nil {
 					return
 				}
+				factSynced += 1
 			}
 		}
 	}()
