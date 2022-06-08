@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -133,7 +134,24 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
-	return "Storage", nil
+	if hash := blockHash.Hash; hash != nil {
+		block := services.BlockService.GetBlockByHash(*blockHash.Hash)
+		if block == nil {
+			// notest
+			return "", fmt.Errorf("block not found")
+		}
+		storage := services.StateService.GetStorage(string(contractAddress), block.BlockNumber)
+		if storage == nil {
+			// notest
+			return "", fmt.Errorf("storage not found")
+		}
+		return Felt(storage.Storage[string(key)]), nil
+	}
+	if tag := blockHash.Tag; tag != nil {
+		// TODO: Get by tag
+		return "", fmt.Errorf("unimplmented search by block tag")
+	}
+	return "", fmt.Errorf("invalid block hash or tag")
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
@@ -172,9 +190,27 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 
 // StarknetGetCode Get the code of a specific contract
 func (HandlerRPC) StarknetGetCode(
-	c context.Context, contractAddress Address,
+	c context.Context, contractAddress types.Address,
 ) (CodeResult, error) {
-	return CodeResult{}, nil
+	abi := services.AbiService.GetAbi(contractAddress.Hex())
+	if abi == nil {
+		// notest
+		return CodeResult{}, fmt.Errorf("abi not found")
+	}
+	code := services.StateService.GetCode(contractAddress.Bytes())
+	if code == nil {
+		// notest
+		return CodeResult{}, fmt.Errorf("code not found")
+	}
+	marshalledAbi, err := json.Marshal(abi)
+	if err != nil {
+		return CodeResult{}, err
+	}
+	bytecode := make([]Felt, len(code.Code))
+	for i, b := range code.Code {
+		bytecode[i] = Felt(types.BytesToFelt(b).Hex())
+	}
+	return CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
