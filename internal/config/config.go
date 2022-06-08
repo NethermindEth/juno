@@ -95,3 +95,10 @@ func New() {
 	err = os.WriteFile(f, data, 0644)
 	errpkg.CheckFatal(err, "Failed to write config file.")
 }
+
+// Exists checks if the default configuration file already exists
+func Exists() bool {
+	f := filepath.Join(Dir, "juno.yaml")
+	_, err := os.Stat(f)
+	return err == nil
+}
