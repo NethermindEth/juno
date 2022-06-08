@@ -41,7 +41,6 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "juno [options]",
 		Short: "Starknet client implementation in Go.",
-		Long:  longMsg,
 		Run: func(_ *cobra.Command, _ []string) {
 			processHandler = process.NewHandler()
 
@@ -113,6 +112,7 @@ func cleanup() {
 
 // init defines flags and handles configuration.
 func init() {
+	fmt.Println(longMsg)
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
 

@@ -268,6 +268,9 @@ func (s *Synchronizer) l1Sync() error {
 				// Update state
 				s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
 
+				// update services
+				go s.updateServices(*stateDiff, "", strconv.FormatUint(fact.SequenceNumber, 10))
+
 				s.facts.Remove(strconv.FormatUint(factSynced, 10))
 				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
 				if err != nil {
@@ -327,7 +330,7 @@ func (s *Synchronizer) l1Sync() error {
 				log.Default.With("Error", err, "Initial block", l.Block, "End block", l.Block+1).
 					Info("Couldn't get logs")
 			}
-			fullFact, err := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved)
+			fullFact, err := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved, l.TransactionHash)
 			if err != nil {
 				continue // continue syncing
 			}
@@ -378,12 +381,7 @@ func (s *Synchronizer) updateAndCommitState(
 // getFactInfo gets the state root and sequence number associated with
 // a given StateTransitionFact.
 // notest
-func getFactInfo(
-	starknetLogs []types.Log,
-	contract ethAbi.ABI,
-	fact string,
-	latestFactSaved uint64,
-) (*starknetTypes.Fact, error) {
+func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, latestFactSaved uint64, transactionHash common.Hash) (*starknetTypes.Fact, error) {
 	var sequenceNumber uint64
 	for _, vLog := range starknetLogs {
 		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
@@ -399,7 +397,7 @@ func getFactInfo(
 			SequenceNumber: event["blockNumber"].(*big.Int).Uint64(),
 			Value:          fact,
 		}
-		if factVal.SequenceNumber == latestFactSaved {
+		if transactionHash.Hex() == vLog.TxHash.Hex() {
 			return factVal, nil
 		}
 		sequenceNumber = factVal.SequenceNumber
@@ -460,7 +458,8 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	s.updateServices(upd, update.BlockHash, strconv.FormatUint(blockIterator, 10))
+	// Update services
+	go s.updateServices(upd, update.BlockHash, strconv.FormatUint(blockIterator, 10))
 
 	return blockIterator + 1, update.BlockHash
 }
