@@ -345,10 +345,28 @@ func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 func (c Client) GetTransactionReceipt(txHash, txID string) (*TransactionReceipt, error) {
 	req, err := c.newRequest("GET", "/get_transaction_receipt", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_receipt.")
 		return nil, err
 	}
 	var res TransactionReceipt
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return &res, err
+}
+
+// GetTransactionTrace creates a new request to get a
+// TransactionTrace (internal call info).
+func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
+	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
+	log.Default.Debug(string(req.URL.String()))
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_trace.")
+		return nil, err
+	}
+	var res TransactionTrace
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
@@ -362,7 +380,7 @@ func (c Client) GetBlockHashById(blockID string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_hash_by_id", map[string]string{"blockId": blockID}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_hash_by_id.")
 		return nil, err
 	}
 	var res string
@@ -379,7 +397,7 @@ func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_id_by_hash", map[string]string{"blockHash": blockHash}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_id_by_hash.")
 		return nil, err
 	}
 	var res string
@@ -398,7 +416,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 		"GET", "/get_transaction_hash_by_id",
 		map[string]string{"transactionId": txID}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_hash_by_id.")
 		return nil, err
 	}
 	var res string
@@ -417,14 +435,32 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 		"GET", "/get_transaction_id_by_hash",
 		map[string]string{"transactionHash": txHash}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
 		return nil, err
 	}
 	var res string
 	_, err = c.do(req, &res)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).
-			Error("Error connecting to the gateway.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return &res, err
+}
+
+func (c Client) EstimateFee(contractAddress, contractABI, functionToCall, functionInputs string) (*string, error) {
+	// FIXME: Not working correctly at the moment.
+
+	req, err := c.newRequest(
+		"POST", "/estimate_fee",
+		map[string]string{"contract_address": contractAddress}, nil)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
+		return nil, err
+	}
+	var res string
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
 	return &res, err

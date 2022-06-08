@@ -23,9 +23,9 @@ type rpcConfig struct {
 // FIXME: Using this https://medium.com/wesionary-team/environment-variable-configuration-in-your-golang-project-using-viper-4e8289ef664d
 // In this Config struct we can communicate with viper
 type Config struct {
-	RPC     rpcConfig `yaml:"rpc" mapstructure:"rpc"`
-	DbPath  string    `yaml:"db_path" mapstructure:"db_path"`
-	Network string    `yaml:"starknet_network" mapstructure:"starknet.network"`
+	RPC     rpcConfig `mapstructure:"rpc"`
+	DbPath  string    `mapstructure:"db_path"`
+	Network string    `mapstructure:"starknet.network"`
 }
 
 var (
@@ -47,7 +47,10 @@ var (
 // Runtime is the runtime configuration of the application.
 var Runtime *Config
 
-const goerli = "http://alpha4.starknet.io"
+const (
+	goerli  = "http://alpha4.starknet.io"
+	mainnet = "https://alpha-mainnet.starknet.io"
+)
 
 func init() {
 	// Set user config directory.

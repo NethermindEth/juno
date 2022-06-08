@@ -63,14 +63,28 @@ type Transaction interface {
 // InvokeFunction represents a transaction in the StarkNet network that
 // is an invocation of a Cairo contract function.
 type InvokeFunction struct {
-	ContractAddress int `json:"contract_address"`
-	// A field element that encodes the signature of the called function.
-	EntryPointSelector int   `json:"entry_point_selector"`
-	Calldata           []int `json:"calldata"`
+	CallerAddress      string   `json:"caller_address,omitempty"`
+	ContractAddress    string   `json:"contract_address,omitempty"`
+	EntryPointSelector string   `json:"entry_point_selector,omitempty"`
+	Calldata           []string `json:"calldata"`
+	CallType           string   `json:"call_type"`
+	ClassHash          string   `json:"class_hash"`
+	Selector           string   `json:"selector,omitempty"`
+	EntryPointType     string   `json:"entry_point_type,omitempty"`
+	Result             []string `json:"result"`
 	// Additional information given by the caller that represents the
 	// signature of the transaction. The exact way this field is handled
 	// is defined by the called contract's function, like calldata.
-	Signature []int `json:"signature"`
+	ExecutionResources `json:"execution_resources"`
+	// The transaction is not valid if its version is lower than the current version,
+	// defined by the SN OS.
+	Version        int              `json:"version,omitempty"`
+	Signature      []int            `json:"signature"`
+	InternallCalls []InvokeFunction `json:"internall_calls"`
+	Events         []Event          `json:"events"`
+	Messages       []string         `json:"messages"` // TODO: Check what msg go in trace
+	// The maximal fee to be paid in Wei for executing invoked function.
+	MaxFee string `json:"max_fee,omitempty"`
 }
 
 // TransactionType returns the TxnType related to InvokeFunction
@@ -87,30 +101,30 @@ func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
 
 // TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
-	Calldata            []string `json:"constructor_calldata"`
-	ContractAddress     string   `json:"contract_address"`
-	ContractAddressSalt string   `json:"contract_address_salt"`
-	EntryPointSelector  string   `json:"entry_point_selector"`
-	EntryPointType      string   `json:"entry_point_type"`
-	Signature           []string `json:"signature"`
-	TransactionHash     string   `json:"transaction_hash"`
-	Type                string   `json:"type"`
+	ContractAddress    string   `json:"contract_address"`
+	EntryPointSelector string   `json:"entry_point_selector"`
+	EntryPointType     string   `json:"entry_point_type"`
+	Calldata           []string `json:"calldata"`
+	Signature          []string `json:"signature"`
+	TransactionHash    string   `json:"transaction_hash"`
+	MaxFee             string   `json:"max_fee"`
+	Type               string   `json:"type"`
 }
 
 // L1ToL2Message Represents a StarkNet L1-to-L2 message.
 type L1ToL2Message struct {
-	FromAddress string   `json:"from_address"`
-	ToAddress   string   `json:"to_address"`
-	Selector    string   `json:"selector"`
-	Payload     []string `json:"payload"`
-	Nonce       string   `json:"nonce"`
+	FromAddress string   `json:"from_address,omitempty"`
+	ToAddress   string   `json:"to_address,omitempty"`
+	Selector    string   `json:"selector,omitempty"`
+	Payload     []string `json:"payload,omitempty"`
+	Nonce       string   `json:"nonce,omitempty"`
 }
 
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
-	FromAddress string   `json:"from_address"`
-	ToAddress   string   `json:"to_address"`
-	Payload     []string `json:"payload"`
+	FromAddress string   `json:"from_address,omitempty"`
+	ToAddress   string   `json:"to_address,omitemtpy"`
+	Payload     []string `json:"payload,omitemtpy"`
 }
 
 // Event Represents a StarkNet event; contains all the fields that will
@@ -132,19 +146,18 @@ type ExecutionResources struct {
 
 // TransactionExecution Represents a receipt of an executed transaction.
 type TransactionExecution struct {
-	// The index of the transaction within the block.
-	TransactionIndex int64 `json:"transaction_index"`
 	// A unique identifier of the transaction.
 	TransactionHash string `json:"transaction_hash"`
-	// L1-to-L2 messages.
-	L1ToL2ConsumedMessage L1ToL2Message `json:"l1_to_l2_consumed_message"`
 	// L2-to-L1 messages.
-	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages"`
+	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages,omitempty"`
+	// L1-to-L2 messages.
+	L1ToL2Message `json:"l1_to_l2_consumed_message,omitempty"`
 	// Events emitted during the execution of the transaction.
 	Events []Event `json:"events"`
 	// The resources needed by the transaction.
-	ExecutionResources ExecutionResources `json:"execution_resources"`
-	ActualFee          string             `json:"actual_fee"`
+	ExecutionResources `json:"execution_resources"`
+	// Fee paid for executing the transaction.
+	ActualFee string `json:"actual_fee"`
 }
 
 // StarknetBlock Represents a response StarkNet block.
@@ -172,9 +185,9 @@ type CodeInfo struct {
 
 // TransactionFailureReason store reason of failure in transactions.
 type TransactionFailureReason struct {
-	TxID     int64  `json:"tx_id"`
-	Code     string `json:"code"`
-	ErrorMsg string `json:"error_message"`
+	TxID     int64  `json:"tx_id,omitempty"`
+	Code     string `json:"code,omitempty"`
+	ErrorMsg string `json:"error_message,omitempty"`
 }
 
 //type TxnStatus string
@@ -182,7 +195,7 @@ type TransactionFailureReason struct {
 // TransactionInfo store all the transaction Information
 type TransactionInfo struct {
 	// // Block information that Transaction occured in
-	TransactionInBlockInformation TransactionInBlockInfo
+	TransactionInBlockInfo // fix: Was not fetching values correctly prior
 	// Transaction Specific Information
 	Transaction TxnSpecificInfo `json:"transaction"`
 }
@@ -190,13 +203,9 @@ type TransactionInfo struct {
 // TransactionInBlockInfo represents the information regarding a
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
-	// The status of a transaction, see TransactionStatus.
-	Status string `json:"status"`
 	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	// The unique identifier of the block on the active chain containing
-	// the transaction.
-	BlockHash string `json:"block_hash"`
+	TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
+	TransactionStatus
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
 	BlockNumber int64 `json:"block_number"`
@@ -206,7 +215,7 @@ type TransactionInBlockInfo struct {
 }
 
 type TransactionStatus struct {
-	Status    string `json:"tx_status"`
+	Status    string `json:"status"`
 	BlockHash string `json:"block_hash"`
 }
 
@@ -214,8 +223,12 @@ type TransactionStatus struct {
 // i.e., the information regarding its execution and the block it
 // appears in.
 type TransactionReceipt struct {
-	TransactionExecution
 	TransactionInBlockInfo
+	TransactionExecution
+}
+
+type TransactionTrace struct {
+	InvokeFunction `json:"function_invocation"`
 }
 
 // KV represents a key-value pair.
