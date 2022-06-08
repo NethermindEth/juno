@@ -1,8 +1,10 @@
 package types
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"strings"
 
@@ -13,6 +15,10 @@ const (
 	// FeltLength is the expected length of the felt
 	FeltLength = 32
 )
+
+type IsFelt interface {
+	Felt() Felt
+}
 
 type Felt [FeltLength]byte
 
@@ -41,7 +47,11 @@ func (f Felt) Big() *big.Int {
 func (f Felt) Hex() string {
 	enc := make([]byte, len(f)*2)
 	hex.Encode(enc, f[:])
-	return "0x" + strings.TrimLeft(string(enc), "0")
+	s := strings.TrimLeft(string(enc), "0")
+	if s == "" {
+		s = "0"
+	}
+	return "0x" + s
 }
 
 func (f Felt) String() string {
@@ -57,4 +67,22 @@ func (f *Felt) SetBytes(b []byte) {
 
 func (f Felt) MarshalJSON() ([]byte, error) {
 	return json.Marshal(f.Hex())
+}
+
+func (f *Felt) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	switch t := token.(type) {
+	case string:
+		if !common.IsHex(t) {
+			return errors.New("invalid hexadecimal string")
+		}
+		*f = HexToFelt(t)
+	default:
+		return errors.New("unexpected token type")
+	}
+	return nil
 }

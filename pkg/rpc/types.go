@@ -1,14 +1,14 @@
 package rpc
 
 import (
+	"bytes"
 	"encoding/json"
-	"strconv"
-	"strings"
-
-	"github.com/NethermindEth/juno/pkg/types"
+	"errors"
 
 	"github.com/NethermindEth/juno/internal/services"
+
 	"github.com/NethermindEth/juno/pkg/common"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 type RequestedScope string
@@ -51,7 +51,7 @@ var (
 // FunctionCall represents the details of the function call
 type FunctionCall struct {
 	// ContractAddress Is a field element of 251 bits. Represented as up to 64 hex digits
-	ContractAddress types.Felt `json:"contract_address"`
+	ContractAddress types.Address `json:"contract_address"`
 	// EntryPointSelector Is a field element of 251 bits. Represented as up to 64 hex digits
 	EntryPointSelector types.Felt `json:"entry_point_selector"`
 	// CallData are the parameters passed to the function
@@ -65,10 +65,11 @@ type BlockHash string
 type BlockTag string
 
 const (
-	BlockTag_Latest BlockTag = "latest"
+	BlocktagLatest  BlockTag = "latest"
+	BlocktagPending BlockTag = "pending"
 )
 
-var blockTags = []BlockTag{BlockTag_Latest}
+var blockTags = []BlockTag{BlocktagLatest, BlocktagPending}
 
 // Felt represent aN field element. Represented as up to 63 hex digits and leading 4 bits zeroed.
 type Felt string
@@ -82,42 +83,71 @@ type ChainID string
 // ProtocolVersion StarkNet protocol version, given in hex representation.
 type ProtocolVersion string
 
-type BlockNumberOrTag string
-
-func (x BlockNumberOrTag) GetBlockNumber() (uint64, bool) {
-	bn, err := strconv.Atoi(string(x))
-	if err != nil {
-		return 0, false
-	}
-	return uint64(bn), true
+type BlockNumberOrTag struct {
+	Number *uint64
+	Tag    *BlockTag
 }
 
-func (x BlockNumberOrTag) GetTag() (BlockTag, bool) {
-	for _, bt := range blockTags {
-		if strings.Compare(string(x), string(bt)) == 0 {
-			return bt, true
-		}
+func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	token, err := decoder.Token()
+	if err != nil {
+		return err
 	}
-	return "", false
+	switch t := token.(type) {
+	case json.Number:
+		blockNumber, err := t.Int64()
+		if err != nil {
+			return err
+		}
+		if blockNumber < 0 {
+			return errors.New("invalid block number")
+		}
+		number := uint64(blockNumber)
+		*x = BlockNumberOrTag{Number: &number}
+	case string:
+		for _, tag := range blockTags {
+			if t == string(tag) {
+				*x = BlockNumberOrTag{Tag: &tag}
+			}
+		}
+	default:
+		return errors.New("unexpected token type")
+	}
+	return nil
 }
 
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
-type BlockHashOrTag string
-
-func (x BlockHashOrTag) GetBlockHash() (types.Felt, bool) {
-	if common.IsHex(string(x)) {
-		return types.HexToFelt(string(x)), true
-	}
-	return types.Felt{}, false
+type BlockHashOrTag struct {
+	Hash *types.BlockHash
+	Tag  *BlockTag
 }
 
-func (x BlockHashOrTag) GetTag() (BlockTag, bool) {
-	for _, bt := range blockTags {
-		if strings.Compare(string(x), string(bt)) == 0 {
-			return bt, true
-		}
+func (x *BlockHashOrTag) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	token, err := decoder.Token()
+	if err != nil {
+		return err
 	}
-	return "", false
+	switch t := token.(type) {
+	case string:
+		for _, tag := range blockTags {
+			if t == string(tag) {
+				*x = BlockHashOrTag{}
+				x.Tag = &tag
+				return nil
+			}
+		}
+		if common.IsHex(t) {
+			hash := types.HexToBlockHash(t)
+			*x = BlockHashOrTag{
+				Hash: &hash,
+			}
+		}
+	default:
+		return errors.New("unexpected token type")
+	}
+	return nil
 }
 
 // RequestRPC Represent the calls a function in a contract and returns the return value.  Using this call will not create a transaction; hence, will not change the state
@@ -176,8 +206,25 @@ type Txn struct {
 	// The function the transaction invokes
 	FunctionCall
 	// The hash identifying the transaction
-	TxnHash types.Felt `json:"txn_hash"`
-	MaxFee  types.Felt `json:"max_fee"`
+	TxnHash types.TransactionHash `json:"txn_hash"`
+	MaxFee  types.Felt            `json:"max_fee"`
+}
+
+func NewTxn(transaction types.IsTransaction) *Txn {
+	switch tx := transaction.(type) {
+	case *types.TransactionInvoke:
+		return &Txn{
+			FunctionCall: FunctionCall{
+				ContractAddress:    tx.ContractAddress,
+				EntryPointSelector: tx.EntryPointSelector,
+				CallData:           tx.CallData,
+			},
+			TxnHash: tx.GetHash(),
+			MaxFee:  tx.MaxFee,
+		}
+	default:
+		return &Txn{}
+	}
 }
 
 type TxnAndReceipt struct {
@@ -187,16 +234,16 @@ type TxnAndReceipt struct {
 
 func (x *TxnAndReceipt) MarshalJSON() ([]byte, error) {
 	type TxnAndReceipt struct {
-		TxnHash            types.Felt   `json:"txn_hash"`
-		MaxFee             types.Felt   `json:"max_fee"`
-		ContractAddress    types.Felt   `json:"contract_address"`
-		EntryPointSelector types.Felt   `json:"entry_point_selector"`
-		CallData           []types.Felt `json:"call_data"`
-		Status             string       `json:"status"`
-		StatusData         string       `json:"status_data"`
-		MessagesSent       []MsgToL1    `json:"message_sent"`
-		L1OriginMessage    MsgToL2      `json:"l_1_origin_message"`
-		Events             []Event      `json:"events"`
+		TxnHash            types.TransactionHash   `json:"txn_hash"`
+		MaxFee             types.Felt              `json:"max_fee"`
+		ContractAddress    types.Address           `json:"contract_address"`
+		EntryPointSelector types.Felt              `json:"entry_point_selector"`
+		CallData           []types.Felt            `json:"call_data"`
+		Status             types.TransactionStatus `json:"status,omitempty"`
+		StatusData         string                  `json:"status_data,omitempty"`
+		MessagesSent       []*MsgToL1              `json:"message_sent,omitempty"`
+		L1OriginMessage    *MsgToL2                `json:"l_1_origin_message,omitempty"`
+		Events             []*Event                `json:"events,omitempty"`
 	}
 	var enc TxnAndReceipt
 	enc.TxnHash = x.Txn.TxnHash
@@ -219,16 +266,30 @@ type EthAddress string
 
 type MsgToL1 struct {
 	// The target L1 address the message is sent to
-	ToAddress types.Felt `json:"to_address"`
+	ToAddress types.EthAddress `json:"to_address"`
 	// The Payload of the message
 	Payload []types.Felt `json:"payload"`
 }
 
+func NewMsgToL1(msg *types.MessageL2ToL1) *MsgToL1 {
+	return &MsgToL1{
+		ToAddress: msg.ToAddress,
+		Payload:   msg.Payload,
+	}
+}
+
 type MsgToL2 struct {
 	// The originating L1 contract that sent the message
-	FromAddress EthAddress `json:"from_address"`
+	FromAddress types.EthAddress `json:"from_address"`
 	// The Payload of the message. The call data to the L1 handler
 	Payload []types.Felt `json:"payload"`
+}
+
+func NewMsgToL2(msg *types.MessageL1ToL2) *MsgToL2 {
+	return &MsgToL2{
+		FromAddress: msg.FromAddress,
+		Payload:     msg.Payload,
+	}
 }
 
 // EventFilter represent an event filter/query
@@ -248,7 +309,17 @@ type EventContent struct {
 // Event represent a StarkNet Event
 type Event struct {
 	EventContent
-	FromAddress types.Felt `json:"from_address"`
+	FromAddress types.Address `json:"from_address"`
+}
+
+func NewEvent(event *types.Event) *Event {
+	return &Event{
+		EventContent: EventContent{
+			event.Keys,
+			event.Data,
+		},
+		FromAddress: event.FromAddress,
+	}
 }
 
 // EmittedEvent Represent Event information decorated with metadata on where it was emitted
@@ -260,12 +331,36 @@ type EmittedEvent struct {
 
 // TxnReceipt Receipt of the transaction
 type TxnReceipt struct {
-	TxnHash         types.Felt `json:"txn_hash"`
-	Status          string     `json:"status"`
-	StatusData      string     `json:"status_data"`
-	MessagesSent    []MsgToL1  `json:"messages_sent"`
-	L1OriginMessage MsgToL2    `json:"l1_origin_message"`
-	Events          []Event    `json:"events"`
+	TxnHash         types.TransactionHash   `json:"txn_hash,omitempty"`
+	Status          types.TransactionStatus `json:"status,omitempty"`
+	StatusData      string                  `json:"status_data,omitempty"`
+	MessagesSent    []*MsgToL1              `json:"messages_sent,omitempty"`
+	L1OriginMessage *MsgToL2                `json:"l1_origin_message,omitempty"`
+	Events          []*Event                `json:"events,omitempty"`
+}
+
+func NewTxnReceipt(receipt *types.TransactionReceipt) *TxnReceipt {
+	out := &TxnReceipt{
+		TxnHash:    receipt.TxHash,
+		Status:     receipt.Status,
+		StatusData: receipt.StatusData,
+	}
+	if len(receipt.MessagesSent) != 0 {
+		out.MessagesSent = make([]*MsgToL1, len(receipt.MessagesSent))
+		for i, msg := range receipt.MessagesSent {
+			out.MessagesSent[i] = NewMsgToL1(&msg)
+		}
+	}
+	if receipt.L1OriginMessage != nil {
+		out.L1OriginMessage = NewMsgToL2(receipt.L1OriginMessage)
+	}
+	if len(receipt.Events) != 0 {
+		out.Events = make([]*Event, len(receipt.Events))
+		for i, e := range receipt.Events {
+			out.Events[i] = NewEvent(&e)
+		}
+	}
+	return out
 }
 
 // CodeResult The code and ABI for the requested contract
@@ -303,56 +398,66 @@ type Transactions struct{}
 
 type BlockResponse struct {
 	// A field element of 251 bits. Represented as up to 64 hex digits
-	BlockHash types.Felt `json:"block_hash"`
+	BlockHash types.BlockHash `json:"block_hash"`
 	// The hash of this block's parent
-	ParentHash types.Felt `json:"parent_hash"`
+	ParentHash types.BlockHash `json:"parent_hash"`
 	// The block number (its height)
 	BlockNumber uint64 `json:"block_number"`
 	// The status of the block
-	Status BlockStatus `json:"status"`
+	Status types.BlockStatus `json:"status"`
 	// The identity of the sequencer submitting this block
-	Sequencer types.Felt `json:"sequencer"`
+	Sequencer types.Address `json:"sequencer"`
 	// The new global state root
 	NewRoot types.Felt `json:"new_root"`
 	// The previous global state root
 	OldRoot types.Felt `json:"old_root"`
 	// When the block was accepted on L1. Formatted as...
-	AcceptedTime uint64 `json:"accepted_time"`
+	AcceptedTime int64 `json:"accepted_time"`
 	// Transactions in the Block
 	Transactions interface{} `json:"transactions"`
 }
 
-func (b *BlockResponse) ApplyTxScope(txHashes [][]byte, scope RequestedScope) {
+func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
+	response := &BlockResponse{
+		BlockHash:    block.BlockHash,
+		ParentHash:   block.ParentHash,
+		BlockNumber:  block.BlockNumber,
+		Status:       block.Status,
+		Sequencer:    block.Sequencer,
+		NewRoot:      block.NewRoot,
+		OldRoot:      block.OldRoot,
+		AcceptedTime: block.AcceptedTime,
+	}
 	switch scope {
 	case ScopeTxnHash:
-		transactions := make([]types.Felt, len(txHashes))
-		for i, txHash := range txHashes {
-			transactions[i] = types.BytesToFelt(txHash)
-		}
-		b.Transactions = transactions
+		response.Transactions = block.TxHashes
 	case ScopeFullTxns:
-		transactions := make([]Txn, len(txHashes))
-		for i, txHash := range txHashes {
-			dbTx := services.TransactionService.GetTransaction(txHash)
-			if dbTx != nil {
-				transactions[i].fromDatabase(dbTx)
-			}
+		txns := make([]*Txn, len(block.TxHashes))
+		for i, txHash := range block.TxHashes {
+			transaction := services.TransactionService.GetTransaction(txHash)
+			txn := NewTxn(transaction)
+			txns[i] = txn
 		}
-		b.Transactions = transactions
+		response.Transactions = txns
 	case ScopeFullTxnAndReceipts:
-		transactions := make([]TxnAndReceipt, len(txHashes))
-		for i, txHash := range txHashes {
-			dbTx := services.TransactionService.GetTransaction(txHash)
-			if dbTx != nil {
-				transactions[i].Txn.fromDatabase(dbTx)
+		txns := make([]*TxnAndReceipt, len(block.TxHashes))
+		for i, txHash := range block.TxHashes {
+			txnAndReceipt := &TxnAndReceipt{}
+			transaction := services.TransactionService.GetTransaction(txHash)
+			if transaction != nil {
+				txn := NewTxn(transaction)
+				txnAndReceipt.Txn = *txn
 			}
-			dbReceipt := services.TransactionService.GetReceipt(txHash)
-			if dbReceipt != nil {
-				transactions[i].TxnReceipt.fromDatabase(dbReceipt)
+			receipt := services.TransactionService.GetReceipt(txHash)
+			if receipt != nil {
+				r := NewTxnReceipt(receipt)
+				txnAndReceipt.TxnReceipt = *r
 			}
+			txns[i] = txnAndReceipt
 		}
-		b.Transactions = transactions
+		response.Transactions = txns
 	}
+	return response
 }
 
 type StarkNetHash struct{}
