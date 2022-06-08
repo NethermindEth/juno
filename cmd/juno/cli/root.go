@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -56,9 +55,6 @@ var (
 				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
 				handler.Add("RPC", s.ListenAndServe, s.Close)
 			}
-
-			handler.Add("TransactionService", services.TransactionService.Run, services.TransactionService.Close)
-			handler.Add("BlockService", services.BlockService.Run, services.BlockService.Close)
 
 			// endless running process
 			log.Default.Info("Starting all processes...")
