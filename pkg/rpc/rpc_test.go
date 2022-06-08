@@ -6,11 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
 )
 
 func getServerHandler() *HandlerJsonRpc {
@@ -43,6 +48,57 @@ func testServer(t *testing.T, tests []rpcTest) {
 		}
 		t.Log("Executed test ", i)
 	}
+}
+
+func TestTrieAdapter(t *testing.T) {
+	height := 251
+	// Contract storage trie with a single slot modified.
+	slot := big.NewInt(132)
+	val := big.NewInt(3)
+	storage := trie.New(store.New(), height)
+	storage.Put(slot, val)
+
+	// Global state trie with a single contact.
+	addr, _ := new(big.Int).SetString("57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374", 16)
+	contractHash, _ := new(big.Int).SetString("50b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b", 16)
+
+	info := pedersen.Digest(pedersen.Digest(pedersen.Digest(contractHash, storage.Commitment()), new(big.Int)), new(big.Int))
+	state := trie.New(store.New(), height)
+	state.Put(addr, info)
+
+	t.Run("", func(t *testing.T) {
+		// Get the root node of the state trie.
+		root := state.Root()
+		fmt.Printf("key = patricia_node:%.64x\n", root.Hash)
+		fmt.Printf("val = %.64x%.64x%.2x\n", root.Bottom, root.Path, root.Length)
+
+		// XXX: Unclear whether the node's bottom value is always going to
+		// give the desired result or whether it has be retrieved using
+		// trie.Get(Node.Path).
+
+		// The root node's bottom value gives the contract state to query
+		// (see also above).
+		fmt.Printf("key = contract_state:%.64x\n", root.Bottom)
+		format := `val =
+		{
+			"storage_commitment_tree: {
+				"root": %.64x,
+				"height": %d,
+				"contract_hash": %.64x
+			}
+		}
+		`
+		fmt.Printf(format+"\n", root.Hash, height, contractHash)
+
+		// Next, the root node of the contract storage trie.
+		root = storage.Root()
+		fmt.Printf("key = patricia_node:%.64x\n", root.Hash)
+		fmt.Printf("val = %.64x%.64x%.2x\n", root.Bottom, root.Path, root.Length)
+
+		// Finally, the storage leaf (see comment above).
+		fmt.Printf("key = starknet_storage_leaf:%.64x\n", root.Bottom)
+		fmt.Printf("val = %.64x\n", root.Bottom)
+	})
 }
 
 func TestRPCServer(t *testing.T) {
