@@ -24,21 +24,34 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: ## Install some project dependencies / Cairo - lang dependencies
+
+install-deps: | install-courtey install-gofumpt ## Install some project dependencies
+
+install-courtey:
+	# install courtney fork
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
 	
+
+install-gofumpt:
+	# install gofumpt
+	go install mvdan.cc/gofumpt@latest
 
 codecov-test:
 	mkdir -p coverage
 	@cd internal/db && $(MAKE) add-notest
 	courtney/courtney -v -o coverage/coverage.out ./...
+	@cd internal/db && $(MAKE) rm-notest
 
-gomod_tidy: ## add missing and remove unused modules
+tidy: ## add missing and remove unused modules
 	 go mod tidy
 
-gofmt: ## run go formatter
-	go fmt -x ./...
+format: ## run go formatter
+	gofumpt -l -w .
+
+format-check: ## check formatting
+	# assert `gofumpt -l` produces no output
+	test ! $$(gofumpt -l . | tee /dev/stderr)
 
 clean: ## Clean project builds
 	@rm -rf ./build/juno

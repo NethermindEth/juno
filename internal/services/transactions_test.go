@@ -3,10 +3,11 @@ package services
 import (
 	"bytes"
 	"context"
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"google.golang.org/protobuf/proto"
-	"testing"
 )
 
 var txs = []*transaction.Transaction{
