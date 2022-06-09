@@ -24,6 +24,7 @@ func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 
 	if ok_blockNumber || ok_blockHash {
 		res, err = rh.RestFeeder.GetBlock(_blockHash, _blockNumber)
+		//test
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -53,6 +54,7 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 	if ok_contractAddress && (ok_blockHash || ok_blockNumber) {
 
 		res, err := rh.RestFeeder.GetCode(_contractAddress, _blockHash, _blockNumber)
+		//test
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -67,6 +69,7 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	query_args := r.URL.Query()
 	res, err := rh.RestFeeder.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
+	//test
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -84,11 +87,13 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 
 	if ok_txHash || ok_txId {
 		res, err := rh.RestFeeder.GetTransactionStatus(_txHash, _txId)
+		//test
 		if err != nil {
 			log.Fatalln(err)
 		}
 		json.NewEncoder(w).Encode(res)
 		return
 	}
+	//test
 	fmt.Fprintf(w, "Transaction Status failed: invalid input")
 }

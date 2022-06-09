@@ -69,6 +69,18 @@ func TestRestClient(t *testing.T) {
 	cancel()
 }
 
+// func TestHandler(t *testing.T) {
+// 	r := rest.NewServer(":8100", "http://localhost/")
+// 	go func() {
+// 		_ = r.ListenAndServe()
+// 	}()
+// 	getBlock = curl
+
+// 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
+// 	r.Close(ctx)
+// 	cancel()
+// }
+
 // TestGetBlockHandler
 func TestGetBlockHandler(t *testing.T) {
 
@@ -236,4 +248,59 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
 	assert.DeepEqual(t, &b, &cOrig)
+}
+
+//TestGetBlockWithoutBlockIdentifier
+
+func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block"
+
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	//Get Block from rest API
+	restHandler.GetBlock(rr, req)
+
+	assert.Equal(t, rr.Body.String(), "Get Block failed: blockNumber or blockHash not present")
+}
+
+func TestGetCodeWithoutContractAddressAndBlockIdentifier(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_code"
+
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "1")
+	rq.Add("blockHash", "hash")
+	req.URL.RawQuery = rq.Encode()
+
+	rr := httptest.NewRecorder()
+
+	//Get Block from rest API
+	restHandler.GetCode(rr, req)
+
+	assert.Equal(t, rr.Body.String(), "GetCode Request Failed: invalid inputs")
+}
+
+func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	//Get Block from rest API
+	restHandler.GetTransactionStatus(rr, req)
+
+	assert.Equal(t, rr.Body.String(), "Transaction Status failed: invalid input")
 }
