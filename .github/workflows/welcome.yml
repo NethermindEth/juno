@@ -1,0 +1,25 @@
+name: Welcome
+on:
+  pull_request:
+    types: [ opened, closed ]
+  issues:
+    types: [ opened ]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wow-actions/welcome@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FIRST_ISSUE_REACTIONS: 'rocket, heart'
+          FIRST_ISSUE: |
+            👋 @{{ author }}
+             Thanks for opening your first issue here! Be sure to follow the issue template!
+
+          FIRST_PR: |
+            👋 @{{ author }}
+            Thanks for opening this pull request, hopefully the first of many! Please check out our contributing guidelines.
+
+          FIRST_PR_MERGED: |
+            🎉 @{{ author }}
+            Congrats on merging your first pull request! We here at Juno are proud of you!
