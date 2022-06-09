@@ -12,7 +12,7 @@ type Server struct {
 	server http.Server
 }
 
-// ListenAndServe listens on TCP port and handles requests on
+// ListenAndServe listens to TCP port and handles requests on
 // incoming connections.
 func (s *Server) ListenAndServe() error {
 	log.Default.Info("Listening for connections .... ")
