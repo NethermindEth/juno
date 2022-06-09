@@ -409,7 +409,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	s.ethereumClient.Close()
-	//(*s.database).Close()
+	s.database.Close()
 }
 
 // apiSync syncs against the feeder gateway.
@@ -462,7 +462,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	//Update services
+	// Update services
 	go s.updateServices(upd, update.BlockHash, strconv.FormatUint(blockIterator, 10))
 
 	return blockIterator + 1, update.BlockHash
