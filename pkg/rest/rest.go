@@ -14,7 +14,6 @@ func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 
 	if ok_blockNumber || ok_blockHash {
 		res, err := rh.RestFeeder.GetBlock(strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
-		// test
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
 			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
@@ -35,7 +34,6 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 	if ok_contractAddress && (ok_blockHash || ok_blockNumber) {
 
 		res, err := rh.RestFeeder.GetCode(strings.Join(contractAddress, ""), strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
-		// test
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
 			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())

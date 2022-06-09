@@ -12,10 +12,9 @@ type Server struct {
 	server http.Server
 }
 
-// ListenAndServe listens on the TCP network and handles requests on
+// ListenAndServe listens on TCP port and handles requests on
 // incoming connections.
 func (s *Server) ListenAndServe() error {
-	// notest
 	log.Default.Info("Listening for connections .... ")
 
 	err := s.server.ListenAndServe()
@@ -26,9 +25,8 @@ func (s *Server) ListenAndServe() error {
 	return nil
 }
 
-// Close gracefully shuts down the server.
+// Close shuts down the server.
 func (s *Server) Close(ctx context.Context) {
-	// notest
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
