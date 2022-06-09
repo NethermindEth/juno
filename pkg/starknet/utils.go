@@ -315,13 +315,13 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	if err != nil {
 		return nil
 	}
-	
+
 	for i, str := range abi.Structs {
 		abiResponse.Structs[i].Fields = make([]*dbAbi.Struct_Field, len(str.Members))
 		for j, field := range str.Members {
 			abiResponse.Structs[i].Fields[j] = &dbAbi.Struct_Field{
-				Name: field.Name,
-				Type: field.Type,
+				Name:   field.Name,
+				Type:   field.Type,
 				Offset: uint32(field.Offset),
 			}
 		}

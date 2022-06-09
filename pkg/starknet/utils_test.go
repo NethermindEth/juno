@@ -76,11 +76,11 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 	diff := feeder.StateDiff{
 		DeployedContracts: []feeder.DeployedContract{
 			{
-				Address: "address1",
+				Address:      "address1",
 				ContractHash: "contract_hash1",
 			},
 			{
-				Address: "address2",
+				Address:      "address2",
 				ContractHash: "contract_hash2",
 			},
 		},
@@ -368,7 +368,7 @@ func TestToDbAbi(t *testing.T) {
 		gotPretty, err2 := json.MarshalIndent(got, "", "    ")
 		if err1 != nil || err2 != nil {
 			t.Errorf("incorrect abi: want:\n%v,\n\n got:\n%v", want, got)
-		} else{
+		} else {
 			t.Errorf("incorrect abi: want:\n%s,\n\n got:\n%s", string(wantPretty), string(gotPretty))
 		}
 	}
