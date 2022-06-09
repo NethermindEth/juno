@@ -5,8 +5,8 @@ Thank you for your interest in adding to our docs!
 
 ## Repo structure
 The docs repository is structured intuitively with the staging branch as the default branch. Once you click on docs [(docs/docs)](https://github.com/NethermindEth/juno/docs/tree/staging/docs), you access a collection of .mds documents organized in folders the same way they are organized in the sidebar of the docs website.
-- All the pages on Docusaurus are created from these mds
-- the docusaurus sidebar is created from the [sidebar.js](https://github.com/NethermindEth/juno/docs/blob/staging/docs/sidebars.js) file
+- All the pages on Docusaurus are created from these mdx
+- the docusaurus sidebar is created from the [sidebar.js](https://github.com/NethermindEth/juno/blob/main/docs/sidebars.js) file
 
 
 ## Cheatsheet
@@ -20,17 +20,13 @@ We've created a simple cheatsheet file with examples of every heading, code bloc
 **Step 1:**  Create a branch off of the staging branch
 
 **Step 2:** Add your desired changes to your branch
-- you can use yarn to visualize your edits of the docs locally, yarn instructions are on the [readme of the repository](https://github.com/NethermindEth/juno/docs#readme)
+- you can use yarn to visualize your edits of the docs locally using `yarn start`
 
-**Step 3:** Make a PR to the staging branch
+**Step 3:** Make a PR to the main branch
 - once your PR is submitted, changes from your PR can be visualized thanks to Render
-    - the render bot will comment a link on your PR others can use to look at the version of the staging-docs website with your PR implemented [eg.](https://github.com/NethermindEth/juno/docs/pull/23)
 
 **Step 4:** Changes to staging branch (PRs) are reviewed and merged by *docs* admins
-- after review, PRs are merged to the staging branch and your changes are now deployed live to the [staging docs website](https://docs-staging.juno.io/)
-
-**Step 5:** Once enough changes have been collected/time is right, staging branch is merged into main branch by *docs* admins
-- changes are now deployed live to the [docs website](https://docs.juno.io/)
+- after review, PRs are merged to the main branch and your changes are now deployed live to the [docs website](https://gojunoxyz/)
 
 ## Docusaurus-specific considerations
 There's a couple things to be aware of when adding your own `*.md` files to our codebase:

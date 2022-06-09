@@ -33,7 +33,7 @@ var (
 	// rootCmd is the root command of the application.
 	rootCmd = &cobra.Command{
 		Use:   "juno [options]",
-		Short: "Starknet client implementation in Go.",
+		Short: "StarkNet client implementation in Go.",
 		Long:  longMsg,
 		Run: func(cmd *cobra.Command, args []string) {
 			handler := process.NewHandler()
