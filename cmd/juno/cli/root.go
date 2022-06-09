@@ -45,14 +45,14 @@ var (
 			processHandler = process.NewHandler()
 
 			// Handle signal interrupts and exits.
-			sig := make(chan os.Signal)
+			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-			go func() {
+			go func(sig chan os.Signal) {
 				<-sig
 				log.Default.Info("Trying to close...")
 				cleanup()
 				os.Exit(0)
-			}()
+			}(sig)
 
 			// Breaking initial cases
 			if config.Runtime.Ethereum.Node == "" || config.Runtime.Starknet.FeederGateway == "" {
