@@ -2,9 +2,11 @@ package starknet
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	commonLocal "github.com/NethermindEth/juno/pkg/common"
@@ -74,12 +76,12 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 	diff := feeder.StateDiff{
 		DeployedContracts: []feeder.DeployedContract{
 			{
-				"address1",
-				"contract_hash1",
+				Address:      "address1",
+				ContractHash: "contract_hash1",
 			},
 			{
-				"address2",
-				"contract_hash2",
+				Address:      "address2",
+				ContractHash: "contract_hash2",
 			},
 		},
 		StorageDiffs: map[string][]feeder.KV{
@@ -361,9 +363,14 @@ func TestToDbAbi(t *testing.T) {
 
 	got := toDbAbi(inputAbi)
 
-	if len(want.Events) != len(got.Events) || len(want.Functions) != len(got.Functions) ||
-		len(want.L1Handlers) != len(got.L1Handlers) {
-		t.Errorf("incorrect abi: want:\n%v, got:\n%v", want, got)
+	if !reflect.DeepEqual(want, got) {
+		wantPretty, err1 := json.MarshalIndent(want, "", "    ")
+		gotPretty, err2 := json.MarshalIndent(got, "", "    ")
+		if err1 != nil || err2 != nil {
+			t.Errorf("incorrect abi: want:\n%v,\n\n got:\n%v", want, got)
+		} else {
+			t.Errorf("incorrect abi: want:\n%s,\n\n got:\n%s", string(wantPretty), string(gotPretty))
+		}
 	}
 }
 

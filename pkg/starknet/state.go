@@ -106,7 +106,10 @@ func (s *Synchronizer) loadEvents(
 				Info("Couldn't get logs")
 			break
 		}
+		log.Default.With("Count", len(starknetLogs)).Info("Logs fetched")
 		for _, vLog := range starknetLogs {
+			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
+				"TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
 			event := map[string]interface{}{}
 
 			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
@@ -138,6 +141,9 @@ func (s *Synchronizer) loadEvents(
 		case err := <-sub.Err():
 			log.Default.With("Error", err).Info("Error getting the latest logs")
 		case vLog := <-hLog:
+			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(),
+				"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).
+				Info("Event Fetched")
 			event := map[string]interface{}{}
 			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
 			if err != nil {
@@ -228,19 +234,20 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}()
 
+	latestBlockSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
+	if err != nil {
+		log.Default.With("Error", err).Panic("Unable to get the Value of the latest fact synced")
+	}
+	latestBlockSaved := latestBlockSynced
+
 	// Handle frequently if there is any fact that comes from L1 to handle
 	go func() {
-		factSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSynced)
-		if err != nil {
-			log.Default.With("Error", err).
-				Info("Unable to get the Value of the latest fact synced")
-		}
-		for {
-			if !s.facts.Exist(strconv.FormatUint(factSynced, 10)) {
-				time.Sleep(time.Second * 5)
+		ticker := time.NewTicker(time.Second * 5)
+		for range ticker.C {
+			if !s.facts.Exist(strconv.FormatUint(latestBlockSynced, 10)) {
 				continue
 			}
-			f, _ := s.facts.Get(strconv.FormatUint(factSynced, 10), &starknetTypes.Fact{})
+			f, _ := s.facts.Get(strconv.FormatUint(latestBlockSynced, 10), &starknetTypes.Fact{})
 			fact := f.(starknetTypes.Fact)
 
 			if s.gpsVerifier.Exist(fact.Value) {
@@ -259,23 +266,20 @@ func (s *Synchronizer) l1Sync() error {
 				stateDiff := parsePages(pages)
 
 				// Update state
-				s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
+				latestBlockSynced = s.updateAndCommitState(stateDiff, fact.StateRoot, fact.SequenceNumber)
 
 				// update services
-				go s.updateServices(*stateDiff, "", strconv.FormatUint(factSynced, 10))
+				go s.updateServices(*stateDiff, "", strconv.FormatUint(fact.SequenceNumber, 10))
 
-				s.facts.Remove(strconv.FormatUint(factSynced, 10))
-				err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSynced, factSynced)
-				if err != nil {
+				isNoErr := s.facts.Remove(strconv.FormatUint(latestBlockSynced-1, 10))
+				if !isNoErr {
 					return
 				}
-				factSynced += 1
 			}
 		}
 	}()
 
-	for {
-		l := <-event
+	for l := range event {
 		// Process GpsStatementVerifier contract
 		factHash, ok := l.Event["factHash"]
 		pagesHashes, ok1 := l.Event["pagesHashes"]
@@ -304,7 +308,6 @@ func (s *Synchronizer) l1Sync() error {
 			contractAbi, _ := loadAbiOfContract(abi.StarknetAbi)
 			starknetAddress := common.HexToAddress(contractAddresses.Starknet)
 
-			factSaved, err := getNumericValueFromDB(s.database, starknetTypes.LatestFactSaved)
 			if err != nil {
 				log.Default.With("Error", err).
 					Info("Unable to get the Value of the latest fact synced")
@@ -324,22 +327,17 @@ func (s *Synchronizer) l1Sync() error {
 				log.Default.With("Error", err, "Initial block", l.Block, "End block", l.Block+1).
 					Info("Couldn't get logs")
 			}
-			fullFact, err := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), factSaved, l.TransactionHash)
+			fullFact, err := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), latestBlockSaved, l.TransactionHash)
 			if err != nil {
-				continue // continue syncing
+				continue
 			}
 
 			// Safe Fact for block x
-			s.facts.Add(strconv.FormatUint(factSaved, 10), fullFact)
-
-			err = updateNumericValueFromDB(s.database, starknetTypes.LatestFactSaved, factSaved)
-			if err != nil {
-				log.Default.With("Error", err).
-					Info("Unable to set the Value of the latest block synced")
-				return err
-			}
+			s.facts.Add(strconv.FormatUint(latestBlockSaved, 10), fullFact)
+			latestBlockSaved++
 		}
 	}
+	return errors.New("events channel closed")
 }
 
 // updateAndCommitState applies `stateDiff` to the local state and
@@ -349,7 +347,7 @@ func (s *Synchronizer) updateAndCommitState(
 	stateDiff *starknetTypes.StateDiff,
 	newRoot string,
 	sequenceNumber uint64,
-) {
+) uint64 {
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
@@ -370,13 +368,13 @@ func (s *Synchronizer) updateAndCommitState(
 	if err != nil {
 		log.Default.With("Error", err).Info("Couldn't save latest block queried")
 	}
+	return sequenceNumber + 1
 }
 
 // getFactInfo gets the state root and sequence number associated with
 // a given StateTransitionFact.
 // notest
-func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, latestFactSaved uint64, transactionHash common.Hash) (*starknetTypes.Fact, error) {
-	var sequenceNumber uint64
+func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, latestFactSaved uint64, txHash common.Hash) (*starknetTypes.Fact, error) {
 	for _, vLog := range starknetLogs {
 		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
 			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex())
@@ -386,19 +384,23 @@ func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, lat
 			log.Default.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
 			continue // TODO Can we recover from this? Should we panic?
 		}
-		factVal := &starknetTypes.Fact{
-			StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
-			SequenceNumber: event["blockNumber"].(*big.Int).Uint64(),
-			Value:          fact,
+		// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
+		if vLog.TxHash.Hex() == txHash.Hex() {
+			sequenceNumber := event["blockNumber"].(*big.Int).Uint64()
+			// If we are caught up to the blocks in the database, this will be true.
+			// If we are catching up, this will be false.
+			if sequenceNumber == latestFactSaved {
+				log.Default.With("Sequence number", sequenceNumber).Info("Found LogStateUpdate")
+				return &starknetTypes.Fact{
+					StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
+					SequenceNumber: sequenceNumber,
+					Value:          fact,
+				}, nil
+			} else {
+				log.Default.Info("Catching up to saved state.")
+				return nil, errors.New("catching up to saved state")
+			}
 		}
-		if transactionHash.Hex() == vLog.TxHash.Hex() {
-			return factVal, nil
-		}
-		sequenceNumber = factVal.SequenceNumber
-	}
-	if sequenceNumber < latestFactSaved {
-		log.Default.Info("Catching up to saved state.")
-		return nil, errors.New("catching up to saved state")
 	}
 	log.Default.Panic("Couldn't find a block number that match in the logs for given fact")
 	return nil, nil
@@ -409,7 +411,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	s.ethereumClient.Close()
-	//(*s.database).Close()
+	s.database.Close()
 }
 
 // apiSync syncs against the feeder gateway.
@@ -462,7 +464,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 
 	s.updateAndCommitState(&upd, update.NewRoot, blockIterator)
 
-	//Update services
+	// Update services
 	go s.updateServices(upd, update.BlockHash, strconv.FormatUint(blockIterator, 10))
 
 	return blockIterator + 1, update.BlockHash
