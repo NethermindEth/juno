@@ -3,6 +3,7 @@ package cmd
 // notest
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -88,7 +89,7 @@ func init() {
 }
 
 // handle other networks
-// NOTE: That it might be persistent.
+// FIXME: DO not hardcode here. Have in config.go
 func handleNetwork(network string) {
 	if network == "mainnet" {
 		viper.Set("network", "https://alpha-mainnet.starknet.io")
@@ -96,6 +97,24 @@ func handleNetwork(network string) {
 	if network == "goerli" {
 		viper.Set("network", "http://alpha4.starknet.io")
 	}
+}
+
+// Pretty Prints response. Use interface to take any type.
+func prettyPrint(res interface{}) {
+	resJSON, err := json.MarshalIndent(res, "", "  ")
+	errpkg.CheckFatal(err, "Failed to marshal response.")
+	fmt.Println(string(resJSON))
+}
+
+// What to do in normal situations, when no pretty print flag is set.
+func normalReturn(res interface{}) {
+	fmt.Println(res)
+}
+
+// Check if string is integer or hash
+func isInteger(input string) bool {
+	_, err := strconv.ParseInt(input, 10, 64)
+	return err == nil
 }
 
 // initConfig reads in Config file or environment variables if set.
