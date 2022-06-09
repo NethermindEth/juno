@@ -78,21 +78,24 @@ func TestRestClient(t *testing.T) {
 
 // TestGetBlockHandler
 func TestGetBlockHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "1")
 	rq.Add("blockHash", "hash")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
-	// build response
+	// Build Fake Response
 	a := feeder.StarknetBlock{}
 	err = faker.FakeData(&a)
 	if err != nil {
@@ -116,9 +119,11 @@ func TestGetBlockHandler(t *testing.T) {
 			status, http.StatusOK)
 	}
 
+	// Read Rest API Response
 	var cOrig feeder.StarknetBlock
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
+	// Assert actual equals expected
 	assert.DeepEqual(t, &a, &cOrig)
 }
 
@@ -132,12 +137,14 @@ func TestGetCodeHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "1")
 	rq.Add("blockHash", "hash")
 	rq.Add("contractAddress", "0x777")
 	req.URL.RawQuery = rq.Encode()
 
+	//Build Response Object
 	rr := httptest.NewRecorder()
 
 	// Build Fake Response
@@ -175,7 +182,7 @@ func TestGetStorageAtHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Input Query Args
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "0")
 	rq.Add("blockHash", "hash")
@@ -203,7 +210,7 @@ func TestGetStorageAtHandler(t *testing.T) {
 		t.Fatal()
 	}
 
-	// Send Request For Storage to Rest API
+	// Get Storage from Rest API
 	restHandler.GetStorageAt(rr, req)
 	println(rr.Body.String())
 	if err != nil {
@@ -222,18 +229,22 @@ func TestGetStorageAtHandler(t *testing.T) {
 func TestGetTransactionStatusHandler(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("transactionHash", "hash")
 	rq.Add("txId", "id")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
+	// Build Fake Response
 	a := feeder.TransactionStatus{}
 	err = faker.FakeData(&a)
 	if err != nil {
@@ -249,13 +260,18 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
+
+	// Get Transaction Status from Rest API
 	restHandler.GetTransactionStatus(rr, req)
 	if err != nil {
 		t.Fatal()
 	}
+
+	// Read Rest API Response
 	var cOrig feeder.TransactionStatus
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
+	// Assert Actual equals Expected
 	assert.DeepEqual(t, &b, &cOrig)
 }
 
@@ -263,75 +279,89 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 
+	// Build Query without Args
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
 	// Get Block from rest API
 	restHandler.GetBlock(rr, req)
 
+	// Assert Error is written to response object
 	assert.Equal(t, rr.Body.String(), "Get Block failed: blockNumber or blockHash not present")
 }
 
 func TestGetCodeWithoutContractAddressAndBlockIdentifier(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_code"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args without contractAddress
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "1")
 	rq.Add("blockHash", "hash")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
 	// Get Block from rest API
 	restHandler.GetCode(rr, req)
 
-	assert.Equal(t, rr.Body.String(), "GetCode Request Failed: invalid inputs")
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetCode Request Failed: expected (blockNumber or blockHash) and contractAddress")
 }
 
 func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
 	// Get Block from rest API
 	restHandler.GetTransactionStatus(rr, req)
 
-	assert.Equal(t, rr.Body.String(), "Transaction Status failed: invalid input")
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetTransactionStatus failed: expected txId or transactionHash")
 }
 
 // TestGetBlockHandlerFeederFail
 func TestGetBlockHandlerFeederFail(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "1")
 	rq.Add("blockHash", "hash")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
+	// Send Request expecting an error
 	failRestHandler.GetBlock(rr, req)
 
-	rr.Result().Header.Get("400")
+	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
 
@@ -339,22 +369,26 @@ func TestGetBlockHandlerFeederFail(t *testing.T) {
 func TestGetCodeHandlerFeederFail(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_code"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "1")
 	rq.Add("blockHash", "hash")
 	rq.Add("contractAddress", "address")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
+	// Send Request expecting an error
 	failRestHandler.GetCode(rr, req)
 
-	rr.Result().Header.Get("400")
+	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
 
@@ -362,11 +396,13 @@ func TestGetCodeHandlerFeederFail(t *testing.T) {
 func TestGetStorageAtHandlerFeederFail(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_storage_at"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "")
 	rq.Add("blockHash", "hash")
@@ -374,11 +410,13 @@ func TestGetStorageAtHandlerFeederFail(t *testing.T) {
 	rq.Add("key", "key")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
+	// Send Request expecting an error
 	failRestHandler.GetStorageAt(rr, req)
 
-	rr.Result().Header.Get("400")
+	//Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
 
@@ -386,20 +424,24 @@ func TestGetStorageAtHandlerFeederFail(t *testing.T) {
 func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Query Args
 	rq := req.URL.Query()
 	rq.Add("transactionHash", "hash")
 	rq.Add("txId", "id")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
+	// Send Request expecting an error
 	failRestHandler.GetTransactionStatus(rr, req)
 
-	rr.Result().Header.Get("400")
+	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
