@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -26,7 +25,9 @@ func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 		res, err = rh.RestFeeder.GetBlock(_blockHash, _blockNumber)
 		//test
 		if err != nil {
-			log.Fatalln(err)
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
 		}
 		json.NewEncoder(w).Encode(res)
 		return
@@ -56,7 +57,9 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetCode(_contractAddress, _blockHash, _blockNumber)
 		//test
 		if err != nil {
-			log.Fatalln(err)
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
 		}
 		json.NewEncoder(w).Encode(res)
 		return
@@ -71,7 +74,9 @@ func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	res, err := rh.RestFeeder.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
 	//test
 	if err != nil {
-		log.Fatalln(err)
+		w.WriteHeader(http.StatusBadRequest) // 400 http status code
+		fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+		return
 	}
 	json.NewEncoder(w).Encode(res)
 }
@@ -98,5 +103,4 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 	}
 	//test
 	fmt.Fprintf(w, "Transaction Status failed: invalid input")
-	return
 }

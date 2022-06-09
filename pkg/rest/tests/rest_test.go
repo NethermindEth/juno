@@ -20,16 +20,23 @@ import (
 )
 
 var (
-	httpClient  = &feederfakes.FakeHttpClient{}
-	client      *feeder.Client
-	restHandler = rest.RestHandler{}
+	httpClient      = &feederfakes.FakeHttpClient{}
+	failHttpClient  = &feederfakes.FailHttpClient{}
+	client          *feeder.Client
+	failClient      *feeder.Client
+	restHandler     = rest.RestHandler{}
+	failRestHandler = rest.RestHandler{}
 )
 
 func init() {
 	var p feeder.HttpClient
 	p = httpClient
+	var pf feeder.HttpClient
+	pf = failHttpClient
 	client = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &p)
 	restHandler.RestFeeder = client
+	failClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &pf)
+	failRestHandler.RestFeeder = failClient
 }
 
 func generateResponse(body string) *http.Response {
@@ -304,42 +311,93 @@ func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
 	assert.Equal(t, rr.Body.String(), "Transaction Status failed: invalid input")
 }
 
-// TestGetTransactionStatusHandlerFeederFail
-// func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
-// 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
+//TestGetBlockHandlerFeederFail
+func TestGetBlockHandlerFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 
-// 	req, err := http.NewRequest("GET", queryStr, nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	rq := req.URL.Query()
-// 	rq.Add("transactionHash", "hash")
-// 	rq.Add("txId", "id")
-// 	req.URL.RawQuery = rq.Encode()
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "1")
+	rq.Add("blockHash", "hash")
+	req.URL.RawQuery = rq.Encode()
 
-// 	rr := httptest.NewRecorder()
+	rr := httptest.NewRecorder()
 
-// 	a := feeder.TransactionStatus{}
-// 	err = faker.FakeData(&a)
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	body, err := json.Marshal(a)
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	httpClient.DoReturns(generateResponse(string(body)), nil)
-// 	var b feeder.TransactionStatus
-// 	err = json.Unmarshal([]byte(body), &b)
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	restHandler.GetTransactionStatus(rr, req)
+	failRestHandler.GetBlock(rr, req)
 
-// 	var cOrig feeder.TransactionStatus
-// 	json.Unmarshal([]byte(rr.Body.String()), &cOrig)
+	rr.Result().Header.Get("400")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
 
-// 	rr.Result().Header.Get("400")
-// 	assert.Equal(t, rr.Body.String(), "Error: ")
-// }
+//TestGetCodeHandlerFeederFail
+func TestGetCodeHandlerFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_code"
+
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "1")
+	rq.Add("blockHash", "hash")
+	rq.Add("contractAddress", "address")
+	req.URL.RawQuery = rq.Encode()
+
+	rr := httptest.NewRecorder()
+
+	failRestHandler.GetCode(rr, req)
+
+	rr.Result().Header.Get("400")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+//TestGetStorageAtHandlerFeederFail
+func TestGetStorageAtHandlerFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_storage_at"
+
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "")
+	rq.Add("blockHash", "hash")
+	rq.Add("contractAddress", "address")
+	rq.Add("key", "key")
+	req.URL.RawQuery = rq.Encode()
+
+	rr := httptest.NewRecorder()
+
+	failRestHandler.GetStorageAt(rr, req)
+
+	rr.Result().Header.Get("400")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+//TestGetTransactionStatusHandlerFeederFail
+func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
+
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rq := req.URL.Query()
+	rq.Add("transactionHash", "hash")
+	rq.Add("txId", "id")
+	req.URL.RawQuery = rq.Encode()
+
+	rr := httptest.NewRecorder()
+
+	failRestHandler.GetTransactionStatus(rr, req)
+
+	rr.Result().Header.Get("400")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
