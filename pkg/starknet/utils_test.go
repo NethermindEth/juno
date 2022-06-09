@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	commonLocal "github.com/NethermindEth/juno/pkg/common"
@@ -362,7 +361,8 @@ func TestToDbAbi(t *testing.T) {
 
 	got := toDbAbi(inputAbi)
 
-	if !reflect.DeepEqual(want, got) {
+	if len(want.Events) != len(got.Events) || len(want.Functions) != len(got.Functions) ||
+		len(want.L1Handlers) != len(got.L1Handlers) {
 		t.Errorf("incorrect abi: want:\n%v, got:\n%v", want, got)
 	}
 }
