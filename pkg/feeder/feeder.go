@@ -361,7 +361,6 @@ func (c Client) GetTransactionReceipt(txHash, txID string) (*TransactionReceipt,
 // TransactionTrace (internal call info).
 func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
 	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
-	log.Default.Debug(string(req.URL.String()))
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_trace.")
 		return nil, err
