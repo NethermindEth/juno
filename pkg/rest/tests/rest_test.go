@@ -76,18 +76,6 @@ func TestRestClient(t *testing.T) {
 	cancel()
 }
 
-// func TestHandler(t *testing.T) {
-// 	r := rest.NewServer(":8100", "http://localhost/")
-// 	go func() {
-// 		_ = r.ListenAndServe()
-// 	}()
-// 	getBlock = curl
-
-// 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
-// 	r.Close(ctx)
-// 	cancel()
-// }
-
 // TestGetBlockHandler
 func TestGetBlockHandler(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_block"
@@ -138,6 +126,7 @@ func TestGetBlockHandler(t *testing.T) {
 func TestGetCodeHandler(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_code"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -151,24 +140,28 @@ func TestGetCodeHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	// build response
+	// Build Fake Response
 	a := feeder.CodeInfo{}
 	body, err := StructFaker(a)
 	if err != nil {
 		t.Fatal()
 	}
-
 	httpClient.DoReturns(generateResponse(body), nil)
 	if err != nil {
 		t.Fatal()
 	}
 
+	// Get Code from Rest API
 	restHandler.GetCode(rr, req)
 	if err != nil {
 		t.Fatal()
 	}
+
+	// Read Response into CodeInfo object
 	var cOrig feeder.CodeInfo
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert expected matches actual
 	assert.DeepEqual(t, &a, &cOrig)
 }
 
@@ -176,11 +169,13 @@ func TestGetCodeHandler(t *testing.T) {
 func TestGetStorageAtHandler(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_storage_at"
 
+	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Input Query Args
 	rq := req.URL.Query()
 	rq.Add("blockNumber", "0")
 	rq.Add("blockHash", "hash")
@@ -188,8 +183,10 @@ func TestGetStorageAtHandler(t *testing.T) {
 	rq.Add("key", "key")
 	req.URL.RawQuery = rq.Encode()
 
+	// Build Response object
 	rr := httptest.NewRecorder()
 
+	// Create Fake Response
 	var b feeder.StorageInfo
 	err = faker.FakeData(&b)
 	if err != nil {
@@ -205,13 +202,19 @@ func TestGetStorageAtHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
+
+	// Send Request For Storage to Rest API
 	restHandler.GetStorageAt(rr, req)
 	println(rr.Body.String())
 	if err != nil {
 		t.Fatal()
 	}
+
+	// Read Response into StorageInfo struct
 	var cOrig feeder.StorageInfo
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert Actual equals Expected
 	assert.DeepEqual(t, &a, &cOrig)
 }
 
