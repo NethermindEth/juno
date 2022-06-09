@@ -412,7 +412,7 @@ func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	s.ethereumClient.Close()
-	//(*s.database).Close()
+	s.database.Close()
 }
 
 // apiSync syncs against the feeder gateway.
@@ -439,10 +439,20 @@ func (s *Synchronizer) apiSync() error {
 // notest
 func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
 	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
-	update, err := s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
-	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't get state update")
-		return blockIterator, lastBlockHash
+	var update *feeder.StateUpdateResponse
+	var err error
+	if s.chainID == 1 {
+		update, err = s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't get state update")
+			return blockIterator, lastBlockHash
+		}
+	} else {
+		update, err = s.feederGatewayClient.GetStateUpdateGoerli("", strconv.FormatUint(blockIterator, 10))
+		if err != nil {
+			log.Default.With("Error", err).Info("Couldn't get state update")
+			return blockIterator, lastBlockHash
+		}
 	}
 	if lastBlockHash == update.BlockHash || update.BlockHash == "" || update.NewRoot == "" {
 		log.Default.With("Block Number", blockIterator).Info("Block is pending ...")

@@ -122,7 +122,7 @@ func TestGetFactInfo(t *testing.T) {
 		Value:          test.fact,
 	}
 
-	res, err := getFactInfo(test.logs, test.abi, test.fact, test.latestBlockSynced)
+	res, err := getFactInfo(test.logs, test.abi, test.fact, test.latestBlockSynced, common.Hash{2})
 	if err != nil {
 		t.Errorf("Error while searching for fact: %v", err)
 	} else if res.Value != want.Value || res.SequenceNumber != want.SequenceNumber || res.StateRoot != want.StateRoot {
