@@ -35,8 +35,8 @@ var (
 
 	// rootCmd is the root command of the application.
 	rootCmd = &cobra.Command{
-		Use:   "juno-cli [command] [flags]",
-		Short: "Starknet client implementation in Go.",
+		Use:   "juno [options]",
+		Short: "StarkNet client implementation in Go.",
 		Long:  longMsg,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if network, _ := cmd.Flags().GetString("network"); network != "" {
