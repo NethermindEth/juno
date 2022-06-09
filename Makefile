@@ -1,5 +1,6 @@
 export CC = clang
 .DEFAULT_GOAL 	:= help
+# Comment to fix makefile
 
 compile: ## compile:
 	@mkdir -p build
