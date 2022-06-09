@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
-// Returns Starknet Block
+// GetBlock Returns Starknet Block
 func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 	var (
 		res *feeder.StarknetBlock
@@ -32,7 +32,7 @@ func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(res)
 		return
 	}
-	fmt.Fprintf(w, "Get Block failed: blockNumber or blockHash not present")
+	fmt.Fprintf(w, "GetBlock Request Failed: expected blockNumber or blockHash")
 }
 
 // GetCode returns CodeInfo using Block Identifier & Contract Address
@@ -64,20 +64,46 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "GetCode Request Failed: invalid inputs")
+	fmt.Fprintf(w, "GetCode Request Failed: expected (blockNumber or blockHash) and contractAddress")
 }
 
 // GetStorageAt returns StorageInfo
 func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 	query_args := r.URL.Query()
-	res, err := rh.RestFeeder.GetStorageAt(strings.Join(query_args["key"], ""), strings.Join(query_args["contractAddress"], ""), strings.Join(query_args["blockNumber"], ""), strings.Join(query_args["blockHash"], ""))
-	// test
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest) // 400 http status code
-		fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
-		return
+
+	blockNumber, ok_blockNumber := query_args["blockNumber"]
+	var _blockNumber string
+	if ok_blockNumber {
+		_blockNumber = strings.Join(blockNumber, "")
 	}
-	json.NewEncoder(w).Encode(res)
+	blockHash, ok_blockHash := r.URL.Query()["blockHash"]
+	var _blockHash string
+	if ok_blockHash {
+		_blockHash = strings.Join(blockHash, "")
+	}
+
+	contractAddress, ok_contractAddress := r.URL.Query()["contractAddress"]
+	var _contractAddress string
+	if ok_contractAddress {
+		_contractAddress = strings.Join(contractAddress, "")
+	}
+
+	key, ok_key := r.URL.Query()["key"]
+	var _key string
+	if ok_key {
+		_key = strings.Join(key, "")
+	}
+
+	if (ok_blockHash || ok_blockNumber) && ok_contractAddress && ok_key {
+		res, err := rh.RestFeeder.GetStorageAt(_key, _contractAddress, _blockNumber, _blockHash)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+	}
+	fmt.Fprintf(w, "GetStorageAt Request Failed: expected (blockNumber or blockHash), contractAddress, and key")
 }
 
 // GetTransactionStatus returns Transaction Status
@@ -90,7 +116,6 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 
 	if ok_txHash || ok_txId {
 		res, err := rh.RestFeeder.GetTransactionStatus(_txHash, _txId)
-		// test
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
 			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
@@ -99,6 +124,5 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 		json.NewEncoder(w).Encode(res)
 		return
 	}
-	// test
-	fmt.Fprintf(w, "Transaction Status failed: invalid input")
+	fmt.Fprintf(w, "GetTransactionStatus failed: expected txId or transactionHash")
 }
