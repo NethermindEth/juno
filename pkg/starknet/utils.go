@@ -307,12 +307,14 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *block.Block {
 func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	marshal, err := json.Marshal(abi)
 	if err != nil {
+		// notest
 		return nil
 	}
 	var abiResponse dbAbi.Abi
 
 	err = json.Unmarshal(marshal, &abiResponse)
 	if err != nil {
+		// notest
 		return nil
 	}
 

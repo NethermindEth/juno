@@ -102,6 +102,7 @@ func (c *Client) newRequest(method, path string, query map[string]string, body a
 // otherwise.
 func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	res, err := (*c.httpClient).Do(req)
+	// notest
 	for i := 0; err != nil && i < 2; i++ {
 		time.Sleep(time.Second * 5)
 		res, err = (*c.httpClient).Do(req)

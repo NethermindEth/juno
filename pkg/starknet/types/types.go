@@ -10,8 +10,6 @@ import (
 
 const (
 	LatestBlockSynced                        = "latestBlockSynced"
-	LatestFactSaved                          = "latestFactSaved"
-	LatestFactSynced                         = "latestFactSynced"
 	BlockOfStarknetDeploymentContractMainnet = 13627000
 	BlockOfStarknetDeploymentContractGoerli  = 5853000
 	MaxChunk                                 = 10000
