@@ -78,7 +78,6 @@ func TestRestClient(t *testing.T) {
 
 // TestGetBlockHandler
 func TestGetBlockHandler(t *testing.T) {
-
 	// Build Request
 	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -144,7 +143,7 @@ func TestGetCodeHandler(t *testing.T) {
 	rq.Add("contractAddress", "0x777")
 	req.URL.RawQuery = rq.Encode()
 
-	//Build Response Object
+	// Build Response Object
 	rr := httptest.NewRecorder()
 
 	// Build Fake Response
@@ -279,7 +278,7 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 
-	// Build Query without Args
+	// Build Response without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -320,10 +319,36 @@ func TestGetCodeWithoutContractAddressAndBlockIdentifier(t *testing.T) {
 	assert.Equal(t, rr.Body.String(), "GetCode Request Failed: expected (blockNumber or blockHash) and contractAddress")
 }
 
-func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
+func TestGetStorageAtWithoutKey(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
 
 	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args without key
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "1")
+	rq.Add("blockHash", "hash")
+	rq.Add("contractAddress", "Address")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Get Block from rest API
+	restHandler.GetStorageAt(rr, req)
+
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetStorageAt Request Failed: expected (blockNumber or blockHash), contractAddress, and key")
+}
+
+func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+
+	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +441,7 @@ func TestGetStorageAtHandlerFeederFail(t *testing.T) {
 	// Send Request expecting an error
 	failRestHandler.GetStorageAt(rr, req)
 
-	//Assert error message
+	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
 
