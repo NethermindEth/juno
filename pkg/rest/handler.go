@@ -9,7 +9,6 @@ import (
 var rest_handler RestHandler
 
 func NewServer(rest_port string, feeder_gateway string) *Server {
-
 	rest_handler.RestFeeder = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
 	m := http.NewServeMux()
 
