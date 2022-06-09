@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

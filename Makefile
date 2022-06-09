@@ -3,7 +3,7 @@ export CC = clang
 
 compile: ## compile:
 	@mkdir -p build
-	@go build -o build/juno cmd/juno/main.go
+	@go build -o build/juno juno-cli/main.go
 
 run: ## run
 	@./build/juno
