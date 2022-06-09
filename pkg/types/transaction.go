@@ -30,6 +30,16 @@ func (t TransactionHash) String() string {
 	return Felt(t).String()
 }
 
+func (t *TransactionHash) UnmarshalJSON(data []byte) error {
+	f := Felt{}
+	err := f.UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+	*t = TransactionHash(f)
+	return nil
+}
+
 type IsTransaction interface {
 	GetHash() TransactionHash
 }

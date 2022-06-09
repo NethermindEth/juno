@@ -503,3 +503,24 @@ func TestGetBlock(t *testing.T) {
 		}
 	}
 }
+
+func TestGetTransactionByHash(t *testing.T) {
+	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.TransactionService.Run(); err != nil {
+		t.Fatalf("unexpected error starting the transaction service: %s", err)
+	}
+	defer services.TransactionService.Close(context.Background())
+	responses := make(map[string]*Txn)
+	for _, txn := range txns {
+		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		responses[txn.GetHash().String()] = NewTxn(txn)
+	}
+	for _, txn := range txns {
+		testServer(t, []rpcTest{
+			{
+				Request:  buildRequest("starknet_getTransactionByHash", txn.GetHash()),
+				Response: buildResponse(responses[txn.GetHash().String()]),
+			},
+		})
+	}
+}

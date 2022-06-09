@@ -165,9 +165,15 @@ func (HandlerRPC) StarknetGetStorageAt(
 // StarknetGetTransactionByHash Get the details and status of a
 // submitted transaction.
 func (HandlerRPC) StarknetGetTransactionByHash(
-	c context.Context, transactionHash TxnHash,
-) (Txn, error) {
-	return Txn{}, nil
+	c context.Context, transactionHash types.TransactionHash,
+) (*Txn, error) {
+	tx := services.TransactionService.GetTransaction(transactionHash)
+	if tx == nil {
+		// notest
+		// TODO: return not found error
+		return &Txn{}, nil
+	}
+	return NewTxn(tx), nil
 }
 
 // StarknetGetTransactionByBlockHashAndIndex Get the details of the
