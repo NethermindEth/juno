@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/db"
-	"google.golang.org/protobuf/proto"
 	"math/big"
 	"testing"
+
+	"github.com/NethermindEth/juno/internal/db"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestManager_PutBlock(t *testing.T) {

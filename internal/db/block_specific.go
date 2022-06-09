@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+
 	"github.com/NethermindEth/juno/internal/log"
 )
 
