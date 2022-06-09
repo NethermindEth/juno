@@ -251,7 +251,6 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 }
 
 //TestGetBlockWithoutBlockIdentifier
-
 func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_block"
 
@@ -304,3 +303,43 @@ func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
 
 	assert.Equal(t, rr.Body.String(), "Transaction Status failed: invalid input")
 }
+
+// TestGetTransactionStatusHandlerFeederFail
+// func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
+// 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
+
+// 	req, err := http.NewRequest("GET", queryStr, nil)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	rq := req.URL.Query()
+// 	rq.Add("transactionHash", "hash")
+// 	rq.Add("txId", "id")
+// 	req.URL.RawQuery = rq.Encode()
+
+// 	rr := httptest.NewRecorder()
+
+// 	a := feeder.TransactionStatus{}
+// 	err = faker.FakeData(&a)
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	body, err := json.Marshal(a)
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	httpClient.DoReturns(generateResponse(string(body)), nil)
+// 	var b feeder.TransactionStatus
+// 	err = json.Unmarshal([]byte(body), &b)
+// 	if err != nil {
+// 		t.Fatal()
+// 	}
+// 	restHandler.GetTransactionStatus(rr, req)
+
+// 	var cOrig feeder.TransactionStatus
+// 	json.Unmarshal([]byte(rr.Body.String()), &cOrig)
+
+// 	rr.Result().Header.Get("400")
+// 	assert.Equal(t, rr.Body.String(), "Error: ")
+// }
