@@ -69,39 +69,21 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 
 // GetStorageAt returns StorageInfo
 func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
-	query_args := r.URL.Query()
 
-	blockNumber, ok_blockNumber := query_args["blockNumber"]
-	var _blockNumber string
-	if ok_blockNumber {
-		_blockNumber = strings.Join(blockNumber, "")
-	}
+	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
 	blockHash, ok_blockHash := r.URL.Query()["blockHash"]
-	var _blockHash string
-	if ok_blockHash {
-		_blockHash = strings.Join(blockHash, "")
-	}
-
 	contractAddress, ok_contractAddress := r.URL.Query()["contractAddress"]
-	var _contractAddress string
-	if ok_contractAddress {
-		_contractAddress = strings.Join(contractAddress, "")
-	}
-
 	key, ok_key := r.URL.Query()["key"]
-	var _key string
-	if ok_key {
-		_key = strings.Join(key, "")
-	}
 
 	if (ok_blockHash || ok_blockNumber) && ok_contractAddress && ok_key {
-		res, err := rh.RestFeeder.GetStorageAt(_key, _contractAddress, _blockNumber, _blockHash)
+		res, err := rh.RestFeeder.GetStorageAt(strings.Join(key, ""), strings.Join(contractAddress, ""), strings.Join(blockNumber, ""), strings.Join(blockHash, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
 			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
+		return
 	}
 	fmt.Fprintf(w, "GetStorageAt Request Failed: expected (blockNumber or blockHash), contractAddress, and key")
 }
@@ -109,13 +91,11 @@ func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 // GetTransactionStatus returns Transaction Status
 func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	txHash, ok_txHash := r.URL.Query()["transactionHash"]
-	_txHash := strings.Join(txHash, "")
 
 	txId, ok_txId := r.URL.Query()["txId"]
-	_txId := strings.Join(txId, "")
 
 	if ok_txHash || ok_txId {
-		res, err := rh.RestFeeder.GetTransactionStatus(_txHash, _txId)
+		res, err := rh.RestFeeder.GetTransactionStatus(strings.Join(txHash, ""), strings.Join(txId, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
 			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())

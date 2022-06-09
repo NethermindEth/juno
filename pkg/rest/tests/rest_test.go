@@ -182,7 +182,7 @@ func TestGetStorageAtHandler(t *testing.T) {
 	}
 
 	rq := req.URL.Query()
-	rq.Add("blockNumber", "")
+	rq.Add("blockNumber", "0")
 	rq.Add("blockHash", "hash")
 	rq.Add("contractAddress", "address")
 	rq.Add("key", "key")
@@ -206,12 +206,13 @@ func TestGetStorageAtHandler(t *testing.T) {
 		t.Fatal()
 	}
 	restHandler.GetStorageAt(rr, req)
+	println(rr.Body.String())
 	if err != nil {
 		t.Fatal()
 	}
-	var cOrig *feeder.StorageInfo
+	var cOrig feeder.StorageInfo
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
-	assert.DeepEqual(t, &a, cOrig)
+	assert.DeepEqual(t, &a, &cOrig)
 }
 
 // TestGetTransactionStatusHandler
