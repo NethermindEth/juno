@@ -31,7 +31,7 @@ func getTxReceipt(input string) (*feeder.TransactionReceipt, error) {
 		txHash = input
 	}
 
-	//Initialize the client
+	// Initialize the client
 	feeder_url := viper.GetString("network")
 	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 

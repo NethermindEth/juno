@@ -39,7 +39,6 @@ func getTxTrace(input string) (*feeder.TransactionTrace, error) {
 	// Call to get transaction info
 	res, _ := client.GetTransactionTrace(txHash, txID)
 	return res, nil
-
 }
 
 func init() {

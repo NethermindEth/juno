@@ -40,7 +40,6 @@ func getTxInfo(input string) (*feeder.TransactionInfo, error) {
 	// Call to get transaction info
 	res, _ := client.GetTransaction(txHash, txID)
 	return res, nil
-
 }
 
 func init() {
