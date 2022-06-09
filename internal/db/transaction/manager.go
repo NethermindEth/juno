@@ -278,6 +278,9 @@ func unmarshalMessageL2ToL1(message *MessageToL1) types.MessageL2ToL1 {
 }
 
 func marshalMessageL1ToL2(message *types.MessageL1ToL2) *MessageToL2 {
+	if message == nil {
+		return nil
+	}
 	return &MessageToL2{
 		FromAddress: message.FromAddress.Bytes(),
 		Payload:     marshalFelts(message.Payload),
@@ -285,6 +288,9 @@ func marshalMessageL1ToL2(message *types.MessageL1ToL2) *MessageToL2 {
 }
 
 func unmarshalMessageL1ToL2(message *MessageToL2) *types.MessageL1ToL2 {
+	if message == nil {
+		return nil
+	}
 	return &types.MessageL1ToL2{
 		FromAddress: types.BytesToEthAddress(message.FromAddress),
 		Payload:     unmarshalFelts(message.Payload),

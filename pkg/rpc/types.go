@@ -95,23 +95,22 @@ func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch t := token.(type) {
-	case json.Number:
-		blockNumber, err := t.Int64()
-		if err != nil {
-			return err
-		}
+	case float64:
+		blockNumber := uint64(t)
 		if blockNumber < 0 {
+			// notest
 			return errors.New("invalid block number")
 		}
-		number := uint64(blockNumber)
-		*x = BlockNumberOrTag{Number: &number}
+		*x = BlockNumberOrTag{Number: &blockNumber}
 	case string:
 		for _, tag := range blockTags {
 			if t == string(tag) {
 				*x = BlockNumberOrTag{Tag: &tag}
+				break
 			}
 		}
 	default:
+		// notest
 		return errors.New("unexpected token type")
 	}
 	return nil
@@ -145,6 +144,7 @@ func (x *BlockHashOrTag) UnmarshalJSON(data []byte) error {
 			}
 		}
 	default:
+		// notest
 		return errors.New("unexpected token type")
 	}
 	return nil

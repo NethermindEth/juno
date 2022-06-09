@@ -37,6 +37,7 @@ var (
 func StringToBlockStatus(s string) BlockStatus {
 	blockStatus, ok := BlockStatusValue[s]
 	if !ok {
+		// notest
 		return BlockStatusUnknown
 	}
 	return blockStatus
@@ -70,6 +71,10 @@ func (b *BlockHash) Bytes() []byte {
 
 func (b *BlockHash) Felt() Felt {
 	return Felt(*b)
+}
+
+func (b BlockHash) Hex() string {
+	return Felt(b).Hex()
 }
 
 type BlockTag string

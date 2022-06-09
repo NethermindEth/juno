@@ -90,15 +90,8 @@ var (
 	}
 )
 
-func StringToTransactionStatus(s string) TransactionStatus {
-	txStatus, ok := TxStatusValue[s]
-	if !ok {
-		return TxStatusUnknown
-	}
-	return txStatus
-}
-
 func (s TransactionStatus) String() string {
+	// notest
 	return TxStatusName[s]
 }
 

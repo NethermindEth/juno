@@ -30,6 +30,7 @@ func (HandlerRPC) StarknetCall(
 }
 
 func getBlockByTag(ctx context.Context, blockTag BlockTag, scope RequestedScope) (*BlockResponse, error) {
+	// notest
 	// TODO: Implement get block by tag
 	return &BlockResponse{}, nil
 }
@@ -38,6 +39,7 @@ func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope Reques
 	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock := services.BlockService.GetBlockByHash(blockHash)
 	if dbBlock == nil {
+		// notest
 		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
 		return nil, errors.New("block not found")
 	}
@@ -49,6 +51,7 @@ func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, sco
 	if blockHashOrTag.Hash != nil {
 		return getBlockByHash(ctx, *blockHashOrTag.Hash, scope)
 	}
+	// notest
 	if blockHashOrTag.Tag != nil {
 		return getBlockByTag(ctx, *blockHashOrTag.Tag, scope)
 	}
@@ -58,6 +61,7 @@ func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, sco
 // StarknetGetBlockByHash represent the handler for getting a block by
 // its hash.
 func (HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag BlockHashOrTag) (*BlockResponse, error) {
+	// notest
 	return getBlockByHashOrTag(ctx, blockHashOrTag, ScopeTxnHash)
 }
 
@@ -71,6 +75,7 @@ func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedSc
 	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock := services.BlockService.GetBlockByNumber(blockNumber)
 	if dbBlock == nil {
+		// notest
 		return nil, errors.New("block not found")
 	}
 	response := NewBlockResponse(dbBlock, scope)
@@ -81,6 +86,7 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 	if number := blockNumberOrTag.Number; number != nil {
 		return getBlockByNumber(ctx, *number, scope)
 	}
+	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
 		return getBlockByTag(ctx, *tag, scope)
 	}
@@ -93,6 +99,7 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 // StarknetGetBlockByNumber represent the handler for getting a block by
 // its number.
 func (HandlerRPC) StarknetGetBlockByNumber(ctx context.Context, blockNumberOrTag BlockNumberOrTag) (*BlockResponse, error) {
+	// notest
 	return getBlockByNumberOrTag(ctx, blockNumberOrTag, ScopeTxnHash)
 }
 
@@ -147,6 +154,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 		}
 		return Felt(storage.Storage[string(key)]), nil
 	}
+	// notest
 	if tag := blockHash.Tag; tag != nil {
 		// TODO: Get by tag
 		return "", fmt.Errorf("unimplmented search by block tag")
