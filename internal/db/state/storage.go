@@ -2,14 +2,15 @@ package state
 
 import (
 	"fmt"
+
 	"google.golang.org/protobuf/proto"
 )
 
 func (s *Storage) Update(other *Storage) {
+	// notest
 	if s.Storage == nil {
 		s.Storage = make(map[string]string)
 	}
-	// notest
 	for key, value := range other.Storage {
 		s.Storage[key] = value
 	}
@@ -23,6 +24,11 @@ func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) *Storag
 	rawData, err := x.storageDatabase.Get([]byte(contractAddress), blockNumber)
 	if err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
+	}
+	// Check not found
+	if rawData == nil {
+		// notest
+		return nil
 	}
 	value := new(Storage)
 	err = proto.Unmarshal(rawData, value)

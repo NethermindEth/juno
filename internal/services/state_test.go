@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"google.golang.org/protobuf/proto"
-	"testing"
 )
 
 var codes = []struct {
@@ -49,7 +50,7 @@ func TestStateService_Code(t *testing.T) {
 }
 
 func TestService_Storage(t *testing.T) {
-	var initialData = [...]struct {
+	initialData := [...]struct {
 		Contract    string
 		Storage     state.Storage
 		BlockNumber uint64
@@ -83,10 +84,10 @@ func TestService_Storage(t *testing.T) {
 	defer StateService.Close(context.Background())
 
 	for _, data := range initialData {
-		//StateService.StoreStorage(data.Contract, data.BlockNumber, &data.Storage)
+		// StateService.StoreStorage(data.Contract, data.BlockNumber, &data.Storage)
 		StateService.UpdateStorage(data.Contract, data.BlockNumber, &data.Storage)
 	}
-	var tests = [...]struct {
+	tests := [...]struct {
 		Contract    string
 		BlockNumber uint64
 		Ok          bool

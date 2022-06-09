@@ -12,14 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ['1.18']
+        go: [ '1.18' ]
     steps:
       - uses: actions/checkout@v2
-      - name: set up go
-        uses: actions/setup-go@v2
+      - name: Set up go
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - name: install deps
+      - name: Install deps
         run: make install-deps
       - name: Tests
         run: make codecov-test
