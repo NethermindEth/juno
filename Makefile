@@ -27,8 +27,6 @@ test-cover: ## tests with coverage
 install-deps: ## Install some project dependencies / Cairo - lang dependencies
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
-	go get ./...
-	pip install -r requirements.txt
 	
 
 codecov-test:
