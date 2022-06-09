@@ -234,7 +234,6 @@ func (s *Synchronizer) l1Sync() error {
 		}
 	}()
 
-		
 	latestBlockSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
 		log.Default.With("Error", err).Panic("Unable to get the Value of the latest fact synced")
@@ -272,7 +271,7 @@ func (s *Synchronizer) l1Sync() error {
 				// update services
 				go s.updateServices(*stateDiff, "", strconv.FormatUint(fact.SequenceNumber, 10))
 
-				isNoErr := s.facts.Remove(strconv.FormatUint(latestBlockSynced - 1, 10))
+				isNoErr := s.facts.Remove(strconv.FormatUint(latestBlockSynced-1, 10))
 				if !isNoErr {
 					return
 				}
