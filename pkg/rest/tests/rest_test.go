@@ -291,7 +291,7 @@ func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
 	restHandler.GetBlock(rr, req)
 
 	// Assert Error is written to response object
-	assert.Equal(t, rr.Body.String(), "Get Block failed: blockNumber or blockHash not present")
+	assert.Equal(t, rr.Body.String(), "GetBlock Request Failed: expected blockNumber or blockHash")
 }
 
 func TestGetCodeWithoutContractAddressAndBlockIdentifier(t *testing.T) {
