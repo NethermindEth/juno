@@ -12,7 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
-	metr "github.com/NethermindEth/juno/internal/metrics/Prometheus"
+	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient

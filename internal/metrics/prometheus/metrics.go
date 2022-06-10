@@ -19,7 +19,7 @@ var (
 	},
 		[]string{"Status", "Type"},
 	)
-	no_of_abi = promauto.NewCounter(prometheus.CounterOpts{
+	no_of_abi = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "no_of_abi_sent",
 		Help: "Number of ABI sent",
 	},
