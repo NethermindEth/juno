@@ -20,7 +20,6 @@ type rpcConfig struct {
 }
 
 // Config represents the juno configuration.
-// FIXME: Using this https://medium.com/wesionary-team/environment-variable-configuration-in-your-golang-project-using-viper-4e8289ef664d
 // In this Config struct we can communicate with viper
 type Config struct {
 	RPC     rpcConfig `mapstructure:"rpc"`

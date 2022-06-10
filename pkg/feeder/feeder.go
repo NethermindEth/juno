@@ -312,7 +312,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, error) {
 	req, err := c.newRequest("GET", "/get_transaction_status", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_status.")
 		return nil, err
 	}
 	var res TransactionStatus
@@ -328,7 +328,7 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	req, err := c.newRequest("GET", "/get_transaction", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction.")
 		return nil, err
 	}
 	var res TransactionInfo
@@ -437,13 +437,15 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
 		return nil, err
 	}
-	var res string
+	// Different handling to other cases as ID is returned as json Number.
+	var res json.Number
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	return &res, err
+	resString := res.String()
+	return &resString, err
 }
 
 func (c Client) EstimateFee(contractAddress, contractABI, functionToCall, functionInputs string) (*string, error) {
@@ -453,7 +455,7 @@ func (c Client) EstimateFee(contractAddress, contractABI, functionToCall, functi
 		"POST", "/estimate_fee",
 		map[string]string{"contract_address": contractAddress}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for estimate_fee.")
 		return nil, err
 	}
 	var res string
