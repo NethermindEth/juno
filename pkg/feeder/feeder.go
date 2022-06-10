@@ -448,21 +448,21 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	return &resString, err
 }
 
-func (c Client) EstimateFee(contractAddress, contractABI, functionToCall, functionInputs string) (*string, error) {
-	// FIXME: Not working correctly at the moment.
+// func (c Client) EstimateFee(contractAddress, contractABI, functionToCall, functionInputs string) (*string, error) {
+// 	// FIXME: Not working correctly at the moment.
 
-	req, err := c.newRequest(
-		"POST", "/estimate_fee",
-		map[string]string{"contract_address": contractAddress}, nil)
-	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for estimate_fee.")
-		return nil, err
-	}
-	var res string
-	_, err = c.do(req, &res)
-	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return nil, err
-	}
-	return &res, err
-}
+// 	req, err := c.newRequest(
+// 		"POST", "/estimate_fee",
+// 		map[string]string{"contract_address": contractAddress}, nil)
+// 	if err != nil {
+// 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for estimate_fee.")
+// 		return nil, err
+// 	}
+// 	var res string
+// 	_, err = c.do(req, &res)
+// 	if err != nil {
+// 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+// 		return nil, err
+// 	}
+// 	return &res, err
+// }

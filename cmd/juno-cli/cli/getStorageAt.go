@@ -35,8 +35,6 @@ func GetStorage(contractAddress, key string) (*feeder.StorageInfo, error) {
 	return res, nil
 }
 
-func GetStorageVarAddress(var_name string)
-
 func init() {
 	rootCmd.AddCommand(getStorageAtCmd)
 }
