@@ -179,10 +179,24 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 // StarknetGetTransactionByBlockHashAndIndex Get the details of the
 // transaction given by the identified block and index in that block. If
 // no transaction is found, a null value is returned.
-func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(
-	c context.Context, blockHash BlockHashOrTag, index uint64,
-) (Txn, error) {
-	return Txn{}, nil
+func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
+	if blockHash := blockHashOrTag.Hash; blockHash != nil {
+		block := services.BlockService.GetBlockByHash(*blockHash)
+		if index < 0 || len(block.TxHashes) <= index {
+			// notest
+			return nil, fmt.Errorf("invalid index %d", index)
+		}
+		txHash := block.TxHashes[index]
+		txn := services.TransactionService.GetTransaction(txHash)
+		return NewTxn(txn), nil
+	}
+	// notest
+	if tag := blockHashOrTag.Tag; tag != nil {
+		// TODO: search block by tag
+		return &Txn{}, nil
+	}
+	// TODO: return invalid param error
+	return nil, errors.New("invalid blockHashOrtTag param")
 }
 
 // StarknetGetTransactionByBlockNumberAndIndex Get the details of the
