@@ -15,6 +15,7 @@ type Server struct {
 // ListenAndServe listens to TCP port and handles requests on
 // incoming connections.
 func (s *Server) ListenAndServe() error {
+	// notest
 	log.Default.Info("Listening for connections .... ")
 
 	err := s.server.ListenAndServe()
@@ -27,6 +28,7 @@ func (s *Server) ListenAndServe() error {
 
 // Close shuts down the server.
 func (s *Server) Close(ctx context.Context) {
+	// notest
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
