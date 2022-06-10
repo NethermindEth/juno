@@ -259,12 +259,6 @@ func IncreaseTxIDFailed() {
 	no_of_requests.WithLabelValues("Failed", "TransactionIDByHash").Inc()
 }
 
-func init() {
-	prometheus.MustRegister(no_of_requests)
-	// prometheus.MustRegister(block_sync_time)
-	prometheus.MustRegister(no_of_abi)
-}
-
 func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":2048", nil)
