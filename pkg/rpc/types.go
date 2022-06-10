@@ -103,6 +103,7 @@ func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
 		}
 		*x = BlockNumberOrTag{Number: &blockNumber}
 	case string:
+		// notest
 		for _, tag := range blockTags {
 			if t == string(tag) {
 				*x = BlockNumberOrTag{Tag: &tag}
