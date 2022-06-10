@@ -4,7 +4,8 @@ export CC = clang
 
 compile: ## compile:
 	@mkdir -p build
-	@go build -o build/juno juno-cli/main.go
+	@go build -o build/juno cmd/juno/main.go
+	@go build -o build/juno-cli cmd/juno-cli/main.go
 
 run: ## run
 	@./build/juno
@@ -31,7 +32,8 @@ install-courtney:
 	# install courtney fork
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
-	
+	go get ./...
+
 
 install-gofumpt:
 	# install gofumpt
@@ -55,6 +57,7 @@ format-check: ## check formatting
 
 clean: ## Clean project builds
 	@rm -rf ./build/juno
+	@rm -rf ./build/juno-cli
 	@cd internal/db && $(MAKE) clean
 
 help: ## Show this help

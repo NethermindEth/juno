@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -24,8 +24,8 @@ var getTransactionTraceCmd = &cobra.Command{
 
 func getTxTrace(txHash string) (*feeder.TransactionTrace, error) {
 	// Initialise new client
-	feeder_url := viper.GetString("network")
-	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
 	// Call to get transaction info
 	res, _ := client.GetTransactionTrace(txHash, "")

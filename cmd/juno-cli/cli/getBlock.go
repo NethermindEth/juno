@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -32,8 +32,8 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 	}
 
 	// Initialise new client
-	feeder_url := viper.GetString("network")
-	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
 	// Call to get block info
 	res, _ := client.GetBlock(blockHash, blockNumber)

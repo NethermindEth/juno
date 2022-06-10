@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -23,8 +23,8 @@ var getTransactionReceiptCmd = &cobra.Command{ // Get_Transaction Receipt CLI co
 
 func getTxReceipt(txHash string) (*feeder.TransactionReceipt, error) {
 	// Initialize the client
-	feeder_url := viper.GetString("network")
-	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
 	// Call to get transaction receipt
 	res, _ := client.GetTransactionReceipt(txHash, "")
