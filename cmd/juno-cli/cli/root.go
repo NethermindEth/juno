@@ -118,10 +118,10 @@ func initConfig() error {
 		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
 	}
 
-	// Print out all of the key value pairs available in viper for debugging purposes.
-	for _, key := range viper.AllKeys() {
-		log.Default.With("Key", key).With("Value", viper.Get(key)).Info("Config:")
-	}
+	// // Print out all of the key value pairs available in viper for debugging purposes.
+	// for _, key := range viper.AllKeys() {
+	// 	log.Default.With("Key", key).With("Value", viper.Get(key)).Info("Config:")
+	// }
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)

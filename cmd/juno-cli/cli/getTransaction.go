@@ -23,7 +23,6 @@ var getTransactionCmd = &cobra.Command{
 }
 
 func getTxInfo(input string) (*feeder.TransactionInfo, error) {
-	// TODO: Make an overarching function for transactions that takes all inputs?
 	txHash := ""
 	txID := ""
 
