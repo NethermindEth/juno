@@ -5,36 +5,42 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getStorageAtCmd represents the getStorageAt command
 var getStorageAtCmd = &cobra.Command{
-	Use:   "get_storage_at TRANSACTION_HASH [flags]",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "get_storage_at CONTRACT_ADDRESS KEY [flags]",
+	Short: "Retrieve stored value for a key within a contract.",
+	Long:  `See https://starknet.io/docs/hello_starknet/cli.html#get-storage-at`,
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("getStorageAt called")
+		contractAddress := args[0]
+		key := args[1]
+
+		res, _ := GetStorage(contractAddress, key)
+		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
+			prettyPrint(res)
+		} else {
+			normalReturn(res)
+		}
 	},
 }
 
+func GetStorage(contractAddress, key string) (*feeder.StorageInfo, error) {
+	// Initialise a new client
+	feeder_url := viper.GetString("network")
+	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+
+	// Call to get storage at key
+	res, _ := client.GetStorageAt(contractAddress, key, "", "")
+	return res, nil
+}
+
+func GetStorageVarAddress(var_name string)
+
 func init() {
 	rootCmd.AddCommand(getStorageAtCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// getStorageAtCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// getStorageAtCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
