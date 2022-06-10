@@ -1,12 +1,7 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cli
 
 import (
 	"fmt"
-	"github.com/NethermindEth/juno/cmd/juno-cli"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +22,7 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	main.rootCmd.AddCommand(getStateUpdateCmd)
+	rootCmd.AddCommand(getStateUpdateCmd)
 
 	// Here you will define your flags and configuration settings.
 

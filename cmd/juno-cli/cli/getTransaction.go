@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"github.com/NethermindEth/juno/cmd/juno-cli"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,9 +15,9 @@ var getTransactionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		res, _ := getTxInfo(args[0])
 		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
-			main.prettyPrint(res)
+			prettyPrint(res)
 		} else {
-			main.normalReturn(res)
+			normalReturn(res)
 		}
 	},
 }
@@ -28,15 +27,15 @@ func getTxInfo(input string) (*feeder.TransactionInfo, error) {
 	txHash := ""
 	txID := ""
 
-	if main.isInteger(input) {
+	if isInteger(input) {
 		txID = input
 	} else {
 		txHash = input
 	}
 
 	// Initialise new client
-	feeder_url := viper.GetString("network")
-	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
 	// Call to get transaction info
 	res, _ := client.GetTransaction(txHash, txID)
@@ -44,5 +43,5 @@ func getTxInfo(input string) (*feeder.TransactionInfo, error) {
 }
 
 func init() {
-	main.rootCmd.AddCommand(getTransactionCmd)
+	rootCmd.AddCommand(getTransactionCmd)
 }

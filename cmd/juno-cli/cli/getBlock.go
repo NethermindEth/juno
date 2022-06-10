@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"github.com/NethermindEth/juno/cmd/juno-cli"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
@@ -17,9 +16,9 @@ var getBlockCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		res, _ := getBlockInfo(args[0])
 		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
-			main.prettyPrint(res)
+			prettyPrint(res)
 		} else {
-			main.normalReturn(res)
+			normalReturn(res)
 		}
 	},
 }
@@ -28,15 +27,15 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 	blockHash := ""
 	blockNumber := ""
 
-	if main.isInteger(input) {
+	if isInteger(input) {
 		blockNumber = input
 	} else {
 		blockHash = input
 	}
 
 	// Initialise new client
-	feeder_url := viper.GetString("network")
-	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
 	// Call to get block info
 	res, err := client.GetBlock(blockHash, blockNumber)
@@ -45,5 +44,5 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 }
 
 func init() {
-	main.rootCmd.AddCommand(getBlockCmd)
+	rootCmd.AddCommand(getBlockCmd)
 }
