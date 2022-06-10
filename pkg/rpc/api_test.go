@@ -559,3 +559,38 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	// Run tests
 	testServer(t, tests)
 }
+
+func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
+	// Initialize transaction service
+	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.TransactionService.Run(); err != nil {
+		t.Fatalf("unexpected error starting the transaction service: %s", err)
+	}
+	defer services.TransactionService.Close(context.Background())
+	// Initialize block service
+	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.BlockService.Run(); err != nil {
+		t.Fatalf("unexpeceted error starting the block service: %s", err)
+	}
+	defer services.BlockService.Close(context.Background())
+	// Store transactions
+	for _, txn := range txns {
+		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+	}
+	// Store blocks
+	for _, block := range blocks {
+		services.BlockService.StoreBlock(block.BlockHash, &block)
+	}
+	// Build test cases
+	tests := make([]rpcTest, 0)
+	for _, block := range blocks {
+		for i := range block.TxHashes {
+			tests = append(tests, rpcTest{
+				Request:  buildRequest("starknet_getTransactionByBlockNumberAndIndex", block.BlockNumber, i),
+				Response: buildResponse(NewTxn(txns[i])),
+			})
+		}
+	}
+	// Run tests
+	testServer(t, tests)
+}
