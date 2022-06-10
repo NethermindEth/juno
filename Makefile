@@ -32,7 +32,8 @@ install-courtney:
 	# install courtney fork
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
-	
+	go get ./...
+
 
 install-gofumpt:
 	# install gofumpt
