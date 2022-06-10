@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 // notest
 import (
@@ -77,15 +77,10 @@ var (
 
 // Define flags and load config.
 func init() {
-	// Set flags shared accross commands as persistent flags.
+	// Set flags shared across commands as persistent flags.
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", fmt.Sprintf(
 		"config file (default is %s).", filepath.Join(config.Dir, "juno.yaml")))
 
-	// Pretty print flag.
-	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "Pretty print the response.")
-
-	// Network flag.
-	rootCmd.PersistentFlags().StringVarP(&selectedNetwork, "network", "n", "", "Use a network different to config. Available: 'mainnet', 'goerli'.")
 }
 
 // handle other networks

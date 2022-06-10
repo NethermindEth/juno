@@ -1,6 +1,7 @@
-package cmd
+package cli
 
 import (
+	"github.com/NethermindEth/juno/cmd/juno-cli"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
@@ -16,9 +17,9 @@ var getBlockCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		res, _ := getBlockInfo(args[0])
 		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
-			prettyPrint(res)
+			main.prettyPrint(res)
 		} else {
-			normalReturn(res)
+			main.normalReturn(res)
 		}
 	},
 }
@@ -27,7 +28,7 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 	blockHash := ""
 	blockNumber := ""
 
-	if isInteger(input) {
+	if main.isInteger(input) {
 		blockNumber = input
 	} else {
 		blockHash = input
@@ -44,5 +45,5 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 }
 
 func init() {
-	rootCmd.AddCommand(getBlockCmd)
+	main.rootCmd.AddCommand(getBlockCmd)
 }

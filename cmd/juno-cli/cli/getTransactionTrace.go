@@ -1,6 +1,7 @@
-package cmd
+package cli
 
 import (
+	"github.com/NethermindEth/juno/cmd/juno-cli"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -15,9 +16,9 @@ var getTransactionTraceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		res, _ := getTxTrace(args[0])
 		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
-			prettyPrint(res)
+			main.prettyPrint(res)
 		} else {
-			normalReturn(res)
+			main.normalReturn(res)
 		}
 	},
 }
@@ -26,7 +27,7 @@ func getTxTrace(input string) (*feeder.TransactionTrace, error) {
 	txHash := ""
 	txID := ""
 
-	if isInteger(input) {
+	if main.isInteger(input) {
 		txID = input
 	} else {
 		txHash = input
@@ -42,5 +43,5 @@ func getTxTrace(input string) (*feeder.TransactionTrace, error) {
 }
 
 func init() {
-	rootCmd.AddCommand(getTransactionTraceCmd)
+	main.rootCmd.AddCommand(getTransactionTraceCmd)
 }

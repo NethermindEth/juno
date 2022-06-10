@@ -2,17 +2,18 @@
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 
 */
-package cmd
+package cli
 
 import (
 	"fmt"
+	"github.com/NethermindEth/juno/cmd/juno-cli"
 
 	"github.com/spf13/cobra"
 )
 
-// getTransactionStatusCmd represents the getTransactionStatus command
-var getTransactionStatusCmd = &cobra.Command{
-	Use:   "getTransactionStatus",
+// getStorageAtCmd represents the getStorageAt command
+var getStorageAtCmd = &cobra.Command{
+	Use:   "getStorageAt",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -21,20 +22,20 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("getTransactionStatus called")
+		fmt.Println("getStorageAt called")
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(getTransactionStatusCmd)
+	main.rootCmd.AddCommand(getStorageAtCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// getTransactionStatusCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// getStorageAtCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// getTransactionStatusCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// getStorageAtCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
