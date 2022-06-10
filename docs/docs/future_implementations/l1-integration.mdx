@@ -1,0 +1,13 @@
+---
+title: Layer 1 Integration
+---
+
+In the current stage of the Alpha, StarkNet operates in a ZK-Rollup mode. This means that upon the acceptance of a state
+update on-chain, the state diff between the previous and new state is sent as calldata to Ethereum.
+
+This data allows anyone that observes Ethereum to reconstruct the current state of StarkNet. Note that to update the
+StarkNet state on L1, it suffices to send a valid proof – without information on the transactions or particular changes
+that this update caused. Consequently, more information must be provided in order to allow other parties to locally
+track StarkNet’s state.
+
+Our plan is to fetch that data and reconstruct the StarkNet state.
