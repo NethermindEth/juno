@@ -4,7 +4,6 @@ package feeder
 import (
 	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/types"
-	"github.com/NethermindEth/juno/pkg/rpc"
 )
 
 type (
@@ -155,7 +154,7 @@ type StarknetBlock struct {
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
-	Status              rpc.BlockStatus        `json:"status"`
+	Status              string                 `json:"status"`
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`

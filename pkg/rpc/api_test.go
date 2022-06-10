@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -502,4 +506,68 @@ func TestGetBlock(t *testing.T) {
 			})
 		}
 	}
+}
+
+// generateResponse returns a HTTP 200 response
+func generateResponse(body string) *http.Response {
+	return &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		ContentLength: int64(len(body)),
+		Header:        make(http.Header, 0),
+	}
+}
+
+func TestStarknetPendingTransactions(t *testing.T) {
+	// Reassign global feederClient with fake http client
+	fakeClient := feederfakes.FakeHttpClient{}
+	var client feeder.HttpClient = &fakeClient
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	// Generate fake response
+	x := feeder.StarknetBlock{
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata: []string{"a"},
+				ContractAddress: "a",
+				ContractAddressSalt: "a",
+				EntryPointSelector: "a",
+				EntryPointType: "a",
+				Signature: []string{"a"},
+				TransactionHash: "a",
+				Type: "a",
+			},
+		},
+	}
+	body, err := json.Marshal(x)
+	if err != nil {
+		t.Fatal()
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Test
+	want := []Txn{
+		{
+			FunctionCall: FunctionCall{
+				ContractAddress: types.HexToAddress("a"),
+				EntryPointSelector: types.HexToFelt("a"),
+				CallData: []types.Felt{types.HexToFelt("a")},
+			},
+			TxnHash: types.HexToTransactionHash("a"),
+			MaxFee: types.HexToFelt(""),
+		},
+	}
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_pendingTransactions"),
+			Response: buildResponse(want),
+		},
+	})
 }

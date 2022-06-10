@@ -8,9 +8,13 @@ import (
 
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/feeder"
 
 	"github.com/NethermindEth/juno/internal/log"
 )
+
+// Global feederClient that we use to request pending blocks
+var feederClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway", nil)
 
 // Echo replies with the same message.
 func (HandlerRPC) Echo(c context.Context, message string) (string, error) {
@@ -236,7 +240,29 @@ func (HandlerRPC) StarknetChainId(c context.Context) (ChainID, error) {
 func (HandlerRPC) StarknetPendingTransactions(
 	c context.Context,
 ) ([]Txn, error) {
-	return nil, nil
+	// notest
+	res, err := feederClient.GetBlock("", "pending")
+	if err != nil {
+		return nil, err
+	}
+	// Manually convert the feeder result to BlockResponse
+	txs := make([]Txn, len(res.Transactions))
+	for i, tx := range res.Transactions {
+		calldata := make([]types.Felt, len(tx.Calldata))
+		for j, data := range tx.Calldata {
+			calldata[j] = types.HexToFelt(data)
+		}
+		txs[i] = Txn{
+			FunctionCall: FunctionCall{
+				ContractAddress: types.HexToAddress(tx.ContractAddress),
+				EntryPointSelector: types.HexToFelt(tx.EntryPointSelector),
+				CallData: calldata,
+			},
+			TxnHash: types.HexToTransactionHash(tx.TransactionHash),
+			MaxFee: types.HexToFelt(""),
+		}
+	}	
+	return txs, nil
 }
 
 // StarknetProtocolVersion Returns the current starknet protocol version
