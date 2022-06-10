@@ -375,7 +375,7 @@ func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, err
 }
 
 // GetBlockHashById creates a new request to get block hash by on ID.
-func (c Client) GetBlockHashById(blockID string) (*string, error) {
+func (c Client) GetBlockHashByID(blockID string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_hash_by_id", map[string]string{"blockId": blockID}, nil)
 	if err != nil {
@@ -425,27 +425,6 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 		return nil, err
 	}
 	return &res, err
-}
-
-// GetTransactionIDByHash creates a new request to get a transaction ID
-// by hash.
-func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
-	req, err := c.newRequest(
-		"GET", "/get_transaction_id_by_hash",
-		map[string]string{"transactionHash": txHash}, nil)
-	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
-		return nil, err
-	}
-	// Different handling to other cases as ID is returned as json Number.
-	var res json.Number
-	_, err = c.do(req, &res)
-	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return nil, err
-	}
-	resString := res.String()
-	return &resString, err
 }
 
 // func (c Client) EstimateFee(contractAddress, contractABI, functionToCall, functionInputs string) (*string, error) {

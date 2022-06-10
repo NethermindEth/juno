@@ -91,11 +91,11 @@ func TestCallContract(t *testing.T) {
 
 func TestGetBlock(t *testing.T) {
 	a := feeder.StarknetBlock{}
-	body, err := StructFaker(a)
+	body, err := json.Marshal(a)
 	if err != nil {
 		t.Fatal()
 	}
-	httpClient.DoReturns(generateResponse(body), nil)
+	httpClient.DoReturns(generateResponse(string(body)), nil)
 	starknetBlock, err := client.GetBlock("", "latest")
 	if err != nil {
 		t.Fatal()
@@ -228,29 +228,6 @@ func TestGetTransactionReceipt(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionReceipt, "GetTransactionReceipt response don't match")
 }
 
-func TestGetTransactionTrace(t *testing.T) {
-	a := feeder.TransactionTrace{}
-	err := faker.FakeData(&a)
-	if err != nil {
-		t.Fatal()
-	}
-	body, err := json.Marshal(a)
-	if err != nil {
-		t.Fatal()
-	}
-	httpClient.DoReturns(generateResponse(string(body)), nil)
-	var cOrig feeder.TransactionTrace
-	err = json.Unmarshal([]byte(body), &cOrig)
-	if err != nil {
-		t.Fatal()
-	}
-	transactionTrace, err := client.GetTransactionTrace("", "id")
-	if err != nil {
-		t.Fatal()
-	}
-	assert.Equal(t, &cOrig, transactionTrace, "GetTransactionTrace response don't match")
-}
-
 func TestGetTransactionStatus(t *testing.T) {
 	a := feeder.TransactionStatus{}
 	err := faker.FakeData(&a)
@@ -274,7 +251,7 @@ func TestGetTransactionStatus(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionStatus, "GetTransactionStatus response don't match")
 }
 
-func TestGetBlockHashById(t *testing.T) {
+func TestGetBlockHashByID(t *testing.T) {
 	body := "\"hash\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig string
@@ -282,11 +259,11 @@ func TestGetBlockHashById(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	blockHash, err := client.GetBlockHashById("id")
+	blockHash, err := client.GetBlockHashByID("id")
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, blockHash, "GetBlockHashById response don't match")
+	assert.Equal(t, &cOrig, blockHash, "GetBlockHashByID response don't match")
 }
 
 func TestGetBlockIdByHash(t *testing.T) {
@@ -304,34 +281,19 @@ func TestGetBlockIdByHash(t *testing.T) {
 	assert.Equal(t, &cOrig, blockId, "GetBlockIdByHash response don't match")
 }
 
-func TestGetTransactionHashById(t *testing.T) {
-	body := "\"hash\"\n"
+func TestGetTransactionHashByID(t *testing.T) {
+	body := "\"id\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
 		t.Fatal()
 	}
-	transactionHash, err := client.GetTransactionHashByID("hash")
+	transactionHash, err := client.GetTransactionHashByID("id")
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionHash, "GetTransactionHashById response don't match")
-}
-
-func TestGetTransactionIDByHash(t *testing.T) {
-	body := "\"hash\"\n"
-	httpClient.DoReturns(generateResponse(body), nil)
-	var cOrig string
-	err := json.Unmarshal([]byte(body), &cOrig)
-	if err != nil {
-		t.Fatal()
-	}
-	transactionId, err := client.GetTransactionIDByHash("hash")
-	if err != nil {
-		t.Fatal()
-	}
-	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response don't match")
+	assert.Equal(t, &cOrig, transactionHash, "GetTransactionHashByID response don't match")
 }
 
 func TestGetStorageAt(t *testing.T) {
@@ -347,5 +309,5 @@ func TestGetStorageAt(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response don't match")
+	assert.Equal(t, &cOrig, transactionId, "Get Storage at response don't match")
 }
