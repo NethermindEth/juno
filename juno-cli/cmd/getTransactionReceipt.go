@@ -7,7 +7,7 @@ import (
 )
 
 var getTransactionReceiptCmd = &cobra.Command{ // Get_Transaction Receipt CLI command
-	Use:   "get_transaction_receipt [TRANSACTION_HASH or TRANSACTION_ID] [--network NETWORK (WIP)]",
+	Use:   "get_transaction_receipt TRANSACTION_HASH [flags]",
 	Short: "Prints out transaction receipt information.",
 	Long:  `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction-receipt`,
 	Args:  cobra.ExactArgs(1),
@@ -21,22 +21,13 @@ var getTransactionReceiptCmd = &cobra.Command{ // Get_Transaction Receipt CLI co
 	},
 }
 
-func getTxReceipt(input string) (*feeder.TransactionReceipt, error) {
-	txHash := ""
-	txID := ""
-
-	if isInteger(input) {
-		txID = input
-	} else {
-		txHash = input
-	}
-
+func getTxReceipt(txHash string) (*feeder.TransactionReceipt, error) {
 	// Initialize the client
 	feeder_url := viper.GetString("network")
 	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 
 	// Call to get transaction receipt
-	res, _ := client.GetTransactionReceipt(txHash, txID)
+	res, _ := client.GetTransactionReceipt(txHash, "")
 	return res, nil
 }
 

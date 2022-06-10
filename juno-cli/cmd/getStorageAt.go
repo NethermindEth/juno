@@ -12,7 +12,7 @@ import (
 
 // getStorageAtCmd represents the getStorageAt command
 var getStorageAtCmd = &cobra.Command{
-	Use:   "getStorageAt",
+	Use:   "get_storage_at TRANSACTION_HASH [flags]",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:

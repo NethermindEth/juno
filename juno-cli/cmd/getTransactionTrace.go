@@ -8,7 +8,7 @@ import (
 
 // getTransactionTraceCmd represents the get_transaction_trace command
 var getTransactionTraceCmd = &cobra.Command{
-	Use:   "get_transaction_trace --hash TRANSACTION_HASH [--network NETWORK (WIP)]",
+	Use:   "get_transaction_trace TRANSACTION_HASH [flags]",
 	Short: `Print internal transaction information.`,
 	Long:  `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction-trace`,
 	Args:  cobra.ExactArgs(1),
@@ -22,22 +22,13 @@ var getTransactionTraceCmd = &cobra.Command{
 	},
 }
 
-func getTxTrace(input string) (*feeder.TransactionTrace, error) {
-	txHash := ""
-	txID := ""
-
-	if isInteger(input) {
-		txID = input
-	} else {
-		txHash = input
-	}
-
+func getTxTrace(txHash string) (*feeder.TransactionTrace, error) {
 	// Initialise new client
 	feeder_url := viper.GetString("network")
 	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 
 	// Call to get transaction info
-	res, _ := client.GetTransactionTrace(txHash, txID)
+	res, _ := client.GetTransactionTrace(txHash, "")
 	return res, nil
 }
 

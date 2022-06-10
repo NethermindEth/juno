@@ -1,40 +1,44 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getFullContractCmd represents the getFullContract command
 var getFullContractCmd = &cobra.Command{
-	Use:   "getFullContract",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "get_full_contract [CONTRACT_ADDRESS] [BLOCK_HASH or BLOCK_NUMBER] [flags]",
+	Short: "Prints out full contract class at a specific address.",
+	Long:  `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-full-contract`,
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("getFullContract called")
+		res, _ := getFullContract(args[0], args[1])
+		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
+			prettyPrint(res)
+		} else {
+			normalReturn(res)
+		}
 	},
+}
+
+func getFullContract(contractAddress, blockAddressOrHash string) (map[string]interface{}, error) {
+	blockHash, blockNumber := "", ""
+
+	if isInteger(blockAddressOrHash) {
+		blockNumber = blockAddressOrHash
+	} else {
+		blockHash = blockAddressOrHash
+	}
+
+	// Initialise new client
+	feeder_url := viper.GetString("network")
+	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+
+	res, _ := client.GetFullContract(contractAddress, blockHash, blockNumber)
+	return res, nil
 }
 
 func init() {
 	rootCmd.AddCommand(getFullContractCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// getFullContractCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// getFullContractCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

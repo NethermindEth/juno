@@ -1,40 +1,37 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getTransactionStatusCmd represents the getTransactionStatus command
 var getTransactionStatusCmd = &cobra.Command{
-	Use:   "getTransactionStatus",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "get_transaction_status TRANSACTION_HASH [flags]",
+	Short: "Prints out transaction status information.",
+	Long:  `See https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction-status`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("getTransactionStatus called")
+		res, _ := getTxStatus(args[0])
+		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
+			prettyPrint(res)
+		} else {
+			normalReturn(res)
+		}
 	},
+}
+
+func getTxStatus(txHash string) (*feeder.TransactionStatus, error) {
+	// Initialize the client
+	feeder_url := viper.GetString("network")
+	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+
+	// Call to get transaction receipt
+	res, _ := client.GetTransactionStatus(txHash, "")
+	return res, nil
 }
 
 func init() {
 	rootCmd.AddCommand(getTransactionStatusCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// getTransactionStatusCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// getTransactionStatusCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,8 +23,7 @@ var getBlockCmd = &cobra.Command{
 }
 
 func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
-	blockHash := ""
-	blockNumber := ""
+	blockHash, blockNumber := "", ""
 
 	if isInteger(input) {
 		blockNumber = input
@@ -38,8 +36,7 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 
 	// Call to get block info
-	res, err := client.GetBlock(blockHash, blockNumber)
-	errpkg.CheckFatal(err, "Error getting block info")
+	res, _ := client.GetBlock(blockHash, blockNumber)
 	return res, nil
 }
 

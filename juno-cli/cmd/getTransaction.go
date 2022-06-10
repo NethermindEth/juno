@@ -8,7 +8,7 @@ import (
 
 // Command to get transaction info with hash
 var getTransactionCmd = &cobra.Command{
-	Use:   "get_transaction [TRANSACTION_HASH or TRANSACTION_NUMBER] [flags]",
+	Use:   "get_transaction [TRANSACTION_HASH] [flags]",
 	Short: "Prints out transaction information.",
 	Long:  `See https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-transaction`,
 	Args:  cobra.ExactArgs(1),
@@ -22,22 +22,13 @@ var getTransactionCmd = &cobra.Command{
 	},
 }
 
-func getTxInfo(input string) (*feeder.TransactionInfo, error) {
-	txHash := ""
-	txID := ""
-
-	if isInteger(input) {
-		txID = input
-	} else {
-		txHash = input
-	}
-
+func getTxInfo(txHash string) (*feeder.TransactionInfo, error) {
 	// Initialise new client
 	feeder_url := viper.GetString("network")
 	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 
-	// Call to get transaction info
-	res, _ := client.GetTransaction(txHash, txID)
+	// Call to get transaction info - txID no longer used.
+	res, _ := client.GetTransaction(txHash, "")
 	return res, nil
 }
 
