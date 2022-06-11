@@ -1210,3 +1210,103 @@ func TestGetContractAddressesFeederFail(t *testing.T) {
 	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
+
+// TestGetBlockIDByHashFeederFail
+func TestGetBlockIDByHashFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockHash", "3213")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Send Request expecting an error
+	failRestHandler.GetBlockIDByHash(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+// TestGetBlockHashByIDFeederFail
+func TestGetBlockHashByIDFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block_hash_by_id"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockId", "3213")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Send Request expecting an error
+	failRestHandler.GetBlockHashById(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+// TestGetTransactionIDByHashFeederFail
+func TestGetTransactionIDByHashFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("transactionHash", "3213")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Send Request expecting an error
+	failRestHandler.GetTransactionIDByHash(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+// TestGetBlockHashByIDFeederFail
+func TestGetTransactionHashByIDFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_hash_by_id"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("transactionId", "3213")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Send Request expecting an error
+	failRestHandler.GetTransactionHashByID(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
