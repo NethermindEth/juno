@@ -30,6 +30,23 @@ func (HandlerRPC) EchoErr(c context.Context, message string) (string, error) {
 func (HandlerRPC) StarknetCall(
 	c context.Context, request FunctionCall, blockHash BlockHashOrTag,
 ) (ResultCall, error) {
+	if tag := blockHash.Tag; tag != nil {
+		calldata := make([]int, len(request.CallData))
+		for i, data := range request.CallData {
+			calldata[i] = int(data.Big().Int64())
+		}
+		call := feeder.InvokeFunction{
+			ContractAddress: int(request.ContractAddress.Felt().Big().Int64()),
+			EntryPointSelector: int(request.EntryPointSelector.Big().Int64()),
+			Calldata: calldata,
+		}
+		result, err := feederClient.CallContract(call, "", string(*tag))
+		if err != nil {
+			return nil, fmt.Errorf("call failed %v", err)
+		}
+		// TODO is this correct?
+		return (*result)["retdata"], nil
+	}
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
@@ -295,6 +312,7 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
 		block := services.BlockService.GetBlockByHash(*blockHash)
+		// TODO check if block is nil?
 		if index < 0 || len(block.TxHashes) <= index {
 			// notest
 			return nil, fmt.Errorf("invalid index %d", index)
@@ -305,8 +323,12 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 	}
 	// notest
 	if tag := blockHashOrTag.Tag; tag != nil {
-		// TODO: search block by tag
-		return &Txn{}, nil
+		blockResponse, err := getBlockByTag(c, *tag, ScopeFullTxns)
+		if err != nil {
+			return nil, fmt.Errorf("block not found")
+		}
+		txs := blockResponse.Transactions.([]*Txn)
+		return txs[index], nil
 	}
 	// TODO: return invalid param error
 	return nil, errors.New("invalid blockHashOrtTag param")
@@ -328,8 +350,12 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 	}
 	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
-		// TODO: search block by tag
-		return &Txn{}, nil
+		blockResponse, err := getBlockByTag(ctx, *tag, ScopeFullTxns)
+		if err != nil {
+			return nil, fmt.Errorf("block not found")
+		}
+		txs := blockResponse.Transactions.([]*Txn)
+		return txs[index], nil
 	}
 	// TODO: return invalid param error
 	return nil, errors.New("invalid blockHashOrtTag param")
@@ -346,26 +372,39 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 // StarknetGetCode Get the code of a specific contract
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress types.Address,
-) (CodeResult, error) {
+) (*CodeResult, error) {
 	abi := services.AbiService.GetAbi(contractAddress.Hex())
 	if abi == nil {
-		// notest
-		return CodeResult{}, fmt.Errorf("abi not found")
+		// Try the feeder gateway for pending block
+		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
+		if err != nil {
+			return nil, fmt.Errorf("abi not found %v", err)
+		}
+		// Convert feeder type to RPC CodeResult type
+		bytecode := make([]types.Felt, len(code.Bytecode))
+		for i, code := range code.Bytecode {
+			bytecode[i] = types.HexToFelt(code)
+		}
+		marshal, err := json.Marshal(code.Abi)
+		if err != nil {
+			return nil, fmt.Errorf("unexpected marshal error %v", err)
+		}
+		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 	}
 	code := services.StateService.GetCode(contractAddress.Bytes())
 	if code == nil {
 		// notest
-		return CodeResult{}, fmt.Errorf("code not found")
+		return nil, fmt.Errorf("code not found")
 	}
 	marshalledAbi, err := json.Marshal(abi)
 	if err != nil {
-		return CodeResult{}, err
+		return nil, err
 	}
-	bytecode := make([]Felt, len(code.Code))
+	bytecode := make([]types.Felt, len(code.Code))
 	for i, b := range code.Code {
-		bytecode[i] = Felt(types.BytesToFelt(b).Hex())
+		bytecode[i] = types.BytesToFelt(b)
 	}
-	return CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
+	return &CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
@@ -383,7 +422,7 @@ func (HandlerRPC) StarknetChainId(c context.Context) (ChainID, error) {
 func (HandlerRPC) StarknetPendingTransactions(
 	c context.Context,
 ) ([]*Txn, error) {
-	block, err := getBlockByTag(c, "pending", ScopeFullTxns)
+	block, err := getBlockByTag(c, BlocktagPending, ScopeFullTxns)
 	if err != nil {
 		return nil, err
 	}

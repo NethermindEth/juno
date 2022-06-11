@@ -129,7 +129,7 @@ func TestStarknetGetStorageAt(t *testing.T) {
 			Response: buildResponse(Felt(value.Hex())),
 		},
 		{
-			Request:  buildRequest("starknet_getStorageAt", address.Hex(), key.Hex(), "pending"),
+			Request:  buildRequest("starknet_getStorageAt", address.Hex(), key.Hex(), BlocktagPending),
 			Response: buildResponse(Felt(value.Hex())),
 		},
 	})

@@ -363,7 +363,7 @@ func NewTxnReceipt(receipt *types.TransactionReceipt) *TxnReceipt {
 
 // CodeResult The code and ABI for the requested contract
 type CodeResult struct {
-	Bytecode []Felt `json:"bytecode"`
+	Bytecode []types.Felt `json:"bytecode"`
 	// The ABI of the contract in JSON format. Uses the same structure as EVM ABI
 	Abi string `json:"abi"`
 }
