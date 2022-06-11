@@ -479,10 +479,10 @@ func TestGetStateUpdateHandler(t *testing.T) {
 	assert.DeepEqual(t, &a, &cOrig)
 }
 
-// TestGetContractAddressHandler
-func TestGetContractAddressHandler(t *testing.T) {
+// TestGetContractAddressesHandler
+func TestGetContractAddressesHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_contract_address"
+	queryStr := "http://localhost:8100/feeder_gateway/get_contract_addresses"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -517,6 +517,202 @@ func TestGetContractAddressHandler(t *testing.T) {
 
 	// Read Rest API Response
 	var cOrig feeder.ContractAddresses
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert actual equals expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
+
+// TestGetBlockHashByIDHandler
+func TestGetBlockHashbyIdHandler(t *testing.T) {
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_block_hash_by_id"
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockId", "1")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Build Fake Response
+	var a string
+	err = faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Get Contract Address from rest API
+	restHandler.GetBlockHashById(rr, req)
+
+	// Check if errors were returned
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Read Rest API Response
+	var cOrig string
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert actual equals expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
+
+// TestGetBlockIDbyHashHandler
+func TestGetBlockIDByHashHandler(t *testing.T) {
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockHash", "10001")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Build Fake Response
+	var a string
+	err = faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Get Contract Address from rest API
+	restHandler.GetBlockIDByHash(rr, req)
+
+	// Check if errors were returned
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Read Rest API Response
+	var cOrig string
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert actual equals expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
+
+// TestGetTransactionHashbyIdHandler
+func TestGetTransactionHashbyIdHandler(t *testing.T) {
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_hash_by_id"
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("transactionId", "1")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Build Fake Response
+	var a string
+	err = faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Get Contract Address from rest API
+	restHandler.GetTransactionHashByID(rr, req)
+
+	// Check if errors were returned
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Read Rest API Response
+	var cOrig string
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert actual equals expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
+
+// TestGetTransactionIDbyHashHandler
+func TestGetTransactionIDByHashHandler(t *testing.T) {
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("transactionHash", "10001")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Build Fake Response
+	var a string
+	err = faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Get Contract Address from rest API
+	restHandler.GetTransactionIDByHash(rr, req)
+
+	// Check if errors were returned
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Read Rest API Response
+	var cOrig string
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
 	// Assert actual equals expected
@@ -697,6 +893,86 @@ func TestGetStateUpdateWithoutBlockIdentifier(t *testing.T) {
 
 	// Assert Error query args were not correct
 	assert.Equal(t, rr.Body.String(), "GetStateUpdate failed: expected Block Identifier")
+}
+
+// TestGetBlockHashByIDWithoutTransactionId
+func TestGetBlockHashByIDWithoutTransactionId(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+
+	// Build Request without Query Args
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Get Transaction Receipt from rest API
+	restHandler.GetBlockHashById(rr, req)
+
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetBlockHashById failed: expected blockId")
+}
+
+// TestGetBlockIDByHashWithoutTransactionHash
+func TestGetBlockIDByHashWithoutTransactionHash(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+
+	// Build Request without Query Args
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Get Transaction Receipt from rest API
+	restHandler.GetBlockIDByHash(rr, req)
+
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetBlockIDByHash failed: expected blockHash")
+}
+
+// TestGetTransactionHashByIDWithoutTransactionId
+func TestGetTransactionHashByIDWithoutTransactionId(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+
+	// Build Request without Query Args
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Get Transaction Receipt from rest API
+	restHandler.GetTransactionHashByID(rr, req)
+
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetTransactionHashByID failed: expected transactionId")
+}
+
+// TestGetTransactionIDByHashWithoutTransactionHash
+func TestGetTransactionIDByHashWithoutTransactionHash(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+
+	// Build Request without Query Args
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Get Transaction Receipt from rest API
+	restHandler.GetTransactionIDByHash(rr, req)
+
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetTransactionIDByHash failed: expected transactionHash")
 }
 
 //---------------------------------------------

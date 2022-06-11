@@ -167,3 +167,71 @@ func (rh *RestHandler) GetContractAddresses(w http.ResponseWriter, r *http.Reque
 	}
 	json.NewEncoder(w).Encode(res)
 }
+
+// GetBlockHashById returns block hash given blockId
+func (rh *RestHandler) GetBlockHashById(w http.ResponseWriter, r *http.Request) {
+	blockId, ok_blockId := r.URL.Query()["blockId"]
+
+	if ok_blockId {
+		res, err := rh.RestFeeder.GetBlockHashById(strings.Join(blockId, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetBlockHashById failed: expected blockId")
+}
+
+// GetBlockIdByHash returns blockId given block hash
+func (rh *RestHandler) GetBlockIDByHash(w http.ResponseWriter, r *http.Request) {
+	blockHash, ok_blockHash := r.URL.Query()["blockHash"]
+
+	if ok_blockHash {
+		res, err := rh.RestFeeder.GetBlockIDByHash(strings.Join(blockHash, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetBlockIDByHash failed: expected blockHash")
+}
+
+// GetTransactionHashById returns transaction hash given transactionId
+func (rh *RestHandler) GetTransactionHashByID(w http.ResponseWriter, r *http.Request) {
+	transactionId, ok_transactionId := r.URL.Query()["transactionId"]
+
+	if ok_transactionId {
+		res, err := rh.RestFeeder.GetTransactionHashByID(strings.Join(transactionId, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetTransactionHashByID failed: expected transactionId")
+}
+
+// GetTransactionIDByHash returns transactionId given transaction hash
+func (rh *RestHandler) GetTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
+	transactionHash, ok_transactionHash := r.URL.Query()["transactionHash"]
+
+	if ok_transactionHash {
+		res, err := rh.RestFeeder.GetTransactionIDByHash(strings.Join(transactionHash, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetTransactionIDByHash failed: expected transactionHash")
+}
