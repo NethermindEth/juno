@@ -15,6 +15,8 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/NethermindEth/juno/pkg/types"
+
+	"gotest.tools/assert"
 )
 
 var (
@@ -22,6 +24,62 @@ var (
 	testFelt2 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000002")
 	testFelt3 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000003")
 	testFelt4 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000004")
+
+	fakeBlock feeder.StarknetBlock = feeder.StarknetBlock{
+		BlockHash: "a",
+		ParentBlockHash: "a",
+		BlockNumber: 0,
+		GasPrice: "a",
+		SequencerAddress: "a",
+		StateRoot: "a",
+		Status: "a",
+		Timestamp: 0,
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata: []string{"a"},
+				ContractAddress: "a",
+				ContractAddressSalt: "a",
+				EntryPointSelector: "a",
+				EntryPointType: "a",
+				Signature: []string{"a"},
+				TransactionHash: "a",
+				Type: "INVOKE",
+			},
+		},
+		TransactionReceipts: []feeder.TransactionExecution{
+			{
+				TransactionIndex: 0,
+				TransactionHash: "a",
+				L1ToL2ConsumedMessage: feeder.L1ToL2Message{
+					FromAddress: "a",
+					ToAddress: "a",
+					Selector: "a",
+					Payload: []string{"a"},
+					Nonce: "0",
+				},
+				L2ToL1Messages: []feeder.L2ToL1Message{
+					{
+						FromAddress: "a",
+						ToAddress: "a",
+						Payload: []string{"a"},
+					},
+				},
+				Events: []feeder.Event{
+					{
+						FromAddress: "a",
+						Keys: []string{"a"},
+						Data: []string{"a"},
+					},
+				},
+				ExecutionResources: feeder.ExecutionResources{
+					NSteps: 0,
+					BuiltinInstanceCounter: map[string]int64{"a": 0},
+					NMemoryHoles: 0,
+				},
+				ActualFee: "0",
+			},
+		},
+	}
 )
 
 func buildRequest(method string, params ...interface{}) string {
@@ -519,6 +577,97 @@ func generateResponse(body string) *http.Response {
 		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
 		ContentLength: int64(len(body)),
 		Header:        make(http.Header, 0),
+	}
+}
+
+func TestGetBlockByTag(t *testing.T) {
+	// Reassign global feederClient with fake http client
+	fakeClient := feederfakes.FakeHttpClient{}
+	var client feeder.HttpClient = &fakeClient
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	tx := Txn{
+		FunctionCall: FunctionCall{
+			ContractAddress: types.HexToAddress("a"),
+			EntryPointSelector: types.HexToFelt("a"),
+			CallData: []types.Felt{types.HexToFelt("a")},
+		},
+		TxnHash: types.HexToTransactionHash("a"),
+	}
+
+	tests := [...]struct{
+		scope RequestedScope
+		want  interface{}
+	}{
+		{
+			scope: ScopeTxnHash,
+			want: []*types.TransactionHash{&tx.TxnHash},
+		},
+		{
+			scope: ScopeFullTxns,
+			want: []*Txn{&tx},
+		},
+		{
+			scope: ScopeFullTxnAndReceipts,
+			want: []*TxnAndReceipt{
+				{
+					Txn: tx,
+					TxnReceipt: TxnReceipt{
+						TxnHash: types.HexToTransactionHash("a"),
+						Status: types.TxStatusUnknown,
+						StatusData: "",
+						MessagesSent: []*MsgToL1{
+							{
+								ToAddress: types.HexToEthAddress("a"),
+								Payload: []types.Felt{types.HexToFelt("a")},
+							},
+						},
+						L1OriginMessage: &MsgToL2{
+							FromAddress: types.HexToEthAddress("a"),
+							Payload: []types.Felt{types.HexToFelt("a")},
+						},
+						Events: []*Event{
+							{
+								FromAddress: types.HexToAddress("a"),
+								EventContent: EventContent{
+									Keys: []types.Felt{types.HexToFelt("a")},
+									Data: []types.Felt{types.HexToFelt("a")},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	want := &BlockResponse{
+		BlockHash: types.HexToBlockHash("a"),
+		ParentHash: types.HexToBlockHash("a"),
+		BlockNumber: 0,
+		Status: types.StringToBlockStatus("UNKNOWN"),
+		Sequencer: types.HexToAddress("a"),
+		NewRoot: types.HexToFelt("a"),
+	}
+
+	for _, test := range tests {
+		t.Run(string(test.scope), func(t *testing.T) {
+			body, err := json.Marshal(fakeBlock)
+			if err != nil {
+				t.Fatal("unexpected marshal error", err)
+			}
+			fakeClient.DoReturns(generateResponse(string(body)), nil)
+			if err != nil {
+				t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+			}
+
+			want.Transactions = test.want
+			response, err := getBlockByTag(context.Background(), "", test.scope)
+			if err != nil {
+				t.Fatal("unexpected error when calling `getBlockByTag`", err)
+			}
+			assert.DeepEqual(t, response, want)
+		})
 	}
 }
 

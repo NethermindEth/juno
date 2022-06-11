@@ -34,9 +34,107 @@ func (HandlerRPC) StarknetCall(
 }
 
 func getBlockByTag(ctx context.Context, blockTag BlockTag, scope RequestedScope) (*BlockResponse, error) {
-	// notest
-	// TODO: Implement get block by tag
-	return &BlockResponse{}, nil
+	// TODO we should the block service keep track of the latest block we have received
+	// Then we only need to request pending blocks from the feeder gateway.
+	res, err := feederClient.GetBlock("", string(blockTag))
+	if err != nil {
+		return nil, err
+	}
+	response := &BlockResponse{
+		BlockHash: types.HexToBlockHash(res.BlockHash),
+		ParentHash: types.HexToBlockHash(res.ParentBlockHash),
+		BlockNumber: uint64(res.BlockNumber),
+		Status: types.StringToBlockStatus(res.Status),
+		Sequencer: types.HexToAddress(res.SequencerAddress),
+		NewRoot: types.HexToFelt(res.StateRoot),
+	}
+	if scope == ScopeTxnHash {
+		txs := make([]*types.TransactionHash, len(res.Transactions))
+		for i, tx := range res.Transactions {
+			hash := types.HexToTransactionHash(tx.TransactionHash)
+			txs[i] = &hash
+		}
+		response.Transactions = txs
+		return response, nil
+	}
+
+	txs := make([]*Txn, len(res.Transactions))
+	for i, tx := range res.Transactions {
+		switch tx.Type {
+		case "INVOKE":
+			calldata := make([]types.Felt, len(tx.Calldata))
+			for j, data := range tx.Calldata {
+				calldata[j] = types.HexToFelt(data)
+			}
+			txs[i] = &Txn{
+				FunctionCall: FunctionCall{
+					ContractAddress:    types.HexToAddress(tx.ContractAddress),
+					EntryPointSelector: types.HexToFelt(tx.EntryPointSelector),
+					CallData:           calldata,
+				},
+				TxnHash: types.HexToTransactionHash(tx.TransactionHash),
+			}
+		default:
+			txs[i] = &Txn{}
+		}
+	}
+
+	if scope == ScopeFullTxns {
+		response.Transactions = txs
+		return response, nil
+	}
+
+	txnAndReceipts := make([]*TxnAndReceipt, len(res.TransactionReceipts))
+	for i, feederReceipt := range res.TransactionReceipts {
+		messagesSent := make([]*MsgToL1, len(feederReceipt.L2ToL1Messages))
+		for j, msg := range feederReceipt.L2ToL1Messages {
+			payload := make([]types.Felt, len(msg.Payload))
+			for k, data := range msg.Payload {
+				payload[k] = types.HexToFelt(data)
+			}
+			messagesSent[j] = &MsgToL1{
+				ToAddress: types.HexToEthAddress(msg.ToAddress),
+				Payload: payload,	
+			}
+		}
+		events := make([]*Event, len(feederReceipt.Events))
+		for j, event := range feederReceipt.Events {
+			keys := make([]types.Felt, len(event.Keys))
+			for k, key := range event.Keys {
+				keys[k] = types.HexToFelt(key)	
+			}
+			data := make([]types.Felt, len(event.Data))
+			for k, datum := range event.Data {
+				data[k] = types.HexToFelt(datum)	
+			}
+			events[j] = &Event{
+				FromAddress: types.HexToAddress(event.FromAddress),
+				EventContent: EventContent{
+					Keys: keys,
+					Data: data,
+				},
+			}
+		}
+		payload := make([]types.Felt, len(feederReceipt.L1ToL2ConsumedMessage.Payload))
+		for j, data := range feederReceipt.L1ToL2ConsumedMessage.Payload {
+			payload[j] = types.HexToFelt(data)
+		}
+		txnAndReceipts[i] = &TxnAndReceipt{
+			Txn: *txs[i],
+			TxnReceipt: TxnReceipt{
+				TxnHash: types.HexToTransactionHash("a"),
+				MessagesSent: messagesSent,
+				L1OriginMessage: &MsgToL2{
+					FromAddress: types.HexToEthAddress(feederReceipt.L1ToL2ConsumedMessage.FromAddress),
+					Payload: payload,
+				},
+				Events: events,
+			},
+		}
+	}
+	response.Transactions = txnAndReceipts
+
+	return response, nil
 }
 
 func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
@@ -169,7 +267,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 // StarknetGetTransactionByHash Get the details and status of a
 // submitted transaction.
 func (HandlerRPC) StarknetGetTransactionByHash(
-	c context.Context, transactionHash TxnHash,
+	c context.Context, transactionHash types.TransactionHash,
 ) (Txn, error) {
 	return Txn{}, nil
 }
@@ -195,7 +293,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(
 // StarknetGetTransactionReceipt Get the transaction receipt by the
 // transaction hash.
 func (HandlerRPC) StarknetGetTransactionReceipt(
-	c context.Context, transactionHash TxnHash,
+	c context.Context, transactionHash types.TransactionHash,
 ) (TxnReceipt, error) {
 	return TxnReceipt{}, nil
 }
@@ -240,29 +338,11 @@ func (HandlerRPC) StarknetChainId(c context.Context) (ChainID, error) {
 func (HandlerRPC) StarknetPendingTransactions(
 	c context.Context,
 ) ([]Txn, error) {
-	// notest
-	res, err := feederClient.GetBlock("", "pending")
+	block, err := getBlockByTag(c, "pending", "")
 	if err != nil {
 		return nil, err
 	}
-	// Manually convert the feeder result to BlockResponse
-	txs := make([]Txn, len(res.Transactions))
-	for i, tx := range res.Transactions {
-		calldata := make([]types.Felt, len(tx.Calldata))
-		for j, data := range tx.Calldata {
-			calldata[j] = types.HexToFelt(data)
-		}
-		txs[i] = Txn{
-			FunctionCall: FunctionCall{
-				ContractAddress: types.HexToAddress(tx.ContractAddress),
-				EntryPointSelector: types.HexToFelt(tx.EntryPointSelector),
-				CallData: calldata,
-			},
-			TxnHash: types.HexToTransactionHash(tx.TransactionHash),
-			MaxFee: types.HexToFelt(""),
-		}
-	}	
-	return txs, nil
+	return block.Transactions.([]Txn), nil
 }
 
 // StarknetProtocolVersion Returns the current starknet protocol version
