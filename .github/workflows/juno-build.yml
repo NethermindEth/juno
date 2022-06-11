@@ -1,11 +1,11 @@
-name: Juno Build
+name: Juno Static Checks
 on:
   push:
     branches:
       - main
   pull_request:
   workflow_dispatch:
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,8 +15,12 @@ jobs:
     name: Juno with Go ${{ matrix.go }}
     steps:
       - uses: actions/checkout@v2
-      - name: Run Juno
-        uses: actions/setup-go@v2
+      - name: Build Juno
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - run: make all
+      - run: make compile
+      - name: Install gofumpt
+        run: make install-gofumpt
+      - name: Run gofumpt
+        run: make format-check

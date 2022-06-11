@@ -689,6 +689,28 @@ func TestGetBlockByTag(t *testing.T) {
 	}
 }
 
+func TestGetTransactionByHash(t *testing.T) {
+	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.TransactionService.Run(); err != nil {
+		t.Fatalf("unexpected error starting the transaction service: %s", err)
+	}
+	defer services.TransactionService.Close(context.Background())
+	responses := make(map[string]*Txn)
+	for _, txn := range txns {
+		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		responses[txn.GetHash().String()] = NewTxn(txn)
+	}
+	for _, txn := range txns {
+		testServer(t, []rpcTest{
+			{
+				Request:  buildRequest("starknet_getTransactionByHash", txn.GetHash()),
+				Response: buildResponse(responses[txn.GetHash().String()]),
+			},
+		})
+	}
+}
+
+
 func TestStarknetPendingTransactions(t *testing.T) {
 	// Reassign global feederClient with fake http client
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
@@ -704,21 +726,21 @@ func TestStarknetPendingTransactions(t *testing.T) {
 				EntryPointType: "a",
 				Signature: []string{"a"},
 				TransactionHash: "a",
-				Type: "a",
+				Type: "INVOKE",
 			},
 		},
 	}
 	body, err := json.Marshal(x)
 	if err != nil {
-		t.Fatal()
+		t.Fatal("unexpected marshal error")
 	}
 	fakeClient.DoReturns(generateResponse(string(body)), nil)
 	if err != nil {
-		t.Fatal()
+		t.Fatal("unexpected error while initializing fake data in feeder client")
 	}
 
 	// Test
-	want := []Txn{
+	want := []*Txn{
 		{
 			FunctionCall: FunctionCall{
 				ContractAddress: types.HexToAddress("a"),
@@ -726,13 +748,82 @@ func TestStarknetPendingTransactions(t *testing.T) {
 				CallData: []types.Felt{types.HexToFelt("a")},
 			},
 			TxnHash: types.HexToTransactionHash("a"),
-			MaxFee: types.HexToFelt(""),
 		},
 	}
 	testServer(t, []rpcTest{
 		{
-			Request:  buildRequest("starknet_pendingTransactions"),
+			Request:  buildRequest("starknet_pendingTransactions", ),
 			Response: buildResponse(want),
 		},
 	})
+}
+
+func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
+	// Initialize transaction service
+	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.TransactionService.Run(); err != nil {
+		t.Fatalf("unexpected error starting the transaction service: %s", err)
+	}
+	defer services.TransactionService.Close(context.Background())
+	// Initialize block service
+	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.BlockService.Run(); err != nil {
+		t.Fatalf("unexpeceted error starting the block service: %s", err)
+	}
+	defer services.BlockService.Close(context.Background())
+	// Store transactions
+	for _, txn := range txns {
+		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+	}
+	// Store blocks
+	for _, block := range blocks {
+		services.BlockService.StoreBlock(block.BlockHash, &block)
+	}
+	// Build test cases
+	tests := make([]rpcTest, 0)
+	for _, block := range blocks {
+		for i := range block.TxHashes {
+			tests = append(tests, rpcTest{
+				Request:  buildRequest("starknet_getTransactionByBlockHashAndIndex", block.BlockHash.Hex(), i),
+				Response: buildResponse(NewTxn(txns[i])),
+			})
+		}
+	}
+	// Run tests
+	testServer(t, tests)
+}
+
+func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
+	// Initialize transaction service
+	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.TransactionService.Run(); err != nil {
+		t.Fatalf("unexpected error starting the transaction service: %s", err)
+	}
+	defer services.TransactionService.Close(context.Background())
+	// Initialize block service
+	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	if err := services.BlockService.Run(); err != nil {
+		t.Fatalf("unexpeceted error starting the block service: %s", err)
+	}
+	defer services.BlockService.Close(context.Background())
+	// Store transactions
+	for _, txn := range txns {
+		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+	}
+	// Store blocks
+	for _, block := range blocks {
+		services.BlockService.StoreBlock(block.BlockHash, &block)
+	}
+	// Build test cases
+	tests := make([]rpcTest, 0)
+	for _, block := range blocks {
+		for i := range block.TxHashes {
+			tests = append(tests, rpcTest{
+				Request:  buildRequest("starknet_getTransactionByBlockNumberAndIndex", block.BlockNumber, i),
+				Response: buildResponse(NewTxn(txns[i])),
+			})
+		}
+	}
+	// Run tests
+	testServer(t, tests)
 }
