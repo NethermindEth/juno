@@ -243,25 +243,33 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
+	var blockNumber uint64
 	if hash := blockHash.Hash; hash != nil {
 		block := services.BlockService.GetBlockByHash(*blockHash.Hash)
+		blockNumber = block.BlockNumber
 		if block == nil {
 			// notest
 			return "", fmt.Errorf("block not found")
 		}
-		storage := services.StateService.GetStorage(string(contractAddress), block.BlockNumber)
-		if storage == nil {
+	} else if tag := blockHash.Tag; tag != nil {
+		// notest
+		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
+		blockNumber = blockResponse.BlockNumber
+		if err != nil {
 			// notest
-			return "", fmt.Errorf("storage not found")
+			return "", fmt.Errorf("block not found")
 		}
-		return Felt(storage.Storage[string(key)]), nil
+	} else {
+		return "", fmt.Errorf("invalid block hash or tag")
 	}
-	// notest
-	if tag := blockHash.Tag; tag != nil {
-		// TODO: Get by tag
-		return "", fmt.Errorf("unimplmented search by block tag")
+
+	storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	if storage == nil {
+		// notest
+		return "", fmt.Errorf("storage not found")
 	}
-	return "", fmt.Errorf("invalid block hash or tag")
+
+	return Felt(storage.Storage[string(key)]), nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
