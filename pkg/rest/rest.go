@@ -83,3 +83,39 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 	}
 	fmt.Fprintf(w, "GetTransactionStatus failed: expected txId or transactionHash")
 }
+
+//GetTransactionReceipt Returns Transaction Receipt
+func (rh *RestHandler) GetTransactionReceipt(w http.ResponseWriter, r *http.Request) {
+	txHash, ok_txHash := r.URL.Query()["transactionHash"]
+	txId, ok_txId := r.URL.Query()["txId"]
+
+	if ok_txHash || ok_txId {
+		res, err := rh.RestFeeder.GetTransactionReceipt(strings.Join(txHash, ""), strings.Join(txId, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetTransactionReceipt failed: expected txId or transactionHash")
+}
+
+//GetTransactionReceipt Returns Transaction Receipt
+func (rh *RestHandler) GetTransaction(w http.ResponseWriter, r *http.Request) {
+	txHash, ok_txHash := r.URL.Query()["transactionHash"]
+	txId, ok_txId := r.URL.Query()["txId"]
+
+	if ok_txHash || ok_txId {
+		res, err := rh.RestFeeder.GetTransaction(strings.Join(txHash, ""), strings.Join(txId, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetTransaction failed: expected txId or transactionHash")
+}
