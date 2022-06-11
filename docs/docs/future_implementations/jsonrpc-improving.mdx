@@ -14,7 +14,7 @@ After that we execute the method sending the params we already marshal to the in
 Each time the method is called, we need to make this computation.
 
 Our proposal here, is to make this computation before start the RPC server and have a callback dictionary that contains
-all these methods pre-computed and saved in memory, so each time we ask, we will only need to check in the callback for
+all those methods pre-computed and saved in memory, so each time we ask, we will only need to check in the callback for
 response of each method, and params types will be loaded, without the need of create multiple times an object for the
 connection to the rpc function.
 
