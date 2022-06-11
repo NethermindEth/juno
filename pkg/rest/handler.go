@@ -18,6 +18,7 @@ func NewServer(rest_port string, feeder_gateway string) *Server {
 	m.HandleFunc("/get_transaction_status", rest_handler.GetTransactionStatus)
 	m.HandleFunc("/get_transaction_receipt", rest_handler.GetTransactionReceipt)
 	m.HandleFunc("/get_transaction", rest_handler.GetTransaction)
+	m.HandleFunc("/get_full_contract", rest_handler.GetFullContract)
 
 	return &Server{server: http.Server{Addr: rest_port, Handler: m}}
 }

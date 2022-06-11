@@ -63,7 +63,7 @@ func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(res)
 		return
 	}
-	fmt.Fprintf(w, "GetStorageAt Request Failed: expected (blockNumber or blockHash), contractAddress, and key")
+	fmt.Fprintf(w, "GetStorageAt Request Failed: expected blockIdentifier, contractAddress, and key")
 }
 
 // GetTransactionStatus returns Transaction Status
@@ -84,7 +84,7 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 	fmt.Fprintf(w, "GetTransactionStatus failed: expected txId or transactionHash")
 }
 
-//GetTransactionReceipt Returns Transaction Receipt
+// GetTransactionReceipt Returns Transaction Receipt
 func (rh *RestHandler) GetTransactionReceipt(w http.ResponseWriter, r *http.Request) {
 	txHash, ok_txHash := r.URL.Query()["transactionHash"]
 	txId, ok_txId := r.URL.Query()["txId"]
@@ -102,7 +102,7 @@ func (rh *RestHandler) GetTransactionReceipt(w http.ResponseWriter, r *http.Requ
 	fmt.Fprintf(w, "GetTransactionReceipt failed: expected txId or transactionHash")
 }
 
-//GetTransactionReceipt Returns Transaction Receipt
+// GetTransactionReceipt Returns Transaction Receipt
 func (rh *RestHandler) GetTransaction(w http.ResponseWriter, r *http.Request) {
 	txHash, ok_txHash := r.URL.Query()["transactionHash"]
 	txId, ok_txId := r.URL.Query()["txId"]
@@ -118,4 +118,23 @@ func (rh *RestHandler) GetTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, "GetTransaction failed: expected txId or transactionHash")
+}
+
+// GetFullContract returns full contract: code and ABI
+func (rh *RestHandler) GetFullContract(w http.ResponseWriter, r *http.Request) {
+	blockHash, ok_blockHash := r.URL.Query()["blockHash"]
+	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
+	contractAddress, ok_contractAddress := r.URL.Query()["contractAddress"]
+
+	if (ok_blockHash || ok_blockNumber) && ok_contractAddress {
+		res, err := rh.RestFeeder.GetFullContract(strings.Join(contractAddress, ""), strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetFullContract failed: expected contractAddress and Block Identifier")
 }
