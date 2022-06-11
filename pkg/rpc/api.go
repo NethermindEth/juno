@@ -33,9 +33,12 @@ func (HandlerRPC) StarknetCall(
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
-func getBlockByTag(ctx context.Context, blockTag BlockTag, scope RequestedScope) (*BlockResponse, error) {
-	// TODO we should the block service keep track of the latest block we have received
+// TODO documentation
+func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (*BlockResponse, error) {
+	// TODO we should the block service keep track of the latest block we have received (if we are already fully synced)
 	// Then we only need to request pending blocks from the feeder gateway.
+
+	// We basically reimplement NewBlockResponse since we have convert the type from the feeder gateway
 	res, err := feederClient.GetBlock("", string(blockTag))
 	if err != nil {
 		return nil, err
@@ -122,7 +125,7 @@ func getBlockByTag(ctx context.Context, blockTag BlockTag, scope RequestedScope)
 		txnAndReceipts[i] = &TxnAndReceipt{
 			Txn: *txs[i],
 			TxnReceipt: TxnReceipt{
-				TxnHash: types.HexToTransactionHash("a"),
+				TxnHash: txs[i].TxnHash,
 				MessagesSent: messagesSent,
 				L1OriginMessage: &MsgToL2{
 					FromAddress: types.HexToEthAddress(feederReceipt.L1ToL2ConsumedMessage.FromAddress),
@@ -346,7 +349,7 @@ func (HandlerRPC) StarknetChainId(c context.Context) (ChainID, error) {
 func (HandlerRPC) StarknetPendingTransactions(
 	c context.Context,
 ) ([]Txn, error) {
-	block, err := getBlockByTag(c, "pending", "")
+	block, err := getBlockByTag(c, "pending", ScopeFullTxns)
 	if err != nil {
 		return nil, err
 	}
