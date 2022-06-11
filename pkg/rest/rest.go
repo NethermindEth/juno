@@ -138,3 +138,32 @@ func (rh *RestHandler) GetFullContract(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintf(w, "GetFullContract failed: expected contractAddress and Block Identifier")
 }
+
+// GetStateUpdate returns state update achieved in specified block
+func (rh *RestHandler) GetStateUpdate(w http.ResponseWriter, r *http.Request) {
+	blockHash, ok_blockHash := r.URL.Query()["blockHash"]
+	blockNumber, ok_blockNumber := r.URL.Query()["blockNumber"]
+
+	if ok_blockHash || ok_blockNumber {
+		res, err := rh.RestFeeder.GetStateUpdate(strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // 400 http status code
+			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			return
+		}
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+	fmt.Fprintf(w, "GetStateUpdate failed: expected Block Identifier")
+}
+
+// GetContractAddresses returns starknet contract addresses
+func (rh *RestHandler) GetContractAddresses(w http.ResponseWriter, r *http.Request) {
+	res, err := rh.RestFeeder.GetContractAddresses()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest) // 400 http status code
+		fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+		return
+	}
+	json.NewEncoder(w).Encode(res)
+}

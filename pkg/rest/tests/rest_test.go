@@ -429,6 +429,100 @@ func TestGetFullContractHandler(t *testing.T) {
 	assert.DeepEqual(t, &b, &cOrig)
 }
 
+// TestGetStateUpdateHandler
+func TestGetStateUpdateHandler(t *testing.T) {
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_state_update"
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "1")
+	rq.Add("blockHash", "hash")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Build Fake Response
+	a := feeder.StateUpdateResponse{}
+	err = faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Get State Update from rest API
+	restHandler.GetStateUpdate(rr, req)
+
+	// Check if errors were returned
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Read Rest API Response
+	var cOrig feeder.StateUpdateResponse
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert actual equals expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
+
+// TestGetContractAddressHandler
+func TestGetContractAddressHandler(t *testing.T) {
+	// Build Request
+	queryStr := "http://localhost:8100/feeder_gateway/get_contract_address"
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Build Fake Response
+	a := feeder.ContractAddresses{}
+	err = faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Get Contract Address from rest API
+	restHandler.GetContractAddresses(rr, req)
+
+	// Check if errors were returned
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Read Rest API Response
+	var cOrig feeder.ContractAddresses
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
+
+	// Assert actual equals expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
+
 //---------------------------------------------
 //------------------TestInputs-----------------
 //---------------------------------------------
@@ -584,6 +678,25 @@ func TestGetFullContractAtWithoutContractAddress(t *testing.T) {
 
 	// Assert Error query args were not correct
 	assert.Equal(t, rr.Body.String(), "GetFullContract failed: expected contractAddress and Block Identifier")
+}
+
+func TestGetStateUpdateWithoutBlockIdentifier(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_state_update"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Get State Update from rest API
+	restHandler.GetStateUpdate(rr, req)
+
+	// Assert Error query args were not correct
+	assert.Equal(t, rr.Body.String(), "GetStateUpdate failed: expected Block Identifier")
 }
 
 //---------------------------------------------
@@ -771,6 +884,59 @@ func TestGetFullContractHandlerFeederFail(t *testing.T) {
 
 	// Send Request expecting an error
 	failRestHandler.GetFullContract(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+// TestGetStateUpdateHandlerFeederFail
+func TestGetStateUpdateFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_state_update"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "")
+	rq.Add("blockHash", "hash")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Send Request expecting an error
+	failRestHandler.GetStateUpdate(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+}
+
+// TestGetContractAddressesFeederFail
+func TestGetContractAddressesFeederFail(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_full_contract"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "")
+	rq.Add("blockHash", "hash")
+	rq.Add("contractAddress", "address")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	// Send Request expecting an error
+	failRestHandler.GetContractAddresses(rr, req)
 
 	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
