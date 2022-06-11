@@ -1112,7 +1112,7 @@ func TestGetTransactionReceiptHandlerFeederFail(t *testing.T) {
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
 
-// TestGetTransactionStatusHandlerFeederFail
+// TestGetTransactionHandlerFeederFail
 func TestGetTransactionHandlerFeederFail(t *testing.T) {
 	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
 
@@ -1193,20 +1193,13 @@ func TestGetStateUpdateFeederFail(t *testing.T) {
 
 // TestGetContractAddressesFeederFail
 func TestGetContractAddressesFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_full_contract"
+	queryStr := "http://localhost:8100/feeder_gateway/get_contract_addresses"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Query Args
-	rq := req.URL.Query()
-	rq.Add("blockNumber", "")
-	rq.Add("blockHash", "hash")
-	rq.Add("contractAddress", "address")
-	req.URL.RawQuery = rq.Encode()
 
 	// Build Response Object
 	rr := httptest.NewRecorder()
