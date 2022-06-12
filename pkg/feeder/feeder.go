@@ -184,7 +184,7 @@ func (c Client) GetContractAddresses() (*ContractAddresses, error) {
 	return &res, err
 }
 
-// CallContract creates a new request to call a contract in the gateway.
+// CallContract creates a new request to call a contract using the gateway.
 func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber string) (*map[string][]string, error) {
 	req, err := c.newRequest("POST", "/call_contract", formattedBlockIdentifier(blockHash, blockNumber), invokeFunc)
 	if err != nil {
@@ -216,7 +216,7 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	return &res, err
 }
 
-// GetStateUpdate creates a new request to get the contract addresses
+// GetStateUpdate creates a new request to get the State Update of a given block
 // from the gateway.
 func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
@@ -234,6 +234,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateRespo
 	return &res, err
 }
 
+// GetCode creates a new request to get the code of a contract
 func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
