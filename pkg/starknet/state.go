@@ -353,7 +353,7 @@ func (s *Synchronizer) updateAndCommitState(
 	if hashService == nil {
 		log.Default.Panic("Contract hash service is unavailable")
 	}
-	_, err := updateState(txn, services.GetContractHashService(), stateDiff, newRoot, sequenceNumber)
+	_, err := updateState(txn, hashService, stateDiff, newRoot, sequenceNumber)
 	if err != nil {
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	} else {
