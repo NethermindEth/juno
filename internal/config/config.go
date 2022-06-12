@@ -98,7 +98,7 @@ func New() {
 	}
 	data, err := yaml.Marshal(&Config{
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
-		REST:     restConfig{Enabled: false, Port: 8100},
+		REST:     restConfig{Enabled: false, Port: 8100, Prefix: "/feeder_gateway"},
 		DbPath:   Dir,
 		Network:  goerli,
 		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
