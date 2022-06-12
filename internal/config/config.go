@@ -21,8 +21,9 @@ type rpcConfig struct {
 
 // restConfig represents the juno REST configuration.
 type restConfig struct {
-	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
-	Port    int  `yaml:"port" mapstructure:"port"`
+	Enabled bool   `yaml:"enabled" mapstructure:"enabled"`
+	Port    int    `yaml:"port" mapstructure:"port"`
+	Prefix  string `yaml:"prefix" mapstructure:"prefix"`
 }
 
 type starknetConfig struct {
