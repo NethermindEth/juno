@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var StateService stateService
@@ -58,7 +59,7 @@ func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", contractAddress).
+		With("contractAddress", common.Bytes2Hex(contractAddress)).
 		Debug("StoreCode")
 
 	s.manager.PutCode(contractAddress, code)

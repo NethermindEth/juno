@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // BlockService is a service to manage the block database. Before
@@ -96,7 +97,7 @@ func (s *blockService) StoreBlock(blockHash []byte, block *block.Block) {
 	defer s.DoneProcess()
 
 	s.logger.
-		With("blockHash", blockHash).
+		With("blockHash", common.Bytes2Hex(blockHash)).
 		Debug("StoreBlock")
 
 	s.manager.PutBlock(blockHash, block)

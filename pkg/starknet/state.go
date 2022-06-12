@@ -521,7 +521,7 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 		// Save the ABI
 		services.AbiService.StoreAbi(remove0x(v.Address), toDbAbi(code.Abi))
 		// Save the contract code
-		services.StateService.StoreCode(common.Hex2Bytes(v.Address), byteCodeToStateCode(code.Bytecode))
+		services.StateService.StoreCode(common.Hex2Bytes(remove0x(v.Address)), byteCodeToStateCode(code.Bytecode))
 	}
 }
 
@@ -531,9 +531,9 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	if err != nil {
 		return
 	}
-	log.Default.With("Block Hash", blockHash).
+	log.Default.With("Block Hash", block.BlockHash).
 		Info("Got block")
-	services.BlockService.StoreBlock(common.Hex2Bytes(block.BlockHash), feederBlockToDBBlock(block))
+	services.BlockService.StoreBlock(common.Hex2Bytes(remove0x(block.BlockHash)), feederBlockToDBBlock(block))
 
 	for _, bTxn := range block.Transactions {
 		transactionInfo, err := s.feederGatewayClient.GetTransaction(bTxn.TransactionHash, "")

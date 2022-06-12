@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // TransactionService is a service to manage the transaction database. Before
@@ -84,7 +85,7 @@ func (s *transactionService) StoreTransaction(txHash []byte, tx *transaction.Tra
 	defer s.DoneProcess()
 
 	s.logger.
-		With("txHash", txHash).
+		With("txHash", common.Bytes2Hex(txHash)).
 		Debug("StoreTransaction")
 
 	s.manager.PutTransaction(txHash, tx)
