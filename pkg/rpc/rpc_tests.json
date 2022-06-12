@@ -4,6 +4,10 @@
     "response": "{\"jsonrpc\":\"2.0\",\"result\":\"Hello Echo\",\"id\":\"345\"}\n"
   },
   {
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":\"345\",\"method\":\"echoErr\",\"params\":[\"Hello EchoErr\"]}",
+    "response": "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":0,\"message\":\"Hello EchoErr\"},\"id\":\"345\"}\n"
+  },
+  {
     "request": "{\"jsonrpc\":\"2.0\",\"id\":\"345\",\"method\":\"starknet_getEvents\",\"params\":[{\"fromBlock\":0,\"toBlock\":0,\"address\":\"\",\"keys\":null,\"page_size\":0,\"page_number\":0}]}",
     "response": "{\"jsonrpc\":\"2.0\",\"result\":{\"EmittedEventArray\":null,\"page_number\":0},\"id\":\"345\"}\n"
   },
