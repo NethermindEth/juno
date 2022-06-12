@@ -378,56 +378,45 @@ func TestGetTransactionHandler(t *testing.T) {
 }
 
 // TestGetFullContractHandler
-// func TestGetFullContractHandler(t *testing.T) {
-// 	queryStr := "http://localhost:8100/feeder_gateway/get_full_contract"
+func TestGetFullContractHandler(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_full_contract"
 
-// 	// Build Request
-// 	req, err := http.NewRequest("GET", queryStr, nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	// Query Args
-// 	rq := req.URL.Query()
-// 	rq.Add("blockNumber", "0")
-// 	rq.Add("blockHash", "hash")
-// 	rq.Add("contractAddress", "address")
-// 	req.URL.RawQuery = rq.Encode()
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "0")
+	rq.Add("blockHash", "hash")
+	rq.Add("contractAddress", "address")
+	req.URL.RawQuery = rq.Encode()
 
-// 	// Build Response Object
-// 	rr := httptest.NewRecorder()
+	// Build Response Object
+	rr := httptest.NewRecorder()
 
-// 	// // Build Fake Response
-// 	// var a map[string]interface{}
-// 	// err = faker.FakeData(&a)
-// 	// if err != nil {
-// 	// 	t.Fatal()
-// 	// }
-// 	// body, err := json.Marshal(a)
-// 	// if err != nil {
-// 	// 	t.Fatal()
-// 	// }
-// 	// httpClient.DoReturns(generateResponse(string(body)), nil)
-// 	// var b map[string]interface{}
-// 	// err = json.Unmarshal([]byte(body), &b)
-// 	// if err != nil {
-// 	// 	t.Fatal()
-// 	// }
+	body := "{\"program\": {\"prime\": \"3\", \"data\": [\"1\", \"2\"]}, \"entry_points_by_type\": {\"constructor\": \"3\", \"external\": [\"1\", \"2\"]}, \"abi\": [\"1\", \"2\"]}\n"
+	httpClient.DoReturns(generateResponse(body), nil)
+	var a map[string]interface{}
+	err = json.Unmarshal([]byte(body), &a)
+	if err != nil {
+		t.Fatal()
+	}
 
-// 	var b map[string]interface{}
+	// Get Full Contract from Rest API
+	restHandler.GetFullContract(rr, req)
+	if err != nil {
+		t.Fatal()
+	}
+	// Read Rest API Response
+	var cOrig map[string]interface{}
+	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
-// 	// Get Full Contract from Rest API
-// 	restHandler.GetFullContract(rr, req)
-// 	if err != nil {
-// 		t.Fatal()
-// 	}
-// 	// Read Rest API Response
-// 	var cOrig map[string]interface{}
-// 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
-
-// 	// Assert Actual equals Expected
-// 	assert.DeepEqual(t, &b, &cOrig)
-// }
+	// Assert Actual equals Expected
+	assert.DeepEqual(t, &a, &cOrig)
+}
 
 // TestGetStateUpdateHandler
 func TestGetStateUpdateHandler(t *testing.T) {
