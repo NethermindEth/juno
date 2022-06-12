@@ -19,11 +19,25 @@ type rpcConfig struct {
 	Port    int  `yaml:"port" mapstructure:"port"`
 }
 
+// restConfig represents the juno REST configuration.
+type restConfig struct {
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	Port    int  `yaml:"port" mapstructure:"port"`
+}
+
+type starknetConfig struct {
+	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
+	FeederGateway string `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
+}
+
 // Config represents the juno configuration.
 type Config struct {
-	RPC     rpcConfig `yaml:"rpc" mapstructure:"rpc"`
-	DbPath  string    `yaml:"db_path" mapstructure:"db_path"`
-	Network string    `yaml:"starknet_network" mapstructure:"starknet_network"`
+	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
+	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
+	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
+	Network  string         `yaml:"starknet_network" mapstructure:"starknet_network"`
+	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
 }
 
 var (
@@ -82,9 +96,11 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		RPC:     rpcConfig{Enabled: false, Port: 8080},
-		DbPath:  Dir,
-		Network: goerli,
+		RPC:      rpcConfig{Enabled: false, Port: 8080},
+		REST:     restConfig{Enabled: false, Port: 8100},
+		DbPath:   Dir,
+		Network:  goerli,
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0o644)

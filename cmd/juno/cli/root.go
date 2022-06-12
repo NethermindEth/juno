@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -54,6 +55,13 @@ var (
 			if config.Runtime.RPC.Enabled {
 				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
 				handler.Add("RPC", s.ListenAndServe, s.Close)
+			}
+
+			// Subscribe the REST API client to the main loop if it is enabled in
+			// the config.
+			if config.Runtime.REST.Enabled {
+				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway)
+				handler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
 			// endless running process
@@ -120,6 +128,8 @@ func initConfig() {
 		"Database Path", config.Runtime.DbPath,
 		"Rpc Port", config.Runtime.RPC.Port,
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
+		"Rest Port", config.Runtime.REST.Port,
+		"Rest Enabled", config.Runtime.REST.Enabled,
 	).Info("Config values.")
 }
 
