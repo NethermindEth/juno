@@ -48,7 +48,7 @@ message MessageToL1 {
 }
 
 message MessageToL2 {
-  string fromAddress = 1;
+  bytes fromAddress = 1;
   repeated bytes payload = 2;
 }
 
