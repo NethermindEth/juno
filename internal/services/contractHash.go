@@ -56,7 +56,7 @@ type contractHashInstruction struct {
 func (service *ContractHashService) StoreContractHash(contractAddress string, contractHash *big.Int) {
 	service.storeChannel <- contractHashInstruction{
 		ContractAddress: contractAddress,
-		ContractHash: contractHash.Bytes(),
+		ContractHash:    contractHash.Bytes(),
 	}
 }
 
