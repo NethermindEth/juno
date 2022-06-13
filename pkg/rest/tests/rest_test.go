@@ -3,12 +3,14 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
@@ -61,6 +63,17 @@ func StructFaker(a interface{}) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+}
+
+// TestRestClient
+func TestRestClient(t *testing.T) {
+	r := rest.NewServer(":8100", "http://localhost/", "feeder_gateway")
+	go func() {
+		_ = r.ListenAndServe()
+	}()
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
+	r.Close(ctx)
+	cancel()
 }
 
 //---------------------------------------------

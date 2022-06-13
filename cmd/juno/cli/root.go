@@ -60,7 +60,7 @@ var (
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.REST.Enabled {
-				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway)
+				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 				handler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
