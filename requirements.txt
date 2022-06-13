@@ -1,7 +1,0 @@
-#dependencies needed for installing Cairo Lang
-#might need to install libgmp3-dev if running on Ubuntu & run Python 3.7
-#Cairo - Lang dependencies mentioned here: https://www.cairo-lang.org/docs/quickstart.html#quickstart 
-ecdsa
-fastecdsa
-sympy
-cairo-lang

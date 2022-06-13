@@ -202,7 +202,6 @@ func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber s
 
 // GetBlock creates a new request to get a block from the gateway.
 func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) {
-	log.Default.Info(formattedBlockIdentifier(blockHash, blockNumber))
 	req, err := c.newRequest("GET", "/get_block", formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")

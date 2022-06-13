@@ -146,6 +146,8 @@ type ExecutionResources struct {
 
 // TransactionExecution Represents a receipt of an executed transaction.
 type TransactionExecution struct {
+	// The index of the transaction within the block.
+	TransactionIndex int64 `json:"transaction_index"`
 	// A unique identifier of the transaction.
 	TransactionHash string `json:"transaction_hash"`
 	// L2-to-L1 messages.
@@ -215,7 +217,7 @@ type TransactionInBlockInfo struct {
 }
 
 type TransactionStatus struct {
-	Status    string `json:"tx_status"`
+	Status    string `json:"status"`
 	BlockHash string `json:"block_hash"`
 }
 
