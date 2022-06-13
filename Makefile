@@ -3,8 +3,8 @@ export CC = clang
 
 compile: ## compile:
 	@mkdir -p build
-	@go build -o build/juno cmd/juno/main.go
 	@go build -o build/juno-cli cmd/juno-cli/main.go
+	@go build -o build/juno cmd/juno/main.go
 
 run: ## run
 	@./build/juno
@@ -19,6 +19,7 @@ test: ## tests
 	go test ./...
 
 benchmarks: ## Benchmarking
+	go clean -testcache
 	go test ./... -bench=.
 
 test-cover: ## tests with coverage
