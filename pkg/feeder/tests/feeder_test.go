@@ -274,7 +274,7 @@ func TestGetTransactionStatus(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionStatus, "GetTransactionStatus response does not match")
 }
 
-func TestGetBlockHashByID(t *testing.T) {
+func TestGetBlockHashById(t *testing.T) {
 	body := "\"hash\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig string
@@ -282,7 +282,7 @@ func TestGetBlockHashByID(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	blockHash, err := client.GetBlockHashByID("id")
+	blockHash, err := client.GetBlockHashById("id")
 	if err != nil {
 		t.Fatal()
 	}
@@ -319,7 +319,7 @@ func TestGetTransactionHashById(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionHash, "GetTransactionHashById response does not match")
 }
 
-func TestGetTransactionIdByHash(t *testing.T) {
+func TestGetTransactionIDByHash(t *testing.T) {
 	body := "\"hash\"\n"
 	httpClient.DoReturns(generateResponse(body), nil)
 	var cOrig string
@@ -327,7 +327,7 @@ func TestGetTransactionIdByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	transactionHash, err := client.GetTransactionHashByID("id")
+	transactionId, err := client.GetTransactionIDByHash("hash")
 	if err != nil {
 		t.Fatal()
 	}

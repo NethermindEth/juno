@@ -37,7 +37,6 @@ type Config struct {
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
 	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
 	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
-	Network  string         `yaml:"starknet_network" mapstructure:"starknet_network"`
 	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
 }
 
@@ -103,8 +102,7 @@ func New() {
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
 		REST:     restConfig{Enabled: false, Port: 8100},
 		DbPath:   Dir,
-		Network:  goerli,
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: mainnet},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0o644)

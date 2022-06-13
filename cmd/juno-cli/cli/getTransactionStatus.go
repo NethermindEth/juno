@@ -3,7 +3,6 @@ package cli
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // getTransactionStatusCmd represents the getTransactionStatus command
@@ -23,9 +22,7 @@ var getTransactionStatusCmd = &cobra.Command{
 }
 
 func getTxStatus(txHash string) (*feeder.TransactionStatus, error) {
-	// Initialize the client
-	feeder_url := viper.GetString("network")
-	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
+	client := initClient()
 
 	// Call to get transaction receipt
 	res, _ := client.GetTransactionStatus(txHash, "")
