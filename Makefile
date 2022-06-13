@@ -15,6 +15,7 @@ generate:
 	@cd internal/db && $(MAKE) generate
 
 test: ## tests
+	go clean -testcache
 	go test ./...
 
 benchmarks: ## Benchmarking
