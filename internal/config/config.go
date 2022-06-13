@@ -86,7 +86,22 @@ func init() {
 			return Dir, nil
 		case "darwin", "dragonfly", "freebsd", "illumos", "ios", "linux", "netbsd",
 			"openbsd", "solaris":
-			return "/usr/local/share/juno/", nil
+			// See https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+			dataHome := os.Getenv("XDG_DATA_HOME")
+			if dataHome == "" {
+				home := os.Getenv("HOME")
+				if home == "" {
+					return "", errors.New("user home directory not found")
+				}
+				result := filepath.Join(home, ".local", "share", "juno")
+				// Create Juno data directory if it does not exist
+				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
+					err = os.Mkdir(result, 0o744)
+					errpkg.CheckFatal(err, "Unable to create user data directory.")
+				}
+				return result, nil
+			}
+			return filepath.Join(dataHome, "juno"), nil
 		default: // js/wasm, plan9
 			return "", errors.New("user data directory not found")
 		}
@@ -108,13 +123,16 @@ func New() {
 		Ethereum: ethereumConfig{Node: "your_node_here"},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
 		REST:     restConfig{Enabled: false, Port: 8100},
-		DbPath:   Dir,
+		DbPath:   DataDir,
 		Network:  goerli,
 		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
-	err = os.WriteFile(f, data, 0o644)
-	errpkg.CheckFatal(err, "Failed to write config file.")
+	// Create default Juno configuration file if it does not exist
+	if _, err := os.Stat(f); errors.Is(err, os.ErrNotExist) {
+		err = os.WriteFile(f, data, 0o644)
+		errpkg.CheckFatal(err, "Failed to write config file.")
+	}
 }
 
 // Exists checks if the default configuration file already exists
