@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/config"

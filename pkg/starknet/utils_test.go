@@ -5,12 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/NethermindEth/juno/pkg/types"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/bxcodec/faker"
 
@@ -399,6 +400,7 @@ func TestTransactionToDBTransactionInvoke(t *testing.T) {
 func TestTransactionToDBTransactionDeploy(t *testing.T) {
 	TxnTest(t, "DEPLOY")
 }
+
 func randomHex(n int) (string, error) {
 	bytes := make([]byte, n)
 	if _, err := rand.Read(bytes); err != nil {
