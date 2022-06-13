@@ -32,7 +32,7 @@ func NewContractHashService(database db.Databaser) *ContractHashService {
 func (service *ContractHashService) Run() error {
 	service.started = true
 	for storeInst := range service.storeChannel {
-		err := (*service.db).Put([]byte(storeInst.ContractHash), storeInst.Value)
+		err := (*service.db).Put([]byte(storeInst.ContractAddress), storeInst.ContractHash)
 		if err != nil {
 			// notest
 			log.Default.With("Error", err).Panic("Couldn't save contract hash in database")
@@ -49,19 +49,19 @@ func (service *ContractHashService) Close(ctx context.Context) {
 }
 
 type contractHashInstruction struct {
-	ContractHash string
-	Value        []byte
+	ContractAddress string
+	ContractHash    []byte
 }
 
-func (service *ContractHashService) StoreContractHash(contractHash string, value *big.Int) {
+func (service *ContractHashService) StoreContractHash(contractAddress string, contractHash *big.Int) {
 	service.storeChannel <- contractHashInstruction{
-		ContractHash: contractHash,
-		Value:        value.Bytes(),
+		ContractAddress: contractAddress,
+		ContractHash: contractHash.Bytes(),
 	}
 }
 
-func (service *ContractHashService) GetContractHash(contractHash string) *big.Int {
-	get, err := (*service.db).Get([]byte(contractHash))
+func (service *ContractHashService) GetContractHash(contractAddress string) *big.Int {
+	get, err := (*service.db).Get([]byte(contractAddress))
 	if err != nil || get == nil {
 		// notest
 		return new(big.Int)
