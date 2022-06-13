@@ -63,14 +63,14 @@ type Transaction interface {
 // InvokeFunction represents a transaction in the StarkNet network that
 // is an invocation of a Cairo contract function.
 type InvokeFunction struct {
-	CallerAddress      string   `json:"caller_address,omitempty"`
-	ContractAddress    string   `json:"contract_address,omitempty"`
-	EntryPointSelector string   `json:"entry_point_selector,omitempty"`
+	CallerAddress      string   `json:"caller_address"`
+	ContractAddress    string   `json:"contract_address"`
+	EntryPointSelector string   `json:"entry_point_selector"`
 	Calldata           []string `json:"calldata"`
 	CallType           string   `json:"call_type"`
 	ClassHash          string   `json:"class_hash"`
-	Selector           string   `json:"selector,omitempty"`
-	EntryPointType     string   `json:"entry_point_type,omitempty"`
+	Selector           string   `json:"selector"`
+	EntryPointType     string   `json:"entry_point_type"`
 	Result             []string `json:"result"`
 	// Additional information given by the caller that represents the
 	// signature of the transaction. The exact way this field is handled
@@ -78,13 +78,13 @@ type InvokeFunction struct {
 	ExecutionResources `json:"execution_resources"`
 	// The transaction is not valid if its version is lower than the current version,
 	// defined by the SN OS.
-	Version        int              `json:"version,omitempty"`
+	Version        int              `json:"version"`
 	Signature      []int            `json:"signature"`
 	InternallCalls []InvokeFunction `json:"internall_calls"`
 	Events         []Event          `json:"events"`
 	Messages       []string         `json:"messages"` // TODO: Check what msg go in trace
 	// The maximal fee to be paid in Wei for executing invoked function.
-	MaxFee string `json:"max_fee,omitempty"`
+	MaxFee string `json:"max_fee"`
 }
 
 // TransactionType returns the TxnType related to InvokeFunction
@@ -113,16 +113,16 @@ type TxnSpecificInfo struct {
 
 // L1ToL2Message Represents a StarkNet L1-to-L2 message.
 type L1ToL2Message struct {
-	FromAddress string   `json:"from_address,omitempty"`
-	ToAddress   string   `json:"to_address,omitempty"`
-	Selector    string   `json:"selector,omitempty"`
-	Payload     []string `json:"payload,omitempty"`
-	Nonce       string   `json:"nonce,omitempty"`
+	FromAddress string   `json:"from_address"`
+	ToAddress   string   `json:"to_address"`
+	Selector    string   `json:"selector"`
+	Payload     []string `json:"payload"`
+	Nonce       string   `json:"nonce"`
 }
 
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
-	FromAddress string   `json:"from_address,omitempty"`
+	FromAddress string   `json:"from_address"`
 	ToAddress   string   `json:"to_address,omitemtpy"`
 	Payload     []string `json:"payload,omitemtpy"`
 }
@@ -151,9 +151,9 @@ type TransactionExecution struct {
 	// A unique identifier of the transaction.
 	TransactionHash string `json:"transaction_hash"`
 	// L2-to-L1 messages.
-	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages,omitempty"`
+	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages"`
 	// L1-to-L2 messages.
-	L1ToL2Message `json:"l1_to_l2_consumed_message,omitempty"`
+	L1ToL2Message `json:"l1_to_l2_consumed_message"`
 	// Events emitted during the execution of the transaction.
 	Events []Event `json:"events"`
 	// The resources needed by the transaction.
@@ -187,9 +187,9 @@ type CodeInfo struct {
 
 // TransactionFailureReason store reason of failure in transactions.
 type TransactionFailureReason struct {
-	TxID     int64  `json:"tx_id,omitempty"`
-	Code     string `json:"code,omitempty"`
-	ErrorMsg string `json:"error_message,omitempty"`
+	TxID     int64  `json:"tx_id"`
+	Code     string `json:"code"`
+	ErrorMsg string `json:"error_message"`
 }
 
 // type TxnStatus string
@@ -206,7 +206,7 @@ type TransactionInfo struct {
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
+	TransactionFailureReason `json:"transaction_failure_reason"`
 	TransactionStatus
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
@@ -217,8 +217,8 @@ type TransactionInBlockInfo struct {
 }
 
 type TransactionStatus struct {
-	TxStatus  string `json:"tx_status,omitempty"`
-	Status    string `json:"status,omitempty"`
+	TxStatus  string `json:"tx_status"`
+	Status    string `json:"status"`
 	BlockHash string `json:"block_hash"`
 }
 
