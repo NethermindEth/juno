@@ -21,8 +21,9 @@ type rpcConfig struct {
 
 // restConfig represents the juno REST configuration.
 type restConfig struct {
-	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
-	Port    int  `yaml:"port" mapstructure:"port"`
+	Enabled bool   `yaml:"enabled" mapstructure:"enabled"`
+	Port    int    `yaml:"port" mapstructure:"port"`
+	Prefix  string `yaml:"prefix" mapstructure:"prefix"`
 }
 
 type starknetConfig struct {
@@ -97,7 +98,7 @@ func New() {
 	}
 	data, err := yaml.Marshal(&Config{
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
-		REST:     restConfig{Enabled: false, Port: 8100},
+		REST:     restConfig{Enabled: false, Port: 8100, Prefix: "/feeder_gateway"},
 		DbPath:   Dir,
 		Network:  goerli,
 		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
