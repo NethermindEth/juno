@@ -3,8 +3,9 @@ title: Juno Command Line Interface (juno-cli)
 ---
 
 Useful commands with the StarkNet Feeder Gateway. 
+Based on "starknet-edu" Postman workspace [ID 5cf35dcd-9230-4e4a-aa1e-c52a4e910d02].
 
-This package shares config settings with the main package.
+This package shares configuration with the main package.
 
 To query available commands, run `./juno-cli` from the `build` directory.
 
@@ -23,7 +24,7 @@ Get transaction information and pretty print response:
     - `get_transaction 0x21601cf55af436dfb73178347973c57cbedc80ff442f6d841815446e8947a94 -p`
 
 Get transaction receipt from Goerli network, pretty print response:
-    - get_transaction_receipt "0x6e65736447b7e1da9549692e8e47a9a293c40fdb52e8531ddee170df5475e86" -p --network goerli
+    - `get_transaction_receipt "0x6e65736447b7e1da9549692e8e47a9a293c40fdb52e8531ddee170df5475e86" -p --network goerli`
 
 Get help for a command:
     - `./juno-cli COMMAND --help`
