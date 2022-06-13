@@ -3,14 +3,14 @@ package rest
 import (
 	"net/http"
 
-	"github.com/NethermindEth/juno/pkg/feeder"
-
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
 var rest_handler RestHandler
 
 func NewServer(rest_port string, feeder_gateway string) *Server {
+	// notest
 	rest_handler.RestFeeder = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
 	m := http.NewServeMux()
 
