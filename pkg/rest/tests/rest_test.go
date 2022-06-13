@@ -67,7 +67,7 @@ func StructFaker(a interface{}) (string, error) {
 
 // TestRestClient
 func TestRestClient(t *testing.T) {
-	r := rest.NewServer(":8100", "http://localhost/")
+	r := rest.NewServer(":8100", "http://localhost/", "feeder_gateway")
 	go func() {
 		_ = r.ListenAndServe()
 	}()
