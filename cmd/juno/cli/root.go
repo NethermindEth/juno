@@ -101,7 +101,7 @@ var (
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.REST.Enabled {
-				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway)
+				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
@@ -175,6 +175,7 @@ func initConfig() {
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
 		"Rest Port", config.Runtime.REST.Port,
 		"Rest Enabled", config.Runtime.REST.Enabled,
+		"Rest Prefix", config.Runtime.REST.Prefix,
 	).Info("Config values.")
 }
 

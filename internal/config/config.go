@@ -26,8 +26,9 @@ type ethereumConfig struct {
 
 // restConfig represents the juno REST configuration.
 type restConfig struct {
-	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
-	Port    int  `yaml:"port" mapstructure:"port"`
+	Enabled bool   `yaml:"enabled" mapstructure:"enabled"`
+	Port    int    `yaml:"port" mapstructure:"port"`
+	Prefix  string `yaml:"prefix" mapstructure:"prefix"`
 }
 
 // starknetConfig represents the juno StarkNet configuration.
@@ -117,8 +118,8 @@ func New() {
 	data, err := yaml.Marshal(&Config{
 		Ethereum: ethereumConfig{Node: "your_node_here"},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
-		REST:     restConfig{Enabled: false, Port: 8100},
 		DbPath:   DataDir,
+		REST:     restConfig{Enabled: false, Port: 8100, Prefix: "/feeder_gateway"},
 		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
