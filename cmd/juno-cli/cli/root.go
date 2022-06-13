@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -57,14 +56,14 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&selectedNetwork, "network", "n", "", "Use a network different to config. Available: 'mainnet', 'goerli'.")
 }
 
-// handle networks by changing active value
-// FIXME: DO NOT hardcode here. Have in config.go
+// handle other networks
+// FIXME: DO not hardcode here. Have in config.go
 func handleNetwork(network string) {
 	if network == "mainnet" {
-		viper.Set("starknet.feeder_gateway", "https://alpha-mainnet.starknet.io")
+		viper.Set("network", "https://alpha-mainnet.starknet.io")
 	}
 	if network == "goerli" {
-		viper.Set("starknet.feeder_gateway", "http://alpha4.starknet.io")
+		viper.Set("network", "http://alpha4.starknet.io")
 	}
 }
 
@@ -130,13 +129,6 @@ func initConfig() error {
 
 	// If config successfully loaded, return no error.
 	return nil
-}
-
-func initClient() *feeder.Client {
-	// TODO: Use Config instead of viper here.
-	feederUrl := viper.GetString("starknet.feeder_gateway")
-	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
-	return client
 }
 
 // Execute handle flags for Cobra execution.

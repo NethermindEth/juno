@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getBlockCmd represents the getBlock command
@@ -30,9 +31,11 @@ func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 		blockHash = input
 	}
 
-	client := initClient()
+	// Initialise new client
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
-	// Call to get block info - hash and number possible inputs.
+	// Call to get block info
 	res, _ := client.GetBlock(blockHash, blockNumber)
 	return res, nil
 }

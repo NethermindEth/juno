@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getStorageAtCmd represents the getStorageAt command
@@ -25,7 +26,9 @@ var getStorageAtCmd = &cobra.Command{
 }
 
 func GetStorage(contractAddress, key string) (*feeder.StorageInfo, error) {
-	client := initClient()
+	// Initialise a new client
+	feeder_url := viper.GetString("network")
+	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 
 	// Call to get storage at key
 	res, _ := client.GetStorageAt(contractAddress, key, "", "")

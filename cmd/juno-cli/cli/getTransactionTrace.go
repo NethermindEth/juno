@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getTransactionTraceCmd represents the get_transaction_trace command
@@ -22,9 +23,11 @@ var getTransactionTraceCmd = &cobra.Command{
 }
 
 func getTxTrace(txHash string) (*feeder.TransactionTrace, error) {
-	client := initClient()
+	// Initialise new client
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 
-	// Call to get transaction info, txID no longer used.
+	// Call to get transaction info
 	res, _ := client.GetTransactionTrace(txHash, "")
 	return res, nil
 }

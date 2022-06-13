@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // getFullContractCmd represents the getFullContract command
@@ -29,9 +31,10 @@ func getFullContract(contractAddress, blockAddressOrHash string) (map[string]int
 		blockHash = blockAddressOrHash
 	}
 
-	client := initClient()
+	// Initialise new client
+	feeder_url := viper.GetString("network")
+	client := feeder.NewClient(feeder_url, "/feeder_gateway", nil)
 
-	// For blocks, block hash and number are possible valid inputs.
 	res, _ := client.GetFullContract(contractAddress, blockHash, blockNumber)
 	return res, nil
 }

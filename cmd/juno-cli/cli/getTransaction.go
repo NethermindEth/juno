@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // Command to get transaction info with hash
@@ -22,7 +23,10 @@ var getTransactionCmd = &cobra.Command{
 }
 
 func getTxInfo(txHash string) (*feeder.TransactionInfo, error) {
-	client := initClient()
+	// Initialise new client
+	feederUrl := viper.GetString("network")
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
+
 	// Call to get transaction info - txID no longer used.
 	res, _ := client.GetTransaction(txHash, "")
 	return res, nil
