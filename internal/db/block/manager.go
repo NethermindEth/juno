@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -19,7 +20,7 @@ func NewManager(database db.Databaser) *Manager {
 
 // GetBlockByHash search the block with the given block hash. If the block does
 // not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByHash(blockHash []byte) *Block {
+func (manager *Manager) GetBlockByHash(blockHash types.BlockHash) *types.Block {
 	// Build the hash key
 	hashKey := buildHashKey(blockHash)
 	// Search on the database
@@ -33,8 +34,7 @@ func (manager *Manager) GetBlockByHash(blockHash []byte) *Block {
 		return nil
 	}
 	// Unmarshal the data
-	block := &Block{}
-	err = proto.Unmarshal(rawResult, block)
+	block, err := unmarshalBlock(rawResult)
 	if err != nil {
 		panic(any(err))
 	}
@@ -43,7 +43,7 @@ func (manager *Manager) GetBlockByHash(blockHash []byte) *Block {
 
 // GetBlockByNumber search the block with the given block number. If the block
 // does not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByNumber(blockNumber uint64) *Block {
+func (manager *Manager) GetBlockByNumber(blockNumber uint64) *types.Block {
 	// Build the number key
 	numberKey := buildNumberKey(blockNumber)
 	// Search for the hash key
@@ -67,8 +67,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) *Block {
 		return nil
 	}
 	// Unmarshal the data
-	block := &Block{}
-	err = proto.Unmarshal(rawResult, block)
+	block, err := unmarshalBlock(rawResult)
 	if err != nil {
 		panic(any(err))
 	}
@@ -77,12 +76,12 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) *Block {
 
 // PutBlock saves the given block with the given hash as key. If any error happens
 // then panic.
-func (manager *Manager) PutBlock(blockHash []byte, block *Block) {
+func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) {
 	// Build the keys
 	hashKey := buildHashKey(blockHash)
 	numberKey := buildNumberKey(block.BlockNumber)
 	// Encode the block as []byte
-	rawValue, err := proto.Marshal(block)
+	rawValue, err := marshalBlock(block)
 	if err != nil {
 		panic(any(err))
 	}
@@ -103,12 +102,73 @@ func (manager *Manager) Close() {
 	manager.database.Close()
 }
 
-func buildHashKey(blockHash []byte) []byte {
-	return append([]byte("blockHash:"), blockHash...)
+func buildHashKey(blockHash types.BlockHash) []byte {
+	return append([]byte("blockHash:"), blockHash.Bytes()...)
 }
 
 func buildNumberKey(blockNumber uint64) []byte {
 	numberB := make([]byte, 8)
 	binary.BigEndian.PutUint64(numberB, blockNumber)
 	return append([]byte("block_number:"), numberB...)
+}
+
+func marshalBlock(block *types.Block) ([]byte, error) {
+	protoBlock := Block{
+		Hash:             block.BlockHash.Bytes(),
+		BlockNumber:      block.BlockNumber,
+		ParentBlockHash:  block.ParentHash.Bytes(),
+		Status:           block.Status.String(),
+		SequencerAddress: block.Sequencer.Bytes(),
+		GlobalStateRoot:  block.NewRoot.Bytes(),
+		OldRoot:          block.OldRoot.Bytes(),
+		AcceptedTime:     block.AcceptedTime,
+		TimeStamp:        block.TimeStamp,
+		TxCount:          block.TxCount,
+		TxCommitment:     block.TxCommitment.Bytes(),
+		TxHashes:         marshalBlockTxHashes(block.TxHashes),
+		EventCount:       block.EventCount,
+		EventCommitment:  block.EventCommitment.Bytes(),
+	}
+	return proto.Marshal(&protoBlock)
+}
+
+func marshalBlockTxHashes(txHashes []types.TransactionHash) [][]byte {
+	out := make([][]byte, len(txHashes))
+	for i, txHash := range txHashes {
+		out[i] = txHash.Bytes()
+	}
+	return out
+}
+
+func unmarshalBlock(data []byte) (*types.Block, error) {
+	var protoBlock Block
+	err := proto.Unmarshal(data, &protoBlock)
+	if err != nil {
+		return nil, err
+	}
+	block := types.Block{
+		BlockHash:       types.BytesToBlockHash(protoBlock.Hash),
+		ParentHash:      types.BytesToBlockHash(protoBlock.ParentBlockHash),
+		BlockNumber:     protoBlock.BlockNumber,
+		Status:          types.StringToBlockStatus(protoBlock.Status),
+		Sequencer:       types.BytesToAddress(protoBlock.SequencerAddress),
+		NewRoot:         types.BytesToFelt(protoBlock.GlobalStateRoot),
+		OldRoot:         types.BytesToFelt(protoBlock.OldRoot),
+		AcceptedTime:    protoBlock.AcceptedTime,
+		TimeStamp:       protoBlock.TimeStamp,
+		TxCount:         protoBlock.TxCount,
+		TxCommitment:    types.BytesToFelt(protoBlock.TxCommitment),
+		TxHashes:        unmarshalBlockTxHashes(protoBlock.TxHashes),
+		EventCount:      protoBlock.EventCount,
+		EventCommitment: types.BytesToFelt(protoBlock.EventCommitment),
+	}
+	return &block, nil
+}
+
+func unmarshalBlockTxHashes(txHashes [][]byte) []types.TransactionHash {
+	out := make([]types.TransactionHash, len(txHashes))
+	for i, txHash := range txHashes {
+		out[i] = types.BytesToTransactionHash(txHash)
+	}
+	return out
 }
