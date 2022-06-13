@@ -217,7 +217,8 @@ type TransactionInBlockInfo struct {
 }
 
 type TransactionStatus struct {
-	Status    string `json:"status"`
+	TxStatus  string `json:"tx_status,omitempty"`
+	Status    string `json:"status,omitempty"`
 	BlockHash string `json:"block_hash"`
 }
 
