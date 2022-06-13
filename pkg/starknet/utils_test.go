@@ -2,14 +2,16 @@ package starknet
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"github.com/NethermindEth/juno/pkg/types"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
 	"reflect"
 	"testing"
 
-	commonLocal "github.com/NethermindEth/juno/pkg/common"
 	"github.com/bxcodec/faker"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -383,7 +385,7 @@ func TestByteCodeToStateCode(t *testing.T) {
 		t.Fail()
 	}
 	for i, s := range sample {
-		if string(stateCode.Code[i]) != string(commonLocal.HexToFelt(s).Bytes()) {
+		if remove0x(types.BytesToFelt(stateCode.Code[i]).Hex()) != remove0x(types.HexToFelt(s).Hex()) {
 			t.Error("state code didn't match", s)
 			t.Fail()
 		}
@@ -397,6 +399,13 @@ func TestTransactionToDBTransactionInvoke(t *testing.T) {
 func TestTransactionToDBTransactionDeploy(t *testing.T) {
 	TxnTest(t, "DEPLOY")
 }
+func randomHex(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
 
 func TxnTest(t *testing.T, txnType string) {
 	var txnSample feeder.TransactionInfo
@@ -405,11 +414,12 @@ func TxnTest(t *testing.T, txnType string) {
 		t.Fail()
 		return
 	}
-
+	val, _ := randomHex(20)
+	txnSample.Transaction.TransactionHash = val
 	txnSample.Transaction.Type = txnType
 	txn := feederTransactionToDBTransaction(&txnSample)
 
-	if string(txn.Hash) != string(commonLocal.HexToFelt(txnSample.Transaction.TransactionHash).Bytes()) {
+	if remove0x(txn.GetHash().Felt().Hex()) != remove0x(txnSample.Transaction.TransactionHash) {
 		t.Fail()
 	}
 }
@@ -423,12 +433,16 @@ func TestFeederBlockToBlock(t *testing.T) {
 		return
 	}
 
+	blockHash, _ := randomHex(20)
+	b.BlockHash = blockHash
+	newRoot, _ := randomHex(20)
+	b.StateRoot = newRoot
 	block := feederBlockToDBBlock(&b)
 
-	if string(block.Hash) != string(commonLocal.HexToFelt(b.BlockHash).Bytes()) {
+	if remove0x(block.BlockHash.Hex()) != remove0x(b.BlockHash) {
 		t.Fail()
 	}
-	if string(block.GlobalStateRoot) != string(commonLocal.HexToFelt(b.StateRoot).Bytes()) {
+	if remove0x(block.NewRoot.Hex()) != remove0x(b.StateRoot) {
 		t.Fail()
 	}
 }

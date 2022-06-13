@@ -9,17 +9,15 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	commonLocal "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/trie"
+	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -245,62 +243,60 @@ func byteCodeToStateCode(bytecode []string) *state.Code {
 	code := state.Code{}
 
 	for _, bCode := range bytecode {
-		code.Code = append(code.Code, commonLocal.HexToFelt(bCode).Bytes())
+		code.Code = append(code.Code, types.HexToFelt(bCode).Bytes())
 	}
 
 	return &code
 }
 
 // feederTransactionToDBTransaction convert the feeder TransactionInfo to the transaction stored in DB
-func feederTransactionToDBTransaction(info *feeder.TransactionInfo) *transaction.Transaction {
-	calldata := make([][]byte, 0)
+func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTransaction {
+	calldata := make([]types.Felt, 0)
 	for _, data := range info.Transaction.Calldata {
-		calldata = append(calldata, commonLocal.HexToFelt(data).Bytes())
+		calldata = append(calldata, types.HexToFelt(data))
 	}
 
 	if info.Transaction.Type == "INVOKE" {
-		signature := make([][]byte, 0)
+		signature := make([]types.Felt, 0)
 		for _, data := range info.Transaction.Signature {
-			signature = append(signature, commonLocal.HexToFelt(data).Bytes())
+			signature = append(signature, types.HexToFelt(data))
 		}
-		return &transaction.Transaction{
-			Hash: commonLocal.HexToFelt(info.Transaction.TransactionHash).Bytes(),
-			Tx: &transaction.Transaction_Invoke{Invoke: &transaction.InvokeFunction{
-				ContractAddress:    commonLocal.HexToFelt(info.Transaction.ContractAddress).Bytes(),
-				EntryPointSelector: commonLocal.HexToFelt(info.Transaction.EntryPointSelector).Bytes(),
-				CallData:           calldata,
-				Signature:          signature,
-			}},
+		return &types.TransactionInvoke{
+			Hash:               types.HexToTransactionHash(info.Transaction.TransactionHash),
+			ContractAddress:    types.HexToAddress(info.Transaction.ContractAddress),
+			EntryPointSelector: types.HexToFelt(info.Transaction.EntryPointSelector),
+			CallData:           calldata,
+			Signature:          signature,
+			MaxFee:             types.Felt{},
 		}
 	}
 
 	// Is a DEPLOY Transaction
-	return &transaction.Transaction{
-		Hash: commonLocal.HexToFelt(info.Transaction.TransactionHash).Bytes(),
-		Tx: &transaction.Transaction_Deploy{Deploy: &transaction.Deploy{
-			ContractAddressSalt: commonLocal.HexToFelt(info.Transaction.ContractAddressSalt).Bytes(),
-			ConstructorCallData: calldata,
-		}},
+	return &types.TransactionDeploy{
+		Hash:                types.HexToTransactionHash(info.Transaction.TransactionHash),
+		ContractAddress:     types.HexToAddress(info.Transaction.ContractAddress),
+		ConstructorCallData: calldata,
 	}
 }
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
-func feederBlockToDBBlock(b *feeder.StarknetBlock) *block.Block {
-	txnsHash := make([][]byte, 0)
+func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
+	txnsHash := make([]types.TransactionHash, 0)
 	for _, data := range b.Transactions {
-		txnsHash = append(txnsHash, commonLocal.HexToFelt(data.TransactionHash).Bytes())
+		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
 	}
-	return &block.Block{
-		Hash:             commonLocal.HexToFelt(b.BlockHash).Bytes(),
-		BlockNumber:      uint64(b.BlockNumber),
-		ParentBlockHash:  commonLocal.HexToFelt(b.ParentBlockHash).Bytes(),
-		Status:           string(b.Status),
-		SequencerAddress: commonLocal.HexToFelt(b.SequencerAddress).Bytes(),
-		GlobalStateRoot:  commonLocal.HexToFelt(b.StateRoot).Bytes(),
-		OldRoot:          commonLocal.HexToFelt(b.OldStateRoot).Bytes(),
-		TimeStamp:        b.Timestamp,
-		TxCount:          uint64(len(b.Transactions)),
-		TxHashes:         txnsHash,
+	status, _ := types.BlockStatusValue[string(b.Status)]
+	return &types.Block{
+		BlockHash:   types.HexToBlockHash(b.BlockHash),
+		BlockNumber: uint64(b.BlockNumber),
+		ParentHash:  types.HexToBlockHash(b.ParentBlockHash),
+		Status:      status,
+		Sequencer:   types.HexToAddress(b.SequencerAddress),
+		NewRoot:     types.HexToFelt(b.StateRoot),
+		OldRoot:     types.HexToFelt(b.OldStateRoot),
+		TimeStamp:   b.Timestamp,
+		TxCount:     uint64(len(b.Transactions)),
+		TxHashes:    txnsHash,
 	}
 }
 

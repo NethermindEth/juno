@@ -2,13 +2,10 @@ package services
 
 import (
 	"context"
-	"path/filepath"
-
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -98,7 +95,7 @@ func (s *blockService) StoreBlock(blockHash types.BlockHash, block *types.Block)
 	defer s.DoneProcess()
 
 	s.logger.
-		With("blockHash", common.Bytes2Hex(blockHash)).
+		With("blockHash", blockHash.Hex()).
 		Debug("StoreBlock")
 
 	s.manager.PutBlock(blockHash, block)

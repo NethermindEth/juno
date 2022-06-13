@@ -14,10 +14,10 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	commonLocal "github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	localTypes "github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -537,7 +537,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	}
 	log.Default.With("Block Hash", block.BlockHash).
 		Info("Got block")
-	services.BlockService.StoreBlock(common.Hex2Bytes(remove0x(block.BlockHash)), feederBlockToDBBlock(block))
+	services.BlockService.StoreBlock(localTypes.BlockHash(localTypes.HexToFelt(block.BlockHash)), feederBlockToDBBlock(block))
 
 	for _, bTxn := range block.Transactions {
 		transactionInfo, err := s.feederGatewayClient.GetTransaction(bTxn.TransactionHash, "")
@@ -546,7 +546,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		}
 		log.Default.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
-		services.TransactionService.StoreTransaction(commonLocal.HexToFelt(bTxn.TransactionHash).Bytes(),
+		services.TransactionService.StoreTransaction(localTypes.TransactionHash(localTypes.HexToFelt(bTxn.TransactionHash)),
 			feederTransactionToDBTransaction(transactionInfo))
 	}
 }

@@ -2,15 +2,12 @@ package services
 
 import (
 	"context"
-	"path/filepath"
-
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // TransactionService is a service to manage the transaction database. Before
@@ -87,7 +84,7 @@ func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx t
 	defer s.DoneProcess()
 
 	s.logger.
-		With("txHash", common.Bytes2Hex(txHash)).
+		With("txHash", txHash.String()).
 		Debug("StoreTransaction")
 
 	s.manager.PutTransaction(txHash, tx)
