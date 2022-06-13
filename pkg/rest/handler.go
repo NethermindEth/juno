@@ -6,8 +6,10 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
+// rest_handler object is used to route calls from the Rest Server
 var rest_handler RestHandler
 
+// NewServer creates a REST API server with the listed endpoints
 func NewServer(rest_port string, feeder_gateway string, prefix string) *Server {
 	rest_handler.RestFeeder = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
 	m := http.NewServeMux()
