@@ -1,8 +1,8 @@
-# juno
+# Juno
 
 <div align="center"><img width="128" src="./docs/static/img/juno_rounded.png"></div>
 
-StarkNet client implementation.
+Juno is a Go implementation of a StarkNet full node client made with ❤️ by Nethermind.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/NethermindEth/juno.svg)](https://pkg.go.dev/github.com/NethermindEth/juno) [![Go Report Card](https://goreportcard.com/badge/github.com/NethermindEth/juno)](https://goreportcard.com/report/github.com/NethermindEth/juno) [![Actions Status](https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg)](https://github.com/NethermindEth/juno/actions) [![codecov](https://codecov.io/gh/NethermindEth/juno/branch/main/graph/badge.svg)](https://codecov.io/gh/NethermindEth/juno)
 
@@ -29,15 +29,18 @@ Run the following command.
 
 ## Configuration
 
-**juno** uses a configuration file named **juno.yaml** that is located in the following places depending on the operating system.
+**juno** uses a configuration file named **juno.yaml** that is located in the following places depending on the
+operating system.
 
 - **macOS** - `$HOME/Library/Application Support/juno/`.
-- Other **Unix** systems - `$XDG_CONFIG_HOME/juno/` or `$HOME/.config/juno/` if the `$XDG_CONFIG_HOME` variable is not set.
+- Other **Unix** systems - `$XDG_CONFIG_HOME/juno/` or `$HOME/.config/juno/` if the `$XDG_CONFIG_HOME` variable is not
+  set.
 - **Windows** - `%AppData%/juno/`.
 
 It generally looks like the following and a default will be generated if one does not exist.
 
-The following is an example on how it would look on a macOS system (replace `$HOME` with a full path to the home directory).
+The following is an example on how it would look on a macOS system (replace `$HOME` with a full path to the home
+directory).
 
 ```yaml
 db_path: $HOME/Library/Application Support/juno
