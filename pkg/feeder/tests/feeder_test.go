@@ -228,6 +228,29 @@ func TestGetTransactionReceipt(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionReceipt, "GetTransactionReceipt response don't match")
 }
 
+func TestGetTransactionTrace(t *testing.T) {
+	a := feeder.TransactionTrace{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.TransactionTrace
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionTrace, err := client.GetTransactionTrace("", "id")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionTrace, "GetTransactionTrace response don't match")
+}
+
 func TestGetTransactionStatus(t *testing.T) {
 	a := feeder.TransactionStatus{}
 	err := faker.FakeData(&a)
