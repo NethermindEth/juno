@@ -96,7 +96,7 @@ func init() {
 				result := filepath.Join(home, ".local", "juno")
 				// Create Juno data directory if it does not exist
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
-					err = os.Mkdir(result, 0o744)
+					err = os.MkdirAll(result, 0o744)
 					errpkg.CheckFatal(err, "Unable to create user data directory.")
 				}
 				return result, nil
