@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/pkg/types"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
@@ -24,12 +23,12 @@ type transactionService struct {
 
 // Setup is used to configure the service before it's started. The database
 // param is the database where the transactions will be stored.
-func (s *transactionService) Setup(database db.Databaser) {
+func (s *transactionService) Setup(txDb, receiptDb db.Databaser) {
 	if s.service.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = transaction.NewManager(database)
+	s.manager = transaction.NewManager(txDb, receiptDb)
 }
 
 // Run starts the service. If the Setup method is not called before, the default
@@ -44,16 +43,23 @@ func (s *transactionService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
-func (s *transactionService) setDefaults() {
+func (s *transactionService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.Dir+"/transaction", 0)
-		s.manager = transaction.NewManager(database)
+		txDb, err := db.GetDatabase("TRANSACTION")
+		if err != nil {
+			return err
+		}
+		receiptDb, err := db.GetDatabase("RECEIPT")
+		if err != nil {
+			return err
+		}
+		s.manager = transaction.NewManager(txDb, receiptDb)
 	}
+	return nil
 }
 
 // Close stops the service, waiting to end the current operations, and closes
