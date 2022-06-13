@@ -93,7 +93,7 @@ func init() {
 				if home == "" {
 					return "", errors.New("user home directory not found")
 				}
-				result := filepath.Join(home, ".local", "share", "juno")
+				result := filepath.Join(home, ".local", "juno")
 				// Create Juno data directory if it does not exist
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
 					err = os.Mkdir(result, 0o744)
