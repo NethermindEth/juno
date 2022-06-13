@@ -3,7 +3,6 @@ package cli
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var getTransactionReceiptCmd = &cobra.Command{ // Get_Transaction Receipt CLI command
@@ -22,11 +21,9 @@ var getTransactionReceiptCmd = &cobra.Command{ // Get_Transaction Receipt CLI co
 }
 
 func getTxReceipt(txHash string) (*feeder.TransactionReceipt, error) {
-	// Initialize the client
-	feederUrl := viper.GetString("network")
-	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
+	client := initClient()
 
-	// Call to get transaction receipt
+	// Call to get transaction receipt - txID no longer used.
 	res, _ := client.GetTransactionReceipt(txHash, "")
 	return res, nil
 }
