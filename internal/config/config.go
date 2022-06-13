@@ -24,6 +24,12 @@ type ethereumConfig struct {
 	Node string `yaml:"node" mapstructure:"node"`
 }
 
+// restConfig represents the juno REST configuration.
+type restConfig struct {
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	Port    int  `yaml:"port" mapstructure:"port"`
+}
+
 // starknetConfig represents the juno StarkNet configuration.
 type starknetConfig struct {
 	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
@@ -33,10 +39,12 @@ type starknetConfig struct {
 
 // Config represents the juno configuration.
 type Config struct {
-	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
-	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
+	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
+	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
+	Network  string         `yaml:"starknet_network" mapstructure:"starknet_network"`
+	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
 }
 
 var (
@@ -98,9 +106,11 @@ func New() {
 	}
 	data, err := yaml.Marshal(&Config{
 		Ethereum: ethereumConfig{Node: "your_node_here"},
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: ""},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
+		REST:     restConfig{Enabled: false, Port: 8100},
 		DbPath:   Dir,
+		Network:  goerli,
+		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0o644)
