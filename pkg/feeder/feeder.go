@@ -396,7 +396,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 		"GET", "/get_transaction_hash_by_id",
 		map[string]string{"transactionId": txID}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_hash_by_id.")
 		return nil, err
 	}
 	var res string
