@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/log"
@@ -43,16 +42,19 @@ func (s *blockService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
-func (s *blockService) setDefaults() {
+func (s *blockService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.Dir+"/block", 0)
+		database, err := db.GetDatabase("BLOCK")
+		if err != nil {
+			return err
+		}
 		s.manager = block.NewManager(database)
 	}
+	return nil
 }
 
 // Close stops the service, waiting to end the current operations, and closes
