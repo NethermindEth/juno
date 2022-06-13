@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -242,6 +243,9 @@ func (s *Synchronizer) l1Sync() error {
 
 	// Handle frequently if there is any fact that comes from L1 to handle
 	go func() {
+		// Make sure this goroutine never gets moved to a new thread.
+		// MDBX transactions cannot be shared across threads (see updateAndCommitState and updateState).
+		runtime.LockOSThread()
 		ticker := time.NewTicker(time.Second * 5)
 		for range ticker.C {
 			if !s.facts.Exist(strconv.FormatUint(latestBlockSynced, 10)) {
