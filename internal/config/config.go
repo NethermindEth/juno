@@ -133,6 +133,7 @@ func New() {
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	// Create default Juno configuration file if it does not exist
 	if _, err := os.Stat(f); errors.Is(err, os.ErrNotExist) {
+		// notest
 		err = os.WriteFile(f, data, 0o644)
 		errpkg.CheckFatal(err, "Failed to write config file.")
 	}

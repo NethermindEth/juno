@@ -216,6 +216,7 @@ func IncreaseContractAddressesFailed() {
 
 // This increases when the request in CallContract in feeder.go fails
 func IncreaseContractCallsFailed() {
+	// notest
 	noOfRequests.WithLabelValues("Failed", "Contract Calls").Inc()
 }
 
@@ -277,6 +278,7 @@ func IncreaseTxIDFailed() {
 // Starknet sync metrics
 // This increases when the StateUpdateAndCommit method in state.go throws an error
 func IncreaseCountStarknetStateFailed() {
+	// notest
 	countStarknetSync.WithLabelValues("Failed").Inc()
 }
 
@@ -297,6 +299,7 @@ func UpdateStarknetSyncTime(t float64) {
 }
 
 func SetupMetric(port string) *Server {
+	// notest
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	return &Server{server: http.Server{Addr: port, Handler: mux}}
