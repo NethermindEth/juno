@@ -6,3 +6,4 @@ build/juno
 build/juno-cli
 coverage/*
 courtney/
+.idea/

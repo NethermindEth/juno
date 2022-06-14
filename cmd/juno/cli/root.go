@@ -10,12 +10,18 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/ethclient"
+
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
+	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -31,47 +37,86 @@ var (
 	//go:embed long.txt
 	longMsg string
 
+	processHandler *process.Handler
 	// rootCmd is the root command of the application.
 	rootCmd = &cobra.Command{
 		Use:   "juno [options]",
-		Short: "StarkNet client implementation in Go.",
-		Long:  longMsg,
-		Run: func(cmd *cobra.Command, args []string) {
-			handler := process.NewHandler()
+		Short: "Starknet client implementation in Go.",
+		Run: func(_ *cobra.Command, _ []string) {
+			processHandler = process.NewHandler()
 
 			// Handle signal interrupts and exits.
-			sig := make(chan os.Signal)
+			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-			go func() {
+			go func(sig chan os.Signal) {
 				<-sig
 				log.Default.Info("Trying to close...")
-				handler.Close()
-				log.Default.Info("App closing...Bye!!!")
+				cleanup()
 				os.Exit(0)
-			}()
+			}(sig)
+
+			// Breaking initial cases
+			if config.Runtime.Ethereum.Node == "" || config.Runtime.Starknet.FeederGateway == "" {
+				log.Default.Panic("Ethereum client needed")
+			}
 
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
 				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
-				handler.Add("RPC", s.ListenAndServe, s.Close)
+				processHandler.Add("RPC", s.ListenAndServe, s.Close)
+			}
+
+			// Initialize ABI Service
+			processHandler.Add("ABI Service", services.AbiService.Run, services.AbiService.Close)
+
+			// Initialize State storage service
+			processHandler.Add("State Storage Service", services.StateService.Run, services.StateService.Close)
+
+			// Initialize Transactions Storage Service
+			processHandler.Add("Transactions Storage Service", services.TransactionService.Run, services.TransactionService.Close)
+
+			// Initialize Block Storage Service
+			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
+
+			// Initialize Contract Hash storage service
+			database := db.Databaser(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "contractHash"), 0))
+			contractHashService := services.NewContractHashService(database)
+			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, contractHashService.Close)
+
+			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
+			// the config.
+			if config.Runtime.Starknet.Enabled {
+				ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+				if err != nil {
+					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				}
+				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+				// Synchronizer for Starknet State
+				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), ethereumClient, feederGatewayClient)
+				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
+					stateSynchronizer.Close)
 			}
 
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.REST.Enabled {
-				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway)
-				handler.Add("REST", s.ListenAndServe, s.Close)
+				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
 			// endless running process
 			log.Default.Info("Starting all processes...")
-			handler.Run()
-			handler.Close()
-			log.Default.Info("App closing...Bye!!!")
+			processHandler.Run()
+			cleanup()
 		},
 	}
 )
+
+func cleanup() {
+	processHandler.Close()
+	log.Default.Info("App closing...Bye!!!")
+}
 
 // init defines flags and handles configuration.
 func init() {
@@ -130,6 +175,7 @@ func initConfig() {
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
 		"Rest Port", config.Runtime.REST.Port,
 		"Rest Enabled", config.Runtime.REST.Enabled,
+		"Rest Prefix", config.Runtime.REST.Prefix,
 	).Info("Config values.")
 }
 
