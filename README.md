@@ -114,6 +114,10 @@ If you want to say **thank you** and/or support the active development of `Juno`
 
 <img src="./.github/contributors.svg" alt="Code Contributors" style="max-width:100%;">
 
+## 🤝 Partnerships
+
+If you want to establish a partnership with the Juno team, any special need, feel free to reach us via [email](mailto:juno@nethermind.io). 
+
 ## ⭐️ Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/NethermindEth/juno.svg)](https://starchart.cc/NethermindEth/juno)
