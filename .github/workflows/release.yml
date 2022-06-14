@@ -18,14 +18,16 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v2
 
-      # step 2: generate build files
+      # step 2: install dependencies
+      - name: Install dependecies
+        run: sudo apt-get install -y upx
+
+      # step 3: generate build files
       - name: Generate build files
         uses: actions/setup-go@v3
-        run: |
-        sudo apt install upx
-        ./go-executable-build.sh github.com/NethermindEth/juno/cmd/juno
+        run: ./go-executable-build.sh github.com/NethermindEth/juno/cmd/juno
 
-      # step 3: upload build-artifacts
+      # step 4: upload build-artifacts
       - name: Upload build-artifacts
         uses: skx/github-action-publish-binaries@master
         env:

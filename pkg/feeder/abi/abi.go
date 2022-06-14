@@ -15,6 +15,10 @@ const (
 
 // Unmarshals JSON into abi object
 func (abi *Abi) UnmarshalAbiJSON(data []byte) error {
+	if string(data) == "{}" {
+		// notest
+		return nil
+	}
 	// Unmarshal all the common parts of the fields to get the field types
 	var common []FieldCommon
 	if err := json.Unmarshal(data, &common); err != nil {

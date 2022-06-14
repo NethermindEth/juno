@@ -104,6 +104,12 @@ func (c *Client) newRequest(method, path string, query map[string]string, body a
 func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	metr.IncreaseRequestsSent()
 	res, err := (*c.httpClient).Do(req)
+	// notest
+	for i := 0; err != nil && i < 2; i++ {
+		time.Sleep(time.Second * 5)
+		res, err = (*c.httpClient).Do(req)
+	}
+	// We tried three times and still received an error
 	if err != nil {
 		metr.IncreaseRequestsFailed()
 		return nil, err
@@ -201,7 +207,7 @@ func (c Client) GetContractAddresses() (*ContractAddresses, error) {
 	return &res, err
 }
 
-// CallContract creates a new request to call a contract in the gateway.
+// CallContract creates a new request to call a contract using the gateway.
 func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber string) (*map[string][]string, error) {
 	req, err := c.newRequest("POST", "/call_contract", formattedBlockIdentifier(blockHash, blockNumber), invokeFunc)
 	if err != nil {
@@ -243,7 +249,45 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	return &res, err
 }
 
-// GetStateUpdate creates a new request to get the contract addresses
+// GetStateUpdateGoerli creates a new request to get the contract addresses
+// from the gateway.
+func (c Client) GetStateUpdateGoerli(blockHash, blockNumber string) (*StateUpdateResponse, error) {
+	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		return nil, err
+	}
+
+	var res StateUpdateResponseGoerli
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return stateUpdateResponseToGoerli(res), err
+}
+
+func stateUpdateResponseToGoerli(res StateUpdateResponseGoerli) *StateUpdateResponse {
+	deployedContracts := make([]DeployedContract, 0)
+
+	for _, d := range res.StateDiff.DeployedContracts {
+		deployedContracts = append(deployedContracts, DeployedContract{
+			Address:      d.Address,
+			ContractHash: d.ContractHash,
+		})
+	}
+	return &StateUpdateResponse{
+		BlockHash: res.BlockHash,
+		NewRoot:   res.NewRoot,
+		OldRoot:   res.OldRoot,
+		StateDiff: StateDiff{
+			DeployedContracts: deployedContracts,
+			StorageDiffs:      res.StateDiff.StorageDiffs,
+		},
+	}
+}
+
+// GetStateUpdate creates a new request to get the State Update of a given block
 // from the gateway.
 func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
@@ -266,6 +310,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateRespo
 	return &res, err
 }
 
+// GetCode creates a new request to get the code of a contract
 func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeInfo, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
@@ -298,7 +343,6 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		blockIdentifier = map[string]string{}
 	}
 	blockIdentifier["contractAddress"] = contractAddress
-
 	req, err := c.newRequest("GET", "/get_full_contract", blockIdentifier, nil)
 	if err != nil {
 		metr.IncreaseFullContractsFailed()
@@ -306,7 +350,6 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	// var res []any
 	var res map[string]interface{}
 	metr.IncreaseFullContractsSent()
 	_, err = c.do(req, &res)

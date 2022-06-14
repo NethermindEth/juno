@@ -40,14 +40,6 @@ func (d *KeyValueDb) GetEnv() *mdbx.Env {
 	return d.env
 }
 
-// NewKeyValueDbWithEnv creates a new key-value database based on an already created env.
-func NewKeyValueDbWithEnv(env *mdbx.Env, path string) *KeyValueDb {
-	return &KeyValueDb{
-		env:  env,
-		path: path,
-	}
-}
-
 func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 	env, err := mdbx.NewEnv()
 	if err != nil {
@@ -63,7 +55,7 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 		return nil
 	}
 	const pageSize = 4096
-	err = env.SetGeometry(268435456, 268435456, 25769803776, 268435456, 268435456, pageSize)
+	err = env.SetGeometry(268435456, 268435456, 1025769803776, 268435456, 268435456, pageSize)
 	if err != nil {
 		// notest
 		return nil
@@ -71,6 +63,7 @@ func NewKeyValueDb(path string, flags uint) *KeyValueDb {
 	err = env.Open(path, flags|mdbx.Exclusive, 0o664)
 	if err != nil {
 		// notest
+		log.Default.With("Error", err).Panic("Couldn't open db")
 		return nil
 	}
 	return &KeyValueDb{env: env, path: path}
