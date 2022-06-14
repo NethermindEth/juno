@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	// "github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -18,10 +18,10 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/feeder"
+	// "github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
-	"github.com/NethermindEth/juno/pkg/starknet"
+	// "github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -55,7 +55,7 @@ var (
 				os.Exit(0)
 			}(sig)
 
-			// Breaking initial cases
+			// Breaking initial cases - FIXME: temporary patch.
 			if config.Runtime.Ethereum.Node == "" || config.Runtime.Starknet.FeederGateway == "" {
 				log.Default.Panic("Ethereum client needed")
 			}
@@ -86,17 +86,17 @@ var (
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
-			if config.Runtime.Starknet.Enabled {
-				ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
-				if err != nil {
-					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
-				}
-				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
-				// Synchronizer for Starknet State
-				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), ethereumClient, feederGatewayClient)
-				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
-					stateSynchronizer.Close)
-			}
+			// if config.Runtime.Starknet.Enabled {
+			// 	ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+			// 	if err != nil {
+			// 		log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+			// 	}
+			// 	feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+			// 	// Synchronizer for Starknet State
+			// 	stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), ethereumClient, feederGatewayClient)
+			// 	processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
+			// 		stateSynchronizer.Close)
+			// }
 
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.

@@ -15,11 +15,9 @@ generate:
 	@cd internal/db && $(MAKE) generate
 
 test: ## tests
-	go clean -testcache
 	go test ./...
 
 benchmarks: ## Benchmarking
-	go clean -testcache
 	go test ./... -bench=.
 
 test-cover: ## tests with coverage

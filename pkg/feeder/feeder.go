@@ -365,8 +365,9 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 	return &res, err
 }
 
-// GetTransactionStatus creates a new request to get the transaction
-// status.
+// GetTransactionTrace creates a new request to get the transaction
+// trace (internal call information).
+// notest
 func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
 	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
