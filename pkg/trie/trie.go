@@ -201,3 +201,13 @@ func (t *Trie) Commitment() *big.Int {
 	}
 	return root.Hash
 }
+
+// Root returns the root node of the trie or an empty node if the tree
+// is empty.
+func (t *Trie) Root() Node {
+	root, ok := t.retrieve([]byte{})
+	if !ok {
+		return Node{}
+	}
+	return root
+}

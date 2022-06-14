@@ -36,3 +36,9 @@ func (n *Node) hash() {
 	h := pedersen.Digest(n.Bottom, n.Path)
 	n.Hash = h.Add(h, new(big.Int).SetUint64(uint64(n.Length)))
 }
+
+// IsEmpty returns true if the node is empty i.e. with encoding
+// (0, 0, 0).
+func (n *Node) IsEmpty() bool {
+	return n.Encoding == Encoding{}
+}
