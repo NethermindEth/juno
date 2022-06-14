@@ -322,6 +322,23 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 	return &res, err
 }
 
+// GetTransactionStatus creates a new request to get the transaction
+// status.
+func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
+	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_trace.")
+		return nil, err
+	}
+	var res TransactionTrace
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return &res, err
+}
+
 // GetTransaction creates a new request to get a TransactionInfo.
 func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	req, err := c.newRequest("GET", "/get_transaction", TxnIdentifier(txHash, txID), nil)

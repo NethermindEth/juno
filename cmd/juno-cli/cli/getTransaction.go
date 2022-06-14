@@ -23,7 +23,7 @@ var getTransactionCmd = &cobra.Command{
 
 func getTxInfo(txHash string) (*feeder.TransactionInfo, error) {
 	client := initClient()
-	// Call to get transaction info - txID no longer used.
+	// Call to get transaction info - txID not used.
 	res, _ := client.GetTransaction(txHash, "")
 	return res, nil
 }

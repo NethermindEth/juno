@@ -1,42 +1,36 @@
 package cli
 
 import (
-	"github.com/NethermindEth/juno/pkg/feeder"
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
 // getBlockCmd represents the getBlock command
 var getBlockCmd = &cobra.Command{
-	Use:   "get_block [BLOCK_HASH or BLOCK_NUMBER] [flags]",
-	Short: "Prints out block information.",
-	Long:  `https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-block`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "getBlock",
+	Short: "A brief description of your command",
+	Long: `A longer description that spans multiple lines and likely contains examples
+and usage of using your command. For example:
+
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		res, _ := getBlockInfo(args[0])
-		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
-			prettyPrint(res)
-		} else {
-			normalReturn(res)
-		}
+		fmt.Println("getBlock called")
 	},
-}
-
-func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
-	blockHash, blockNumber := "", ""
-
-	if isInteger(input) {
-		blockNumber = input
-	} else {
-		blockHash = input
-	}
-
-	client := initClient()
-
-	// Call to get block info - hash and number possible inputs.
-	res, _ := client.GetBlock(blockHash, blockNumber)
-	return res, nil
 }
 
 func init() {
 	rootCmd.AddCommand(getBlockCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// getBlockCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// getBlockCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

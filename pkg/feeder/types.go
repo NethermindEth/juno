@@ -65,10 +65,11 @@ type Transaction interface {
 type InvokeFunction struct {
 	CallerAddress      string   `json:"caller_address"`
 	ContractAddress    string   `json:"contract_address"`
-	EntryPointSelector string   `json:"entry_point_selector"`
+	CodeAddress        string   `json:"code_address"`
 	Calldata           []string `json:"calldata"`
 	CallType           string   `json:"call_type"`
 	ClassHash          string   `json:"class_hash"`
+	EntryPointSelector string   `json:"entry_point_selector"`
 	Selector           string   `json:"selector"`
 	EntryPointType     string   `json:"entry_point_type"`
 	Result             []string `json:"result"`
@@ -82,7 +83,7 @@ type InvokeFunction struct {
 	Signature      []int            `json:"signature"`
 	InternallCalls []InvokeFunction `json:"internall_calls"`
 	Events         []Event          `json:"events"`
-	Messages       []string         `json:"messages"` // TODO: Check what msg go in trace
+	Messages       []string         `json:"messages"`
 	// The maximal fee to be paid in Wei for executing invoked function.
 	MaxFee string `json:"max_fee"`
 }
@@ -234,6 +235,7 @@ type TransactionReceipt struct {
 
 type TransactionTrace struct {
 	InvokeFunction `json:"function_invocation"`
+	Signature      []string `json:"signature"`
 }
 
 // KV represents a key-value pair.
