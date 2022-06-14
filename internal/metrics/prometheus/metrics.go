@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 )
 
 // Number of requests received
@@ -20,8 +21,20 @@ var (
 		[]string{"Status", "Type"},
 	)
 	noOfABI = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "noOfABI",
+		Name: "no_of_abi",
 		Help: "Number of ABI requests sent to and received from the feeder gateway",
+	},
+		[]string{"Status"},
+	)
+	countStarknetSync = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "count_starknet_sync",
+		Help: "Number of updates and commits made or failed",
+	},
+		[]string{"Status"},
+	)
+	timeStarknetSync = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "time_starknet_sync",
+		Help: "Number of updates and commits made or failed",
 	},
 		[]string{"Status"},
 	)
@@ -261,6 +274,28 @@ func IncreaseTxHashFailed() {
 // This increases when the request in GetBlockHashById in feeder.go fails
 func IncreaseTxIDFailed() {
 	noOfRequests.WithLabelValues("Failed", "TransactionIDByHash").Inc()
+}
+
+// Starknet sync metrics
+// This increases when the StateUpdateAndCommit method in state.go throws an error
+func IncreaseCountStarknetStateFailed() {
+	countStarknetSync.WithLabelValues("Failed").Inc()
+}
+
+// This increases when the StateUpdateAndCommit method in state.go updates the state successfully
+func IncreaseCountStarknetStateSuccess() {
+	countStarknetSync.WithLabelValues("Success").Inc()
+}
+
+// Changes the total and average amount of time needed for updating and committing a block
+func UpdateStarknetSyncTime(t float64) {
+	timeStarknetSync.WithLabelValues("Total").Add(t)
+	val1 := &dto.Metric{}
+	val2 := &dto.Metric{}
+	timeStarknetSync.WithLabelValues("Total").Write(val1)
+	countStarknetSync.WithLabelValues("Success").Write(val2)
+	val3 := val1.Gauge.GetValue() / val2.Counter.GetValue()
+	timeStarknetSync.WithLabelValues("Average").Set(val3)
 }
 
 func main() {
