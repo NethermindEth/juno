@@ -208,15 +208,13 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 	if number := blockNumberOrTag.Number; number != nil {
 		return getBlockByNumber(ctx, *number, scope)
 	}
-	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
+		// notest
 		return getBlockByTag(ctx, *tag, scope)
 	}
 	// TODO: Send bad request error
 	return nil, errors.New("bad request")
 }
-
-// type bNumber string `json:"int,int,omitempty"`
 
 // StarknetGetBlockByNumber represent the handler for getting a block by
 // its number.

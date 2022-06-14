@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/NethermindEth/juno/pkg/types"
 
@@ -144,7 +145,7 @@ func TestStarknetGetCode(t *testing.T) {
 	defer services.AbiService.Close(context.Background())
 
 	address := types.Address(testFelt2)
-	abi := &abi.Abi{
+	wantAbi := &abi.Abi{
 		Functions: []*abi.Function{
 			{
 				Name: "initialize",
@@ -233,7 +234,7 @@ func TestStarknetGetCode(t *testing.T) {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
 
-	services.AbiService.StoreAbi(address.Hex(), abi)
+	services.AbiService.StoreAbi(address.Hex(), wantAbi)
 
 	defer services.StateService.Close(context.Background())
 
@@ -247,17 +248,87 @@ func TestStarknetGetCode(t *testing.T) {
 	}
 	services.StateService.StoreCode(address.Bytes(), code)
 
-	abiResponse, _ := json.Marshal(abi)
-	codeResponse := make([]Felt, len(code.Code))
+	abiResponse, _ := json.Marshal(wantAbi)
+	codeResponse := make([]types.Felt, len(code.Code))
 	for i, bcode := range code.Code {
-		codeResponse[i] = Felt(types.BytesToFelt(bcode).Hex())
+		codeResponse[i] = types.BytesToFelt(bcode)
 	}
 
+	// Set up feeder client for pending block
+	feederCodeInfo := feeder.CodeInfo{
+		Bytecode: []string{"a"},
+		Abi: feederAbi.Abi{
+			Functions: []feederAbi.Function{
+				{
+					FieldCommon: feederAbi.FieldCommon{Type: "a"},
+					Inputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
+					Name: "a",
+					Outputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
+				},
+			},
+			Events: []feederAbi.Event{},
+			Structs: []feederAbi.Struct{},
+			L1Handlers: []feederAbi.L1Handler{},
+			Constructor: &feederAbi.Constructor{
+				Function: feederAbi.Function{
+					FieldCommon: feederAbi.FieldCommon{Type: "a"},
+					Inputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
+					Name: "a",
+					Outputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(feederCodeInfo)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+	}
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	
+	want := &abi.Abi{
+		Functions: []*abi.Function{
+			{
+				Name: "a",
+				Inputs: []*abi.Function_Input{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+				Outputs: []*abi.Function_Output{},
+			},
+		},
+		Events: []*abi.AbiEvent{},
+		Structs: []*abi.Struct{},
+		L1Handlers: []*abi.Function{},
+		Constructor: &abi.Function{
+			Name: "a",
+			Inputs: []*abi.Function_Input{
+				{
+					Name: "a",
+					Type: "a",
+				},
+			},
+			Outputs: []*abi.Function_Output{},
+		},
+	}
+	abiResponse2, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
 	// test
 	testServer(t, []rpcTest{
 		{
 			Request:  buildRequest("starknet_getCode", address.Hex()),
 			Response: buildResponse(CodeResult{Bytecode: codeResponse, Abi: string(abiResponse)}),
+		},
+		{
+			Request: buildRequest("starknet_getCode", "a"), // address not held locally; have to query feeder gateway
+			Response: buildResponse(CodeResult{Bytecode: []types.Felt{types.HexToFelt("a")}, Abi: string(abiResponse2)}),
 		},
 	})
 }
@@ -527,6 +598,42 @@ func TestGetBlock(t *testing.T) {
 			})
 		}
 	}
+
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	body, err := json.Marshal(feeder.StarknetBlock{
+		BlockHash: "a",
+		ParentBlockHash: "a",
+		BlockNumber: 0,
+		GasPrice: "a",
+		SequencerAddress: "a",
+		StateRoot: "a",
+		Status: "a",
+		Timestamp: 0,
+		Transactions: []feeder.TxnSpecificInfo{},
+	})
+	if err != nil {
+		t.Fatal("unexpected marshal error")
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error while initializing fake data in feeder client")
+	}
+	want := &BlockResponse{
+		BlockHash: types.HexToBlockHash("a"),
+		ParentHash: types.HexToBlockHash("a"),
+		BlockNumber: 0,
+		Status: types.StringToBlockStatus("UNKNOWN"),
+		Sequencer: types.HexToAddress("a"),
+		NewRoot: types.HexToFelt("a"),
+		Transactions: []*Txn{},
+	}
+	// Test request for pending block
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_getBlockByNumber", BlocktagPending, ""), // scope is irrelevant
+			Response: buildResponse(want),
+		},
+	})
 }
 
 // generateResponse returns a HTTP 200 response
@@ -752,7 +859,7 @@ func TestStarknetPendingTransactions(t *testing.T) {
 	}
 	testServer(t, []rpcTest{
 		{
-			Request:  buildRequest("starknet_pendingTransactions", ),
+			Request:  buildRequest("starknet_pendingTransactions"),
 			Response: buildResponse(want),
 		},
 	})
@@ -789,6 +896,53 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 			})
 		}
 	}
+
+	// Make test case for pending block
+	fakeBlock := feeder.StarknetBlock{
+		BlockHash: "a",
+		ParentBlockHash: "a",
+		BlockNumber: 0,
+		GasPrice: "a",
+		SequencerAddress: "a",
+		StateRoot: "a",
+		Status: "a",
+		Timestamp: 0,
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata: []string{"a"},
+				ContractAddress: "a",
+				ContractAddressSalt: "a",
+				EntryPointSelector: "a",
+				EntryPointType: "a",
+				Signature: []string{"a"},
+				TransactionHash: "a",
+				Type: "INVOKE",
+			},
+		},
+	}
+	// Set up feeder client for PENDING block
+	body, err := json.Marshal(fakeBlock)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+	}
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	tx := Txn{
+		FunctionCall: FunctionCall{
+			ContractAddress: types.HexToAddress("a"),
+			EntryPointSelector: types.HexToFelt("a"),
+			CallData: []types.Felt{types.HexToFelt("a")},
+		},
+		TxnHash: types.HexToTransactionHash("a"),
+	}
+	tests = append(tests, rpcTest{
+		Request: buildRequest("starknet_getTransactionByBlockHashAndIndex", BlocktagPending, 0),
+		Response: buildResponse(tx),
+	})
+
 	// Run tests
 	testServer(t, tests)
 }
@@ -824,6 +978,54 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 			})
 		}
 	}
+
+	// Make test case for pending block
+	fakeBlock := feeder.StarknetBlock{
+		BlockHash: "a",
+		ParentBlockHash: "a",
+		BlockNumber: 0,
+		GasPrice: "a",
+		SequencerAddress: "a",
+		StateRoot: "a",
+		Status: "a",
+		Timestamp: 0,
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata: []string{"a"},
+				ContractAddress: "a",
+				ContractAddressSalt: "a",
+				EntryPointSelector: "a",
+				EntryPointType: "a",
+				Signature: []string{"a"},
+				TransactionHash: "a",
+				Type: "INVOKE",
+			},
+		},
+	}
+	
+	// Set up feeder client for PENDING block
+	body, err := json.Marshal(fakeBlock)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+	}
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	tx := Txn{
+		FunctionCall: FunctionCall{
+			ContractAddress: types.HexToAddress("a"),
+			EntryPointSelector: types.HexToFelt("a"),
+			CallData: []types.Felt{types.HexToFelt("a")},
+		},
+		TxnHash: types.HexToTransactionHash("a"),
+	}
+	tests = append(tests, rpcTest{
+		Request: buildRequest("starknet_getTransactionByBlockNumberAndIndex", BlocktagPending, 0),
+		Response: buildResponse(tx),
+	})
+
 	// Run tests
 	testServer(t, tests)
 }
