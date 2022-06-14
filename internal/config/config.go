@@ -20,7 +20,7 @@ type rpcConfig struct {
 }
 
 // metricConfig represents the juno RPC configuration.
-type metricConfig struct {
+type metricsConfig struct {
 	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
 	Port    int  `yaml:"port" mapstructure:"port"`
 }
@@ -48,7 +48,7 @@ type starknetConfig struct {
 type Config struct {
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
-	Metric   metricConfig   `yaml:"metric" mapstructure:"metric"`
+	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
 	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
 	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
 	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
@@ -125,7 +125,7 @@ func New() {
 	data, err := yaml.Marshal(&Config{
 		Ethereum: ethereumConfig{Node: "your_node_here"},
 		RPC:      rpcConfig{Enabled: false, Port: 8080},
-		Metric:   metricConfig{Enabled: true, Port: 2048},
+		Metrics:  metricsConfig{Enabled: true, Port: 2048},
 		DbPath:   DataDir,
 		REST:     restConfig{Enabled: false, Port: 8100, Prefix: "/feeder_gateway"},
 		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},

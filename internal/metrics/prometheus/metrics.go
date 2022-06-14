@@ -19,7 +19,6 @@ type Server struct {
 	server http.Server
 }
 
-// Number of requests received
 var (
 	noOfRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "no_of_requests",
@@ -46,14 +45,6 @@ var (
 		[]string{"Status"},
 	)
 )
-
-// block_sync_time = promauto.NewHistogram(prometheus.HistogramOpts{
-// 	Name: "block_sync_time",
-// 	Help: "Time taken to sync the blockchain to the current state",
-// })
-// func IncreaseBlockSyncTime() {
-
-// }
 
 // Keeps a track of the total number of correct responses received
 // Is called whenever the function do in feeder.go is called

@@ -63,9 +63,9 @@ var (
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
-			if config.Runtime.Metric.Enabled {
-				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metric.Port))
-				processHandler.Add("Metric", s.ListenAndServe, s.Close)
+			if config.Runtime.Metrics.Enabled {
+				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
 			// Initialize ABI Service
