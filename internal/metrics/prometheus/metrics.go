@@ -4,13 +4,20 @@
 package prometheus
 
 import (
+	"context"
 	"net/http"
+
+	"github.com/NethermindEth/juno/internal/log"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 )
+
+type Server struct {
+	server http.Server
+}
 
 // Number of requests received
 var (
@@ -298,7 +305,37 @@ func UpdateStarknetSyncTime(t float64) {
 	timeStarknetSync.WithLabelValues("Average").Set(val3)
 }
 
-func main() {
-	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":2048", nil)
+func SetupMetric(port string) *Server {
+	mux := http.NewServeMux()
+	mux.Handle("/metric", promhttp.Handler())
+	return &Server{server: http.Server{Addr: port, Handler: mux}}
+}
+
+// ListenAndServe listens on the TCP network and handles requests on
+// incoming connections.
+func (s *Server) ListenAndServe() error {
+	// notest
+	log.Default.Info("Listening for connections .... ")
+
+	err := s.server.ListenAndServe()
+	if err != nil {
+		log.Default.With("Error", err).Error("Error occurred while trying to listen for connections.")
+		return err
+	}
+	return nil
+}
+
+// Close gracefully shuts down the server.
+func (s *Server) Close(ctx context.Context) {
+	// notest
+	log.Default.Info("Closing RPC server")
+	select {
+	case <-ctx.Done():
+		err := s.server.Shutdown(ctx)
+		if err != nil {
+			log.Default.With("Error", err).Info("Exiting with error.")
+			return
+		}
+	default:
+	}
 }
