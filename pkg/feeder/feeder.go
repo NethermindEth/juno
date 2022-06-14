@@ -347,7 +347,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 	if err != nil {
 		metr.IncreaseFullContractsFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_full_contract.")
 		return nil, err
 	}
 	var res map[string]interface{}
@@ -377,7 +377,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 	if err != nil {
 		metr.IncreaseContractStorageFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_storage_at.")
 		return nil, err
 	}
 	var res StorageInfo
@@ -400,7 +400,7 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 	if err != nil {
 		metr.IncreaseTxStatusFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_status.")
 		return nil, err
 	}
 	var res TransactionStatus
@@ -415,13 +415,31 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 	return &res, err
 }
 
+// GetTransactionTrace creates a new request to get the transaction
+// trace (internal call information).
+// notest
+func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
+	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_trace.")
+		return nil, err
+	}
+	var res TransactionTrace
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return &res, err
+}
+
 // GetTransaction creates a new request to get a TransactionInfo.
 func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	req, err := c.newRequest("GET", "/get_transaction", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
 		metr.IncreaseTxFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction.")
 		return nil, err
 	}
 	var res TransactionInfo
@@ -443,7 +461,7 @@ func (c Client) GetTransactionReceipt(txHash, txID string) (*TransactionReceipt,
 	if err != nil {
 		metr.IncreaseTxReceiptFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_receipt.")
 		return nil, err
 	}
 	var res TransactionReceipt
@@ -465,7 +483,7 @@ func (c Client) GetBlockHashById(blockID string) (*string, error) {
 	if err != nil {
 		metr.IncreaseBlockHashFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_hash_by_id.")
 		return nil, err
 	}
 	var res string
@@ -487,7 +505,7 @@ func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 	if err != nil {
 		metr.IncreaseBlockIDFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_id_by_hash.")
 		return nil, err
 	}
 	var res string
@@ -511,7 +529,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 	if err != nil {
 		metr.IncreaseTxHashFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_hash_by_id.")
 		return nil, err
 	}
 	var res string
@@ -535,7 +553,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	if err != nil {
 		metr.IncreaseTxIDFailed()
 		metr.IncreaseRequestsFailed()
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
 		return nil, err
 	}
 	var res string

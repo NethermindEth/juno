@@ -56,11 +56,6 @@ var (
 				os.Exit(0)
 			}(sig)
 
-			// Breaking initial cases
-			if config.Runtime.Ethereum.Node == "" || config.Runtime.Starknet.FeederGateway == "" {
-				log.Default.Panic("Ethereum client needed")
-			}
-
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
