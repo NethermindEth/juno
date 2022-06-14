@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -222,7 +221,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress).
+		log.Default.With("Address", memoryPagesContractAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -245,7 +244,6 @@ func (s *Synchronizer) l1Sync() error {
 	go func() {
 		// Make sure this goroutine never gets moved to a new thread.
 		// MDBX transactions cannot be shared across threads (see updateAndCommitState and updateState).
-		runtime.LockOSThread()
 		ticker := time.NewTicker(time.Second * 5)
 		for range ticker.C {
 			if !s.facts.Exist(strconv.FormatUint(latestBlockSynced, 10)) {
