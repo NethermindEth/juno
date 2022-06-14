@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	// FeltLength is the expected length of the felt
+	// FeltLength is the expected length of the felt in bytes
 	FeltLength = 32
+	// FeltBitLen is the expected length of the felt in bits
+	FeltBitLen = 251
 )
 
 type IsFelt interface {
@@ -85,6 +87,17 @@ func (f *Felt) UnmarshalJSON(data []byte) error {
 		return errors.New("unexpected token type")
 	}
 	return nil
+}
+
+func (f Felt) Bit(i uint) uint {
+	i += FeltLength*8 - FeltBitLen // convert to bit number
+	return uint(f[i/8]>>(i%8)) & 1 // get bit
+}
+
+func (f Felt) SetBit(i uint, b uint) {
+	i += FeltLength*8 - FeltBitLen // convert to bit number
+	f[i/8] &^= 1 << (i % 8)        // clear bit
+	f[i/8] |= byte(b) << (i % 8)   // set bit
 }
 
 // Felt common

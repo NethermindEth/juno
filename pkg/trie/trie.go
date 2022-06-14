@@ -2,6 +2,7 @@ package trie
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 
 	"github.com/NethermindEth/juno/pkg/store"
@@ -14,104 +15,182 @@ var (
 )
 
 type Trie struct {
-	root   *node
+	root   *Node
 	storer *trieStorer
 }
 
-func NewTrie(kvStorer store.KVStorer, rootHash []byte) (*Trie, error) {
-	root := &node{}
+func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt) (*Trie, error) {
 	storer := &trieStorer{kvStorer}
-	if err := storer.retrieveByH(rootHash, root); err != nil {
+	if root, err := storer.retrieveByH(rootHash); err != nil {
 		return nil, err
+	} else {
+		return &Trie{root, storer}, nil
 	}
-	return &Trie{root, storer}, nil
 }
 
 // Get gets the value for a key stored in the trie.
 func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
-	// curr is the current node in the traversal
-	curr := &*t.root // the `&*` part is done to prevent heap allocations
-	for walked := 0; walked < len(key.Bytes()); walked++ {
-		if curr.length == 0 {
+	// check if root is not empty
+	if t.root == nil {
+		return nil, nil
+	}
+	// find the closest match to the key
+	curr, _, err := t.findClosestMatch(key)
+	if err != nil {
+		return nil, err
+	}
+	// check if we walked down the whole key
+	// if length is zero, it's a leaf node
+	// - the trie doesn't store empty nodes
+	// - with a binary node we can always take one step down the path
+	if curr.Length == 0 {
+		return &curr.Bottom, nil
+	}
+	// the key is not in the trie
+	return nil, nil
+}
+
+// Put inserts a new key/value pair into the trie.
+func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
+	// node := &Node{
+	// 	Length: len(key.Bytes()) * 8,
+	// 	Path:   *key,
+	// 	Bottom: *value,
+	// }
+	// // walk up the path from the leaf node
+	// for i := types.FeltBitLen; i >= 0; i-- {
+	// 	var left, right *Node
+	// 	// if the bit is 0, we came down the left path
+	// 	siblingKey := &*key
+	// 	siblingKey.SetBit(uint(i), ^key.Bit(uint(i)))
+	// 	var (
+	// 		sibling *Node
+	// 		err     error
+	// 	)
+	// 	if sibling, err = t.Get(siblingKey); err != nil {
+	// 		// there was an error retrieving the sibling node
+	// 		return err
+	// 	} else if right == nil {
+	// 		// there is no sibling node, so assing (0,0,0) to it
+	// 		right = &Node{
+	// 			Length: 0,
+	// 			Path:   types.Felt0,
+	// 			Bottom: types.Felt0,
+	// 		}
+	// 	}
+	// 	if key.Bit(uint(i)) == 0 {
+	// 		// if the bit is 0, we came down the left path
+	// 		right, left = node, sibling
+	// 	} else {
+	// 		// if the bit is 1, we came down the right path
+	// 		left, right = node, sibling
+	// 	}
+	//
+	// }
+
+	// the key is not in the trie
+	return nil
+}
+
+func (t *Trie) findClosestMatch(key *types.Felt) (*Node, []*Node, error) {
+	proof := make([]*Node, 0)
+	walked := 0    // steps we have taken so far
+	curr := t.root // curr is the current node in the traversal
+	for walked < types.FeltBitLen {
+		if curr.Length == 0 {
 			// node is a binary node or an empty node
-			if bytes.Compare(curr.bottom.Bytes(), types.Felt0.Bytes()) == 0 {
+			if bytes.Compare(curr.Bottom.Bytes(), types.Felt0.Bytes()) == 0 {
 				// node is an empty node (0,0,0)
 				// if we haven't matched the whole key yet it's because it's not in the trie
-				return nil, nil
+				// NOTE: this should not happen, empty nodes are not stored
+				//       and are never reachable from the root
+				// TODO: After this is debugged and we make sure it never happens
+				//       we can remove the panic
+				panic("reached an empty node while traversing the trie")
 			}
 
 			// node is a binary node (0,0,h(H(left),H(right)))
 			// retrieve the left and right nodes
 			// by reverting the pedersen hash function
-			bottom, err := t.storer.retrieveByP(curr.bottom.Bytes())
+			leftH, rightH, err := t.storer.retrieveByP(&curr.Bottom)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
-			var next []byte
+			var next, sibling *types.Felt
 			// walk left or right depending on the bit
-			if key.Big().Bit(walked) == 0 {
+			if key.Bit(uint(walked)) == 0 {
 				// next is left node
-				next = bottom[:32]
+				next, sibling = leftH, rightH
 			} else {
 				// next is right node
-				next = bottom[32:]
+				next, sibling = rightH, leftH
 			}
 
-			// retrieve the corresponding node from the store
-			// unmarshal the retrieved value into curr
-			if err := t.storer.retrieveByH(next, curr); err != nil {
-				return nil, err
+			// retrieve the next node from the store
+			if curr, err = t.storer.retrieveByH(next); err != nil {
+				return nil, nil, err
 			}
-		} else if curr.IsPrefix(key) {
+
+			// retrieve the sibling node from the store
+			if s, err := t.storer.retrieveByH(sibling); err != nil {
+				return nil, nil, err
+			} else {
+				// append the sibling to the merkle proof
+				proof = append(proof, s)
+			}
+
+			walked += 1 // we took one node
+		} else if curr.isPrefix(key) {
 			// node is an edge node and matches the key
 			// since curr is an edge, the bottom of curr is actually
 			// the bottom of the node it links to after walking down its path
 			// this node that curr links to has to be either a binary node or a leaf,
 			// hence its path and length are zero
-			// we just assign length and path to `curr` here as if we had walked down
-			// the path indicated by the edge
-			curr.length, curr.path = 0, types.Felt0
+			curr := &Node{0, types.Felt0, curr.Bottom}
+			proof = append(proof, curr) // append the edge node to the proof
+			walked += curr.Length       // we jumped a path of length `curr.length`
 		} else {
-			// node length is greater than zero but its path is diverges from ours,
+			// node length is greater than zero but its path diverges from ours,
 			// this means that the key we are looking for is not in the trie
-			return nil, nil
+			// break the loop, otherwise we would get stuck here
+			// this node will be returned as the closest match outside the loop
+			proof = append(proof, curr)
+			break
 		}
 	}
-	return &curr.bottom, nil
-}
-
-// Put inserts a new key/value pair into the trie.
-func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
-	return nil
+	return curr, proof, nil
 }
 
 type trieStorer struct {
 	store.KVStorer
 }
 
-func (kvs *trieStorer) retrieveByP(key []byte) ([]byte, error) {
+func (kvs *trieStorer) retrieveByP(key *types.Felt) (*types.Felt, *types.Felt, error) {
 	// retrieve the args by their pedersen hash
-	if value, ok := kvs.Get(key); !ok {
+	if value, ok := kvs.Get(key.Bytes()); !ok {
 		// the key should be in the store, if it's not it's an error
-		return nil, ErrNotFound
+		return nil, nil, ErrNotFound
 	} else if len(value) != 64 {
 		// the pedersen hash function operates on two felts,
 		// so if the value is not 64 bytes it's an error
-		return nil, ErrInvalidValue
+		return nil, nil, ErrInvalidValue
 	} else {
-		return value, nil
+		left := types.BytesToFelt(value[:32])
+		right := types.BytesToFelt(value[32:])
+		return &left, &right, nil
 	}
 }
 
-func (kvs *trieStorer) retrieveByH(key []byte, n *node) error {
+func (kvs *trieStorer) retrieveByH(key *types.Felt) (*Node, error) {
 	// retrieve the node by its hash function as defined in the starknet merkle-patricia tree
-	if value, ok := kvs.Get(key); !ok {
-		// the key should be in the store, if it's not it's an error
-		return ErrNotFound
-	} else {
+	if value, ok := kvs.Get(key.Bytes()); ok {
 		// unmarshal the retrived value into the node
 		// TODO: use a different serialization format
-		return n.UnmarshalJSON(value)
+		n := &Node{}
+		err := json.Unmarshal(value, n)
+		return n, err
 	}
+	// the key should be in the store, if it's not it's an error
+	return nil, ErrNotFound
 }
