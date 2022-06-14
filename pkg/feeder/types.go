@@ -171,6 +171,7 @@ type StarknetBlock struct {
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
+	OldStateRoot        string                 `json:"old_state_root"`
 	Status              rpc.BlockStatus        `json:"status"`
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
@@ -244,17 +245,38 @@ type KV struct {
 	Value string `json:"value"`
 }
 
+type StateDiffGoerli struct {
+	DeployedContracts []struct {
+		Address      string `json:"address"`
+		ContractHash string `json:"class_hash"`
+	} `json:"deployed_contracts"`
+	StorageDiffs map[string][]KV `json:"storage_diffs"`
+}
+
+// StateUpdateResponseGoerli represents the response of a StarkNet state
+// update.
+type StateUpdateResponseGoerli struct {
+	BlockHash string          `json:"block_hash"`
+	NewRoot   string          `json:"new_root"`
+	OldRoot   string          `json:"old_root"`
+	StateDiff StateDiffGoerli `json:"state_diff"`
+}
+
+type DeployedContract struct {
+	Address      string `json:"address"`
+	ContractHash string `json:"contract_hash"`
+}
+
+type StateDiff struct {
+	DeployedContracts []DeployedContract `json:"deployed_contracts"`
+	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
+}
+
 // StateUpdateResponse represents the response of a StarkNet state
 // update.
 type StateUpdateResponse struct {
-	BlockHash string `json:"block_hash"`
-	NewRoot   string `json:"new_root"`
-	OldRoot   string `json:"old_root"`
-	StateDiff struct {
-		DeployedContracts []struct {
-			Address      string `json:"address"`
-			ContractHash string `json:"contract_hash"`
-		} `json:"deployed_contracts"`
-		StorageDiffs map[string][]KV `json:"storage_diffs"`
-	} `json:"state_diff"`
+	BlockHash string    `json:"block_hash"`
+	NewRoot   string    `json:"new_root"`
+	OldRoot   string    `json:"old_root"`
+	StateDiff StateDiff `json:"state_diff"`
 }
