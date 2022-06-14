@@ -80,14 +80,14 @@ func TestTrieAdapter(t *testing.T) {
 		// (see also above).
 		fmt.Printf("key = contract_state:%.64x\n", root.Bottom)
 		format := `val =
-		{
-			"storage_commitment_tree: {
-				"root": %.64x,
-				"height": %d,
-				"contract_hash": %.64x
+			{
+				"storage_commitment_tree: {
+					"root": %.64x,
+					"height": %d,
+					"contract_hash": %.64x
+				}
 			}
-		}
-		`
+			`
 		fmt.Printf(format+"\n", root.Hash, height, contractHash)
 
 		// Next, the root node of the contract storage trie.
@@ -99,6 +99,19 @@ func TestTrieAdapter(t *testing.T) {
 		fmt.Printf("key = starknet_storage_leaf:%.64x\n", root.Bottom)
 		fmt.Printf("val = %.64x\n", root.Bottom)
 	})
+}
+
+func TestGetFullContract(t *testing.T) {
+	addr, _ := new(big.Int).SetString("4bedcd144c98a73fcee66dfe7ec3669086b6e8f89ef33bb2f397993e1bb90be", 16)
+	hash, _ := new(big.Int).SetString("1dcb1ec71970798db8ad14743868258a536ad662ec07bc0cc23a495389a48e3", 16)
+
+	def, err := getFullContract(addr, hash)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// DEBUG.
+	fmt.Printf("%s\n", def)
 }
 
 func TestRPCServer(t *testing.T) {
