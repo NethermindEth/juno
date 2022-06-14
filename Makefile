@@ -27,7 +27,7 @@ test-cover: ## tests with coverage
 
 install-deps: | install-courtey install-gofumpt ## Install some project dependencies
 
-install-courtney:
+install-courtey:
 	# install courtney fork
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
