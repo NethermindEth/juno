@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/pkg/types"
+
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
@@ -49,7 +51,7 @@ func (s *transactionService) Run() error {
 func (s *transactionService) setDefaults() {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.DataDir+"/transaction", 0)
+		database := db.NewKeyValueDb(config.Dir+"/transaction", 0)
 		s.manager = transaction.NewManager(database)
 	}
 }
@@ -64,7 +66,7 @@ func (s *transactionService) Close(ctx context.Context) {
 // GetTransaction searches for the transaction associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetTransaction(txHash []byte) *transaction.Transaction {
+func (s *transactionService) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -78,21 +80,21 @@ func (s *transactionService) GetTransaction(txHash []byte) *transaction.Transact
 // StoreTransaction stores the given transaction into the database. The key used
 // to map the transaction it's the hash of the transaction. If the database
 // already has a transaction with the same key, then the value is overwritten.
-func (s *transactionService) StoreTransaction(txHash []byte, tx *transaction.Transaction) {
+func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
-		With("txHash", txHash).
+		With("txHash", txHash.String()).
 		Debug("StoreTransaction")
 
 	s.manager.PutTransaction(txHash, tx)
 }
 
 // GetReceipt searches for the transaction receipt associated with the given
-// transaction hash. If the transaction does not exists on the database, then
+// transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetReceipt(txHash []byte) *transaction.TransactionReceipt {
+func (s *transactionService) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -103,7 +105,7 @@ func (s *transactionService) GetReceipt(txHash []byte) *transaction.TransactionR
 
 // StoreReceipt stores the given transaction receipt into the database. If the
 // database already has a receipt with the same key, the value is overwritten.
-func (s *transactionService) StoreReceipt(txHash []byte, receipt *transaction.TransactionReceipt) {
+func (s *transactionService) StoreReceipt(txHash types.TransactionHash, receipt *types.TransactionReceipt) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
