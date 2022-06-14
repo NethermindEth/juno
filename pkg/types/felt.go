@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/pkg/common"
+	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
+	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 )
 
 const (
@@ -100,6 +102,33 @@ func (f Felt) SetBit(i uint, b uint) {
 	f[i/8] |= byte(b) << (i % 8)   // set bit
 }
 
+// Felt arithmetic
+
+func (f Felt) Add(g Felt) Felt {
+	return BigToFelt(new(big.Int).Mod(new(big.Int).Add(f.Big(), g.Big()), FeltP.Big()))
+}
+
+// Felt as bit array
+
+func (f Felt) Slice(start, end int) Felt {
+	b := Felt0
+	for i := start; i < end; i++ {
+		b.SetBit(uint(i), f.Bit(uint(i)))
+	}
+	return b
+}
+
+func (f Felt) SliceFromStart(start int) Felt {
+	b := Felt0
+	for i := start; i < FeltBitLen; i++ {
+		b.SetBit(uint(i), f.Bit(uint(i)))
+	}
+	return b
+}
+
 // Felt common
 
-var Felt0 = Felt{0}
+var (
+	Felt0 = Felt{0}
+	FeltP = BigToFelt(weierstrass.Stark().Params().P)
+)

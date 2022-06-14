@@ -15,23 +15,25 @@ type Node struct {
 	Bottom types.Felt
 }
 
-func (n *Node) hash() types.Felt {
+func (n *Node) Hash() *types.Felt {
 	if n.Length == 0 {
-		return n.Bottom
+		return &n.Bottom
 	}
 	// TODO: why does `pedersen.Digest` operates with `big.Int`
 	//       this should be changed to `types.Felt`
-	h := pedersen.Digest(n.Bottom.Big(), n.Path.Big())
-	return types.BigToFelt(h.Add(h, big.NewInt(int64(n.Length)))) // TODO: add modulo with P here
+	h := types.BigToFelt(pedersen.Digest(n.Bottom.Big(), n.Path.Big()))
+	length := types.BigToFelt(new(big.Int).SetUint64(uint64(n.Length)))
+	felt := h.Add(length)
+	return &felt
 }
 
-func (n *Node) isPrefix(key *types.Felt) bool {
-	for i := uint(0); i < uint(n.Length); i++ {
-		if n.Path.Bit(i) != key.Bit(i) {
-			return false
+func (n *Node) longestCommonPrefix(key *types.Felt, index int) int {
+	for i := index; i < n.Length; i++ {
+		if n.Path.Bit(uint(i)) != key.Bit(uint(i)) {
+			return i
 		}
 	}
-	return true
+	return n.Length
 }
 
 func (n *Node) MarshallJSON() ([]byte, error) {
