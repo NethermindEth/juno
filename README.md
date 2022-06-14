@@ -61,13 +61,13 @@ go install github.com/NethermindEth/juno/cmd/juno-cli@latest
 
 ### 📦 Dockerized
 
-You can install the app using docker, if you need it, can check the [guide](https://gojuno.xyz/docs/running/docker) we
-made for that
+You can install the app using docker, if you need it, or you need a clean installation, can check the 
+[docker guide](https://gojuno.xyz/docs/running/docker).
 
 ## 🎯 Features
 
 - [Get and Sync state from Layer 1](https://gojuno.xyz/docs/features/sync) (Ethereum).
-- [Get and Sync state from API](https://gojuno.xyz/docs/features/sync) (Feeder Gateway)
+- [Get and Sync state from API](https://gojuno.xyz/docs/features/sync) (Feeder Gateway).
 - Hold [state of StarkNet](https://gojuno.xyz/docs/features/sync) locally.
 - Hold the StarkNet Transactions.
 - Hold the StarkNet Blocks.
@@ -86,7 +86,7 @@ made for that
     - starknet_getBlockByNumber (pending)
 - [Rest API](https://gojuno.xyz/docs/features/rest) is a wrapper of the StarkNet feeder gateway, you can call the node
   in the same way you call the feeder gateway, same params and should return the same response.
-- [CLI](https://gojuno.xyz/docs/features/cli) for the StarkNet tools
+- [CLI](https://gojuno.xyz/docs/features/cli) for the StarkNet tools.
 - [Prometheus Metrics](https://gojuno.xyz/docs/feature/metrics).
 - [Dockerized app](https://gojuno.xyz/docs/running/docker).
 
@@ -104,11 +104,11 @@ If you want to say **thank you** and/or support the active development of `Juno`
    `Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum)
    .
 4. Contribute to use, make sure to
-   follow [Contributions Guidelines](https://gojuno.xyz/docs/contribution_guidelines/engineering-guidelines)
+   follow [Contributions Guidelines](https://gojuno.xyz/docs/contribution_guidelines/engineering-guidelines).
 5. Add an issue if you find
    a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=)
    , or you need or want a
-   new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=)
+   new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
 
 ## ‍💻 Code Contributors
 
