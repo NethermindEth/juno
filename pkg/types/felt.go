@@ -86,3 +86,7 @@ func (f *Felt) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+// Felt common
+
+var Felt0 = Felt{0}

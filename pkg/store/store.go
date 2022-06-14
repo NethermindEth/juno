@@ -3,8 +3,8 @@
 // beyond the running program is not required.
 package store
 
-// Storer specifies the API for a []byte key-value store.
-type Storer interface {
+// KVStorer specifies the API for a []byte key-value store.
+type KVStorer interface {
 	Delete(key []byte)
 	Get(key []byte) ([]byte, bool)
 	Put(key, val []byte)

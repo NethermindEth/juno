@@ -2,37 +2,48 @@ package trie
 
 import (
 	"encoding/json"
-	"math/big"
 
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
-// Encoding represents the Encoding of a node in a binary tree
-// represented by the triplet (length, path, bottom).
-type Encoding struct {
-	Length uint8    `json:"length"`
-	Path   *big.Int `json:"path"`
-	Bottom *big.Int `json:"bottom"`
+// node represents a node in a binary tree.
+type node struct {
+	length int
+	path   types.Felt
+	bottom types.Felt
 }
 
-// Node represents a Node in a binary tree.
-type Node struct {
-	Encoding
-	Hash *big.Int `json:"hash"`
-}
-
-// bytes returns a JSON byte representation of a node.
-func (n *Node) bytes() []byte {
-	b, _ := json.Marshal(n)
-	return b
-}
-
-// hash updates the node hash.
-func (n *Node) hash() {
-	if n.Length == 0 {
-		n.Hash = new(big.Int).Set(n.Bottom)
-		return
+func (n *node) IsPrefix(key *types.Felt) bool {
+	for i := 0; i < n.length; i++ {
+		if n.path.Big().Bit(i) != key.Big().Bit(i) {
+			return false
+		}
 	}
-	h := pedersen.Digest(n.Bottom, n.Path)
-	n.Hash = h.Add(h, new(big.Int).SetUint64(uint64(n.Length)))
+	return true
+}
+
+func (n *node) MarshallJSON() ([]byte, error) {
+	jsonNode := &struct {
+		Length int    `json:"length"`
+		Path   string `json:"path"`
+		Bottom string `json:"bottom"`
+	}{n.length, n.path.Hex(), n.bottom.Hex()}
+	return json.Marshal(jsonNode)
+}
+
+func (n *node) UnmarshalJSON(b []byte) error {
+	jsonNode := &struct {
+		Length int    `json:"length"`
+		Path   string `json:"path"`
+		Bottom string `json:"bottom"`
+	}{}
+
+	if err := json.Unmarshal(b, &jsonNode); err != nil {
+		return err
+	}
+
+	n.length = jsonNode.Length
+	n.path = types.HexToFelt(jsonNode.Path)
+	n.bottom = types.HexToFelt(jsonNode.Bottom)
+	return nil
 }
