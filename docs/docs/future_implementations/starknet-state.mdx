@@ -3,14 +3,14 @@ title: StarkNet State Integration
 ---
 
 In order to archive the full StarkNet State integration, we need to first implement a
-[Feeder Gateway Client](../features/feeder-gateway.mdx), after that, we should be able to get the state from the Gateway iterating
-over all the blocks, from block 0 to the latest.
+[Feeder Gateway Client](../features/feeder-gateway.mdx), we should then be able to retrieve the current state from the Gateway 
+by iterating over all existing blocks, from genesis to the latest.
 
 
-First we need to build the StarkNet State, as described [here](https://starknet.io/documentation/starknet-state/).
+We first need to build the StarkNet State, as described [here](https://starknet.io/documentation/starknet-state/).
 
-After that, we will need to iterate over all the previous state updates, and update our state, making a sequence of calls
-to get_state_update using the feeder gateway. We should receive a set of requests like this:
+After that, we will need to iterate over all the state updates, updating our state by making a sequence of calls
+to get_state_update using the feeder gateway. We expect the responses to follow the following format:
 ```json
 {
   "block_hash" : "hash",
@@ -35,6 +35,4 @@ to get_state_update using the feeder gateway. We should receive a set of request
 }
 ```
 
-An example request can be found calling [this](https://alpha4.starknet.io/feeder_gateway/get_state_update?block_number=1).
-
-Using this info, we should iterate over the StarkNet State and update it.
+An example request can be found by calling [this](https://alpha4.starknet.io/feeder_gateway/get_state_update?block_number=1).

@@ -11,6 +11,7 @@ The syncing process with the feeder gateway is relatively simple: request a stat
 and apply that state update to the local database. 
 
 Syncing with the L1 contracts is more complicated. To do this, we listen for events emitted by the contracts to reconstruct the StarkNet state update.
+
 The three key StarkNet contracts on L1 that we are interested in are:
 
 1. MemoryPageFactRegistry: stores a mapping between a fact (a hash of some data) and a memory page hash.

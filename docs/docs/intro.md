@@ -10,11 +10,11 @@ Let's discover **Juno in less than 5 minutes**.
 ## What You'll Need
 
 - [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
-- [Cairo-lang](https://www.cairo-lang.org/docs/quickstart.html) if you want to do `starknet_call` command.
+- [Cairo-lang](https://www.cairo-lang.org/docs/quickstart.html) if you want to use the `starknet_call` command.
 
 ### Installing
 
-You can get all the dependencies running the next command:
+You can get all dependencies running the following command:
 
 ```bash
 $ go get -u github.com/NethermindEth/juno 
