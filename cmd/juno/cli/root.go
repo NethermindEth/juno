@@ -55,7 +55,7 @@ var (
 				os.Exit(0)
 			}(sig)
 
-			// Breaking initial cases - FIXME: temporary patch.
+			// Breaking initial cases
 			if config.Runtime.Ethereum.Node == "" || config.Runtime.Starknet.FeederGateway == "" {
 				log.Default.Panic("Ethereum client needed")
 			}
