@@ -22,3 +22,39 @@ message InvokeFunction {
   repeated bytes signature = 5;
   bytes maxFee = 6;
 }
+
+message TransactionReceipt {
+  bytes txHash = 1;
+  bytes actualFee = 2;
+  Status status = 3;
+  string statusData = 4;
+  repeated MessageToL1 messagesSent = 5;
+  MessageToL2 l1OriginMessage = 6;
+  repeated Event events = 7;
+}
+
+enum Status {
+  UNKNOWN = 0;
+  RECEIVED = 1;
+  PENDING = 2;
+  ACCEPTED_ON_L2 = 3;
+  ACCEPTED_ON_L1 = 4;
+  REJECTED = 5;
+}
+
+message MessageToL1 {
+  bytes toAddress = 1;
+  repeated bytes payload = 2;
+}
+
+message MessageToL2 {
+  bytes fromAddress = 1;
+  repeated bytes payload = 2;
+}
+
+message Event {
+  bytes fromAddress = 1;
+  repeated bytes keys = 2;
+  repeated bytes data = 3;
+}
+

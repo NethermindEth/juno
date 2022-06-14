@@ -2,9 +2,10 @@ package services
 
 import (
 	"context"
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
-	"testing"
 )
 
 func TestAbiService_StoreGet(t *testing.T) {
@@ -92,9 +93,9 @@ var abis = map[string]*abi.Abi{
 				Outputs: nil,
 			},
 		},
-		Events: []*abi.Event{
+		Events: []*abi.AbiEvent{
 			{
-				Data: []*abi.Event_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "new_signer",
 						Type: "felt",
@@ -104,7 +105,7 @@ var abis = map[string]*abi.Abi{
 				Name: "signer_changed",
 			},
 			{
-				Data: []*abi.Event_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "new_guardian",
 						Type: "felt",
@@ -114,7 +115,7 @@ var abis = map[string]*abi.Abi{
 				Name: "guardian_changed",
 			},
 			{
-				Data: []*abi.Event_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "new_guardian",
 						Type: "felt",
@@ -124,7 +125,7 @@ var abis = map[string]*abi.Abi{
 				Name: "guardian_backup_changed",
 			},
 			{
-				Data: []*abi.Event_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "active_at",
 						Type: "felt",
@@ -134,7 +135,7 @@ var abis = map[string]*abi.Abi{
 				Name: "escape_guardian_triggered",
 			},
 			{
-				Data: []*abi.Event_Data{
+				Data: []*abi.AbiEvent_Data{
 					{
 						Name: "active_at",
 						Type: "felt",

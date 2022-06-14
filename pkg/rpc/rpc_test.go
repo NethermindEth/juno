@@ -43,7 +43,7 @@ func testServer(t *testing.T, tests []rpcTest) {
 		}
 		s := string(data)
 		if s != v.Response {
-			t.Errorf("expected %v, got %v", v.Response, string(data))
+			t.Errorf("expected `%v`, got `%v`", v.Response, string(data))
 			_ = res.Body.Close()
 		}
 		t.Log("Executed test ", i)

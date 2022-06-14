@@ -3,6 +3,7 @@ export CC = clang
 
 compile: ## compile:
 	@mkdir -p build
+	@go build -o build/juno-cli cmd/juno-cli/main.go
 	@go build -o build/juno cmd/juno/main.go
 
 run: ## run
@@ -24,24 +25,37 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: ## Install some project dependencies
+install-deps: | install-courtey install-gofumpt ## Install some project dependencies
+
+install-courtey:
+	# install courtney fork
 	git clone https://github.com/stdevMac/courtney
 	(cd courtney && go get  ./... && go build courtney.go)
 	go get ./...
+
+install-gofumpt:
+	# install gofumpt
+	go install mvdan.cc/gofumpt@latest
 
 codecov-test:
 	mkdir -p coverage
 	@cd internal/db && $(MAKE) add-notest
 	courtney/courtney -v -o coverage/coverage.out ./...
+	@cd internal/db && $(MAKE) rm-notest
 
-gomod_tidy: ## add missing and remove unused modules
+tidy: ## add missing and remove unused modules
 	 go mod tidy
 
-gofmt: ## run go formatter
-	go fmt -x ./...
+format: ## run go formatter
+	gofumpt -l -w .
+
+format-check: ## check formatting
+	# assert `gofumpt -l` produces no output
+	test ! $$(gofumpt -l . | tee /dev/stderr)
 
 clean: ## Clean project builds
 	@rm -rf ./build/juno
+	@rm -rf ./build/juno-cli
 	@cd internal/db && $(MAKE) clean
 
 help: ## Show this help

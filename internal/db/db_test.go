@@ -1,8 +1,10 @@
-package db
+package db_test
 
 import (
 	"strconv"
 	"testing"
+
+	"github.com/NethermindEth/juno/internal/db"
 )
 
 var keyValueTest = map[string]string{}
@@ -15,8 +17,8 @@ func init() {
 }
 
 // setupDatabaseForTest creates a new KVDatabase for Tests
-func setupDatabaseForTest(path string) *KeyValueDb {
-	return NewKeyValueDb(path, 0)
+func setupDatabaseForTest(path string) *db.KeyValueDb {
+	return db.NewKeyValueDb(path, 0)
 }
 
 // TestAddKey Check that a single value is inserted without error
@@ -213,17 +215,8 @@ func TestClose(t *testing.T) {
 }
 
 func TestKeyValueDbIsDatabaser(t *testing.T) {
-	a := new(KeyValueDb)
-	_ = Databaser(a)
-}
-
-func TestKeyValueDb_GetEnv(t *testing.T) {
-	database := setupDatabaseForTest(t.TempDir())
-	p := NewKeyValueDbWithEnv(database.GetEnv(), t.TempDir())
-	items, err := p.NumberOfItems()
-	if err != nil || items != 0 {
-		return
-	}
+	a := new(db.KeyValueDb)
+	_ = db.Databaser(a)
 }
 
 // BenchmarkEntriesInDatabase Benchmark the entry of key-value pairs to the db
@@ -248,7 +241,6 @@ func BenchmarkEntriesInDatabase(b *testing.B) {
 		b.Fail()
 		return
 	}
-
 }
 
 // BenchmarkConsultsToDatabase Benchmark the consult to a db
