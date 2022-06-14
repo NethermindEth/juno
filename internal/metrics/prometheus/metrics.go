@@ -298,7 +298,7 @@ func UpdateStarknetSyncTime(t float64) {
 
 func SetupMetric(port string) *Server {
 	mux := http.NewServeMux()
-	mux.Handle("/metric", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.Handler())
 	return &Server{server: http.Server{Addr: port, Handler: mux}}
 }
 
