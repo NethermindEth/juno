@@ -306,11 +306,11 @@ func SetupMetric(port string) *Server {
 // incoming connections.
 func (s *Server) ListenAndServe() error {
 	// notest
-	log.Default.Info("Listening for connections .... ")
+	log.Default.Info("Handling metrics .... ")
 
 	err := s.server.ListenAndServe()
 	if err != nil {
-		log.Default.With("Error", err).Error("Error occurred while trying to listen for connections.")
+		log.Default.With("Error", err).Error("Error occurred while trying to handle metrics.")
 		return err
 	}
 	return nil
@@ -319,7 +319,7 @@ func (s *Server) ListenAndServe() error {
 // Close gracefully shuts down the server.
 func (s *Server) Close(ctx context.Context) {
 	// notest
-	log.Default.Info("Closing RPC server")
+	log.Default.Info("Closing the Metrics server.")
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)

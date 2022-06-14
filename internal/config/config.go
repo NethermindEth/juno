@@ -19,7 +19,7 @@ type rpcConfig struct {
 	Port    int  `yaml:"port" mapstructure:"port"`
 }
 
-// metricConfig represents the juno RPC configuration.
+// metricsConfig represents the Prometheus Metrics configuration.
 type metricsConfig struct {
 	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
 	Port    int  `yaml:"port" mapstructure:"port"`
