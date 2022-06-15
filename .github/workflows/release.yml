@@ -25,7 +25,7 @@ jobs:
       # step 3: generate build files
       - name: Generate build files
         uses: actions/setup-go@v3
-        run: ./go-executable-build.sh github.com/NethermindEth/juno/cmd/juno
+        run: ./scripts/go-executable-build.sh github.com/NethermindEth/juno/cmd/juno
 
       # step 4: upload build-artifacts
       - name: Upload build-artifacts

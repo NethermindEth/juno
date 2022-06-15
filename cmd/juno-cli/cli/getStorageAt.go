@@ -19,7 +19,7 @@ var getStorageAtCmd = &cobra.Command{
 		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
 			prettyPrint(res)
 		} else {
-			normalReturn(res)
+			normalReturn(*res)
 		}
 	},
 }

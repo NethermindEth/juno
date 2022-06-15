@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
+	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -62,6 +63,11 @@ var (
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
+			if config.Runtime.Metrics.Enabled {
+				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
+			}
+
 			if err := db.InitializeDatabaseEnv(config.Runtime.DbPath, 10, 0); err != nil {
 				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
@@ -84,9 +90,13 @@ var (
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
-				ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
-				if err != nil {
-					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				var ethereumClient *ethclient.Client
+				if !config.Runtime.Starknet.ApiSync {
+					var err error
+					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
+					if err != nil {
+						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+					}
 				}
 				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 				// Synchronizer for Starknet State
