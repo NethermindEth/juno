@@ -1,5 +1,13 @@
 package trie
 
+import (
+	"fmt"
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/types"
+	"math/big"
+	"testing"
+)
+
 //
 // import (
 // 	"encoding/json"
@@ -15,60 +23,65 @@ package trie
 //
 // const testKeyLen = 3
 //
-// var tests = [...]struct {
-// 	key, val *big.Int
-// }{
-// 	{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
-// 	{big.NewInt(3) /* 0b011 */, big.NewInt(1)},
-// 	{big.NewInt(5) /* 0b101 */, big.NewInt(1)},
-// 	{big.NewInt(7) /* 0b111 */, big.NewInt(0)},
-// }
+var tests = [...]struct {
+	key, val types.Felt
+}{
+	{types.BigToFelt(big.NewInt(2)) /* 0b010 */, types.BigToFelt(big.NewInt(1))},
+	{types.BigToFelt(big.NewInt(3)) /* 0b011 */, types.BigToFelt(big.NewInt(1))},
+	{types.BigToFelt(big.NewInt(5)) /* 0b101 */, types.BigToFelt(big.NewInt(1))},
+	{types.BigToFelt(big.NewInt(7)) /* 0b111 */, types.BigToFelt(big.NewInt(0))},
+}
+
 //
 // func init() {
 // 	rand.Seed(time.Now().UnixNano())
 // }
 //
-// func Example() {
-// 	pairs := [...]struct {
-// 		key, val *big.Int
-// 	}{
-// 		{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
-// 		{big.NewInt(5) /* 0b101 */, big.NewInt(1)},
-// 	}
-//
-// 	// Provide the storage that the trie will use to persist data.
-// 	db := store.New()
-//
-// 	// Initialise trie with storage and provide the key length (height of
-// 	// the tree).
-// 	t := New(db, 3)
-//
-// 	// Insert items into the trie.
-// 	for _, pair := range pairs {
-// 		fmt.Printf("put(key=%d, val=%d)\n", pair.key, pair.val)
-// 		t.Put(pair.key, pair.val)
-// 	}
-//
-// 	// Retrieve items from the trie.
-// 	for _, pair := range pairs {
-// 		val, _ := t.Get(pair.key)
-// 		fmt.Printf("get(key=%d) = %d\n", pair.key, val)
-// 	}
-//
-// 	// Remove items from the trie.
-// 	for _, pair := range pairs {
-// 		fmt.Printf("delete(key=%d)\n", pair.key)
-// 		t.Delete(pair.key)
-// 	}
-//
-// 	// Output:
-// 	// put(key=2, val=1)
-// 	// put(key=5, val=1)
-// 	// get(key=2) = 1
-// 	// get(key=5) = 1
-// 	// delete(key=2)
-// 	// delete(key=5)
-// }
+func TestExample(t *testing.T) {
+	//pairs := [...]struct {
+	//	key, val types.Felt
+	//}{
+	//	{types.BigToFelt(big.NewInt(2)) /* 0b010 */, types.BigToFelt(big.NewInt(1))},
+	//	{types.BigToFelt(big.NewInt(5)) /* 0b101 */, types.BigToFelt(big.NewInt(1))},
+	//}
+	//
+	//// Provide the storage that the trie will use to persist data.
+	//db := store.New()
+	//
+	//// Initialise trie with storage and provide the key length (height of
+	//// the tree).
+	//trie, _ := NewTrie(db, nil)
+	//
+	//// Insert items into the trie.
+	//for _, pair := range pairs {
+	//	fmt.Printf("put(key=%d, val=%d)\n", pair.key, pair.val)
+	//	err := trie.Put(&pair.key, &pair.val)
+	//	if err != nil {
+	//		return
+	//	}
+	//}
+	//
+	//// Retrieve items from the trie.
+	//for _, pair := range pairs {
+	//	val, _ := trie.Get(&pair.key)
+	//	fmt.Printf("get(key=%d) = %d\n", pair.key, val)
+	//}
+
+	//// Remove items from the trie.
+	//for _, pair := range pairs {
+	//	fmt.Printf("delete(key=%d)\n", pair.key)
+	//	t.Delete(pair.key)
+	//}
+
+	// Output:
+	// put(key=2, val=1)
+	// put(key=5, val=1)
+	// get(key=2) = 1
+	// get(key=5) = 1
+	// delete(key=2)
+	// delete(key=5)
+}
+
 //
 // func TestDelete(t *testing.T) {
 // 	db := store.New()
@@ -96,22 +109,31 @@ package trie
 // 	}
 // }
 //
-// func TestGet(t *testing.T) {
-// 	db := store.New()
-// 	trie := New(db, testKeyLen)
-// 	for _, test := range tests {
-// 		trie.Put(test.key, test.val)
-// 	}
-//
-// 	for _, test := range tests {
-// 		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
-// 			got, _ := trie.Get(test.key)
-// 			if test.val.Cmp(new(big.Int)) != 0 && got.Cmp(test.val) != 0 {
-// 				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
-// 			}
-// 		})
-// 	}
-// }
+func TestGet(t *testing.T) {
+	db := store.New()
+	root := types.BigToFelt(new(big.Int).SetInt64(0))
+	nodeValue := Node{}
+	val, _ := nodeValue.MarshallJSON()
+	db.Put(root.Bytes(), val)
+	trie, _ := NewTrie(db, &root)
+	for _, test := range tests {
+		err := trie.Put(&test.key, &test.val)
+		if err != nil {
+			t.Log("error inserting kwy on the trie")
+			t.Fail()
+		}
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
+			got, _ := trie.Get(&test.key)
+			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
+				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
+			}
+		})
+	}
+}
+
 //
 // // TestInvariant checks that the root hash is independent of the
 // // insertion and deletion order.

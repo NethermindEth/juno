@@ -23,6 +23,9 @@ type Trie struct {
 func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt) (*Trie, error) {
 	storer := &trieStorer{kvStorer}
 	if root, err := storer.retrieveByH(rootHash); err != nil {
+		if err == ErrNotFound {
+			return &Trie{nil, storer}, nil
+		}
 		return nil, err
 	} else {
 		return &Trie{root, storer}, nil
@@ -261,6 +264,9 @@ func (kvs *trieStorer) retrieveByP(key *types.Felt) (*types.Felt, *types.Felt, e
 }
 
 func (kvs *trieStorer) retrieveByH(key *types.Felt) (*Node, error) {
+	if key == nil {
+		return nil, ErrNotFound
+	}
 	// retrieve the node by its hash function as defined in the starknet merkle-patricia tree
 	if value, ok := kvs.Get(key.Bytes()); ok {
 		// unmarshal the retrived value into the node
