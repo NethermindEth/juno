@@ -121,6 +121,7 @@ func IncreaseTxStatusSent() {
 
 // This increases when the request in GetTransactionTrace in feeder.go is sent
 func IncreaseTxTraceSent() {
+	// notest
 	noOfRequests.WithLabelValues("Sent", "Transaction Trace").Inc()
 }
 
@@ -196,6 +197,7 @@ func IncreaseTxStatusReceived() {
 
 // This increases when the response of GetTransactionTrace in feeder.go is received
 func IncreaseTxTraceReceived() {
+	// notest
 	noOfRequests.WithLabelValues("Received", "Transaction Trace").Inc()
 }
 
@@ -272,6 +274,7 @@ func IncreaseTxStatusFailed() {
 
 // This increases when the request in GetTransactionTrace in feeder.go fails
 func IncreaseTxTraceFailed() {
+	// notest
 	noOfRequests.WithLabelValues("Failed", "Transaction Trace").Inc()
 }
 
