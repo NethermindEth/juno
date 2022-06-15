@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/services"
+	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/NethermindEth/juno/pkg/feeder"
 
@@ -383,6 +384,27 @@ func (HandlerRPC) StarknetGetCode(
 			bytecode[i] = types.HexToFelt(code)
 		}
 		marshal, err := json.Marshal(code.Abi)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("abi not found %v", err)
+		}
+		var abiResponse dbAbi.Abi
+		err = json.Unmarshal(marshal, &abiResponse)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("abi not found %v", err)
+		}
+		for i, str := range code.Abi.Structs {
+			abiResponse.Structs[i].Fields = make([]*dbAbi.Struct_Field, len(str.Members))
+			for j, field := range str.Members {
+				abiResponse.Structs[i].Fields[j] = &dbAbi.Struct_Field{
+					Name:   field.Name,
+					Type:   field.Type,
+					Offset: uint32(field.Offset),
+				}
+			}
+		}
+		marshal, err = json.Marshal(abiResponse)
 		if err != nil {
 			return nil, fmt.Errorf("unexpected marshal error %v", err)
 		}

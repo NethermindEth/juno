@@ -2,16 +2,16 @@ package feeder
 
 // represents ABI type
 type Abi struct {
-	Functions   []Function
-	Events      []Event
-	Structs     []Struct
-	L1Handlers  []L1Handler
-	Constructor *Constructor
+	Functions   []Function   `json:"functions"`
+	Events      []Event      `json:"events"`
+	Structs     []Struct     `json:"structs"`
+	L1Handlers  []L1Handler  `json:"l1Handlers"`
+	Constructor *Constructor `json:"constructor"`
 }
 
 // Represents Function abi
 type Function struct {
-	FieldCommon
+	FieldCommon        `json:"-"`
 	Inputs  []Variable `json:"inputs"`
 	Name    string     `json:"name"`
 	Outputs []Variable `json:"outputs"`
@@ -19,7 +19,7 @@ type Function struct {
 
 // Represents Event abi
 type Event struct {
-	FieldCommon
+	FieldCommon     `json:"-"`
 	Data []Variable `json:"data"`
 	Keys []string   `json:"keys"`
 	Name string     `json:"name"`
@@ -27,8 +27,8 @@ type Event struct {
 
 // Represents Struct abi
 type Struct struct {
-	FieldCommon
-	Members []StructMember `json:"members"`
+	FieldCommon            `json:"-"`
+	Members []StructMember `json:"fields"`
 	Name    string         `json:"name"`
 	Size    int64          `json:"size"`
 }

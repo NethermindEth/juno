@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/NethermindEth/juno/pkg/types"
 
@@ -255,38 +254,8 @@ func TestStarknetGetCode(t *testing.T) {
 	}
 
 	// Set up feeder client for pending block
-	feederCodeInfo := feeder.CodeInfo{
-		Bytecode: []string{"a"},
-		Abi: feederAbi.Abi{
-			Functions: []feederAbi.Function{
-				{
-					FieldCommon: feederAbi.FieldCommon{Type: "a"},
-					Inputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
-					Name: "a",
-					Outputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
-				},
-			},
-			Events: []feederAbi.Event{},
-			Structs: []feederAbi.Struct{},
-			L1Handlers: []feederAbi.L1Handler{},
-			Constructor: &feederAbi.Constructor{
-				Function: feederAbi.Function{
-					FieldCommon: feederAbi.FieldCommon{Type: "a"},
-					Inputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
-					Name: "a",
-					Outputs: []feederAbi.Variable{{Name: "a", Type: "a"}},
-				},
-			},
-		},
-	}
-	body, err := json.Marshal(feederCodeInfo)
-	if err != nil {
-		t.Fatal("unexpected marshal error", err)
-	}
-	fakeClient.DoReturns(generateResponse(string(body)), nil)
-	if err != nil {
-		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
-	}
+	input := `{"abi": [{"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "function"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "l1_handler"}, {"fields": [{"offset": 1, "name": "a", "type": "a"}], "name": "a", "size": 1, "type": "struct"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "constructor"}, {"data": [{"name": "a", "type": "a"}], "keys": ["a"], "name": "a", "type": "event"}], "bytecode": ["0xa"]}`
+	fakeClient.DoReturns(generateResponse(input), nil)
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
 	
 	want := &abi.Abi{
@@ -326,7 +295,7 @@ func TestStarknetGetCode(t *testing.T) {
 					{
 						Name: "a",
 						Type: "a",
-						Offset: 0,
+						Offset: 1,
 					},
 				},
 				Name: "a",
