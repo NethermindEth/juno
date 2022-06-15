@@ -1,60 +1,59 @@
+import asyncio
 import sys
 import traceback
-import asyncio
+
 import grpc
+from starkware.cairo.lang.vm import crypto
+from starkware.starknet.business_logic.state.state import BlockInfo, SharedState, StateSelector
+from starkware.starknet.definitions.general_config import StarknetGeneralConfig
+from starkware.starknet.testing.state import StarknetState
+from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import PatriciaTree
+from starkware.storage.storage import FactFetchingContext, Storage
+
 import vm_pb2
 import vm_pb2_grpc
-from starkware.storage.storage import Storage
-from starkware.starknet.business_logic.state.state import (
-    BlockInfo,
-    SharedState,
-    StateSelector,
-)
-from starkware.starknet.definitions.general_config import StarknetGeneralConfig
-from starkware.storage.storage import FactFetchingContext
-from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import (
-    PatriciaTree,
-)
-from starkware.cairo.lang.vm.crypto import pedersen_hash_func
-from starkware.starknet.testing.state import StarknetState
 
 
 async def call(
-    storage,
-    root,
-    contract_address,
-    selector,
+    # XXX: storage is not needed if calls to storage are going to be 
+    # handled directly by the adapter.
+    # storage,
+    # XXX: BlockInfo does not appear to be important here.
+    # block_info=None,
     calldata,
     caller_address,
-    signature,
-    block_info=None,
+    contract_address,
+    # XXX: The compiled contract. See services.getFullContract in the 
+    # vm_utils.go file.
+    contract_definition,
+    root,
+    selector,
+    # XXX: signature does not appear to be important as well.
+    # signature,
 ):
+    # TODO: How to get the contact's hash?
 
-    # general_config = StarknetGeneralConfig()
-    #
-    # # hook up the juno storage over rpc
-    # ffc = FactFetchingContext(storage=storage, hash_func=pedersen_hash_func)
-    #
-    # # the root tree has to always be height=251
-    # shared_state = SharedState(PatriciaTree(root=root, height=251), block_info)
-    # state_selector = StateSelector(
-    #     contract_addresses={contract_address}, class_hashes=set()
-    # )
-    # carried_state = await shared_state.get_filled_carried_state(
-    #     ffc, state_selector=state_selector
-    # )
-    #
-    # state = StarknetState(state=carried_state, general_config=general_config)
-    # max_fee = 0
-    #
-    # output = await state.invoke_raw(
-    #     contract_address, selector, calldata, caller_address, max_fee, signature
-    # )
-    #
-    # # this is everything we need, at least so far for the "call".
-    # return output.call_info.retdata
+    # TODO: What is juno_addr (see StorageRPCClient constructor).
+    juno_addr = ""
+    adapter = StorageRPCClient(juno_addr)
 
-    return [await storage.get_value(b"hello"), await storage.get_value(b"world")]
+    # XXX: Sequencer's address. This does not appear to be important so
+    # a dummy value could suffice. 
+    sequencer = 0x37b2cd6baaa515f520383bee7b7094f892f4c770695fc329a8973e841a971ae
+
+    context = FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func)
+    shared = SharedState(contract_states=PatriciaTree(root=root, height=251), block_info=BlockInfo.empty(sequencer_address=sequencer))
+    carried = await shared.get_filled_carried_state(ffc=context, state_selector=StateSelector(contract_addresses={contract_address}))
+    state = StarknetState(state=carried, general_config=StarknetGeneralConfig())
+    result = await state.call_raw(
+        contract_address=contract_address,
+        selector=selector,
+        calldata=calldata,
+        caller_address=caller_address,
+        max_fee=0,
+    )
+
+    return result.retdata
 
 
 class StorageRPCClient(Storage):
