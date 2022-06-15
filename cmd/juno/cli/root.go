@@ -88,9 +88,13 @@ var (
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
-				ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
-				if err != nil {
-					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				var ethereumClient *ethclient.Client
+				if !config.Runtime.Starknet.ApiSync {
+					var err error
+					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
+					if err != nil {
+						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+					}
 				}
 				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 				// Synchronizer for Starknet State

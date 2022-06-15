@@ -41,6 +41,7 @@ type restConfig struct {
 type starknetConfig struct {
 	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
 	FeederGateway string `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	Network       string `yaml:"network" mapstructure:"network"`
 	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
 }
 
@@ -123,12 +124,15 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		Ethereum: ethereumConfig{Node: "your_node_here"},
-		RPC:      rpcConfig{Enabled: false, Port: 8080},
+		Ethereum: ethereumConfig{Node: ""},
+		RPC:      rpcConfig{Enabled: true, Port: 8080},
 		Metrics:  metricsConfig{Enabled: true, Port: 2048},
 		DbPath:   DataDir,
-		REST:     restConfig{Enabled: false, Port: 8100, Prefix: "/feeder_gateway"},
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
+		REST:     restConfig{Enabled: true, Port: 8100, Prefix: "/feeder_gateway"},
+		Starknet: starknetConfig{
+			Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io",
+			Network: "mainnet",
+		},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	// Create default Juno configuration file if it does not exist
