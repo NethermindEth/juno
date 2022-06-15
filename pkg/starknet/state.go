@@ -42,6 +42,7 @@ type Synchronizer struct {
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
+		// notest
 		if config.Runtime.Starknet.Network == "mainnet" {
 			chainID = new(big.Int).SetInt64(1)
 		} else {
