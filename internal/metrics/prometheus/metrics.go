@@ -32,7 +32,7 @@ var (
 	},
 		[]string{"Status"},
 	)
-	countStarknetSync = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	countStarknetSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "count_starknet_sync",
 		Help: "Number of updates and commits made or failed",
 	},
