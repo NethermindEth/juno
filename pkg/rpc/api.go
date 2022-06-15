@@ -94,6 +94,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 				},
 				TxnHash: types.HexToTransactionHash(tx.TransactionHash),
 			}
+		// notest
 		default:
 			txs[i] = &Txn{}
 		}
