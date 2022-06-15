@@ -56,10 +56,11 @@ var (
 				os.Exit(0)
 			}(sig)
 
+			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
-				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
+				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
@@ -98,7 +99,6 @@ var (
 						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 					}
 				}
-				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 				// Synchronizer for Starknet State
 				synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
 				if err != nil {

@@ -4,12 +4,18 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/NethermindEth/juno/pkg/feeder"
+
 	"github.com/NethermindEth/juno/internal/log"
 )
 
+// Global feederClient that we use to request pending blocks
+var feederClient *feeder.Client
+
 // Server represents the server structure
 type Server struct {
-	server http.Server
+	server       http.Server
+	feederClient *feeder.Client
 }
 
 // HandlerRPC represents the struct that later we will apply reflection
@@ -27,15 +33,16 @@ func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
 }
 
 // NewServer creates a new server.
-func NewServer(addr string) *Server {
+func NewServer(addr string, client *feeder.Client) *Server {
 	mux := http.NewServeMux()
 	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{}))
-	return &Server{server: http.Server{Addr: addr, Handler: mux}}
+	return &Server{server: http.Server{Addr: addr, Handler: mux}, feederClient: client}
 }
 
 // ListenAndServe listens on the TCP network and handles requests on
 // incoming connections.
 func (s *Server) ListenAndServe() error {
+	feederClient = s.feederClient
 	// notest
 	log.Default.Info("Listening for connections .... ")
 

@@ -447,7 +447,9 @@ func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, lat
 func (s *Synchronizer) Close(ctx context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
-	s.ethereumClient.Close()
+	if s.ethereumClient != nil {
+		s.ethereumClient.Close()
+	}
 	s.database.Close()
 }
 
