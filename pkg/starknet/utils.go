@@ -11,7 +11,6 @@ import (
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
@@ -132,6 +131,10 @@ func initialBlockForStarknetContract(id int64) int64 {
 func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
+		// notest
+		if db.IsNotFound(err) {
+			return 0, nil
+		}
 		return 0, err
 	}
 	if value == nil {
@@ -143,7 +146,7 @@ func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(ret), nil
+	return ret, nil
 }
 
 // updateNumericValueFromDB update the value in the database for a key increasing the value in 1
@@ -163,7 +166,7 @@ func updateNumericValueFromDB(database db.Databaser, key string, value uint64) e
 // `update` StateDiff to the database transaction `txn`.
 func updateState(
 	txn db.Transaction,
-	hashService *services.ContractHashService,
+	contractHashMap map[string]*big.Int,
 	update *starknetTypes.StateDiff,
 	stateRoot string,
 	sequenceNumber uint64,
@@ -179,7 +182,6 @@ func updateState(
 			// notest
 			log.Default.Panic("Couldn't get contract hash")
 		}
-		hashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
 		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
@@ -219,7 +221,7 @@ func updateState(
 			log.Default.With("Address", formattedAddress).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		contractHash := hashService.GetContractHash(formattedAddress)
+		contractHash := contractHashMap[formattedAddress]
 		contractStateValue := contractState(contractHash, storageRoot)
 
 		stateTrie.Put(address, contractStateValue)

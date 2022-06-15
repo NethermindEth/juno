@@ -31,8 +31,13 @@ func TestService(t *testing.T) {
 			EventCommitment: types.HexToFelt("0"),
 		},
 	}
-	BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
-	err := BlockService.Run()
+	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.GetDatabase("BLOCK")
+	BlockService.Setup(database)
+	err = BlockService.Run()
 	if err != nil {
 		t.Errorf("error starting the service: %s", err)
 	}

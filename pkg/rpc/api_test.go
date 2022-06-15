@@ -62,8 +62,16 @@ func buildResponse(result interface{}) string {
 }
 
 func TestStarknetGetStorageAt(t *testing.T) {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.GetDatabase("BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// setup
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpected error starting block service: %s", err)
 	}
@@ -136,8 +144,16 @@ func TestStarknetGetStorageAt(t *testing.T) {
 }
 
 func TestStarknetGetCode(t *testing.T) {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	abiDb, err := db.GetDatabase("ABI")
+	if err != nil {
+		t.Error(err)
+	}
 	// setup
-	services.AbiService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.AbiService.Setup(abiDb)
 	if err := services.AbiService.Run(); err != nil {
 		t.Fatalf("unexpected error starting abi service: %s", err)
 	}
@@ -503,14 +519,30 @@ var (
 )
 
 func TestGetBlock(t *testing.T) {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.GetDatabase("TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.GetDatabase("RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.GetDatabase("BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// Initialize transaction service
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
 	defer services.TransactionService.Close(context.Background())
 	// Initialize block service
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpeceted error starting the block service: %s", err)
 	}
@@ -814,7 +846,19 @@ func TestGetBlockByTag(t *testing.T) {
 }
 
 func TestGetTransactionByHash(t *testing.T) {
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	err := db.InitializeDatabaseEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.GetDatabase("TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.GetDatabase("RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
@@ -881,14 +925,30 @@ func TestStarknetPendingTransactions(t *testing.T) {
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.GetDatabase("TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.GetDatabase("RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.GetDatabase("BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// Initialize transaction service
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
 	defer services.TransactionService.Close(context.Background())
 	// Initialize block service
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpeceted error starting the block service: %s", err)
 	}
@@ -962,14 +1022,30 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.GetDatabase("TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.GetDatabase("RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.GetDatabase("BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// Initialize transaction service
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
 	defer services.TransactionService.Close(context.Background())
 	// Initialize block service
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpeceted error starting the block service: %s", err)
 	}

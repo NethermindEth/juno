@@ -1,13 +1,11 @@
 package starknet
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"math/big"
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -17,7 +15,6 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -266,13 +263,12 @@ func TestUpdateState(t *testing.T) {
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	database := db.Databaser(db.NewKeyValueDb(filepath.Join(t.TempDir(), "contractHash"), 0))
-	hashService := services.NewContractHashService(database)
-	go hashService.Run()
+	contractHashMap := map[string]*big.Int{
+		"1": big.NewInt(1),
+	}
 	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
 	txn := txnDb.Begin()
-	stateCommitment, err := updateState(txn, hashService, &stateDiff, "", 0)
-	hashService.Close(context.Background())
+	stateCommitment, err := updateState(txn, contractHashMap, &stateDiff, "", 0)
 	if err != nil {
 		t.Error("Error updating state")
 	}

@@ -30,7 +30,12 @@ func TestManager(t *testing.T) {
 			EventCommitment: types.HexToFelt("0"),
 		},
 	}
-	manager := NewManager(db.NewKeyValueDb(t.TempDir(), 0))
+	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.GetDatabase("ABI")
+	manager := NewManager(database)
 	for _, block := range blocks {
 		key := block.BlockHash
 		manager.PutBlock(key, block)
