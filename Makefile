@@ -3,6 +3,7 @@ export CC = clang
 
 compile: ## compile:
 	@mkdir -p build
+	@go build -o build/juno-cli cmd/juno-cli/main.go
 	@go build -o build/juno cmd/juno/main.go
 
 run: ## run
@@ -54,6 +55,7 @@ format-check: ## check formatting
 
 clean: ## Clean project builds
 	@rm -rf ./build/juno
+	@rm -rf ./build/juno-cli
 	@cd internal/db && $(MAKE) clean
 
 help: ## Show this help
