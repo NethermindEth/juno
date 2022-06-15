@@ -86,6 +86,9 @@ func (db *BlockSpecificDatabase) get(key []byte) []byte {
 	data, err := db.database.Get(key)
 	if err != nil {
 		// notest
+		if IsNotFound(err) {
+			return nil
+		}
 		panicWithError(err)
 	}
 	return data
