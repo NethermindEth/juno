@@ -79,11 +79,11 @@ type InvokeFunction struct {
 	ExecutionResources `json:"execution_resources"`
 	// The transaction is not valid if its version is lower than the current version,
 	// defined by the SN OS.
-	Version        int              `json:"version"`
-	Signature      []int            `json:"signature"`
-	InternallCalls []InvokeFunction `json:"internall_calls"`
-	Events         []Event          `json:"events"`
-	Messages       []string         `json:"messages"`
+	Version        int      `json:"version"`
+	Signature      []int    `json:"signature"`
+	InternallCalls []string `json:"internall_calls"`
+	Events         []Event  `json:"events"`
+	Messages       []string `json:"messages"`
 	// The maximal fee to be paid in Wei for executing invoked function.
 	MaxFee string `json:"max_fee"`
 }
