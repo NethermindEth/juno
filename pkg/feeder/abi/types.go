@@ -11,10 +11,11 @@ type Abi struct {
 
 // Represents Function abi
 type Function struct {
+	Inputs     []Variable `json:"inputs"`
+	Name       string     `json:"name"`
+	Outputs    []Variable `json:"outputs"`
+	Mutability string     `json:"stateMutability"`
 	FieldCommon
-	Inputs  []Variable `json:"inputs"`
-	Name    string     `json:"name"`
-	Outputs []Variable `json:"outputs"`
 }
 
 // Represents Event abi
