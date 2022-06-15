@@ -85,7 +85,7 @@ func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx t
 	defer s.DoneProcess()
 
 	s.logger.
-		With("txHash", txHash).
+		With("txHash", txHash.String()).
 		Debug("StoreTransaction")
 
 	s.manager.PutTransaction(txHash, tx)
