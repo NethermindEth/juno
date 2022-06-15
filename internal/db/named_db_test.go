@@ -139,6 +139,58 @@ func TestNamedDatabase_GetEnv(t *testing.T) {
 	}
 }
 
+func TestNamedDatabaseTx(t *testing.T) {
+	dbs := initDatabases(t, 1)
+	defer closeDatabases(dbs)
+	db := dbs[0]
+	assertNumberOfItems(t, db, 0)
+	txn, err := db.Begin()
+	if err != nil {
+		t.Error(err)
+	}
+	if env != txn.GetEnv() {
+		t.Errorf("unexpected env")
+	}
+	assertNumberOfItems(t, txn, 0)
+	if err := txn.Put([]byte("key"), []byte("value1")); err != nil {
+		t.Error(err)
+	}
+	ok, err := txn.Has([]byte("key"))
+	if err != nil {
+		t.Error(err)
+	}
+	if !ok {
+		t.Errorf("key not fund after Put")
+	}
+	assertNumberOfItems(t, txn, 1)
+	err = txn.Delete([]byte("key"))
+	if err != nil {
+		t.Error(err)
+	}
+	assertNumberOfItems(t, txn, 0)
+	if err := txn.Commit(); err != nil {
+		t.Error(err)
+	}
+	assertNumberOfItems(t, db, 0)
+}
+
+func TestNamedDatabaseTx_Rollback(t *testing.T) {
+	dbs := initDatabases(t, 1)
+	defer closeDatabases(dbs)
+	db := dbs[0]
+	txn, err := db.Begin()
+	if err != nil {
+		t.Error(err)
+	}
+	assertNumberOfItems(t, txn, 0)
+	err = txn.Put([]byte("key"), []byte("value"))
+	if err != nil {
+		t.Error(err)
+	}
+	txn.Rollback()
+	assertNumberOfItems(t, db, 0)
+}
+
 func initDatabases(t *testing.T, count int) []*NamedDatabase {
 	out := make([]*NamedDatabase, count)
 	err := InitializeDatabaseEnv(t.TempDir(), uint64(count), 0)
@@ -157,5 +209,15 @@ func initDatabases(t *testing.T, count int) []*NamedDatabase {
 func closeDatabases(dbs []*NamedDatabase) {
 	for _, db := range dbs {
 		db.Close()
+	}
+}
+
+func assertNumberOfItems(t *testing.T, db Databaser, expected uint64) {
+	count, err := db.NumberOfItems()
+	if err != nil {
+		t.Error(err)
+	}
+	if count != expected {
+		t.Errorf("unexpected number of items %d, want: %d", count, expected)
 	}
 }
