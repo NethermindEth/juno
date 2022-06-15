@@ -471,7 +471,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 
 // GetTransactionIDByHash creates a new request to get a transaction ID
 // by hash.
-func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
+func (c Client) GetTransactionIDByHash(txHash string) (*int, error) {
 	req, err := c.newRequest(
 		"GET", "/get_transaction_id_by_hash",
 		map[string]string{"transactionHash": txHash}, nil)
@@ -479,7 +479,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res string
+	var res int
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).
