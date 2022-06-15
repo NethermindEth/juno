@@ -29,15 +29,18 @@ Run the following command.
 
 ## Configuration
 
-**juno** uses a configuration file named **juno.yaml** that is located in the following places depending on the operating system.
+**juno** uses a configuration file named **juno.yaml** that is located in the following places depending on the
+operating system.
 
 - **macOS** - `$HOME/Library/Application Support/juno/`.
-- Other **Unix** systems - `$XDG_CONFIG_HOME/juno/` or `$HOME/.config/juno/` if the `$XDG_CONFIG_HOME` variable is not set.
+- Other **Unix** systems - `$XDG_CONFIG_HOME/juno/` or `$HOME/.config/juno/` if the `$XDG_CONFIG_HOME` variable is not
+  set.
 - **Windows** - `%AppData%/juno/`.
 
 It generally looks like the following and a default will be generated if one does not exist.
 
-The following is an example on how it would look on a macOS system (replace `$HOME` with a full path to the home directory).
+The following is an example on how it would look on a macOS system (replace `$HOME` with a full path to the home
+directory).
 
 ```yaml
 db_path: $HOME/Library/Application Support/juno

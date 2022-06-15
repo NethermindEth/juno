@@ -96,7 +96,7 @@ func (s *blockService) StoreBlock(blockHash types.BlockHash, block *types.Block)
 	defer s.DoneProcess()
 
 	s.logger.
-		With("blockHash", blockHash).
+		With("blockHash", blockHash.Hex()).
 		Debug("StoreBlock")
 
 	s.manager.PutBlock(blockHash, block)

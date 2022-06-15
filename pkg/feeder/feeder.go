@@ -102,6 +102,12 @@ func (c *Client) newRequest(method, path string, query map[string]string, body a
 // otherwise.
 func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	res, err := (*c.httpClient).Do(req)
+	// notest
+	for i := 0; err != nil && i < 2; i++ {
+		time.Sleep(time.Second * 5)
+		res, err = (*c.httpClient).Do(req)
+	}
+	// We tried three times and still received an error
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +222,44 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	return &res, err
 }
 
+// GetStateUpdateGoerli creates a new request to get the contract addresses
+// from the gateway.
+func (c Client) GetStateUpdateGoerli(blockHash, blockNumber string) (*StateUpdateResponse, error) {
+	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		return nil, err
+	}
+
+	var res StateUpdateResponseGoerli
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return stateUpdateResponseToGoerli(res), err
+}
+
+func stateUpdateResponseToGoerli(res StateUpdateResponseGoerli) *StateUpdateResponse {
+	deployedContracts := make([]DeployedContract, 0)
+
+	for _, d := range res.StateDiff.DeployedContracts {
+		deployedContracts = append(deployedContracts, DeployedContract{
+			Address:      d.Address,
+			ContractHash: d.ContractHash,
+		})
+	}
+	return &StateUpdateResponse{
+		BlockHash: res.BlockHash,
+		NewRoot:   res.NewRoot,
+		OldRoot:   res.OldRoot,
+		StateDiff: StateDiff{
+			DeployedContracts: deployedContracts,
+			StorageDiffs:      res.StateDiff.StorageDiffs,
+		},
+	}
+}
+
 // GetStateUpdate creates a new request to get the State Update of a given block
 // from the gateway.
 func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
@@ -244,7 +288,6 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 	blockIdentifier["contractAddress"] = contractAddress
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
 	var res CodeInfo
@@ -322,6 +365,24 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 	return &res, err
 }
 
+// GetTransactionTrace creates a new request to get the transaction
+// trace (internal call information).
+// notest
+func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
+	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_trace.")
+		return nil, err
+	}
+	var res TransactionTrace
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	return &res, err
+}
+
 // GetTransaction creates a new request to get a TransactionInfo.
 func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	req, err := c.newRequest("GET", "/get_transaction", TxnIdentifier(txHash, txID), nil)
@@ -343,7 +404,7 @@ func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 func (c Client) GetTransactionReceipt(txHash, txID string) (*TransactionReceipt, error) {
 	req, err := c.newRequest("GET", "/get_transaction_receipt", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_receipt.")
 		return nil, err
 	}
 	var res TransactionReceipt
@@ -360,7 +421,7 @@ func (c Client) GetBlockHashById(blockID string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_hash_by_id", map[string]string{"blockId": blockID}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_hash_by_id.")
 		return nil, err
 	}
 	var res string
@@ -377,7 +438,7 @@ func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_id_by_hash", map[string]string{"blockHash": blockHash}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_id_by_hash.")
 		return nil, err
 	}
 	var res string
@@ -396,7 +457,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 		"GET", "/get_transaction_hash_by_id",
 		map[string]string{"transactionId": txID}, nil)
 	if err != nil {
-		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_hash_by_id.")
 		return nil, err
 	}
 	var res string

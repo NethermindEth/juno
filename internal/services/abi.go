@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -48,7 +49,7 @@ func (s *abiService) Run() error {
 func (s *abiService) setDefaults() {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.Dir+"/abi", 0)
+		database := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "abi"), 0)
 		s.manager = abi.NewABIManager(database)
 	}
 }

@@ -62,14 +62,29 @@ type Transaction interface {
 // InvokeFunction represents a transaction in the StarkNet network that
 // is an invocation of a Cairo contract function.
 type InvokeFunction struct {
-	ContractAddress int `json:"contract_address"`
-	// A field element that encodes the signature of the called function.
-	EntryPointSelector int   `json:"entry_point_selector"`
-	Calldata           []int `json:"calldata"`
+	CallerAddress      string   `json:"caller_address"`
+	ContractAddress    string   `json:"contract_address"`
+	CodeAddress        string   `json:"code_address"`
+	Calldata           []string `json:"calldata"`
+	CallType           string   `json:"call_type"`
+	ClassHash          string   `json:"class_hash"`
+	EntryPointSelector string   `json:"entry_point_selector"`
+	Selector           string   `json:"selector"`
+	EntryPointType     string   `json:"entry_point_type"`
+	Result             []string `json:"result"`
 	// Additional information given by the caller that represents the
 	// signature of the transaction. The exact way this field is handled
 	// is defined by the called contract's function, like calldata.
-	Signature []int `json:"signature"`
+	ExecutionResources `json:"execution_resources"`
+	// The transaction is not valid if its version is lower than the current version,
+	// defined by the SN OS.
+	Version        int              `json:"version"`
+	Signature      []int            `json:"signature"`
+	InternallCalls []InvokeFunction `json:"internall_calls"`
+	Events         []Event          `json:"events"`
+	Messages       []string         `json:"messages"`
+	// The maximal fee to be paid in Wei for executing invoked function.
+	MaxFee string `json:"max_fee"`
 }
 
 // TransactionType returns the TxnType related to InvokeFunction
@@ -86,14 +101,14 @@ func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
 
 // TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
-	Calldata            []string `json:"constructor_calldata"`
-	ContractAddress     string   `json:"contract_address"`
-	ContractAddressSalt string   `json:"contract_address_salt"`
-	EntryPointSelector  string   `json:"entry_point_selector"`
-	EntryPointType      string   `json:"entry_point_type"`
-	Signature           []string `json:"signature"`
-	TransactionHash     string   `json:"transaction_hash"`
-	Type                string   `json:"type"`
+	ContractAddress    string   `json:"contract_address"`
+	EntryPointSelector string   `json:"entry_point_selector"`
+	EntryPointType     string   `json:"entry_point_type"`
+	Calldata           []string `json:"calldata"`
+	Signature          []string `json:"signature"`
+	TransactionHash    string   `json:"transaction_hash"`
+	MaxFee             string   `json:"max_fee"`
+	Type               string   `json:"type"`
 }
 
 // L1ToL2Message Represents a StarkNet L1-to-L2 message.
@@ -108,8 +123,8 @@ type L1ToL2Message struct {
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
 	FromAddress string   `json:"from_address"`
-	ToAddress   string   `json:"to_address"`
-	Payload     []string `json:"payload"`
+	ToAddress   string   `json:"to_address,omitempty"`
+	Payload     []string `json:"payload,omitempty"`
 }
 
 // Event Represents a StarkNet event; contains all the fields that will
@@ -135,15 +150,16 @@ type TransactionExecution struct {
 	TransactionIndex int64 `json:"transaction_index"`
 	// A unique identifier of the transaction.
 	TransactionHash string `json:"transaction_hash"`
-	// L1-to-L2 messages.
-	L1ToL2ConsumedMessage L1ToL2Message `json:"l1_to_l2_consumed_message"`
 	// L2-to-L1 messages.
 	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages"`
+	// L1-to-L2 messages.
+	L1ToL2Message `json:"l1_to_l2_consumed_message"`
 	// Events emitted during the execution of the transaction.
 	Events []Event `json:"events"`
 	// The resources needed by the transaction.
-	ExecutionResources ExecutionResources `json:"execution_resources"`
-	ActualFee          string             `json:"actual_fee"`
+	ExecutionResources `json:"execution_resources"`
+	// Fee paid for executing the transaction.
+	ActualFee string `json:"actual_fee"`
 }
 
 // StarknetBlock Represents a response StarkNet block.
@@ -155,6 +171,7 @@ type StarknetBlock struct {
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
 	Status              string                 `json:"status"`
+	OldStateRoot        string                 `json:"old_state_root"`
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
@@ -181,7 +198,7 @@ type TransactionFailureReason struct {
 // TransactionInfo store all the transaction Information
 type TransactionInfo struct {
 	// // Block information that Transaction occured in
-	TransactionInBlockInformation TransactionInBlockInfo
+	TransactionInBlockInfo // fix: Was not fetching values correctly prior
 	// Transaction Specific Information
 	Transaction TxnSpecificInfo `json:"transaction"`
 }
@@ -189,13 +206,9 @@ type TransactionInfo struct {
 // TransactionInBlockInfo represents the information regarding a
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
-	// The status of a transaction, see TransactionStatus.
-	Status string `json:"status"`
 	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason TransactionFailureReason `json:"transaction_failure_reason"`
-	// The unique identifier of the block on the active chain containing
-	// the transaction.
-	BlockHash string `json:"block_hash"`
+	TransactionFailureReason `json:"transaction_failure_reason"`
+	TransactionStatus
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
 	BlockNumber int64 `json:"block_number"`
@@ -205,7 +218,10 @@ type TransactionInBlockInfo struct {
 }
 
 type TransactionStatus struct {
-	Status    string `json:"tx_status"`
+	// tx_status for get_transaction_status
+	TxStatus string `json:"tx_status"`
+	// status for other calls.
+	Status    string `json:"status"`
 	BlockHash string `json:"block_hash"`
 }
 
@@ -213,8 +229,13 @@ type TransactionStatus struct {
 // i.e., the information regarding its execution and the block it
 // appears in.
 type TransactionReceipt struct {
-	TransactionExecution
 	TransactionInBlockInfo
+	TransactionExecution
+}
+
+type TransactionTrace struct {
+	InvokeFunction `json:"function_invocation"`
+	Signature      []string `json:"signature"`
 }
 
 // KV represents a key-value pair.
@@ -223,17 +244,38 @@ type KV struct {
 	Value string `json:"value"`
 }
 
+type StateDiffGoerli struct {
+	DeployedContracts []struct {
+		Address      string `json:"address"`
+		ContractHash string `json:"class_hash"`
+	} `json:"deployed_contracts"`
+	StorageDiffs map[string][]KV `json:"storage_diffs"`
+}
+
+// StateUpdateResponseGoerli represents the response of a StarkNet state
+// update.
+type StateUpdateResponseGoerli struct {
+	BlockHash string          `json:"block_hash"`
+	NewRoot   string          `json:"new_root"`
+	OldRoot   string          `json:"old_root"`
+	StateDiff StateDiffGoerli `json:"state_diff"`
+}
+
+type DeployedContract struct {
+	Address      string `json:"address"`
+	ContractHash string `json:"contract_hash"`
+}
+
+type StateDiff struct {
+	DeployedContracts []DeployedContract `json:"deployed_contracts"`
+	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
+}
+
 // StateUpdateResponse represents the response of a StarkNet state
 // update.
 type StateUpdateResponse struct {
-	BlockHash string `json:"block_hash"`
-	NewRoot   string `json:"new_root"`
-	OldRoot   string `json:"old_root"`
-	StateDiff struct {
-		DeployedContracts []struct {
-			Address      string `json:"address"`
-			ContractHash string `json:"contract_hash"`
-		} `json:"deployed_contracts"`
-		StorageDiffs map[string][]KV `json:"storage_diffs"`
-	} `json:"state_diff"`
+	BlockHash string    `json:"block_hash"`
+	NewRoot   string    `json:"new_root"`
+	OldRoot   string    `json:"old_root"`
+	StateDiff StateDiff `json:"state_diff"`
 }

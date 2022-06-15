@@ -3,8 +3,8 @@ package rpc
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io/ioutil"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -742,7 +742,6 @@ func TestGetBlockByTag(t *testing.T) {
 			{
 				Calldata: []string{"a"},
 				ContractAddress: "a",
-				ContractAddressSalt: "a",
 				EntryPointSelector: "a",
 				EntryPointType: "a",
 				Signature: []string{"a"},
@@ -754,7 +753,7 @@ func TestGetBlockByTag(t *testing.T) {
 			{
 				TransactionIndex: 0,
 				TransactionHash: "a",
-				L1ToL2ConsumedMessage: feeder.L1ToL2Message{
+				L1ToL2Message: feeder.L1ToL2Message{
 					FromAddress: "a",
 					ToAddress: "a",
 					Selector: "a",
@@ -847,7 +846,6 @@ func TestStarknetPendingTransactions(t *testing.T) {
 			{
 				Calldata: []string{"a"},
 				ContractAddress: "a",
-				ContractAddressSalt: "a",
 				EntryPointSelector: "a",
 				EntryPointType: "a",
 				Signature: []string{"a"},
@@ -930,7 +928,6 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 			{
 				Calldata: []string{"a"},
 				ContractAddress: "a",
-				ContractAddressSalt: "a",
 				EntryPointSelector: "a",
 				EntryPointType: "a",
 				Signature: []string{"a"},
@@ -1012,7 +1009,6 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 			{
 				Calldata: []string{"a"},
 				ContractAddress: "a",
-				ContractAddressSalt: "a",
 				EntryPointSelector: "a",
 				EntryPointType: "a",
 				Signature: []string{"a"},

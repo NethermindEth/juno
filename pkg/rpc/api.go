@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/internal/services"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/log"
 )
@@ -32,13 +32,13 @@ func (HandlerRPC) StarknetCall(
 	c context.Context, request FunctionCall, blockHash BlockHashOrTag,
 ) (ResultCall, error) {
 	if tag := blockHash.Tag; tag != nil {
-		calldata := make([]int, len(request.CallData))
+		calldata := make([]string, len(request.CallData))
 		for i, data := range request.CallData {
-			calldata[i] = int(data.Big().Int64())
+			calldata[i] = data.Hex()
 		}
 		call := feeder.InvokeFunction{
-			ContractAddress: int(request.ContractAddress.Felt().Big().Int64()),
-			EntryPointSelector: int(request.EntryPointSelector.Big().Int64()),
+			ContractAddress: request.ContractAddress.Hex(),
+			EntryPointSelector: request.EntryPointSelector.Hex(),
 			Calldata: calldata,
 		}
 		result, err := feederClient.CallContract(call, "", string(*tag))
@@ -135,20 +135,19 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 				},
 			}
 		}
-		payload := make([]types.Felt, len(feederReceipt.L1ToL2ConsumedMessage.Payload))
-		for j, data := range feederReceipt.L1ToL2ConsumedMessage.Payload {
+		payload := make([]types.Felt, len(feederReceipt.Payload))
+		for j, data := range feederReceipt.Payload {
 			payload[j] = types.HexToFelt(data)
 		}
 		txnAndReceipts[i] = &TxnAndReceipt{
 			Txn: *txs[i],
 			TxnReceipt: TxnReceipt{
-				TxnHash: txs[i].TxnHash,
-				MessagesSent: messagesSent,
-				L1OriginMessage: &MsgToL2{
-					FromAddress: types.HexToEthAddress(feederReceipt.L1ToL2ConsumedMessage.FromAddress),
-					Payload: payload,
-				},
-				Events: events,
+				TxnHash:         txs[i].TxnHash,
+				Status:          0,
+				StatusData:      "",
+				MessagesSent:    messagesSent,
+				L1OriginMessage: &MsgToL2{FromAddress: types.HexToEthAddress(feederReceipt.FromAddress), Payload: payload},
+				Events:          events,
 			},
 		}
 	}
@@ -208,8 +207,8 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 	if number := blockNumberOrTag.Number; number != nil {
 		return getBlockByNumber(ctx, *number, scope)
 	}
+	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
-		// notest
 		return getBlockByTag(ctx, *tag, scope)
 	}
 	// TODO: Send bad request error

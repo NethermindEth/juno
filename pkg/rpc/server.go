@@ -50,6 +50,7 @@ func (s *Server) ListenAndServe() error {
 // Close gracefully shuts down the server.
 func (s *Server) Close(ctx context.Context) {
 	// notest
+	log.Default.Info("Closing RPC server")
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
