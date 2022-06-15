@@ -20,13 +20,13 @@ var getFullContractCmd = &cobra.Command{
 	},
 }
 
-func getFullContract(contractAddress, blockAddressOrHash string) (map[string]interface{}, error) {
+func getFullContract(contractAddress, input string) (map[string]interface{}, error) {
 	blockHash, blockNumber := "", ""
 
-	if isInteger(blockAddressOrHash) {
-		blockNumber = blockAddressOrHash
+	if isInteger(input) {
+		blockNumber = input
 	} else {
-		blockHash = blockAddressOrHash
+		blockHash = input
 	}
 
 	client := initClient()
