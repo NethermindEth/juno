@@ -28,7 +28,7 @@ func init() {
 }
 
 func Example() {
-	var pairs = [...]struct {
+	pairs := [...]struct {
 		key, val *big.Int
 	}{
 		{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
@@ -185,7 +185,7 @@ func TestPut(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("put(%#v, %#v)", test.key, test.val), func(t *testing.T) {
 			trie.Put(test.key, test.val)
-			pre := prefix(reversed(test.key, testKeyLen), testKeyLen)
+			pre := Prefix(Reversed(test.key, testKeyLen), testKeyLen)
 			got, ok := db.Get(pre)
 			if !ok {
 				// A key with a value 0 is deleted.
@@ -194,7 +194,7 @@ func TestPut(t *testing.T) {
 				}
 				t.Fatalf("failed to retrieve value with key %s from database", pre)
 			}
-			var n node
+			var n Node
 			if err := json.Unmarshal(got, &n); err != nil {
 				t.Fatal("failed to unmarshal value from database")
 			}

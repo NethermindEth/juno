@@ -1,0 +1,23 @@
+---
+title: Format
+description: How formatting the files of the app
+---
+
+For the formatting we are using [gofumpt](https://github.com/mvdan/gofumpt), which is basically a repository on top of gofmt
+
+If you want to install `gofumpt`, you can run the next command:
+
+```bash
+make install-gofumpt
+```
+
+If you want to format your code  you can use:
+
+```bash
+make format
+```
+
+For most of the common editors like [vim](https://github.com/mvdan/gofumpt#vim-go),
+[golang](https://github.com/mvdan/gofumpt#goland), or
+[vscode](https://github.com/mvdan/gofumpt#visual-studio-code), there is a way to set your editor to format by default
+using `gofumpt`, follow the links for more details
