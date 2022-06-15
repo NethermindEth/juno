@@ -157,11 +157,17 @@ func (s *vmService) Call(
 
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
-		Root:            root.Bytes(),
-		ContractAddress: contractAddr.Bytes(),
-		Selector:        selector.Bytes(),
+		// XXX: Calldata has to be an array of bytes (or hex strings if you
+		// will) that represent function arguments.
 		Calldata:        calldata.Bytes(),
 		CallerAddress:   callerAddr.Bytes(),
+		ContractAddress: contractAddr.Bytes(),
+		// TODO: The compiled contract has to be passed in as well. See
+		// service.getFullContract in the vm_utils.go file.
+		Root:            root.Bytes(),
+		Selector:        selector.Bytes(),
+		// XXX: Since calls are read-only, the signature does not appear to
+		// be required.
 		Signature:       signature.Bytes(),
 	})
 	if err != nil {
