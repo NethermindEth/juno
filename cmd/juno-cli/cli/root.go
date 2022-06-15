@@ -71,13 +71,19 @@ func handleNetwork(network string) {
 // Pretty Prints response. Use interface to take any type.
 func prettyPrint(res interface{}) {
 	resJSON, err := json.MarshalIndent(res, "", "  ")
-	errpkg.CheckFatal(err, "Failed to marshal response.")
+	if err != nil {
+		log.Default.With("Error", err).Error("Failed to marshal and indent response.")
+	}
 	fmt.Println(string(resJSON))
 }
 
 // What to do in normal situations, when no pretty print flag is set.
 func normalReturn(res interface{}) {
-	fmt.Println(res)
+	resJSON, err := json.Marshal(res)
+	if err != nil {
+		log.Default.With("Error", err).Error("Failed to marshal response.")
+	}
+	fmt.Println(string(resJSON))
 }
 
 // Check if string is integer or hash

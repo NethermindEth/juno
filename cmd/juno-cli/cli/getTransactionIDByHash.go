@@ -15,12 +15,12 @@ var getTransactionIDByHashCmd = &cobra.Command{
 		if pretty, _ := cmd.Flags().GetBool("pretty"); pretty {
 			prettyPrint(res)
 		} else {
-			normalReturn(*res)
+			normalReturn(res)
 		}
 	},
 }
 
-func getTransactionID(transactionHash string) (*int, error) {
+func getTransactionID(transactionHash string) (interface{}, error) {
 	client := initClient()
 
 	// Get the transaction ID of the transaction with the given hash.

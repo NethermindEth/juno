@@ -332,9 +332,11 @@ func TestGetBlockIdByHash(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
+		fmt.Println(err)
 		t.Fatal()
 	}
-	blockId, err := client.GetBlockIDByHash("hash")
+	var blockId *string
+	blockId, err = client.GetBlockIDByHash("hash")
 	if err != nil {
 		t.Fatal()
 	}

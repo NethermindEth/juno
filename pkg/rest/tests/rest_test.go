@@ -579,7 +579,7 @@ func TestGetBlockIDByHashHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Build Fake Response
-	var a string
+	var a int
 	err = faker.FakeData(&a)
 	if err != nil {
 		t.Fatal()
@@ -603,7 +603,7 @@ func TestGetBlockIDByHashHandler(t *testing.T) {
 	}
 
 	// Read Rest API Response
-	var cOrig string
+	var cOrig int
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
 	// Assert actual equals expected
@@ -677,7 +677,7 @@ func TestGetTransactionIDByHashHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Build Fake Response
-	var a string
+	var a int
 	err = faker.FakeData(&a)
 	if err != nil {
 		t.Fatal()
@@ -701,7 +701,7 @@ func TestGetTransactionIDByHashHandler(t *testing.T) {
 	}
 
 	// Read Rest API Response
-	var cOrig string
+	var cOrig int
 	json.Unmarshal(rr.Body.Bytes(), &cOrig)
 
 	// Assert actual equals expected

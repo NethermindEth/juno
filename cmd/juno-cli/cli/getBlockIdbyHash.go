@@ -20,7 +20,7 @@ var getBlockIdbyHashCmd = &cobra.Command{
 	},
 }
 
-func getBlockID(blockHash string) (*int, error) {
+func getBlockID(blockHash string) (*string, error) {
 	client := initClient()
 
 	// Get the block ID of the block with the given hash.
