@@ -58,7 +58,7 @@ func (s *service) Close(_ context.Context) {
 func (s *service) AddProcess() {
 	if !s.Running() {
 		// notest
-		s.logger.Panic("service is not running")
+		return
 	}
 	s.wg.Add(1)
 }
