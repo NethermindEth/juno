@@ -57,8 +57,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&selectedNetwork, "network", "n", "", "Use a network different to config. Available: 'mainnet', 'goerli'.")
 }
 
-// handle networks by changing active value
-// FIXME: DO NOT hardcode here. Have in config.go
+// handle networks by changing active value during call only
 func handleNetwork(network string) {
 	if network == "mainnet" {
 		viper.Set("starknet.feeder_gateway", "https://alpha-mainnet.starknet.io")
