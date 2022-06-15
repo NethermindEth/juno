@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
+	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -60,6 +61,11 @@ var (
 			if config.Runtime.RPC.Enabled {
 				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
+			}
+
+			if config.Runtime.Metrics.Enabled {
+				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
 			// Initialize ABI Service
