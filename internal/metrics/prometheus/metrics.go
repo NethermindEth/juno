@@ -96,6 +96,7 @@ func IncreaseBlockSent() {
 
 // This increases when the request in GetStateUpdateGoerli in feeder.go is sent
 func IncreaseStateUpdateGoerliSent() {
+	// notest
 	noOfRequests.WithLabelValues("Sent", "State Update Goerli").Inc()
 }
 
@@ -172,6 +173,7 @@ func IncreaseBlockReceived() {
 
 // This increases when the response of GetStateUpdateGoerli in feeder.go is received
 func IncreaseStateUpdateGoerliReceived() {
+	// notest
 	noOfRequests.WithLabelValues("Received", "State Update Goerli").Inc()
 }
 
@@ -249,6 +251,7 @@ func IncreaseBlockFailed() {
 
 // This increases when the request in GetStateUpdateGoerli in feeder.go fails
 func IncreaseStateUpdateGoerliFailed() {
+	// notest
 	noOfRequests.WithLabelValues("Failed", "State Update Goerli").Inc()
 }
 
