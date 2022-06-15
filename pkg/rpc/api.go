@@ -44,8 +44,7 @@ func (HandlerRPC) StarknetCall(
 		if err != nil {
 			return nil, fmt.Errorf("call failed %v", err)
 		}
-		// TODO is this correct?
-		return (*result)["retdata"], nil
+		return (*result)["result"], nil
 	}
 	return []string{"Response", "of", "starknet_call"}, nil
 }

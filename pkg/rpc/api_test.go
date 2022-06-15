@@ -299,12 +299,57 @@ func TestStarknetGetCode(t *testing.T) {
 						Type: "a",
 					},
 				},
-				Outputs: []*abi.Function_Output{},
+				Outputs: []*abi.Function_Output{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
 			},
 		},
-		Events: []*abi.AbiEvent{},
-		Structs: []*abi.Struct{},
-		L1Handlers: []*abi.Function{},
+		Events: []*abi.AbiEvent{
+			{
+
+				Name: "a",
+				Data: []*abi.AbiEvent_Data{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+				Keys: []string{"a"},
+			},
+		},
+		Structs: []*abi.Struct{
+			{
+				Fields: []*abi.Struct_Field{
+					{
+						Name: "a",
+						Type: "a",
+						Offset: 0,
+					},
+				},
+				Name: "a",
+				Size: 1,
+			},
+		},
+		L1Handlers: []*abi.Function{
+			{
+				Name: "a",
+				Inputs: []*abi.Function_Input{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+				Outputs: []*abi.Function_Output{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+			},
+		},
 		Constructor: &abi.Function{
 			Name: "a",
 			Inputs: []*abi.Function_Input{
@@ -313,7 +358,12 @@ func TestStarknetGetCode(t *testing.T) {
 					Type: "a",
 				},
 			},
-			Outputs: []*abi.Function_Output{},
+			Outputs: []*abi.Function_Output{
+				{
+					Name: "a",
+					Type: "a",
+				},
+			},
 		},
 	}
 	abiResponse2, err := json.Marshal(want)
@@ -327,7 +377,7 @@ func TestStarknetGetCode(t *testing.T) {
 			Response: buildResponse(CodeResult{Bytecode: codeResponse, Abi: string(abiResponse)}),
 		},
 		{
-			Request: buildRequest("starknet_getCode", "a"), // address not held locally; have to query feeder gateway
+			Request: buildRequest("starknet_getCode", "0xa"), // address not held locally --> must query feeder gateway
 			Response: buildResponse(CodeResult{Bytecode: []types.Felt{types.HexToFelt("a")}, Abi: string(abiResponse2)}),
 		},
 	})
@@ -1028,4 +1078,34 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 
 	// Run tests
 	testServer(t, tests)
+}
+
+func TestStarknetCall(t *testing.T) {
+	funcCall := FunctionCall{
+		ContractAddress: types.HexToAddress("a"),
+		EntryPointSelector: types.HexToFelt("a"),
+		CallData: []types.Felt{types.HexToFelt("a")},
+	}
+
+	// Reassign global feederClient with fake http client
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	// Generate fake response
+	x := &map[string][]string{"result": {"a"}}
+	body, err := json.Marshal(x)
+	if err != nil {
+		t.Fatal("unexpected marshal error")
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error while initializing fake data in feeder client")
+	}
+
+	// Test
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_call", funcCall, BlocktagPending),
+			Response: buildResponse(ResultCall{"a"}),
+		},
+	})
 }
