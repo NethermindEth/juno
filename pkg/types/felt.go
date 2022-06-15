@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/pkg/common"
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 )
 
