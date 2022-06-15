@@ -3,10 +3,10 @@ title: Config File
 position: 2
 ---
 
-The config file for `Juno` represent all the vars needed for handle all the functionalities that are supported on the
+The config file for `Juno` represents all settings needed to handle all supported functionalities for 
 node execution.
 
-This is the basic struct:
+The basic structure is:
 ```yaml
 ethereum:
   node: "you_node_here"
@@ -32,35 +32,35 @@ starknet:
 
 ### ethereum
 
-Represent the configuration for the Ethereum node.
+Configuration of the Ethereum node.
 
-- `node`: you should put the direction to an archive node, for example, an Infura archive node.
+- `node`: put the address to an archive node, for example, an Infura archive node.
 
 ### rpc
 
-Represent the configuration for the RPC server.
+Configuration of the RPC server.
 
-- `enabled`: Represent if the RPC server is enabled.
-- `port`: Represent the node in which the RPC server is going to be served.
+- `enabled`: Whether the RPC server is enabled.
+- `port`: The node in which the RPC server is going to be served.
 
 ### rest
 
-Represent the configuration for the REST server that handle all the feeder_gateway like http requests.
+Configuration for the REST server that handles all the feeder_gateway methods like http requests.
 
-- `enabled`: Represent if the REST server is enabled.
-- `port`: Represent the node in which the REST server is going to be served.
-- `prefix`: Represent the prefix of the service, in this case should be: `node_ip:port/feeder_gateway`.
+- `enabled`: Whether the REST server is enabled.
+- `port`: Node in which the REST server is going to be served.
+- `prefix`: Prefix fot the service, it should be: `node_ip:port/feeder_gateway`.
 
 ### metrics
 
-Represent the configuration for the Prometheus metrics.
+Configuration for Prometheus metrics.
 
-- `enabled`: Represent if the metrics are enabled.
-- `port`: Represent the node in which the metrics are going to be served.
+- `enabled`: Whether metrics are enabled.
+- `port`: The node in which metrics are going to be served.
 
 ### db_path
 
-Represent the path in which the data of the node is going to be saved.
+Represents the path in which the data of the node is going to be saved.
 
 ### starknet
 
@@ -69,7 +69,6 @@ Represent the configuration for the StarkNet network and sync details.
 - `enabled`: Represent if the REST server is enabled.
 - `feeder_gateway`: Represent the StarkNet endpoint that we are going to connect, should be from another `Juno` node or
 from the feeder gateway, that defines mainnet or goerli, if `enabled` starknet, always needed.
-- `api_sync`: Represent if we are going to perform a synchronization using the Feeder Gateway, or we are going to sync
-against Layer 1.
+- `api_sync`: To declare if synchronization is with the Feeder Gateway, or we are syncing against Layer 1.
 - `network`: Used in case you don't have an ethereum node and want to do an API sync. By default, `mainnet` is the
 value, anything else will be considered as goerli. Not needed if you aren't running an API sync.
