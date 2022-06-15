@@ -40,20 +40,20 @@
 
 Make sure you have Go installed ([download](https://go.dev/dl/)). Version `1.18` or higher is required.
 
-At the time we write, we support two commands:
+At time of writing, we support two commands:
 
 - juno
-    - `juno` is the command that initialize the node
+    - `juno` is the command to initialize the node
 - juno-cli
-    - `juno-cli` is the command that handle a set of different commands about the StarkNet ecosystem.
+    - `juno-cli` is the command that handles a set of different commands for StarkNet ecosystem.
 
-You can install `juno` command
+You can install `juno` with:
 
 ```bash
 go install github.com/NethermindEth/juno/cmd/juno@latest
 ```
 
-On the other side, the `juno-cli` command can be installed with the next command:
+To install `juno-cli`:
 
 ```bash
 go install github.com/NethermindEth/juno/cmd/juno-cli@latest
@@ -64,20 +64,20 @@ the [config file description](https://gojuno.xyz/docs/running/config).
 
 ### 📦 Dockerized
 
-You can install the app using docker, if you need it, or you need a clean installation, can check the
+You can install the entire app using docker. Just check the
 [docker guide](https://gojuno.xyz/docs/running/docker).
 
 ## 🎯 Features
 
 - [Get and Sync state from Layer 1](https://gojuno.xyz/docs/features/sync) (Ethereum).
 - [Get and Sync state from API](https://gojuno.xyz/docs/features/sync) (Feeder Gateway).
-- Hold [state of StarkNet](https://gojuno.xyz/docs/features/sync) locally.
-- Hold the StarkNet Transactions.
-- Hold the StarkNet Blocks.
-- Hold the ABI of StarkNet contracts.
-- [Json RPC Server](https://gojuno.xyz/docs/features/rpc) ethereum like following
-  [this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Now
-  supported:
+- Store [StarkNet State](https://gojuno.xyz/docs/features/sync) locally.
+- Store StarkNet Transactions.
+- Store StarkNet Blocks.
+- Store the ABI of StarkNet contracts.
+- Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
+  [this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Currently
+  supported are:
     - starknet_getStorageAt
     - starknet_getCode
     - starknet_getBlockByHash
@@ -87,9 +87,9 @@ You can install the app using docker, if you need it, or you need a clean instal
     - starknet_getStorageAt (pending)
     - starknet_getCode (pending)
     - starknet_getBlockByNumber (pending)
-- [Rest API](https://gojuno.xyz/docs/features/rest) is a wrapper of the StarkNet feeder gateway, you can call the node
-  in the same way you call the feeder gateway, same params and should return the same response.
-- [CLI](https://gojuno.xyz/docs/features/cli) for the StarkNet tools.
+- [Rest API](https://gojuno.xyz/docs/features/rest) is a wrapper to the StarkNet feeder gateway. Through it you can call the node
+  in the same way you would call the feeder gateway, wgere using the same params will return the same response.
+- [CLI](https://gojuno.xyz/docs/features/cli) for general StarkNet tools.
 - [Prometheus Metrics](https://gojuno.xyz/docs/feature/metrics).
 - [Dockerized app](https://gojuno.xyz/docs/running/docker).
 
@@ -103,12 +103,12 @@ If you want to say **thank you** and/or support the active development of `Juno`
 
 1. Run a node.
 2. Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
-3. Tweet about the
+3. Tweet about 
    `Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum)
    .
 4. Contribute to use, make sure to
    follow [Contributions Guidelines](https://gojuno.xyz/docs/contribution_guidelines/engineering-guidelines).
-5. Add an issue if you find
+5. Add a Github issue if you find
    a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=)
    , or you need or want a
    new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=)
@@ -120,7 +120,7 @@ If you want to say **thank you** and/or support the active development of `Juno`
 
 ## 🤝 Partnerships
 
-If you want to establish a partnership with the Juno team, any special need, feel free to reach us
+To establish a partnership with the Juno team, or if you have any suggestion or special request, feel free to reach us
 via [email](mailto:juno@nethermind.io).
 
 ## ⭐️ Stargazers over time
