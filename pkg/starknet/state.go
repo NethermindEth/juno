@@ -6,13 +6,13 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
+	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
@@ -40,10 +40,21 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
-	chainID, err := client.ChainID(context.Background())
-	if err != nil {
+	var chainID *big.Int
+	if client == nil {
 		// notest
-		log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+		if config.Runtime.Starknet.Network == "mainnet" {
+			chainID = new(big.Int).SetInt64(1)
+		} else {
+			chainID = new(big.Int).SetInt64(0)
+		}
+	} else {
+		var err error
+		chainID, err = client.ChainID(context.Background())
+		if err != nil {
+			// notest
+			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+		}
 	}
 	return &Synchronizer{
 		ethereumClient:      client,
@@ -222,7 +233,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress).
+		log.Default.With("Address", memoryPagesContractAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -245,7 +256,6 @@ func (s *Synchronizer) l1Sync() error {
 	go func() {
 		// Make sure this goroutine never gets moved to a new thread.
 		// MDBX transactions cannot be shared across threads (see updateAndCommitState and updateState).
-		runtime.LockOSThread()
 		ticker := time.NewTicker(time.Second * 5)
 		for range ticker.C {
 			if !s.facts.Exist(strconv.FormatUint(latestBlockSynced, 10)) {
@@ -352,20 +362,27 @@ func (s *Synchronizer) updateAndCommitState(
 	newRoot string,
 	sequenceNumber uint64,
 ) uint64 {
+	start := time.Now()
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
+		metr.IncreaseCountStarknetStateFailed()
 		log.Default.Panic("Contract hash service is unavailable")
 	}
 	_, err := updateState(txn, hashService, stateDiff, newRoot, sequenceNumber)
 	if err != nil {
+		metr.IncreaseCountStarknetStateFailed()
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	} else {
 		err := txn.Commit()
 		if err != nil {
+			metr.IncreaseCountStarknetStateFailed()
 			log.Default.Panic("Couldn't commit to the database")
 		}
 	}
+	metr.IncreaseCountStarknetStateSuccess()
+	duration := time.Since(start)
+	metr.UpdateStarknetSyncTime(duration.Seconds())
 	log.Default.With("Block Number", sequenceNumber).Info("State updated")
 
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, sequenceNumber)

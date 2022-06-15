@@ -14,9 +14,6 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 )
 
-// Global feederClient that we use to request pending blocks
-var feederClient = feeder.NewClient("https://alpha-mainnet.starknet.io", "/feeder_gateway", nil)
-
 // Echo replies with the same message.
 func (HandlerRPC) Echo(c context.Context, message string) (string, error) {
 	return message, nil

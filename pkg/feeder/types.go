@@ -78,11 +78,11 @@ type InvokeFunction struct {
 	ExecutionResources `json:"execution_resources"`
 	// The transaction is not valid if its version is lower than the current version,
 	// defined by the SN OS.
-	Version        int              `json:"version"`
-	Signature      []int            `json:"signature"`
-	InternallCalls []InvokeFunction `json:"internall_calls"`
-	Events         []Event          `json:"events"`
-	Messages       []string         `json:"messages"`
+	Version        int      `json:"version"`
+	Signature      []int    `json:"signature"`
+	InternallCalls []string `json:"internall_calls"`
+	Events         []Event  `json:"events"`
+	Messages       []string `json:"messages"`
 	// The maximal fee to be paid in Wei for executing invoked function.
 	MaxFee string `json:"max_fee"`
 }
@@ -188,9 +188,9 @@ type CodeInfo struct {
 
 // TransactionFailureReason store reason of failure in transactions.
 type TransactionFailureReason struct {
-	TxID     int64  `json:"tx_id"`
-	Code     string `json:"code"`
-	ErrorMsg string `json:"error_message"`
+	TxID     int64  `json:"tx_id,omitempty"`
+	Code     string `json:"code,omitempty"`
+	ErrorMsg string `json:"error_message,omitempty"`
 }
 
 // type TxnStatus string
@@ -207,7 +207,7 @@ type TransactionInfo struct {
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason `json:"transaction_failure_reason"`
+	TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
 	TransactionStatus
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
@@ -219,9 +219,9 @@ type TransactionInBlockInfo struct {
 
 type TransactionStatus struct {
 	// tx_status for get_transaction_status
-	TxStatus string `json:"tx_status"`
+	TxStatus string `json:"tx_status,omitempty"`
 	// status for other calls.
-	Status    string `json:"status"`
+	Status    string `json:"status,omitempty"`
 	BlockHash string `json:"block_hash"`
 }
 
@@ -263,12 +263,12 @@ type StateUpdateResponseGoerli struct {
 
 type DeployedContract struct {
 	Address      string `json:"address"`
-	ContractHash string `json:"contract_hash"`
+	ContractHash string `json:"class_hash"`
 }
 
 type StateDiff struct {
-	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
+	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 }
 
 // StateUpdateResponse represents the response of a StarkNet state

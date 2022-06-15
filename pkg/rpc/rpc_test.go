@@ -70,7 +70,7 @@ func TestRPCServer(t *testing.T) {
 }
 
 func TestServer(t *testing.T) {
-	server := NewServer(":8080")
+	server := NewServer(":8080", "localhost:8081")
 	go func() {
 		_ = server.ListenAndServe()
 	}()

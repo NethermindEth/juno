@@ -289,28 +289,26 @@ func TestGetTransactionStatus(t *testing.T) {
 }
 
 func TestGetTransactionTrace(t *testing.T) {
-	// TODO: implement test
-	assert.Equal(t, "", "", "GetTransactionTrace not implemented")
-	// a := feeder.TransactionTrace{}
-	// err := faker.FakeData(&a)
-	// if err != nil {
-	// 	t.Fatal()
-	// }
-	// body, err := json.Marshal(a)
-	// if err != nil {
-	// 	t.Fatal()
-	// }
-	// httpClient.DoReturns(generateResponse(string(body)), nil)
-	// var cOrig feeder.TransactionTrace
-	// err = json.Unmarshal([]byte(body), &cOrig)
-	// if err != nil {
-	// 	t.Fatal()
-	// }
-	// transactionTrace, err := client.GetTransactionTrace("hash", "")
-	// if err != nil {
-	// 	t.Fatal()
-	// }
-	// assert.Equal(t, &cOrig, transactionTrace, "GetTransactionTrace response does not match")
+	a := feeder.TransactionTrace{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.TransactionTrace
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionTrace, err := client.GetTransactionTrace("", "id")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionTrace, "GetTransactionTrace response does not match")
 }
 
 func TestGetBlockHashById(t *testing.T) {
@@ -334,9 +332,11 @@ func TestGetBlockIdByHash(t *testing.T) {
 	var cOrig string
 	err := json.Unmarshal([]byte(body), &cOrig)
 	if err != nil {
+		fmt.Println(err)
 		t.Fatal()
 	}
-	blockId, err := client.GetBlockIDByHash("hash")
+	var blockId *string
+	blockId, err = client.GetBlockIDByHash("hash")
 	if err != nil {
 		t.Fatal()
 	}
