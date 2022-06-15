@@ -59,7 +59,7 @@ var (
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
-				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
+				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), config.Runtime.Starknet.FeederGateway)
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 

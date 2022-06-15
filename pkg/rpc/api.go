@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/internal/config"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -14,9 +13,6 @@ import (
 
 	"github.com/NethermindEth/juno/internal/log"
 )
-
-// Global feederClient that we use to request pending blocks
-var feederClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 
 // Echo replies with the same message.
 func (HandlerRPC) Echo(c context.Context, message string) (string, error) {
