@@ -68,6 +68,10 @@ var (
 				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
+			if err := db.InitializeDatabaseEnv(config.Runtime.DbPath, 10, 0); err != nil {
+				log.Default.With("Error", err).Fatal("Error starting the database environment")
+			}
+
 			// Initialize ABI Service
 			processHandler.Add("ABI Service", services.AbiService.Run, services.AbiService.Close)
 
@@ -81,9 +85,7 @@ var (
 			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
-			database := db.Databaser(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "contractHash"), 0))
-			contractHashService := services.NewContractHashService(database)
-			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, contractHashService.Close)
+			processHandler.Add("Contract Hash Storage Service", services.ContractHashService.Run, services.ContractHashService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
@@ -98,7 +100,11 @@ var (
 				}
 				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 				// Synchronizer for Starknet State
-				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), ethereumClient, feederGatewayClient)
+				synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
+				if err != nil {
+					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+				}
+				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}

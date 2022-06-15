@@ -69,10 +69,25 @@ var txs = []types.IsTransaction{
 	},
 }
 
+func initServices(t *testing.T) {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.GetDatabase("TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.GetDatabase("RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	TransactionService.Setup(txDb, receiptDb)
+}
+
 func TestTransactionService_StoreTransaction(t *testing.T) {
+	initServices(t)
 	defer resetTransactionService()
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
 		t.Errorf("error running the service: %s", err)
@@ -85,9 +100,8 @@ func TestTransactionService_StoreTransaction(t *testing.T) {
 }
 
 func TestManager_GetTransaction(t *testing.T) {
+	initServices(t)
 	defer resetTransactionService()
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
 		t.Errorf("error running the service: %s", err)
@@ -156,9 +170,8 @@ var receipts = []*types.TransactionReceipt{
 }
 
 func TestManager_PutReceipt(t *testing.T) {
+	initServices(t)
 	defer resetTransactionService()
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
 		t.Errorf("error running the service: %s", err)
@@ -170,9 +183,8 @@ func TestManager_PutReceipt(t *testing.T) {
 }
 
 func TestManager_GetReceipt(t *testing.T) {
+	initServices(t)
 	defer resetTransactionService()
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	TransactionService.Setup(database)
 	err := TransactionService.Run()
 	if err != nil {
 		t.Errorf("error running the service: %s", err)

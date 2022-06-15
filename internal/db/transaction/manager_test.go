@@ -68,9 +68,24 @@ var txs = []types.IsTransaction{
 	},
 }
 
+func initManager(t *testing.T) *Manager {
+	err := db.InitializeDatabaseEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.GetDatabase("TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.GetDatabase("RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	return NewManager(txDb, receiptDb)
+}
+
 func TestManager_PutTransaction(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := NewManager(database)
+	manager := initManager(t)
 	for _, tx := range txs {
 		manager.PutTransaction(tx.GetHash(), tx)
 	}
@@ -78,8 +93,7 @@ func TestManager_PutTransaction(t *testing.T) {
 }
 
 func TestManager_GetTransaction(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := NewManager(database)
+	manager := initManager(t)
 	// Insert all the transactions
 	for _, tx := range txs {
 		manager.PutTransaction(tx.GetHash(), tx)
@@ -147,8 +161,7 @@ var receipts = []*types.TransactionReceipt{
 }
 
 func TestManager_PutReceipt(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := NewManager(database)
+	manager := initManager(t)
 	for _, receipt := range receipts {
 		manager.PutReceipt(receipt.TxHash, receipt)
 	}
@@ -156,8 +169,7 @@ func TestManager_PutReceipt(t *testing.T) {
 }
 
 func TestManager_GetReceipt(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := NewManager(database)
+	manager := initManager(t)
 	for _, receipt := range receipts {
 		manager.PutReceipt(receipt.TxHash, receipt)
 	}
