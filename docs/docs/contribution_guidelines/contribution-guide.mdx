@@ -19,8 +19,8 @@ We've created a simple cheatsheet file with examples of every heading, code bloc
 
 **Step 1:**  Create a branch off of the staging branch
 
-**Step 2:** Add your desired changes to your branch
-- you can use yarn to visualize your edits of the docs locally using `yarn start`
+**Step 2:** Add desired changes to your branch
+- you can use yarn to visualize your edits locally using `yarn start`
 
 **Step 3:** Make a PR to the main branch
 - once your PR is submitted, changes from your PR can be visualized thanks to Render
@@ -32,8 +32,8 @@ We've created a simple cheatsheet file with examples of every heading, code bloc
 There's a couple things to be aware of when adding your own `*.md` files to our codebase:
 
 - Please remove all `HTML` elements
-- Links are done using `[text](link)` this can link out to external links or to local docs files
-- For images, use the syntax `![Alt Text](image url)` to add an image, alternatively see below:
+- Links are done using `[text](link)`. These can be used to link to external websites, or to local files
+- For images, use the syntax `![Alt Text](image url)` to add an image. For an acceptable alternative syntax see below:
 
 ```md
 <img
@@ -44,10 +44,10 @@ There's a couple things to be aware of when adding your own `*.md` files to our 
 
 ### Adding meta data to your doc
 
-The docs make use of a feature called [frontmatter](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs#markdown-frontmatter) which lets you add some meta data and
-control the way the docs are referenced through the site.
+The docs make use of a feature called [frontmatter](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs#markdown-frontmatter) which allows for the addition of some meta data and
+controls the way docs are referenced through the site.
 
-This is done by adding a small section to the top of your doc like this:
+To correctly use it, add a small section at the top of your doc, such as:
 
 ```md
 ---
@@ -63,7 +63,7 @@ Such as specifying the url you would like using
 
 `slug: /questionably/deep/url/for/no/reason/buckwheat-crepes`
 
-Adding `keywords` or `description` etc, below is a full example:
+Adding `keywords` or `description` etc, as required. Full example:
 ```
 ---
 id: not-three-cats
@@ -86,6 +86,6 @@ My Document Markdown content
 
 To update the high level navigation, open the file in `docs/sidebars.js` and arrange n order as required. The titles for links are pulled from their files.
 
-The `items` here take a page ID, a page ID by default is the title of the file, as example `example-doc.md` would be `example-doc`
+The `items` here take a page ID, a page ID by default is the title of the file, as example `example-doc.md` would be `example-doc`.
 
-To read the Docusaurus docs, [click here](https://docusaurus.io/docs/sidebar)
+Find the Docusaurus documentation [here](https://docusaurus.io/docs/sidebar).

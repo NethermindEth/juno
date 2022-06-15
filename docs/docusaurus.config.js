@@ -6,8 +6,8 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-    title: 'Juno Documentation 🌠',
-    tagline: 'StarkNet is cool',
+    title: 'Juno is awesome 🌠',
+    tagline: 'We are working on StarkNet decentralization',
     url: 'https://gojuno.xyz',
     baseUrl: '/',
     onBrokenLinks: 'throw',
