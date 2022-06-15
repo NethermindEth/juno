@@ -189,9 +189,9 @@ type CodeInfo struct {
 
 // TransactionFailureReason store reason of failure in transactions.
 type TransactionFailureReason struct {
-	TxID     int64  `json:"tx_id"`
-	Code     string `json:"code"`
-	ErrorMsg string `json:"error_message"`
+	TxID     int64  `json:"tx_id,omitempty"`
+	Code     string `json:"code,omitempty"`
+	ErrorMsg string `json:"error_message,omitempty"`
 }
 
 // type TxnStatus string
@@ -208,7 +208,7 @@ type TransactionInfo struct {
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason `json:"transaction_failure_reason"`
+	TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
 	TransactionStatus
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
@@ -220,9 +220,9 @@ type TransactionInBlockInfo struct {
 
 type TransactionStatus struct {
 	// tx_status for get_transaction_status
-	TxStatus string `json:"tx_status"`
+	TxStatus string `json:"tx_status,omitempty"`
 	// status for other calls.
-	Status    string `json:"status"`
+	Status    string `json:"status,omitempty"`
 	BlockHash string `json:"block_hash"`
 }
 
