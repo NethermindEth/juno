@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	_ "embed"
+	"math/big"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -65,41 +67,23 @@ func (s *vmService) Run() error {
 	s.rpcServer = grpc.NewServer()
 
 	// generate the py environment in the data dir
-	var err error
-	s.vmDir, err = os.MkdirTemp("", "vm") // TODO: we should use datadir
-	if err != nil {
-		s.logger.Errorf("failed to create vm dir: %v", err)
-		return err
+	s.vmDir = config.DataDir
+
+	files := [...]struct {
+		name     string
+		contents []byte
+	}{
+		{"vm.py", pyMain},
+		{"vm_pb2.py", pyPb},
+		{"vm_pb2_grpc.py", pyPbGRpc},
 	}
 
-	// TODO: Use filepath.Join instead as the path separator varies across
-	// operating systems.
-	if err = os.WriteFile(s.vmDir+"/vm.py", pyMain, 0o644); err != nil {
-		s.logger.Errorf("failed to write main.py: %v", err)
-		return err
-	}
-	// TODO: Use filepath.Join instead as the path separator varies across
-	// operating systems.
-	if err = os.WriteFile(s.vmDir+"/vm_pb2.py", pyPb, 0o644); err != nil {
-		s.logger.Errorf("failed to write vm_pb2.py: %v", err)
-		return err
-	}
-	// TODO: Use filepath.Join instead as the path separator varies across
-	// operating systems.
-	if err = os.WriteFile(s.vmDir+"/vm_pb2_grpc.py", pyPbGRpc, 0o644); err != nil {
-		s.logger.Errorf("failed to write vm_pb2_grpc.py: %v", err)
-		return err
-	}
-
-	s.logger.Infof("vm dir: %s", s.vmDir)
-
-	// TODO: Use filepath.Join instead as the path separator varies across
-	// operating systems.
-	// start the py vm rpc server (serving vm)
-	s.vmCmd = exec.Command("python", s.vmDir+"/vm.py", s.rpcVMAddr, "localhost:8082")
-	if err := s.vmCmd.Start(); err != nil {
-		s.logger.Errorf("failed to start python vm rpc: %v", err)
-		return err
+	for _, f := range files {
+		path := filepath.Join(s.vmDir, f.name)
+		if err := os.WriteFile(path, f.contents, 0o644); err != nil {
+			s.logger.Errorf("failed to write to %s: %v", path, err)
+			return err
+		}
 	}
 
 	// start the go vm rpc server (serving storage)
@@ -124,17 +108,17 @@ func (s *vmService) Run() error {
 func (s *vmService) setDefaults() {
 	if s.manager == nil {
 		// notest
-		// TODO: Use filepath.Join instead as the path separator varies 
-		// across operating systems.
-		codeDatabase := db.NewKeyValueDb(config.DataDir+"/code", 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
+		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
+		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(s.vmDir, "storage"), 0))
 		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
 	}
 
 	// TODO: We probably also need to account for the idea that the
 	// following ports may already be occupied and so we may need to allow
-	// the user to do so from a config or generate these automatically if
-	// that is possible.
+	// the user to do so from a config or generate these automatically
+	// i.e. passing in an empty string or port value of ":0". This value
+	// can then be retrieved using lis.Addr().(*net.TCPAddr).Port where
+	// lis is the net.Listener above.
 	s.rpcNet = "tcp"
 	s.rpcVMAddr = "localhost:8081"
 	s.rpcStorageAddr = "localhost:8082"
@@ -169,6 +153,13 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
+	// TODO: How to pass in the compiled contract into the function below?
+	_, err = getFullContract(contractAddr.Big(), new(big.Int))
+	if err != nil {
+		s.logger.Errorf("failed to retrieve compiled contract: %v", err)
+		return nil, err
+	}
+
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
 		// XXX: Calldata has to be an array of bytes (or hex strings if you
@@ -176,12 +167,10 @@ func (s *vmService) Call(
 		Calldata:        calldata.Bytes(),
 		CallerAddress:   callerAddr.Bytes(),
 		ContractAddress: contractAddr.Bytes(),
-		// TODO: The compiled contract has to be passed in as well. See
-		// service.getFullContract in the vm_utils.go file.
-		Root:     root.Bytes(),
-		Selector: selector.Bytes(),
+		Root:            root.Bytes(),
+		Selector:        selector.Bytes(),
 		// XXX: Since calls are read-only, the signature does not appear to
-		// be required.
+		// be required (see vm.py as well).
 		Signature: signature.Bytes(),
 	})
 	if err != nil {

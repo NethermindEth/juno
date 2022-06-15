@@ -31,9 +31,9 @@ async def call(
     # XXX: signature does not appear to be important as well.
     # signature,
 ):
-    # TODO: How to get the contact's hash?
+    # TODO: How to get the contract's hash?
 
-    # TODO: What is juno_addr (see StorageRPCClient constructor).
+    # TODO: What is juno_addr? (See StorageRPCClient constructor).
     juno_addr = ""
     adapter = StorageRPCClient(juno_addr)
 
@@ -61,19 +61,25 @@ class StorageRPCClient(Storage):
         self.juno_address = juno_address
 
     async def set_value(self, key, value):
-        # call juno.set_value
-        pass
+        # XXX: Only read-only operations are supported right now.
+        raise NotImplementedError
 
     async def del_value(self, key):
-        # call juno.del_value
-        pass
+        # XXX: Only read-only operations are supported right now.
+        raise NotImplementedError
 
     async def get_value(self, key):
-        # call juno.get_value
+        # TODO: Because the contract definition is not stored locally,
+        # a request whose key starts with b"contract_definition_fact"
+        # should be intercepted. For example, this class can be 
+        # instantiated with a Dict that where 
+        # key = b"contract_definition_fact:\x00 ..." and \x00 is the
+        # contract's hash and val = compiled contract code which is also
+        # passed into the call function above as contract_definition.
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
-            reqest = vm_pb2.GetValueRequest(key=key)
-            response = await stub.GetValue(reqest)
+            request = vm_pb2.GetValueRequest(key=key)
+            response = await stub.GetValue(request)
             return response.value
 
 
