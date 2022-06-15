@@ -43,7 +43,7 @@ Make sure you have Go installed ([download](https://go.dev/dl/)). Version `1.18`
 At time of writing, we support two commands:
 
 - juno
-    - `juno` is the command to initialize the node
+    - `juno` is the command to initialize the node.
 - juno-cli
     - `juno-cli` is the command that handles a set of different commands for StarkNet ecosystem.
 
@@ -88,7 +88,7 @@ You can install the entire app using docker. Just check the
     - starknet_getCode (pending)
     - starknet_getBlockByNumber (pending)
 - [Rest API](https://gojuno.xyz/docs/features/rest) is a wrapper to the StarkNet feeder gateway. Through it you can call the node
-  in the same way you would call the feeder gateway, wgere using the same params will return the same response.
+  in the same way you would call the feeder gateway, where using the same params will return the same response.
 - [CLI](https://gojuno.xyz/docs/features/cli) for general StarkNet tools.
 - [Prometheus Metrics](https://gojuno.xyz/docs/feature/metrics).
 - [Dockerized app](https://gojuno.xyz/docs/running/docker).
