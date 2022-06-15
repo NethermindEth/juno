@@ -121,8 +121,10 @@ func New() {
 		RPC:      rpcConfig{Enabled: true, Port: 8080},
 		DbPath:   DataDir,
 		REST:     restConfig{Enabled: true, Port: 8100, Prefix: "/feeder_gateway"},
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io",
-			Network: "mainnet"},
+		Starknet: starknetConfig{
+			Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io",
+			Network: "mainnet",
+		},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	// Create default Juno configuration file if it does not exist
