@@ -7,7 +7,7 @@ import (
 
 // getStateUpdateCmd represents the getStateUpdate command
 var getStateUpdateCmd = &cobra.Command{
-	Use:   "get_state_update [BLOCK_NUMBER] [flags]",
+	Use:   "get_state_update [BLOCK_HASH or BLOCK_NUMBER] [flags]",
 	Short: "Get state changes made by a specific block.",
 	Long:  `See https://www.cairo-lang.org/docs/hello_starknet/cli.html#get-state-update`,
 	Args:  cobra.ExactArgs(1),

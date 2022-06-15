@@ -434,14 +434,14 @@ func (c Client) GetBlockHashById(blockID string) (*string, error) {
 }
 
 // GetBlockIDByHash creates a new request to get the block ID by hash.
-func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
+func (c Client) GetBlockIDByHash(blockHash string) (*int, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_id_by_hash", map[string]string{"blockHash": blockHash}, nil)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_id_by_hash.")
 		return nil, err
 	}
-	var res string
+	var res int
 	_, err = c.do(req, &res)
 	if err != nil {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")

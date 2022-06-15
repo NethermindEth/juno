@@ -21,13 +21,13 @@ var getBlockCmd = &cobra.Command{
 	},
 }
 
-func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
+func getBlockInfo(blockHashOrNumber string) (*feeder.StarknetBlock, error) {
 	blockHash, blockNumber := "", ""
 
-	if isInteger(input) {
-		blockNumber = input
+	if isInteger(blockHashOrNumber) {
+		blockNumber = blockHashOrNumber
 	} else {
-		blockHash = input
+		blockHash = blockHashOrNumber
 	}
 
 	client := initClient()
