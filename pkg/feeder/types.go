@@ -123,8 +123,8 @@ type L1ToL2Message struct {
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
 	FromAddress string   `json:"from_address"`
-	ToAddress   string   `json:"to_address,omitempty"`
-	Payload     []string `json:"payload,omitempty"`
+	ToAddress   string   `json:"to_address"`
+	Payload     []string `json:"payload"`
 }
 
 // Event Represents a StarkNet event; contains all the fields that will

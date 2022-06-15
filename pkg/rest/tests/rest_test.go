@@ -1,8 +1,6 @@
 // package rest_test
 package tests
 
-/*
-
 import (
 	"bytes"
 	"context"
@@ -1301,4 +1299,3 @@ func TestGetTransactionHashByIDFeederFail(t *testing.T) {
 	// Assert error message
 	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
-*/
