@@ -3,7 +3,6 @@ package abi
 import (
 	"errors"
 	"fmt"
-
 	"github.com/NethermindEth/juno/internal/db"
 	"google.golang.org/protobuf/proto"
 )
@@ -32,6 +31,9 @@ func (m *Manager) GetABI(contractAddress string) *Abi {
 	// Query to database
 	data, err := m.database.Get(key)
 	if err != nil {
+		if db.ErrNotFound == err {
+			return nil
+		}
 		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}

@@ -70,11 +70,12 @@ func TestRPCServer(t *testing.T) {
 }
 
 func TestServer(t *testing.T) {
-	server := NewServer(":8080", "localhost:8081")
+
+	server := NewServer(":8080", nil)
 	go func() {
 		_ = server.ListenAndServe()
 	}()
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
 	server.Close(ctx)
 	cancel()
 }
