@@ -72,14 +72,20 @@ func (s *vmService) Run() error {
 		return err
 	}
 
+	// TODO: Use filepath.Join instead as the path separator varies across
+	// operating systems.
 	if err = os.WriteFile(s.vmDir+"/vm.py", pyMain, 0o644); err != nil {
 		s.logger.Errorf("failed to write main.py: %v", err)
 		return err
 	}
+	// TODO: Use filepath.Join instead as the path separator varies across
+	// operating systems.
 	if err = os.WriteFile(s.vmDir+"/vm_pb2.py", pyPb, 0o644); err != nil {
 		s.logger.Errorf("failed to write vm_pb2.py: %v", err)
 		return err
 	}
+	// TODO: Use filepath.Join instead as the path separator varies across
+	// operating systems.
 	if err = os.WriteFile(s.vmDir+"/vm_pb2_grpc.py", pyPbGRpc, 0o644); err != nil {
 		s.logger.Errorf("failed to write vm_pb2_grpc.py: %v", err)
 		return err
@@ -87,6 +93,8 @@ func (s *vmService) Run() error {
 
 	s.logger.Infof("vm dir: %s", s.vmDir)
 
+	// TODO: Use filepath.Join instead as the path separator varies across
+	// operating systems.
 	// start the py vm rpc server (serving vm)
 	s.vmCmd = exec.Command("python", s.vmDir+"/vm.py", s.rpcVMAddr, "localhost:8082")
 	if err := s.vmCmd.Start(); err != nil {
@@ -116,11 +124,17 @@ func (s *vmService) Run() error {
 func (s *vmService) setDefaults() {
 	if s.manager == nil {
 		// notest
+		// TODO: Use filepath.Join instead as the path separator varies 
+		// across operating systems.
 		codeDatabase := db.NewKeyValueDb(config.DataDir+"/code", 0)
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
 		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
 	}
 
+	// TODO: We probably also need to account for the idea that the
+	// following ports may already be occupied and so we may need to allow
+	// the user to do so from a config or generate these automatically if
+	// that is possible.
 	s.rpcNet = "tcp"
 	s.rpcVMAddr = "localhost:8081"
 	s.rpcStorageAddr = "localhost:8082"
@@ -164,11 +178,11 @@ func (s *vmService) Call(
 		ContractAddress: contractAddr.Bytes(),
 		// TODO: The compiled contract has to be passed in as well. See
 		// service.getFullContract in the vm_utils.go file.
-		Root:            root.Bytes(),
-		Selector:        selector.Bytes(),
+		Root:     root.Bytes(),
+		Selector: selector.Bytes(),
 		// XXX: Since calls are read-only, the signature does not appear to
 		// be required.
-		Signature:       signature.Bytes(),
+		Signature: signature.Bytes(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)
