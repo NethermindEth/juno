@@ -361,6 +361,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 		return txs[index], nil
 	}
 	// TODO: return invalid param error
+	// notest
 	return nil, errors.New("invalid blockHashOrtTag param")
 }
 
