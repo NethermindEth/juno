@@ -94,6 +94,11 @@ func IncreaseBlockSent() {
 	noOfRequests.WithLabelValues("Sent", "Blocks").Inc()
 }
 
+// This increases when the request in GetStateUpdateGoerli in feeder.go is sent
+func IncreaseStateUpdateGoerliSent() {
+	noOfRequests.WithLabelValues("Sent", "State Update Goerli").Inc()
+}
+
 // This increases when the request in GetStateUpdate in feeder.go is sent
 func IncreaseStateUpdateSent() {
 	noOfRequests.WithLabelValues("Sent", "State Update").Inc()
@@ -112,6 +117,11 @@ func IncreaseContractStorageSent() {
 // This increases when the request in GetTransactionStatus in feeder.go is sent
 func IncreaseTxStatusSent() {
 	noOfRequests.WithLabelValues("Sent", "Transaction Status").Inc()
+}
+
+// This increases when the request in GetTransactionTrace in feeder.go is sent
+func IncreaseTxTraceSent() {
+	noOfRequests.WithLabelValues("Sent", "Transaction Trace").Inc()
 }
 
 // This increases when the request in GetTransaction in feeder.go is sent
@@ -159,8 +169,13 @@ func IncreaseBlockReceived() {
 	noOfRequests.WithLabelValues("Received", "Blocks").Inc()
 }
 
+// This increases when the response of GetStateUpdateGoerli in feeder.go is received
+func IncreaseStateUpdateGoerliReceived() {
+	noOfRequests.WithLabelValues("Received", "State Update Goerli").Inc()
+}
+
 // This increases when the response of GetStateUpdate in feeder.go is received
-func IncreaseStateUpdateRecived() {
+func IncreaseStateUpdateReceived() {
 	noOfRequests.WithLabelValues("Received", "State Update").Inc()
 }
 
@@ -177,6 +192,11 @@ func IncreaseContractStorageReceived() {
 // This increases when the response of GetTransactionStatus in feeder.go is received
 func IncreaseTxStatusReceived() {
 	noOfRequests.WithLabelValues("Received", "Transaction Status").Inc()
+}
+
+// This increases when the response of GetTransactionTrace in feeder.go is received
+func IncreaseTxTraceReceived() {
+	noOfRequests.WithLabelValues("Received", "Transaction Trace").Inc()
 }
 
 // This increases when the response of GetTransaction in feeder.go is received
@@ -225,6 +245,11 @@ func IncreaseBlockFailed() {
 	noOfRequests.WithLabelValues("Failed", "Blocks").Inc()
 }
 
+// This increases when the request in GetStateUpdateGoerli in feeder.go fails
+func IncreaseStateUpdateGoerliFailed() {
+	noOfRequests.WithLabelValues("Failed", "State Update Goerli").Inc()
+}
+
 // This increases when the request in GetStateUpdate in feeder.go fails
 func IncreaseStateUpdateFailed() {
 	noOfRequests.WithLabelValues("Failed", "State Update").Inc()
@@ -243,6 +268,11 @@ func IncreaseContractStorageFailed() {
 // This increases when the request in GetTransactionStatus in feeder.go fails
 func IncreaseTxStatusFailed() {
 	noOfRequests.WithLabelValues("Failed", "Transaction Status").Inc()
+}
+
+// This increases when the request in GetTransactionTrace in feeder.go fails
+func IncreaseTxTraceFailed() {
+	noOfRequests.WithLabelValues("Failed", "Transaction Trace").Inc()
 }
 
 // This increases when the request in GetTransaction in feeder.go fails

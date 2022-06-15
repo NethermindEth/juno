@@ -254,16 +254,19 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 func (c Client) GetStateUpdateGoerli(blockHash, blockNumber string) (*StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
+		metr.IncreaseStateUpdateGoerliFailed()
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-
 	var res StateUpdateResponseGoerli
+	metr.IncreaseStateUpdateGoerliSent()
 	_, err = c.do(req, &res)
 	if err != nil {
+		metr.IncreaseStateUpdateGoerliFailed()
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
+	metr.IncreaseStateUpdateGoerliReceived()
 	return stateUpdateResponseToGoerli(res), err
 }
 
@@ -306,7 +309,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateRespo
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
-	metr.IncreaseStateUpdateRecived()
+	metr.IncreaseStateUpdateReceived()
 	return &res, err
 }
 
@@ -421,15 +424,19 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, error) {
 	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
+		metr.IncreaseTxTraceFailed()
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_trace.")
 		return nil, err
 	}
 	var res TransactionTrace
+	metr.IncreaseTxTraceSent()
 	_, err = c.do(req, &res)
 	if err != nil {
+		metr.IncreaseTxTraceFailed()
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
+	metr.IncreaseTxTraceReceived()
 	return &res, err
 }
 
