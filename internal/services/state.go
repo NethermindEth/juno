@@ -2,9 +2,7 @@ package services
 
 import (
 	"context"
-	"path/filepath"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
@@ -36,17 +34,24 @@ func (s *stateService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
-func (s *stateService) setDefaults() {
+func (s *stateService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		codeDatabase := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "code"), 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+		codeDb, err := db.GetDatabase("CODE")
+		if err != nil {
+			return err
+		}
+		storageDb, err := db.GetDatabase("STORAGE")
+		if err != nil {
+			return err
+		}
+		storageDatabase := db.NewBlockSpecificDatabase(storageDb)
+		s.manager = state.NewStateManager(codeDb, storageDatabase)
 	}
+	return nil
 }
 
 func (s *stateService) Close(ctx context.Context) {

@@ -14,6 +14,15 @@ type Transactioner interface {
 	Begin() Transaction
 }
 
+type Transactioner2 interface {
+	Begin() (Transaction, error)
+}
+
+type TransactionalDb interface {
+	Databaser
+	Transactioner2
+}
+
 type Transaction interface {
 	Databaser
 	Commit() error
