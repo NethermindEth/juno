@@ -39,10 +39,20 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
-	chainID, err := client.ChainID(context.Background())
-	if err != nil {
-		// notest
-		log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+	var chainID *big.Int
+	if client == nil {
+		if config.Runtime.Starknet.Network == "mainnet" {
+			chainID = new(big.Int).SetInt64(1)
+		} else {
+			chainID = new(big.Int).SetInt64(0)
+		}
+	} else {
+		var err error
+		chainID, err = client.ChainID(context.Background())
+		if err != nil {
+			// notest
+			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+		}
 	}
 	return &Synchronizer{
 		ethereumClient:      client,

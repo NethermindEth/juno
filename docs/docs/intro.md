@@ -10,14 +10,19 @@ Let's discover **Juno in less than 5 minutes**.
 ## What You'll Need
 
 - [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
-- [Cairo-lang](https://www.cairo-lang.org/docs/quickstart.html) if you want to do `starknet_call` command.
 
 ### Installing
 
-You can get all the dependencies running the next command:
+After clone the project,
 
 ```bash
-$ go get -u github.com/NethermindEth/juno 
+git clone https://github.com/NethermindEth/juno
+```
+
+You can install all the dependencies running the next command inside the project folder:
+
+```bash
+$ go get ./...
 ```
 
 ## Running Juno
@@ -30,11 +35,18 @@ Compile Juno:
 $ make compile
 ```
 
-Run Juno:
+After compilation, you will have 2 commands inside the `build` folder of the project:
+
+- juno
+    - `juno` is the command that initialize the node
+- juno-cli
+    - `juno-cli` is the command that handle a set of different commands about the StarkNet ecosystem.
 
 ```bash
 $ make run
 ```
+
+For more details on the configuration, check the [config description](./running/config.mdx). 
 
 ### Using Docker
 

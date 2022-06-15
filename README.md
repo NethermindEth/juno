@@ -59,9 +59,12 @@ On the other side, the `juno-cli` command can be installed with the next command
 go install github.com/NethermindEth/juno/cmd/juno-cli@latest
 ```
 
+For details about the configuration you can look at
+the [config file description](https://gojuno.xyz/docs/running/config).
+
 ### 📦 Dockerized
 
-You can install the app using docker, if you need it, or you need a clean installation, can check the 
+You can install the app using docker, if you need it, or you need a clean installation, can check the
 [docker guide](https://gojuno.xyz/docs/running/docker).
 
 ## 🎯 Features
@@ -92,7 +95,7 @@ You can install the app using docker, if you need it, or you need a clean instal
 
 ## 📜 Documentation
 
-For further details, you can watch the [documentation](https://gojuno.xyz). 
+For further details, you can watch the [documentation](https://gojuno.xyz).
 
 ## 👍 Contribute
 
@@ -108,7 +111,8 @@ If you want to say **thank you** and/or support the active development of `Juno`
 5. Add an issue if you find
    a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=)
    , or you need or want a
-   new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
+   new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=)
+   .
 
 ## ‍💻 Code Contributors
 
@@ -116,7 +120,8 @@ If you want to say **thank you** and/or support the active development of `Juno`
 
 ## 🤝 Partnerships
 
-If you want to establish a partnership with the Juno team, any special need, feel free to reach us via [email](mailto:juno@nethermind.io). 
+If you want to establish a partnership with the Juno team, any special need, feel free to reach us
+via [email](mailto:juno@nethermind.io).
 
 ## ⭐️ Stargazers over time
 
