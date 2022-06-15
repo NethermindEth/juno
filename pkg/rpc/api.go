@@ -43,10 +43,12 @@ func (HandlerRPC) StarknetCall(
 		}
 		result, err := feederClient.CallContract(call, "", string(*tag))
 		if err != nil {
+			// notest
 			return nil, fmt.Errorf("call failed %v", err)
 		}
 		return (*result)["result"], nil
 	}
+	// notest
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
@@ -58,6 +60,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 	// We basically reimplement NewBlockResponse since we have convert the type from the feeder gateway
 	res, err := feederClient.GetBlock("", string(blockTag))
 	if err != nil {
+		// notest
 		return nil, err
 	}
 	response := &BlockResponse{
@@ -96,6 +99,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 			}
 		// notest
 		default:
+			// notest
 			txs[i] = &Txn{}
 		}
 	}
@@ -208,11 +212,11 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 	if number := blockNumberOrTag.Number; number != nil {
 		return getBlockByNumber(ctx, *number, scope)
 	}
-	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
 		return getBlockByTag(ctx, *tag, scope)
 	}
 	// TODO: Send bad request error
+	// notest
 	return nil, errors.New("bad request")
 }
 
@@ -323,6 +327,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 	if tag := blockHashOrTag.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(c, *tag, ScopeFullTxns)
 		if err != nil {
+			// notest
 			return nil, fmt.Errorf("block not found")
 		}
 		txs := blockResponse.Transactions.([]*Txn)
@@ -346,10 +351,10 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 		txn := services.TransactionService.GetTransaction(txHash)
 		return NewTxn(txn), nil
 	}
-	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(ctx, *tag, ScopeFullTxns)
 		if err != nil {
+			// notest
 			return nil, fmt.Errorf("block not found")
 		}
 		txs := blockResponse.Transactions.([]*Txn)
@@ -376,6 +381,7 @@ func (HandlerRPC) StarknetGetCode(
 		// Try the feeder gateway for pending block
 		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
 		if err != nil {
+			// notest
 			return nil, fmt.Errorf("abi not found %v", err)
 		}
 		// Convert feeder type to RPC CodeResult type
@@ -406,6 +412,7 @@ func (HandlerRPC) StarknetGetCode(
 		}
 		marshal, err = json.Marshal(abiResponse)
 		if err != nil {
+			// notest
 			return nil, fmt.Errorf("unexpected marshal error %v", err)
 		}
 		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
@@ -417,6 +424,7 @@ func (HandlerRPC) StarknetGetCode(
 	}
 	marshalledAbi, err := json.Marshal(abi)
 	if err != nil {
+		// notest
 		return nil, err
 	}
 	bytecode := make([]types.Felt, len(code.Code))
@@ -443,6 +451,7 @@ func (HandlerRPC) StarknetPendingTransactions(
 ) ([]*Txn, error) {
 	block, err := getBlockByTag(c, BlocktagPending, ScopeFullTxns)
 	if err != nil {
+		// notest
 		return nil, err
 	}
 	return block.Transactions.([]*Txn), nil
