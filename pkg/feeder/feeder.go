@@ -5,6 +5,7 @@ package feeder
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -506,6 +507,7 @@ func (c Client) GetBlockHashById(blockID string) (*string, error) {
 }
 
 // GetBlockIDByHash creates a new request to get the block ID by hash.
+// notest
 func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_block_id_by_hash", map[string]string{"blockHash": blockHash}, nil)
@@ -515,7 +517,7 @@ func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_block_id_by_hash.")
 		return nil, err
 	}
-	var res string
+	var res interface{}
 	metr.IncreaseBlockIDSent()
 	_, err = c.do(req, &res)
 	if err != nil {
@@ -523,8 +525,9 @@ func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
 	}
+	resStr := fmt.Sprintf("%v", res)
 	metr.IncreaseBlockIDReceived()
-	return &res, err
+	return &resStr, err
 }
 
 // GetTransactionHashByID creates a new request to get a transaction
@@ -553,6 +556,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 
 // GetTransactionIDByHash creates a new request to get a transaction ID
 // by hash.
+// notest
 func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_transaction_id_by_hash",
@@ -563,7 +567,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
 		return nil, err
 	}
-	var res string
+	var res interface{}
 	metr.IncreaseTxIDSent()
 	_, err = c.do(req, &res)
 	if err != nil {
@@ -572,6 +576,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 			Error("Error connecting to the gateway.")
 		return nil, err
 	}
+	resStr := fmt.Sprintf("%v", res)
 	metr.IncreaseTxIDReceived()
-	return &res, err
+	return &resStr, err
 }
