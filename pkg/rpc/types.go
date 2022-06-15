@@ -323,8 +323,8 @@ func NewEvent(event *types.Event) *Event {
 // EmittedEvent Represent Event information decorated with metadata on where it was emitted
 type EmittedEvent struct {
 	Event
-	BlockHash       BlockHash               `json:"block_hash"`
-	TransactionHash types.TransactionHash   `json:"transaction_hash"`
+	BlockHash       BlockHash             `json:"block_hash"`
+	TransactionHash types.TransactionHash `json:"transaction_hash"`
 }
 
 // TxnReceipt Receipt of the transaction

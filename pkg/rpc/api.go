@@ -37,9 +37,9 @@ func (HandlerRPC) StarknetCall(
 			calldata[i] = data.Hex()
 		}
 		call := feeder.InvokeFunction{
-			ContractAddress: request.ContractAddress.Hex(),
+			ContractAddress:    request.ContractAddress.Hex(),
 			EntryPointSelector: request.EntryPointSelector.Hex(),
-			Calldata: calldata,
+			Calldata:           calldata,
 		}
 		result, err := feederClient.CallContract(call, "", string(*tag))
 		if err != nil {
@@ -61,12 +61,12 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 		return nil, err
 	}
 	response := &BlockResponse{
-		BlockHash: types.HexToBlockHash(res.BlockHash),
-		ParentHash: types.HexToBlockHash(res.ParentBlockHash),
+		BlockHash:   types.HexToBlockHash(res.BlockHash),
+		ParentHash:  types.HexToBlockHash(res.ParentBlockHash),
 		BlockNumber: uint64(res.BlockNumber),
-		Status: types.StringToBlockStatus(res.Status),
-		Sequencer: types.HexToAddress(res.SequencerAddress),
-		NewRoot: types.HexToFelt(res.StateRoot),
+		Status:      types.StringToBlockStatus(res.Status),
+		Sequencer:   types.HexToAddress(res.SequencerAddress),
+		NewRoot:     types.HexToFelt(res.StateRoot),
 	}
 	if scope == ScopeTxnHash {
 		txs := make([]*types.TransactionHash, len(res.Transactions))
@@ -114,18 +114,18 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 			}
 			messagesSent[j] = &MsgToL1{
 				ToAddress: types.HexToEthAddress(msg.ToAddress),
-				Payload: payload,	
+				Payload:   payload,
 			}
 		}
 		events := make([]*Event, len(feederReceipt.Events))
 		for j, event := range feederReceipt.Events {
 			keys := make([]types.Felt, len(event.Keys))
 			for k, key := range event.Keys {
-				keys[k] = types.HexToFelt(key)	
+				keys[k] = types.HexToFelt(key)
 			}
 			data := make([]types.Felt, len(event.Data))
 			for k, datum := range event.Data {
-				data[k] = types.HexToFelt(datum)	
+				data[k] = types.HexToFelt(datum)
 			}
 			events[j] = &Event{
 				FromAddress: types.HexToAddress(event.FromAddress),

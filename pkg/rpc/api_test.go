@@ -3,8 +3,8 @@ package rpc
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -26,7 +26,7 @@ var (
 	testFelt4 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000004")
 
 	fakeClient feederfakes.FakeHttpClient = feederfakes.FakeHttpClient{}
-	client feeder.HttpClient = &fakeClient
+	client     feeder.HttpClient          = &fakeClient
 )
 
 func buildRequest(method string, params ...interface{}) string {
@@ -257,7 +257,7 @@ func TestStarknetGetCode(t *testing.T) {
 	input := `{"abi": [{"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "function"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "l1_handler"}, {"members": [{"offset": 1, "name": "a", "type": "a"}], "name": "a", "size": 1, "type": "struct"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "constructor"}, {"data": [{"name": "a", "type": "a"}], "keys": ["a"], "name": "a", "type": "event"}], "bytecode": ["0xa"]}`
 	fakeClient.DoReturns(generateResponse(input), nil)
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
-	
+
 	want := &abi.Abi{
 		Functions: []*abi.Function{
 			{
@@ -278,7 +278,6 @@ func TestStarknetGetCode(t *testing.T) {
 		},
 		Events: []*abi.AbiEvent{
 			{
-
 				Name: "a",
 				Data: []*abi.AbiEvent_Data{
 					{
@@ -293,8 +292,8 @@ func TestStarknetGetCode(t *testing.T) {
 			{
 				Fields: []*abi.Struct_Field{
 					{
-						Name: "a",
-						Type: "a",
+						Name:   "a",
+						Type:   "a",
 						Offset: 1,
 					},
 				},
@@ -346,7 +345,7 @@ func TestStarknetGetCode(t *testing.T) {
 			Response: buildResponse(CodeResult{Bytecode: codeResponse, Abi: string(abiResponse)}),
 		},
 		{
-			Request: buildRequest("starknet_getCode", "0xa"), // address not held locally --> must query feeder gateway
+			Request:  buildRequest("starknet_getCode", "0xa"), // address not held locally --> must query feeder gateway
 			Response: buildResponse(CodeResult{Bytecode: []types.Felt{types.HexToFelt("a")}, Abi: string(abiResponse2)}),
 		},
 	})
@@ -620,15 +619,15 @@ func TestGetBlock(t *testing.T) {
 
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
 	body, err := json.Marshal(feeder.StarknetBlock{
-		BlockHash: "a",
-		ParentBlockHash: "a",
-		BlockNumber: 0,
-		GasPrice: "a",
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
 		SequencerAddress: "a",
-		StateRoot: "a",
-		Status: "a",
-		Timestamp: 0,
-		Transactions: []feeder.TxnSpecificInfo{},
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
+		Transactions:     []feeder.TxnSpecificInfo{},
 	})
 	if err != nil {
 		t.Fatal("unexpected marshal error")
@@ -638,12 +637,12 @@ func TestGetBlock(t *testing.T) {
 		t.Fatal("unexpected error while initializing fake data in feeder client")
 	}
 	want := &BlockResponse{
-		BlockHash: types.HexToBlockHash("a"),
-		ParentHash: types.HexToBlockHash("a"),
-		BlockNumber: 0,
-		Status: types.StringToBlockStatus("UNKNOWN"),
-		Sequencer: types.HexToAddress("a"),
-		NewRoot: types.HexToFelt("a"),
+		BlockHash:    types.HexToBlockHash("a"),
+		ParentHash:   types.HexToBlockHash("a"),
+		BlockNumber:  0,
+		Status:       types.StringToBlockStatus("UNKNOWN"),
+		Sequencer:    types.HexToAddress("a"),
+		NewRoot:      types.HexToFelt("a"),
 		Transactions: []*Txn{},
 	}
 	// Test request for pending block
@@ -675,24 +674,24 @@ func TestGetBlockByTag(t *testing.T) {
 
 	tx := Txn{
 		FunctionCall: FunctionCall{
-			ContractAddress: types.HexToAddress("a"),
+			ContractAddress:    types.HexToAddress("a"),
 			EntryPointSelector: types.HexToFelt("a"),
-			CallData: []types.Felt{types.HexToFelt("a")},
+			CallData:           []types.Felt{types.HexToFelt("a")},
 		},
 		TxnHash: types.HexToTransactionHash("a"),
 	}
 
-	tests := [...]struct{
+	tests := [...]struct {
 		scope RequestedScope
 		want  interface{}
 	}{
 		{
 			scope: ScopeTxnHash,
-			want: []*types.TransactionHash{&tx.TxnHash},
+			want:  []*types.TransactionHash{&tx.TxnHash},
 		},
 		{
 			scope: ScopeFullTxns,
-			want: []*Txn{&tx},
+			want:  []*Txn{&tx},
 		},
 		{
 			scope: ScopeFullTxnAndReceipts,
@@ -700,18 +699,18 @@ func TestGetBlockByTag(t *testing.T) {
 				{
 					Txn: tx,
 					TxnReceipt: TxnReceipt{
-						TxnHash: types.HexToTransactionHash("a"),
-						Status: types.TxStatusUnknown,
+						TxnHash:    types.HexToTransactionHash("a"),
+						Status:     types.TxStatusUnknown,
 						StatusData: "",
 						MessagesSent: []*MsgToL1{
 							{
 								ToAddress: types.HexToEthAddress("a"),
-								Payload: []types.Felt{types.HexToFelt("a")},
+								Payload:   []types.Felt{types.HexToFelt("a")},
 							},
 						},
 						L1OriginMessage: &MsgToL2{
 							FromAddress: types.HexToEthAddress("a"),
-							Payload: []types.Felt{types.HexToFelt("a")},
+							Payload:     []types.Felt{types.HexToFelt("a")},
 						},
 						Events: []*Event{
 							{
@@ -730,54 +729,54 @@ func TestGetBlockByTag(t *testing.T) {
 
 	// TODO get an actual block for this. Make data more realistic
 	fakeBlock := feeder.StarknetBlock{
-		BlockHash: "a",
-		ParentBlockHash: "a",
-		BlockNumber: 0,
-		GasPrice: "a",
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
 		SequencerAddress: "a",
-		StateRoot: "a",
-		Status: "a",
-		Timestamp: 0,
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
 		Transactions: []feeder.TxnSpecificInfo{
 			{
-				Calldata: []string{"a"},
-				ContractAddress: "a",
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
 				EntryPointSelector: "a",
-				EntryPointType: "a",
-				Signature: []string{"a"},
-				TransactionHash: "a",
-				Type: "INVOKE",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
 			},
 		},
 		TransactionReceipts: []feeder.TransactionExecution{
 			{
 				TransactionIndex: 0,
-				TransactionHash: "a",
+				TransactionHash:  "a",
 				L1ToL2Message: feeder.L1ToL2Message{
 					FromAddress: "a",
-					ToAddress: "a",
-					Selector: "a",
-					Payload: []string{"a"},
-					Nonce: "0",
+					ToAddress:   "a",
+					Selector:    "a",
+					Payload:     []string{"a"},
+					Nonce:       "0",
 				},
 				L2ToL1Messages: []feeder.L2ToL1Message{
 					{
 						FromAddress: "a",
-						ToAddress: "a",
-						Payload: []string{"a"},
+						ToAddress:   "a",
+						Payload:     []string{"a"},
 					},
 				},
 				Events: []feeder.Event{
 					{
 						FromAddress: "a",
-						Keys: []string{"a"},
-						Data: []string{"a"},
+						Keys:        []string{"a"},
+						Data:        []string{"a"},
 					},
 				},
 				ExecutionResources: feeder.ExecutionResources{
-					NSteps: 0,
+					NSteps:                 0,
 					BuiltinInstanceCounter: map[string]int64{"a": 0},
-					NMemoryHoles: 0,
+					NMemoryHoles:           0,
 				},
 				ActualFee: "0",
 			},
@@ -785,12 +784,12 @@ func TestGetBlockByTag(t *testing.T) {
 	}
 
 	want := &BlockResponse{
-		BlockHash: types.HexToBlockHash("a"),
-		ParentHash: types.HexToBlockHash("a"),
+		BlockHash:   types.HexToBlockHash("a"),
+		ParentHash:  types.HexToBlockHash("a"),
 		BlockNumber: 0,
-		Status: types.StringToBlockStatus("UNKNOWN"),
-		Sequencer: types.HexToAddress("a"),
-		NewRoot: types.HexToFelt("a"),
+		Status:      types.StringToBlockStatus("UNKNOWN"),
+		Sequencer:   types.HexToAddress("a"),
+		NewRoot:     types.HexToFelt("a"),
 	}
 
 	for _, test := range tests {
@@ -835,7 +834,6 @@ func TestGetTransactionByHash(t *testing.T) {
 	}
 }
 
-
 func TestStarknetPendingTransactions(t *testing.T) {
 	// Reassign global feederClient with fake http client
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
@@ -844,13 +842,13 @@ func TestStarknetPendingTransactions(t *testing.T) {
 	x := feeder.StarknetBlock{
 		Transactions: []feeder.TxnSpecificInfo{
 			{
-				Calldata: []string{"a"},
-				ContractAddress: "a",
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
 				EntryPointSelector: "a",
-				EntryPointType: "a",
-				Signature: []string{"a"},
-				TransactionHash: "a",
-				Type: "INVOKE",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
 			},
 		},
 	}
@@ -867,9 +865,9 @@ func TestStarknetPendingTransactions(t *testing.T) {
 	want := []*Txn{
 		{
 			FunctionCall: FunctionCall{
-				ContractAddress: types.HexToAddress("a"),
+				ContractAddress:    types.HexToAddress("a"),
 				EntryPointSelector: types.HexToFelt("a"),
-				CallData: []types.Felt{types.HexToFelt("a")},
+				CallData:           []types.Felt{types.HexToFelt("a")},
 			},
 			TxnHash: types.HexToTransactionHash("a"),
 		},
@@ -916,23 +914,23 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 
 	// Make test case for pending block
 	fakeBlock := feeder.StarknetBlock{
-		BlockHash: "a",
-		ParentBlockHash: "a",
-		BlockNumber: 0,
-		GasPrice: "a",
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
 		SequencerAddress: "a",
-		StateRoot: "a",
-		Status: "a",
-		Timestamp: 0,
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
 		Transactions: []feeder.TxnSpecificInfo{
 			{
-				Calldata: []string{"a"},
-				ContractAddress: "a",
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
 				EntryPointSelector: "a",
-				EntryPointType: "a",
-				Signature: []string{"a"},
-				TransactionHash: "a",
-				Type: "INVOKE",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
 			},
 		},
 	}
@@ -948,14 +946,14 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
 	tx := Txn{
 		FunctionCall: FunctionCall{
-			ContractAddress: types.HexToAddress("a"),
+			ContractAddress:    types.HexToAddress("a"),
 			EntryPointSelector: types.HexToFelt("a"),
-			CallData: []types.Felt{types.HexToFelt("a")},
+			CallData:           []types.Felt{types.HexToFelt("a")},
 		},
 		TxnHash: types.HexToTransactionHash("a"),
 	}
 	tests = append(tests, rpcTest{
-		Request: buildRequest("starknet_getTransactionByBlockHashAndIndex", BlocktagPending, 0),
+		Request:  buildRequest("starknet_getTransactionByBlockHashAndIndex", BlocktagPending, 0),
 		Response: buildResponse(tx),
 	})
 
@@ -997,27 +995,27 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 
 	// Make test case for pending block
 	fakeBlock := feeder.StarknetBlock{
-		BlockHash: "a",
-		ParentBlockHash: "a",
-		BlockNumber: 0,
-		GasPrice: "a",
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
 		SequencerAddress: "a",
-		StateRoot: "a",
-		Status: "a",
-		Timestamp: 0,
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
 		Transactions: []feeder.TxnSpecificInfo{
 			{
-				Calldata: []string{"a"},
-				ContractAddress: "a",
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
 				EntryPointSelector: "a",
-				EntryPointType: "a",
-				Signature: []string{"a"},
-				TransactionHash: "a",
-				Type: "INVOKE",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
 			},
 		},
 	}
-	
+
 	// Set up feeder client for PENDING block
 	body, err := json.Marshal(fakeBlock)
 	if err != nil {
@@ -1030,14 +1028,14 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
 	tx := Txn{
 		FunctionCall: FunctionCall{
-			ContractAddress: types.HexToAddress("a"),
+			ContractAddress:    types.HexToAddress("a"),
 			EntryPointSelector: types.HexToFelt("a"),
-			CallData: []types.Felt{types.HexToFelt("a")},
+			CallData:           []types.Felt{types.HexToFelt("a")},
 		},
 		TxnHash: types.HexToTransactionHash("a"),
 	}
 	tests = append(tests, rpcTest{
-		Request: buildRequest("starknet_getTransactionByBlockNumberAndIndex", BlocktagPending, 0),
+		Request:  buildRequest("starknet_getTransactionByBlockNumberAndIndex", BlocktagPending, 0),
 		Response: buildResponse(tx),
 	})
 
@@ -1047,9 +1045,9 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 
 func TestStarknetCall(t *testing.T) {
 	funcCall := FunctionCall{
-		ContractAddress: types.HexToAddress("a"),
+		ContractAddress:    types.HexToAddress("a"),
 		EntryPointSelector: types.HexToFelt("a"),
-		CallData: []types.Felt{types.HexToFelt("a")},
+		CallData:           []types.Felt{types.HexToFelt("a")},
 	}
 
 	// Reassign global feederClient with fake http client
