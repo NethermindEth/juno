@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -40,10 +39,20 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.Databaser, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
-	chainID, err := client.ChainID(context.Background())
-	if err != nil {
-		// notest
-		log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+	var chainID *big.Int
+	if client == nil {
+		if config.Runtime.Starknet.Network == "mainnet" {
+			chainID = new(big.Int).SetInt64(1)
+		} else {
+			chainID = new(big.Int).SetInt64(0)
+		}
+	} else {
+		var err error
+		chainID, err = client.ChainID(context.Background())
+		if err != nil {
+			// notest
+			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+		}
 	}
 	return &Synchronizer{
 		ethereumClient:      client,
@@ -222,7 +231,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress).
+		log.Default.With("Address", memoryPagesContractAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -245,7 +254,6 @@ func (s *Synchronizer) l1Sync() error {
 	go func() {
 		// Make sure this goroutine never gets moved to a new thread.
 		// MDBX transactions cannot be shared across threads (see updateAndCommitState and updateState).
-		runtime.LockOSThread()
 		ticker := time.NewTicker(time.Second * 5)
 		for range ticker.C {
 			if !s.facts.Exist(strconv.FormatUint(latestBlockSynced, 10)) {

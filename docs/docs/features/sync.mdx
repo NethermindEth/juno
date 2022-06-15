@@ -4,11 +4,16 @@ title: Synchronization
 
 There are currently two methods to synchronize with the StarkNet chain (i.e., download, hold, and update the StarkNet state):
 
-1. the Starkware feeder gateway (a centralized API provided by StarkWare) or
-2. the Layer 1 StarkNet contracts on the Ethereum chain (these contracts hold the StarkNet data on-chain, providing data availability)
+1. The StarkWare feeder gateway (a centralized API provided by StarkWare) or
+2. The Layer 1 StarkNet contracts on the Ethereum chain (these contracts hold the StarkNet data on-chain,
+[providing data availability](https://docs.starknet.io/docs/Data%20Availabilty/on-chain-data)).
+
+## API syncing
 
 The syncing process with the feeder gateway is relatively simple: request a state update from the API [like this](https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=0)
-and apply that state update to the local database. 
+and apply that state update to the local database.
+
+## Layer 1 Syncing
 
 Syncing with the L1 contracts is more complicated. To do this, we listen for events emitted by the contracts to reconstruct the StarkNet state update.
 
@@ -17,7 +22,7 @@ The three key StarkNet contracts on L1 that we are interested in are:
 1. MemoryPageFactRegistry: stores a mapping between a fact (a hash of some data) and a memory page hash.
 This contract has an external function `registerMemoryPageContinuous` that accepts memory pages as input (data structure that contains L2 transaction data).
 When it receives a new valid memory page, the `LogMemoryPageFactContinuous` event is emitted with the hash of the registered memory page.
-2. GpsStatementVerifier: verifies proofs from layer 2. 
+2. GpsStatementVerifier: verifies proofs from layer 2.
 When this contract verifies a proof, it emits a `LogMemoryPagesHashes` event, which contains a fact (hash of data used in the verification process) and an array of memory page hashes.
 3. Starknet: transitions the StarkNet state.
 Emits a `LogStateTransitionFact` event with a fact corresponding to the state transition being processed.
