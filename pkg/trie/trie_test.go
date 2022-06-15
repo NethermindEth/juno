@@ -1,5 +1,13 @@
 package trie
 
+import (
+	"math/big"
+	"testing"
+
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/types"
+)
+
 //
 // import (
 // 	"encoding/json"
@@ -324,3 +332,16 @@ package trie
 // 		t.Errorf("state.Commitment() = %x, want = %x", got, want)
 // 	}
 // }
+
+func TestPut(t *testing.T) {
+  db := store.New()
+  root := new(types.Felt)
+  trie, err := NewTrie(db, root)
+  if err != nil {
+    t.Error(err)
+  }
+  key, val := types.BigToFelt(big.NewInt(2)), types.BigToFelt(big.NewInt(1))
+  if err := trie.Put(&key, &val); err != nil {
+    t.Error(err)
+  }
+}
