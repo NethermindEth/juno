@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
+	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
@@ -222,7 +223,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress).
+		log.Default.With("Address", memoryPagesContractAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -352,20 +353,27 @@ func (s *Synchronizer) updateAndCommitState(
 	newRoot string,
 	sequenceNumber uint64,
 ) uint64 {
+	start := time.Now()
 	txn := s.transactioner.Begin()
 	hashService := services.GetContractHashService()
 	if hashService == nil {
+		metr.IncreaseCountStarknetStateFailed()
 		log.Default.Panic("Contract hash service is unavailable")
 	}
 	_, err := updateState(txn, hashService, stateDiff, newRoot, sequenceNumber)
 	if err != nil {
+		metr.IncreaseCountStarknetStateFailed()
 		log.Default.With("Error", err).Panic("Couldn't update state")
 	} else {
 		err := txn.Commit()
 		if err != nil {
+			metr.IncreaseCountStarknetStateFailed()
 			log.Default.Panic("Couldn't commit to the database")
 		}
 	}
+	metr.IncreaseCountStarknetStateSuccess()
+	duration := time.Since(start)
+	metr.UpdateStarknetSyncTime(duration.Seconds())
 	log.Default.With("Block Number", sequenceNumber).Info("State updated")
 
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, sequenceNumber)
