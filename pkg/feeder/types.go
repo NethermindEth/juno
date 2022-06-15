@@ -264,12 +264,12 @@ type StateUpdateResponseGoerli struct {
 
 type DeployedContract struct {
 	Address      string `json:"address"`
-	ContractHash string `json:"contract_hash"`
+	ContractHash string `json:"class_hash"`
 }
 
 type StateDiff struct {
-	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
+	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 }
 
 // StateUpdateResponse represents the response of a StarkNet state
