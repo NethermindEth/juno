@@ -254,7 +254,7 @@ func TestStarknetGetCode(t *testing.T) {
 	}
 
 	// Set up feeder client for pending block
-	input := `{"abi": [{"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "function"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "l1_handler"}, {"fields": [{"offset": 1, "name": "a", "type": "a"}], "name": "a", "size": 1, "type": "struct"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "constructor"}, {"data": [{"name": "a", "type": "a"}], "keys": ["a"], "name": "a", "type": "event"}], "bytecode": ["0xa"]}`
+	input := `{"abi": [{"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "function"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "l1_handler"}, {"members": [{"offset": 1, "name": "a", "type": "a"}], "name": "a", "size": 1, "type": "struct"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "constructor"}, {"data": [{"name": "a", "type": "a"}], "keys": ["a"], "name": "a", "type": "event"}], "bytecode": ["0xa"]}`
 	fakeClient.DoReturns(generateResponse(input), nil)
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
 	
