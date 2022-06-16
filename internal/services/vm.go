@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services/vmrpc"
 	"github.com/NethermindEth/juno/pkg/types"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -88,7 +89,10 @@ func (s *vmService) Run() error {
 	s.logger.Infof("vm dir: %s", s.vmDir)
 
 	// start the py vm rpc server (serving vm)
-	s.vmCmd = exec.Command("python", s.vmDir+"/vm.py", s.rpcVMAddr, "localhost:8082")
+	s.vmCmd = exec.Command("python", s.vmDir+"/vm.py", s.rpcVMAddr, s.rpcStorageAddr)
+	pyLogger := &pySubProcessLogger{logger: s.logger}
+	s.vmCmd.Stdout = pyLogger
+	s.vmCmd.Stderr = pyLogger
 	if err := s.vmCmd.Start(); err != nil {
 		s.logger.Errorf("failed to start python vm rpc: %v", err)
 		return err
@@ -130,6 +134,7 @@ func (s *vmService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.manager.Close()
 	s.rpcServer.Stop()
+	// TODO: we should probably wait for the process to exit
 	s.vmCmd.Process.Kill()
 	os.RemoveAll(s.vmDir)
 }
@@ -170,4 +175,14 @@ func (s *vmService) Call(
 	}
 
 	return r.Retdata, nil
+}
+
+type pySubProcessLogger struct {
+	// TODO: this should use an interface, but everywhere else it's a *zap.SugaredLogger
+	logger *zap.SugaredLogger
+}
+
+func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
+	p.logger.Warn("Python VM Subprocess: \n%s\n", p0)
+	return len(p0), nil
 }
