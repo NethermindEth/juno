@@ -85,6 +85,16 @@ func (s *vmService) Run() error {
 			return err
 		}
 	}
+	s.logger.Infof("vm dir: %s", s.vmDir)
+
+	// start the py vm rpc server (serving vm)
+	// TODO: Account for the fact that on some systems Python may be
+	// aliased as python3.
+	s.vmCmd = exec.Command("python", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, "localhost:8082")
+	if err := s.vmCmd.Start(); err != nil {
+		s.logger.Errorf("failed to start python vm rpc: %v", err)
+		return err
+	}
 
 	// start the go vm rpc server (serving storage)
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
