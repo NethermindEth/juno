@@ -90,7 +90,7 @@ You can install the entire app using docker. Just check the
 - [Rest API](https://gojuno.xyz/docs/features/rest) is a wrapper to the StarkNet feeder gateway. Through it you can call the node
   in the same way you would call the feeder gateway, where using the same params will return the same response.
 - [CLI](https://gojuno.xyz/docs/features/cli) for general StarkNet tools.
-- [Prometheus Metrics](https://gojuno.xyz/docs/feature/metrics).
+- [Prometheus Metrics](https://gojuno.xyz/docs/features/metrics).
 - [Dockerized app](https://gojuno.xyz/docs/running/docker).
 
 ## 📜 Documentation
