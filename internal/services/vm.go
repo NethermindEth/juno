@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"math/big"
 	"net"
 	"os"
@@ -19,17 +20,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-//go:embed vmrpc/vm.py
-var pyMain []byte
-
-//go:embed vmrpc/vm_pb2.py
-var pyPb []byte
-
-//go:embed vmrpc/vm_pb2_grpc.py
-var pyPbGRpc []byte
-
-var VMService vmService
-
 type vmService struct {
 	service
 	manager *state.Manager
@@ -43,6 +33,38 @@ type vmService struct {
 	rpcStorageAddr string
 }
 
+var (
+	//go:embed vmrpc/vm.py
+	pyMain []byte
+	//go:embed vmrpc/vm_pb2.py
+	pyPb []byte
+	//go:embed vmrpc/vm_pb2_grpc.py
+	pyPbGRpc []byte
+)
+
+var errPythonNotFound = errors.New("services: Python not found in $PATH")
+
+var VMService vmService
+
+func (s *vmService) setDefaults() {
+	if s.manager == nil {
+		// notest
+		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
+		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(s.vmDir, "storage"), 0))
+		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+	}
+
+	// TODO: We probably also need to account for the idea that the
+	// following ports may already be occupied and so we may need to allow
+	// the user to do so from a config or generate these automatically
+	// i.e. passing in an empty string or port value of ":0". This value
+	// can then be retrieved using lis.Addr().(*net.TCPAddr).Port where
+	// lis is the net.Listener above.
+	s.rpcNet = "tcp"
+	s.rpcVMAddr = "localhost:8081"
+	s.rpcStorageAddr = "localhost:8082"
+}
+
 // Setup sets the service configuration, service must be not running.
 func (s *vmService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
@@ -50,6 +72,26 @@ func (s *vmService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSp
 		s.logger.Panic("trying to Setup with service running")
 	}
 	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+}
+
+// python returns the location of Python on the system by searching the
+// $PATH environment variable and returns an error otherwise.
+func python() (string, error) {
+	// TODO: python may also be an incompatible Python version i.e. 2.7 so
+	// account for that as well say by calling python --version once it
+	// has been founding and parsing the version string using regexp.
+	path, err := exec.LookPath("python")
+	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			path, err = exec.LookPath("python3")
+			if err != nil {
+				return "", errPythonNotFound
+			}
+			return path, nil
+		}
+		return "", errPythonNotFound
+	}
+	return path, nil
 }
 
 func (s *vmService) Run() error {
@@ -88,9 +130,11 @@ func (s *vmService) Run() error {
 	s.logger.Infof("vm dir: %s", s.vmDir)
 
 	// start the py vm rpc server (serving vm)
-	// TODO: Account for the fact that on some systems Python may be
-	// aliased as python3.
-	s.vmCmd = exec.Command("python", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, "localhost:8082")
+	py, err := python()
+	if err != nil {
+		return err
+	}
+	s.vmCmd = exec.Command(py, filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, "localhost:8082")
 	if err := s.vmCmd.Start(); err != nil {
 		s.logger.Errorf("failed to start python vm rpc: %v", err)
 		return err
@@ -113,25 +157,6 @@ func (s *vmService) Run() error {
 	}()
 
 	return nil
-}
-
-func (s *vmService) setDefaults() {
-	if s.manager == nil {
-		// notest
-		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(s.vmDir, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
-	}
-
-	// TODO: We probably also need to account for the idea that the
-	// following ports may already be occupied and so we may need to allow
-	// the user to do so from a config or generate these automatically
-	// i.e. passing in an empty string or port value of ":0". This value
-	// can then be retrieved using lis.Addr().(*net.TCPAddr).Port where
-	// lis is the net.Listener above.
-	s.rpcNet = "tcp"
-	s.rpcVMAddr = "localhost:8081"
-	s.rpcStorageAddr = "localhost:8082"
 }
 
 func (s *vmService) Close(ctx context.Context) {
