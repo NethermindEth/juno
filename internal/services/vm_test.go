@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -20,6 +21,9 @@ func TestVMCall(t *testing.T) {
 	defer VMService.Close(context.Background())
 
 	// TODO: store some code to call
+
+	// wait some time for the grpc server to start
+	time.Sleep(time.Second * 1)
 
 	ret, err := VMService.Call(
 		context.Background(),
