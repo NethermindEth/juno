@@ -22,10 +22,9 @@ type Trie struct {
 
 func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt) (*Trie, error) {
 	storer := &trieStorer{kvStorer}
-	if root, err := storer.retrieveByH(rootHash); err != nil {
-		if err == ErrNotFound {
-			return &Trie{nil, storer}, nil
-		}
+	if rootHash == nil {
+		return &Trie{nil, storer}, nil
+	} else if root, err := storer.retrieveByH(rootHash); err != nil {
 		return nil, err
 	} else {
 		return &Trie{root, storer}, nil
@@ -44,7 +43,7 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 	for walked < types.FeltBitLen {
 		if curr.Length == 0 {
 			// node is a binary node or an empty node
-			if bytes.Compare(curr.Bottom.Bytes(), types.Felt0.Bytes()) == 0 {
+			if bytes.Equal(curr.Bottom.Bytes(), types.Felt0.Bytes()) {
 				// node is an empty node (0,0,0)
 				// if we haven't matched the whole key yet it's because it's not in the trie
 				// NOTE: this should not happen, empty nodes are not stored
@@ -84,8 +83,8 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 			// the bottom of the node it links to after walking down its path
 			// this node that curr links to has to be either a binary node or a leaf,
 			// hence its path and length are zero
-			curr := &Node{0, types.Felt0, curr.Bottom}
 			walked += curr.Length // we jumped a path of length `curr.length`
+			curr = &Node{0, types.Felt0, curr.Bottom}
 		} else {
 			// node length is greater than zero but its path diverges from ours,
 			// this means that the key we are looking for is not in the trie
@@ -101,7 +100,7 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 	siblings := make(map[int]*types.Felt)
 	curr := t.root // curr is the current node in the traversal
-	for walked := 0; walked < types.FeltBitLen; {
+	for walked := 0; walked < types.FeltBitLen && curr != nil; {
 		if curr.Length == 0 {
 			// node is a binary node or an empty node
 			if bytes.Compare(curr.Bottom.Bytes(), types.Felt0.Bytes()) == 0 {
@@ -172,7 +171,9 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 		if lcp == 0 {
 			// since we haven't matched the whole key yet, it's not in the trie
 			// sibling is the node going one step down the node's path
-			siblings[walked] = (&Node{curr.Length - 1, curr.Path, curr.Bottom}).Hash()
+			path := curr.Path
+			path.ClearBit(uint(types.FeltLength - curr.Length))
+			siblings[walked] = (&Node{curr.Length - 1, path, curr.Bottom}).Hash()
 			// break the loop, otherwise we would get stuck here
 			break
 		}
@@ -207,7 +208,9 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 		} else {
 			// otherwise we just insert an edge node
 			path := curr.Path
-			path.SetBit(uint(types.FeltBitLen-curr.Length), uint(1))
+			if key.Bit(uint(i)) == 1 {
+				path.SetBit(uint(types.FeltBitLen - curr.Length))
+			}
 			curr = &Node{curr.Length + 1, path, curr.Bottom}
 		}
 		// insert the node into the kvStore and keep its hash
@@ -252,21 +255,18 @@ func (kvs *trieStorer) retrieveByP(key *types.Felt) (*types.Felt, *types.Felt, e
 	if value, ok := kvs.Get(key.Bytes()); !ok {
 		// the key should be in the store, if it's not it's an error
 		return nil, nil, ErrNotFound
-	} else if len(value) != 64 {
+	} else if len(value) != 2*types.FeltLength {
 		// the pedersen hash function operates on two felts,
 		// so if the value is not 64 bytes it's an error
 		return nil, nil, ErrInvalidValue
 	} else {
-		left := types.BytesToFelt(value[:32])
-		right := types.BytesToFelt(value[32:])
+		left := types.BytesToFelt(value[:types.FeltLength])
+		right := types.BytesToFelt(value[types.FeltLength:])
 		return &left, &right, nil
 	}
 }
 
 func (kvs *trieStorer) retrieveByH(key *types.Felt) (*Node, error) {
-	if key == nil {
-		return nil, ErrNotFound
-	}
 	// retrieve the node by its hash function as defined in the starknet merkle-patricia tree
 	if value, ok := kvs.Get(key.Bytes()); ok {
 		// unmarshal the retrived value into the node
@@ -280,9 +280,9 @@ func (kvs *trieStorer) retrieveByH(key *types.Felt) (*Node, error) {
 }
 
 func (kvs *trieStorer) storeByP(key, arg1, arg2 *types.Felt) error {
-	value := make([]byte, 64)
-	copy(value[:32], arg1.Bytes())
-	copy(value[32:], arg2.Bytes())
+	value := make([]byte, types.FeltLength*2)
+	copy(value[:types.FeltLength], arg1.Bytes())
+	copy(value[types.FeltLength:], arg2.Bytes())
 	kvs.Put(key.Bytes(), value)
 	return nil
 }

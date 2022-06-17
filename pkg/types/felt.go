@@ -90,39 +90,33 @@ func (f *Felt) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (f Felt) Bit(i uint) uint {
-	i += FeltLength*8 - FeltBitLen // convert to bit number
-	return uint(f[i/8]>>(i%8)) & 1 // get bit
+func (f *Felt) Bit(i uint) uint {
+	i += FeltLength*8 - FeltBitLen             // convert to bit number
+	return uint(f[i/8] & (1 << (7 - i%8)) & 1) // get bit
 }
 
-func (f Felt) SetBit(i uint, b uint) {
+func (f *Felt) ToggleBit(i uint) {
+	if f.Bit(i) == 0 {
+		f.SetBit(i)
+	} else {
+		f.ClearBit(i)
+	}
+}
+
+func (f *Felt) SetBit(i uint) {
 	i += FeltLength*8 - FeltBitLen // convert to bit number
-	f[i/8] &^= 1 << (i % 8)        // clear bit
-	f[i/8] |= byte(b) << (i % 8)   // set bit
+	f[i/8] |= 1 << (7 - i%8)       // set bit
+}
+
+func (f *Felt) ClearBit(i uint) {
+	i += FeltLength*8 - FeltBitLen // convert to bit number
+	f[i/8] &^= (1 << (7 - i%8))    // clear bit
 }
 
 // Felt arithmetic
 
 func (f Felt) Add(g Felt) Felt {
 	return BigToFelt(new(big.Int).Mod(new(big.Int).Add(f.Big(), g.Big()), FeltP.Big()))
-}
-
-// Felt as bit array
-
-func (f Felt) Slice(start, end int) Felt {
-	b := Felt0
-	for i := start; i < end; i++ {
-		b.SetBit(uint(i), f.Bit(uint(i)))
-	}
-	return b
-}
-
-func (f Felt) SliceFromStart(start int) Felt {
-	b := Felt0
-	for i := start; i < FeltBitLen; i++ {
-		b.SetBit(uint(i), f.Bit(uint(i)))
-	}
-	return b
 }
 
 // Felt common

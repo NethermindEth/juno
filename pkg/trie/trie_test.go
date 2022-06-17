@@ -2,10 +2,11 @@ package trie
 
 import (
 	"fmt"
-	"github.com/NethermindEth/juno/pkg/store"
-	"github.com/NethermindEth/juno/pkg/types"
 	"math/big"
 	"testing"
+
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 //
@@ -349,13 +350,17 @@ func TestGet(t *testing.T) {
 
 func TestPut(t *testing.T) {
 	db := store.New()
-	root := new(types.Felt)
-	trie, err := NewTrie(db, root)
+	trie, err := NewTrie(db, nil)
 	if err != nil {
 		t.Error(err)
 	}
 	key, val := types.BigToFelt(big.NewInt(2)), types.BigToFelt(big.NewInt(1))
 	if err := trie.Put(&key, &val); err != nil {
 		t.Error(err)
+	}
+	if got, err := trie.Get(&key); err != nil {
+		t.Error(err)
+	} else if got.Big().Cmp(val.Big()) != 0 {
+		t.Errorf("got = %x, want = %x", got, val)
 	}
 }

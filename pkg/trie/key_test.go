@@ -38,6 +38,11 @@ func TestKey(t *testing.T) {
 			if key.Get(0) {
 				t.Errorf("key.Get(0) == %v, want %v", key.Get(0), false)
 			}
+
+			key.Clear(0)
+			if key.Get(0) {
+				t.Errorf("key.Get(0) == %v, want %v", key.Get(0), false)
+			}
 		})
 	}
 }
