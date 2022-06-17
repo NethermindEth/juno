@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-	"math/big"
 	"net"
 	"os"
 	"os/exec"
@@ -195,7 +194,7 @@ func (s *vmService) Call(
 	s.AddProcess()
 	defer s.DoneProcess()
 
-	// TODO: right now rpcVMAddr will probably only work if using tcp
+	// TODO: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		s.logger.Errorf("failed to dial: %v", err)
@@ -205,7 +204,7 @@ func (s *vmService) Call(
 	c := vmrpc.NewVMClient(conn)
 
 	// TODO: How to pass in the compiled contract into the function below?
-	_, err = getFullContract(contractAddr.Big(), new(big.Int))
+	_, err = getFullContract(contractAddr.Big())
 	if err != nil {
 		s.logger.Errorf("failed to retrieve compiled contract: %v", err)
 		return nil, err
