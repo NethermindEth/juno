@@ -3,7 +3,6 @@ package services
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 	"testing"

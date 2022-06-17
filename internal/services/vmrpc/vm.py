@@ -24,11 +24,14 @@ async def call(
     root,
     selector,
 ):
+    # TODO: Do int conversions of caller_address, contract_address, and 
+    # selector. For calldata this should be an array of ints.
+
     # XXX: Sequencer's address. This does not appear to be important so
     # a dummy value could suffice.
-    # sequencer = 0x37b2cd6baaa515f520383bee7b7094f892f4c770695fc329a8973e841a971ae
+    sequencer = 0x37b2cd6baaa515f520383bee7b7094f892f4c770695fc329a8973e841a971ae
 
-    # context = FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func)
+    context = FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func)
     # shared = SharedState(contract_states=PatriciaTree(root=root, height=251), block_info=BlockInfo.empty(sequencer_address=sequencer))
     # carried = await shared.get_filled_carried_state(ffc=context, state_selector=StateSelector(contract_addresses={contract_address}))
     # state = StarknetState(state=carried, general_config=StarknetGeneralConfig())
