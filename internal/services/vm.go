@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -57,7 +58,7 @@ var errPythonNotFound = errors.New("services: Python not found in $PATH")
 
 var VMService vmService
 
-func (s *vmService) setDefaults() {
+func (s *vmService) setDefaults() error {
 	if s.manager == nil {
 		// notest
 		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
@@ -65,15 +66,34 @@ func (s *vmService) setDefaults() {
 		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
 	}
 
-	// TODO: We probably also need to account for the idea that the
-	// following ports may already be occupied and so we may need to allow
-	// the user to do so from a config or generate these automatically
-	// i.e. passing in an empty string or port value of ":0". This value
-	// can then be retrieved using lis.Addr().(*net.TCPAddr).Port where
-	// lis is the net.Listener above.
 	s.rpcNet = "tcp"
-	s.rpcVMAddr = "localhost:8081"
-	s.rpcStorageAddr = "localhost:8082"
+	ports, err := freePorts(2)
+	if err != nil {
+		return err
+	}
+	s.rpcVMAddr = "localhost:" + strconv.Itoa(ports[0])
+	s.rpcStorageAddr = "localhost:" + strconv.Itoa(ports[1])
+	return nil
+}
+
+// freePorts returns a slice of length n of free TCP ports on localhost.
+// It assumes that those ports will not have been reassigned by the
+// time this function exits or the return value is used.
+func freePorts(n int) ([]int, error) {
+	ports := make([]int, 0, n)
+	for i := 0; i < n; i++ {
+		addr, err := net.ResolveTCPAddr("tcp", ":0")
+		if err != nil {
+			return nil, err
+		}
+		listener, err := net.ListenTCP("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		defer listener.Close()
+		ports = append(ports, listener.Addr().(*net.TCPAddr).Port)
+	}
+	return ports, nil
 }
 
 // Setup sets the service configuration, service must be not running.
@@ -115,7 +135,9 @@ func (s *vmService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
+	if err := s.setDefaults(); err != nil {
+		return err
+	}
 
 	s.rpcServer = grpc.NewServer()
 
@@ -144,7 +166,7 @@ func (s *vmService) Run() error {
 	if err != nil {
 		return err
 	}
-	// start the py vm rpc server (serving vm)
+	// Start the py vm rpc server (serving vm).
 	s.vmCmd = exec.Command(py, filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
 	pyLogger := &pySubProcessLogger{logger: s.logger}
 	s.vmCmd.Stdout = pyLogger
@@ -154,7 +176,7 @@ func (s *vmService) Run() error {
 		return err
 	}
 
-	// start the go vm rpc server (serving storage)
+	// Start the go vm rpc server (serving storage).
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
 	if err != nil {
 		s.logger.Errorf("failed to listen: %v", err)
@@ -162,7 +184,7 @@ func (s *vmService) Run() error {
 	storageServer := vmrpc.NewStorageRPCServer()
 	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
-	// run the grpc server
+	// Run the grpc server.
 	go func() {
 		s.logger.Infof("grpc server listening at %v", lis.Addr())
 		if err := s.rpcServer.Serve(lis); err != nil {
@@ -194,7 +216,7 @@ func (s *vmService) Call(
 	s.AddProcess()
 	defer s.DoneProcess()
 
-	// TODO: Right now rpcVMAddr will probably only work if using TCP.
+	// XXX: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		s.logger.Errorf("failed to dial: %v", err)
