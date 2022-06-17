@@ -23,7 +23,7 @@ func (n *Node) Hash() *types.Felt {
 	//       this should be changed to `types.Felt`
 	h := types.BigToFelt(pedersen.Digest(n.Bottom.Big(), new(big.Int).SetBytes(n.Path.Bytes())))
 	length := types.BigToFelt(new(big.Int).SetUint64(uint64(n.Path.Len())))
-	felt := h.Add(length)
+	felt := h.Add(&length)
 	return &felt
 }
 
