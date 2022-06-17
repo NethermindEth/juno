@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
 
@@ -10,30 +11,20 @@ import (
 
 // Node represents a Node in a binary tree.
 type Node struct {
-	Length int
-	Path   types.Felt
-	Bottom types.Felt
+	Path   *Path
+	Bottom *types.Felt
 }
 
 func (n *Node) Hash() *types.Felt {
-	if n.Length == 0 {
-		return &n.Bottom
+	if n.Path.Len() == 0 {
+		return n.Bottom
 	}
 	// TODO: why does `pedersen.Digest` operates with `big.Int`
 	//       this should be changed to `types.Felt`
-	h := types.BigToFelt(pedersen.Digest(n.Bottom.Big(), n.Path.Big()))
-	length := types.BigToFelt(new(big.Int).SetUint64(uint64(n.Length)))
+	h := types.BigToFelt(pedersen.Digest(n.Bottom.Big(), new(big.Int).SetBytes(n.Path.Bytes())))
+	length := types.BigToFelt(new(big.Int).SetUint64(uint64(n.Path.Len())))
 	felt := h.Add(length)
 	return &felt
-}
-
-func (n *Node) longestCommonPrefix(key *types.Felt, index int) int {
-	for i := index; i < n.Length; i++ {
-		if n.Path.Bit(uint(i)) != key.Bit(uint(i)) {
-			return i
-		}
-	}
-	return n.Length
 }
 
 func (n *Node) MarshallJSON() ([]byte, error) {
@@ -41,7 +32,7 @@ func (n *Node) MarshallJSON() ([]byte, error) {
 		Length int    `json:"length"`
 		Path   string `json:"path"`
 		Bottom string `json:"bottom"`
-	}{n.Length, n.Path.Hex(), n.Bottom.Hex()}
+	}{n.Path.Len(), hex.EncodeToString(n.Path.Bytes()), n.Bottom.Hex()}
 	return json.Marshal(jsonNode)
 }
 
@@ -56,8 +47,11 @@ func (n *Node) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	n.Length = jsonNode.Length
-	n.Path = types.HexToFelt(jsonNode.Path)
-	n.Bottom = types.HexToFelt(jsonNode.Bottom)
+	path, err := hex.DecodeString(jsonNode.Path)
+	if err != nil {
+		return err
+	}
+	n.Path = NewPath(jsonNode.Length, path)
+	*n.Bottom = types.HexToFelt(jsonNode.Bottom)
 	return nil
 }

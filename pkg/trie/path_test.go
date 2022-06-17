@@ -2,7 +2,6 @@ package trie
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/common"
@@ -19,10 +18,7 @@ func TestKey(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("TestKeyCreate%d", i+1), func(t *testing.T) {
-			key, err := BigToKey(len(test.expected), new(big.Int).SetBytes(common.FromHex(test.hex)))
-			if err != nil {
-				t.Fatal(err)
-			}
+			key := NewPath(len(test.expected), common.FromHex(test.hex))
 			for i := 0; i < key.Len(); i++ {
 				if key.Get(i) != test.expected[i] {
 					t.Errorf("key.Get(%d) == %v, want %v", i, key.Get(i), test.expected[i])

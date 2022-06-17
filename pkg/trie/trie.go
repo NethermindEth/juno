@@ -13,26 +13,33 @@ import (
 var (
 	ErrNotFound     = errors.New("not found")
 	ErrInvalidValue = errors.New("invalid value")
+	ErrInvalidPath  = errors.New("invalid path")
 )
 
 type Trie struct {
 	root   *Node
 	storer *trieStorer
+	height int
 }
 
-func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt) (*Trie, error) {
+func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt, height int) (*Trie, error) {
 	storer := &trieStorer{kvStorer}
 	if rootHash == nil {
-		return &Trie{nil, storer}, nil
+		return &Trie{nil, storer, height}, nil
 	} else if root, err := storer.retrieveByH(rootHash); err != nil {
 		return nil, err
 	} else {
-		return &Trie{root, storer}, nil
+		return &Trie{root, storer, height}, nil
 	}
 }
 
 // Get gets the value for a key stored in the trie.
-func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
+func (t *Trie) Get(path *Path) (*types.Felt, error) {
+	// if the key is not the same length as the height of the trie, it's an error
+	if path.Len() != t.height {
+		return nil, ErrInvalidPath
+	}
+
 	// check if root is not empty
 	if t.root == nil {
 		return nil, nil
@@ -40,8 +47,8 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 
 	walked := 0    // steps we have taken so far
 	curr := t.root // curr is the current node in the traversal
-	for walked < types.FeltBitLen {
-		if curr.Length == 0 {
+	for walked < t.height {
+		if curr.Path.Len() == 0 {
 			// node is a binary node or an empty node
 			if bytes.Equal(curr.Bottom.Bytes(), types.Felt0.Bytes()) {
 				// node is an empty node (0,0,0)
@@ -56,19 +63,19 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 			// node is a binary node (0,0,h(H(left),H(right)))
 			// retrieve the left and right nodes
 			// by reverting the pedersen hash function
-			leftH, rightH, err := t.storer.retrieveByP(&curr.Bottom)
+			leftH, rightH, err := t.storer.retrieveByP(curr.Bottom)
 			if err != nil {
 				return nil, err
 			}
 
 			var next *types.Felt
 			// walk left or right depending on the bit
-			if key.Bit(uint(walked)) == 0 {
-				// next is left node
-				next = leftH
-			} else {
+			if path.Get(walked) {
 				// next is right node
 				next = rightH
+			} else {
+				// next is left node
+				next = leftH
 			}
 
 			// retrieve the next node from the store
@@ -77,14 +84,14 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 			}
 
 			walked += 1 // we took one node
-		} else if curr.longestCommonPrefix(key, walked) == curr.Length {
+		} else if curr.Path.longestCommonPrefix(path.Walked(walked)) == curr.Path.Len() {
 			// node is an edge node and matches the key
 			// since curr is an edge, the bottom of curr is actually
 			// the bottom of the node it links to after walking down its path
 			// this node that curr links to has to be either a binary node or a leaf,
 			// hence its path and length are zero
-			walked += curr.Length // we jumped a path of length `curr.length`
-			curr = &Node{0, types.Felt0, curr.Bottom}
+			walked += curr.Path.Len() // we jumped a path of length `curr.length`
+			curr = &Node{EmptyPath, curr.Bottom}
 		} else {
 			// node length is greater than zero but its path diverges from ours,
 			// this means that the key we are looking for is not in the trie
@@ -93,15 +100,20 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 			return nil, nil
 		}
 	}
-	return &curr.Bottom, nil
+	return curr.Bottom, nil
 }
 
 // Put inserts a new key/value pair into the trie.
-func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
+func (t *Trie) Put(path *Path, value *types.Felt) error {
+	// if the key is not the same length as the height of the trie, it's an error
+	if path.Len() != t.height {
+		return ErrInvalidPath
+	}
+
 	siblings := make(map[int]*types.Felt)
 	curr := t.root // curr is the current node in the traversal
-	for walked := 0; walked < types.FeltBitLen && curr != nil; {
-		if curr.Length == 0 {
+	for walked := 0; walked < t.height && curr != nil; {
+		if curr.Path.Len() == 0 {
 			// node is a binary node or an empty node
 			if bytes.Compare(curr.Bottom.Bytes(), types.Felt0.Bytes()) == 0 {
 				// node is an empty node (0,0,0)
@@ -116,19 +128,19 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 			// node is a binary node (0,0,h(H(left),H(right)))
 			// retrieve the left and right nodes
 			// by reverting the pedersen hash function
-			leftH, rightH, err := t.storer.retrieveByP(&curr.Bottom)
+			leftH, rightH, err := t.storer.retrieveByP(curr.Bottom)
 			if err != nil {
 				return err
 			}
 
 			var next, sibling *types.Felt
 			// walk left or right depending on the bit
-			if key.Bit(uint(walked)) == 0 {
-				// next is left node
-				next, sibling = leftH, rightH
-			} else {
+			if path.Get(walked) {
 				// next is right node
 				next, sibling = rightH, leftH
+			} else {
+				// next is left node
+				next, sibling = leftH, rightH
 			}
 
 			siblings[walked] = sibling
@@ -142,7 +154,7 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 		}
 
 		// longest common prefix of the key and the node
-		lcp := curr.longestCommonPrefix(key, walked)
+		lcp := curr.Path.longestCommonPrefix(path.Walked(walked))
 
 		// TODO: this explanation is from previous implementation,
 		//       we should adapt it to the new implementation. It is
@@ -171,30 +183,28 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 		if lcp == 0 {
 			// since we haven't matched the whole key yet, it's not in the trie
 			// sibling is the node going one step down the node's path
-			path := curr.Path
-			path.ClearBit(uint(types.FeltLength - curr.Length))
-			siblings[walked] = (&Node{curr.Length - 1, path, curr.Bottom}).Hash()
+			siblings[walked] = (&Node{curr.Path.Walked(1), curr.Bottom}).Hash()
 			// break the loop, otherwise we would get stuck here
 			break
 		}
 
 		// walk down the path of length `lcp`
-		curr = &Node{curr.Length - lcp, curr.Path, curr.Bottom}
+		curr = &Node{curr.Path.Walked(lcp), curr.Bottom}
 		walked += lcp
 	}
 
-	curr = &Node{0, types.Felt0, *value} // starting from the leaf
+	curr = &Node{EmptyPath, &*value} // starting from the leaf
 	// insert the node into the kvStore and keep its hash
 	hash, err := t.computeH(curr)
 	if err != nil {
 		return err
 	}
 	// reverse walk the key
-	for i := types.FeltBitLen - 1; i >= 0; i-- {
+	for i := path.Len() - 1; i >= 0; i-- {
 		// if we have a sibling for this bit, we insert a binary node
 		if sibling, ok := siblings[i]; ok {
 			var left, right *types.Felt
-			if key.Bit(uint(i)) == 1 {
+			if path.Get(i) {
 				left, right = sibling, hash
 			} else {
 				left, right = hash, sibling
@@ -204,14 +214,14 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 			if err != nil {
 				return err
 			}
-			curr = &Node{0, types.Felt0, *bottom}
+			curr = &Node{EmptyPath, bottom}
 		} else {
 			// otherwise we just insert an edge node
-			path := curr.Path
-			if key.Bit(uint(i)) == 1 {
-				path.SetBit(uint(types.FeltBitLen - curr.Length))
+			edgePath := NewPath(curr.Path.Len()+1, curr.Path.Bytes())
+			if path.Get(i) {
+				edgePath.Set(0)
 			}
-			curr = &Node{curr.Length + 1, path, curr.Bottom}
+			curr = &Node{edgePath, curr.Bottom}
 		}
 		// insert the node into the kvStore and keep its hash
 		hash, err = t.computeH(curr)
