@@ -46,7 +46,7 @@ func TestExample(t *testing.T) {
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
-		fmt.Printf("put(key=%d, val=%d)\n", pair.key, pair.val)
+		t.Logf("put(key=%d, val=%d)\n", pair.key, pair.val)
 		err := trie.Put(&pair.key, &pair.val)
 		if err != nil {
 			return
@@ -56,12 +56,12 @@ func TestExample(t *testing.T) {
 	// Retrieve items from the trie.
 	for _, pair := range pairs {
 		val, _ := trie.Get(&pair.key)
-		fmt.Printf("get(key=%d) = %d\n", pair.key, val)
+		t.Logf("get(key=%d) = %d\n", pair.key, val)
 	}
 
 	// Remove items from the trie.
 	for _, pair := range pairs {
-		fmt.Printf("delete(key=%d)\n", pair.key)
+		t.Logf("delete(key=%d)\n", pair.key)
 		trie.Delete(&pair.key)
 	}
 
