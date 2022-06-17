@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/types"
 )
@@ -354,11 +353,11 @@ func TestPut(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	path, val := NewPath(3, common.FromHex("0x1")), types.BigToFelt(big.NewInt(1))
-	if err := trie.Put(path, &val); err != nil {
+	key, val := types.BigToFelt(big.NewInt(1)), types.BigToFelt(big.NewInt(1))
+	if err := trie.Put(&key, &val); err != nil {
 		t.Error(err)
 	}
-	if got, err := trie.Get(path); err != nil {
+	if got, err := trie.Get(&key); err != nil {
 		t.Error(err)
 	} else if got.Big().Cmp(val.Big()) != 0 {
 		t.Errorf("got = %x, want = %x", got, val)

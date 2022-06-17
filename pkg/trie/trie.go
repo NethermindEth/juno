@@ -13,7 +13,6 @@ import (
 var (
 	ErrNotFound     = errors.New("not found")
 	ErrInvalidValue = errors.New("invalid value")
-	ErrInvalidPath  = errors.New("invalid path")
 )
 
 type Trie struct {
@@ -34,17 +33,13 @@ func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt, height int) (*Trie, 
 }
 
 // Get gets the value for a key stored in the trie.
-func (t *Trie) Get(path *Path) (*types.Felt, error) {
-	// if the key is not the same length as the height of the trie, it's an error
-	if path.Len() != t.height {
-		return nil, ErrInvalidPath
-	}
-
+func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 	// check if root is not empty
 	if t.root == nil {
 		return nil, nil
 	}
 
+	path := NewPath(t.height, key.Bytes())
 	walked := 0    // steps we have taken so far
 	curr := t.root // curr is the current node in the traversal
 	for walked < t.height {
@@ -104,12 +99,8 @@ func (t *Trie) Get(path *Path) (*types.Felt, error) {
 }
 
 // Put inserts a new key/value pair into the trie.
-func (t *Trie) Put(path *Path, value *types.Felt) error {
-	// if the key is not the same length as the height of the trie, it's an error
-	if path.Len() != t.height {
-		return ErrInvalidPath
-	}
-
+func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
+	path := NewPath(t.height, key.Bytes())
 	siblings := make(map[int]*types.Felt)
 	curr := t.root // curr is the current node in the traversal
 	for walked := 0; walked < t.height && curr != nil; {
