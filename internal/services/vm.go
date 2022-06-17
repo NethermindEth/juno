@@ -206,12 +206,12 @@ func (s *vmService) Close(ctx context.Context) {
 
 func (s *vmService) Call(
 	ctx context.Context,
-	root types.Felt,
-	contractAddr types.Felt,
-	selector types.Felt,
-	calldata types.Felt,
+	calldata []types.Felt,
 	callerAddr types.Felt,
-	signature types.Felt,
+	contractAddr types.Felt,
+	contractHash types.Felt,
+	root types.Felt,
+	selector types.Felt,
 ) ([][]byte, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
@@ -225,25 +225,26 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
-	// TODO: How to pass in the compiled contract into the function below?
-	_, err = getFullContract(contractAddr.Big())
+	contractDef, err := getFullContract(contractAddr.Big())
 	if err != nil {
 		s.logger.Errorf("failed to retrieve compiled contract: %v", err)
 		return nil, err
 	}
 
+	calldataBytes := make([][]byte, 0, len(calldata))
+	for _, data := range calldata {
+		calldataBytes = append(calldataBytes, data.Bytes())
+	}
+
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
-		// XXX: Calldata has to be an array of bytes (or hex strings if you
-		// will) that represent function arguments.
-		Calldata:        calldata.Bytes(),
-		CallerAddress:   callerAddr.Bytes(),
-		ContractAddress: contractAddr.Bytes(),
-		Root:            root.Bytes(),
-		Selector:        selector.Bytes(),
-		// XXX: Since calls are read-only, the signature does not appear to
-		// be required (see vm.py as well).
-		Signature: signature.Bytes(),
+		Calldata:           calldataBytes,
+		CallerAddress:      callerAddr.Bytes(),
+		ContractAddress:    contractAddr.Bytes(),
+		ContractDefinition: contractDef,
+		ContractHash:       contractHash.Bytes(),
+		Root:               root.Bytes(),
+		Selector:           selector.Bytes(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)

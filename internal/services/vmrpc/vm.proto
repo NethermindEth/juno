@@ -15,26 +15,19 @@ service StorageAdapter {
 }
 
 message VMCallRequest {
-    message BlockInfo {
-        uint64 number = 1;
-        uint64 timestamp = 2;
-        uint64 gas_price = 3;
-        uint64 sequencer_address = 4;
-    }
-
-    bytes root = 1;
-    bytes contract_address = 2;
-    bytes selector = 3;
-    bytes calldata = 4;
-    bytes caller_address = 5;
-    bytes signature = 6;
-    BlockInfo block_info = 7;
+  repeated bytes calldata = 1;
+  bytes caller_address = 2;
+  bytes contract_address = 3;
+  bytes contract_definition = 4;
+  bytes contract_hash = 5;
+  bytes root = 6;
+  bytes selector = 7;
 }
 
 message VMCallResponse {
-    repeated bytes retdata = 1;
+  repeated bytes retdata = 1;
 }
 
 service VM {
-    rpc Call (VMCallRequest) returns (VMCallResponse) {}
+  rpc Call (VMCallRequest) returns (VMCallResponse) {}
 }

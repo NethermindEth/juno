@@ -27,12 +27,12 @@ func TestVMCall(t *testing.T) {
 
 	ret, err := VMService.Call(
 		context.Background(),
-		types.HexToFelt("0x1"),
+		[]types.Felt{types.HexToFelt("0x1")},
 		types.HexToFelt("0x2"),
 		types.HexToFelt("0x3"),
-		types.HexToFelt("0x4"),
 		types.HexToFelt("0x5"),
 		types.HexToFelt("0x6"),
+		types.HexToFelt("0x7"),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
