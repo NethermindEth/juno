@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -109,30 +110,29 @@ func TestExample(t *testing.T) {
 // 	}
 // }
 //
-// func TestGet(t *testing.T) {
-// 	db := store.New()
-// 	root := types.BigToFelt(new(big.Int).SetInt64(0))
-// 	nodeValue := Node{}
-// 	val, _ := nodeValue.MarshallJSON()
-// 	db.Put(root.Bytes(), val)
-// 	trie, _ := NewTrie(db, &root)
-// 	for _, test := range tests {
-// 		err := trie.Put(&test.key, &test.val)
-// 		if err != nil {
-// 			t.Log("error inserting kwy on the trie")
-// 			t.Fail()
-// 		}
-// 	}
-//
-// 	for _, test := range tests {
-// 		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
-// 			got, _ := trie.Get(&test.key)
-// 			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
-// 				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
-// 			}
-// 		})
-// 	}
-// }
+func TestGet(t *testing.T) {
+	db := store.New()
+	trie, err := NewTrie(db, nil, 3)
+	if err != nil {
+		t.Error(err)
+	}
+	for _, test := range tests {
+		err := trie.Put(&test.key, &test.val)
+		if err != nil {
+			t.Log("error inserting kwy on the trie")
+			t.Fail()
+		}
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
+			got, _ := trie.Get(&test.key)
+			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
+				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
+			}
+		})
+	}
+}
 
 //
 // // TestInvariant checks that the root hash is independent of the
