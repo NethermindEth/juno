@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -19,16 +20,19 @@ func TestVMCall(t *testing.T) {
 	}
 	defer VMService.Close(context.Background())
 
-	// TODO: store some code to call
+	// TODO: Store some code to call.
+
+	// Wait some time for the grpc server to start.
+	time.Sleep(time.Second * 2)
 
 	ret, err := VMService.Call(
 		context.Background(),
-		types.HexToFelt("0x1"),
+		[]types.Felt{types.HexToFelt("0x1")},
 		types.HexToFelt("0x2"),
 		types.HexToFelt("0x3"),
-		types.HexToFelt("0x4"),
 		types.HexToFelt("0x5"),
 		types.HexToFelt("0x6"),
+		types.HexToFelt("0x7"),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)

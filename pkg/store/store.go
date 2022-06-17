@@ -3,6 +3,12 @@
 // beyond the running program is not required.
 package store
 
+import (
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
+)
+
 // KVStorer specifies the API for a []byte key-value store.
 type KVStorer interface {
 	Delete(key []byte)
@@ -38,4 +44,46 @@ func (e Ephemeral) Get(key []byte) (item []byte, ok bool) {
 // Put commits a key-value pair to ephemeral storage.
 func (e Ephemeral) Put(key, val []byte) {
 	e.table[string(key)] = val
+}
+
+type Persistent struct {
+	database *db.NamedDatabase
+	logger   *zap.SugaredLogger
+}
+
+func NewPersistent() (*Persistent, error) {
+	database, err := db.GetDatabase("TRIE_STORE")
+	if err != nil {
+		return nil, err
+	}
+	return &Persistent{
+		database: database,
+		logger:   log.Default.Named("Trie"),
+	}, nil
+}
+
+func (p Persistent) Delete(key []byte) {
+	err := p.database.Delete(key)
+	if err != nil {
+		p.logger.With("error", err, "key", string(key)).Error("Delete error")
+	}
+}
+
+func (p Persistent) Get(key []byte) ([]byte, bool) {
+	value, err := p.database.Get(key)
+	if err != nil {
+		if db.IsNotFound(err) {
+			return nil, false
+		}
+		p.logger.With("error", err, "key", string(key)).Error("Get error")
+		return nil, false
+	}
+	return value, true
+}
+
+func (p Persistent) Put(key, val []byte) {
+	err := p.database.Put(key, val)
+	if err != nil {
+		p.logger.With("error", err, "key", string(key), "value", string(val)).Error("Put error")
+	}
 }
