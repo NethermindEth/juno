@@ -113,13 +113,17 @@ func (f *Felt) ClearBit(i uint) {
 	f[i/8] &^= (1 << (7 - i%8))    // clear bit
 }
 
-// Felt arithmetic
+// Felt operations
 
-func (f Felt) Add(g Felt) Felt {
+func (f *Felt) Add(g *Felt) Felt {
 	return BigToFelt(new(big.Int).Mod(new(big.Int).Add(f.Big(), g.Big()), FeltP.Big()))
 }
 
-// Felt common
+func (f *Felt) Cmp(g *Felt) int {
+	return f.Big().Cmp(g.Big())
+}
+
+// Felt constants
 
 var (
 	Felt0 = Felt{0}

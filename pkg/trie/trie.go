@@ -32,6 +32,14 @@ func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt, height int) (*Trie, 
 	}
 }
 
+// RootHash returns the hash of the root node of the trie.
+func (t *Trie) RootHash() *types.Felt {
+	if t.root == nil {
+		return &types.Felt0
+	}
+	return t.root.Hash()
+}
+
 // Get gets the value for a key stored in the trie.
 func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 	// check if root is not empty
@@ -222,6 +230,11 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 	}
 
 	t.root = curr
+	return nil
+}
+
+// Delete deltes the value associated with the given key.
+func (t *Trie) Delete(key *types.Felt) error {
 	return nil
 }
 
