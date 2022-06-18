@@ -4,7 +4,6 @@ package feeder
 import (
 	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/feeder/types"
-	"github.com/NethermindEth/juno/pkg/rpc"
 )
 
 type (
@@ -124,8 +123,8 @@ type L1ToL2Message struct {
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
 	FromAddress string   `json:"from_address"`
-	ToAddress   string   `json:"to_address,omitemtpy"`
-	Payload     []string `json:"payload,omitemtpy"`
+	ToAddress   string   `json:"to_address"`
+	Payload     []string `json:"payload"`
 }
 
 // Event Represents a StarkNet event; contains all the fields that will
@@ -171,8 +170,8 @@ type StarknetBlock struct {
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
+	Status              string                 `json:"status"`
 	OldStateRoot        string                 `json:"old_state_root"`
-	Status              rpc.BlockStatus        `json:"status"`
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
