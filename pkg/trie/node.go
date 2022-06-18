@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"math/big"
 
@@ -27,12 +26,12 @@ func (n *Node) Hash() *types.Felt {
 	return &felt
 }
 
-func (n *Node) MarshallJSON() ([]byte, error) {
+func (n *Node) MarshalJSON() ([]byte, error) {
 	jsonNode := &struct {
 		Length int    `json:"length"`
 		Path   string `json:"path"`
 		Bottom string `json:"bottom"`
-	}{n.Path.Len(), hex.EncodeToString(n.Path.Bytes()), n.Bottom.Hex()}
+	}{n.Path.Len(), types.BytesToFelt(n.Path.Bytes()).Hex(), n.Bottom.Hex()}
 	return json.Marshal(jsonNode)
 }
 
@@ -47,11 +46,8 @@ func (n *Node) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	path, err := hex.DecodeString(jsonNode.Path)
-	if err != nil {
-		return err
-	}
-	n.Path = NewPath(jsonNode.Length, path)
-	*n.Bottom = types.HexToFelt(jsonNode.Bottom)
+	n.Path = NewPath(jsonNode.Length, types.HexToFelt(jsonNode.Path).Bytes())
+	bottom := types.HexToFelt(jsonNode.Bottom)
+	n.Bottom = &bottom
 	return nil
 }

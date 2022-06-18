@@ -42,7 +42,7 @@ func TestExample(t *testing.T) {
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	trie, _ := NewTrie(db, nil, 8)
+	trie, _ := NewTrie(db, nil, testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
@@ -105,21 +105,23 @@ func TestEmptyTrie(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	db := store.New()
-	trie, err := NewTrie(db, nil, 3)
-	if err != nil {
-		t.Error(err)
-	}
+	trie, _ := NewTrie(db, nil, 8)
 	for _, test := range tests {
 		err := trie.Put(&test.key, &test.val)
 		if err != nil {
-			t.Log("error inserting kwy on the trie")
-			t.Fail()
+			t.Fatalf("error inserting key (%v) on the trie: %v", test.key.Hex(), err)
 		}
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
-			got, _ := trie.Get(&test.key)
+		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key.Hex(), test.val.Hex()), func(t *testing.T) {
+			got, err := trie.Get(&test.key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got == nil {
+				t.Errorf("got = nil, want = %x", test.val)
+			}
 			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
 				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
 			}

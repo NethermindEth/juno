@@ -38,11 +38,11 @@ func (bs *Path) Len() int {
 }
 
 func (bs *Path) Bytes() []byte {
-	return bs.bytes
+	return NewPath(bs.length, bs.bytes).bytes
 }
 
 func (path *Path) Walked(walked int) *Path {
-	return NewPath(path.Len()-walked, path.Bytes())
+	return NewPath(path.Len()-walked, path.bytes)
 }
 
 func (path *Path) longestCommonPrefix(other *Path) int {

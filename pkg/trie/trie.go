@@ -114,7 +114,7 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 	for walked := 0; walked < t.height && curr != nil; {
 		if curr.Path.Len() == 0 {
 			// node is a binary node or an empty node
-			if bytes.Compare(curr.Bottom.Bytes(), types.Felt0.Bytes()) == 0 {
+			if bytes.Equal(curr.Bottom.Bytes(), types.Felt0.Bytes()) {
 				// node is an empty node (0,0,0)
 				// if we haven't matched the whole key yet it's because it's not in the trie
 				// NOTE: this should not happen, empty nodes are not stored
@@ -192,7 +192,7 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 		walked += lcp
 	}
 
-	curr = &Node{EmptyPath, &*value} // starting from the leaf
+	curr = &Node{EmptyPath, value} // starting from the leaf
 	// insert the node into the kvStore and keep its hash
 	hash, err := t.computeH(curr)
 	if err != nil {
@@ -266,7 +266,7 @@ type trieStorer struct {
 
 func (kvs *trieStorer) retrieveByP(key *types.Felt) (*types.Felt, *types.Felt, error) {
 	// retrieve the args by their pedersen hash
-	if value, ok := kvs.Get(key.Bytes()); !ok {
+	if value, ok := kvs.Get(append([]byte{0x00}, key.Bytes()...)); !ok {
 		// the key should be in the store, if it's not it's an error
 		return nil, nil, ErrNotFound
 	} else if len(value) != 2*types.FeltLength {
@@ -282,7 +282,7 @@ func (kvs *trieStorer) retrieveByP(key *types.Felt) (*types.Felt, *types.Felt, e
 
 func (kvs *trieStorer) retrieveByH(key *types.Felt) (*Node, error) {
 	// retrieve the node by its hash function as defined in the starknet merkle-patricia tree
-	if value, ok := kvs.Get(key.Bytes()); ok {
+	if value, ok := kvs.Get(append([]byte{0x01}, key.Bytes()...)); ok {
 		// unmarshal the retrived value into the node
 		// TODO: use a different serialization format
 		n := &Node{}
@@ -297,7 +297,7 @@ func (kvs *trieStorer) storeByP(key, arg1, arg2 *types.Felt) error {
 	value := make([]byte, types.FeltLength*2)
 	copy(value[:types.FeltLength], arg1.Bytes())
 	copy(value[types.FeltLength:], arg2.Bytes())
-	kvs.Put(key.Bytes(), value)
+	kvs.Put(append([]byte{0x00}, key.Bytes()...), value)
 	return nil
 }
 
@@ -306,6 +306,6 @@ func (kvs *trieStorer) storeByH(key *types.Felt, node *Node) error {
 	if err != nil {
 		return err
 	}
-	kvs.Put(key.Bytes(), value)
+	kvs.Put(append([]byte{0x01}, key.Bytes()...), value)
 	return nil
 }
