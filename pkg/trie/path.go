@@ -15,6 +15,9 @@ func NewPath(length int, b []byte) *Path {
 	} else {
 		copy(bs.bytes, b[offset:])
 	}
+	for i := 1; i <= len(bs.bytes)*8-bs.length; i++ {
+		bs.Clear(-i)
+	}
 	return bs
 }
 
@@ -43,6 +46,28 @@ func (bs *Path) Bytes() []byte {
 
 func (path *Path) Walked(walked int) *Path {
 	return NewPath(path.Len()-walked, path.bytes)
+}
+
+func (path *Path) Prefix(length int) *Path {
+	result := NewPath(length, nil)
+	for i := 0; i < length; i++ {
+		if path.Get(i) {
+			result.Set(i)
+		}
+	}
+	return result
+}
+
+func (path *Path) String() string {
+	res := ""
+	for i := 0; i < path.Len(); i++ {
+		if path.Get(i) {
+			res += "1"
+		} else {
+			res += "0"
+		}
+	}
+	return res
 }
 
 func (path *Path) longestCommonPrefix(other *Path) int {

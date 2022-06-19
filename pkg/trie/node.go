@@ -15,6 +15,9 @@ type Node struct {
 }
 
 func (n *Node) Hash() *types.Felt {
+	if n == nil {
+		return &types.Felt0
+	}
 	if n.Path.Len() == 0 {
 		return n.Bottom
 	}
