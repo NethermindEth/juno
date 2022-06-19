@@ -16,11 +16,11 @@ var (
 
 // Manager is a database to store and get the contracts ABI.
 type Manager struct {
-	database db.Databaser
+	database db.Database
 }
 
 // NewABIManager creates a new Manager instance.
-func NewABIManager(database db.Databaser) *Manager {
+func NewABIManager(database db.Database) *Manager {
 	return &Manager{database}
 }
 

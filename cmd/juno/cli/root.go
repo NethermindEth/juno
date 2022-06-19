@@ -69,7 +69,7 @@ var (
 				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
-			if err := db.InitializeDatabaseEnv(config.Runtime.DbPath, 10, 0); err != nil {
+			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
 				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
 
@@ -100,7 +100,11 @@ var (
 					}
 				}
 				// Synchronizer for Starknet State
-				synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
+				env, err := db.GetMDBXEnv()
+				if err != nil {
+					log.Default.Fatal(err)
+				}
+				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
 				if err != nil {
 					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 				}

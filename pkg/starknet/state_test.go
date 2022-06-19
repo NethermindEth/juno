@@ -172,10 +172,11 @@ func TestProcessPagesHashes(t *testing.T) {
 	defer backendClose()
 	defer rpcClose()
 
-	if err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0); err != nil {
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
 		t.Error(err)
 	}
-	synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
+	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
 	if err != nil {
 		t.Error(err)
 	}
@@ -310,7 +311,19 @@ func TestParsePages(t *testing.T) {
 }
 
 func TestUpdateAndCommitState(t *testing.T) {
-	services.ContractHashService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	contractHashDb, err := db.NewMDBXDatabase(env, "CONTRACT-HASH")
+	if err != nil {
+		t.Error(err)
+	}
+	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	if err != nil {
+		t.Error(err)
+	}
+	services.ContractHashService.Setup(contractHashDb)
 	if err := services.ContractHashService.Run(); err != nil {
 		t.Error(err)
 	}
@@ -324,22 +337,13 @@ func TestUpdateAndCommitState(t *testing.T) {
 			},
 		},
 	}
-	// Manually create the synchronizer without calling NewSynchronizer because
-	// we don't want to create an ethclient mock for this test
-	if err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0); err != nil {
-		t.Error(err)
-	}
-	txnDb, err := db.GetDatabase("SYNCHRONIZER")
-	if err != nil {
-		t.Error(err)
-	}
+
 	s := &Synchronizer{
-		database:       txnDb,
-		memoryPageHash: starknetTypes.NewDictionary(txnDb, "memory_pages"),
-		gpsVerifier:    starknetTypes.NewDictionary(txnDb, "gps_verifier"),
-		facts:          starknetTypes.NewDictionary(txnDb, "facts"),
+		database:       synchronizerDb,
+		memoryPageHash: starknetTypes.NewDictionary(synchronizerDb, "memory_pages"),
+		gpsVerifier:    starknetTypes.NewDictionary(synchronizerDb, "gps_verifier"),
+		facts:          starknetTypes.NewDictionary(synchronizerDb, "facts"),
 		chainID:        1,
-		transactioner:  txnDb,
 	}
 	sequenceNumber := uint64(0)
 	s.updateAndCommitState(stateDiff, "", sequenceNumber)

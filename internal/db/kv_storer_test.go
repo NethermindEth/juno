@@ -5,13 +5,20 @@ import (
 )
 
 // setupTransactionDbTest creates a new TransactionDb for Tests
-func setupKvStoreTest(database Databaser) KeyValueStore {
+func setupKvStoreTest(database Database) KeyValueStore {
 	return NewKeyValueStore(database, "test")
 }
 
 // TestAddKeyToTransaction Check that a single value is stored after made commit
 func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
-	dbKV := NewKeyValueDb(t.TempDir(), 0)
+	env, err := NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	dbKV, err := NewMDBXDatabase(env, "KeyValueStore")
+	if err != nil {
+		t.Error(err)
+	}
 	database := setupKvStoreTest(dbKV)
 	database.Begin()
 
@@ -34,5 +41,5 @@ func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
 	}
 	database.Rollback()
 
-	database.Close()
+	dbKV.Close()
 }
