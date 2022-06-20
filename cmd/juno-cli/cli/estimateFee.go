@@ -29,12 +29,8 @@ var estimateFeeCmd = &cobra.Command{
 }
 
 func getSelectorFromName(func_name string) (string, error) {
-	// Convert function name to ASCII (bytes)
-	// Then convert to keccak hash
-	// Then convert to hex string
-	bigIntHash := fmt.Sprintf("%x\n", keccak.Digest250([]byte(func_name)))
-
-	return "0x" + bigIntHash, nil
+	// Function name (string) > ASCII > Keccak250
+	return fmt.Sprintf("0x%x\n", keccak.Digest250([]byte(func_name))), nil
 }
 
 func estimateFee(contractAddress, entryPointSelector, callData, signature string) (*feeder.EstimateFeeResponse, error) {
