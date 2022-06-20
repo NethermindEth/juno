@@ -281,8 +281,8 @@ type StateUpdateResponse struct {
 }
 
 type Fee struct {
-	Amount int    `json:"amount"`
-	Unit   string `json:"unit"`
+	Amount int    `json:"amount,omitempty"`
+	Unit   string `json:"unit,omitempty"`
 }
 
 type EstimateFeeResponse struct {

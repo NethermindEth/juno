@@ -12,8 +12,8 @@ import (
 // estimateFeeCmd represents the estimateFee command
 var estimateFeeCmd = &cobra.Command{
 	Use:   "estimate_fee CONTRACT_HASH FUNCTION_NAME INPUTS [SIGNATURE] [flags]",
-	Short: "Calculate transaction fee for calling a function",
-	Long:  ``,
+	Short: "Calculate transaction fee for calling a function.",
+	Long:  `See https://www.cairo-lang.org/docs/hello_starknet/cli.html#estimate-fee`,
 	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		selector_hash, _ := getSelectorFromName(args[1])

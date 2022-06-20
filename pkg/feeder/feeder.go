@@ -582,6 +582,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 
 // EstimateFee makes a POST request to retrieve expected fee from a given transaction
 func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, callData, signature string) (*EstimateFeeResponse, error) {
+	// Request needs header with formatted block ID. Even if empty
 	blockIdentifier := formattedBlockIdentifier("", "")
 	if blockIdentifier == nil {
 		// notest

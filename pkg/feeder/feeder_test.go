@@ -389,6 +389,25 @@ func TestGetStorageAt(t *testing.T) {
 	assert.Equal(t, &cOrig, transactionId, "GetStorageAt response does not match")
 }
 
-func TestEstimateFee(t *testing.T) {
-	var body feeder.EstimatedFee
+func TestEstimateTransactionFee(t *testing.T) {
+	a := feeder.EstimateFeeResponse{}
+	err := faker.FakeData(&a)
+	if err != nil {
+		t.Fatal()
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal()
+	}
+	httpClient.DoReturns(generateResponse(string(body)), nil)
+	var cOrig feeder.EstimateFeeResponse
+	err = json.Unmarshal([]byte(body), &cOrig)
+	if err != nil {
+		t.Fatal()
+	}
+	transactionFee, err := client.EstimateTransactionFee("contract", "func_name", "calldata", "signature")
+	if err != nil {
+		t.Fatal()
+	}
+	assert.Equal(t, &cOrig, transactionFee, "GetTransactionTrace response does not match")
 }
