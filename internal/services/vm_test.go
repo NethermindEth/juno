@@ -30,9 +30,10 @@ func TestVMCall(t *testing.T) {
 
 	// TODO: Store some code to call.
 
-	// XXX: Wait some time for the grpc server to start. Note that this
-	// might not be enough time in some cases.
-	time.Sleep(time.Second * 2)
+	// XXX: Wait some time for the gRPC server to start. Note that this
+	// might not be enough time in some cases so this test might have to
+	// be restarted.
+	time.Sleep(time.Second * 3)
 
 	ret, err := VMService.Call(
 		context.Background(),
@@ -52,7 +53,10 @@ func TestVMCall(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	if len(ret) != 2 || !bytes.Equal(ret[0], []byte("hello")) || !bytes.Equal(ret[1], []byte("world")) {
+	// DEBUG.
+	if len(ret) != 2 ||
+		!bytes.Equal(ret[0], []byte("patricia_node:0704dfcbc470377c68e6f5ffb83970ebd0d7c48d5b8d2f4ed61a24e795e034bd")) ||
+		!bytes.Equal(ret[1], []byte("contract_state:002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5")) {
 		t.Fatalf("unexpected return value: %s", ret)
 	}
 }
