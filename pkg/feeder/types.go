@@ -280,7 +280,12 @@ type StateUpdateResponse struct {
 	StateDiff StateDiff `json:"state_diff"`
 }
 
+type Fee struct {
+	Amount int    `json:"amount"`
+	Unit   string `json:"unit"`
+}
+
 type EstimateFeeResponse struct {
 	TransactionFailureReason
-	Fee string `json:"fee,omitempty"`
+	Fee
 }
