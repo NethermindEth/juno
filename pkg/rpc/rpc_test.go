@@ -38,7 +38,7 @@ func testServer(t *testing.T, tests []rpcTest) {
 		}
 		s := string(data)
 		if s != v.Response {
-			t.Errorf("expected %v, got %v", v.Response, string(data))
+			t.Errorf("expected `%v`, got `%v`", v.Response, string(data))
 			_ = res.Body.Close()
 		}
 		t.Log("Executed test ", i)
@@ -70,11 +70,11 @@ func TestRPCServer(t *testing.T) {
 }
 
 func TestServer(t *testing.T) {
-	server := NewServer(":8080")
+	server := NewServer(":8080", nil)
 	go func() {
 		_ = server.ListenAndServe()
 	}()
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
 	server.Close(ctx)
 	cancel()
 }

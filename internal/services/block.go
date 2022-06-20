@@ -3,10 +3,10 @@ package services
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 // BlockService is a service to manage the block database. Before
@@ -42,16 +42,19 @@ func (s *blockService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
-func (s *blockService) setDefaults() {
+func (s *blockService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.DataDir+"/block", 0)
+		database, err := db.GetDatabase("BLOCK")
+		if err != nil {
+			return err
+		}
 		s.manager = block.NewManager(database)
 	}
+	return nil
 }
 
 // Close stops the service, waiting to end the current operations, and closes
@@ -63,7 +66,7 @@ func (s *blockService) Close(ctx context.Context) {
 
 // GetBlockByHash searches for the block associated with the given block hash.
 // If the block does not exist on the database, then returns nil.
-func (s *blockService) GetBlockByHash(blockHash []byte) *block.Block {
+func (s *blockService) GetBlockByHash(blockHash types.BlockHash) *types.Block {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -76,7 +79,7 @@ func (s *blockService) GetBlockByHash(blockHash []byte) *block.Block {
 
 // GetBlockByNumber searches for the block associated with the given block
 // number. If the block does not exist on the database, then returns nil.
-func (s *blockService) GetBlockByNumber(blockNumber uint64) *block.Block {
+func (s *blockService) GetBlockByNumber(blockNumber uint64) *types.Block {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -90,12 +93,12 @@ func (s *blockService) GetBlockByNumber(blockNumber uint64) *block.Block {
 // StoreBlock stores the given block into the database. The key used to map the
 // block it's the hash of the block. If the database already has a block with
 // the same key, then the value is overwritten.
-func (s *blockService) StoreBlock(blockHash []byte, block *block.Block) {
+func (s *blockService) StoreBlock(blockHash types.BlockHash, block *types.Block) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
-		With("blockHash", blockHash).
+		With("blockHash", blockHash.Hex()).
 		Debug("StoreBlock")
 
 	s.manager.PutBlock(blockHash, block)

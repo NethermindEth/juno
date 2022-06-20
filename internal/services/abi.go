@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/log"
@@ -40,17 +39,20 @@ func (s *abiService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
 // setDefaults sets the default value for properties that are not set.
-func (s *abiService) setDefaults() {
+func (s *abiService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.Dir+"/abi", 0)
+		database, err := db.GetDatabase("ABI")
+		if err != nil {
+			return err
+		}
 		s.manager = abi.NewABIManager(database)
 	}
+	return nil
 }
 
 // Close closes the service.

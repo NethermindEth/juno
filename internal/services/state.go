@@ -3,10 +3,10 @@ package services
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var StateService stateService
@@ -34,17 +34,24 @@ func (s *stateService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
-func (s *stateService) setDefaults() {
+func (s *stateService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		codeDatabase := db.NewKeyValueDb(config.DataDir+"/code", 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(config.DataDir+"/storage", 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+		codeDb, err := db.GetDatabase("CODE")
+		if err != nil {
+			return err
+		}
+		storageDb, err := db.GetDatabase("STORAGE")
+		if err != nil {
+			return err
+		}
+		storageDatabase := db.NewBlockSpecificDatabase(storageDb)
+		s.manager = state.NewStateManager(codeDb, storageDatabase)
 	}
+	return nil
 }
 
 func (s *stateService) Close(ctx context.Context) {
@@ -57,7 +64,7 @@ func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", contractAddress).
+		With("contractAddress", common.Bytes2Hex(contractAddress)).
 		Debug("StoreCode")
 
 	s.manager.PutCode(contractAddress, code)
