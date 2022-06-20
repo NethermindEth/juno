@@ -388,3 +388,7 @@ func TestGetStorageAt(t *testing.T) {
 	}
 	assert.Equal(t, &cOrig, transactionId, "GetStorageAt response does not match")
 }
+
+func TestEstimateFee(t *testing.T) {
+	var body feeder.EstimatedFee
+}

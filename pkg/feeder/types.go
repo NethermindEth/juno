@@ -190,7 +190,7 @@ type CodeInfo struct {
 type TransactionFailureReason struct {
 	TxID     int64  `json:"tx_id,omitempty"`
 	Code     string `json:"code,omitempty"`
-	ErrorMsg string `json:"error_message,omitempty"`
+	ErrorMsg string `json:"message,omitempty"`
 }
 
 // type TxnStatus string
@@ -278,4 +278,9 @@ type StateUpdateResponse struct {
 	NewRoot   string    `json:"new_root"`
 	OldRoot   string    `json:"old_root"`
 	StateDiff StateDiff `json:"state_diff"`
+}
+
+type EstimateFeeResponse struct {
+	TransactionFailureReason
+	Fee string `json:"fee,omitempty"`
 }
