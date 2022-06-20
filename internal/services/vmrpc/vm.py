@@ -4,36 +4,53 @@ import traceback
 
 import grpc
 from starkware.cairo.lang.vm import crypto
-from starkware.starknet.business_logic.state.state import BlockInfo, SharedState, StateSelector
+from starkware.starknet.business_logic.state.state import (BlockInfo,
+                                                           SharedState,
+                                                           StateSelector)
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.testing.state import StarknetState
-from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import PatriciaTree
+from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import \
+    PatriciaTree
 from starkware.storage.storage import FactFetchingContext, Storage
 
 import vm_pb2
 import vm_pb2_grpc
 
 
+# Helpers.
+def parse_int(hex_str):
+    return int(hex_str, 16)
+
+def parse_int_list(hex_str_list):
+    tmp = []
+    for hex_str in hex_str_list:
+        tmp.append(parse_int(hex_str=hex_str))
+    return tmp
+
 async def call(
     adapter,
     calldata,
     caller_address,
     contract_address,
-    contract_definition,
-    contract_hash,
     root,
     selector,
 ):
-    # TODO: Do int conversions of caller_address, contract_address, and 
-    # selector. For calldata this should be an array of ints.
+    calldata = parse_int_list(calldata)
+    caller_address = parse_int(caller_address)
+    contract_address = parse_int(contract_address)
+    selector = parse_int(selector)
 
     # XXX: Sequencer's address. This does not appear to be important so
     # a dummy value could suffice.
     sequencer = 0x37b2cd6baaa515f520383bee7b7094f892f4c770695fc329a8973e841a971ae
 
-    context = FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func)
-    # shared = SharedState(contract_states=PatriciaTree(root=root, height=251), block_info=BlockInfo.empty(sequencer_address=sequencer))
-    # carried = await shared.get_filled_carried_state(ffc=context, state_selector=StateSelector(contract_addresses={contract_address}))
+    # context = FactFetchingContext(
+    #     storage=adapter, hash_func=crypto.pedersen_hash_func)
+    # shared = SharedState(
+    #     contract_states=PatriciaTree(root=bytes.fromhex(root.removeprefix("0x")), height=251), 
+    #     block_info=BlockInfo.empty(sequencer_address=sequencer))
+    # carried = await shared.get_filled_carried_state(
+    #     ffc=context, state_selector=StateSelector(contract_addresses={contract_address}))
     # state = StarknetState(state=carried, general_config=StarknetGeneralConfig())
     # result = await state.call_raw(
     #     contract_address=contract_address,
@@ -52,21 +69,12 @@ class StorageRPCClient(Storage):
         self.juno_address = juno_address
 
     async def set_value(self, key, value):
-        # XXX: Only read-only operations are supported right now.
-        raise NotImplementedError
+        raise NotImplementedError("Only read operations are supported.")
 
     async def del_value(self, key):
-        # XXX: Only read-only operations are supported right now.
-        raise NotImplementedError
+        raise NotImplementedError("Only read operations are supported.")
 
     async def get_value(self, key):
-        # TODO: Because the contract definition is not stored locally,
-        # a request whose key starts with b"contract_definition_fact"
-        # should be intercepted. For example, this class can be
-        # instantiated with a Dict that where
-        # key = b"contract_definition_fact:\x00 ..." and \x00 is the
-        # contract's hash and val = compiled contract code which is also
-        # passed into the call function above as contract_definition.
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
             request = vm_pb2.GetValueRequest(key=key)
@@ -86,8 +94,6 @@ class VMServicer(vm_pb2_grpc.VMServicer):
                     calldata=request.calldata,
                     caller_address=request.caller_address,
                     contract_address=request.contract_address,
-                    contract_definition=request.contract_definition,
-                    contract_hash=request.contract_hash,
                     root=request.root,
                     selector=request.selector,
                 )

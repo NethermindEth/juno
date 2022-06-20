@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-	"math/big"
 	"net"
 	"os"
 	"os/exec"
@@ -210,11 +209,8 @@ func (s *vmService) Call(
 	calldata []types.Felt,
 	callerAddr types.Felt,
 	contractAddr types.Felt,
-	contractHash types.Felt,
 	root types.Felt,
 	selector types.Felt,
-	// XXX: There is probably a better way to do this.
-	getCompiledContract func(addr *big.Int) ([]byte, error),
 ) ([][]byte, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
@@ -228,12 +224,6 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
-	contractDef, err := getCompiledContract(contractAddr.Big())
-	if err != nil {
-		s.logger.Errorf("failed to retrieve compiled contract: %v", err)
-		return nil, err
-	}
-
 	strconvCalldata := make([]string, 0, len(calldata))
 	for _, felt := range calldata {
 		strconvCalldata = append(strconvCalldata, felt.String())
@@ -241,13 +231,11 @@ func (s *vmService) Call(
 
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
-		Calldata:           strconvCalldata,
-		CallerAddress:      callerAddr.String(),
-		ContractAddress:    contractAddr.String(),
-		ContractDefinition: contractDef,
-		ContractHash:       contractHash.String(),
-		Root:               root.String(),
-		Selector:           selector.String(),
+		Calldata:        strconvCalldata,
+		CallerAddress:   callerAddr.String(),
+		ContractAddress: contractAddr.String(),
+		Root:            root.String(),
+		Selector:        selector.String(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)

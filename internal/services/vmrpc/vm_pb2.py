@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08vm.proto\"\x1e\n\x0fGetValueRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\"!\n\x10GetValueResponse\x12\r\n\x05value\x18\x01 \x01(\x0c\"\xa7\x01\n\rVMCallRequest\x12\x10\n\x08\x63\x61lldata\x18\x01 \x03(\t\x12\x16\n\x0e\x63\x61ller_address\x18\x02 \x01(\t\x12\x18\n\x10\x63ontract_address\x18\x03 \x01(\t\x12\x1b\n\x13\x63ontract_definition\x18\x04 \x01(\x0c\x12\x15\n\rcontract_hash\x18\x05 \x01(\t\x12\x0c\n\x04root\x18\x06 \x01(\t\x12\x10\n\x08selector\x18\x07 \x01(\t\"!\n\x0eVMCallResponse\x12\x0f\n\x07retdata\x18\x01 \x03(\x0c\x32\x43\n\x0eStorageAdapter\x12\x31\n\x08GetValue\x12\x10.GetValueRequest\x1a\x11.GetValueResponse\"\x00\x32/\n\x02VM\x12)\n\x04\x43\x61ll\x12\x0e.VMCallRequest\x1a\x0f.VMCallResponse\"\x00\x42\x37Z5github.com/NethermindEth/juno/internal/services/vmrpcb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08vm.proto\"\x1e\n\x0fGetValueRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\"!\n\x10GetValueResponse\x12\r\n\x05value\x18\x01 \x01(\x0c\"s\n\rVMCallRequest\x12\x10\n\x08\x63\x61lldata\x18\x01 \x03(\t\x12\x16\n\x0e\x63\x61ller_address\x18\x02 \x01(\t\x12\x18\n\x10\x63ontract_address\x18\x03 \x01(\t\x12\x0c\n\x04root\x18\x04 \x01(\t\x12\x10\n\x08selector\x18\x05 \x01(\t\"!\n\x0eVMCallResponse\x12\x0f\n\x07retdata\x18\x01 \x03(\x0c\x32\x43\n\x0eStorageAdapter\x12\x31\n\x08GetValue\x12\x10.GetValueRequest\x1a\x11.GetValueResponse\"\x00\x32/\n\x02VM\x12)\n\x04\x43\x61ll\x12\x0e.VMCallRequest\x1a\x0f.VMCallResponse\"\x00\x42\x37Z5github.com/NethermindEth/juno/internal/services/vmrpcb\x06proto3')
 
 
 
@@ -60,12 +60,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _GETVALUEREQUEST._serialized_end=42
   _GETVALUERESPONSE._serialized_start=44
   _GETVALUERESPONSE._serialized_end=77
-  _VMCALLREQUEST._serialized_start=80
-  _VMCALLREQUEST._serialized_end=247
-  _VMCALLRESPONSE._serialized_start=249
-  _VMCALLRESPONSE._serialized_end=282
-  _STORAGEADAPTER._serialized_start=284
-  _STORAGEADAPTER._serialized_end=351
-  _VM._serialized_start=353
-  _VM._serialized_end=400
+  _VMCALLREQUEST._serialized_start=79
+  _VMCALLREQUEST._serialized_end=194
+  _VMCALLRESPONSE._serialized_start=196
+  _VMCALLRESPONSE._serialized_end=229
+  _STORAGEADAPTER._serialized_start=231
+  _STORAGEADAPTER._serialized_end=298
+  _VM._serialized_start=300
+  _VM._serialized_end=347
 # @@protoc_insertion_point(module_scope)
