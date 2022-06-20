@@ -17,11 +17,9 @@ import (
 //
 // [hash function]: https://docs.starknet.io/docs/Hashing/hash-functions#starknet-keccak
 func Digest250(data []byte) *big.Int {
-	digest := Digest256(data)
-	keccak_data := new(big.Int).SetBytes(digest)
-	MASK_250, _ := new(big.Int).SetString("3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-
-	return keccak_data.And(keccak_data, MASK_250)
+	digest := new(big.Int).SetBytes(Digest256(data))
+	mask, _ := new(big.Int).SetString("3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	return digest.And(digest, mask)
 }
 
 // Digest256 returns the 256-bit Keccak hash of the data.
