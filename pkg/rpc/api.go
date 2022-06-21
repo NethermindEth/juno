@@ -24,6 +24,18 @@ func (HandlerRPC) EchoErr(c context.Context, message string) (string, error) {
 	return "", fmt.Errorf("%s", message)
 }
 
+// See issue #229
+func (HandlerRPC) HealthCheck(c context.Context) (string, error) {
+	// Start by ensuring application is running (that is context?)
+	// Check that database is working correctly
+	// With a test from DB?
+
+	// Check that a call to feeder gateway works correctly
+
+	// Check that the node is working correctly
+	return "OK", nil
+}
+
 // StarknetCall represents the handler of "starknet_call" rpc call.
 func (HandlerRPC) StarknetCall(
 	c context.Context, request FunctionCall, blockHash BlockHashOrTag,
