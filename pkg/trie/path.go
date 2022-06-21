@@ -1,6 +1,6 @@
 package trie
 
-var EmptyPath = NewPath(0, []byte{})
+var EmptyPath = &Path{0, []byte{}}
 
 type Path struct {
 	length int
@@ -70,7 +70,7 @@ func (path *Path) String() string {
 	return res
 }
 
-func (path *Path) longestCommonPrefix(other *Path) int {
+func (path *Path) LongestCommonPrefix(other *Path) int {
 	n := 0
 	for ; n < path.Len() && n < other.Len(); n++ {
 		if path.Get(n) != other.Get(n) {

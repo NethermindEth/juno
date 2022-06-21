@@ -41,7 +41,7 @@ func TestExample(t *testing.T) {
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	trie, _ := New(db, nil, testHeight)
+	trie, _ := New(db, EmptyNode.Hash(), testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
@@ -75,7 +75,7 @@ func TestExample(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := store.New()
-	trie, _ := New(db, nil, testHeight)
+	trie, _ := New(db, EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		trie.Put(&test.key, &test.val)
 	}
@@ -89,7 +89,7 @@ func TestDelete(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if val != nil {
+			if val.Cmp(&types.Felt0) != 0 {
 				t.Errorf("key %s not successfully removed from storage. returned %s", test.key.Hex(), val.Hex())
 			}
 		})
@@ -98,7 +98,7 @@ func TestDelete(t *testing.T) {
 
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
-	trie, _ := New(store.New(), nil, testHeight)
+	trie, _ := New(store.New(), EmptyNode.Hash(), testHeight)
 	if trie.RootHash().Cmp(&types.Felt0) != 0 {
 		t.Error("trie.RootHash() != 0 for empty trie")
 	}
@@ -106,7 +106,7 @@ func TestEmptyTrie(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	db := store.New()
-	trie, _ := New(db, nil, 8)
+	trie, _ := New(db, EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		err := trie.Put(&test.key, &test.val)
 		if err != nil {
@@ -121,10 +121,10 @@ func TestGet(t *testing.T) {
 				t.Fatal(err)
 			}
 			if got == nil {
-				t.Errorf("got = nil, want = %x", test.val)
+				t.Errorf("got = nil, want = %x", test.val.Hex())
 			}
 			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
-				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
+				t.Errorf("get(%#v) = %#v, want %#v", test.key.Hex(), got.Hex(), test.val.Hex())
 			}
 		})
 	}
@@ -133,8 +133,8 @@ func TestGet(t *testing.T) {
 // TestInvariant checks that the root hash is independent of the
 // insertion and deletion order.
 func TestInvariant(t *testing.T) {
-	t0, _ := New(store.New(), nil, testHeight)
-	t1, _ := New(store.New(), nil, testHeight)
+	t0, _ := New(store.New(), EmptyNode.Hash(), testHeight)
+	t1, _ := New(store.New(), EmptyNode.Hash(), testHeight)
 
 	for i := 0; i < len(tests); i++ {
 		t0.Put(&tests[i].key, &tests[i].val)
@@ -170,7 +170,7 @@ func TestInvariant(t *testing.T) {
 // TestRebuild tests that the trie can be reconstructed from storage.
 func TestRebuild(t *testing.T) {
 	db := store.New()
-	oldTrie, _ := New(db, nil, testHeight)
+	oldTrie, _ := New(db, EmptyNode.Hash(), testHeight)
 
 	for _, test := range tests {
 		oldTrie.Put(&test.key, &test.val)
@@ -296,9 +296,9 @@ func TestState(t *testing.T) {
 	)
 
 	height := 251
-	state, _ := New(store.New(), nil, height)
+	state, _ := New(store.New(), EmptyNode.Hash(), height)
 	for addr, diff := range addresses {
-		storage, _ := New(store.New(), nil, height)
+		storage, _ := New(store.New(), EmptyNode.Hash(), height)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))
