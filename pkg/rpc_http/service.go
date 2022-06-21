@@ -93,7 +93,7 @@ func checkOutputs(method reflect.Method) error {
 	if numOut != 2 {
 		return errors.New("unexpected number of outputs, want 2")
 	}
-	// Check secodn output is of type error
+	// Check if second output is of type error
 	secondOut := methodT.Out(1)
 	if !errType.AssignableTo(secondOut) {
 		return errors.New("second type must be en error type")
