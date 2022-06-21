@@ -141,7 +141,7 @@ func (s *vmService) Run() error {
 
 	s.rpcServer = grpc.NewServer()
 
-	// generate the py environment in the data dir
+	// Generate the Python environment in the data dir.
 	s.vmDir = config.DataDir
 
 	files := [...]struct {
@@ -153,9 +153,9 @@ func (s *vmService) Run() error {
 		{"vm_pb2_grpc.py", pyPbGRpc},
 	}
 
-	for _, f := range files {
-		path := filepath.Join(s.vmDir, f.name)
-		if err := os.WriteFile(path, f.contents, 0o644); err != nil {
+	for _, file := range files {
+		path := filepath.Join(s.vmDir, file.name)
+		if err := os.WriteFile(path, file.contents, 0o644); err != nil {
 			s.logger.Errorf("failed to write to %s: %v", path, err)
 			return err
 		}
@@ -166,7 +166,7 @@ func (s *vmService) Run() error {
 	if err != nil {
 		return err
 	}
-	// Start the py vm rpc server (serving vm).
+	// Start the cairo-lang gRPC server (serving contract calls).
 	s.vmCmd = exec.Command(py, filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
 	pyLogger := &pySubProcessLogger{logger: s.logger}
 	s.vmCmd.Stdout = pyLogger
@@ -176,7 +176,7 @@ func (s *vmService) Run() error {
 		return err
 	}
 
-	// Start the go vm rpc server (serving storage).
+	// Start the Go gRPC server (serving storage).
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
 	if err != nil {
 		s.logger.Errorf("failed to listen: %v", err)
@@ -184,9 +184,9 @@ func (s *vmService) Run() error {
 	storageServer := vmrpc.NewStorageRPCServer()
 	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
-	// Run the grpc server.
+	// Run the gRPC server.
 	go func() {
-		s.logger.Infof("grpc server listening at %v", lis.Addr())
+		s.logger.Infof("gRPC server listening at %v", lis.Addr())
 		if err := s.rpcServer.Serve(lis); err != nil {
 			s.logger.Errorf("failed to serve: %v", err)
 		}
