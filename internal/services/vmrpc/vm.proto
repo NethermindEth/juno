@@ -23,7 +23,7 @@ message VMCallRequest {
 }
 
 message VMCallResponse {
-  repeated bytes retdata = 1;
+  repeated string retdata = 1;
 }
 
 service VM {

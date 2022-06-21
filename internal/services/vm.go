@@ -211,7 +211,7 @@ func (s *vmService) Call(
 	contractAddr types.Felt,
 	root types.Felt,
 	selector types.Felt,
-) ([][]byte, error) {
+) ([]string, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 

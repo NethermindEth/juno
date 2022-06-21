@@ -2,10 +2,30 @@ package vmrpc
 
 import (
 	"context"
+	_ "embed"
 )
 
 type storageRPCServer struct {
 	UnimplementedStorageAdapterServer
+}
+
+// DEBUG.
+//go:embed test_contract_def.json
+var def string
+
+// DEBUG.
+var db = map[string]string{
+	"patricia_node:0704dfcbc470377c68e6f5ffb83970ebd0d7c48d5b8d2f4ed61a24e795e034bd": "002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5057dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374fb",
+	"contract_state:002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5": `{
+			"storage_commitment_tree": {
+				"root": "04fb440e8ca9b74fc12a22ebffe0bc0658206337897226117b985434c239c028", 
+				"height": 251
+			}, 
+			"contract_hash": "050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b"
+		}`,
+	"patricia_node:04fb440e8ca9b74fc12a22ebffe0bc0658206337897226117b985434c239c028":            "00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000084fb",
+	"starknet_storage_leaf:0000000000000000000000000000000000000000000000000000000000000003":    "0000000000000000000000000000000000000000000000000000000000000003",
+	"contract_definition_fact:050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b": def,
 }
 
 func NewStorageRPCServer() *storageRPCServer {
@@ -38,9 +58,5 @@ func (s *storageRPCServer) GetValue(ctx context.Context, request *GetValueReques
 	//
 	//	4.	starknet_storage_leaf. Here the key suffix *is* the value so
 	//			that could be returned without any lookup.
-
-	// DEBUG.
-	// fmt.Printf("%s\n", request.GetKey())
-
-	return &GetValueResponse{Value: request.GetKey()}, nil
+	return &GetValueResponse{Value: []byte(db[string(request.GetKey())])}, nil
 }

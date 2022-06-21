@@ -1,7 +1,6 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -9,14 +8,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/types"
 )
-
-/*
-// testGetCompiledContract retrieves the compiled test contract from the
-// current directory for use in the VMService.Call function.
-func testGetCompiledContract(addr *big.Int) ([]byte, error) {
-	return os.ReadFile("test_contract_def.json")
-}
-*/
 
 func TestVMCall(t *testing.T) {
 	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
@@ -38,7 +29,7 @@ func TestVMCall(t *testing.T) {
 	ret, err := VMService.Call(
 		context.Background(),
 		// Calldata.
-		[]types.Felt{types.HexToFelt("0x132")},
+		[]types.Felt{types.HexToFelt("0x84")},
 		// Caller's address.
 		types.HexToFelt("0x0"),
 		// Contract's address.
@@ -53,10 +44,7 @@ func TestVMCall(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	// DEBUG.
-	if len(ret) != 2 ||
-		!bytes.Equal(ret[0], []byte("patricia_node:0704dfcbc470377c68e6f5ffb83970ebd0d7c48d5b8d2f4ed61a24e795e034bd")) ||
-		!bytes.Equal(ret[1], []byte("contract_state:002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5")) {
-		t.Fatalf("unexpected return value: %s", ret)
+	if ret[0] != "0x3" {
+		t.Errorf("got %s, want 0x3 from executing cairo-lang call", ret[0])
 	}
 }
