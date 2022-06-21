@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("not found")
-	ErrInvalidValue = errors.New("invalid value")
+	ErrNotFound      = errors.New("not found")
+	ErrInvalidValue  = errors.New("invalid value")
+	ErrUnexistingKey = errors.New("unexisting key")
 )
 
 type Trie interface {
@@ -49,200 +50,41 @@ func (t *trie) RootHash() *types.Felt {
 
 // Get gets the value for a key stored in the trie.
 func (t *trie) Get(key *types.Felt) (*types.Felt, error) {
-	// check if root is not empty
-	if t.root == nil {
-		return nil, nil
-	}
-
 	path := NewPath(t.height, key.Bytes())
-	walked := 0    // steps we have taken so far
-	curr := t.root // curr is the current node in the traversal
-	for walked < t.height {
-		if curr.Path.Len() == 0 {
-			// node is a binary node or an empty node
-			if bytes.Equal(curr.Bottom.Bytes(), types.Felt0.Bytes()) {
-				// node is an empty node (0,0,0)
-				// if we haven't matched the whole key yet it's because it's not in the trie
-				// NOTE: this should not happen, empty nodes are not stored
-				//       and are never reachable from the root
-				// TODO: After this is debugged and we make sure it never happens
-				//       we can remove the panic
-				panic("reached an empty node while traversing the trie")
-			}
-
-			// node is a binary node (0,0,h(H(left),H(right)))
-			// retrieve the left and right nodes
-			// by reverting the pedersen hash function
-			leftH, rightH, err := t.storer.retrieveByP(curr.Bottom)
-			if err != nil {
-				return nil, err
-			}
-
-			var next *types.Felt
-			// walk left or right depending on the bit
-			if path.Get(walked) {
-				// next is right node
-				next = rightH
-			} else {
-				// next is left node
-				next = leftH
-			}
-
-			// retrieve the next node from the store
-			if curr, err = t.storer.retrieveByH(next); err != nil {
-				return nil, err
-			}
-
-			walked += 1 // we took one step
-		} else if curr.Path.longestCommonPrefix(path.Walked(walked)) == curr.Path.Len() {
-			// node is an edge node and matches the key
-			// since curr is an edge, the bottom of curr is actually
-			// the bottom of the node it links to after walking down its path
-			// this node that curr links to has to be either a binary node or a leaf,
-			// hence its path and length are zero
-			walked += curr.Path.Len() // we jumped a path of length `curr.length`
-			curr = &Node{EmptyPath, curr.Bottom}
-		} else {
-			// node length is greater than zero but its path diverges from ours,
-			// this means that the key we are looking for is not in the trie
-			// break the loop, otherwise we would get stuck here
-			// this node will be returned as the closest match outside the loop
-			return nil, nil
-		}
+	leaf, _, err := t.get(path)
+	if err != nil {
+		return nil, err
 	}
-	return curr.Bottom, nil
+	if leaf != nil {
+		return leaf.Bottom, nil
+	}
+	return nil, nil
 }
 
 // Put inserts a new key/value pair into the trie.
 func (t *trie) Put(key *types.Felt, value *types.Felt) error {
 	path := NewPath(t.height, key.Bytes())
-	siblings := make(map[int]*types.Felt)
-	curr := t.root // curr is the current node in the traversal
-	for walked := 0; walked < t.height && curr != nil; {
-		if curr.Path.Len() == 0 {
-			// node is a binary node or an empty node
-			if bytes.Equal(curr.Bottom.Bytes(), types.Felt0.Bytes()) {
-				// node is an empty node (0,0,0)
-				// if we haven't matched the whole key yet it's because it's not in the trie
-				// NOTE: this should not happen, empty nodes are not stored
-				//       and are never reachable from the root
-				// TODO: After this is debugged and we make sure it never happens
-				//       we can remove the panic
-				panic("reached an empty node while traversing the trie")
-			}
-
-			// node is a binary node (0,0,h(H(left),H(right)))
-			// retrieve the left and right nodes
-			// by reverting the pedersen hash function
-			leftH, rightH, err := t.storer.retrieveByP(curr.Bottom)
-			if err != nil {
-				return err
-			}
-
-			var next, sibling *types.Felt
-			// walk left or right depending on the bit
-			if path.Get(walked) {
-				// next is right node
-				next, sibling = rightH, leftH
-			} else {
-				// next is left node
-				next, sibling = leftH, rightH
-			}
-
-			siblings[walked] = sibling
-			// retrieve the next node from the store
-			if curr, err = t.storer.retrieveByH(next); err != nil {
-				return err
-			}
-
-			walked += 1 // we took one step
-			continue
-		}
-
-		// longest common prefix of the key and the node
-		lcp := curr.Path.longestCommonPrefix(path.Walked(walked))
-
-		// TODO: this explanation is from previous implementation,
-		//       we should adapt it to the new implementation. It is
-		//       not completely wrong, but it's not entirely accurate.
-		//
-		// node length is greater than zero
-		//
-		// consider the following:
-		// let sib = node with key `key[:walked+lcp+neg(key[walked+lcp+1])]`
-		//           where neg(x) returns 0 if x is 1 and 1 otherwise
-		// the node with `sib` is our sibling from step `walked+lcp`
-		// since curr is an edge node and sib is just a node in the path from curr to wherever curr links to,
-		// in case `sib` is a binary node or a leaf, it is of the form (0,0,curr.bottom)
-		// in case `sib` is an edge node, it is of the form (curr.length-lcp,curr.path[lcp:],curr.bottom)
-		//
-		// in order to get `sib` easily we will just walk down lcp steps
-		// if lcp was in fact the whole pathbut still haven't walked down the whole key,
-		// we would have come down to a binary node, which are handled above
-
-		// node is an edge node and matches the key
-		// since curr is an edge, the bottom of curr is actually
-		// the bottom of the node it links to after walking down its path
-		// this node that curr links to has to be either a binary node or a leaf,
-		// hence its path and length are zero
-
-		if lcp == 0 {
-			// since we haven't matched the whole key yet, it's not in the trie
-			// sibling is the node going one step down the node's path
-			siblings[walked] = (&Node{curr.Path.Walked(1), curr.Bottom}).Hash()
-			// break the loop, otherwise we would get stuck here
-			break
-		}
-
-		// walk down the path of length `lcp`
-		curr = &Node{curr.Path.Walked(lcp), curr.Bottom}
-		walked += lcp
-	}
-
-	curr = &Node{EmptyPath, value} // starting from the leaf
-	// insert the node into the kvStore and keep its hash
-	hash, err := t.computeH(curr)
+	_, siblings, err := t.get(path)
 	if err != nil {
 		return err
 	}
-	// reverse walk the key
-	for i := path.Len() - 1; i >= 0; i-- {
-		// if we have a sibling for this bit, we insert a binary node
-		if sibling, ok := siblings[i]; ok {
-			var left, right *types.Felt
-			if path.Get(i) {
-				left, right = sibling, hash
-			} else {
-				left, right = hash, sibling
-			}
-			// create the binary node
-			bottom, err := t.computeP(left, right)
-			if err != nil {
-				return err
-			}
-			curr = &Node{EmptyPath, bottom}
-		} else {
-			// otherwise we just insert an edge node
-			edgePath := NewPath(curr.Path.Len()+1, curr.Path.Bytes())
-			if path.Get(i) {
-				edgePath.Set(0)
-			}
-			curr = &Node{edgePath, curr.Bottom}
-		}
-		// insert the node into the kvStore and keep its hash
-		hash, err = t.computeH(curr)
-		if err != nil {
-			return err
-		}
-	}
-
-	t.root = curr
-	return nil
+	return t.put(path, &Node{EmptyPath, value}, siblings)
 }
 
 // Del deltes the value associated with the given key.
 func (t *trie) Del(key *types.Felt) error {
 	path := NewPath(t.height, key.Bytes())
+	if leaf, siblings, err := t.get(path); err != nil {
+		return err
+	} else if leaf == nil {
+		return ErrUnexistingKey
+	} else {
+		return t.put(path, nil, siblings)
+	}
+}
+
+func (t *trie) get(path *Path) (*Node, []*types.Felt, error) {
+	// list of siblings we need to hash with to get to the root
 	siblings := make([]*types.Felt, t.height)
 	curr := t.root // curr is the current node in the traversal
 	for walked := 0; walked < t.height && curr != nil; {
@@ -263,7 +105,7 @@ func (t *trie) Del(key *types.Felt) error {
 			// by reverting the pedersen hash function
 			leftH, rightH, err := t.storer.retrieveByP(curr.Bottom)
 			if err != nil {
-				return err
+				return nil, nil, err
 			}
 
 			var next, sibling *types.Felt
@@ -279,7 +121,7 @@ func (t *trie) Del(key *types.Felt) error {
 			siblings[walked] = sibling
 			// retrieve the next node from the store
 			if curr, err = t.storer.retrieveByH(next); err != nil {
-				return err
+				return nil, nil, err
 			}
 
 			walked += 1 // we took one node
@@ -288,30 +130,6 @@ func (t *trie) Del(key *types.Felt) error {
 
 		// longest common prefix of the key and the node
 		lcp := curr.Path.longestCommonPrefix(path.Walked(walked))
-
-		// TODO: this explanation is from previous implementation,
-		//       we should adapt it to the new implementation. It is
-		//       not completely wrong, but it's not entirely accurate.
-		//
-		// node length is greater than zero
-		//
-		// consider the following:
-		// let sib = node with key `key[:walked+lcp+neg(key[walked+lcp+1])]`
-		//           where neg(x) returns 0 if x is 1 and 1 otherwise
-		// the node with `sib` is our sibling from step `walked+lcp`
-		// since curr is an edge node and sib is just a node in the path from curr to wherever curr links to,
-		// in case `sib` is a binary node or a leaf, it is of the form (0,0,curr.bottom)
-		// in case `sib` is an edge node, it is of the form (curr.length-lcp,curr.path[lcp:],curr.bottom)
-		//
-		// in order to get `sib` easily we will just walk down lcp steps
-		// if lcp was in fact the whole pathbut still haven't walked down the whole key,
-		// we would have come down to a binary node, which are handled above
-
-		// node is an edge node and matches the key
-		// since curr is an edge, the bottom of curr is actually
-		// the bottom of the node it links to after walking down its path
-		// this node that curr links to has to be either a binary node or a leaf,
-		// hence its path and length are zero
 
 		if lcp == 0 {
 			// since we haven't matched the whole key yet, it's not in the trie
@@ -325,36 +143,22 @@ func (t *trie) Del(key *types.Felt) error {
 
 		walked += lcp
 	}
+	return curr, siblings, nil
+}
 
-	if curr == nil {
-		return errors.New("trying to delete unexistent key")
+func (t *trie) put(path *Path, node *Node, siblings []*types.Felt) (err error) {
+	var hash *types.Felt
+	if node != nil {
+		// insert the node into the kvStore and keep its hash
+		if hash, err = t.computeH(node); err != nil {
+			return err
+		}
 	}
-
-	// var i int
-	// for ; i >= 0 && curr == nil; i-- {
-	// 	if siblingHash := siblings[i]; siblingHash != nil {
-	// 		sibling, err := t.storer.retrieveByH(siblingHash)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		edgePath := NewPath(sibling.Path.Len()+1, sibling.Path.Bytes())
-	// 		if !path.Get(i) {
-	// 			edgePath.Set(0)
-	// 		}
-	// 		curr = &Node{edgePath, sibling.Bottom}
-	// 	}
-	// }
-
-	curr = nil
-	var (
-		hash *types.Felt
-		err  error
-	)
 	// reverse walk the key
 	for i := path.Len() - 1; i >= 0; i-- {
 		// if we have a sibling for this bit, we insert a binary node
 		if sibling := siblings[i]; sibling != nil {
-			if curr == nil {
+			if node == nil {
 				sibling, err := t.storer.retrieveByH(sibling)
 				if err != nil {
 					return err
@@ -363,7 +167,7 @@ func (t *trie) Del(key *types.Felt) error {
 				if !path.Get(i) {
 					edgePath.Set(0)
 				}
-				curr = &Node{edgePath, sibling.Bottom}
+				node = &Node{edgePath, sibling.Bottom}
 			} else {
 				var left, right *types.Felt
 				if path.Get(i) {
@@ -376,26 +180,25 @@ func (t *trie) Del(key *types.Felt) error {
 				if err != nil {
 					return err
 				}
-				curr = &Node{EmptyPath, bottom}
+				node = &Node{EmptyPath, bottom}
 			}
-		} else if curr != nil {
+		} else if node != nil {
 			// otherwise we just insert an edge node
-			edgePath := NewPath(curr.Path.Len()+1, curr.Path.Bytes())
+			edgePath := NewPath(node.Path.Len()+1, node.Path.Bytes())
 			if path.Get(i) {
 				edgePath.Set(0)
 			}
-			curr = &Node{edgePath, curr.Bottom}
+			node = &Node{edgePath, node.Bottom}
 		} else {
 			continue
 		}
 		// insert the node into the kvStore and keep its hash
-		hash, err = t.computeH(curr)
+		hash, err = t.computeH(node)
 		if err != nil {
 			return err
 		}
 	}
-
-	t.root = curr
+	t.root = node
 	return nil
 }
 
