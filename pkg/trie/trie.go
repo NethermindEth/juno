@@ -15,25 +15,32 @@ var (
 	ErrInvalidValue = errors.New("invalid value")
 )
 
-type Trie struct {
+type Trie interface {
+	RootHash() *types.Felt
+	Get(key *types.Felt) (*types.Felt, error)
+	Put(key *types.Felt, value *types.Felt) error
+	Del(key *types.Felt) error
+}
+
+type trie struct {
 	root   *Node
 	storer *trieStorer
 	height int
 }
 
-func NewTrie(kvStorer store.KVStorer, rootHash *types.Felt, height int) (*Trie, error) {
+func New(kvStorer store.KVStorer, rootHash *types.Felt, height int) (*trie, error) {
 	storer := &trieStorer{kvStorer}
 	if rootHash == nil {
-		return &Trie{nil, storer, height}, nil
+		return &trie{nil, storer, height}, nil
 	} else if root, err := storer.retrieveByH(rootHash); err != nil {
 		return nil, err
 	} else {
-		return &Trie{root, storer, height}, nil
+		return &trie{root, storer, height}, nil
 	}
 }
 
 // RootHash returns the hash of the root node of the trie.
-func (t *Trie) RootHash() *types.Felt {
+func (t *trie) RootHash() *types.Felt {
 	if t.root == nil {
 		return &types.Felt0
 	}
@@ -41,7 +48,7 @@ func (t *Trie) RootHash() *types.Felt {
 }
 
 // Get gets the value for a key stored in the trie.
-func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
+func (t *trie) Get(key *types.Felt) (*types.Felt, error) {
 	// check if root is not empty
 	if t.root == nil {
 		return nil, nil
@@ -107,7 +114,7 @@ func (t *Trie) Get(key *types.Felt) (*types.Felt, error) {
 }
 
 // Put inserts a new key/value pair into the trie.
-func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
+func (t *trie) Put(key *types.Felt, value *types.Felt) error {
 	path := NewPath(t.height, key.Bytes())
 	siblings := make(map[int]*types.Felt)
 	curr := t.root // curr is the current node in the traversal
@@ -233,8 +240,8 @@ func (t *Trie) Put(key *types.Felt, value *types.Felt) error {
 	return nil
 }
 
-// Delete deltes the value associated with the given key.
-func (t *Trie) Delete(key *types.Felt) error {
+// Del deltes the value associated with the given key.
+func (t *trie) Del(key *types.Felt) error {
 	path := NewPath(t.height, key.Bytes())
 	siblings := make([]*types.Felt, t.height)
 	curr := t.root // curr is the current node in the traversal
@@ -393,7 +400,7 @@ func (t *Trie) Delete(key *types.Felt) error {
 }
 
 // computeH computes the hash of the node and stores it in the store
-func (t *Trie) computeH(node *Node) (*types.Felt, error) {
+func (t *trie) computeH(node *Node) (*types.Felt, error) {
 	// compute the hash of the node
 	h := node.Hash()
 	// store the hash of the node
@@ -404,7 +411,7 @@ func (t *Trie) computeH(node *Node) (*types.Felt, error) {
 }
 
 // computeP computes the pedersen hash of the felts and stores it in the store
-func (t *Trie) computeP(arg1, arg2 *types.Felt) (*types.Felt, error) {
+func (t *trie) computeP(arg1, arg2 *types.Felt) (*types.Felt, error) {
 	// compute the pedersen hash of the node
 	p := types.BigToFelt(pedersen.Digest(arg1.Big(), arg2.Big()))
 	// store the pedersen hash of the node

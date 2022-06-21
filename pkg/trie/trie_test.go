@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -41,7 +42,7 @@ func TestExample(t *testing.T) {
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	trie, _ := NewTrie(db, nil, testHeight)
+	trie, _ := New(db, nil, testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
@@ -61,7 +62,7 @@ func TestExample(t *testing.T) {
 	// Remove items from the trie.
 	for _, pair := range pairs {
 		t.Logf("delete(key=%d)\n", pair.key)
-		trie.Delete(&pair.key)
+		trie.Del(&pair.key)
 	}
 
 	// Output:
@@ -75,14 +76,14 @@ func TestExample(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := store.New()
-	trie, _ := NewTrie(db, nil, testHeight)
+	trie, _ := New(db, nil, testHeight)
 	for _, test := range tests {
 		trie.Put(&test.key, &test.val)
 	}
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("delete(%s)", test.key.Hex()), func(t *testing.T) {
-			if err := trie.Delete(&test.key); err != nil {
+			if err := trie.Del(&test.key); err != nil {
 				t.Error(err)
 			}
 			val, err := trie.Get(&test.key)
@@ -98,7 +99,7 @@ func TestDelete(t *testing.T) {
 
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
-	trie, _ := NewTrie(store.New(), nil, testHeight)
+	trie, _ := New(store.New(), nil, testHeight)
 	if trie.RootHash().Cmp(&types.Felt0) != 0 {
 		t.Error("trie.RootHash() != 0 for empty trie")
 	}
@@ -106,7 +107,7 @@ func TestEmptyTrie(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	db := store.New()
-	trie, _ := NewTrie(db, nil, 8)
+	trie, _ := New(db, nil, 8)
 	for _, test := range tests {
 		err := trie.Put(&test.key, &test.val)
 		if err != nil {
@@ -133,17 +134,11 @@ func TestGet(t *testing.T) {
 // TestInvariant checks that the root hash is independent of the
 // insertion and deletion order.
 func TestInvariant(t *testing.T) {
-	t0, err := NewTrie(store.New(), nil, testHeight)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t1, err := NewTrie(store.New(), nil, testHeight)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t0, _ := New(store.New(), nil, testHeight)
+	t1, _ := New(store.New(), nil, testHeight)
 
-	for _, test := range tests {
-		t0.Put(&test.key, &test.val)
+	for i := 0; i < len(tests); i++ {
+		t0.Put(&tests[i].key, &tests[i].val)
 	}
 
 	// Insertion in reverse order.
@@ -158,8 +153,8 @@ func TestInvariant(t *testing.T) {
 	})
 
 	t.Run("delete: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
-		t0.Delete(&tests[1].key)
-		t1.Delete(&tests[1].key)
+		t0.Del(&tests[1].key)
+		t1.Del(&tests[1].key)
 		if t0.RootHash().Cmp(t1.RootHash()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
@@ -176,14 +171,14 @@ func TestInvariant(t *testing.T) {
 // TestRebuild tests that the trie can be reconstructed from storage.
 func TestRebuild(t *testing.T) {
 	db := store.New()
-	oldTrie, _ := NewTrie(db, nil, testHeight)
+	oldTrie, _ := New(db, nil, testHeight)
 
 	for _, test := range tests {
 		oldTrie.Put(&test.key, &test.val)
 	}
 
 	// New trie using the same storage.
-	newTrie, _ := NewTrie(db, oldTrie.RootHash(), testHeight)
+	newTrie, _ := New(db, oldTrie.RootHash(), testHeight)
 
 	t.Run("oldTrie.RootHash().Cmp(newTrie.RootHash()) == 0", func(t *testing.T) {
 		if oldTrie.RootHash().Cmp(newTrie.RootHash()) != 0 {
@@ -302,9 +297,11 @@ func TestState(t *testing.T) {
 	)
 
 	height := 251
-	state, _ := NewTrie(store.New(), nil, height)
+	// state, _ := New(store.New(), nil, height)
+	state := newTrie(height)
 	for addr, diff := range addresses {
-		storage, _ := NewTrie(store.New(), nil, height)
+		// storage, _ := New(store.New(), nil, height)
+		storage := newTrie(height)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))
@@ -329,4 +326,115 @@ func TestState(t *testing.T) {
 	if want.Cmp(got) != 0 {
 		t.Errorf("state.RootHash() = %x, want = %x", got, want)
 	}
+}
+
+type testTrie struct {
+	height int
+	leaves map[string]*types.Felt
+	prefix map[string]int
+}
+
+func newTrie(height int) *testTrie {
+	return &testTrie{
+		height: height,
+		leaves: make(map[string]*types.Felt),
+		prefix: make(map[string]int),
+	}
+}
+
+func (t *testTrie) RootHash() *types.Felt {
+	return hash(t.get(""))
+}
+
+func (t *testTrie) Put(pathFelt *types.Felt, val *types.Felt) error {
+	path := bin(pathFelt.Bytes(), t.height)
+	if len(path) != t.height {
+		return errors.New("invalid path")
+	}
+	t.leaves[path] = val
+	for i := 0; i < t.height; i++ {
+		if _, ok := t.prefix[path[:i]]; !ok {
+			t.prefix[path[:i]] = 0
+		}
+		t.prefix[path[:i]] = t.prefix[path[:i]] + 1
+	}
+	return nil
+}
+
+func (t *testTrie) Del(pathFelt *types.Felt) error {
+	path := bin(pathFelt.Bytes(), t.height)
+	if len(path) != t.height {
+		return errors.New("invalid path")
+	}
+	delete(t.leaves, path)
+	for i := 0; i < t.height; i++ {
+		t.prefix[path[:i]] = t.prefix[path[:i]] - 1
+	}
+	return nil
+}
+
+func (t *testTrie) Get(pathFelt *types.Felt) (*types.Felt, error) {
+	_, bottom := t.get(bin(pathFelt.Bytes(), t.height))
+	return bottom, nil
+}
+
+func (t *testTrie) get(path string) (string, *types.Felt) {
+	if len(path) == t.height {
+		return "", t.leaves[path]
+	}
+
+	hasLeft := t.prefix[path+"0"] > 0
+	hasRight := t.prefix[path+"1"] > 0
+
+	if hasLeft && hasRight {
+		leftPath, leftBottom := t.get(path + "0")
+		rightPath, rightBottom := t.get(path + "1")
+
+		bottom := types.BigToFelt(
+			pedersen.Digest(
+				hash(leftPath, leftBottom).Big(),
+				hash(rightPath, rightBottom).Big(),
+			),
+		)
+		return "", &bottom
+	}
+
+	if hasLeft {
+		leftPath, leftBottom := t.get(path + "0")
+		return "0" + leftPath, leftBottom
+	}
+
+	if hasRight {
+		rightPath, rightBottom := t.get(path + "1")
+		return "1" + rightPath, rightBottom
+	}
+
+	return "", nil
+}
+
+func hash(path string, bottom *types.Felt) *types.Felt {
+	if bottom == nil {
+		return &types.Felt0
+	} else if len(path) == 0 {
+		return bottom
+	} else {
+		bigIntPath, ok := new(big.Int).SetString(path, 2)
+		if !ok {
+			panic("invalid path")
+		}
+		length := types.BigToFelt(new(big.Int).SetUint64(uint64(len(path))))
+		h := types.BigToFelt(pedersen.Digest(bottom.Big(), bigIntPath))
+		felt := h.Add(&length)
+		return &felt
+	}
+}
+
+func bin(b []byte, length int) string {
+	res := ""
+	for _, v := range b {
+		res += fmt.Sprintf("%08b", v)
+	}
+	res = res[len(res)-length:]
+	fmt.Printf("%s\n", res)
+	return res
 }
