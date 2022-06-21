@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -297,11 +296,9 @@ func TestState(t *testing.T) {
 	)
 
 	height := 251
-	// state, _ := New(store.New(), nil, height)
-	state := newTrie(height)
+	state, _ := New(store.New(), nil, height)
 	for addr, diff := range addresses {
-		// storage, _ := New(store.New(), nil, height)
-		storage := newTrie(height)
+		storage, _ := New(store.New(), nil, height)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))
@@ -326,115 +323,4 @@ func TestState(t *testing.T) {
 	if want.Cmp(got) != 0 {
 		t.Errorf("state.RootHash() = %x, want = %x", got, want)
 	}
-}
-
-type testTrie struct {
-	height int
-	leaves map[string]*types.Felt
-	prefix map[string]int
-}
-
-func newTrie(height int) *testTrie {
-	return &testTrie{
-		height: height,
-		leaves: make(map[string]*types.Felt),
-		prefix: make(map[string]int),
-	}
-}
-
-func (t *testTrie) RootHash() *types.Felt {
-	return hash(t.get(""))
-}
-
-func (t *testTrie) Put(pathFelt *types.Felt, val *types.Felt) error {
-	path := bin(pathFelt.Bytes(), t.height)
-	if len(path) != t.height {
-		return errors.New("invalid path")
-	}
-	t.leaves[path] = val
-	for i := 0; i < t.height; i++ {
-		if _, ok := t.prefix[path[:i]]; !ok {
-			t.prefix[path[:i]] = 0
-		}
-		t.prefix[path[:i]] = t.prefix[path[:i]] + 1
-	}
-	return nil
-}
-
-func (t *testTrie) Del(pathFelt *types.Felt) error {
-	path := bin(pathFelt.Bytes(), t.height)
-	if len(path) != t.height {
-		return errors.New("invalid path")
-	}
-	delete(t.leaves, path)
-	for i := 0; i < t.height; i++ {
-		t.prefix[path[:i]] = t.prefix[path[:i]] - 1
-	}
-	return nil
-}
-
-func (t *testTrie) Get(pathFelt *types.Felt) (*types.Felt, error) {
-	_, bottom := t.get(bin(pathFelt.Bytes(), t.height))
-	return bottom, nil
-}
-
-func (t *testTrie) get(path string) (string, *types.Felt) {
-	if len(path) == t.height {
-		return "", t.leaves[path]
-	}
-
-	hasLeft := t.prefix[path+"0"] > 0
-	hasRight := t.prefix[path+"1"] > 0
-
-	if hasLeft && hasRight {
-		leftPath, leftBottom := t.get(path + "0")
-		rightPath, rightBottom := t.get(path + "1")
-
-		bottom := types.BigToFelt(
-			pedersen.Digest(
-				hash(leftPath, leftBottom).Big(),
-				hash(rightPath, rightBottom).Big(),
-			),
-		)
-		return "", &bottom
-	}
-
-	if hasLeft {
-		leftPath, leftBottom := t.get(path + "0")
-		return "0" + leftPath, leftBottom
-	}
-
-	if hasRight {
-		rightPath, rightBottom := t.get(path + "1")
-		return "1" + rightPath, rightBottom
-	}
-
-	return "", nil
-}
-
-func hash(path string, bottom *types.Felt) *types.Felt {
-	if bottom == nil {
-		return &types.Felt0
-	} else if len(path) == 0 {
-		return bottom
-	} else {
-		bigIntPath, ok := new(big.Int).SetString(path, 2)
-		if !ok {
-			panic("invalid path")
-		}
-		length := types.BigToFelt(new(big.Int).SetUint64(uint64(len(path))))
-		h := types.BigToFelt(pedersen.Digest(bottom.Big(), bigIntPath))
-		felt := h.Add(&length)
-		return &felt
-	}
-}
-
-func bin(b []byte, length int) string {
-	res := ""
-	for _, v := range b {
-		res += fmt.Sprintf("%08b", v)
-	}
-	res = res[len(res)-length:]
-	fmt.Printf("%s\n", res)
-	return res
 }
