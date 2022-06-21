@@ -1,6 +1,6 @@
 package trie
 
-var EmptyPath = NewPath(0, []byte{})
+var EmptyPath = &Path{0, []byte{}}
 
 type Path struct {
 	length int
@@ -14,6 +14,9 @@ func NewPath(length int, b []byte) *Path {
 		copy(bs.bytes[-offset:], b)
 	} else {
 		copy(bs.bytes, b[offset:])
+	}
+	for i := 1; i <= len(bs.bytes)*8-bs.length; i++ {
+		bs.Clear(-i)
 	}
 	return bs
 }
@@ -45,7 +48,29 @@ func (path *Path) Walked(walked int) *Path {
 	return NewPath(path.Len()-walked, path.bytes)
 }
 
-func (path *Path) longestCommonPrefix(other *Path) int {
+func (path *Path) Prefix(length int) *Path {
+	result := NewPath(length, nil)
+	for i := 0; i < length; i++ {
+		if path.Get(i) {
+			result.Set(i)
+		}
+	}
+	return result
+}
+
+func (path *Path) String() string {
+	res := ""
+	for i := 0; i < path.Len(); i++ {
+		if path.Get(i) {
+			res += "1"
+		} else {
+			res += "0"
+		}
+	}
+	return res
+}
+
+func (path *Path) LongestCommonPrefix(other *Path) int {
 	n := 0
 	for ; n < path.Len() && n < other.Len(); n++ {
 		if path.Get(n) != other.Get(n) {

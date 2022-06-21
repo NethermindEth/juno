@@ -8,10 +8,20 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
+var EmptyNode = &Node{EmptyPath, &types.Felt0}
+
 // Node represents a Node in a binary tree.
 type Node struct {
 	Path   *Path
 	Bottom *types.Felt
+}
+
+func (n *Node) IsEdge() bool {
+	return n.Path.Len() > 0
+}
+
+func (n *Node) IsEmpty() bool {
+	return n.Path.Len() == 0 && n.Bottom.Cmp(&types.Felt0) == 0
 }
 
 func (n *Node) Hash() *types.Felt {

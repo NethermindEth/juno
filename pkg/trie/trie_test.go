@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -42,7 +41,7 @@ func TestExample(t *testing.T) {
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	trie, _ := NewTrie(db, nil, testHeight)
+	trie, _ := New(db, EmptyNode.Hash(), testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
@@ -62,7 +61,7 @@ func TestExample(t *testing.T) {
 	// Remove items from the trie.
 	for _, pair := range pairs {
 		t.Logf("delete(key=%d)\n", pair.key)
-		trie.Delete(&pair.key)
+		trie.Del(&pair.key)
 	}
 
 	// Output:
@@ -76,20 +75,22 @@ func TestExample(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := store.New()
-	trie, _ := NewTrie(db, nil, testHeight)
+	trie, _ := New(db, EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		trie.Put(&test.key, &test.val)
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("delete(%#v)", test.key), func(t *testing.T) {
-			trie.Delete(&test.key)
+		t.Run(fmt.Sprintf("delete(%s)", test.key.Hex()), func(t *testing.T) {
+			if err := trie.Del(&test.key); err != nil {
+				t.Error(err)
+			}
 			val, err := trie.Get(&test.key)
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
-			if val != nil {
-				t.Errorf("key %#v not successfully removed from storage", test.key)
+			if val.Cmp(&types.Felt0) != 0 {
+				t.Errorf("key %s not successfully removed from storage. returned %s", test.key.Hex(), val.Hex())
 			}
 		})
 	}
@@ -97,7 +98,7 @@ func TestDelete(t *testing.T) {
 
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
-	trie, _ := NewTrie(store.New(), nil, testHeight)
+	trie, _ := New(store.New(), EmptyNode.Hash(), testHeight)
 	if trie.RootHash().Cmp(&types.Felt0) != 0 {
 		t.Error("trie.RootHash() != 0 for empty trie")
 	}
@@ -105,7 +106,7 @@ func TestEmptyTrie(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	db := store.New()
-	trie, _ := NewTrie(db, nil, 8)
+	trie, _ := New(db, EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		err := trie.Put(&test.key, &test.val)
 		if err != nil {
@@ -120,10 +121,10 @@ func TestGet(t *testing.T) {
 				t.Fatal(err)
 			}
 			if got == nil {
-				t.Errorf("got = nil, want = %x", test.val)
+				t.Errorf("got = nil, want = %x", test.val.Hex())
 			}
 			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
-				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
+				t.Errorf("get(%#v) = %#v, want %#v", test.key.Hex(), got.Hex(), test.val.Hex())
 			}
 		})
 	}
@@ -132,17 +133,11 @@ func TestGet(t *testing.T) {
 // TestInvariant checks that the root hash is independent of the
 // insertion and deletion order.
 func TestInvariant(t *testing.T) {
-	t0, err := NewTrie(store.New(), nil, testHeight)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t1, err := NewTrie(store.New(), nil, testHeight)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t0, _ := New(store.New(), EmptyNode.Hash(), testHeight)
+	t1, _ := New(store.New(), EmptyNode.Hash(), testHeight)
 
-	for _, test := range tests {
-		t0.Put(&test.key, &test.val)
+	for i := 0; i < len(tests); i++ {
+		t0.Put(&tests[i].key, &tests[i].val)
 	}
 
 	// Insertion in reverse order.
@@ -157,8 +152,8 @@ func TestInvariant(t *testing.T) {
 	})
 
 	t.Run("delete: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
-		t0.Delete(&tests[1].key)
-		t1.Delete(&tests[1].key)
+		t0.Del(&tests[1].key)
+		t1.Del(&tests[1].key)
 		if t0.RootHash().Cmp(t1.RootHash()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
@@ -175,14 +170,14 @@ func TestInvariant(t *testing.T) {
 // TestRebuild tests that the trie can be reconstructed from storage.
 func TestRebuild(t *testing.T) {
 	db := store.New()
-	oldTrie, _ := NewTrie(db, nil, testHeight)
+	oldTrie, _ := New(db, EmptyNode.Hash(), testHeight)
 
 	for _, test := range tests {
 		oldTrie.Put(&test.key, &test.val)
 	}
 
 	// New trie using the same storage.
-	newTrie, _ := NewTrie(db, nil, testHeight)
+	newTrie, _ := New(db, oldTrie.RootHash(), testHeight)
 
 	t.Run("oldTrie.RootHash().Cmp(newTrie.RootHash()) == 0", func(t *testing.T) {
 		if oldTrie.RootHash().Cmp(newTrie.RootHash()) != 0 {
@@ -200,32 +195,6 @@ func TestRebuild(t *testing.T) {
 				t.Errorf("oldTrie.Get(%#v) = %#v != newTrie.Get(%#v) = %#v", randKey, got, randKey, want)
 			}
 		})
-}
-
-func TestPut0(t *testing.T) {
-	db := store.New()
-	trie, _ := NewTrie(db, nil, testHeight)
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("put(%#v, %#v)", test.key, test.val), func(t *testing.T) {
-			trie.Put(&test.key, &test.val)
-			pre := Prefix(Reversed(test.key.Big(), testHeight), testHeight)
-			got, ok := db.Get(pre)
-			if !ok {
-				// A key with a value 0 is deleted.
-				if test.val.Cmp(&types.Felt0) == 0 {
-					t.Skip()
-				}
-				t.Fatalf("failed to retrieve value with key %s from database", pre)
-			}
-			var n Node
-			if err := json.Unmarshal(got, &n); err != nil {
-				t.Fatal("failed to unmarshal value from database")
-			}
-			if test.val.Cmp(n.Bottom) != 0 {
-				t.Errorf("failed to put value %#v at key %#v", test.key, test.val)
-			}
-		})
-	}
 }
 
 // TestState tests whether the trie produces the same state root as in
@@ -327,9 +296,9 @@ func TestState(t *testing.T) {
 	)
 
 	height := 251
-	state, _ := NewTrie(store.New(), nil, height)
+	state, _ := New(store.New(), EmptyNode.Hash(), height)
 	for addr, diff := range addresses {
-		storage, _ := NewTrie(store.New(), nil, height)
+		storage, _ := New(store.New(), EmptyNode.Hash(), height)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))
@@ -353,19 +322,5 @@ func TestState(t *testing.T) {
 	got := state.RootHash()
 	if want.Cmp(got) != 0 {
 		t.Errorf("state.RootHash() = %x, want = %x", got, want)
-	}
-}
-
-func TestPut(t *testing.T) {
-	db := store.New()
-	trie, _ := NewTrie(db, nil, 3)
-	key, val := types.BigToFelt(big.NewInt(1)), types.BigToFelt(big.NewInt(1))
-	if err := trie.Put(&key, &val); err != nil {
-		t.Error(err)
-	}
-	if got, err := trie.Get(&key); err != nil {
-		t.Error(err)
-	} else if got.Big().Cmp(val.Big()) != 0 {
-		t.Errorf("got = %x, want = %x", got, val)
 	}
 }
