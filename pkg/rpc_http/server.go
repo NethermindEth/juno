@@ -1,9 +1,10 @@
 package rpcnew
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -51,33 +52,82 @@ func (s *httpRpc) Do(request RpcRequest) (*RpcResponse, error) {
 
 func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check Content-type header?
-	// Decode request body as a RpcRequest
-	// TODO: Check if request is a batch of requests
-	w.Header().Add("Content-type", "application/json")
-	decoder := json.NewDecoder(r.Body)
-	request := new(RpcRequest)
-	err := decoder.Decode(request)
+
+	// Get the body
+	rawData, err := getJsonBody(r)
 	if err != nil {
-		responseError(w, NewErrParseError(err.Error()))
+		responseError(w, err)
 		return
 	}
 
-	fmt.Printf("RPC request:\n%s", *request)
-	// Call the RPC
-	response, rpcErr := s.Do(*request)
-	if rpcErr != nil {
-		responseError(w, rpcErr)
-		return
+	var responseData interface{}
+	w.Header().Add("Content-type", "application/json")
+
+	decoder := json.NewDecoder(bytes.NewReader(rawData))
+	if isBatch(rawData) {
+		// Batch request
+		var requests []RpcRequest
+		err := decoder.Decode(&requests)
+		if err != nil {
+			responseError(w, NewErrParseError(err.Error()))
+		}
+		responses := make([]RpcResponse, len(requests))
+		for i, request := range requests {
+			response, err := s.Do(request)
+			if err != nil {
+				responseError(w, err)
+				return
+			}
+			responses[i] = *response
+		}
+		responseData = responses
+	} else {
+		// Single request
+		var request RpcRequest
+		err := decoder.Decode(&request)
+		if err != nil {
+			responseError(w, NewErrParseError(err.Error()))
+			return
+		}
+		response, err := s.Do(request)
+		if err != nil {
+			responseError(w, err)
+			return
+		}
+		responseData = response
 	}
 
 	// Send response
 	encoder := json.NewEncoder(w)
-	err = encoder.Encode(response)
+	err = encoder.Encode(&responseData)
 	if err != nil {
 		responseError(w, NewErrInternalError(err))
 		return
 	}
-	// w.WriteHeader(http.StatusOK)
+}
+
+func getJsonBody(r *http.Request) (json.RawMessage, error) {
+	bodyRawData, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, NewErrParseError(err.Error())
+	}
+	message := json.RawMessage{}
+	err = message.UnmarshalJSON(bodyRawData)
+	if err != nil {
+		return nil, NewErrParseError(err.Error())
+	}
+	return message, nil
+}
+
+func isBatch(raw json.RawMessage) bool {
+	for _, c := range raw {
+		// skip insignificant whitespace (http://www.ietf.org/rfc/rfc4627.txt)
+		if c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d {
+			continue
+		}
+		return c == '['
+	}
+	return false
 }
 
 func responseError(w http.ResponseWriter, rpcErr error) {
