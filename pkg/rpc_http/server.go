@@ -45,12 +45,16 @@ func (s *httpRpc) Do(request RpcRequest) (*RpcResponse, error) {
 	// Find the service
 	service, ok := s.services[serviceName]
 	if !ok {
-		return nil, NewErrMethodNotFound(request.Method)
+		return nil, NewErrMethodNotFound(nil)
 	}
 	return service.Call(context.Background(), request)
 }
 
 func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	// TODO: Check Content-type header?
 
 	// Get the body
@@ -71,14 +75,14 @@ func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			responseError(w, NewErrParseError(err.Error()))
 		}
-		responses := make([]RpcResponse, len(requests))
+		responses := make([]*RpcResponse, len(requests))
 		for i, request := range requests {
 			response, err := s.Do(request)
 			if err != nil {
-				responseError(w, err)
-				return
+				responses[i] = NewRpcError(request.Id, err)
+			} else {
+				responses[i] = response
 			}
-			responses[i] = *response
 		}
 		responseData = responses
 	} else {
@@ -91,10 +95,10 @@ func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		response, err := s.Do(request)
 		if err != nil {
-			responseError(w, err)
-			return
+			responseData = NewRpcError(request.Id, err)
+		} else {
+			responseData = response
 		}
-		responseData = response
 	}
 
 	// Send response

@@ -85,3 +85,19 @@ type RpcResponse struct {
 	Result  interface{} `json:"result,omitempty"`
 	Error   error       `json:"error,omitempty"`
 }
+
+func NewRpcResponse(id interface{}, result interface{}) *RpcResponse {
+	return &RpcResponse{
+		Id:      id,
+		Jsonrpc: JsonRpcVersion,
+		Result:  result,
+	}
+}
+
+func NewRpcError(id interface{}, err error) *RpcResponse {
+	return &RpcResponse{
+		Id:      id,
+		Jsonrpc: JsonRpcVersion,
+		Error:   err,
+	}
+}

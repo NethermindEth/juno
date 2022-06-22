@@ -1,7 +1,6 @@
 package rpcnew
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -141,8 +140,13 @@ func checkInputs(method reflect.Method) (withContext bool, paramType reflect.Typ
 	}
 }
 
-func (h *handler) Call(v ...reflect.Value) (interface{}, error) {
-	out := h.function.Call(append([]reflect.Value{h.receiver}, v...))
+func (h *handler) Call(ctx context.Context, params reflect.Value) (interface{}, error) {
+	var out []reflect.Value
+	if h.hasContext {
+		out = h.function.Call([]reflect.Value{h.receiver, reflect.ValueOf(ctx), params})
+	} else {
+		out = h.function.Call([]reflect.Value{h.receiver, params})
+	}
 	outValue := out[0]
 	outError := out[1]
 	if outError.IsNil() {
@@ -152,64 +156,85 @@ func (h *handler) Call(v ...reflect.Value) (interface{}, error) {
 }
 
 func (s *RpcService) Call(ctx context.Context, request RpcRequest) (*RpcResponse, error) {
+	// Lock/Unlock the service mutex
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	handler, ok := s.handlers[request.Method]
+
+	// Check if the method exists
+	h, ok := s.handlers[request.Method]
 	if !ok {
 		return nil, NewErrMethodNotFound(request.Method)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(request.Params))
-	token, err := decoder.Token()
-	if err != nil {
-		// TODO: Check empty params
-		return nil, err
-	}
+
 	var param reflect.Value
-	if token == json.Delim('[') {
+	if isBatch(request.Params) {
 		// Parsing params by-position
 		var positionalParams []json.RawMessage
 		err := json.Unmarshal(request.Params, &positionalParams)
 		if err != nil {
-			return nil, NewErrInvalidRequest("invalid by-position params")
+			return nil, NewErrInvalidParams("invalid by-position params")
 		}
-		param = reflect.New(handler.arguments).Elem()
-		numField := param.NumField()
-		if len(positionalParams) != numField {
-			return nil, NewErrInvalidRequest(fmt.Sprintf("invalid number of by-position params, the called function needs %d params", numField))
-		}
-		for i := 0; i < numField; i++ {
-			field := param.Field(i)
-			// TODO: Check if IsValid and CanSet
-			fieldV := reflect.New(field.Type())
-			err := json.Unmarshal(positionalParams[i], fieldV.Interface())
-			if err != nil {
-				return nil, NewErrInvalidRequest(fmt.Sprintf("invalid param at index %d", i))
-			}
-			field.Set(fieldV.Elem())
-		}
-	} else if token == json.Delim('{') {
-		// Parsing params by-name
-		param = reflect.New(handler.arguments)
-		err := json.Unmarshal(request.Params, param.Interface())
+		param, err = h.parsePositionalParams(positionalParams)
 		if err != nil {
-			// TODO: send more context about the error
-			return nil, NewErrInvalidRequest("unmarshal by-name params error")
+			return nil, err
 		}
-		param = param.Elem()
 	} else {
-		return nil, NewErrInvalidRequest("invalid param format")
+		// Parsing params by-name
+		var namedParams map[string]json.RawMessage
+		err := json.Unmarshal(request.Params, &namedParams)
+		if err != nil {
+			return nil, NewErrInvalidParams("unmarshal by-name params error")
+		}
+		param, err = h.parseNamedParams(namedParams)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if handler.hasContext {
-		out, err := handler.Call(reflect.ValueOf(ctx), param)
-		response, err := s.ProcessOut(out, err)
-		response.Id = request.Id
-		return response, err
-	} else {
-		out, err := handler.Call(param)
-		response, err := s.ProcessOut(out, err)
-		response.Id = request.Id
-		return response, err
+
+	out, err := h.Call(ctx, param)
+	if err != nil {
+		return nil, err
 	}
+	return NewRpcResponse(request.Id, out), nil
+}
+
+func (h handler) parsePositionalParams(params []json.RawMessage) (reflect.Value, error) {
+	param := reflect.New(h.arguments).Elem()
+	numField := param.NumField()
+	if len(params) != numField {
+		return reflect.Value{}, NewErrInvalidParams(fmt.Sprintf("invalid number of by-position params, the called function needs %d params", numField))
+	}
+	for i := 0; i < numField; i++ {
+		field := param.Field(i)
+		fieldV := reflect.New(field.Type())
+		err := json.Unmarshal(params[i], fieldV.Interface())
+		if err != nil {
+			return reflect.Value{}, NewErrInvalidParams(fmt.Sprintf("invalid param at index %d", i))
+		}
+		field.Set(fieldV.Elem())
+	}
+	return param, nil
+}
+
+func (h handler) parseNamedParams(params map[string]json.RawMessage) (reflect.Value, error) {
+	param := reflect.New(h.arguments).Elem()
+	numField := param.NumField()
+	if numField != len(params) {
+		return reflect.Value{}, NewErrInvalidParams(fmt.Sprintf("invalid number of by-name params, the called function needs %d params", numField))
+	}
+	for k, v := range params {
+		field := param.FieldByName(k)
+		if !field.IsValid() {
+			return reflect.Value{}, NewErrInvalidParams(fmt.Sprintf("invalid param name %s", k))
+		}
+		fieldV := reflect.New(field.Type())
+		err := json.Unmarshal(v, fieldV.Interface())
+		if err != nil {
+			return reflect.Value{}, NewErrInvalidParams(fmt.Sprintf("invalid param name %s", k))
+		}
+		field.Set(fieldV.Elem())
+	}
+	return param, nil
 }
 
 func (s *RpcService) ProcessOut(out interface{}, err error) (*RpcResponse, error) {
