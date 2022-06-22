@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 type RpcService struct {
 	name     string
 	handlers map[string]*handler
+	mu       sync.RWMutex
 }
 
 // NewRpcService returns a new RpcService instance with the given name, and
@@ -40,6 +42,8 @@ func NewRpcService(name string, receiver interface{}) (*RpcService, error) {
 	s := &RpcService{
 		handlers: make(map[string]*handler),
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	// Build handlers
 	for i := 0; i < receiverV.NumMethod(); i++ {
 		method := receiverT.Method(i)
@@ -147,6 +151,8 @@ func (h *handler) Call(v ...reflect.Value) (interface{}, error) {
 }
 
 func (s *RpcService) Call(ctx context.Context, request RpcRequest) (*RpcResponse, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	handler, ok := s.handlers[request.Method]
 	if !ok {
 		return nil, NewErrMethodNotFound(request.Method)

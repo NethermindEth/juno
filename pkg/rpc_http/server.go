@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"strings"
 )
 
@@ -25,7 +24,6 @@ func NewHTTPRpc() (HTTPRpc, error) {
 
 type httpRpc struct {
 	services map[string]*RpcService
-	mu       sync.Mutex
 }
 
 func (s *httpRpc) AddService(name string, service interface{}) error {
@@ -33,8 +31,6 @@ func (s *httpRpc) AddService(name string, service interface{}) error {
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.services[name] = serv
 	return nil
 }
@@ -46,8 +42,6 @@ func (s *httpRpc) Do(request RpcRequest) (*RpcResponse, error) {
 	}
 	serviceName := extractServiceName(request.Method)
 	// Find the service
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	service, ok := s.services[serviceName]
 	if !ok {
 		return nil, NewErrMethodNotFound(request.Method)
