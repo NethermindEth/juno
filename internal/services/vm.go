@@ -62,8 +62,9 @@ func (s *vmService) setDefaults() error {
 	if s.manager == nil {
 		// notest
 		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
+		codeDefinitionDb := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "codeDefinition"), 0)
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(s.vmDir, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+		s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
 	}
 
 	s.rpcNet = "tcp"
@@ -97,12 +98,12 @@ func freePorts(n int) ([]int, error) {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *vmService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *vmService) Setup(codeDatabase, codeDefinitionDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+	s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
 }
 
 // python returns the location of Python on the system by searching the

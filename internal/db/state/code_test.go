@@ -29,11 +29,12 @@ var codes = []struct {
 
 func TestManager_Code(t *testing.T) {
 	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
+	codeDefinitionDd := db.NewKeyValueDb(t.TempDir(), 0)
 	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	manager := NewStateManager(codeDatabase, storageDatabase)
+	manager := NewStateManager(codeDatabase, codeDefinitionDd, storageDatabase)
 	for _, code := range codes {
-		manager.PutCode(code.Address, code.Code)
-		obtainedCode := manager.GetCode(code.Address)
+		manager.PutBinaryCode(code.Address, code.Code)
+		obtainedCode := manager.GetBinaryCode(code.Address)
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}

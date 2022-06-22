@@ -31,8 +31,9 @@ var codes = []struct {
 
 func TestStateService_Code(t *testing.T) {
 	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
+	codeDefinitionDb := db.NewKeyValueDb(t.TempDir(), 0)
 	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	StateService.Setup(codeDatabase, storageDatabase)
+	StateService.Setup(codeDatabase, codeDefinitionDb, storageDatabase)
 
 	err := StateService.Run()
 	if err != nil {
@@ -41,8 +42,8 @@ func TestStateService_Code(t *testing.T) {
 	defer StateService.Close(context.Background())
 
 	for _, code := range codes {
-		StateService.StoreCode(code.Address, code.Code)
-		obtainedCode := StateService.GetCode(code.Address)
+		StateService.StoreBinaryCode(code.Address, code.Code)
+		obtainedCode := StateService.GetBinaryCode(code.Address)
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}
@@ -74,8 +75,9 @@ func TestService_Storage(t *testing.T) {
 		},
 	}
 	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
+	codeDefinitionDb := db.NewKeyValueDb(t.TempDir(), 0)
 	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	StateService.Setup(codeDatabase, storageDatabase)
+	StateService.Setup(codeDatabase, codeDefinitionDb, storageDatabase)
 
 	err := StateService.Run()
 	if err != nil {
