@@ -32,11 +32,12 @@ func NewRpcService(name string, receiver interface{}) (*RpcService, error) {
 	receiverV := reflect.ValueOf(receiver)
 	receiverT := receiverV.Type()
 	// Check receiver type
-	if receiverT.Kind() == reflect.Pointer {
-		elemT := receiverT.Elem()
-		if elemT.Kind() != reflect.Struct {
-			return nil, fmt.Errorf("%w: %s", ErrCreateServiceError, "invalid receiver type")
-		}
+	elemT := receiverT
+	if elemT.Kind() == reflect.Pointer {
+		elemT = elemT.Elem()
+	}
+	if elemT.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("%w: %s", ErrCreateServiceError, "invalid receiver type")
 	}
 
 	s := &RpcService{
