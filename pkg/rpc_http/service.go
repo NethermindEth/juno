@@ -141,11 +141,17 @@ func checkInputs(method reflect.Method) (withContext bool, paramType reflect.Typ
 }
 
 func (h *handler) Call(ctx context.Context, params reflect.Value) (interface{}, error) {
-	var out []reflect.Value
+	// Create inputs
+	var in []reflect.Value
 	if h.hasContext {
-		out = h.function.Call([]reflect.Value{h.receiver, reflect.ValueOf(ctx), params})
+		in = []reflect.Value{h.receiver, reflect.ValueOf(ctx), params}
 	} else {
-		out = h.function.Call([]reflect.Value{h.receiver, params})
+		in = []reflect.Value{h.receiver, params}
+	}
+	// Call function
+	out, err := h.call(in)
+	if err != nil {
+		return nil, err
 	}
 	outValue := out[0]
 	outError := out[1]
@@ -153,6 +159,15 @@ func (h *handler) Call(ctx context.Context, params reflect.Value) (interface{}, 
 		return outValue.Interface(), nil
 	}
 	return outValue.Interface(), outError.Interface().(error)
+}
+
+func (h *handler) call(in []reflect.Value) (out []reflect.Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = NewErrInternalError(r)
+		}
+	}()
+	return h.function.Call(in), nil
 }
 
 func (s *RpcService) Call(ctx context.Context, request RpcRequest) (*RpcResponse, error) {
