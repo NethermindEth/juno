@@ -10,10 +10,8 @@ type point struct{ x, y *big.Int }
 var (
 	// points is a slice of *big.Int that contains the constant points.
 	points [506]point
-	// P is the characteristic of our field
-	P *big.Int
-	// A is alpha in the equation of the curve
-	A *big.Int
+	// prime is the characteristic of our field
+	prime *big.Int
 )
 
 func init() {
@@ -2048,17 +2046,34 @@ func init() {
 		y, _ := new(big.Int).SetString(p[1], 16)
 		points[i] = point{x, y}
 	}
-	P, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
-	A = big.NewInt(1)
+	prime, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
+}
+
+// NewPoint returns a point with coordinates (x, y).
+func NewPoint(x, y *big.Int) *point {
+	return &point{x, y}
+}
+
+// Mod sets p to the point given by (p2.x % z, p2.y % z) and returns p.
+func (p *point) Mod(p2 *point, z *big.Int) *point {
+	p.x.Mod(p2.x, z)
+	p.y.Mod(p2.y, z)
+	return p
+}
+
+// Set sets p's coordinates to p2's coordinates and returns p.
+func (p *point) Set(p2 *point) *point {
+	p.x.Set(p2.x)
+	p.y.Set(p2.y)
+	return p
 }
 
 // Add returns the sum of (x1, y1) and (x2, y2) on an
 // elliptic curve mod P.
 // See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164
-func (p *point) Add(p2 point) {
+func (p *point) Add(p2 *point) {
 	if p.x.Sign() == 0 && p.y.Sign() == 0 {
-		p.x.Set(p2.x)
-		p.y.Set(p2.y)
+		p.Set(p2)
 		return
 	}
 
@@ -2066,50 +2081,44 @@ func (p *point) Add(p2 point) {
 		return
 	}
 
-	x1, y1 := new(big.Int).Mod(p.x, P), new(big.Int).Mod(p.y, P)
-	x2, y2 := new(big.Int).Mod(p2.x, P), new(big.Int).Mod(p2.y, P)
-	if x1.Cmp(x2) == 0 {
-		temp := new(big.Int).Sub(P, y2)
-		temp.Mod(temp, P)
-		if y1.Cmp(temp) == 0 {
-			p.x.SetInt64(0)
-			p.y.SetInt64(0)
+	fieldPoint1 := NewPoint(new(big.Int), new(big.Int)).Mod(p, prime)
+	fieldPoint2 := NewPoint(new(big.Int), new(big.Int)).Mod(p2, prime)
+	var m *big.Int
+	if fieldPoint1.x.Cmp(fieldPoint2.x) == 0 {
+		temp := new(big.Int).Sub(prime, fieldPoint2.y)
+		temp.Mod(temp, prime)
+		if fieldPoint1.y.Cmp(temp) == 0 {
+			p.Set(NewPoint(new(big.Int), new(big.Int)))
+			return
 		} else {
-			big2 := big.NewInt(2)
+			two := big.NewInt(2)
 
-			p.x = new(big.Int).Mul(x1, x1)
+			p.x = new(big.Int).Mul(fieldPoint1.x, fieldPoint1.x)
 			p.x.Mul(p.x, big.NewInt(3))
-			p.x.Add(p.x, A)
-			m := divMod(p.x, new(big.Int).Mul(y1, big2), P)
+			p.x.Add(p.x, big.NewInt(1)) // α = 1 in the equation for the curve
+
+			m = divMod(p.x, new(big.Int).Mul(fieldPoint1.y, two), prime)
 
 			p.x = new(big.Int).Mul(m, m)
-			p.x.Sub(p.x, new(big.Int).Mul(big2, x1))
-			p.x.Mod(p.x, P)
-
-			p.y = new(big.Int).Sub(x1, p.x)
-			p.y.Mul(p.y, m)
-			p.y.Sub(p.y, y1)
-			p.y.Mod(p.y, P)
+			p.x.Sub(p.x, new(big.Int).Mul(two, fieldPoint1.x))
+			p.x.Mod(p.x, prime)
 		}
 	} else {
-		x1, y1 := new(big.Int).Mod(p.x, P), new(big.Int).Mod(p.y, P)
-		x2, y2 := new(big.Int).Mod(p2.x, P), new(big.Int).Mod(p2.y, P)
+		xDelta := new(big.Int).Sub(fieldPoint1.x, fieldPoint2.x)
+		yDelta := new(big.Int).Sub(fieldPoint1.y, fieldPoint2.y)
 
-		xDelta := new(big.Int).Sub(x1, x2)
-		yDelta := new(big.Int).Sub(y1, y2)
-
-		m := divMod(yDelta, xDelta, P)
+		m = divMod(yDelta, xDelta, prime)
 
 		p.x = new(big.Int).Mul(m, m)
-		p.x.Sub(p.x, x1)
-		p.x.Sub(p.x, x2)
-		p.x.Mod(p.x, P)
-
-		p.y = new(big.Int).Sub(x1, p.x)
-		p.y.Mul(p.y, m)
-		p.y.Sub(p.y, y1)
-		p.y.Mod(p.y, P)
+		p.x.Sub(p.x, fieldPoint1.x)
+		p.x.Sub(p.x, fieldPoint2.x)
+		p.x.Mod(p.x, prime)
 	}
+
+	p.y = new(big.Int).Sub(fieldPoint1.x, p.x)
+	p.y.Mul(p.y, m)
+	p.y.Sub(p.y, fieldPoint1.y)
+	p.y.Mod(p.y, prime)
 }
 
 // divMod finds a nonnegative integer x < p such that (m * x) % p == n.
@@ -2117,7 +2126,7 @@ func (p *point) Add(p2 point) {
 // See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56
 func divMod(n, m, p *big.Int) *big.Int {
 	a := new(big.Int)
-	new(big.Int).GCD(a, new(big.Int), m, p)
+	new(big.Int).GCD(a, nil, m, p)
 	r := new(big.Int).Mul(n, a)
 	return r.Mod(r, p)
 }

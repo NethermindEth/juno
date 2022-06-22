@@ -27,7 +27,7 @@ func Digest(data ...*big.Int) *big.Int {
 	pt1 := points[0]
 	zero := new(big.Int)
 	for i, x := range elements {
-		if x.Cmp(zero) == -1 || x.Cmp(P) == 1 {
+		if x.Cmp(zero) == -1 || x.Cmp(prime) == 1 {
 			panic(fmt.Sprintf("%x is not in the range 0 <= x < 2²⁵¹ + 17·2¹⁹² + 1", x))
 		}
 
@@ -35,7 +35,7 @@ func Digest(data ...*big.Int) *big.Int {
 			// Create a copy because *big.Int.And mutates.
 			copyX := new(big.Int).Set(x)
 			if copyX.And(copyX, big.NewInt(1)).Cmp(zero) != 0 {
-				pt1.Add(points[2+i*252+j])
+				pt1.Add(&points[2+i*252+j])
 			}
 			x.Rsh(x, 1)
 		}

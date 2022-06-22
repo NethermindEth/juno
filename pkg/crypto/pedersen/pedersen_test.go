@@ -60,7 +60,7 @@ func BenchmarkArrayDigest(b *testing.B) {
 	data := make([]*big.Int, n)
 	seed := time.Now().UnixNano()
 	for i := range data {
-		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), P)
+		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), prime)
 	}
 
 	b.Run(fmt.Sprintf("Benchmark pedersen.ArrayDigest over %d big.Ints", n), func(b *testing.B) {
