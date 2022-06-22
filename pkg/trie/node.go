@@ -2,7 +2,9 @@ package trie
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -60,4 +62,19 @@ func (n *Node) UnmarshalJSON(b []byte) error {
 	bottom := types.HexToFelt(jsonNode.Bottom)
 	n.Bottom = &bottom
 	return nil
+}
+
+// CairoRepr returns the string representation of a node according to
+// cairo-lang.
+func (n *Node) CairoRepr() string {
+	var buf strings.Builder
+	buf.Grow(130)
+	fmt.Fprintf(
+		&buf,
+		"%.64x%.64x%.2x",
+		n.Bottom.Big(),
+		types.BytesToFelt(n.Path.Bytes()).Big(),
+		n.Path.Len(),
+	)
+	return buf.String()
 }
