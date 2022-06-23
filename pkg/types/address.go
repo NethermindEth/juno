@@ -14,8 +14,8 @@ func HexToAddress(s string) Address {
 	return Address(HexToFelt(s))
 }
 
-func (a *Address) Felt() Felt {
-	return Felt(*a)
+func (a Address) Felt() Felt {
+	return Felt(a)
 }
 
 func (a Address) MarshalJSON() ([]byte, error) {
@@ -32,7 +32,7 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (a *Address) Bytes() []byte {
+func (a Address) Bytes() []byte {
 	return a.Felt().Bytes()
 }
 
