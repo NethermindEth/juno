@@ -11,8 +11,9 @@ import (
 
 func TestVMCall(t *testing.T) {
 	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
+	codeDefinitionDb := db.NewKeyValueDb(t.TempDir(), 0)
 	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	VMService.Setup(codeDatabase, storageDatabase)
+	VMService.Setup(codeDatabase, codeDefinitionDb, storageDatabase)
 
 	if err := VMService.Run(); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)

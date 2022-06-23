@@ -3,6 +3,11 @@ package vmrpc
 import (
 	"context"
 	_ "embed"
+	"math/big"
+
+	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 type storageRPCServer struct {
@@ -28,6 +33,49 @@ var db = map[string]string{
 	"contract_definition_fact:050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b": def,
 }
 
+// DEBUG.
+// Databases that provide the back end to the contract storage and
+// global state tries.
+var storage, state store.KVStorer
+
+// DEBUG.
+func init() {
+	// STORAGE.
+	storage = store.New()
+	contract, _ := trie.New(storage, trie.EmptyNode.Hash(), 251)
+
+	// Storage modifications.
+	mods := []struct {
+		key, val types.Felt
+	}{
+		{types.BigToFelt(big.NewInt(132)), types.BigToFelt(big.NewInt(3))},
+		// TODO: Test for trie with a non-empty binary node i.e. with a
+		// modification key = 133 which would create a parent with a node
+		// that has the form (0, 0, h(H(left), H(right))) or higher up in
+		// the tree e.g. key = 131.
+	}
+
+	for _, mod := range mods {
+		contract.Put(&mod.key, &mod.val)
+	}
+
+	// STATE.
+	state = store.New()
+	global, _ := trie.New(state, trie.EmptyNode.Hash(), 251)
+
+	// Contract address.
+	key, _ := new(big.Int).SetString("57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374", 16)
+	// h(h(h(contract_hash, storage_root), 0), 0) where h is the Pedersen
+	// hash function and storage_root is the commitment of the contract
+	// storage trie above.
+	val, _ := new(big.Int).SetString("002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5", 16)
+
+	// XXX: Why doesn't the following work?
+	// global.Put(types.BigToFelt(key), types.BigToFelt(val))
+	feltKey, feltVal := types.BigToFelt(key), types.BigToFelt(val)
+	global.Put(&feltKey, &feltVal)
+}
+
 func NewStorageRPCServer() *storageRPCServer {
 	return &storageRPCServer{}
 }
@@ -40,10 +88,10 @@ func (s *storageRPCServer) GetValue(ctx context.Context, request *GetValueReques
 	//
 	//	1.	patricia_node. A node in a global state or contract storage
 	//			trie. Note that cairo-lang does not make a distinction between
-	//			whether the node being queried comes from the global state 
+	//			whether the node being queried comes from the global state
 	//			trie or contract storage trie. One idea on how to address this
-	//			is to query the global state tree first and only if the key 
-	//			does not exit there, query the contract storage trie. See the 
+	//			is to query the global state tree first and only if the key
+	//			does not exit there, query the contract storage trie. See the
 	//			following for details https://github.com/eqlabs/pathfinder/blob/82425d44d7aa148bd31a60a7823a3e42b8d613f4/py/src/call.py#L338-L353.
 	//
 	//	2.	contract_state. The key suffix is the result of
@@ -55,7 +103,7 @@ func (s *storageRPCServer) GetValue(ctx context.Context, request *GetValueReques
 	//			See also above db variable.
 	//
 	//	3.	contract_definition_fact. The key suffix is the contract hash
-	//			(class hash) and the value is the compiled contract. Since 
+	//			(class hash) and the value is the compiled contract. Since
 	//			this is not being stored locally, see getFullContract in
 	//			internal/services/vm_utils.go that fetches it from the feeder
 	//			gateway.
