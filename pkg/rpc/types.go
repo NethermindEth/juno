@@ -96,11 +96,11 @@ func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
 	}
 	switch t := token.(type) {
 	case float64:
-		blockNumber := uint64(t)
-		if blockNumber < 0 {
+		if t < 0 {
 			// notest
 			return errors.New("invalid block number")
 		}
+		blockNumber := uint64(t)
 		*x = BlockNumberOrTag{Number: &blockNumber}
 	case string:
 		// notest
