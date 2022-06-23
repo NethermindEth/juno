@@ -2068,16 +2068,22 @@ func (p *point) Set(p2 *point) *point {
 	return p
 }
 
+// IsInf returns true if p represents the point at infinity (0, 0), and
+// false otherwise.
+func (p *point) IsInf() bool {
+	return p.x.Sign() == 0 && p.y.Sign() == 0
+}
+
 // Add returns the sum of (x1, y1) and (x2, y2) on an
 // elliptic curve mod P.
 // See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164
 func (p *point) Add(p2 *point) {
-	if p.x.Sign() == 0 && p.y.Sign() == 0 {
+	if p.IsInf() {
 		p.Set(p2)
 		return
 	}
 
-	if p2.x.Sign() == 0 && p2.y.Sign() == 0 {
+	if p2.IsInf() {
 		return
 	}
 
