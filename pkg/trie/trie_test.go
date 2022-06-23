@@ -28,6 +28,7 @@ func init() {
 }
 
 // DEBUG.
+/*
 func TestCairoCall(t *testing.T) {
 	// STORAGE.
 	storage := store.New()
@@ -77,6 +78,7 @@ func TestCairoCall(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestExample(t *testing.T) {
 	pairs := [...]struct {

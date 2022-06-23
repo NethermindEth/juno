@@ -21,8 +21,7 @@ type storageRPCServer struct {
 var def string
 
 // DEBUG.
-var db = map[string]string{
-	// "patricia_node:0704dfcbc470377c68e6f5ffb83970ebd0d7c48d5b8d2f4ed61a24e795e034bd": "002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5057dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374fb",
+var other = map[string]string{
 	"contract_state:002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5": `{
 			"storage_commitment_tree": {
 				"root": "04fb440e8ca9b74fc12a22ebffe0bc0658206337897226117b985434c239c028", 
@@ -30,21 +29,24 @@ var db = map[string]string{
 			}, 
 			"contract_hash": "050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b"
 		}`,
-	// "patricia_node:04fb440e8ca9b74fc12a22ebffe0bc0658206337897226117b985434c239c028":            "00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000084fb",
 	"starknet_storage_leaf:0000000000000000000000000000000000000000000000000000000000000003":    "0000000000000000000000000000000000000000000000000000000000000003",
 	"contract_definition_fact:050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b": def,
 }
 
 // DEBUG.
-// Databases that provide the back end to the contract storage and
-// global state tries.
-var storage, state store.Ephemeral
+// db is the database that serves as the back end to the state and
+// contract tries.
+var db store.Ephemeral
 
 // DEBUG.
 func init() {
+	// tmp is the temporary database that will act as the back end to the
+	// state and storage tries but stores the nodes using the old
+	// serialisation format.
+	tmp := store.New()
+
 	// STORAGE.
-	old_storage := store.New()
-	contract, _ := trie.New(old_storage, trie.EmptyNode.Hash(), 251)
+	contract, _ := trie.New(tmp, trie.EmptyNode.Hash(), 251)
 
 	// Storage modifications.
 	mods := []struct {
@@ -62,8 +64,7 @@ func init() {
 	}
 
 	// STATE.
-	old_state := store.New()
-	global, _ := trie.New(old_state, trie.EmptyNode.Hash(), 251)
+	global, _ := trie.New(tmp, trie.EmptyNode.Hash(), 251)
 
 	// Contract address.
 	key, _ := new(big.Int).SetString("57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374", 16)
@@ -78,22 +79,13 @@ func init() {
 	global.Put(&feltKey, &feltVal)
 
 	// Simulate new node serialisation.
-	state = store.New()
-	nodes := old_state.List()
+	db = store.New()
+	nodes := tmp.List()
 	for _, pair := range nodes {
 		key := "patricia_node:" + fmt.Sprintf("%.64x", types.BytesToFelt(pair[0]).Big())
 		val := new(trie.Node)
 		val.UnmarshalJSON(pair[1])
-		state.Put([]byte(key), []byte(val.CairoRepr()))
-	}
-
-	storage = store.New()
-	nodes = old_storage.List()
-	for _, pair := range nodes {
-		key := "patricia_node:" + fmt.Sprintf("%.64x", types.BytesToFelt(pair[0]).Big())
-		val := new(trie.Node)
-		val.UnmarshalJSON(pair[1])
-		storage.Put([]byte(key), []byte(val.CairoRepr()))
+		db.Put([]byte(key), []byte(val.CairoRepr()))
 	}
 }
 
@@ -134,14 +126,12 @@ func (s *storageRPCServer) GetValue(ctx context.Context, request *GetValueReques
 	parts := strings.Split(string(request.GetKey()), ":")
 	switch prefix := parts[0]; prefix {
 	case "patricia_node":
-		// Check for node in state trie first.
-		val, ok := state.Get(request.GetKey())
-		if !ok {
-			// If the key does not exist, check the storage trie.
-			val, _ = storage.Get(request.GetKey())
-		}
+		// No need to handle the absence of a value on this side.
+		val, _ := db.Get(request.GetKey())
 		return &GetValueResponse{Value: val}, nil
 	default:
-		return &GetValueResponse{Value: []byte(db[string(request.GetKey())])}, nil
+		// TODO: Handle look ups for contract_state and
+		// contract_definition_fact.
+		return &GetValueResponse{Value: []byte(other[string(request.GetKey())])}, nil
 	}
 }
