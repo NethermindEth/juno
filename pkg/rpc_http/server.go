@@ -37,10 +37,6 @@ func (s *httpRpc) AddService(name string, service interface{}) error {
 }
 
 func (s *httpRpc) Do(request RpcRequest) (*RpcResponse, error) {
-	err := request.Validate()
-	if err != nil {
-		return nil, err
-	}
 	serviceName := extractServiceName(request.Method)
 	// Find the service
 	service, ok := s.services[serviceName]
@@ -70,13 +66,19 @@ func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(bytes.NewReader(rawData))
 	if isBatch(rawData) {
 		// Batch request
-		var requests []RpcRequest
-		err := decoder.Decode(&requests)
+		var rawRequests []json.RawMessage
+		err := decoder.Decode(&rawRequests)
 		if err != nil {
 			responseError(w, NewErrParseError(err.Error()))
 		}
-		responses := make([]*RpcResponse, len(requests))
-		for i, request := range requests {
+		responses := make([]*RpcResponse, len(rawRequests))
+		for i, rawRequest := range rawRequests {
+			var request RpcRequest
+			err := json.Unmarshal(rawRequest, &request)
+			if err != nil {
+				responses[i] = NewRpcError(request.Id, NewErrParseError(err.Error()))
+				continue
+			}
 			response, err := s.Do(request)
 			if err != nil {
 				responses[i] = NewRpcError(request.Id, err)

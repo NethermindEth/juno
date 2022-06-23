@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"reflect"
 )
 
 type RpcRequest struct {
-	Id      interface{}     `json:"id"`
-	Jsonrpc string          `json:"jsonrpc"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
+	Id     interface{}     `json:"id"`
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
 
 func (r *RpcRequest) UnmarshalJSON(data []byte) error {
@@ -27,6 +25,11 @@ func (r *RpcRequest) UnmarshalJSON(data []byte) error {
 	if err := decoder.Decode(&req); err != nil {
 		return err
 	}
+	// Check jsonrpc version
+	if req.Jsonrpc != JsonRpcVersion {
+		return errors.New("jsonrpc version not match")
+	}
+	// Check id
 	switch x := req.Id.(type) {
 	case json.Number:
 		id, err := x.Int64()
@@ -39,35 +42,8 @@ func (r *RpcRequest) UnmarshalJSON(data []byte) error {
 	default:
 		return errors.New("invalid id type")
 	}
-	r.Jsonrpc = req.Jsonrpc
 	r.Method = req.Method
 	r.Params = req.Params
-	return nil
-}
-
-func (r *RpcRequest) Validate() error {
-	if r.Jsonrpc != JsonRpcVersion {
-		return NewErrInvalidRequest("invalid jsonrpc field")
-	}
-	if err := r.validateId(); err != nil {
-		return err
-	}
-	if r.Method == "" {
-		return NewErrInvalidRequest("empty method field")
-	}
-
-	return nil
-}
-
-func (r *RpcRequest) validateId() error {
-	if reflect.ValueOf(r.Id).IsValid() {
-		switch r.Id.(type) {
-		case int64, string:
-			break
-		default:
-			return NewErrInvalidRequest("invalid id type")
-		}
-	}
 	return nil
 }
 
