@@ -77,12 +77,12 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	}
 	defer services.BlockService.Close(context.Background())
 
-	blockHash := types.BlockHash(testFelt1)
+	blockHash := types.PedersenHash(testFelt1)
 	blockNumber := uint64(2175)
 	block := &types.Block{
 		BlockHash:       blockHash,
 		BlockNumber:     blockNumber,
-		ParentHash:      types.HexToBlockHash("0xf8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
+		ParentHash:      types.HexToPedersenHash("0xf8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
 		Status:          types.BlockStatusAcceptedOnL2,
 		Sequencer:       types.HexToAddress("0x0"),
 		NewRoot:         types.HexToFelt("6a42d697b5b735eef03bb71841ed5099d57088f7b5eec8e356fe2601d5ba08f"),
@@ -93,9 +93,9 @@ func TestStarknetGetStorageAt(t *testing.T) {
 		TxCommitment:    types.HexToFelt("0x0"),
 		EventCount:      19,
 		EventCommitment: types.HexToFelt("0x0"),
-		TxHashes: []types.TransactionHash{
-			types.HexToTransactionHash("0x5ce76214481ebb29f912cb5d31abdff34fd42217f5ece9dda76d9fcfd62dc73"),
-			types.HexToTransactionHash("0x4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
+		TxHashes: []types.PedersenHash{
+			types.HexToPedersenHash("0x5ce76214481ebb29f912cb5d31abdff34fd42217f5ece9dda76d9fcfd62dc73"),
+			types.HexToPedersenHash("0x4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
 		},
 	}
 	services.BlockService.StoreBlock(blockHash, block)
@@ -370,7 +370,7 @@ func TestStarknetGetCode(t *testing.T) {
 var (
 	txns = []types.IsTransaction{
 		&types.TransactionInvoke{
-			Hash:               types.HexToTransactionHash("0x4e0e3a35c2d99fce89e0583d042f98cf71d1384554b5771694956a62b9f05fd"),
+			Hash:               types.HexToPedersenHash("0x4e0e3a35c2d99fce89e0583d042f98cf71d1384554b5771694956a62b9f05fd"),
 			ContractAddress:    types.HexToAddress("0x3585c0f52144b1db7bfb8f644182324704c2ac1cc3470957bd097ead7ef2aa4"),
 			EntryPointSelector: types.HexToFelt("0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
 			CallData: []types.Felt{
@@ -392,7 +392,7 @@ var (
 			MaxFee: types.HexToFelt("0x0"),
 		},
 		&types.TransactionInvoke{
-			Hash:               types.HexToTransactionHash("0x6687ec12afde961e106b3b8f060f268cb29e6d70e2dbec38d7a6ef7b6c1f846"),
+			Hash:               types.HexToPedersenHash("0x6687ec12afde961e106b3b8f060f268cb29e6d70e2dbec38d7a6ef7b6c1f846"),
 			ContractAddress:    types.HexToAddress("0x433d2313d0995a41089ecbc91f6b3fd262119dbb6d10194f995612e2da20993"),
 			EntryPointSelector: types.HexToFelt("0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
 			CallData: []types.Felt{
@@ -414,7 +414,7 @@ var (
 			MaxFee: types.HexToFelt("0x0"),
 		},
 		&types.TransactionDeploy{
-			Hash:            types.HexToTransactionHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
+			Hash:            types.HexToPedersenHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
 			ContractAddress: types.HexToAddress("0x31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280"),
 			ConstructorCallData: []types.Felt{
 				types.HexToFelt("0xcfc2e2866fd08bfb4ac73b70e0c136e326ae18fc797a2c090c8811c695577e"),
@@ -424,7 +424,7 @@ var (
 	}
 	receipts = []*types.TransactionReceipt{
 		{
-			TxHash:     types.HexToTransactionHash("0x4e0e3a35c2d99fce89e0583d042f98cf71d1384554b5771694956a62b9f05fd"),
+			TxHash:     types.HexToPedersenHash("0x4e0e3a35c2d99fce89e0583d042f98cf71d1384554b5771694956a62b9f05fd"),
 			ActualFee:  types.HexToFelt("0x0"),
 			Status:     types.TxStatusAcceptedOnL1,
 			StatusData: "",
@@ -442,7 +442,7 @@ var (
 			},
 		},
 		{
-			TxHash:     types.HexToTransactionHash("0x6687ec12afde961e106b3b8f060f268cb29e6d70e2dbec38d7a6ef7b6c1f846"),
+			TxHash:     types.HexToPedersenHash("0x6687ec12afde961e106b3b8f060f268cb29e6d70e2dbec38d7a6ef7b6c1f846"),
 			ActualFee:  types.HexToFelt("0x0"),
 			Status:     types.TxStatusAcceptedOnL2,
 			StatusData: "",
@@ -483,7 +483,7 @@ var (
 			},
 		},
 		{
-			TxHash:     types.HexToTransactionHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
+			TxHash:     types.HexToPedersenHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
 			ActualFee:  types.HexToFelt("0x0"),
 			Status:     types.TxStatusAcceptedOnL1,
 			StatusData: "",
@@ -498,8 +498,8 @@ var (
 	}
 	blocks = []types.Block{
 		{
-			BlockHash:    types.HexToBlockHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
-			ParentHash:   types.HexToBlockHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
+			BlockHash:    types.HexToPedersenHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
+			ParentHash:   types.HexToPedersenHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
 			BlockNumber:  2591,
 			Status:       types.BlockStatusAcceptedOnL1,
 			Sequencer:    types.HexToAddress("0x21f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5"),
@@ -508,10 +508,10 @@ var (
 			AcceptedTime: 1654588282,
 			TimeStamp:    1654587282,
 			TxCount:      3,
-			TxHashes: []types.TransactionHash{
-				types.HexToTransactionHash("0x4e0e3a35c2d99fce89e0583d042f98cf71d1384554b5771694956a62b9f05fd"),
-				types.HexToTransactionHash("0x6687ec12afde961e106b3b8f060f268cb29e6d70e2dbec38d7a6ef7b6c1f846"),
-				types.HexToTransactionHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
+			TxHashes: []types.PedersenHash{
+				types.HexToPedersenHash("0x4e0e3a35c2d99fce89e0583d042f98cf71d1384554b5771694956a62b9f05fd"),
+				types.HexToPedersenHash("0x6687ec12afde961e106b3b8f060f268cb29e6d70e2dbec38d7a6ef7b6c1f846"),
+				types.HexToPedersenHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
 			},
 			EventCount: 3,
 		},
@@ -571,15 +571,15 @@ func TestGetBlock(t *testing.T) {
 		{
 			Scope: ScopeTxnHash,
 			Response: BlockResponse{
-				BlockHash:    types.HexToBlockHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
-				ParentHash:   types.HexToBlockHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
+				BlockHash:    types.HexToPedersenHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
+				ParentHash:   types.HexToPedersenHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
 				BlockNumber:  2591,
 				Status:       types.BlockStatusAcceptedOnL1,
 				Sequencer:    types.HexToAddress("0x21f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5"),
 				NewRoot:      types.HexToFelt("0166c5ae3f0f631a4d5543d447aa4cee6a975b2e83070d8986c94952aea10aae"),
 				OldRoot:      types.HexToFelt("06d8106c901208726feea70d1155d085aee27e63ae0368b9ecc1c3bf1b5d4fe8"),
 				AcceptedTime: 1654588282,
-				Transactions: []types.TransactionHash{
+				Transactions: []types.PedersenHash{
 					txns[0].GetHash(),
 					txns[1].GetHash(),
 					txns[2].GetHash(),
@@ -589,8 +589,8 @@ func TestGetBlock(t *testing.T) {
 		{
 			Scope: ScopeFullTxns,
 			Response: BlockResponse{
-				BlockHash:    types.HexToBlockHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
-				ParentHash:   types.HexToBlockHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
+				BlockHash:    types.HexToPedersenHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
+				ParentHash:   types.HexToPedersenHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
 				BlockNumber:  2591,
 				Status:       types.BlockStatusAcceptedOnL1,
 				Sequencer:    types.HexToAddress("0x21f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5"),
@@ -607,8 +607,8 @@ func TestGetBlock(t *testing.T) {
 		{
 			Scope: ScopeFullTxnAndReceipts,
 			Response: BlockResponse{
-				BlockHash:    types.HexToBlockHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
-				ParentHash:   types.HexToBlockHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
+				BlockHash:    types.HexToPedersenHash("0x1cf10396b725510b794f03d90bd670d463747ece48c94e36ac9e04b9ec122b6"),
+				ParentHash:   types.HexToPedersenHash("0x2439288f35c3da4a8aa3f689ddcf6f83fd9bdc9357c04d12265501e68e14d64"),
 				BlockNumber:  2591,
 				Status:       types.BlockStatusAcceptedOnL1,
 				Sequencer:    types.HexToAddress("0x21f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5"),
@@ -669,8 +669,8 @@ func TestGetBlock(t *testing.T) {
 		t.Fatal("unexpected error while initializing fake data in feeder client")
 	}
 	want := &BlockResponse{
-		BlockHash:    types.HexToBlockHash("a"),
-		ParentHash:   types.HexToBlockHash("a"),
+		BlockHash:    types.HexToPedersenHash("a"),
+		ParentHash:   types.HexToPedersenHash("a"),
 		BlockNumber:  0,
 		Status:       types.StringToBlockStatus("UNKNOWN"),
 		Sequencer:    types.HexToAddress("a"),
@@ -710,7 +710,7 @@ func TestGetBlockByTag(t *testing.T) {
 			EntryPointSelector: types.HexToFelt("a"),
 			CallData:           []types.Felt{types.HexToFelt("a")},
 		},
-		TxnHash: types.HexToTransactionHash("a"),
+		TxnHash: types.HexToPedersenHash("a"),
 	}
 
 	tests := [...]struct {
@@ -719,7 +719,7 @@ func TestGetBlockByTag(t *testing.T) {
 	}{
 		{
 			scope: ScopeTxnHash,
-			want:  []*types.TransactionHash{&tx.TxnHash},
+			want:  []*types.PedersenHash{&tx.TxnHash},
 		},
 		{
 			scope: ScopeFullTxns,
@@ -731,7 +731,7 @@ func TestGetBlockByTag(t *testing.T) {
 				{
 					Txn: tx,
 					TxnReceipt: TxnReceipt{
-						TxnHash:    types.HexToTransactionHash("a"),
+						TxnHash:    types.HexToPedersenHash("a"),
 						Status:     types.TxStatusUnknown,
 						StatusData: "",
 						MessagesSent: []*MsgToL1{
@@ -816,8 +816,8 @@ func TestGetBlockByTag(t *testing.T) {
 	}
 
 	want := &BlockResponse{
-		BlockHash:   types.HexToBlockHash("a"),
-		ParentHash:  types.HexToBlockHash("a"),
+		BlockHash:   types.HexToPedersenHash("a"),
+		ParentHash:  types.HexToPedersenHash("a"),
 		BlockNumber: 0,
 		Status:      types.StringToBlockStatus("UNKNOWN"),
 		Sequencer:   types.HexToAddress("a"),
@@ -913,7 +913,7 @@ func TestStarknetPendingTransactions(t *testing.T) {
 				EntryPointSelector: types.HexToFelt("a"),
 				CallData:           []types.Felt{types.HexToFelt("a")},
 			},
-			TxnHash: types.HexToTransactionHash("a"),
+			TxnHash: types.HexToPedersenHash("a"),
 		},
 	}
 	testServer(t, []rpcTest{
@@ -1010,7 +1010,7 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 			EntryPointSelector: types.HexToFelt("a"),
 			CallData:           []types.Felt{types.HexToFelt("a")},
 		},
-		TxnHash: types.HexToTransactionHash("a"),
+		TxnHash: types.HexToPedersenHash("a"),
 	}
 	tests = append(tests, rpcTest{
 		Request:  buildRequest("starknet_getTransactionByBlockHashAndIndex", BlocktagPending, 0),
@@ -1108,7 +1108,7 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 			EntryPointSelector: types.HexToFelt("a"),
 			CallData:           []types.Felt{types.HexToFelt("a")},
 		},
-		TxnHash: types.HexToTransactionHash("a"),
+		TxnHash: types.HexToPedersenHash("a"),
 	}
 	tests = append(tests, rpcTest{
 		Request:  buildRequest("starknet_getTransactionByBlockNumberAndIndex", BlocktagPending, 0),

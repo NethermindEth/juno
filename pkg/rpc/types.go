@@ -119,7 +119,7 @@ func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
 
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
 type BlockHashOrTag struct {
-	Hash *types.BlockHash
+	Hash *types.PedersenHash
 	Tag  *BlockTag
 }
 
@@ -139,7 +139,7 @@ func (x *BlockHashOrTag) UnmarshalJSON(data []byte) error {
 			}
 		}
 		if common.IsHex(t) {
-			hash := types.HexToBlockHash(t)
+			hash := types.HexToPedersenHash(t)
 			*x = BlockHashOrTag{
 				Hash: &hash,
 			}
@@ -204,8 +204,8 @@ type Txn struct {
 	// The function the transaction invokes
 	FunctionCall
 	// The hash identifying the transaction
-	TxnHash types.TransactionHash `json:"txn_hash"`
-	MaxFee  types.Felt            `json:"max_fee"`
+	TxnHash types.PedersenHash `json:"txn_hash"`
+	MaxFee  types.Felt         `json:"max_fee"`
 }
 
 func NewTxn(transaction types.IsTransaction) *Txn {
@@ -232,7 +232,7 @@ type TxnAndReceipt struct {
 
 func (x *TxnAndReceipt) MarshalJSON() ([]byte, error) {
 	type TxnAndReceipt struct {
-		TxnHash            types.TransactionHash   `json:"txn_hash"`
+		TxnHash            types.PedersenHash      `json:"txn_hash"`
 		MaxFee             types.Felt              `json:"max_fee"`
 		ContractAddress    types.Address           `json:"contract_address"`
 		EntryPointSelector types.Felt              `json:"entry_point_selector"`
@@ -323,13 +323,13 @@ func NewEvent(event *types.Event) *Event {
 // EmittedEvent Represent Event information decorated with metadata on where it was emitted
 type EmittedEvent struct {
 	Event
-	BlockHash       BlockHash             `json:"block_hash"`
-	TransactionHash types.TransactionHash `json:"transaction_hash"`
+	BlockHash       BlockHash          `json:"block_hash"`
+	TransactionHash types.PedersenHash `json:"transaction_hash"`
 }
 
 // TxnReceipt Receipt of the transaction
 type TxnReceipt struct {
-	TxnHash         types.TransactionHash   `json:"txn_hash,omitempty"`
+	TxnHash         types.PedersenHash      `json:"txn_hash,omitempty"`
 	Status          types.TransactionStatus `json:"status,omitempty"`
 	StatusData      string                  `json:"status_data,omitempty"`
 	MessagesSent    []*MsgToL1              `json:"messages_sent,omitempty"`
@@ -396,9 +396,9 @@ type Transactions struct{}
 
 type BlockResponse struct {
 	// A field element of 251 bits. Represented as up to 64 hex digits
-	BlockHash types.BlockHash `json:"block_hash"`
+	BlockHash types.PedersenHash `json:"block_hash"`
 	// The hash of this block's parent
-	ParentHash types.BlockHash `json:"parent_hash"`
+	ParentHash types.PedersenHash `json:"parent_hash"`
 	// The block number (its height)
 	BlockNumber uint64 `json:"block_number"`
 	// The status of the block

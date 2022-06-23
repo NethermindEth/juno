@@ -18,6 +18,10 @@ func (t PedersenHash) Felt() Felt {
 	return Felt(t)
 }
 
+func (t PedersenHash) Hex() string {
+	return t.Felt().Hex()
+}
+
 func (t PedersenHash) Bytes() []byte {
 	return t.Felt().Bytes()
 }

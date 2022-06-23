@@ -25,7 +25,7 @@ func NewManager(txDb, receiptDb db.Databaser) *Manager {
 // PutTransaction stores new transactions in the database. This method does not
 // check if the key already exists. In the case, that the key already exists the
 // value is overwritten.
-func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
+func (m *Manager) PutTransaction(txHash types.PedersenHash, tx types.IsTransaction) {
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
 		// notest
@@ -40,7 +40,7 @@ func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransa
 
 // GetTransaction searches in the database for the transaction associated with the
 // given key. If the key does not exist then returns nil.
-func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
+func (m *Manager) GetTransaction(txHash types.PedersenHash) types.IsTransaction {
 	rawData, err := m.txDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
@@ -62,7 +62,7 @@ func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransacti
 // PutReceipt stores  new transactions receipts in the database. This method
 // does not check if the key already exists. In the case, that the key already
 // exists the value is overwritten.
-func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.TransactionReceipt) {
+func (m *Manager) PutReceipt(txHash types.PedersenHash, txReceipt *types.TransactionReceipt) {
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		// notest
@@ -77,7 +77,7 @@ func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.Tran
 
 // GetReceipt searches in the database for the transaction receipt associated
 // with the given key. If the key does not exist then returns nil.
-func (m *Manager) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
+func (m *Manager) GetReceipt(txHash types.PedersenHash) *types.TransactionReceipt {
 	rawData, err := m.receiptDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
@@ -134,7 +134,7 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	}
 	if tx := protoTx.GetInvoke(); tx != nil {
 		out := types.TransactionInvoke{
-			Hash:               types.BytesToTransactionHash(protoTx.Hash),
+			Hash:               types.BytesToPedersenHash(protoTx.Hash),
 			ContractAddress:    types.BytesToAddress(tx.ContractAddress),
 			EntryPointSelector: types.BytesToFelt(tx.EntryPointSelector),
 			CallData:           unmarshalFelts(tx.CallData),
@@ -145,7 +145,7 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	}
 	if tx := protoTx.GetDeploy(); tx != nil {
 		out := types.TransactionDeploy{
-			Hash:                types.BytesToTransactionHash(protoTx.Hash),
+			Hash:                types.BytesToPedersenHash(protoTx.Hash),
 			ContractAddress:     types.BytesToAddress(tx.ContractAddressSalt),
 			ConstructorCallData: unmarshalFelts(tx.ConstructorCallData),
 		}
@@ -185,7 +185,7 @@ func unmarshalTransactionReceipt(b []byte) (*types.TransactionReceipt, error) {
 		return nil, err
 	}
 	receipt := &types.TransactionReceipt{
-		TxHash:          types.BytesToTransactionHash(protoReceipt.TxHash),
+		TxHash:          types.BytesToPedersenHash(protoReceipt.TxHash),
 		ActualFee:       types.BytesToFelt(protoReceipt.ActualFee),
 		Status:          unmarshalTransactionStatus(protoReceipt.Status),
 		StatusData:      protoReceipt.StatusData,

@@ -61,17 +61,17 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 		return nil, err
 	}
 	response := &BlockResponse{
-		BlockHash:   types.HexToBlockHash(res.BlockHash),
-		ParentHash:  types.HexToBlockHash(res.ParentBlockHash),
+		BlockHash:   types.HexToPedersenHash(res.BlockHash),
+		ParentHash:  types.HexToPedersenHash(res.ParentBlockHash),
 		BlockNumber: uint64(res.BlockNumber),
 		Status:      types.StringToBlockStatus(res.Status),
 		Sequencer:   types.HexToAddress(res.SequencerAddress),
 		NewRoot:     types.HexToFelt(res.StateRoot),
 	}
 	if scope == ScopeTxnHash {
-		txs := make([]*types.TransactionHash, len(res.Transactions))
+		txs := make([]*types.PedersenHash, len(res.Transactions))
 		for i, tx := range res.Transactions {
-			hash := types.HexToTransactionHash(tx.TransactionHash)
+			hash := types.HexToPedersenHash(tx.TransactionHash)
 			txs[i] = &hash
 		}
 		response.Transactions = txs
@@ -92,7 +92,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 					EntryPointSelector: types.HexToFelt(tx.EntryPointSelector),
 					CallData:           calldata,
 				},
-				TxnHash: types.HexToTransactionHash(tx.TransactionHash),
+				TxnHash: types.HexToPedersenHash(tx.TransactionHash),
 			}
 		// notest
 		default:
@@ -158,7 +158,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 	return response, nil
 }
 
-func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
+func getBlockByHash(ctx context.Context, blockHash types.PedersenHash, scope RequestedScope) (*BlockResponse, error) {
 	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock := services.BlockService.GetBlockByHash(blockHash)
 	if dbBlock == nil {
@@ -294,7 +294,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 // StarknetGetTransactionByHash Get the details and status of a
 // submitted transaction.
 func (HandlerRPC) StarknetGetTransactionByHash(
-	c context.Context, transactionHash types.TransactionHash,
+	c context.Context, transactionHash types.PedersenHash,
 ) (*Txn, error) {
 	tx := services.TransactionService.GetTransaction(transactionHash)
 	if tx == nil {
@@ -365,7 +365,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 // StarknetGetTransactionReceipt Get the transaction receipt by the
 // transaction hash.
 func (HandlerRPC) StarknetGetTransactionReceipt(
-	c context.Context, transactionHash types.TransactionHash,
+	c context.Context, transactionHash types.PedersenHash,
 ) (TxnReceipt, error) {
 	return TxnReceipt{}, nil
 }

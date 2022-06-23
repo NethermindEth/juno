@@ -264,7 +264,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			signature = append(signature, types.HexToFelt(data))
 		}
 		return &types.TransactionInvoke{
-			Hash:               types.HexToTransactionHash(info.Transaction.TransactionHash),
+			Hash:               types.HexToPedersenHash(info.Transaction.TransactionHash),
 			ContractAddress:    types.HexToAddress(info.Transaction.ContractAddress),
 			EntryPointSelector: types.HexToFelt(info.Transaction.EntryPointSelector),
 			CallData:           calldata,
@@ -275,7 +275,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 
 	// Is a DEPLOY Transaction
 	return &types.TransactionDeploy{
-		Hash:                types.HexToTransactionHash(info.Transaction.TransactionHash),
+		Hash:                types.HexToPedersenHash(info.Transaction.TransactionHash),
 		ContractAddress:     types.HexToAddress(info.Transaction.ContractAddress),
 		ConstructorCallData: calldata,
 	}
@@ -283,15 +283,15 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
 func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
-	txnsHash := make([]types.TransactionHash, 0)
+	txnsHash := make([]types.PedersenHash, 0)
 	for _, data := range b.Transactions {
-		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
+		txnsHash = append(txnsHash, types.PedersenHash(types.HexToFelt(data.TransactionHash)))
 	}
 	status, _ := types.BlockStatusValue[string(b.Status)]
 	return &types.Block{
-		BlockHash:   types.HexToBlockHash(b.BlockHash),
+		BlockHash:   types.HexToPedersenHash(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),
-		ParentHash:  types.HexToBlockHash(b.ParentBlockHash),
+		ParentHash:  types.HexToPedersenHash(b.ParentBlockHash),
 		Status:      status,
 		Sequencer:   types.HexToAddress(b.SequencerAddress),
 		NewRoot:     types.HexToFelt(b.StateRoot),

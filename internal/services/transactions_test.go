@@ -12,7 +12,7 @@ import (
 
 var txs = []types.IsTransaction{
 	&types.TransactionInvoke{
-		Hash:               types.HexToTransactionHash("0x49eb3544a95587518b0d2a32b9e456cb05b32e0085ebc0bcecb8ef2e15dc3a2"),
+		Hash:               types.HexToPedersenHash("0x49eb3544a95587518b0d2a32b9e456cb05b32e0085ebc0bcecb8ef2e15dc3a2"),
 		ContractAddress:    types.HexToAddress("0x7e1b2de3dc9e3cf83278452786c23b384cf77a66c3073f94ab451ed0029b5af"),
 		EntryPointSelector: types.HexToFelt("0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f"),
 		CallData: []types.Felt{
@@ -25,7 +25,7 @@ var txs = []types.IsTransaction{
 		MaxFee:    types.HexToFelt("0x0"),
 	},
 	&types.TransactionInvoke{
-		Hash:               types.HexToTransactionHash("0x50398c6ec05a07642e5bd52c656e1650f3b057361283ecbb19d4062199e4626"),
+		Hash:               types.HexToPedersenHash("0x50398c6ec05a07642e5bd52c656e1650f3b057361283ecbb19d4062199e4626"),
 		ContractAddress:    types.HexToAddress("0x3e875a858f9a0229e4a59cb72a4086d324b9b2148242694f2dd12d59d993b62"),
 		EntryPointSelector: types.HexToFelt("0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"),
 		CallData: []types.Felt{
@@ -38,7 +38,7 @@ var txs = []types.IsTransaction{
 		MaxFee:    types.HexToFelt("0x0"),
 	},
 	&types.TransactionInvoke{
-		Hash: types.HexToTransactionHash("0x1209ae3031dd69ef8ab4507dc4cc2c478d9a0414cb42225ce223670dee5cdcf"),
+		Hash: types.HexToPedersenHash("0x1209ae3031dd69ef8ab4507dc4cc2c478d9a0414cb42225ce223670dee5cdcf"),
 
 		ContractAddress:    types.HexToAddress("0x764c36cfdc456e1f3565441938f958badcc0ce8f20b7ed5819af30ed18f245"),
 		EntryPointSelector: types.HexToFelt("0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f"),
@@ -52,7 +52,7 @@ var txs = []types.IsTransaction{
 		MaxFee:    types.HexToFelt("0x0"),
 	},
 	&types.TransactionDeploy{
-		Hash:            types.HexToTransactionHash("0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75"),
+		Hash:            types.HexToPedersenHash("0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75"),
 		ContractAddress: types.HexToAddress("0x546c86dc6e40a5e5492b782d8964e9a4274ff6ecb16d31eb09cee45a3564015"),
 		ConstructorCallData: []types.Felt{
 			types.HexToFelt("06cf6c2f36d36b08e591e4489e92ca882bb67b9c39a3afccf011972a8de467f0"),
@@ -60,7 +60,7 @@ var txs = []types.IsTransaction{
 		},
 	},
 	&types.TransactionDeploy{
-		Hash:            types.HexToTransactionHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
+		Hash:            types.HexToPedersenHash("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
 		ContractAddress: types.HexToAddress("0x12afa0f342ece0468ca9810f0ea59f9c7204af32d1b8b0d318c4f2fe1f384e"),
 		ConstructorCallData: []types.Felt{
 			types.HexToFelt("0xcfc2e2866fd08bfb4ac73b70e0c136e326ae18fc797a2c090c8811c695577e"),
@@ -127,7 +127,7 @@ func resetTransactionService() {
 
 var receipts = []*types.TransactionReceipt{
 	{
-		TxHash:       types.HexToTransactionHash("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+		TxHash:       types.HexToPedersenHash("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
 		ActualFee:    types.HexToFelt("0x0"),
 		Status:       types.TxStatusAcceptedOnL2,
 		StatusData:   "",

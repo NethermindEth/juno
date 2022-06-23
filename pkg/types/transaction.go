@@ -1,69 +1,29 @@
 package types
 
-import (
-	"encoding/json"
-)
-
-type TransactionHash PedersenHash
-
-func BytesToTransactionHash(b []byte) TransactionHash {
-	return TransactionHash(BytesToPedersenHash(b))
-}
-
-func HexToTransactionHash(s string) TransactionHash {
-	return TransactionHash(HexToPedersenHash(s))
-}
-
-func (t TransactionHash) Felt() Felt {
-	return PedersenHash(t).Felt()
-}
-
-func (t TransactionHash) Bytes() []byte {
-	return t.Felt().Bytes()
-}
-
-func (t TransactionHash) MarshalJSON() ([]byte, error) {
-	return json.Marshal(Felt(t))
-}
-
-func (t TransactionHash) String() string {
-	return Felt(t).String()
-}
-
-func (t *TransactionHash) UnmarshalJSON(data []byte) error {
-	f := Felt{}
-	err := f.UnmarshalJSON(data)
-	if err != nil {
-		return err
-	}
-	*t = TransactionHash(f)
-	return nil
-}
-
 type IsTransaction interface {
-	GetHash() TransactionHash
+	GetHash() PedersenHash
 }
 
 type TransactionDeploy struct {
-	Hash                TransactionHash
+	Hash                PedersenHash
 	ContractAddress     Address
 	ConstructorCallData []Felt
 }
 
-func (tx *TransactionDeploy) GetHash() TransactionHash {
+func (tx *TransactionDeploy) GetHash() PedersenHash {
 	return tx.Hash
 }
 
 type TransactionInvoke struct {
-	Hash               TransactionHash `json:"txn_hash"`
-	ContractAddress    Address         `json:"contract_address"`
-	EntryPointSelector Felt            `json:"entry_point_selector"`
-	CallData           []Felt          `json:"calldata"`
-	Signature          []Felt          `json:"-"`
-	MaxFee             Felt            `json:"max_fee"`
+	Hash               PedersenHash `json:"txn_hash"`
+	ContractAddress    Address      `json:"contract_address"`
+	EntryPointSelector Felt         `json:"entry_point_selector"`
+	CallData           []Felt       `json:"calldata"`
+	Signature          []Felt       `json:"-"`
+	MaxFee             Felt         `json:"max_fee"`
 }
 
-func (tx *TransactionInvoke) GetHash() TransactionHash {
+func (tx *TransactionInvoke) GetHash() PedersenHash {
 	return tx.Hash
 }
 
@@ -106,7 +66,7 @@ func (s TransactionStatus) String() string {
 }
 
 type TransactionReceipt struct {
-	TxHash          TransactionHash
+	TxHash          PedersenHash
 	ActualFee       Felt
 	Status          TransactionStatus
 	StatusData      string

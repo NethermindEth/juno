@@ -20,7 +20,7 @@ func NewManager(database db.Databaser) *Manager {
 
 // GetBlockByHash search the block with the given block hash. If the block does
 // not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByHash(blockHash types.BlockHash) *types.Block {
+func (manager *Manager) GetBlockByHash(blockHash types.PedersenHash) *types.Block {
 	// Build the hash key
 	hashKey := buildHashKey(blockHash)
 	// Search on the database
@@ -76,7 +76,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) *types.Block {
 
 // PutBlock saves the given block with the given hash as key. If any error happens
 // then panic.
-func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) {
+func (manager *Manager) PutBlock(blockHash types.PedersenHash, block *types.Block) {
 	// Build the keys
 	hashKey := buildHashKey(blockHash)
 	numberKey := buildNumberKey(block.BlockNumber)
@@ -102,7 +102,7 @@ func (manager *Manager) Close() {
 	manager.database.Close()
 }
 
-func buildHashKey(blockHash types.BlockHash) []byte {
+func buildHashKey(blockHash types.PedersenHash) []byte {
 	return append([]byte("blockHash:"), blockHash.Bytes()...)
 }
 
@@ -132,7 +132,7 @@ func marshalBlock(block *types.Block) ([]byte, error) {
 	return proto.Marshal(&protoBlock)
 }
 
-func marshalBlockTxHashes(txHashes []types.TransactionHash) [][]byte {
+func marshalBlockTxHashes(txHashes []types.PedersenHash) [][]byte {
 	out := make([][]byte, len(txHashes))
 	for i, txHash := range txHashes {
 		out[i] = txHash.Bytes()
@@ -147,8 +147,8 @@ func unmarshalBlock(data []byte) (*types.Block, error) {
 		return nil, err
 	}
 	block := types.Block{
-		BlockHash:       types.BytesToBlockHash(protoBlock.Hash),
-		ParentHash:      types.BytesToBlockHash(protoBlock.ParentBlockHash),
+		BlockHash:       types.BytesToPedersenHash(protoBlock.Hash),
+		ParentHash:      types.BytesToPedersenHash(protoBlock.ParentBlockHash),
 		BlockNumber:     protoBlock.BlockNumber,
 		Status:          types.StringToBlockStatus(protoBlock.Status),
 		Sequencer:       types.BytesToAddress(protoBlock.SequencerAddress),
@@ -165,10 +165,10 @@ func unmarshalBlock(data []byte) (*types.Block, error) {
 	return &block, nil
 }
 
-func unmarshalBlockTxHashes(txHashes [][]byte) []types.TransactionHash {
-	out := make([]types.TransactionHash, len(txHashes))
+func unmarshalBlockTxHashes(txHashes [][]byte) []types.PedersenHash {
+	out := make([]types.PedersenHash, len(txHashes))
 	for i, txHash := range txHashes {
-		out[i] = types.BytesToTransactionHash(txHash)
+		out[i] = types.BytesToPedersenHash(txHash)
 	}
 	return out
 }

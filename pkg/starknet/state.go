@@ -572,7 +572,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	}
 	log.Default.With("Block Hash", block.BlockHash).
 		Info("Got block")
-	services.BlockService.StoreBlock(localTypes.BlockHash(localTypes.HexToFelt(block.BlockHash)), feederBlockToDBBlock(block))
+	services.BlockService.StoreBlock(localTypes.PedersenHash(localTypes.HexToFelt(block.BlockHash)), feederBlockToDBBlock(block))
 
 	for _, bTxn := range block.Transactions {
 		transactionInfo, err := s.feederGatewayClient.GetTransaction(bTxn.TransactionHash, "")
@@ -581,7 +581,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		}
 		log.Default.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
-		services.TransactionService.StoreTransaction(localTypes.TransactionHash(localTypes.HexToFelt(bTxn.TransactionHash)),
+		services.TransactionService.StoreTransaction(localTypes.PedersenHash(localTypes.HexToFelt(bTxn.TransactionHash)),
 			feederTransactionToDBTransaction(transactionInfo))
 	}
 }

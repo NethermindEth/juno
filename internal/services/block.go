@@ -66,7 +66,7 @@ func (s *blockService) Close(ctx context.Context) {
 
 // GetBlockByHash searches for the block associated with the given block hash.
 // If the block does not exist on the database, then returns nil.
-func (s *blockService) GetBlockByHash(blockHash types.BlockHash) *types.Block {
+func (s *blockService) GetBlockByHash(blockHash types.PedersenHash) *types.Block {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -93,7 +93,7 @@ func (s *blockService) GetBlockByNumber(blockNumber uint64) *types.Block {
 // StoreBlock stores the given block into the database. The key used to map the
 // block it's the hash of the block. If the database already has a block with
 // the same key, then the value is overwritten.
-func (s *blockService) StoreBlock(blockHash types.BlockHash, block *types.Block) {
+func (s *blockService) StoreBlock(blockHash types.PedersenHash, block *types.Block) {
 	s.AddProcess()
 	defer s.DoneProcess()
 

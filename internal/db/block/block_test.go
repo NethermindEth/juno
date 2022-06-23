@@ -11,8 +11,8 @@ import (
 func TestManager(t *testing.T) {
 	blocks := []*types.Block{
 		{
-			BlockHash:    types.HexToBlockHash("43950c9e3565cba1f2627b219d4863380f93a8548818ce26019d1bd5eebb0fb"),
-			ParentHash:   types.HexToBlockHash("f8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
+			BlockHash:    types.HexToPedersenHash("43950c9e3565cba1f2627b219d4863380f93a8548818ce26019d1bd5eebb0fb"),
+			ParentHash:   types.HexToPedersenHash("f8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
 			BlockNumber:  2175,
 			Status:       types.BlockStatusAcceptedOnL2,
 			Sequencer:    types.HexToAddress("0"),
@@ -22,9 +22,9 @@ func TestManager(t *testing.T) {
 			TimeStamp:    1652488132,
 			TxCount:      2,
 			TxCommitment: types.HexToFelt("0"),
-			TxHashes: []types.TransactionHash{
-				types.HexToTransactionHash("5ce76214481ebb29f912cb5d31abdff34fd42217f5ece9dda76d9fcfd62dc73"),
-				types.HexToTransactionHash("4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
+			TxHashes: []types.PedersenHash{
+				types.HexToPedersenHash("5ce76214481ebb29f912cb5d31abdff34fd42217f5ece9dda76d9fcfd62dc73"),
+				types.HexToPedersenHash("4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
 			},
 			EventCount:      19,
 			EventCommitment: types.HexToFelt("0"),
