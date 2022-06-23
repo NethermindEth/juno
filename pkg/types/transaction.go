@@ -4,18 +4,18 @@ import (
 	"encoding/json"
 )
 
-type TransactionHash Felt
+type TransactionHash PedersenHash
 
 func BytesToTransactionHash(b []byte) TransactionHash {
-	return TransactionHash(BytesToFelt(b))
+	return TransactionHash(BytesToPedersenHash(b))
 }
 
 func HexToTransactionHash(s string) TransactionHash {
-	return TransactionHash(HexToFelt(s))
+	return TransactionHash(HexToPedersenHash(s))
 }
 
 func (t TransactionHash) Felt() Felt {
-	return Felt(t)
+	return PedersenHash(t).Felt()
 }
 
 func (t TransactionHash) Bytes() []byte {

@@ -51,30 +51,30 @@ func (b BlockStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(b.String())
 }
 
-type BlockHash Felt
+type BlockHash PedersenHash
 
 func BytesToBlockHash(b []byte) BlockHash {
-	return BlockHash(BytesToFelt(b))
+	return BlockHash(BytesToPedersenHash(b))
 }
 
 func HexToBlockHash(s string) BlockHash {
-	return BlockHash(HexToFelt(s))
+	return BlockHash(HexToPedersenHash(s))
+}
+
+func (b BlockHash) Felt() Felt {
+	return PedersenHash(b).Felt()
 }
 
 func (b BlockHash) MarshalJSON() ([]byte, error) {
 	return json.Marshal(b.Felt())
 }
 
-func (b *BlockHash) Bytes() []byte {
+func (b BlockHash) Bytes() []byte {
 	return b.Felt().Bytes()
 }
 
-func (b *BlockHash) Felt() Felt {
-	return Felt(*b)
-}
-
 func (b BlockHash) Hex() string {
-	return Felt(b).Hex()
+	return b.Felt().Hex()
 }
 
 type BlockTag string
