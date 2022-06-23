@@ -57,11 +57,11 @@ committed only if the `DatabaseTxOp` function ends without error.
 
 # MDBX Database
 
-Now **Juno** uses an MDB database to store all its data. An MDB database is an environment (a database file) that can
-have multiple scopes or named databases. With that characteristic, **Juno** has only one MDB environment and multiple
+Now **Juno** uses an MDBX database to store all its data. An MDBX database is an environment (a database file) that can
+have multiple scopes or named databases. With that characteristic, **Juno** has only one MDBX environment and multiple
 named databases, one for each database on the application.
 
-To know more about the MDB Database and the package **Juno** uses, see these links:
+To know more about the MDBX Database and the package **Juno** uses, see these links:
 
 - [`mdbx` Go package](https://pkg.go.dev/github.com/torquem-ch/mdbx-go/mdbx)
 - [lmdb documentation](http://www.lmdb.tech/doc/)
