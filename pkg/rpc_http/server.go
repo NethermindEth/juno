@@ -54,9 +54,9 @@ func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check Content-type header?
 
 	// Get the body
-	rawData, err := getJsonBody(r)
+	rawData, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		responseError(w, err)
+		responseError(w, NewErrInternalError(err.Error()))
 		return
 	}
 
@@ -110,19 +110,6 @@ func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responseError(w, NewErrInternalError(err))
 		return
 	}
-}
-
-func getJsonBody(r *http.Request) (json.RawMessage, error) {
-	bodyRawData, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, NewErrParseError(err.Error())
-	}
-	message := json.RawMessage{}
-	err = message.UnmarshalJSON(bodyRawData)
-	if err != nil {
-		return nil, NewErrParseError(err.Error())
-	}
-	return message, nil
 }
 
 func isBatch(raw json.RawMessage) bool {
