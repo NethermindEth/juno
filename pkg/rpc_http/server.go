@@ -51,7 +51,12 @@ func (s *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	// TODO: Check Content-type header?
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
 
 	// Get the body
 	rawData, err := ioutil.ReadAll(r.Body)
