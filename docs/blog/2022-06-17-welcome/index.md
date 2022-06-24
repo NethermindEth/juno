@@ -11,7 +11,7 @@ We are working hard for our first release, until that happen, what you can do?
 
 Let's discover **Juno in less than 5 min**.
 
-## What You'll Need
+## What You Will Need
 
 - [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
 - _For Linux_: You will need to install `clang`:
@@ -28,7 +28,7 @@ After cloning the project,
 git clone https://github.com/NethermindEth/juno
 ```
 
-You can install all the dependencies running the next command inside the project folder:
+You can install all the dependencies running the following command inside the project folder:
 
 ```bash
 $ go get ./...
@@ -44,12 +44,12 @@ Compile Juno:
 $ make compile
 ```
 
-After compilation, you will have 2 commands inside the `build` folder of the project:
+After compilation, you will have 2 commands inside the `build` folder:
 
 - juno
-    - `juno` is the command that initialize the node
+    - `juno` is the command that initializes the node.
 - juno-cli
-    - `juno-cli` is the command that handle a set of different commands about the StarkNet ecosystem.
+    - `juno-cli` is the command that handles a set of different commands about the StarkNet ecosystem.
 
 ```bash
 $ make run
