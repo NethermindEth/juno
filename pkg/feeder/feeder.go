@@ -608,7 +608,3 @@ func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, call
 	}
 	return &res, err
 }
-
-func list(callData string) {
-	panic("unimplemented")
-}
