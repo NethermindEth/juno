@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -24,6 +25,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+// feederErr describes an error from the feeder gateway API response.
+type feederErr struct {
+	response []byte
+}
+
+func (e *feederErr) Error() string {
+	return string(e.response)
+}
+
+// errFeeder represents an error from the feeder gateway.
+var errFeeder = fmt.Errorf("starknet: failed to retrieve contract definition")
 
 // newTrie returns a new Trie
 func newTrie(database db.Databaser, prefix string) trie.Trie {
@@ -332,7 +345,7 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 }
 
 // getFullContract retrieves the compiled contract at address (with 0x
-// prefix) from the feeder gateway and returns an error otherwise. Note 
+// prefix) from the feeder gateway and returns an error otherwise. Note
 // that the feeder gateway client cannot be used here because it returns
 // Go objects and what is required here is the raw JSON response.
 func getFullContract(address string) ([]byte, error) {
@@ -351,7 +364,16 @@ func getFullContract(address string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	// TODO: How to ensure that the returned object is not a JSON of the
-	// the API response error for example?
-	return io.ReadAll(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure that the feeder gateway did not return an error.
+	if bytes.Contains(body, []byte(`{"code": "StarkErrorCode.`)) {
+		return nil, &feederErr{body}
+	}
+
+	return body, nil
 }
