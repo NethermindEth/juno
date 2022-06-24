@@ -21,8 +21,7 @@ At time of writing, **both StarkNet and Juno are still in an early release**. Ex
 For the latest on the project, check out our [Github repo](https://github.com/NethermindEth/juno), and refer to our
 [Documentation](https://gojuno.xyz/).
 
-We are working on the space on disk, is a well-known problem which we are working at, and we are planning to release a
-new version of Juno soon.
+The disk space issues are currently work in progress, and will be addressed in an upcoming new release.
 
 ## Main Features
 - [Get and Sync state from Layer 1](https://gojuno.xyz/docs/features/sync) (Ethereum).
@@ -62,20 +61,20 @@ sudo apt update
 sudo apt full-upgrade
 ```
 
-Check the Golang download website for the latest armv6l version. At time of writing, we would download go 1.18.3.
+Check the [Golang download website](https://go.dev/dl/) for the latest armv6l version. At time of writing, we would download go 1.18.3.
 
 ```bash
 wget https://go.dev/dl/go1.18.3.linux-armv6l.tar.gz -O go.tar.gz
 ```
 
-Now extract the tarball into your /usr/local/ directory.
+Now extract the tarball into your /usr/local/ directory (root access required).
 
 ```bash
 sudo tar -C /usr/local -xzf go.tar.gz
 ```
 
 Add the following to your shell config (usually ~/.bashrc).
-If you have no preferred text editor, you can use `nano ~/.bashrc` to edit your bash config.
+If you have no preferred text editor, you can use `nano ~/.bashrc` to edit your bash config from the terminal.
 
 ```bash 
 # ~/.bashrc
@@ -85,7 +84,7 @@ export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin
 
 Afterwards press `CTRL` + `X` and then `Y` to exit the nano text editor and save the file.
 
-Finally, as your `.bashrc` is only initialised when the shell is started, you need to source the new `~/.bashrc`.
+Finally, as your `.bashrc` is only initialised when the shell is started, you need to source the new `~/.bashrc` to update available commands.
 
 ```bash
 source ~/.bashrc
@@ -97,7 +96,7 @@ You should now have a working Golang installation in your Raspberry Pi. You can 
 go version
 ```
 
-### Obtain Juno ⚙️
+### Install Juno ⚙️
 
 To install `juno`, the StarkNet node:
 
@@ -116,12 +115,11 @@ the [config file description](https://gojuno.xyz/docs/running/config).
 
 
 ## Configuring juno
-<!-- TODO: Marcos please check below -->
 Usually, when you first run Juno, a [config file](https://gojuno.xyz/docs/running/config) will be created in
 `/home/pi/.config/juno/juno.yaml` in your home directory.
 
 When syncing the StarkNet state from a Raspberry Pi, we expect you to have at least 64GB. In case of you don't have
-this space, you can run it using an SSD, just should ensure that the property `db_path` points to the external SSD:
+this space, you can run it using an SSD, ensuring that the property `db_path` points to the external SSD:
 
 ```yaml
 # juno.yaml

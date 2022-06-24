@@ -7,7 +7,7 @@ tags: [hello, juno]
 
 Juno is a Go implementation of a StarkNet full node client made with ❤️ by Nethermind.
 
-We are working hard for our first release, until that happen, what you can do?
+We are working hard for our first release, until then, what you can do?
 
 Let's discover **Juno in less than 5 min**.
 
@@ -49,7 +49,7 @@ After compilation, you will have 2 commands inside the `build` folder:
 - juno
     - `juno` is the command that initializes the node.
 - juno-cli
-    - `juno-cli` is the command that handles a set of different commands about the StarkNet ecosystem.
+    - `juno-cli` is the command that direct interactions with the StarkNet ecosystem.
 
 ```bash
 $ make run
