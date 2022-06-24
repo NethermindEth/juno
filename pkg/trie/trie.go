@@ -14,7 +14,7 @@ var (
 )
 
 type Trie interface {
-	RootHash() *types.Felt
+	Root() *types.Felt
 	Get(key *types.Felt) (*types.Felt, error)
 	Put(key *types.Felt, value *types.Felt) error
 	Del(key *types.Felt) error
@@ -27,12 +27,12 @@ type trie struct {
 }
 
 // New creates a new trie, pass zero as root hash to initialize an empty trie
-func New(kvStorer store.KVStorer, root *types.Felt, height int) (*trie, error) {
-	return &trie{height, root, &trieStorer{kvStorer}}, nil
+func New(kvStorer store.KVStorer, root *types.Felt, height int) Trie {
+	return &trie{height, root, &trieStorer{kvStorer}}
 }
 
-// RootHash returns the hash of the root node of the trie.
-func (t *trie) RootHash() *types.Felt {
+// Root returns the hash of the root node of the trie.
+func (t *trie) Root() *types.Felt {
 	return t.root
 }
 
