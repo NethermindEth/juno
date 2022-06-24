@@ -3,7 +3,6 @@ package trie
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/types"
 )
@@ -22,44 +21,36 @@ type Trie interface {
 }
 
 type trie struct {
-	root   *Node
-	storer *trieStorer
 	height int
+	root   *types.Felt
+	storer *trieStorer
 }
 
 // New creates a new trie, pass zero as root hash to initialize an empty trie
-func New(kvStorer store.KVStorer, rootHash *types.Felt, height int) (*trie, error) {
-	storer := &trieStorer{kvStorer}
-	if root, err := storer.retrieveByH(rootHash); err != nil {
-		return nil, err
-	} else {
-		return &trie{root, storer, height}, nil
-	}
+func New(kvStorer store.KVStorer, root *types.Felt, height int) (*trie, error) {
+	return &trie{height, root, &trieStorer{kvStorer}}, nil
 }
 
 // RootHash returns the hash of the root node of the trie.
 func (t *trie) RootHash() *types.Felt {
-	if t.root == nil {
-		return &types.Felt0
-	}
-	return t.root.Hash()
+	return t.root
 }
 
 // Get gets the value for a key stored in the trie.
 func (t *trie) Get(key *types.Felt) (*types.Felt, error) {
 	path := NewPath(t.height, key.Bytes())
-	leaf, _, err := t.get(path)
-	return leaf.Bottom, err
+	node, _, err := t.get(path, false)
+	return node, err
 }
 
 // Put inserts a new key/value pair into the trie.
 func (t *trie) Put(key *types.Felt, value *types.Felt) error {
 	path := NewPath(t.height, key.Bytes())
-	_, siblings, err := t.get(path)
+	_, siblings, err := t.get(path, true)
 	if err != nil {
 		return err
 	}
-	return t.put(path, &Node{EmptyPath, value}, siblings)
+	return t.put(path, value, siblings)
 }
 
 // Del deltes the value associated with the given key.
@@ -67,62 +58,102 @@ func (t *trie) Del(key *types.Felt) error {
 	return t.Put(key, &types.Felt0)
 }
 
-func (t *trie) get(path *Path) (*Node, []*Node, error) {
+func (t *trie) get(path *Path, withSiblings bool) (*types.Felt, []trieNode, error) {
 	// list of siblings we need to hash with to get to the root
-	siblings := make([]*Node, t.height)
-	curr := t.root // curr is the current node in the traversal
-	for walked := 0; walked < t.height && !curr.IsEmpty(); {
-		if curr.Path.Len() == 0 {
-			// node is a binary node (0,0,h(H(left),H(right)))
-			// retrieve the left and right nodes
-			// by reverting the pedersen hash function
-			leftH, rightH, err := t.storer.retrieveByP(curr.Bottom)
-			if err != nil {
-				return nil, nil, err
+	var siblings []trieNode
+	if withSiblings {
+		siblings = make([]trieNode, t.height)
+	}
+	curr := t.root // curr is the current node's hash in the traversal
+	for walked := 0; walked < t.height && curr.Cmp(EmptyNode.Hash()) != 0; {
+		retrieved, err := t.storer.retrieveByH(curr)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// switch on the type of the node
+		switch node := retrieved.(type) {
+		case *edgeNode:
+			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "edge", node.Path().String(), node.Bottom().Hex())
+
+			// longest common prefix of the key and the edge's path
+			lcp := node.Path().LongestCommonPrefix(path.Walked(walked))
+
+			if lcp == node.Path().Len() {
+				// if the lcp is the length of the path, we need to go down the edge
+				// the node we jump to is either a leaf or a binary node, hence its
+				// hash is stored in the edge's bottom
+				curr = node.Bottom()
+			} else {
+				// our path diverges with the edge's path
+				if withSiblings {
+					// we need to collect the node lcp+1 steps down the edge
+					if lcp+1 < node.Path().Len() {
+						// sibling is still an edge node
+						edgePath := node.Path().Walked(lcp + 1)
+						siblings[walked+lcp] = &edgeNode{nil, edgePath, node.Bottom()}
+					} else if lcp+1 < path.Walked(walked).Len() {
+						// sibling is a binary node, we need to retrieve it from the store
+						sibling, err := t.storer.retrieveByH(node.Bottom())
+						if err != nil {
+							return nil, nil, err
+						}
+						// add sibling to the list of siblings
+						siblings[walked+lcp] = sibling
+					} else {
+						// sibling is a leaf node
+						siblings[walked+lcp] = &leafNode{node.Bottom()}
+					}
+				}
+
+				// we jump to an empty node since we didn't match the path in the edge
+				curr = EmptyNode.Hash()
 			}
 
-			var next, sibling *types.Felt
+			// we just walk down lcp steps
+			walked += lcp
+
+		case *binaryNode:
+			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "binary", node.leftH.Hex(), node.rightH.Hex())
+
+			var nextH, siblingH *types.Felt
 			// walk left or right depending on the bit
 			if path.Get(walked) {
 				// next is right node
-				next, sibling = rightH, leftH
+				nextH, siblingH = node.rightH, node.leftH
 			} else {
 				// next is left node
-				next, sibling = leftH, rightH
+				nextH, siblingH = node.leftH, node.rightH
 			}
 
-			// retrieve the sibling from the store, probably good to add a flag to avoid this
-			if siblings[walked], err = t.storer.retrieveByH(sibling); err != nil {
-				return nil, nil, err
-			}
-			// retrieve the next node from the store
-			if curr, err = t.storer.retrieveByH(next); err != nil {
-				return nil, nil, err
+			if withSiblings {
+				if path.Walked(walked).Len() > 1 {
+					// sibling is a binary node, we need to retrieve it from the store
+					sibling, err := t.storer.retrieveByH(siblingH)
+					if err != nil {
+						return nil, nil, err
+					}
+					// add sibling to the list of siblings
+					siblings[walked] = sibling
+				} else {
+					// sibling is a leaf node
+					siblings[walked] = &leafNode{siblingH}
+				}
 			}
 
-			walked += 1 // we took one node
-			continue
+			// get the next node
+			curr = nextH
+			// increment the walked counter
+			walked++
 		}
-
-		// longest common prefix of the key and the node
-		lcp := curr.Path.LongestCommonPrefix(path.Walked(walked))
-
-		if lcp == 0 {
-			// since we haven't matched the whole key yet, it's not in the trie
-			// sibling is the node going one step down the node's path
-			siblings[walked] = &Node{curr.Path.Walked(1), curr.Bottom}
-			curr = EmptyNode // to be consistent with the meaning of `curr`
-		} else {
-			// walk down the path of length `lcp`
-			curr = &Node{curr.Path.Walked(lcp), curr.Bottom}
-		}
-
-		walked += lcp
 	}
 	return curr, siblings, nil
 }
 
-func (t *trie) put(path *Path, node *Node, siblings []*Node) error {
+// put inserts a node in a given path in the trie.
+func (t *trie) put(path *Path, value *types.Felt, siblings []trieNode) error {
+	var node trieNode
+	node = &leafNode{value}
 	// reverse walk the key
 	for i := path.Len() - 1; i >= 0; i-- {
 		sibling := siblings[i]
@@ -130,67 +161,49 @@ func (t *trie) put(path *Path, node *Node, siblings []*Node) error {
 			sibling = EmptyNode
 		}
 
-		var left, right *Node
+		var left, right trieNode
 		if path.Get(i) {
 			left, right = sibling, node
 		} else {
 			left, right = node, sibling
 		}
 
+		leftIsEmpty := left.Hash().Cmp(EmptyNode.Hash()) == 0
+		rightIsEmpty := right.Hash().Cmp(EmptyNode.Hash()) == 0
+
 		// compute parent
-		if left.IsEmpty() && right.IsEmpty() {
+		if leftIsEmpty && rightIsEmpty {
 			node = EmptyNode
-		} else if left.IsEmpty() {
-			path := NewPath(right.Path.Len()+1, right.Path.Bytes())
-			path.Set(0)
-			node = &Node{path, right.Bottom}
-		} else if right.IsEmpty() {
-			path := NewPath(left.Path.Len()+1, left.Path.Bytes())
-			node = &Node{path, left.Bottom}
+			// fmt.Printf("put %3s: %s %s\n", path.Prefix(i).String(), "empty", node.Bottom().Hex())
+		} else if leftIsEmpty {
+			edgePath := NewPath(right.Path().Len()+1, right.Path().Bytes())
+			edgePath.Set(0)
+			node = &edgeNode{nil, edgePath, right.Bottom()}
+			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeRight", node.Path().String(), node.Bottom().Hex())
+		} else if rightIsEmpty {
+			edgePath := NewPath(left.Path().Len()+1, left.Path().Bytes())
+			node = &edgeNode{nil, edgePath, left.Bottom()}
+			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeLeft", node.Path().String(), node.Bottom().Hex())
 		} else {
-			leftH, err := t.computeH(left)
-			if err != nil {
+			if err := t.storer.storeByH(left); err != nil {
 				return err
 			}
-			rightH, err := t.computeH(right)
-			if err != nil {
+			if err := t.storer.storeByH(right); err != nil {
 				return err
 			}
-			// create the binary node
-			bottom, err := t.computeP(leftH, rightH)
-			if err != nil {
+			node = &binaryNode{nil, left.Hash(), right.Hash()}
+			if err := t.storer.storeByH(node); err != nil {
 				return err
 			}
-			node = &Node{EmptyPath, bottom}
+			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "binary", node.(*binaryNode).leftH.Hex(), node.(*binaryNode).rightH.Hex())
 		}
 	}
-	t.root = node
-	_, err := t.computeH(t.root)
-	return err
-}
 
-// computeH computes the hash of the node and stores it in the store
-func (t *trie) computeH(node *Node) (*types.Felt, error) {
-	// compute the hash of the node
-	h := node.Hash()
-	// only store hash of edge nodes, as the hash function
-	// for non-edge nodes is `f(x) = x`
-	if node.IsEdge() {
-		// store the hash of the node
-		if err := t.storer.storeByH(h, node); err != nil {
-			return nil, err
-		}
+	if err := t.storer.storeByH(node); err != nil {
+		return err
 	}
-	return h, nil
-}
 
-// computeP computes the pedersen hash of the felts and stores it in the store
-func (t *trie) computeP(arg1, arg2 *types.Felt) (*types.Felt, error) {
-	// compute the pedersen hash of the node
-	p := types.BigToFelt(pedersen.Digest(arg1.Big(), arg2.Big()))
-	// store the pedersen hash of the node
-	if err := t.storer.storeByP(&p, arg1, arg2); err != nil {
-		return nil, err
-	}
-	return &p, nil
+	t.root = node.Hash()
+	// fmt.Printf("trie root after put is: %s\n", t.RootHash().Hex())
+	return nil
 }

@@ -49,7 +49,7 @@ func (path *Path) Walked(walked int) *Path {
 }
 
 func (path *Path) Prefix(length int) *Path {
-	result := NewPath(length, nil)
+	result := NewPath(length, []byte{})
 	for i := 0; i < length; i++ {
 		if path.Get(i) {
 			result.Set(i)

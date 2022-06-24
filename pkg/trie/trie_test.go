@@ -83,11 +83,11 @@ func TestDelete(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("delete(%s)", test.key.Hex()), func(t *testing.T) {
 			if err := trie.Del(&test.key); err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			val, err := trie.Get(&test.key)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			if val.Cmp(&types.Felt0) != 0 {
 				t.Errorf("key %s not successfully removed from storage. returned %s", test.key.Hex(), val.Hex())

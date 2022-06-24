@@ -1,63 +1,144 @@
 package trie
 
 import (
-	"encoding/json"
+	"errors"
 	"math/big"
 
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
-var EmptyNode = &Node{EmptyPath, &types.Felt0}
+var (
+	// constants
+	EmptyNode = &leafNode{&types.Felt0}
 
-// Node represents a Node in a binary tree.
-type Node struct {
-	Path   *Path
-	Bottom *types.Felt
+	// errors
+	ErrMarshalUnmarshal = errors.New("node marshal/unmarshal error")
+)
+
+type trieNode interface {
+	Path() *Path
+	Bottom() *types.Felt
+	Hash() *types.Felt
+	MarshalBinary() ([]byte, error)
+	UnmarshalBinary([]byte) error
 }
 
-func (n *Node) IsEdge() bool {
-	return n.Path.Len() > 0
+type binaryNode struct {
+	bottom *types.Felt
+
+	leftH  *types.Felt
+	rightH *types.Felt
 }
 
-func (n *Node) IsEmpty() bool {
-	return n.Path.Len() == 0 && n.Bottom.Cmp(&types.Felt0) == 0
+func (n *binaryNode) Path() *Path {
+	return EmptyPath
 }
 
-func (n *Node) Hash() *types.Felt {
-	if n.Path.Len() == 0 {
-		return n.Bottom
-	}
-	// TODO: why does `pedersen.Digest` operates with `big.Int`
-	//       this should be changed to `types.Felt`
-	h := types.BigToFelt(pedersen.Digest(n.Bottom.Big(), new(big.Int).SetBytes(n.Path.Bytes())))
-	length := types.BigToFelt(new(big.Int).SetUint64(uint64(n.Path.Len())))
-	felt := h.Add(&length)
-	return &felt
-}
-
-func (n *Node) MarshalJSON() ([]byte, error) {
-	jsonNode := &struct {
-		Length int    `json:"length"`
-		Path   string `json:"path"`
-		Bottom string `json:"bottom"`
-	}{n.Path.Len(), types.BytesToFelt(n.Path.Bytes()).Hex(), n.Bottom.Hex()}
-	return json.Marshal(jsonNode)
-}
-
-func (n *Node) UnmarshalJSON(b []byte) error {
-	jsonNode := &struct {
-		Length int    `json:"length"`
-		Path   string `json:"path"`
-		Bottom string `json:"bottom"`
-	}{}
-
-	if err := json.Unmarshal(b, &jsonNode); err != nil {
-		return err
+func (n *binaryNode) Bottom() *types.Felt {
+	if n.bottom != nil {
+		return n.bottom
 	}
 
-	n.Path = NewPath(jsonNode.Length, types.HexToFelt(jsonNode.Path).Bytes())
-	bottom := types.HexToFelt(jsonNode.Bottom)
-	n.Bottom = &bottom
+	bottom := types.BigToFelt(pedersen.Digest(n.leftH.Big(), n.rightH.Big()))
+	n.bottom = &bottom
+	return n.bottom
+}
+
+func (n *binaryNode) Hash() *types.Felt {
+	return n.Bottom()
+}
+
+func (n *binaryNode) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 2*types.FeltLength)
+	copy(b[:types.FeltLength], n.leftH.Bytes())
+	copy(b[types.FeltLength:], n.rightH.Bytes())
+	return b, nil
+}
+
+func (n *binaryNode) UnmarshalBinary(b []byte) error {
+	if len(b) != 2*types.FeltLength {
+		return ErrMarshalUnmarshal
+	}
+	leftFelt := types.BytesToFelt(b[:types.FeltLength])
+	rightFelt := types.BytesToFelt(b[types.FeltLength:])
+	n.leftH, n.rightH = &leftFelt, &rightFelt
+	return nil
+}
+
+type edgeNode struct {
+	hash *types.Felt
+
+	path   *Path
+	bottom *types.Felt
+}
+
+func (n *edgeNode) Path() *Path {
+	return n.path
+}
+
+func (n *edgeNode) Bottom() *types.Felt {
+	return n.bottom
+}
+
+func (n *edgeNode) Hash() *types.Felt {
+	if n.hash != nil {
+		return n.hash
+	}
+
+	pathBig := new(big.Int).SetBytes(n.path.Bytes())
+	pedersen := types.BigToFelt(pedersen.Digest(n.bottom.Big(), pathBig))
+	lenBig := new(big.Int).SetUint64(uint64(n.path.Len()))
+	lenFelt := types.BigToFelt(lenBig)
+	hash := pedersen.Add(&lenFelt)
+	n.hash = &hash
+	return n.hash
+}
+
+func (n *edgeNode) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 2*types.FeltLength+1)
+	copy(b[:types.FeltLength], n.bottom.Bytes())
+	copy(b[types.FeltLength:2*types.FeltLength], types.BytesToFelt(n.path.Bytes()).Bytes())
+	b[2*types.FeltLength] = uint8(n.path.Len())
+	return b, nil
+}
+
+func (n *edgeNode) UnmarshalBinary(b []byte) error {
+	if len(b) != 2*types.FeltLength+1 {
+		return ErrMarshalUnmarshal
+	}
+	bottom := types.BytesToFelt(b[:types.FeltLength])
+	length := int(b[2*types.FeltLength])
+	path := NewPath(length, b[types.FeltLength:2*types.FeltLength])
+	n.bottom, n.path = &bottom, path
+	return nil
+}
+
+type leafNode struct {
+	value *types.Felt
+}
+
+func (n *leafNode) Path() *Path {
+	return EmptyPath
+}
+
+func (n *leafNode) Bottom() *types.Felt {
+	return n.value
+}
+
+func (n *leafNode) Hash() *types.Felt {
+	return n.value
+}
+
+func (n *leafNode) MarshalBinary() ([]byte, error) {
+	return n.value.Bytes(), nil
+}
+
+func (n *leafNode) UnmarshalBinary(b []byte) error {
+	if len(b) > types.FeltLength {
+		return ErrMarshalUnmarshal
+	}
+	value := types.BytesToFelt(b)
+	n.value = &value
 	return nil
 }
