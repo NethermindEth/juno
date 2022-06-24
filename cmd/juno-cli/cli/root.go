@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/crypto/keccak"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,6 +45,7 @@ var (
 	}
 )
 
+// NETWORK AND HANDLING
 // Define flags and load config.
 func init() {
 	// Set flags shared accross commands as persistent flags.
@@ -67,6 +69,14 @@ func handleNetwork(network string) {
 	}
 }
 
+// Initialise the client on the relevant network
+func initClient() *feeder.Client {
+	feederUrl := config.Runtime.Starknet.FeederGateway
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
+	return client
+}
+
+// RESPONSE HANDLING
 // Pretty Prints response. Use interface to take any type.
 func prettyPrint(res interface{}) {
 	resJSON, err := json.MarshalIndent(res, "", "  ")
@@ -85,10 +95,17 @@ func normalReturn(res interface{}) {
 	fmt.Println(string(resJSON))
 }
 
+// UTILS FUNCTIONS
 // Check if string is integer or hash
 func isInteger(input string) bool {
 	_, err := strconv.ParseInt(input, 10, 64)
 	return err == nil
+}
+
+// Get a selector
+func getSelectorFromName(func_name string) (string, error) {
+	// Function name (string) > ASCII > Keccak250
+	return fmt.Sprintf("0x%x\n", keccak.Digest250([]byte(func_name))), nil
 }
 
 // initConfig reads in Config file or environment variables if set.
@@ -132,12 +149,7 @@ func initConfig() error {
 	return nil
 }
 
-func initClient() *feeder.Client {
-	feederUrl := config.Runtime.Starknet.FeederGateway
-	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
-	return client
-}
-
+// COBRA COMMAND HANDLING
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {

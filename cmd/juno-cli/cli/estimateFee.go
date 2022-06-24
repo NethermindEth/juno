@@ -1,9 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
-	"github.com/NethermindEth/juno/pkg/crypto/keccak"
 	"github.com/NethermindEth/juno/pkg/feeder"
 
 	"github.com/spf13/cobra"
@@ -11,7 +8,7 @@ import (
 
 // estimateFeeCmd represents the estimateFee command
 var estimateFeeCmd = &cobra.Command{
-	Use:   "estimate_fee CONTRACT_HASH FUNCTION_NAME INPUTS [SIGNATURE] [flags]",
+	Use:   "estimate_fee CONTRACT_HASH FUNCTION_NAME [--calldata] [--signature] [flags]",
 	Short: "Calculate transaction fee for calling a function.",
 	Long:  `See https://www.cairo-lang.org/docs/hello_starknet/cli.html#estimate-fee`,
 	Args:  cobra.MinimumNArgs(2),
@@ -28,12 +25,7 @@ var estimateFeeCmd = &cobra.Command{
 	},
 }
 
-func getSelectorFromName(func_name string) (string, error) {
-	// Function name (string) > ASCII > Keccak250
-	return fmt.Sprintf("0x%x\n", keccak.Digest250([]byte(func_name))), nil
-}
-
-func estimateFee(contractAddress, entryPointSelector, callData, signature string) (*feeder.EstimateFeeResponse, error) {
+func estimateFee(contractAddress string, entryPointSelector string, callData string, signature string) (*feeder.EstimateFeeResponse, error) {
 	client := initClient()
 
 	// Call to get estimate transaction fee for given contract and params.
@@ -42,11 +34,5 @@ func estimateFee(contractAddress, entryPointSelector, callData, signature string
 }
 
 func init() {
-	rootCmd.AddCommand(estimateFeeCmd)
-
-	// Add calldata flag
-	estimateFeeCmd.Flags().StringP("calldata", "i", "0", "Transaction calldata.")
-
-	// Add signature flag
-	estimateFeeCmd.Flags().StringP("signature", "s", "0", "Account signature.")
+	postReqManagerCmd.AddCommand(estimateFeeCmd)
 }
