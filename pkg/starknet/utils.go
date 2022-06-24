@@ -348,9 +348,8 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 // prefix) from the feeder gateway and returns an error otherwise. Note
 // that the feeder gateway client cannot be used here because it returns
 // Go objects and what is required here is the raw JSON response.
-func getFullContract(address string) ([]byte, error) {
-	// TODO: Get base URL from config.
-	url, err := url.Parse("http://alpha4.starknet.io/feeder_gateway/get_full_contract")
+func getFullContract(baseURL *url.URL, address string) ([]byte, error) {
+	url, err := url.Parse(baseURL.String() + "/feeder_gateway/get_full_contract")
 	if err != nil {
 		return nil, err
 	}

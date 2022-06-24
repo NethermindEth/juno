@@ -525,9 +525,9 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 		}
 
 		// Store the contract definition.
-		raw, _ := getFullContract(v.Address)
+		raw, _ := getFullContract(s.feederGatewayClient.BaseURL, v.Address)
 		services.StateService.StoreCodeDefinition(
-			[]byte(remove0x(v.ContractHash)), 
+			[]byte(remove0x(v.ContractHash)),
 			&state.CodeDefinition{Definition: string(raw)},
 		)
 
