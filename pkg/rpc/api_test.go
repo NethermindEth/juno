@@ -84,6 +84,7 @@ func TestStarknetGetStorageAt(t *testing.T) {
 
 	services.StateService.Setup(
 		db.NewKeyValueDb(t.TempDir(), 0),
+		db.NewKeyValueDb(t.TempDir(), 0),
 		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
 	)
 	if err := services.StateService.Run(); err != nil {
@@ -202,6 +203,7 @@ func TestStarknetGetCode(t *testing.T) {
 
 	services.StateService.Setup(
 		db.NewKeyValueDb(t.TempDir(), 0),
+		db.NewKeyValueDb(t.TempDir(), 0),
 		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
 	)
 	if err := services.StateService.Run(); err != nil {
@@ -220,7 +222,7 @@ func TestStarknetGetCode(t *testing.T) {
 			types.HexToFelt("0x1114").Bytes(),
 		},
 	}
-	services.StateService.StoreCode(address.Bytes(), code)
+	services.StateService.StoreBinaryCode(address.Bytes(), code)
 
 	abiResponse, _ := json.Marshal(abi)
 	codeResponse := make([]Felt, len(code.Code))

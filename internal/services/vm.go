@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-	"math/big"
 	"net"
 	"os"
 	"os/exec"
@@ -63,8 +62,9 @@ func (s *vmService) setDefaults() error {
 	if s.manager == nil {
 		// notest
 		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
+		codeDefinitionDb := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "codeDefinition"), 0)
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(s.vmDir, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+		s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
 	}
 
 	s.rpcNet = "tcp"
@@ -98,12 +98,12 @@ func freePorts(n int) ([]int, error) {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *vmService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *vmService) Setup(codeDatabase, codeDefinitionDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+	s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
 }
 
 // python returns the location of Python on the system by searching the
@@ -142,7 +142,7 @@ func (s *vmService) Run() error {
 
 	s.rpcServer = grpc.NewServer()
 
-	// generate the py environment in the data dir
+	// Generate the Python environment in the data dir.
 	s.vmDir = config.DataDir
 
 	files := [...]struct {
@@ -154,9 +154,9 @@ func (s *vmService) Run() error {
 		{"vm_pb2_grpc.py", pyPbGRpc},
 	}
 
-	for _, f := range files {
-		path := filepath.Join(s.vmDir, f.name)
-		if err := os.WriteFile(path, f.contents, 0o644); err != nil {
+	for _, file := range files {
+		path := filepath.Join(s.vmDir, file.name)
+		if err := os.WriteFile(path, file.contents, 0o644); err != nil {
 			s.logger.Errorf("failed to write to %s: %v", path, err)
 			return err
 		}
@@ -167,7 +167,7 @@ func (s *vmService) Run() error {
 	if err != nil {
 		return err
 	}
-	// Start the py vm rpc server (serving vm).
+	// Start the cairo-lang gRPC server (serving contract calls).
 	s.vmCmd = exec.Command(py, filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
 	pyLogger := &pySubProcessLogger{logger: s.logger}
 	s.vmCmd.Stdout = pyLogger
@@ -177,7 +177,7 @@ func (s *vmService) Run() error {
 		return err
 	}
 
-	// Start the go vm rpc server (serving storage).
+	// Start the Go gRPC server (serving storage).
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
 	if err != nil {
 		s.logger.Errorf("failed to listen: %v", err)
@@ -185,9 +185,9 @@ func (s *vmService) Run() error {
 	storageServer := vmrpc.NewStorageRPCServer()
 	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
-	// Run the grpc server.
+	// Run the gRPC server.
 	go func() {
-		s.logger.Infof("grpc server listening at %v", lis.Addr())
+		s.logger.Infof("gRPC server listening at %v", lis.Addr())
 		if err := s.rpcServer.Serve(lis); err != nil {
 			s.logger.Errorf("failed to serve: %v", err)
 		}
@@ -210,12 +210,9 @@ func (s *vmService) Call(
 	calldata []types.Felt,
 	callerAddr types.Felt,
 	contractAddr types.Felt,
-	contractHash types.Felt,
 	root types.Felt,
 	selector types.Felt,
-	// XXX: There is probably a better way to do this.
-	getCompiledContract func(addr *big.Int) ([]byte, error),
-) ([][]byte, error) {
+) ([]string, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -228,12 +225,6 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
-	contractDef, err := getCompiledContract(contractAddr.Big())
-	if err != nil {
-		s.logger.Errorf("failed to retrieve compiled contract: %v", err)
-		return nil, err
-	}
-
 	strconvCalldata := make([]string, 0, len(calldata))
 	for _, felt := range calldata {
 		strconvCalldata = append(strconvCalldata, felt.String())
@@ -241,13 +232,11 @@ func (s *vmService) Call(
 
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
-		Calldata:           strconvCalldata,
-		CallerAddress:      callerAddr.String(),
-		ContractAddress:    contractAddr.String(),
-		ContractDefinition: contractDef,
-		ContractHash:       contractHash.String(),
-		Root:               root.String(),
-		Selector:           selector.String(),
+		Calldata:        strconvCalldata,
+		CallerAddress:   callerAddr.String(),
+		ContractAddress: contractAddr.String(),
+		Root:            root.String(),
+		Selector:        selector.String(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)

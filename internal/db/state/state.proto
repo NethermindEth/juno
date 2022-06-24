@@ -6,6 +6,10 @@ message Code {
   repeated bytes code = 1;
 }
 
+message CodeDefinition {
+  string definition = 1;
+}
+
 message Storage {
   map<string, string> storage = 1;
 }

@@ -18,12 +18,12 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *stateService) Setup(binaryCodeDb, codeDefinitionDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("service is already running")
 	}
-	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+	s.manager = state.NewStateManager(binaryCodeDb, codeDefinitionDb, storageDatabase)
 }
 
 func (s *stateService) Run() error {
@@ -44,8 +44,9 @@ func (s *stateService) setDefaults() {
 	if s.manager == nil {
 		// notest
 		codeDatabase := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "code"), 0)
+		codeDefinitionDb := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "codeDefinition"), 0)
 		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+		s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
 	}
 }
 
@@ -54,26 +55,48 @@ func (s *stateService) Close(ctx context.Context) {
 	s.manager.Close()
 }
 
-func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
+func (s *stateService) StoreBinaryCode(contractAddress []byte, code *state.Code) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
 		With("contractAddress", common.Bytes2Hex(contractAddress)).
-		Debug("StoreCode")
+		Debug("StoreBinaryCode")
 
-	s.manager.PutCode(contractAddress, code)
+	s.manager.PutBinaryCode(contractAddress, code)
 }
 
-func (s *stateService) GetCode(contractAddress []byte) *state.Code {
+func (s *stateService) GetBinaryCode(contractAddress []byte) *state.Code {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
 		With("contractAddress", contractAddress).
-		Debug("GetCode")
+		Debug("GetBinaryCode")
 
-	return s.manager.GetCode(contractAddress)
+	return s.manager.GetBinaryCode(contractAddress)
+}
+
+func (s *stateService) StoreCodeDefinition(contractAddress []byte, codeDefinition *state.CodeDefinition) {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", common.Bytes2Hex(contractAddress)).
+		Debug("StoreCodeDefinition")
+
+	s.manager.PutCodeDefinition(contractAddress, codeDefinition)
+}
+
+func (s *stateService) GetCodeDefinition(contractAddress []byte) *state.CodeDefinition {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", common.Bytes2Hex(contractAddress)).
+		Debug("GetCodeDefinition")
+
+	return s.manager.GetCodeDefinition(contractAddress)
 }
 
 func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, storage *state.Storage) {

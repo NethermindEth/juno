@@ -11,21 +11,19 @@ message GetValueResponse {
 }
 
 service StorageAdapter {
-    rpc GetValue (GetValueRequest) returns (GetValueResponse) {}
+  rpc GetValue (GetValueRequest) returns (GetValueResponse) {}
 }
 
 message VMCallRequest {
   repeated string calldata = 1;
   string caller_address = 2;
   string contract_address = 3;
-  bytes contract_definition = 4;
-  string contract_hash = 5;
-  string root = 6;
-  string selector = 7;
+  string root = 4;
+  string selector = 5;
 }
 
 message VMCallResponse {
-  repeated bytes retdata = 1;
+  repeated string retdata = 1;
 }
 
 service VM {

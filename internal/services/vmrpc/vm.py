@@ -4,14 +4,61 @@ import traceback
 
 import grpc
 from starkware.cairo.lang.vm import crypto
-from starkware.starknet.business_logic.state.state import BlockInfo, SharedState, StateSelector
+from starkware.starknet.business_logic.state.state import (
+    BlockInfo,
+    SharedState,
+    StateSelector,
+)
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.testing.state import StarknetState
-from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import PatriciaTree
+from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import (
+    PatriciaTree,
+)
 from starkware.storage.storage import FactFetchingContext, Storage
 
 import vm_pb2
 import vm_pb2_grpc
+
+# Helpers.
+
+
+def hex_str_to_int(hex_str):
+    """Returns an int from a string hexadecimal representation of a
+    number. The function is agnostic to whether the string has a 0x
+    prefix.
+    """
+    return int(hex_str, 16)
+
+
+def hex_str_list_to_int_list(hex_str_list):
+    """Returns an [int] where the contents are strings that form a
+    hexadecimal representation of a number. The function is agnostic to
+    whether the string has a 0x prefix.
+    """
+    return list(map(hex_str_to_int, hex_str_list))
+
+
+def int_to_bytes(n):
+    """Takes an int and returns a 32-byte string representation of said
+    int."""
+    return n.to_bytes(32, "big")
+
+
+def int_list_to_hex_str_list(int_list):
+    """Takes a list of ints and returns a list of 32-byte string
+    representations of the contents."""
+    return list(map(hex, int_list))
+
+
+def split_key(key):
+    """Takes a byte string of the form prefix:suffix where the suffix is
+    encoded as printable ASCII characters and returns a tuple of
+    (prefix, suffix) where additionally the suffix has been converted
+    into a byte representation of the hex characters which can be easily
+    read by Go in order to execute database queries.
+    """
+    prefix, suffix = key.split(b":", maxsplit=1)
+    return prefix, bytes(suffix.hex(), "ascii")
 
 
 async def call(
@@ -19,32 +66,38 @@ async def call(
     calldata,
     caller_address,
     contract_address,
-    contract_definition,
-    contract_hash,
     root,
     selector,
 ):
-    # TODO: Do int conversions of caller_address, contract_address, and 
-    # selector. For calldata this should be an array of ints.
+    # Parse values.
+    calldata = hex_str_list_to_int_list(calldata)
+    caller_address = hex_str_to_int(caller_address)
+    contract_address = hex_str_to_int(contract_address)
+    root = int_to_bytes(hex_str_to_int(root))
+    selector = hex_str_to_int(selector)
 
     # XXX: Sequencer's address. This does not appear to be important so
     # a dummy value could suffice.
-    sequencer = 0x37b2cd6baaa515f520383bee7b7094f892f4c770695fc329a8973e841a971ae
+    sequencer = 0x37B2CD6BAAA515F520383BEE7B7094F892F4C770695FC329A8973E841A971AE
 
-    context = FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func)
-    # shared = SharedState(contract_states=PatriciaTree(root=root, height=251), block_info=BlockInfo.empty(sequencer_address=sequencer))
-    # carried = await shared.get_filled_carried_state(ffc=context, state_selector=StateSelector(contract_addresses={contract_address}))
-    # state = StarknetState(state=carried, general_config=StarknetGeneralConfig())
-    # result = await state.call_raw(
-    #     contract_address=contract_address,
-    #     selector=selector,
-    #     calldata=calldata,
-    #     caller_address=caller_address,
-    #     max_fee=0,
-    # )
+    shared_state = SharedState(
+        contract_states=PatriciaTree(root=root, height=251),
+        block_info=BlockInfo.empty(sequencer_address=sequencer),
+    )
+    carried_state = await shared_state.get_filled_carried_state(
+        ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
+        state_selector=StateSelector(contract_addresses={contract_address}),
+    )
 
-    # return result.retdata
-    return [await adapter.get_value(b"hello"), await adapter.get_value(b"world")]
+    state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
+    result = await state.call_raw(
+        contract_address=contract_address,
+        selector=selector,
+        calldata=calldata,
+        caller_address=caller_address,
+        max_fee=0,
+    )
+    return int_list_to_hex_str_list(result.retdata)
 
 
 class StorageRPCClient(Storage):
@@ -52,26 +105,29 @@ class StorageRPCClient(Storage):
         self.juno_address = juno_address
 
     async def set_value(self, key, value):
-        # XXX: Only read-only operations are supported right now.
-        raise NotImplementedError
+        raise NotImplementedError("Only read operations are supported.")
 
     async def del_value(self, key):
-        # XXX: Only read-only operations are supported right now.
-        raise NotImplementedError
+        raise NotImplementedError("Only read operations are supported.")
 
     async def get_value(self, key):
-        # TODO: Because the contract definition is not stored locally,
-        # a request whose key starts with b"contract_definition_fact"
-        # should be intercepted. For example, this class can be
-        # instantiated with a Dict that where
-        # key = b"contract_definition_fact:\x00 ..." and \x00 is the
-        # contract's hash and val = compiled contract code which is also
-        # passed into the call function above as contract_definition.
+        prefix, suffix = split_key(key)
+        # Leaf keys encode their value in the suffix so there is no need
+        # to make the database call.
+        if prefix == b"starknet_storage_leaf":
+            return bytes.fromhex(suffix.decode("ascii"))
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
-            request = vm_pb2.GetValueRequest(key=key)
+            request = vm_pb2.GetValueRequest(key=prefix + b":" + suffix)
             response = await stub.GetValue(request)
-            return response.value
+            # XXX: Using structural pattern matching here would probably
+            # be a cleaner way to express the following but Python 3.10
+            # does not play nice with cairo-lang.
+            if prefix == b"contract_state" or prefix == b"contract_definition_fact":
+                return response.value
+            elif prefix == b"patricia_node":
+                return bytes.fromhex(response.value.decode("ascii"))
+            raise ValueError("invalid prefix: " + prefix.decode("ascii"))
 
 
 class VMServicer(vm_pb2_grpc.VMServicer):
@@ -86,8 +142,6 @@ class VMServicer(vm_pb2_grpc.VMServicer):
                     calldata=request.calldata,
                     caller_address=request.caller_address,
                     contract_address=request.contract_address,
-                    contract_definition=request.contract_definition,
-                    contract_hash=request.contract_hash,
                     root=request.root,
                     selector=request.selector,
                 )

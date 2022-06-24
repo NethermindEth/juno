@@ -46,6 +46,15 @@ func (e Ephemeral) Put(key, val []byte) {
 	e.table[string(key)] = val
 }
 
+// DEBUG.
+func (e Ephemeral) List() [][2][]byte {
+	li := make([][2][]byte, 0)
+	for k, v := range e.table {
+		li = append(li, [2][]byte{[]byte(k), v})
+	}
+	return li
+}
+
 type Persistent struct {
 	database *db.NamedDatabase
 	logger   *zap.SugaredLogger

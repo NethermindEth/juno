@@ -239,7 +239,7 @@ func (HandlerRPC) StarknetGetCode(
 		// notest
 		return CodeResult{}, fmt.Errorf("abi not found")
 	}
-	code := services.StateService.GetCode(contractAddress.Bytes())
+	code := services.StateService.GetBinaryCode(contractAddress.Bytes())
 	if code == nil {
 		// notest
 		return CodeResult{}, fmt.Errorf("code not found")

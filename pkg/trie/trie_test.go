@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/common"
-	"github.com/NethermindEth/juno/pkg/types"
-
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 const testHeight = 3
@@ -27,6 +26,59 @@ var tests = [...]struct {
 func init() {
 	rand.Seed(0)
 }
+
+// DEBUG.
+/*
+func TestCairoCall(t *testing.T) {
+	// STORAGE.
+	storage := store.New()
+	contract, _ := New(storage, EmptyNode.Hash(), 251)
+
+	// Storage modifications.
+	mods := []struct {
+		key, val types.Felt
+	}{
+		{types.BigToFelt(big.NewInt(132)), types.BigToFelt(big.NewInt(3))},
+		// TODO: Test for trie with a non-empty binary node i.e. with a
+		// modification key = 133 which would create a parent with a node
+		// that has the form (0, 0, h(H(left), H(right))) or higher up in
+		// the tree e.g. key = 131.
+	}
+
+	for _, mod := range mods {
+		contract.Put(&mod.key, &mod.val)
+	}
+
+	// STATE.
+	state := store.New()
+	global, _ := New(state, EmptyNode.Hash(), 251)
+
+	// Contract address.
+	key, _ := new(big.Int).SetString("57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374", 16)
+	// h(h(h(contract_hash, storage_root), 0), 0) where h is the Pedersen
+	// hash function and storage_root is the commitment of the contract
+	// storage trie above.
+	val, _ := new(big.Int).SetString("002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5", 16)
+
+	// XXX: Why doesn't the following work?
+	// global.Put(types.BigToFelt(key), types.BigToFelt(val))
+	feltKey, feltVal := types.BigToFelt(key), types.BigToFelt(val)
+	global.Put(&feltKey, &feltVal)
+
+	for _, db := range []store.Ephemeral{storage, state} {
+		nodes := db.List()
+		// Serialise nodes.
+		for _, pair := range nodes {
+			key := "patricia_node:" + fmt.Sprintf("%.64x", types.BytesToFelt(pair[0]).Big())
+
+			val := new(Node)
+			val.UnmarshalJSON(pair[1])
+
+			fmt.Printf("key = %s\nval = %s\n", key, val.CairoRepr())
+		}
+	}
+}
+*/
 
 func TestExample(t *testing.T) {
 	pairs := [...]struct {
