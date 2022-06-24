@@ -11,9 +11,9 @@ var (
 	initialized bool
 )
 
-var ErrEnvUnitialized = errors.New("environment is unitialize")
+var ErrEnvNoInitialized = errors.New("environment is no initialize")
 
-// InitializeMDBXEnv inicializa el entorno Juno LMDB (o lo carga si existe).
+// InitializeMDBXEnv initializes the Juno LMDB environment.
 func InitializeMDBXEnv(path string, optMaxDB uint64, flags uint) (err error) {
 	defer func() {
 		if err == nil {
@@ -50,10 +50,10 @@ func NewMDBXEnv(path string, optMaxDB uint64, flags uint) (*mdbx.Env, error) {
 }
 
 // GetMDBXEnv returns the Juno LMDB environment. If the environment is not
-// initialized then ErrEnvUnitialized is returned.
+// initialized then ErrEnvNoInitialized is returned.
 func GetMDBXEnv() (*mdbx.Env, error) {
 	if !initialized {
-		return nil, ErrEnvUnitialized
+		return nil, ErrEnvNoInitialized
 	}
 	return env, nil
 }

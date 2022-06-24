@@ -80,7 +80,7 @@ func (x *MDBXDatabase) Has(key []byte) (bool, error) {
 }
 
 // Get returns the associated value with the given key. If the key does not
-// exist the returns ErrNotFound.
+// exist it returns an ErrNotFound.
 func (x *MDBXDatabase) Get(key []byte) ([]byte, error) {
 	var value []byte
 	// Start a READ transaction

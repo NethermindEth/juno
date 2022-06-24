@@ -2,7 +2,7 @@
 title: Database
 ---
 
-# General caracterirstics
+# General characteristics
 
 **Juno** defines a database as an object that can store **key-value** pairs in a persistent way. Keys and values are
 arrays of bytes, that permit storing any value that can be serialized as a batch of bytes, and the same happens with the
@@ -40,7 +40,7 @@ type Database interface {
 # Transactions
 
 A transactional database is a database that supports all the database functionalities and a new functionality called
-**RunTxn** to run a batch of operations in the database inside of a unique transaction. This behavior is described by
+**RunTxn** to run a batch of operations in the database inside a unique transaction. This behavior is described by
 this interface in the code:
 
 ```go

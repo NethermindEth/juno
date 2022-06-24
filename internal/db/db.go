@@ -1,7 +1,7 @@
 package db
 
 // DatabaseOperations represents all the core operations
-// needed to store and search values on an key-value database.
+// needed to store and search values on a key-value database.
 type DatabaseOperations interface {
 	Has(key []byte) (bool, error)
 	Get(key []byte) ([]byte, error)
@@ -16,15 +16,15 @@ type Database interface {
 	Close()
 }
 
-// DatabaseTransactional represents a databse with the
-// posibility of make transactions.
+// DatabaseTransactional represents a database with the
+// possibility of make transactions.
 type DatabaseTransactional interface {
 	Database
 	RunTxn(DatabaseTxOp) error
 }
 
-// DatabaseTxOp executes all the operations inside of the
+// DatabaseTxOp executes all the operations inside the
 // txn function. If the functions returns an error then
 // the transaction is aborted, on another case the transaction
-// is commited.
+// is committed.
 type DatabaseTxOp func(txn DatabaseOperations) error

@@ -61,11 +61,13 @@ var (
 			// the config.
 			if config.Runtime.RPC.Enabled {
 				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
+				// Initialize the RPC Service.
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
 			if config.Runtime.Metrics.Enabled {
 				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				// Initialize the Metrics Service.
 				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
@@ -109,6 +111,7 @@ var (
 					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 				}
 				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
+				// Initialize the Starknet Synchronizer Service.
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
@@ -117,6 +120,7 @@ var (
 			// the config.
 			if config.Runtime.REST.Enabled {
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+				// Initialize the REST Service.
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
