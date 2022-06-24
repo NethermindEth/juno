@@ -1,12 +1,6 @@
 package services
 
-import (
-	"io"
-	"math/big"
-	"net/http"
-	"net/url"
-)
-
+/*
 // getFullContract retrieves the compiled contract at addr from the
 // feeder gateway and returns an error otherwise.
 func getFullContract(addr *big.Int) ([]byte, error) {
@@ -27,3 +21,4 @@ func getFullContract(addr *big.Int) ([]byte, error) {
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
 }
+*/

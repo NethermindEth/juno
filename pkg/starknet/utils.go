@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"io"
 	"math/big"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -326,4 +329,29 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	}
 
 	return &abiResponse
+}
+
+// getFullContract retrieves the compiled contract at address (with 0x
+// prefix) from the feeder gateway and returns an error otherwise. Note 
+// that the feeder gateway client cannot be used here because it returns
+// Go objects and what is required here is the raw JSON response.
+func getFullContract(address string) ([]byte, error) {
+	// TODO: Get base URL from config.
+	url, err := url.Parse("http://alpha4.starknet.io/feeder_gateway/get_full_contract")
+	if err != nil {
+		return nil, err
+	}
+
+	vals := url.Query()
+	vals.Add("contractAddress", address)
+	url.RawQuery = vals.Encode()
+
+	resp, err := http.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	// TODO: How to ensure that the returned object is not a JSON of the
+	// the API response error for example?
+	return io.ReadAll(resp.Body)
 }

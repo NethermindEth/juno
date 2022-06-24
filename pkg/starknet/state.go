@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -522,6 +523,14 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 		if err != nil {
 			return
 		}
+
+		// Store the contract definition.
+		raw, _ := getFullContract(v.Address)
+		services.StateService.StoreCodeDefinition(
+			[]byte(remove0x(v.ContractHash)), 
+			&state.CodeDefinition{Definition: string(raw)},
+		)
+
 		// Save the ABI
 		services.AbiService.StoreAbi(remove0x(v.Address), toDbAbi(code.Abi))
 		// Save the contract code

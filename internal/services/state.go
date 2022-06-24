@@ -77,26 +77,26 @@ func (s *stateService) GetBinaryCode(contractAddress []byte) *state.Code {
 	return s.manager.GetBinaryCode(contractAddress)
 }
 
-func (s *stateService) StoreCodeDefinition(contractAddress []byte, codeDefinition *state.CodeDefinition) {
+func (s *stateService) StoreCodeDefinition(contractHash []byte, codeDefinition *state.CodeDefinition) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", common.Bytes2Hex(contractAddress)).
+		With("contractHash", common.Bytes2Hex(contractHash)).
 		Debug("StoreCodeDefinition")
 
-	s.manager.PutCodeDefinition(contractAddress, codeDefinition)
+	s.manager.PutCodeDefinition(contractHash, codeDefinition)
 }
 
-func (s *stateService) GetCodeDefinition(contractAddress []byte) *state.CodeDefinition {
+func (s *stateService) GetCodeDefinition(contractHash []byte) *state.CodeDefinition {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", common.Bytes2Hex(contractAddress)).
+		With("contractHash", common.Bytes2Hex(contractHash)).
 		Debug("GetCodeDefinition")
 
-	return s.manager.GetCodeDefinition(contractAddress)
+	return s.manager.GetCodeDefinition(contractHash)
 }
 
 func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, storage *state.Storage) {

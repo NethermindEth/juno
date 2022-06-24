@@ -37,8 +37,8 @@ func (x *Manager) PutBinaryCode(contractAddress []byte, code *Code) {
 	}
 }
 
-func (x *Manager) GetCodeDefinition(contractAddress []byte) *CodeDefinition {
-	rawData, err := x.codeDefinitionDatabase.Get(contractAddress)
+func (x *Manager) GetCodeDefinition(contractHash []byte) *CodeDefinition {
+	rawData, err := x.codeDefinitionDatabase.Get(contractHash)
 	if err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
@@ -52,12 +52,12 @@ func (x *Manager) GetCodeDefinition(contractAddress []byte) *CodeDefinition {
 	return codeDefinition
 }
 
-func (x *Manager) PutCodeDefinition(contractAddress []byte, codeDefinition *CodeDefinition) {
+func (x *Manager) PutCodeDefinition(contractHash []byte, codeDefinition *CodeDefinition) {
 	rawData, err := proto.Marshal(codeDefinition)
 	if err != nil {
 		panic(any(fmt.Errorf("marshal error: %s", err)))
 	}
-	if err := x.codeDefinitionDatabase.Put(contractAddress, rawData); err != nil {
+	if err := x.codeDefinitionDatabase.Put(contractHash, rawData); err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
 }
