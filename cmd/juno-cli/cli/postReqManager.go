@@ -9,19 +9,19 @@ import (
 // postReqManagerCmd represents the postReqManager command
 var postReqManagerCmd = &cobra.Command{
 	Use:   "cx",
-	Short: "Routing for post requests.",
+	Short: "Router for `estimate_fee` and `call_contract`.",
 	Long:  `Routing command for estimate fee and call contract.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("postReqManager called")
+		fmt.Println("Please use either `cx estimate_fee` or `cx call_contract`.")
 	},
 }
 
 func init() {
 	// Add calldata flag
-	postReqManagerCmd.PersistentFlags().StringP("calldata", "i", "0", "Transaction calldata (function inputs).")
+	postReqManagerCmd.PersistentFlags().StringP("calldata", "i", "", "Transaction calldata (function inputs).")
 
 	// Add signature flag
-	postReqManagerCmd.PersistentFlags().StringP("signature", "s", "0", "Account signature.")
+	postReqManagerCmd.PersistentFlags().StringP("signature", "s", "", "Account signature.")
 
 	// Add command
 	rootCmd.AddCommand(postReqManagerCmd)
