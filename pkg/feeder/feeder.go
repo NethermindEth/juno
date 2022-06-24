@@ -69,7 +69,7 @@ func TxnIdentifier(txHash, txId string) map[string]string {
 
 // newRequest creates a new request based on params and returns an
 // error otherwise.
-func (c *Client) newRequest(method, path string, query map[string]string, body any) (*http.Request, error) {
+func (c *Client) newRequest(method string, path string, query map[string]string, body any) (*http.Request, error) {
 	rel := &url.URL{Path: c.BaseAPI + path}
 	u := c.BaseURL.ResolveReference(rel)
 	var buf io.ReadWriter
@@ -589,17 +589,39 @@ func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, call
 		// notest
 		blockIdentifier = map[string]string{}
 	}
-
 	callDataList := []string{callData}
 	signatureList := []string{signature}
+
+	// If both callData and signature are empty, then we create short req. body
+	// with only contractAddress and entryPointSelector.
+	if callData == "" && signature == "" {
+		reqBody := map[string]interface{}{
+			"contract_address":     contractAddress,
+			"entry_point_selector": entryPointSelector,
+		}
+		res, err := c.CallEstimateFeeWithBody(reqBody, blockIdentifier)
+		return res, err
+	} else if callData != "" && signature == "" {
+		reqBody := map[string]interface{}{
+			"contract_address":     contractAddress,
+			"entry_point_selector": entryPointSelector,
+			"call_data":            callDataList,
+		}
+		res, err := c.CallEstimateFeeWithBody(reqBody, blockIdentifier)
+		return res, err
+	}
 
 	reqBody := map[string]interface{}{
 		"contract_address":     contractAddress,
 		"entry_point_selector": entryPointSelector,
-		"calldata":             callDataList,
+		"call_data":            callDataList,
 		"signature":            signatureList,
 	}
+	res, err := c.CallEstimateFeeWithBody(reqBody, blockIdentifier)
+	return res, err
+}
 
+func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]interface{}, reqBody map[string]string) (*EstimateFeeResponse, error) {
 	req, err := c.newRequest(
 		"POST", "/estimate_fee", blockIdentifier, reqBody)
 	if err != nil {
