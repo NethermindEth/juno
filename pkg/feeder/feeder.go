@@ -566,6 +566,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
 		return nil, err
 	}
+	// Need to use interface as response due to response being integer or string.
 	var res interface{}
 	metr.IncreaseTxIDSent()
 	_, err = c.do(req, &res)
@@ -592,14 +593,21 @@ func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, call
 	callDataList := []string{callData}
 	signatureList := []string{signature}
 
+	reqBody := map[string]interface{}{
+		"contract_address":     contractAddress,
+		"entry_point_selector": entryPointSelector,
+		"calldata":             callDataList,
+		"signature":            signatureList,
+	}
+
 	req, err := c.newRequest(
-		"POST", "/estimate_fee", blockIdentifier,
-		map[string]interface{}{
-			"contract_address":     contractAddress,
-			"entry_point_selector": entryPointSelector,
-			"calldata":             callDataList,
-			"signature":            signatureList,
-		})
+		"POST", "/estimate_fee", blockIdentifier, reqBody)
+	if err != nil {
+		metr.EstimateFeeFailed()
+		metr.IncreaseRequestsFailed()
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for estimate_fee.")
+		return nil, err
+	}
 	var res EstimateFeeResponse
 	_, err = c.do(req, &res)
 	if err != nil {
@@ -607,8 +615,4 @@ func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, call
 			Error("Error connecting to gateway.")
 	}
 	return &res, err
-}
-
-func list(callData string) {
-	panic("unimplemented")
 }
