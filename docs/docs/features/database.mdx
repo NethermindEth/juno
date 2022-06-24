@@ -27,7 +27,7 @@ type DatabaseOperations interface {
 }
 ```
 
-**Juno** defines a database as the union of the above operations and a **Close** function to friendly close the database,
+**Juno** defines a database as the union of the above operations and a **Close** function to cleanly close the database,
 described by this interface in the code:
 
 ```go
