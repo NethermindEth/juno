@@ -4,9 +4,9 @@ title: Database
 
 # General characteristics
 
-**Juno** defines a database as an object that can store **key-value** pairs in a persistent way. Keys and values are
+Juno defines a database as an object that can store **key-value** pairs in a persistent way. Keys and values are
 arrays of bytes, that permit storing any value that can be serialized as a batch of bytes, and the same happens with the
-keys. **Juno** does not define the way the database must be initialized but defines what are the operations a database
+keys. Juno does not define the way the database must be initialized but defines what are the operations a database
 needs, which are:
 
 - **Has**: checks if the key already exists on the database.
@@ -27,7 +27,7 @@ type DatabaseOperations interface {
 }
 ```
 
-**Juno** defines a database as the union of the above operations and a **Close** function to cleanly close the database,
+Juno defines a database as the union of the above operations and a **Close** function to cleanly close the database,
 described by this interface in the code:
 
 ```go
@@ -57,11 +57,11 @@ committed only if the `DatabaseTxOp` function ends without error.
 
 # MDBX Database
 
-Now **Juno** uses an MDBX database to store all its data. An MDBX database is an environment (a database file) that can
-have multiple scopes or named databases. With that characteristic, **Juno** has only one MDBX environment and multiple
+Now Juno uses an MDBX database to store all its data. An MDBX database is an environment (a database file) that can
+have multiple scopes or named databases. With that characteristic, Juno has only one MDBX environment and multiple
 named databases, one for each database on the application.
 
-To know more about the MDBX Database and the package **Juno** uses, see these links:
+To know more about the MDBX Database and the package Juno uses, see these links:
 
 - [`mdbx` Go package](https://pkg.go.dev/github.com/torquem-ch/mdbx-go/mdbx)
 - [lmdb documentation](http://www.lmdb.tech/doc/)
