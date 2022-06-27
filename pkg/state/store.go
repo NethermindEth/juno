@@ -7,6 +7,9 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
+// ErrContractNotFound is returned when the contract is not found in the state.
+var ErrContractNotFound = errors.New("contract not found")
+
 type stateStore struct {
 	store.KVStorer
 }
@@ -16,14 +19,14 @@ func (kvs *stateStore) storeContract(contract *ContractState) error {
 	if err != nil {
 		return err
 	}
-	kvs.Put(append([]byte("contract_state:"), contract.Hash().Bytes()...), marshaled)
+	kvs.Put(contract.Hash().Bytes(), marshaled)
 	return nil
 }
 
 func (kvs *stateStore) retrieveContract(hash *types.Felt) (*ContractState, error) {
 	marshaled, ok := kvs.Get(append([]byte("contract_state:"), hash.Bytes()...))
 	if !ok {
-		return nil, errors.New("contract not found")
+		return nil, ErrContractNotFound
 	}
 	contract := &ContractState{}
 	if err := contract.UnmarshalBinary(marshaled); err != nil {
