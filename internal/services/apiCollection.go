@@ -81,6 +81,14 @@ func (a *apiCollector) CreateIterator() StateDiffIterator {
 
 }
 
+func (a *apiCollector) GetStateForBlock(blockNumber int64) *starknetTypes.StateDiff {
+	update, err := a.client.GetStateUpdate("", strconv.FormatInt(blockNumber, 10))
+	if err != nil {
+		return nil
+	}
+	return stateUpdateResponseToStateDiff(*update, blockNumber)
+}
+
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
 func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumber int64) *starknetTypes.StateDiff {
 	var stateDiff starknetTypes.StateDiff
