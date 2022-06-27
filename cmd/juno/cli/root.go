@@ -339,7 +339,7 @@ func init() {
 	rootCmd.Flags().StringP("restport", "r", viper.GetString("RESTPORT"), "Set the REST Port")
 	rootCmd.Flags().StringP("restenable", "R", viper.GetString("RESTENABLE"), "Set if you would like to enable the REST")
 	rootCmd.Flags().StringP("restprefix", "x", viper.GetString("RESTPREFIX"), "Set the REST prefix")
-	//Metrics
+	// Metrics
 	rootCmd.Flags().StringP("metricsport", "m", viper.GetString("METRICSPORT"), "Set the port where you would like to see the metrics")
 	rootCmd.Flags().StringP("metricsenable", "M", viper.GetString("METRICSENABLE"), "Set if you would like to enable metrics")
 	// Starknet
@@ -349,7 +349,7 @@ func init() {
 	rootCmd.Flags().StringP("apisync", "A", viper.GetString("APISYNC"), "Set if you would like to enable api sync")
 	// Ethereum
 	rootCmd.Flags().StringP("ethereumnode", "e", viper.GetString("ETHEREUMNODE"), "Set the ethereum node")
-	//DBPath
+	// DBPath
 	rootCmd.Flags().StringP("dbpath", "d", viper.GetString("DBPATH"), "Set the DB Path")
 }
 
