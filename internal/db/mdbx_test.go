@@ -2,11 +2,27 @@ package db
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"testing"
 )
 
-func TestNamedDatabase_Has(t *testing.T) {
+func TestNewMDBXDatabase(t *testing.T) {
+	env, err := NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = NewMDBXDatabase(env, "DATABASE")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = NewMDBXDatabase(env, "DATABASE")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestMDBXDatabase_Has(t *testing.T) {
 	dbs := initDatabases(t, 2)
 	defer closeDatabases(dbs)
 	key := []byte("key")
@@ -27,7 +43,7 @@ func TestNamedDatabase_Has(t *testing.T) {
 	}
 }
 
-func TestNamedDatabase_Get(t *testing.T) {
+func TestMDBXDatabase_Get(t *testing.T) {
 	dbs := initDatabases(t, 2)
 	defer closeDatabases(dbs)
 	db1 := dbs[0]
@@ -53,7 +69,7 @@ func TestNamedDatabase_Get(t *testing.T) {
 	}
 }
 
-func TestNamedDatabase_Get_NotFound(t *testing.T) {
+func TestMDBXDatabase_Get_NotFound(t *testing.T) {
 	dbs := initDatabases(t, 1)
 	defer closeDatabases(dbs)
 
@@ -67,7 +83,7 @@ func TestNamedDatabase_Get_NotFound(t *testing.T) {
 	}
 }
 
-func TestNamedDatabase_Delete(t *testing.T) {
+func TestMDBXDatabase_Delete(t *testing.T) {
 	dbs := initDatabases(t, 2)
 	defer closeDatabases(dbs)
 
@@ -93,21 +109,11 @@ func TestNamedDatabase_Delete(t *testing.T) {
 	}
 }
 
-func TestNamedDatabase_NumberOfItems(t *testing.T) {
+func TestMDBXDatabase_NumberOfItems(t *testing.T) {
 	db := initDatabases(t, 1)[0]
 	defer db.Close()
 
-	assertNumberOfItems := func(value uint64) {
-		count, err := db.NumberOfItems()
-		if err != nil {
-			t.Errorf("unexpected error during getting the number of items")
-		}
-		if count != value {
-			t.Errorf("number of items does not match, %d, want: %d", count, value)
-		}
-	}
-
-	assertNumberOfItems(0)
+	assertNumberOfItems(t, db, 0)
 
 	for i := 0; i < 10; i++ {
 		err := db.Put([]byte(fmt.Sprintf("key_%d", i)), []byte("value"))
@@ -116,7 +122,7 @@ func TestNamedDatabase_NumberOfItems(t *testing.T) {
 		}
 	}
 
-	assertNumberOfItems(10)
+	assertNumberOfItems(t, db, 10)
 
 	for i := 0; i < 5; i++ {
 		err := db.Delete([]byte(fmt.Sprintf("key_%d", i)))
@@ -125,80 +131,89 @@ func TestNamedDatabase_NumberOfItems(t *testing.T) {
 		}
 	}
 
-	assertNumberOfItems(5)
+	assertNumberOfItems(t, db, 5)
 }
 
-func TestNamedDatabase_GetEnv(t *testing.T) {
-	dbs := initDatabases(t, 10)
+func TestMDBXDatabase_RunTxn(t *testing.T) {
+	dbs := initDatabases(t, 1)
 	defer closeDatabases(dbs)
-
-	for _, db := range dbs {
-		if env != db.GetEnv() {
-			t.Errorf("unexpected env")
+	db := dbs[0]
+	assertNumberOfItems(t, db, 0)
+	err := db.RunTxn(func(txn DatabaseOperations) error {
+		assertNumberOfItems(t, txn, 0)
+		if err := txn.Put([]byte("key"), []byte("value1")); err != nil {
+			return err
 		}
+		ok, err := txn.Has([]byte("key"))
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("key not fund after Put")
+		}
+		assertNumberOfItems(t, txn, 1)
+		err = txn.Delete([]byte("key"))
+		if err != nil {
+			return err
+		}
+		assertNumberOfItems(t, txn, 0)
+		return nil
+	})
+	if err != nil {
+		t.Error(err)
 	}
-}
 
-func TestNamedDatabaseTx(t *testing.T) {
-	dbs := initDatabases(t, 1)
-	defer closeDatabases(dbs)
-	db := dbs[0]
-	assertNumberOfItems(t, db, 0)
-	txn, err := db.Begin()
-	if err != nil {
-		t.Error(err)
-	}
-	if env != txn.GetEnv() {
-		t.Errorf("unexpected env")
-	}
-	assertNumberOfItems(t, txn, 0)
-	if err := txn.Put([]byte("key"), []byte("value1")); err != nil {
-		t.Error(err)
-	}
-	ok, err := txn.Has([]byte("key"))
-	if err != nil {
-		t.Error(err)
-	}
-	if !ok {
-		t.Errorf("key not fund after Put")
-	}
-	assertNumberOfItems(t, txn, 1)
-	err = txn.Delete([]byte("key"))
-	if err != nil {
-		t.Error(err)
-	}
-	assertNumberOfItems(t, txn, 0)
-	if err := txn.Commit(); err != nil {
-		t.Error(err)
-	}
 	assertNumberOfItems(t, db, 0)
 }
 
-func TestNamedDatabaseTx_Rollback(t *testing.T) {
-	dbs := initDatabases(t, 1)
-	defer closeDatabases(dbs)
-	db := dbs[0]
-	txn, err := db.Begin()
-	if err != nil {
-		t.Error(err)
+func TestNewDbError(t *testing.T) {
+	err := newDbError(ErrInternal, fmt.Errorf(""))
+	if !errors.Is(err, ErrInternal) {
+		t.Error("unexpecteed error type")
 	}
-	assertNumberOfItems(t, txn, 0)
-	err = txn.Put([]byte("key"), []byte("value"))
-	if err != nil {
-		t.Error(err)
-	}
-	txn.Rollback()
-	assertNumberOfItems(t, db, 0)
 }
 
-func initDatabases(t *testing.T, count int) []*NamedDatabase {
-	out := make([]*NamedDatabase, count)
-	err := InitializeDatabaseEnv(t.TempDir(), uint64(count), 0)
+func TestInitializeMDBXEnv(t *testing.T) {
+	err := InitializeMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	if !initialized {
+		t.Errorf("initialized must be true after environment initialization")
+	}
+}
+
+func TestGetMDBXEnv(t *testing.T) {
+	env = nil
+	initialized = false
+	_, err := GetMDBXEnv()
+	if !errors.Is(err, ErrEnvNoInitialized) {
+		t.Errorf("expected ErrEnvNoInitialized error")
+	}
+	err = InitializeMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	if !initialized {
+		t.Errorf("initialized must be true after environment initialization")
+	}
+	e, err := GetMDBXEnv()
+	if err != nil {
+		t.Error("unexpected error")
+	}
+	if e != env {
+		t.Error("unexpected environment")
+	}
+}
+
+func initDatabases(t *testing.T, count int) []*MDBXDatabase {
+	out := make([]*MDBXDatabase, count)
+	env, err := NewMDBXEnv(t.TempDir(), uint64(count), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < count; i++ {
-		out[i], err = GetDatabase(fmt.Sprintf("db_%d", i))
+		out[i], err = NewMDBXDatabase(env, fmt.Sprintf("db_%d", i))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -206,13 +221,13 @@ func initDatabases(t *testing.T, count int) []*NamedDatabase {
 	return out
 }
 
-func closeDatabases(dbs []*NamedDatabase) {
+func closeDatabases(dbs []*MDBXDatabase) {
 	for _, db := range dbs {
 		db.Close()
 	}
 }
 
-func assertNumberOfItems(t *testing.T, db Databaser, expected uint64) {
+func assertNumberOfItems(t *testing.T, db DatabaseOperations, expected uint64) {
 	count, err := db.NumberOfItems()
 	if err != nil {
 		t.Error(err)

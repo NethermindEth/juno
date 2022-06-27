@@ -22,7 +22,7 @@ type blockService struct {
 
 // Setup is used to configure the service before it's started. The database
 // param is the database where the transactions will be stored.
-func (s *blockService) Setup(database db.Databaser) {
+func (s *blockService) Setup(database db.Database) {
 	if s.service.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
@@ -48,7 +48,11 @@ func (s *blockService) Run() error {
 func (s *blockService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database, err := db.GetDatabase("BLOCK")
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		database, err := db.NewMDBXDatabase(env, "BLOCK")
 		if err != nil {
 			return err
 		}

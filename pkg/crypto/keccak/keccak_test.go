@@ -28,7 +28,7 @@ func ExampleDigest250() {
 	digest := Digest250([]byte("abc"))
 	fmt.Printf("0x%x\n", digest)
 	// Output:
-	// 0x103657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45
+	// 0x203657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45
 }
 
 // ExampleDigest256 showcases the use of the Digest250 function in the
@@ -46,8 +46,8 @@ func TestDigest250(t *testing.T) {
 	tests := [...]struct {
 		input, want string
 	}{
-		{"", "3d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},
-		{"abc", "103657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45"},
+		{"", "1d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},
+		{"abc", "203657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45"},
 	}
 	for _, test := range tests {
 		got := fmt.Sprintf("%x", Digest250([]byte(test.input)))
