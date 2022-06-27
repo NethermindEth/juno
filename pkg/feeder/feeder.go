@@ -59,8 +59,8 @@ func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
 // Return either empty list or list of param. Necessary for StarkNet.
 func formatList(p string) []string {
 	// If no input, just return empty list
-	if p == "" {
-		return []string{""}
+	if p == "[]" {
+		return []string{}
 	}
 
 	// Print type of p

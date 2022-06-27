@@ -21,7 +21,7 @@ func init() {
 	postReqManagerCmd.PersistentFlags().StringArrayP("calldata", "i", []string{}, "Transaction calldata (function inputs).")
 
 	// Add signature flag
-	postReqManagerCmd.PersistentFlags().StringP("signature", "s", "", "Account signature.")
+	postReqManagerCmd.PersistentFlags().StringArrayP("signature", "s", []string{}, "Account signature.")
 
 	// Add command
 	rootCmd.AddCommand(postReqManagerCmd)
