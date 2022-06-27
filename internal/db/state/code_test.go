@@ -28,8 +28,19 @@ var codes = []struct {
 }
 
 func TestManager_Code(t *testing.T) {
-	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
 	manager := NewStateManager(codeDatabase, storageDatabase)
 	for _, code := range codes {
 		manager.PutCode(code.Address, code.Code)

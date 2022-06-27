@@ -84,6 +84,7 @@ var (
 					}
 				}
 				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
+				// Initialize the RPC Service.
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
@@ -103,6 +104,7 @@ var (
 					}
 				}
 				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				// Initialize the Metrics Service.
 				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
@@ -113,7 +115,7 @@ var (
 					errpkg.CheckFatal(err, "Failed to update the DB Path")
 				}
 			}
-			if err := db.InitializeDatabaseEnv(config.Runtime.DbPath, 10, 0); err != nil {
+			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
 				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
 
@@ -167,11 +169,16 @@ var (
 					}
 				}
 				// Synchronizer for Starknet State
-				synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
+				env, err := db.GetMDBXEnv()
+				if err != nil {
+					log.Default.Fatal(err)
+				}
+				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
 				if err != nil {
 					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 				}
 				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
+				// Initialize the Starknet Synchronizer Service.
 				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
@@ -201,6 +208,7 @@ var (
 					}
 				}
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+				// Initialize the REST Service.
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
 

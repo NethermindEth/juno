@@ -31,8 +31,7 @@ import (
 type Synchronizer struct {
 	ethereumClient      *ethclient.Client
 	feederGatewayClient *feeder.Client
-	database            db.Databaser
-	transactioner       db.Transactioner2
+	database            db.DatabaseTransactional
 	memoryPageHash      *starknetTypes.Dictionary
 	gpsVerifier         *starknetTypes.Dictionary
 	facts               *starknetTypes.Dictionary
@@ -40,7 +39,7 @@ type Synchronizer struct {
 }
 
 // NewSynchronizer creates a new Synchronizer
-func NewSynchronizer(txnDb db.TransactionalDb, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
+func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -65,7 +64,6 @@ func NewSynchronizer(txnDb db.TransactionalDb, client *ethclient.Client, fClient
 		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
 		chainID:             chainID.Int64(),
-		transactioner:       txnDb,
 	}
 }
 
@@ -381,21 +379,16 @@ func (s *Synchronizer) updateAndCommitState(
 		formattedAddress := remove0x(contractAddress)
 		contractHashMap[formattedAddress] = services.ContractHashService.GetContractHash(formattedAddress)
 	}
-	txn, err := s.transactioner.Begin()
-	if err != nil {
-		log.Default.Fatal(err)
-	}
-	_, err = updateState(txn, contractHashMap, stateDiff, newRoot, sequenceNumber)
+
+	err := s.database.RunTxn(func(txn db.DatabaseOperations) error {
+		_, err := updateState(txn, contractHashMap, stateDiff, newRoot, sequenceNumber)
+		return err
+	})
 	if err != nil {
 		metr.IncreaseCountStarknetStateFailed()
-		log.Default.With("Error", err).Panic("Couldn't update state")
-	} else {
-		err := txn.Commit()
-		if err != nil {
-			metr.IncreaseCountStarknetStateFailed()
-			log.Default.Panic("Couldn't commit to the database")
-		}
+		log.Default.Fatal(err)
 	}
+
 	metr.IncreaseCountStarknetStateSuccess()
 	duration := time.Since(start)
 	metr.UpdateStarknetSyncTime(duration.Seconds())
@@ -444,7 +437,7 @@ func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, lat
 }
 
 // Close closes the client for the Layer 1 Ethereum node
-func (s *Synchronizer) Close(ctx context.Context) {
+func (s *Synchronizer) Close(_ context.Context) {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	if s.ethereumClient != nil {
@@ -509,7 +502,7 @@ func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHas
 	return blockIterator + 1, update.BlockHash
 }
 
-// processPagesHashes takes an arrays of arrays of pages' hashes and
+// processPagesHashes takes an array of arrays of pages' hashes and
 // converts them into memory pages by querying an ethereum client.
 // notest
 func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract ethAbi.ABI) [][]*big.Int {

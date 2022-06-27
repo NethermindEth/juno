@@ -17,11 +17,11 @@ type IValue interface {
 
 // Dictionary - the dictionary object with key of type IKey & value of type IValue
 type Dictionary struct {
-	database db.Databaser
+	database db.Database
 	prefix   []byte
 }
 
-func NewDictionary(database db.Databaser, prefix string) *Dictionary {
+func NewDictionary(database db.Database, prefix string) *Dictionary {
 	return &Dictionary{
 		database: database,
 		prefix:   []byte(prefix),
