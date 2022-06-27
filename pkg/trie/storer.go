@@ -11,7 +11,7 @@ type trieStorer struct {
 	store.KVStorer
 }
 
-func (t *trieStorer) storeByH(node trieNode) error {
+func (t *trieStorer) storeByH(node TrieNode) error {
 	marshaled, err := node.MarshalBinary()
 	if err != nil {
 		return err
@@ -20,16 +20,16 @@ func (t *trieStorer) storeByH(node trieNode) error {
 	return nil
 }
 
-func (t *trieStorer) retrieveByH(hash *types.Felt) (trieNode, error) {
+func (t *trieStorer) retrieveByH(hash *types.Felt) (TrieNode, error) {
 	marshaled, ok := t.Get(append([]byte("patricia_node:"), hash.Bytes()...))
 	if !ok {
 		return nil, fmt.Errorf("not found: %s", hash.Hex())
 	}
-	var node trieNode
+	var node TrieNode
 	if len(marshaled) == 2*types.FeltLength {
-		node = new(binaryNode)
+		node = new(BinaryNode)
 	} else if len(marshaled) == 2*types.FeltLength+1 {
-		node = new(edgeNode)
+		node = new(EdgeNode)
 	} else {
 		return nil, ErrInvalidValue
 	}

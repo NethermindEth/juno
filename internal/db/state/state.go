@@ -10,14 +10,16 @@ type Manager struct {
 	binaryCodeDatabase     db.Databaser
 	codeDefinitionDatabase db.Databaser
 	storageDatabase        *db.BlockSpecificDatabase
+	trieDatabase           db.Databaser
 }
 
 // NewStateManager returns a new instance of Manager with the given database sources.
-func NewStateManager(binaryCodeDb, codeDefinitionDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) *Manager {
+func NewStateManager(binaryCodeDb, codeDefinitionDb, trieDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) *Manager {
 	return &Manager{
 		binaryCodeDatabase:     binaryCodeDb,
 		codeDefinitionDatabase: codeDefinitionDb,
 		storageDatabase:        storageDatabase,
+		trieDatabase:           trieDb,
 	}
 }
 

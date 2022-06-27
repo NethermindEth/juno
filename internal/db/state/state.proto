@@ -13,3 +13,23 @@ message CodeDefinition {
 message Storage {
   map<string, string> storage = 1;
 }
+
+message TrieNode {
+    oneof node {
+        BinaryNode binary_node = 1;
+        EdgeNode edge_node = 2;
+    }    
+}
+
+message BinaryNode {
+    bytes leftH = 1;
+    bytes rightH = 2;
+}
+
+
+message EdgeNode {
+    uint32 length = 1;    
+    bytes path = 2;
+    bytes bottom = 3;
+}
+

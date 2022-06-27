@@ -17,7 +17,7 @@ var (
 	ErrMarshalUnmarshal = errors.New("node marshal/unmarshal error")
 )
 
-type trieNode interface {
+type TrieNode interface {
 	Path() *collections.BitSet
 	Bottom() *types.Felt
 	Hash() *types.Felt
@@ -25,64 +25,74 @@ type trieNode interface {
 	UnmarshalBinary([]byte) error
 }
 
-type binaryNode struct {
+type BinaryNode struct {
 	bottom *types.Felt
 
-	leftH  *types.Felt
-	rightH *types.Felt
+	LeftH  *types.Felt
+	RightH *types.Felt
 }
 
-func (n *binaryNode) Path() *collections.BitSet {
+func (n *BinaryNode) Path() *collections.BitSet {
 	return collections.EmptyBitSet
 }
 
-func (n *binaryNode) Bottom() *types.Felt {
+func (n *BinaryNode) Bottom() *types.Felt {
 	if n.bottom != nil {
 		return n.bottom
 	}
 
-	bottom := types.BigToFelt(pedersen.Digest(n.leftH.Big(), n.rightH.Big()))
+	bottom := types.BigToFelt(pedersen.Digest(n.LeftH.Big(), n.RightH.Big()))
 	n.bottom = &bottom
 	return n.bottom
 }
 
-func (n *binaryNode) Hash() *types.Felt {
+func (n *BinaryNode) Hash() *types.Felt {
 	return n.Bottom()
 }
 
-func (n *binaryNode) MarshalBinary() ([]byte, error) {
+func (n *BinaryNode) MarshalBinary() ([]byte, error) {
 	b := make([]byte, 2*types.FeltLength)
-	copy(b[:types.FeltLength], n.leftH.Bytes())
-	copy(b[types.FeltLength:], n.rightH.Bytes())
+	copy(b[:types.FeltLength], n.LeftH.Bytes())
+	copy(b[types.FeltLength:], n.RightH.Bytes())
 	return b, nil
 }
 
-func (n *binaryNode) UnmarshalBinary(b []byte) error {
+func (n *BinaryNode) UnmarshalBinary(b []byte) error {
 	if len(b) != 2*types.FeltLength {
 		return ErrMarshalUnmarshal
 	}
 	leftFelt := types.BytesToFelt(b[:types.FeltLength])
 	rightFelt := types.BytesToFelt(b[types.FeltLength:])
-	n.leftH, n.rightH = &leftFelt, &rightFelt
+	n.LeftH, n.RightH = &leftFelt, &rightFelt
 	return nil
 }
 
-type edgeNode struct {
+type EdgeNode struct {
 	hash *types.Felt
 
 	path   *collections.BitSet
 	bottom *types.Felt
 }
 
-func (n *edgeNode) Path() *collections.BitSet {
+func NewEdgeNode(path *collections.BitSet, bottom *types.Felt) *EdgeNode {
+    // TODO: we can remove this constructor if we change parh and bottom to
+    // be public fields in EdgeNode, but now we can't because colide with
+    // Path() and Bottom() methods
+	return &EdgeNode{
+		path:   path,
+		bottom: bottom,
+	}
+}
+
+func (n *EdgeNode) Path() *collections.BitSet {
 	return n.path
 }
 
-func (n *edgeNode) Bottom() *types.Felt {
+func (n *EdgeNode) Bottom() *types.Felt {
 	return n.bottom
 }
 
-func (n *edgeNode) Hash() *types.Felt {
+func (n *EdgeNode) Hash() *types.Felt {
 	if n.hash != nil {
 		return n.hash
 	}
@@ -96,7 +106,7 @@ func (n *edgeNode) Hash() *types.Felt {
 	return n.hash
 }
 
-func (n *edgeNode) MarshalBinary() ([]byte, error) {
+func (n *EdgeNode) MarshalBinary() ([]byte, error) {
 	b := make([]byte, 2*types.FeltLength+1)
 	copy(b[:types.FeltLength], n.bottom.Bytes())
 	copy(b[types.FeltLength:2*types.FeltLength], types.BytesToFelt(n.path.Bytes()).Bytes())
@@ -104,7 +114,7 @@ func (n *edgeNode) MarshalBinary() ([]byte, error) {
 	return b, nil
 }
 
-func (n *edgeNode) UnmarshalBinary(b []byte) error {
+func (n *EdgeNode) UnmarshalBinary(b []byte) error {
 	if len(b) != 2*types.FeltLength+1 {
 		return ErrMarshalUnmarshal
 	}

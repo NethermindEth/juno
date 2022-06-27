@@ -59,11 +59,11 @@ func (t *trie) Del(key *types.Felt) error {
 	return t.Put(key, &types.Felt0)
 }
 
-func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []trieNode, error) {
+func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []TrieNode, error) {
 	// list of siblings we need to hash with to get to the root
-	var siblings []trieNode
+	var siblings []TrieNode
 	if withSiblings {
-		siblings = make([]trieNode, t.height)
+		siblings = make([]TrieNode, t.height)
 	}
 	curr := t.root // curr is the current node's hash in the traversal
 	for walked := 0; walked < t.height && curr.Cmp(EmptyNode.Hash()) != 0; {
@@ -74,7 +74,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 
 		// switch on the type of the node
 		switch node := retrieved.(type) {
-		case *edgeNode:
+		case *EdgeNode:
 			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "edge", node.Path().String(), node.Bottom().Hex())
 
 			// longest common prefix of the key and the edge's path
@@ -92,7 +92,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 					if lcp+1 < node.Path().Len() {
 						// sibling is still an edge node
 						edgePath := node.Path().Slice(lcp+1, node.Path().Len())
-						siblings[walked+lcp] = &edgeNode{nil, edgePath, node.Bottom()}
+						siblings[walked+lcp] = &EdgeNode{nil, edgePath, node.Bottom()}
 					} else if lcp+1 < path.Len()-walked {
 						// sibling is a binary node, we need to retrieve it from the store
 						sibling, err := t.storer.retrieveByH(node.Bottom())
@@ -114,17 +114,17 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 			// we just walk down lcp steps
 			walked += lcp
 
-		case *binaryNode:
+		case *BinaryNode:
 			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "binary", node.leftH.Hex(), node.rightH.Hex())
 
 			var nextH, siblingH *types.Felt
 			// walk left or right depending on the bit
 			if path.Get(walked) {
 				// next is right node
-				nextH, siblingH = node.rightH, node.leftH
+				nextH, siblingH = node.RightH, node.LeftH
 			} else {
 				// next is left node
-				nextH, siblingH = node.leftH, node.rightH
+				nextH, siblingH = node.LeftH, node.RightH
 			}
 
 			if withSiblings {
@@ -152,8 +152,8 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 }
 
 // put inserts a node in a given path in the trie.
-func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []trieNode) error {
-	var node trieNode
+func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []TrieNode) error {
+	var node TrieNode
 	node = &leafNode{value}
 	// reverse walk the key
 	for i := path.Len() - 1; i >= 0; i-- {
@@ -162,7 +162,7 @@ func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []trieN
 			sibling = EmptyNode
 		}
 
-		var left, right trieNode
+		var left, right TrieNode
 		if path.Get(i) {
 			left, right = sibling, node
 		} else {
@@ -179,11 +179,11 @@ func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []trieN
 		} else if leftIsEmpty {
 			edgePath := collections.NewBitSet(right.Path().Len()+1, right.Path().Bytes())
 			edgePath.Set(0)
-			node = &edgeNode{nil, edgePath, right.Bottom()}
+			node = &EdgeNode{nil, edgePath, right.Bottom()}
 			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeRight", node.Path().String(), node.Bottom().Hex())
 		} else if rightIsEmpty {
 			edgePath := collections.NewBitSet(left.Path().Len()+1, left.Path().Bytes())
-			node = &edgeNode{nil, edgePath, left.Bottom()}
+			node = &EdgeNode{nil, edgePath, left.Bottom()}
 			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeLeft", node.Path().String(), node.Bottom().Hex())
 		} else {
 			if err := t.storer.storeByH(left); err != nil {
@@ -192,7 +192,7 @@ func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []trieN
 			if err := t.storer.storeByH(right); err != nil {
 				return err
 			}
-			node = &binaryNode{nil, left.Hash(), right.Hash()}
+			node = &BinaryNode{nil, left.Hash(), right.Hash()}
 			if err := t.storer.storeByH(node); err != nil {
 				return err
 			}
