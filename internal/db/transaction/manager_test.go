@@ -69,15 +69,15 @@ var txs = []types.IsTransaction{
 }
 
 func initManager(t *testing.T) *Manager {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 2, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.GetDatabase("TRANSACTION")
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.GetDatabase("RECEIPT")
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}

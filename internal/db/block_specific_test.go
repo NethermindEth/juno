@@ -43,7 +43,14 @@ func TestBlockSpecificDatabase_Put(t *testing.T) {
 		},
 	}
 
-	database := NewKeyValueDb(t.TempDir(), 0)
+	env, err := NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := NewMDBXDatabase(env, "BlockSpecific")
+	if err != nil {
+		t.Error(err)
+	}
 	db := NewBlockSpecificDatabase(database)
 
 	for _, test := range tests {
@@ -83,7 +90,14 @@ func TestBlockSpecificDatabase_Get(t *testing.T) {
 		},
 	}
 
-	database := NewKeyValueDb(t.TempDir(), 0)
+	env, err := NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := NewMDBXDatabase(env, "BlockSpecific")
+	if err != nil {
+		t.Error(err)
+	}
 	db := NewBlockSpecificDatabase(database)
 
 	for _, d := range data {

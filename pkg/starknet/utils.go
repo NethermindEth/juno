@@ -22,7 +22,7 @@ import (
 )
 
 // newTrie returns a new Trie
-func newTrie(database db.Databaser, prefix string) trie.Trie {
+func newTrie(database db.DatabaseOperations, prefix string) trie.Trie {
 	store := db.NewKeyValueStore(database, prefix)
 	return trie.New(store, 251)
 }
@@ -128,7 +128,7 @@ func initialBlockForStarknetContract(id int64) int64 {
 }
 
 // getNumericValueFromDB get the value associated to a key and convert it to integer
-func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
+func getNumericValueFromDB(database db.Database, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
 		// notest
@@ -138,6 +138,7 @@ func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 		return 0, err
 	}
 	if value == nil {
+		// notest
 		return 0, nil
 	}
 	var ret uint64
@@ -150,7 +151,7 @@ func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 }
 
 // updateNumericValueFromDB update the value in the database for a key increasing the value in 1
-func updateNumericValueFromDB(database db.Databaser, key string, value uint64) error {
+func updateNumericValueFromDB(database db.DatabaseOperations, key string, value uint64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, value+1)
 	err := database.Put([]byte(key), b)
@@ -165,7 +166,7 @@ func updateNumericValueFromDB(database db.Databaser, key string, value uint64) e
 // updateState is a pure function (besides logging) that applies the
 // `update` StateDiff to the database transaction `txn`.
 func updateState(
-	txn db.Transaction,
+	txn db.DatabaseOperations,
 	contractHashMap map[string]*big.Int,
 	update *starknetTypes.StateDiff,
 	stateRoot string,
@@ -287,7 +288,7 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 	for _, data := range b.Transactions {
 		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
 	}
-	status, _ := types.BlockStatusValue[string(b.Status)]
+	status, _ := types.BlockStatusValue[b.Status]
 	return &types.Block{
 		BlockHash:   types.HexToBlockHash(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),
