@@ -10,11 +10,11 @@ import (
 
 // Manager is a Block database manager to save and search the blocks.
 type Manager struct {
-	database db.Databaser
+	database db.Database
 }
 
 // NewManager returns a new Block manager using the given database.
-func NewManager(database db.Databaser) *Manager {
+func NewManager(database db.Database) *Manager {
 	return &Manager{database: database}
 }
 
