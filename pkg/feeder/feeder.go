@@ -63,8 +63,8 @@ func formatList(p string) []string {
 		return []string{}
 	}
 
-	// Print type of p
-	re := regexp.MustCompile("[0-9]+")
+	// We use regexp to parse user input into separate numbers
+	re := regexp.MustCompile("[0-9]+|[a-zA-Z]+")
 	match := re.FindAllString(p, -1)
 	return match
 }
