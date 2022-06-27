@@ -43,7 +43,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "juno [options]",
 		Short: "Starknet client implementation in Go.",
-		Run: func(_ *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			processHandler = process.NewHandler()
 
 			// Handle signal interrupts and exits.
@@ -56,19 +56,63 @@ var (
 				os.Exit(0)
 			}(sig)
 
+			flag, _ := cmd.Flags().GetString("feedergateway")
+			if flag != "" {
+				err := updateFeederGateway(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the feeder gateway")
+				}
+			}
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
+			// Check if the user has enabled the rpc
+			flag, _ = cmd.Flags().GetString("rpcenable")
+			if flag != "" {
+				err := updateRPCEnable(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the RPC enable")
+				}
+			}
 			if config.Runtime.RPC.Enabled {
+				// Check if the user has defined the RPC port externally
+				flag, _ = cmd.Flags().GetString("rpcport")
+				if flag != "" {
+					err := updateRPCPort(flag)
+					if err != nil {
+						errpkg.CheckFatal(err, "Failed to update the RPC port")
+					}
+				}
 				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
+			flag, _ = cmd.Flags().GetString("metricsenable")
+			if flag != "" {
+				err := updateMetricsEnable(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the Metrics enable")
+				}
+			}
 			if config.Runtime.Metrics.Enabled {
+				flag, _ = cmd.Flags().GetString("metricsport")
+				if flag != "" {
+					err := updateMetricsPort(flag)
+					if err != nil {
+						errpkg.CheckFatal(err, "Failed to update the Metrics port")
+					}
+				}
 				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
 				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
+			flag, _ = cmd.Flags().GetString("dbpath")
+			if flag != "" {
+				err := updateDbPath(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the DB Path")
+				}
+			}
 			if err := db.InitializeDatabaseEnv(config.Runtime.DbPath, 10, 0); err != nil {
 				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
@@ -90,9 +134,32 @@ var (
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
+			flag, _ = cmd.Flags().GetString("starknetenable")
+			if flag != "" {
+				err := updateStarknetEnable(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the Starknet Enable")
+				}
+			}
 			if config.Runtime.Starknet.Enabled {
 				var ethereumClient *ethclient.Client
+				// Check if the api sync has been enabled or disabled
+				flag, _ = cmd.Flags().GetString("apisync")
+				if flag != "" {
+					err := updateAPISync(flag)
+					if err != nil {
+						errpkg.CheckFatal(err, "Failed to update the API sync")
+					}
+				}
 				if !config.Runtime.Starknet.ApiSync {
+					// check if the ethereum node has been changed
+					flag, _ = cmd.Flags().GetString("ethereumnode")
+					if flag != "" {
+						err := updateEthereumNode(flag)
+						if err != nil {
+							errpkg.CheckFatal(err, "Failed to update the Ethereum node")
+						}
+					}
 					var err error
 					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
 					if err != nil {
@@ -111,7 +178,28 @@ var (
 
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
+			flag, _ = cmd.Flags().GetString("restenable")
+			if flag != "" {
+				err := updateRESTEnable(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the REST enable")
+				}
+			}
 			if config.Runtime.REST.Enabled {
+				flag, _ = cmd.Flags().GetString("restport")
+				if flag != "" {
+					err := updateRESTPort(flag)
+					if err != nil {
+						errpkg.CheckFatal(err, "Failed to update the REST port")
+					}
+				}
+				flag, _ = cmd.Flags().GetString("restprefix")
+				if flag != "" {
+					err := updateRESTPrefix(flag)
+					if err != nil {
+						errpkg.CheckFatal(err, "Failed to update the REST prefix")
+					}
+				}
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
@@ -129,6 +217,103 @@ func cleanup() {
 	log.Default.Info("App closing...Bye!!!")
 }
 
+func updateRPCPort(args string) error {
+	port, err := strconv.Atoi(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.RPC.Port = port
+	return nil
+}
+
+func updateRPCEnable(args string) error {
+	enabled, err := strconv.ParseBool(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.RPC.Enabled = enabled
+	return nil
+}
+
+func updateRESTPort(args string) error {
+	port, err := strconv.Atoi(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.REST.Port = port
+	return nil
+}
+
+func updateRESTEnable(args string) error {
+	enabled, err := strconv.ParseBool(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.REST.Enabled = enabled
+	return nil
+}
+
+func updateRESTPrefix(args string) error {
+	config.Runtime.REST.Prefix = args
+	return nil
+}
+
+func updateMetricsPort(args string) error {
+	port, err := strconv.Atoi(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.Metrics.Port = port
+	return nil
+}
+
+func updateMetricsEnable(args string) error {
+	enabled, err := strconv.ParseBool(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.Metrics.Enabled = enabled
+	return nil
+}
+
+func updateFeederGateway(args string) error {
+	config.Runtime.Starknet.FeederGateway = args
+	return nil
+}
+
+func updateNetwork(args string) error {
+	config.Runtime.Starknet.Network = args
+	return nil
+}
+
+func updateStarknetEnable(args string) error {
+	enabled, err := strconv.ParseBool(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.Starknet.Enabled = enabled
+	return nil
+}
+
+func updateAPISync(args string) error {
+	enabled, err := strconv.ParseBool(args)
+	if err != nil {
+		return err
+	}
+	config.Runtime.Starknet.ApiSync = enabled
+	return nil
+}
+
+func updateEthereumNode(args string) error {
+	config.Runtime.Ethereum.Node = args
+	return nil
+}
+
+func updateDbPath(args string) error {
+	config.Runtime.DbPath = args
+	return nil
+}
+
 // init defines flags and handles configuration.
 func init() {
 	fmt.Println(longMsg)
@@ -139,6 +324,25 @@ func init() {
 		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
 	rootCmd.PersistentFlags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
+
+	rootCmd.Flags().StringP("rpcport", "p", viper.GetString("RPCPORT"), "Set the RPC Port")
+	rootCmd.Flags().StringP("rpcenable", "P", viper.GetString("RPCENABLE"), "Set if you would like to enable the RPC")
+	// Rest
+	rootCmd.Flags().StringP("restport", "r", viper.GetString("RESTPORT"), "Set the REST Port")
+	rootCmd.Flags().StringP("restenable", "R", viper.GetString("RESTENABLE"), "Set if you would like to enable the REST")
+	rootCmd.Flags().StringP("restprefix", "x", viper.GetString("RESTPREFIX"), "Set the REST prefix")
+	//Metrics
+	rootCmd.Flags().StringP("metricsport", "m", viper.GetString("METRICSPORT"), "Set the port where you would like to see the metrics")
+	rootCmd.Flags().StringP("metricsenable", "M", viper.GetString("METRICSENABLE"), "Set if you would like to enable metrics")
+	// Starknet
+	rootCmd.Flags().StringP("feedergateway", "s", viper.GetString("FEEDERGATEWAY"), "Set the link to the feeder gateway")
+	rootCmd.Flags().StringP("network", "n", viper.GetString("NETWORK"), "Set the network")
+	rootCmd.Flags().StringP("starknetenable", "S", viper.GetString("STARKNETENABLE"), "Set if you would like to enable calls from feeder gateway")
+	rootCmd.Flags().StringP("apisync", "A", viper.GetString("APISYNC"), "Set if you would like to enable api sync")
+	// Ethereum
+	rootCmd.Flags().StringP("ethereumnode", "e", viper.GetString("ETHEREUMNODE"), "Set the ethereum node")
+	//DBPath
+	rootCmd.Flags().StringP("dbpath", "d", viper.GetString("DBPATH"), "Set the DB Path")
 }
 
 // initConfig reads in Config file or environment variables if set.
