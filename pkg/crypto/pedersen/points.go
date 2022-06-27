@@ -1,8 +1,6 @@
 package pedersen
 
-import (
-	"math/big"
-)
+import "math/big"
 
 // point represents the affine coordinates of an elliptic curve point.
 type point struct{ x, y *big.Int }
@@ -10,7 +8,7 @@ type point struct{ x, y *big.Int }
 var (
 	// points is a slice of *big.Int that contains the constant points.
 	points [506]point
-	// prime is the characteristic of our field
+	// prime is the characteristic of our field.
 	prime *big.Int
 )
 
@@ -2049,9 +2047,20 @@ func init() {
 	prime, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
 }
 
-// NewPoint returns a point with coordinates (x, y).
-func NewPoint(x, y *big.Int) *point {
-	return &point{x, y}
+// divMod finds a non-negative integer x < p such that (m * x) % p == n.
+// It assumes that m and p are coprime. See the following for details
+// https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56.
+func divMod(n, m, p *big.Int) *big.Int {
+	a := new(big.Int)
+	new(big.Int).GCD(a, nil, m, p)
+	r := new(big.Int).Mul(n, a)
+	return r.Mod(r, p)
+}
+
+// Inf returns the point at infinity i.e. (0, 0) and can also be viewed
+// as a default initialiser for a point on an elliptic curve.
+func Inf() *point {
+	return &point{new(big.Int), new(big.Int)}
 }
 
 // Mod sets p to the point given by (p2.x % z, p2.y % z) and returns p.
@@ -2062,9 +2071,9 @@ func (p *point) Mod(p2 *point, z *big.Int) *point {
 }
 
 // Set sets p's coordinates to p2's coordinates and returns p.
-func (p *point) Set(p2 *point) *point {
-	p.x.Set(p2.x)
-	p.y.Set(p2.y)
+func (p *point) Set(other *point) *point {
+	p.x.Set(other.x)
+	p.y.Set(other.y)
 	return p
 }
 
@@ -2074,65 +2083,58 @@ func (p *point) IsInf() bool {
 	return p.x.Sign() == 0 && p.y.Sign() == 0
 }
 
-// Add returns the sum of (x1, y1) and (x2, y2) on an
-// elliptic curve mod P.
-// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164
-func (p *point) Add(p2 *point) {
+// Add returns the sum of two points on an elliptic curve mod p and may
+// return the point at infinity (see pedersen.Inf and *point.IsInf). It
+// is a port of the following https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164.
+func (p *point) Add(other *point) {
 	if p.IsInf() {
-		p.Set(p2)
+		p.Set(other)
 		return
 	}
 
-	if p2.IsInf() {
+	if other.IsInf() {
 		return
 	}
 
-	fieldPoint1 := NewPoint(new(big.Int), new(big.Int)).Mod(p, prime)
-	fieldPoint2 := NewPoint(new(big.Int), new(big.Int)).Mod(p2, prime)
+	a := Inf().Mod(p, prime)
+	b := Inf().Mod(other, prime)
+
 	var m *big.Int
-	if fieldPoint1.x.Cmp(fieldPoint2.x) == 0 {
-		temp := new(big.Int).Sub(prime, fieldPoint2.y)
-		temp.Mod(temp, prime)
-		if fieldPoint1.y.Cmp(temp) == 0 {
-			p.Set(NewPoint(new(big.Int), new(big.Int)))
+	if a.x.Cmp(b.x) == 0 {
+		tmp := new(big.Int).Sub(prime, b.y)
+		tmp.Mod(tmp, prime)
+		if a.y.Cmp(tmp) == 0 {
+			p.Set(Inf())
 			return
 		} else {
+			// Elliptic curve double.
 			two := big.NewInt(2)
 
-			p.x = new(big.Int).Mul(fieldPoint1.x, fieldPoint1.x)
+			// Elliptic curve slope double.
+			p.x = new(big.Int).Mul(a.x, a.x)
 			p.x.Mul(p.x, big.NewInt(3))
-			p.x.Add(p.x, big.NewInt(1)) // α = 1 in the equation for the curve
+			p.x.Add(p.x, big.NewInt(1) /* alpha coefficient */)
+			m = divMod(p.x, new(big.Int).Mul(a.y, two), prime)
 
-			m = divMod(p.x, new(big.Int).Mul(fieldPoint1.y, two), prime)
-
+			// Cont. elliptic curve double.
 			p.x = new(big.Int).Mul(m, m)
-			p.x.Sub(p.x, new(big.Int).Mul(two, fieldPoint1.x))
-			p.x.Mod(p.x, prime)
+			p.x.Sub(p.x, new(big.Int).Mul(two, a.x))
 		}
 	} else {
-		xDelta := new(big.Int).Sub(fieldPoint1.x, fieldPoint2.x)
-		yDelta := new(big.Int).Sub(fieldPoint1.y, fieldPoint2.y)
-
-		m = divMod(yDelta, xDelta, prime)
+		// Elliptic curve addition (without safety checks).
+		// Line slope.
+		m = divMod(new(big.Int).Sub(a.y, b.y), new(big.Int).Sub(a.x, b.x), prime)
 
 		p.x = new(big.Int).Mul(m, m)
-		p.x.Sub(p.x, fieldPoint1.x)
-		p.x.Sub(p.x, fieldPoint2.x)
-		p.x.Mod(p.x, prime)
+		p.x.Sub(p.x, a.x)
+		p.x.Sub(p.x, b.x)
 	}
 
-	p.y = new(big.Int).Sub(fieldPoint1.x, p.x)
-	p.y.Mul(p.y, m)
-	p.y.Sub(p.y, fieldPoint1.y)
-	p.y.Mod(p.y, prime)
-}
+	// Cont. both elliptic curve double and addition.
+	p.x.Mod(p.x, prime)
 
-// divMod finds a nonnegative integer x < p such that (m * x) % p == n.
-// Assumes that m and p are coprime.
-// See https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56
-func divMod(n, m, p *big.Int) *big.Int {
-	a := new(big.Int)
-	new(big.Int).GCD(a, nil, m, p)
-	r := new(big.Int).Mul(n, a)
-	return r.Mod(r, p)
+	p.y = new(big.Int).Sub(a.x, p.x)
+	p.y.Mul(p.y, m)
+	p.y.Sub(p.y, a.y)
+	p.y.Mod(p.y, prime)
 }
