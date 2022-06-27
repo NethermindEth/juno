@@ -3,6 +3,7 @@ package trie
 import (
 	"errors"
 
+	"github.com/NethermindEth/juno/pkg/collections"
 	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/types"
 )
@@ -38,14 +39,14 @@ func (t *trie) Root() *types.Felt {
 
 // Get gets the value for a key stored in the trie.
 func (t *trie) Get(key *types.Felt) (*types.Felt, error) {
-	path := NewPath(t.height, key.Bytes())
+	path := collections.NewBitSet(t.height, key.Bytes())
 	node, _, err := t.get(path, false)
 	return node, err
 }
 
 // Put inserts a new key/value pair into the trie.
 func (t *trie) Put(key *types.Felt, value *types.Felt) error {
-	path := NewPath(t.height, key.Bytes())
+	path := collections.NewBitSet(t.height, key.Bytes())
 	_, siblings, err := t.get(path, true)
 	if err != nil {
 		return err
@@ -58,7 +59,7 @@ func (t *trie) Del(key *types.Felt) error {
 	return t.Put(key, &types.Felt0)
 }
 
-func (t *trie) get(path *Path, withSiblings bool) (*types.Felt, []trieNode, error) {
+func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []trieNode, error) {
 	// list of siblings we need to hash with to get to the root
 	var siblings []trieNode
 	if withSiblings {
@@ -77,7 +78,7 @@ func (t *trie) get(path *Path, withSiblings bool) (*types.Felt, []trieNode, erro
 			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "edge", node.Path().String(), node.Bottom().Hex())
 
 			// longest common prefix of the key and the edge's path
-			lcp := node.Path().LongestCommonPrefix(path.Walked(walked))
+			lcp := longestCommonPrefix(node.Path(), path.Slice(walked, path.Len()))
 
 			if lcp == node.Path().Len() {
 				// if the lcp is the length of the path, we need to go down the edge
@@ -90,9 +91,9 @@ func (t *trie) get(path *Path, withSiblings bool) (*types.Felt, []trieNode, erro
 					// we need to collect the node lcp+1 steps down the edge
 					if lcp+1 < node.Path().Len() {
 						// sibling is still an edge node
-						edgePath := node.Path().Walked(lcp + 1)
+						edgePath := node.Path().Slice(lcp+1, node.Path().Len())
 						siblings[walked+lcp] = &edgeNode{nil, edgePath, node.Bottom()}
-					} else if lcp+1 < path.Walked(walked).Len() {
+					} else if lcp+1 < path.Len()-walked {
 						// sibling is a binary node, we need to retrieve it from the store
 						sibling, err := t.storer.retrieveByH(node.Bottom())
 						if err != nil {
@@ -127,7 +128,7 @@ func (t *trie) get(path *Path, withSiblings bool) (*types.Felt, []trieNode, erro
 			}
 
 			if withSiblings {
-				if path.Walked(walked).Len() > 1 {
+				if path.Len()-walked > 1 {
 					// sibling is a binary node, we need to retrieve it from the store
 					sibling, err := t.storer.retrieveByH(siblingH)
 					if err != nil {
@@ -151,7 +152,7 @@ func (t *trie) get(path *Path, withSiblings bool) (*types.Felt, []trieNode, erro
 }
 
 // put inserts a node in a given path in the trie.
-func (t *trie) put(path *Path, value *types.Felt, siblings []trieNode) error {
+func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []trieNode) error {
 	var node trieNode
 	node = &leafNode{value}
 	// reverse walk the key
@@ -176,12 +177,12 @@ func (t *trie) put(path *Path, value *types.Felt, siblings []trieNode) error {
 			node = EmptyNode
 			// fmt.Printf("put %3s: %s %s\n", path.Prefix(i).String(), "empty", node.Bottom().Hex())
 		} else if leftIsEmpty {
-			edgePath := NewPath(right.Path().Len()+1, right.Path().Bytes())
+			edgePath := collections.NewBitSet(right.Path().Len()+1, right.Path().Bytes())
 			edgePath.Set(0)
 			node = &edgeNode{nil, edgePath, right.Bottom()}
 			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeRight", node.Path().String(), node.Bottom().Hex())
 		} else if rightIsEmpty {
-			edgePath := NewPath(left.Path().Len()+1, left.Path().Bytes())
+			edgePath := collections.NewBitSet(left.Path().Len()+1, left.Path().Bytes())
 			node = &edgeNode{nil, edgePath, left.Bottom()}
 			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeLeft", node.Path().String(), node.Bottom().Hex())
 		} else {
@@ -206,4 +207,14 @@ func (t *trie) put(path *Path, value *types.Felt, siblings []trieNode) error {
 	t.root = node.Hash()
 	// fmt.Printf("trie root after put is: %s\n", t.RootHash().Hex())
 	return nil
+}
+
+func longestCommonPrefix(path, other *collections.BitSet) int {
+	n := 0
+	for ; n < path.Len() && n < other.Len(); n++ {
+		if path.Get(n) != other.Get(n) {
+			break
+		}
+	}
+	return n
 }

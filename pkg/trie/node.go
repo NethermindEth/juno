@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/NethermindEth/juno/pkg/collections"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/types"
 )
@@ -17,7 +18,7 @@ var (
 )
 
 type trieNode interface {
-	Path() *Path
+	Path() *collections.BitSet
 	Bottom() *types.Felt
 	Hash() *types.Felt
 	MarshalBinary() ([]byte, error)
@@ -31,8 +32,8 @@ type binaryNode struct {
 	rightH *types.Felt
 }
 
-func (n *binaryNode) Path() *Path {
-	return EmptyPath
+func (n *binaryNode) Path() *collections.BitSet {
+	return collections.EmptyBitSet
 }
 
 func (n *binaryNode) Bottom() *types.Felt {
@@ -69,11 +70,11 @@ func (n *binaryNode) UnmarshalBinary(b []byte) error {
 type edgeNode struct {
 	hash *types.Felt
 
-	path   *Path
+	path   *collections.BitSet
 	bottom *types.Felt
 }
 
-func (n *edgeNode) Path() *Path {
+func (n *edgeNode) Path() *collections.BitSet {
 	return n.path
 }
 
@@ -109,7 +110,7 @@ func (n *edgeNode) UnmarshalBinary(b []byte) error {
 	}
 	bottom := types.BytesToFelt(b[:types.FeltLength])
 	length := int(b[2*types.FeltLength])
-	path := NewPath(length, b[types.FeltLength:2*types.FeltLength])
+	path := collections.NewBitSet(length, b[types.FeltLength:2*types.FeltLength])
 	n.bottom, n.path = &bottom, path
 	return nil
 }
@@ -118,8 +119,8 @@ type leafNode struct {
 	value *types.Felt
 }
 
-func (n *leafNode) Path() *Path {
-	return EmptyPath
+func (n *leafNode) Path() *collections.BitSet {
+	return collections.EmptyBitSet
 }
 
 func (n *leafNode) Bottom() *types.Felt {

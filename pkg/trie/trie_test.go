@@ -93,7 +93,7 @@ func TestExample(t *testing.T) {
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	trie, _ := New(db, EmptyNode.Hash(), testHeight)
+	trie := New(db, EmptyNode.Hash(), testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
@@ -127,7 +127,7 @@ func TestExample(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := store.New()
-	trie, _ := New(db, EmptyNode.Hash(), testHeight)
+	trie := New(db, EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		trie.Put(&test.key, &test.val)
 	}
@@ -150,15 +150,15 @@ func TestDelete(t *testing.T) {
 
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
-	trie, _ := New(store.New(), EmptyNode.Hash(), testHeight)
-	if trie.RootHash().Cmp(&types.Felt0) != 0 {
+	trie := New(store.New(), EmptyNode.Hash(), testHeight)
+	if trie.Root().Cmp(&types.Felt0) != 0 {
 		t.Error("trie.RootHash() != 0 for empty trie")
 	}
 }
 
 func TestGet(t *testing.T) {
 	db := store.New()
-	trie, _ := New(db, EmptyNode.Hash(), testHeight)
+	trie := New(db, EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		err := trie.Put(&test.key, &test.val)
 		if err != nil {
@@ -185,8 +185,8 @@ func TestGet(t *testing.T) {
 // TestInvariant checks that the root hash is independent of the
 // insertion and deletion order.
 func TestInvariant(t *testing.T) {
-	t0, _ := New(store.New(), EmptyNode.Hash(), testHeight)
-	t1, _ := New(store.New(), EmptyNode.Hash(), testHeight)
+	t0 := New(store.New(), EmptyNode.Hash(), testHeight)
+	t1 := New(store.New(), EmptyNode.Hash(), testHeight)
 
 	for i := 0; i < len(tests); i++ {
 		t0.Put(&tests[i].key, &tests[i].val)
@@ -198,7 +198,7 @@ func TestInvariant(t *testing.T) {
 	}
 
 	t.Run("insert: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
-		if t0.RootHash().Cmp(t1.RootHash()) != 0 {
+		if t0.Root().Cmp(t1.Root()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
 	})
@@ -206,14 +206,14 @@ func TestInvariant(t *testing.T) {
 	t.Run("delete: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
 		t0.Del(&tests[1].key)
 		t1.Del(&tests[1].key)
-		if t0.RootHash().Cmp(t1.RootHash()) != 0 {
+		if t0.Root().Cmp(t1.Root()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
 	})
 
 	t.Run("different: t0.RootHash().Cmp(t1.RootHash()) != 0", func(t *testing.T) {
 		t0.Put(&tests[1].key, &tests[1].val)
-		if t0.RootHash().Cmp(t1.RootHash()) == 0 {
+		if t0.Root().Cmp(t1.Root()) == 0 {
 			t.Errorf("tries with different values have the same root hashes")
 		}
 	})
@@ -222,17 +222,17 @@ func TestInvariant(t *testing.T) {
 // TestRebuild tests that the trie can be reconstructed from storage.
 func TestRebuild(t *testing.T) {
 	db := store.New()
-	oldTrie, _ := New(db, EmptyNode.Hash(), testHeight)
+	oldTrie := New(db, EmptyNode.Hash(), testHeight)
 
 	for _, test := range tests {
 		oldTrie.Put(&test.key, &test.val)
 	}
 
 	// New trie using the same storage.
-	newTrie, _ := New(db, oldTrie.RootHash(), testHeight)
+	newTrie := New(db, oldTrie.Root(), testHeight)
 
 	t.Run("oldTrie.RootHash().Cmp(newTrie.RootHash()) == 0", func(t *testing.T) {
-		if oldTrie.RootHash().Cmp(newTrie.RootHash()) != 0 {
+		if oldTrie.Root().Cmp(newTrie.Root()) != 0 {
 			t.Errorf("new trie produced a different commitment from the same store")
 		}
 	})
@@ -348,9 +348,9 @@ func TestState(t *testing.T) {
 	)
 
 	height := 251
-	state, _ := New(store.New(), EmptyNode.Hash(), height)
+	state := New(store.New(), EmptyNode.Hash(), height)
 	for addr, diff := range addresses {
-		storage, _ := New(store.New(), EmptyNode.Hash(), height)
+		storage := New(store.New(), EmptyNode.Hash(), height)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))
@@ -361,7 +361,7 @@ func TestState(t *testing.T) {
 		val := types.BigToFelt(
 			pedersen.Digest(
 				pedersen.Digest(
-					pedersen.Digest(contractHash.Big(), storage.RootHash().Big()),
+					pedersen.Digest(contractHash.Big(), storage.Root().Big()),
 					types.Felt0.Big(),
 				),
 				types.Felt0.Big(),
@@ -371,7 +371,7 @@ func TestState(t *testing.T) {
 		state.Put(&key, &val)
 	}
 
-	got := state.RootHash()
+	got := state.Root()
 	if want.Cmp(got) != 0 {
 		t.Errorf("state.RootHash() = %x, want = %x", got, want)
 	}
