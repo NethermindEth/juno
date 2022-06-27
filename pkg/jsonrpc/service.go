@@ -141,27 +141,11 @@ func (m *rpcMethod) Call(params json.RawMessage) (interface{}, error) {
 		return m.call(paramObject)
 
 	} else {
-		// By name request
-		var paramsMap map[string]json.RawMessage
-		if err := json.Unmarshal(params, &paramsMap); err != nil {
-			return nil, errInvalidParams
-		}
-		// Check if the number of parameters is correct
-		if m.ParamT.NumField() != len(paramsMap) {
-			return nil, errInvalidParams
-		}
 		// Build param object
 		paramObject := reflect.New(m.ParamT)
-		for name, param := range paramsMap {
-			// Unmarshal parameter
-			paramField := paramObject.Elem().FieldByName(name)
-			if !paramField.IsValid() {
-				return nil, errInvalidParams
-			}
-			if err := json.Unmarshal(param, paramField.Addr().Interface()); err != nil {
-				return nil, errInvalidParams
-			}
-		}
+        if err := json.Unmarshal(params, paramObject.Interface()); err != nil {
+            return nil, errInvalidParams 
+        }
 		return m.call(paramObject)
 	}
 }
