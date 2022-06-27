@@ -22,7 +22,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
-	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -101,19 +100,10 @@ var (
 						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 					}
 				}
-				// Synchronizer for Starknet State
-				env, err := db.GetMDBXEnv()
-				if err != nil {
-					log.Default.Fatal(err)
-				}
-				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
-				if err != nil {
-					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
-				}
-				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
+				services.SetupSync(feederGatewayClient, ethereumClient)
 				// Initialize the Starknet Synchronizer Service.
-				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
-					stateSynchronizer.Close)
+				processHandler.Add("Starknet Synchronizer", services.SyncService.Run,
+					services.SyncService.Close)
 			}
 
 			// Subscribe the REST API client to the main loop if it is enabled in

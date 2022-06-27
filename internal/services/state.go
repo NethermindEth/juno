@@ -90,7 +90,7 @@ func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, 
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", contractAddress, "blockNumber", blockNumber).
+		With("contractAddress", contractAddress, "currentBlockNumber", blockNumber).
 		Debug("StoreStorage")
 
 	s.manager.PutStorage(contractAddress, blockNumber, storage)
@@ -101,7 +101,7 @@ func (s *stateService) GetStorage(contractAddress string, blockNumber uint64) *s
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", contractAddress, "blockNumber", blockNumber).
+		With("contractAddress", contractAddress, "currentBlockNumber", blockNumber).
 		Debug("GetStorage")
 
 	return s.manager.GetStorage(contractAddress, blockNumber)
@@ -112,7 +112,7 @@ func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64,
 	defer s.DoneProcess()
 
 	s.logger.
-		With("contractAddress", contractAddress, "blockNumber", blockNumber).
+		With("contractAddress", contractAddress, "currentBlockNumber", blockNumber).
 		Debug("UpdateStorage")
 
 	oldStorage := s.GetStorage(contractAddress, blockNumber)

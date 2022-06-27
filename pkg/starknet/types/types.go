@@ -37,6 +37,9 @@ type DeployedContract struct {
 // StateDiff Represent the deployed contracts and the storage diffs for those and
 // for the one's already deployed
 type StateDiff struct {
+	BlockNumber       int64              `json:"block_number"`
+	NewRoot           string             `json:"new_root"`
+	OldRoot           string             `json:"old_root"`
 	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
 }

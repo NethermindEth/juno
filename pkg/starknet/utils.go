@@ -80,6 +80,7 @@ func remove0x(s string) string {
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
 func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse) starknetTypes.StateDiff {
 	var stateDiff starknetTypes.StateDiff
+	stateDiff.NewRoot = update.NewRoot
 	stateDiff.DeployedContracts = make([]starknetTypes.DeployedContract, len(update.StateDiff.DeployedContracts))
 	for i, v := range update.StateDiff.DeployedContracts {
 		stateDiff.DeployedContracts[i] = starknetTypes.DeployedContract{

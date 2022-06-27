@@ -88,7 +88,7 @@ func (s *blockService) GetBlockByNumber(blockNumber uint64) *types.Block {
 	defer s.DoneProcess()
 
 	s.logger.
-		With("blockNumber", blockNumber).
+		With("currentBlockNumber", blockNumber).
 		Debug("GetBlockByNumber")
 
 	return s.manager.GetBlockByNumber(blockNumber)
