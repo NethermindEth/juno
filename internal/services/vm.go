@@ -106,15 +106,29 @@ func (s *vmService) Setup(codeDatabase, codeDefinitionDb db.Databaser, storageDa
 	s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
 }
 
+/*
+// isValidPythonVer returns true if the Python version detected has a
+// major version of 3 and returns an error if it failed to retrieve such
+// information from the system.
+func isValidPythonVer(path string) (bool, error) {
+	out, err := exec.Command(path, "--version").Output()
+	if err != nil {
+		return false, fmt.Errorf("services: failed to check Python version")
+	}
+	re := regexp.MustCompile(`\d`)
+	return fmt.Sprintf("%s", re.Find(out)) == "3", nil
+}
+*/
+
 // python returns the location of Python on the system by searching the
 // $PATH environment variable and returns an error otherwise.
 func python() (string, error) {
-	// TODO: python may also be an incompatible Python version i.e. 2.7 so
-	// account for that as well say by calling python --version once it
-	// has been founding and parsing the version string using regexp.
 	path, err := exec.LookPath("python")
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
+			// Assumes that python3 is indeed Python version 3 but there is
+			// another case where the user could have multiple Python 3
+			// versions installed and thus it would be more like python3.9 🤔.
 			path, err = exec.LookPath("python3")
 			if err != nil {
 				return "", errPythonNotFound
@@ -123,6 +137,19 @@ func python() (string, error) {
 		}
 		return "", errPythonNotFound
 	}
+	// Could be Python 2.
+	/*
+		ok, err := isValidPythonVer(path)
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			path, err = exec.LookPath("python3")
+			if err != nil {
+				return "", errPythonNotFound
+			}
+		}
+	*/
 	return path, nil
 }
 
