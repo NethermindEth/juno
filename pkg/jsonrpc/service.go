@@ -126,7 +126,7 @@ func (m *rpcMethod) Call(params json.RawMessage) (interface{}, error) {
 			return nil, errInvalidParams
 		}
 		// Cehck if the number of parameters is correct
-		if m.ParamT.NumField() != len(paramsArray) {
+		if m.ParamT.NumField() < len(paramsArray) {
 			return nil, errInvalidParams
 		}
 		// Build param object
