@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/NethermindEth/juno/internal/errpkg"
@@ -53,6 +54,19 @@ func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
 		return map[string]string{"blockNumber": blockNumber}
 	}
 	return map[string]string{"blockHash": blockHash}
+}
+
+// Return either empty list or list of param. Necessary for StarkNet.
+func formatList(p string) []string {
+	// If no input, just return empty list
+	if p == "" {
+		return []string{""}
+	}
+
+	// Print type of p
+	re := regexp.MustCompile("[0-9]+")
+	match := re.FindAllString(p, -1)
+	return match
 }
 
 func TxnIdentifier(txHash, txId string) map[string]string {
@@ -589,39 +603,20 @@ func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, call
 		// notest
 		blockIdentifier = map[string]string{}
 	}
-	callDataList := []string{callData}
-	signatureList := []string{signature}
-
-	// If both callData and signature are empty, then we create short req. body
-	// with only contractAddress and entryPointSelector.
-	if callData == "" && signature == "" {
-		reqBody := map[string]interface{}{
-			"contract_address":     contractAddress,
-			"entry_point_selector": entryPointSelector,
-		}
-		res, err := c.CallEstimateFeeWithBody(reqBody, blockIdentifier)
-		return res, err
-	} else if callData != "" && signature == "" {
-		reqBody := map[string]interface{}{
-			"contract_address":     contractAddress,
-			"entry_point_selector": entryPointSelector,
-			"call_data":            callDataList,
-		}
-		res, err := c.CallEstimateFeeWithBody(reqBody, blockIdentifier)
-		return res, err
-	}
+	callDataList := formatList(callData)
+	signatureList := formatList(signature)
 
 	reqBody := map[string]interface{}{
 		"contract_address":     contractAddress,
 		"entry_point_selector": entryPointSelector,
-		"call_data":            callDataList,
+		"calldata":             callDataList,
 		"signature":            signatureList,
 	}
-	res, err := c.CallEstimateFeeWithBody(reqBody, blockIdentifier)
+	res, err := c.CallEstimateFeeWithBody(blockIdentifier, reqBody)
 	return res, err
 }
 
-func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]interface{}, reqBody map[string]string) (*EstimateFeeResponse, error) {
+func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]string, reqBody map[string]interface{}) (*EstimateFeeResponse, error) {
 	req, err := c.newRequest(
 		"POST", "/estimate_fee", blockIdentifier, reqBody)
 	if err != nil {

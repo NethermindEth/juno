@@ -18,7 +18,7 @@ var postReqManagerCmd = &cobra.Command{
 
 func init() {
 	// Add calldata flag
-	postReqManagerCmd.PersistentFlags().StringP("calldata", "i", "", "Transaction calldata (function inputs).")
+	postReqManagerCmd.PersistentFlags().StringArrayP("calldata", "i", []string{}, "Transaction calldata (function inputs).")
 
 	// Add signature flag
 	postReqManagerCmd.PersistentFlags().StringP("signature", "s", "", "Account signature.")
