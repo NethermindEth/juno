@@ -20,7 +20,7 @@ type abiService struct {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *abiService) Setup(database db.Databaser) {
+func (s *abiService) Setup(database db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
@@ -46,7 +46,11 @@ func (s *abiService) Run() error {
 func (s *abiService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database, err := db.GetDatabase("ABI")
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		database, err := db.NewMDBXDatabase(env, "ABI")
 		if err != nil {
 			return err
 		}
