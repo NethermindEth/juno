@@ -9,21 +9,23 @@ import (
 type Manager struct {
 	binaryCodeDatabase     db.Databaser
 	codeDefinitionDatabase db.Databaser
-	storageDatabase        *db.BlockSpecificDatabase
 	trieDatabase           db.Databaser
+    contractStateDatabase  db.Databaser
 }
 
 // NewStateManager returns a new instance of Manager with the given database sources.
-func NewStateManager(binaryCodeDb, codeDefinitionDb, trieDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) *Manager {
+func NewStateManager(binaryCodeDb, codeDefinitionDb, trieDb, contractStateDb db.Databaser) *Manager {
 	return &Manager{
 		binaryCodeDatabase:     binaryCodeDb,
 		codeDefinitionDatabase: codeDefinitionDb,
-		storageDatabase:        storageDatabase,
 		trieDatabase:           trieDb,
+        contractStateDatabase:  contractStateDb,
 	}
 }
 
 func (m *Manager) Close() {
 	m.binaryCodeDatabase.Close()
-	m.storageDatabase.Close()
+    m.codeDefinitionDatabase.Close()
+    m.trieDatabase.Close()
+    m.contractStateDatabase.Close()
 }
