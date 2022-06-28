@@ -56,7 +56,7 @@ var (
 				os.Exit(0)
 			}(sig)
 
-			flag, _ := cmd.Flags().GetString("feedergateway")
+			flag, _ := cmd.PersistentFlags().GetString("feedergateway")
 			if flag != "" {
 				err := updateFeederGateway(flag)
 				if err != nil {
@@ -67,7 +67,7 @@ var (
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			// Check if the user has enabled the rpc
-			flag, _ = cmd.Flags().GetString("rpcenable")
+			flag, _ = cmd.PersistentFlags().GetString("rpcenable")
 			if flag != "" {
 				err := updateRPCEnable(flag)
 				if err != nil {
@@ -76,7 +76,7 @@ var (
 			}
 			if config.Runtime.RPC.Enabled {
 				// Check if the user has defined the RPC port externally
-				flag, _ = cmd.Flags().GetString("rpcport")
+				flag, _ = cmd.PersistentFlags().GetString("rpcport")
 				if flag != "" {
 					err := updateRPCPort(flag)
 					if err != nil {
@@ -88,7 +88,7 @@ var (
 				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
 
-			flag, _ = cmd.Flags().GetString("metricsenable")
+			flag, _ = cmd.PersistentFlags().GetString("metricsenable")
 			if flag != "" {
 				err := updateMetricsEnable(flag)
 				if err != nil {
@@ -96,7 +96,8 @@ var (
 				}
 			}
 			if config.Runtime.Metrics.Enabled {
-				flag, _ = cmd.Flags().GetString("metricsport")
+				flag, _ = cmd.PersistentFlags().GetString("metricsport")
+				fmt.Println(flag)
 				if flag != "" {
 					err := updateMetricsPort(flag)
 					if err != nil {
@@ -108,7 +109,7 @@ var (
 				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
 
-			flag, _ = cmd.Flags().GetString("dbpath")
+			flag, _ = cmd.PersistentFlags().GetString("dbpath")
 			if flag != "" {
 				err := updateDbPath(flag)
 				if err != nil {
@@ -136,7 +137,7 @@ var (
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
-			flag, _ = cmd.Flags().GetString("starknetenable")
+			flag, _ = cmd.PersistentFlags().GetString("starknetenable")
 			if flag != "" {
 				err := updateStarknetEnable(flag)
 				if err != nil {
@@ -146,7 +147,7 @@ var (
 			if config.Runtime.Starknet.Enabled {
 				var ethereumClient *ethclient.Client
 				// Check if the api sync has been enabled or disabled
-				flag, _ = cmd.Flags().GetString("apisync")
+				flag, _ = cmd.PersistentFlags().GetString("apisync")
 				if flag != "" {
 					err := updateAPISync(flag)
 					if err != nil {
@@ -155,7 +156,7 @@ var (
 				}
 				if !config.Runtime.Starknet.ApiSync {
 					// check if the ethereum node has been changed
-					flag, _ = cmd.Flags().GetString("ethereumnode")
+					flag, _ = cmd.PersistentFlags().GetString("ethereumnode")
 					if flag != "" {
 						err := updateEthereumNode(flag)
 						if err != nil {
@@ -185,7 +186,7 @@ var (
 
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
-			flag, _ = cmd.Flags().GetString("restenable")
+			flag, _ = cmd.PersistentFlags().GetString("restenable")
 			if flag != "" {
 				err := updateRESTEnable(flag)
 				if err != nil {
@@ -193,14 +194,14 @@ var (
 				}
 			}
 			if config.Runtime.REST.Enabled {
-				flag, _ = cmd.Flags().GetString("restport")
+				flag, _ = cmd.PersistentFlags().GetString("restport")
 				if flag != "" {
 					err := updateRESTPort(flag)
 					if err != nil {
 						errpkg.CheckFatal(err, "Failed to update the REST port")
 					}
 				}
-				flag, _ = cmd.Flags().GetString("restprefix")
+				flag, _ = cmd.PersistentFlags().GetString("restprefix")
 				if flag != "" {
 					err := updateRESTPrefix(flag)
 					if err != nil {
@@ -219,11 +220,6 @@ var (
 		},
 	}
 )
-
-func cleanup() {
-	processHandler.Close()
-	log.Default.Info("App closing...Bye!!!")
-}
 
 func updateRPCPort(args string) error {
 	port, err := strconv.Atoi(args)
@@ -322,6 +318,11 @@ func updateDbPath(args string) error {
 	return nil
 }
 
+func cleanup() {
+	processHandler.Close()
+	log.Default.Info("App closing...Bye!!!")
+}
+
 // init defines flags and handles configuration.
 func init() {
 	fmt.Println(longMsg)
@@ -333,24 +334,24 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
 
-	rootCmd.Flags().StringP("rpcport", "p", viper.GetString("RPCPORT"), "Set the RPC Port")
-	rootCmd.Flags().StringP("rpcenable", "P", viper.GetString("RPCENABLE"), "Set if you would like to enable the RPC")
+	rootCmd.PersistentFlags().StringP("rpcport", "p", os.Getenv("RPCPORT"), "Set the RPC Port")
+	rootCmd.PersistentFlags().StringP("rpcenable", "P", os.Getenv("RPCENABLE"), "Set if you would like to enable the RPC")
 	// Rest
-	rootCmd.Flags().StringP("restport", "r", viper.GetString("RESTPORT"), "Set the REST Port")
-	rootCmd.Flags().StringP("restenable", "R", viper.GetString("RESTENABLE"), "Set if you would like to enable the REST")
-	rootCmd.Flags().StringP("restprefix", "x", viper.GetString("RESTPREFIX"), "Set the REST prefix")
+	rootCmd.PersistentFlags().StringP("restport", "r", os.Getenv("RESTPORT"), "Set the REST Port")
+	rootCmd.PersistentFlags().StringP("restenable", "R", os.Getenv("RESTENABLE"), "Set if you would like to enable the REST")
+	rootCmd.PersistentFlags().StringP("restprefix", "x", os.Getenv("RESTPREFIX"), "Set the REST prefix")
 	// Metrics
-	rootCmd.Flags().StringP("metricsport", "m", viper.GetString("METRICSPORT"), "Set the port where you would like to see the metrics")
-	rootCmd.Flags().StringP("metricsenable", "M", viper.GetString("METRICSENABLE"), "Set if you would like to enable metrics")
+	rootCmd.PersistentFlags().StringP("metricsport", "m", "", "Set the port where you would like to see the metrics")
+	rootCmd.PersistentFlags().StringP("metricsenable", "M", os.Getenv("METRICSENABLE"), "Set if you would like to enable metrics")
 	// Starknet
-	rootCmd.Flags().StringP("feedergateway", "s", viper.GetString("FEEDERGATEWAY"), "Set the link to the feeder gateway")
-	rootCmd.Flags().StringP("network", "n", viper.GetString("NETWORK"), "Set the network")
-	rootCmd.Flags().StringP("starknetenable", "S", viper.GetString("STARKNETENABLE"), "Set if you would like to enable calls from feeder gateway")
-	rootCmd.Flags().StringP("apisync", "A", viper.GetString("APISYNC"), "Set if you would like to enable api sync")
+	rootCmd.PersistentFlags().StringP("feedergateway", "s", os.Getenv("FEEDERGATEWAY"), "Set the link to the feeder gateway")
+	rootCmd.PersistentFlags().StringP("network", "n", os.Getenv("NETWORK"), "Set the network")
+	rootCmd.PersistentFlags().StringP("starknetenable", "S", os.Getenv("STARKNETENABLE"), "Set if you would like to enable calls from feeder gateway")
+	rootCmd.PersistentFlags().StringP("apisync", "A", os.Getenv("APISYNC"), "Set if you would like to enable api sync")
 	// Ethereum
-	rootCmd.Flags().StringP("ethereumnode", "e", viper.GetString("ETHEREUMNODE"), "Set the ethereum node")
+	rootCmd.PersistentFlags().StringP("ethereumnode", "e", os.Getenv("ETHEREUMNODE"), "Set the ethereum node")
 	// DBPath
-	rootCmd.Flags().StringP("dbpath", "d", viper.GetString("DBPATH"), "Set the DB Path")
+	rootCmd.PersistentFlags().StringP("dbpath", "d", os.Getenv("DBPATH"), "Set the DB Path")
 }
 
 // initConfig reads in Config file or environment variables if set.
