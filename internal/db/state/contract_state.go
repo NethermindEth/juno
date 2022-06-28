@@ -33,3 +33,19 @@ func (m *Manager) GetContractState(address []byte) (*state.ContractState, error)
     return &contractState, nil
 }
 
+func (m *Manager) PutContractState(address []byte, cs *state.ContractState) error {
+    // Build protobuf struct
+    contractStatePB := &ContractState{
+        ContractHash: cs.ContractHash.Bytes(),
+        StorageRoot: cs.StorageRoot.Bytes(),
+    }
+    // Marshal to protobuf bytes
+    raw, err := proto.Marshal(contractStatePB)
+    if err != nil {
+        // Protobuf error
+        return err
+    }
+    // Put in database
+    return m.contractStateDatabase.Put(address, raw)
+} 
+
