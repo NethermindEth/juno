@@ -10,6 +10,10 @@ import (
 
 var ContractHashService contractHashService
 
+func init() {
+	ContractHashService = contractHashService{}
+}
+
 type contractHashService struct {
 	service
 	db db.Database
