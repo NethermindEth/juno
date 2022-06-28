@@ -621,8 +621,6 @@ func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]string, reqBo
 	req, err := c.newRequest(
 		"POST", "/estimate_fee", blockIdentifier, reqBody)
 	if err != nil {
-		metr.EstimateFeeFailed()
-		metr.IncreaseRequestsFailed()
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for estimate_fee.")
 		return nil, err
 	}

@@ -233,11 +233,6 @@ func IncreaseTxIDReceived() {
 	noOfRequests.WithLabelValues("Received", "TransactionIDByHash").Inc()
 }
 
-// This increases when the response of EstimateFee in feeder.go is received
-func EstimateFeeReceived() {
-	noOfRequests.WithLabelValues("Received", "EstimateFee").Inc()
-}
-
 // This increases when the request in GetContractAddresses in feeder.go fails
 func IncreaseContractAddressesFailed() {
 	noOfRequests.WithLabelValues("Failed", "Contract Addresses").Inc()
@@ -314,11 +309,6 @@ func IncreaseTxHashFailed() {
 // This increases when the request in GetBlockHashById in feeder.go fails
 func IncreaseTxIDFailed() {
 	noOfRequests.WithLabelValues("Failed", "TransactionIDByHash").Inc()
-}
-
-// This increases when the response of EstimateFee in feeder.go fails
-func EstimateFeeFailed() {
-	noOfRequests.WithLabelValues("Failed", "EstimateFee").Inc()
 }
 
 // Starknet sync metrics
