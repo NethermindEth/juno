@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/pkg/collections"
-	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -21,15 +20,20 @@ type Trie interface {
 	Del(key *types.Felt) error
 }
 
+type TrieManager interface {
+	GetTrieNode(hash *types.Felt) (TrieNode, error)
+	StoreTrieNode(node TrieNode) error
+}
+
 type trie struct {
-	height int
-	root   *types.Felt
-	storer *trieStorer
+	height  int
+	root    *types.Felt
+	manager TrieManager
 }
 
 // New creates a new trie, pass zero as root hash to initialize an empty trie
-func New(kvStorer store.KVStorer, root *types.Felt, height int) Trie {
-	return &trie{height, root, &trieStorer{kvStorer}}
+func New(manager TrieManager, root *types.Felt, height int) Trie {
+	return &trie{height, root, manager}
 }
 
 // Root returns the hash of the root node of the trie.
@@ -67,7 +71,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 	}
 	curr := t.root // curr is the current node's hash in the traversal
 	for walked := 0; walked < t.height && curr.Cmp(EmptyNode.Hash()) != 0; {
-		retrieved, err := t.storer.retrieveByH(curr)
+		retrieved, err := t.manager.GetTrieNode(curr)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -75,8 +79,6 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 		// switch on the type of the node
 		switch node := retrieved.(type) {
 		case *EdgeNode:
-			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "edge", node.Path().String(), node.Bottom().Hex())
-
 			// longest common prefix of the key and the edge's path
 			lcp := longestCommonPrefix(node.Path(), path.Slice(walked, path.Len()))
 
@@ -95,7 +97,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 						siblings[walked+lcp] = &EdgeNode{nil, edgePath, node.Bottom()}
 					} else if lcp+1 < path.Len()-walked {
 						// sibling is a binary node, we need to retrieve it from the store
-						sibling, err := t.storer.retrieveByH(node.Bottom())
+						sibling, err := t.manager.GetTrieNode(node.Bottom())
 						if err != nil {
 							return nil, nil, err
 						}
@@ -115,8 +117,6 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 			walked += lcp
 
 		case *BinaryNode:
-			// fmt.Printf("get %3s: %s (%s,%s)\n", path.Prefix(walked).String(), "binary", node.leftH.Hex(), node.rightH.Hex())
-
 			var nextH, siblingH *types.Felt
 			// walk left or right depending on the bit
 			if path.Get(walked) {
@@ -130,7 +130,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 			if withSiblings {
 				if path.Len()-walked > 1 {
 					// sibling is a binary node, we need to retrieve it from the store
-					sibling, err := t.storer.retrieveByH(siblingH)
+					sibling, err := t.manager.GetTrieNode(siblingH)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -146,6 +146,8 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 			curr = nextH
 			// increment the walked counter
 			walked++
+		default:
+			panic("invalid node type") // should never happen
 		}
 	}
 	return curr, siblings, nil
@@ -175,37 +177,38 @@ func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []TrieN
 		// compute parent
 		if leftIsEmpty && rightIsEmpty {
 			node = EmptyNode
-			// fmt.Printf("put %3s: %s %s\n", path.Prefix(i).String(), "empty", node.Bottom().Hex())
 		} else if leftIsEmpty {
 			edgePath := collections.NewBitSet(right.Path().Len()+1, right.Path().Bytes())
 			edgePath.Set(0)
 			node = &EdgeNode{nil, edgePath, right.Bottom()}
-			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeRight", node.Path().String(), node.Bottom().Hex())
 		} else if rightIsEmpty {
 			edgePath := collections.NewBitSet(left.Path().Len()+1, left.Path().Bytes())
 			node = &EdgeNode{nil, edgePath, left.Bottom()}
-			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "edgeLeft", node.Path().String(), node.Bottom().Hex())
 		} else {
-			if err := t.storer.storeByH(left); err != nil {
-				return err
-			}
-			if err := t.storer.storeByH(right); err != nil {
-				return err
-			}
 			node = &BinaryNode{nil, left.Hash(), right.Hash()}
-			if err := t.storer.storeByH(node); err != nil {
+			if err := t.manager.StoreTrieNode(node); err != nil {
 				return err
 			}
-			// fmt.Printf("put %3s: %s (%s,%s)\n", path.Prefix(i).String(), "binary", node.(*binaryNode).leftH.Hex(), node.(*binaryNode).rightH.Hex())
+			if i < path.Len()-1 {
+				// don't store leafs
+				if err := t.manager.StoreTrieNode(left); err != nil {
+					return err
+				}
+				if err := t.manager.StoreTrieNode(right); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
-	if err := t.storer.storeByH(node); err != nil {
-		return err
+	if t.height > 0 && node.Hash().Cmp(EmptyNode.Hash()) != 0 {
+		// only store root if it's neither empty nor a leaf
+		if err := t.manager.StoreTrieNode(node); err != nil {
+			return err
+		}
 	}
 
 	t.root = node.Hash()
-	// fmt.Printf("trie root after put is: %s\n", t.RootHash().Hex())
 	return nil
 }
 

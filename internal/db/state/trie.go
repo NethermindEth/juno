@@ -10,24 +10,24 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (m *Manager) GetTrieNode(key []byte) (trie.TrieNode, error) {
-    // Search on the database
-	rawNode, err := m.trieDatabase.Get(key)
+func (m *Manager) GetTrieNode(hash *types.Felt) (trie.TrieNode, error) {
+	// Search on the database
+	rawNode, err := m.trieDatabase.Get(hash.Bytes())
 	if err != nil {
 		panic(err)
 	}
 	if rawNode == nil {
-        // Return nil if not found
+		// Return nil if not found
 		return nil, nil
 	}
-    // Unmarshal to protobuf struct
+	// Unmarshal to protobuf struct
 	var node TrieNode
 	err = proto.Unmarshal(rawNode, &node)
 	if err != nil {
 		return nil, err
 	}
 	if binaryNode := node.GetBinaryNode(); binaryNode != nil {
-        // Return binary node
+		// Return binary node
 		leftH := types.BytesToFelt(binaryNode.GetLeftH())
 		rightH := types.BytesToFelt(binaryNode.GetRightH())
 		return &trie.BinaryNode{
@@ -36,16 +36,17 @@ func (m *Manager) GetTrieNode(key []byte) (trie.TrieNode, error) {
 		}, nil
 	}
 	if edgeNode := node.GetEdgeNode(); edgeNode != nil {
-        // Return edge node
+		// Return edge node
 		path := collections.NewBitSet(int(edgeNode.GetLength()), edgeNode.GetPath())
 		bottom := types.BytesToFelt(edgeNode.GetBottom())
 		return trie.NewEdgeNode(path, &bottom), nil
 	}
-    // Return error if unknown node type
+	// Return error if unknown node type
 	return nil, errors.New("unknown node type")
 }
 
-func (m *Manager) StoreTrieNode(key []byte, node trie.TrieNode) error {
+func (m *Manager) StoreTrieNode(node trie.TrieNode) error {
+	key := node.Hash().Bytes()
 	switch node := node.(type) {
 	case *trie.BinaryNode:
 		rawNode, err := proto.Marshal(&BinaryNode{
