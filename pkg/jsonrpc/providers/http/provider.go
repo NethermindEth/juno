@@ -9,10 +9,10 @@ import (
 
 type HttpProvider struct {
 	http.Handler
-	jsonrpcServer jsonrpc.Server
+	jsonrpcServer *jsonrpc.Server
 }
 
-func NewHttpProvider(jsonrpcServer jsonrpc.Server) *HttpProvider {
+func NewHttpProvider(jsonrpcServer *jsonrpc.Server) *HttpProvider {
 	return &HttpProvider{
 		jsonrpcServer: jsonrpcServer,
 	}
