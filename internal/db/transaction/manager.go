@@ -7,6 +7,8 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 // Manager manages all the related to the database of Transactions. All the
@@ -25,13 +27,13 @@ func NewManager(txDb, receiptDb db.Database) *Manager {
 // PutTransaction stores new transactions in the database. This method does not
 // check if the key already exists. In the case, that the key already exists the
 // value is overwritten.
-func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
+func (m *Manager) PutTransaction(txHash *felt.Felt, tx types.IsTransaction) {
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("error marshalling Transaction")
 	}
-	err = m.txDb.Put(txHash.Bytes(), rawData)
+	err = m.txDb.Put(txHash.ByteSlice(), rawData)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -40,8 +42,8 @@ func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransa
 
 // GetTransaction searches in the database for the transaction associated with the
 // given key. If the key does not exist then returns nil.
-func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
-	rawData, err := m.txDb.Get(txHash.Bytes())
+func (m *Manager) GetTransaction(txHash *felt.Felt) types.IsTransaction {
+	rawData, err := m.txDb.Get(txHash.ByteSlice())
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -62,13 +64,13 @@ func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransacti
 // PutReceipt stores  new transactions receipts in the database. This method
 // does not check if the key already exists. In the case, that the key already
 // exists the value is overwritten.
-func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.TransactionReceipt) {
+func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt *types.TransactionReceipt) {
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("error marshaling TransactionReceipt")
 	}
-	err = m.receiptDb.Put(txHash.Bytes(), rawData)
+	err = m.receiptDb.Put(txHash.ByteSlice(), rawData)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("database error")
@@ -77,8 +79,8 @@ func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.Tran
 
 // GetReceipt searches in the database for the transaction receipt associated
 // with the given key. If the key does not exist then returns nil.
-func (m *Manager) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
-	rawData, err := m.receiptDb.Get(txHash.Bytes())
+func (m *Manager) GetReceipt(txHash *felt.Felt) *types.TransactionReceipt {
+	rawData, err := m.receiptDb.Get(txHash.ByteSlice())
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -104,22 +106,22 @@ func (m *Manager) Close() {
 
 func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 	protoTx := Transaction{
-		Hash: transaction.GetHash().Bytes(),
+		Hash: transaction.GetHash().ByteSlice(),
 	}
 	switch tx := transaction.(type) {
 	case *types.TransactionDeploy:
 		deploy := Deploy{
-			ContractAddressSalt: tx.ContractAddress.Bytes(),
+			ContractAddressSalt: tx.ContractAddress.ByteSlice(),
 			ConstructorCallData: marshalFelts(tx.ConstructorCallData),
 		}
 		protoTx.Tx = &Transaction_Deploy{&deploy}
 	case *types.TransactionInvoke:
 		invoke := InvokeFunction{
-			ContractAddress:    tx.ContractAddress.Bytes(),
-			EntryPointSelector: tx.EntryPointSelector.Bytes(),
+			ContractAddress:    tx.ContractAddress.ByteSlice(),
+			EntryPointSelector: tx.EntryPointSelector.ByteSlice(),
 			CallData:           marshalFelts(tx.CallData),
 			Signature:          marshalFelts(tx.Signature),
-			MaxFee:             tx.MaxFee.Bytes(),
+			MaxFee:             tx.MaxFee.ByteSlice(),
 		}
 		protoTx.Tx = &Transaction_Invoke{&invoke}
 	}
@@ -134,19 +136,19 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	}
 	if tx := protoTx.GetInvoke(); tx != nil {
 		out := types.TransactionInvoke{
-			Hash:               types.BytesToTransactionHash(protoTx.Hash),
-			ContractAddress:    types.BytesToAddress(tx.ContractAddress),
-			EntryPointSelector: types.BytesToFelt(tx.EntryPointSelector),
+			Hash:               new(felt.Felt).SetBytes(protoTx.Hash),
+			ContractAddress:    new(felt.Felt).SetBytes(tx.ContractAddress),
+			EntryPointSelector: new(felt.Felt).SetBytes(tx.EntryPointSelector),
 			CallData:           unmarshalFelts(tx.CallData),
 			Signature:          unmarshalFelts(tx.Signature),
-			MaxFee:             types.BytesToFelt(tx.MaxFee),
+			MaxFee:             new(felt.Felt).SetBytes(tx.MaxFee),
 		}
 		return &out, nil
 	}
 	if tx := protoTx.GetDeploy(); tx != nil {
 		out := types.TransactionDeploy{
-			Hash:                types.BytesToTransactionHash(protoTx.Hash),
-			ContractAddress:     types.BytesToAddress(tx.ContractAddressSalt),
+			Hash:                new(felt.Felt).SetBytes(protoTx.Hash),
+			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddressSalt),
 			ConstructorCallData: unmarshalFelts(tx.ConstructorCallData),
 		}
 		return &out, nil
@@ -157,8 +159,8 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 
 func marshalTransactionReceipt(receipt *types.TransactionReceipt) ([]byte, error) {
 	protoReceipt := TransactionReceipt{
-		TxHash:          receipt.TxHash.Bytes(),
-		ActualFee:       receipt.ActualFee.Bytes(),
+		TxHash:          receipt.TxHash.ByteSlice(),
+		ActualFee:       receipt.ActualFee.ByteSlice(),
 		Status:          marshalTransactionStatus(receipt.Status),
 		StatusData:      receipt.StatusData,
 		L1OriginMessage: marshalMessageL1ToL2(receipt.L1OriginMessage),
@@ -185,8 +187,8 @@ func unmarshalTransactionReceipt(b []byte) (*types.TransactionReceipt, error) {
 		return nil, err
 	}
 	receipt := &types.TransactionReceipt{
-		TxHash:          types.BytesToTransactionHash(protoReceipt.TxHash),
-		ActualFee:       types.BytesToFelt(protoReceipt.ActualFee),
+		TxHash:          new(felt.Felt).SetBytes(protoReceipt.TxHash),
+		ActualFee:       new(felt.Felt).SetBytes(protoReceipt.ActualFee),
 		Status:          unmarshalTransactionStatus(protoReceipt.Status),
 		StatusData:      protoReceipt.StatusData,
 		L1OriginMessage: unmarshalMessageL1ToL2(protoReceipt.L1OriginMessage),
@@ -283,7 +285,7 @@ func unmarshalMessageL1ToL2(message *MessageToL2) *types.MessageL1ToL2 {
 
 func marshalEvent(event *types.Event) *Event {
 	return &Event{
-		FromAddress: event.FromAddress.Bytes(),
+		FromAddress: event.FromAddress.ByteSlice(),
 		Keys:        marshalFelts(event.Keys),
 		Data:        marshalFelts(event.Data),
 	}
@@ -291,27 +293,27 @@ func marshalEvent(event *types.Event) *Event {
 
 func unmarshalEvent(event *Event) types.Event {
 	return types.Event{
-		FromAddress: types.BytesToAddress(event.FromAddress),
+		FromAddress: new(felt.Felt).SetBytes(event.FromAddress),
 		Keys:        unmarshalFelts(event.Keys),
 		Data:        unmarshalFelts(event.Data),
 	}
 }
 
-func marshalFelts(felts []types.Felt) [][]byte {
+func marshalFelts(felts []*felt.Felt) [][]byte {
 	out := make([][]byte, len(felts))
 	for i, felt := range felts {
-		out[i] = felt.Bytes()
+		out[i] = felt.ByteSlice()
 	}
 	return out
 }
 
-func unmarshalFelts(bs [][]byte) []types.Felt {
+func unmarshalFelts(bs [][]byte) []*felt.Felt {
 	if bs == nil {
 		return nil
 	}
-	out := make([]types.Felt, len(bs))
+	out := make([]*felt.Felt, len(bs))
 	for i, b := range bs {
-		out[i] = types.BytesToFelt(b)
+		out[i] = new(felt.Felt).SetBytes(b)
 	}
 	return out
 }

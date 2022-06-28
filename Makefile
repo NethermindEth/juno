@@ -1,7 +1,7 @@
 export CC = clang
 .DEFAULT_GOAL 	:= help
 
-compile: ## compile:
+compile: generate ## compile
 	@mkdir -p build
 	@go build -o build/juno-cli cmd/juno-cli/main.go
 	@go build -o build/juno cmd/juno/main.go
@@ -11,13 +11,14 @@ run: ## run
 
 all: compile run ## build and run
 
-generate:
+generate: ## generate
 	@cd internal/db && $(MAKE) generate
+	@cd pkg/felt/internal && $(MAKE) generate
 
 test: ## tests
 	go test ./...
 
-benchmarks: ## Benchmarking
+benchmarks: ## benchmarking
 	go test ./... -bench=.
 
 test-cover: ## tests with coverage
@@ -25,7 +26,7 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-courtey install-gofumpt ## Install some project dependencies
+install-deps: | install-courtey install-gofumpt ## install some project dependencies
 
 install-courtey:
 	# install courtney fork
@@ -53,9 +54,9 @@ format-check: ## check formatting
 	# assert `gofumpt -l` produces no output
 	test ! $$(gofumpt -l . | tee /dev/stderr)
 
-clean: ## Clean project builds
+clean: ## clean project builds
 	@rm -rf ./build/juno
 	@rm -rf ./build/juno-cli
 
-help: ## Show this help
+help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

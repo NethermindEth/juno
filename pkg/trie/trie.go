@@ -29,9 +29,9 @@ package trie
 
 import (
 	"encoding/json"
-	"math/big"
 
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/store"
 )
 
@@ -108,7 +108,7 @@ func (t *Trie) retrieve(key []byte) (Node, bool) {
 // from the node that immediately precedes the bottom node and either
 // deletes the node if it its child nodes are empty or recomputes the
 // encoding and hashes otherwise.
-func (t *Trie) diff(key *big.Int) {
+func (t *Trie) diff(key *felt.Felt) {
 	for height := t.keyLen - 1; height >= 0; height-- {
 		parent := Prefix(key, height)
 
@@ -125,21 +125,17 @@ func (t *Trie) diff(key *big.Int) {
 			switch {
 			case !rightChildIsNotEmpty:
 				n.Encoding = Encoding{
-					leftChild.Length + 1, leftChild.Path, new(big.Int).Set(leftChild.Bottom),
+					leftChild.Length + 1, leftChild.Path, leftChild.Bottom,
 				}
 			case !leftChildIsNotEmpty:
 				n.Encoding = Encoding{
 					rightChild.Length + 1,
-					rightChild.Path.Add(
-						rightChild.Path,
-						new(big.Int).Exp(
-							new(big.Int).SetUint64(2),
-							new(big.Int).SetUint64(uint64(rightChild.Length)), nil)),
-					new(big.Int).Set(rightChild.Bottom),
+					rightChild.Path.FromMont().SetBit(uint64(rightChild.Length), 1).ToMont(),
+					rightChild.Bottom,
 				}
 			default:
 				n.Encoding = Encoding{
-					0, new(big.Int), pedersen.Digest(leftChild.Hash, rightChild.Hash),
+					0, new(felt.Felt), pedersen.Digest(leftChild.Hash, rightChild.Hash),
 				}
 			}
 
@@ -153,8 +149,8 @@ func (t *Trie) diff(key *big.Int) {
 }
 
 // Delete removes a key-value pair from the trie.
-func (t *Trie) Delete(key *big.Int) {
-	// The internal representation of big.Int has the least significant
+func (t *Trie) Delete(key *felt.Felt) {
+	// The internal representation of felt.Felt has the least significant
 	// bit in the 0th position but this algorithm assumes the oppose so
 	// a copy with the bits reversed is used instead.
 	rev := Reversed(key, t.keyLen)
@@ -164,8 +160,8 @@ func (t *Trie) Delete(key *big.Int) {
 }
 
 // Get retrieves a value from the trie with the corresponding key.
-func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
-	// The internal representation of big.Int has the least significant
+func (t *Trie) Get(key *felt.Felt) (*felt.Felt, bool) {
+	// The internal representation of felt.Felt has the least significant
 	// bit in the 0th position but this algorithm assumes the opposite so
 	// a copy with the bits reversed is passed into the function.
 	node, ok := t.retrieve(Prefix(Reversed(key, t.keyLen), t.keyLen))
@@ -175,29 +171,29 @@ func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
 	return node.Bottom, true
 }
 
-// Put inserts a [big.Int] key-value pair in the trie.
-func (t *Trie) Put(key, val *big.Int) {
-	if val.Cmp(new(big.Int)) == 0 {
+// Put inserts a [felt.Felt] key-value pair in the trie.
+func (t *Trie) Put(key, val *felt.Felt) {
+	if val.CmpCompat(felt.Felt0) == 0 {
 		t.Delete(key)
 		return
 	}
 
-	// The internal representation of big.Int has the least significant
+	// The internal representation of felt.Felt has the least significant
 	// bit in the 0th position but this algorithm assumes the oppose so a
 	// copy with the bits reversed is used instead.
 	rev := Reversed(key, t.keyLen)
 
-	leaf := Node{Encoding{0, new(big.Int), val}, val}
+	leaf := Node{Encoding{0, new(felt.Felt), val}, val}
 	t.commit(Prefix(rev, t.keyLen), leaf.bytes())
 	t.diff(rev)
 }
 
 // Commitment returns the root hash of the trie. If the tree is empty,
 // this value is nil.
-func (t *Trie) Commitment() *big.Int {
+func (t *Trie) Commitment() *felt.Felt {
 	root, ok := t.retrieve([]byte{})
 	if !ok {
-		return new(big.Int)
+		return new(felt.Felt)
 	}
 	return root.Hash
 }

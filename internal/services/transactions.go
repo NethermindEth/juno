@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -76,7 +77,7 @@ func (s *transactionService) Close(ctx context.Context) {
 // GetTransaction searches for the transaction associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
+func (s *transactionService) GetTransaction(txHash *felt.Felt) types.IsTransaction {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -90,7 +91,7 @@ func (s *transactionService) GetTransaction(txHash types.TransactionHash) types.
 // StoreTransaction stores the given transaction into the database. The key used
 // to map the transaction it's the hash of the transaction. If the database
 // already has a transaction with the same key, then the value is overwritten.
-func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
+func (s *transactionService) StoreTransaction(txHash *felt.Felt, tx types.IsTransaction) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -104,7 +105,7 @@ func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx t
 // GetReceipt searches for the transaction receipt associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
+func (s *transactionService) GetReceipt(txHash *felt.Felt) *types.TransactionReceipt {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -115,7 +116,7 @@ func (s *transactionService) GetReceipt(txHash types.TransactionHash) *types.Tra
 
 // StoreReceipt stores the given transaction receipt into the database. If the
 // database already has a receipt with the same key, the value is overwritten.
-func (s *transactionService) StoreReceipt(txHash types.TransactionHash, receipt *types.TransactionReceipt) {
+func (s *transactionService) StoreReceipt(txHash *felt.Felt, receipt *types.TransactionReceipt) {
 	s.AddProcess()
 	defer s.DoneProcess()
 

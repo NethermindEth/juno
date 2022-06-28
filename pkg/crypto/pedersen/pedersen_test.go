@@ -2,24 +2,23 @@ package pedersen
 
 import (
 	"fmt"
-	"math/big"
-	"math/rand"
 	"testing"
-	"time"
+
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 // BenchmarkDigest runs a benchmark on the Digest function by hashing a
-// *big.Int with a value of 0 N times.
+// *felt.Felt with a value of 0 N times.
 func BenchmarkDigest(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Digest(new(big.Int))
+		Digest(new(felt.Felt))
 	}
 }
 
 func ExampleDigest() {
-	a, _ := new(big.Int).SetString("3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb", 16)
-	b, _ := new(big.Int).SetString("208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a", 16)
-	fmt.Printf("%x\n", Digest(a, b))
+	a := new(felt.Felt).SetHex("3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb")
+	b := new(felt.Felt).SetHex("208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a")
+	fmt.Printf("%s\n", Digest(a, b).Hex())
 
 	// Output:
 	// 30e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662
@@ -45,25 +44,27 @@ func TestDigest(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		a, _ := new(big.Int).SetString(test.input1, 16)
-		b, _ := new(big.Int).SetString(test.input2, 16)
-		want, _ := new(big.Int).SetString(test.want, 16)
+		a := new(felt.Felt).SetHex(test.input1)
+		b := new(felt.Felt).SetHex(test.input2)
+		want := new(felt.Felt).SetHex(test.want)
 		got := Digest(a, b)
 		if got.Cmp(want) != 0 {
-			t.Errorf("Digest(%x, %x) = %x, want %x", a, b, got, want)
+			t.Errorf("Digest(%x, %x) = %x, want %x", a.Hex(), b.Hex(), got.Hex(), want.Hex())
 		}
 	}
 }
 
 func BenchmarkArrayDigest(b *testing.B) {
 	n := 20
-	data := make([]*big.Int, n)
-	seed := time.Now().UnixNano()
+	data := make([]*felt.Felt, n)
 	for i := range data {
-		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), prime)
+		data[i] = new(felt.Felt)
+		if _, err := data[i].SetRandom(); err != nil {
+			b.Fatalf("error while generating random felt: %x", err)
+		}
 	}
 
-	b.Run(fmt.Sprintf("Benchmark pedersen.ArrayDigest over %d big.Ints", n), func(b *testing.B) {
+	b.Run(fmt.Sprintf("Benchmark pedersen.ArrayDigest over %d felt.Felts", n), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			ArrayDigest(data...)
 		}
@@ -91,12 +92,11 @@ func TestArrayDigest(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		data := []*big.Int{}
+		data := []*felt.Felt{}
 		for _, item := range test.input {
-			v, _ := new(big.Int).SetString(item, 16)
-			data = append(data, v)
+			data = append(data, new(felt.Felt).SetHex(item))
 		}
-		want, _ := new(big.Int).SetString(test.want, 16)
+		want := new(felt.Felt).SetHex(test.want)
 		got := ArrayDigest(data...)
 		if got.Cmp(want) != 0 {
 			t.Errorf("ArrayDigest(%x) = %x, want %x", data, got, want)

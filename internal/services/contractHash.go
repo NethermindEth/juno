@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 var ContractHashService contractHashService
@@ -56,7 +56,7 @@ func (s *contractHashService) Close(ctx context.Context) {
 	s.db.Close()
 }
 
-func (s *contractHashService) StoreContractHash(contractAddress string, contractHash *big.Int) {
+func (s *contractHashService) StoreContractHash(contractAddress string, contractHash *felt.Felt) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -64,7 +64,7 @@ func (s *contractHashService) StoreContractHash(contractAddress string, contract
 		With("contractAddress", contractAddress).
 		Debug("StoreContractHash")
 
-	err := s.db.Put([]byte(contractAddress), contractHash.Bytes())
+	err := s.db.Put([]byte(contractAddress), contractHash.ByteSlice())
 	if err != nil {
 		// notest
 		s.logger.
@@ -73,7 +73,7 @@ func (s *contractHashService) StoreContractHash(contractAddress string, contract
 	}
 }
 
-func (s *contractHashService) GetContractHash(contractAddress string) *big.Int {
+func (s *contractHashService) GetContractHash(contractAddress string) *felt.Felt {
 	// notest
 	s.AddProcess()
 	defer s.DoneProcess()
@@ -89,5 +89,5 @@ func (s *contractHashService) GetContractHash(contractAddress string) *big.Int {
 			Error("GetContractHash error")
 		return nil
 	}
-	return new(big.Int).SetBytes(rawData)
+	return new(felt.Felt).SetBytes(rawData)
 }
