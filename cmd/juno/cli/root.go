@@ -348,7 +348,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("restenable", "R", os.Getenv("RESTENABLE"), "Set if you would like to enable the REST")
 	rootCmd.PersistentFlags().StringP("restprefix", "x", os.Getenv("RESTPREFIX"), "Set the REST prefix")
 	// Metrics
-	rootCmd.PersistentFlags().StringP("metricsport", "m", "", "Set the port where you would like to see the metrics")
+	rootCmd.PersistentFlags().StringP("metricsport", "m", "METRICSPORT", "Set the port where you would like to see the metrics")
 	rootCmd.PersistentFlags().StringP("metricsenable", "M", os.Getenv("METRICSENABLE"), "Set if you would like to enable metrics")
 	// Starknet
 	rootCmd.PersistentFlags().StringP("feedergateway", "s", os.Getenv("FEEDERGATEWAY"), "Set the link to the feeder gateway")
