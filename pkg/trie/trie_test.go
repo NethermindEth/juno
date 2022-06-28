@@ -1,112 +1,20 @@
-package trie
+package trie_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 
-	"github.com/NethermindEth/juno/pkg/collections"
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
+	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
 const testHeight = 3
-
-type testTrieManager struct {
-	db map[string][]byte
-}
-
-func newTestTrieManager() *testTrieManager {
-	return &testTrieManager{
-		db: make(map[string][]byte),
-	}
-}
-
-func (t *testTrieManager) GetTrieNode(hash *types.Felt) (TrieNode, error) {
-	if marshaled, ok := t.db[hash.Hex()]; ok {
-		return unmarshalNode(marshaled)
-	}
-	return nil, fmt.Errorf("no trie node found for hash %s", hash.Hex())
-}
-
-func (t *testTrieManager) StoreTrieNode(node TrieNode) error {
-	marshaled, err := marshalNode(node)
-	if err != nil {
-		return err
-	}
-	t.db[node.Hash().Hex()] = marshaled
-	return nil
-}
-
-type edgeJson struct {
-	Length int
-	Path   []byte
-	Bottom []byte
-}
-
-type binaryJson struct {
-	Left  []byte
-	Right []byte
-}
-
-func marshalNode(node TrieNode) ([]byte, error) {
-	switch n := node.(type) {
-	case *EdgeNode:
-		marshaled, err := json.Marshal(edgeJson{
-			Length: n.path.Len(),
-			Path:   n.path.Bytes(),
-			Bottom: n.bottom.Bytes(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		return append([]byte("e:"), marshaled...), nil
-	case *BinaryNode:
-		marshaled, err := json.Marshal(binaryJson{
-			Left:  n.LeftH.Bytes(),
-			Right: n.RightH.Bytes(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		return append([]byte("b:"), marshaled...), nil
-	default:
-		panic("--> unknown node type")
-	}
-}
-
-func unmarshalNode(data []byte) (TrieNode, error) {
-	if len(data) < 2 {
-		return nil, fmt.Errorf("invalid node data: %x", data)
-	}
-	switch string(data[0:2]) {
-	case "e:":
-		var n edgeJson
-		if err := json.Unmarshal(data[2:], &n); err != nil {
-			return nil, err
-		}
-		bottom := types.BytesToFelt(n.Bottom)
-		return &EdgeNode{
-			path:   collections.NewBitSet(n.Length, n.Path),
-			bottom: &bottom,
-		}, nil
-	case "b:":
-		var n binaryJson
-		if err := json.Unmarshal(data[2:], &n); err != nil {
-			return nil, err
-		}
-		left, right := types.BytesToFelt(n.Left), types.BytesToFelt(n.Right)
-		return &BinaryNode{
-			LeftH:  &left,
-			RightH: &right,
-		}, nil
-	default:
-		return nil, fmt.Errorf("invalid node data: %x", data)
-	}
-}
 
 var tests = [...]struct {
 	key, val types.Felt
@@ -121,6 +29,11 @@ func init() {
 	rand.Seed(0)
 }
 
+func newTestTrieManager(t *testing.T) trie.TrieManager {
+	db := db.NewKeyValueDb(t.TempDir(), 0)
+	return state.NewStateManager(nil, nil, db, nil)
+}
+
 func TestExample(t *testing.T) {
 	pairs := [...]struct {
 		key, val types.Felt
@@ -131,7 +44,7 @@ func TestExample(t *testing.T) {
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	trie := New(newTestTrieManager(), EmptyNode.Hash(), testHeight)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
@@ -164,7 +77,7 @@ func TestExample(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	trie := New(newTestTrieManager(), EmptyNode.Hash(), testHeight)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		trie.Put(&test.key, &test.val)
 	}
@@ -187,14 +100,14 @@ func TestDelete(t *testing.T) {
 
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
-	trie := New(newTestTrieManager(), EmptyNode.Hash(), testHeight)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	if trie.Root().Cmp(&types.Felt0) != 0 {
 		t.Error("trie.RootHash() != 0 for empty trie")
 	}
 }
 
 func TestGet(t *testing.T) {
-	trie := New(newTestTrieManager(), EmptyNode.Hash(), testHeight)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
 		err := trie.Put(&test.key, &test.val)
 		if err != nil {
@@ -221,8 +134,8 @@ func TestGet(t *testing.T) {
 // TestInvariant checks that the root hash is independent of the
 // insertion and deletion order.
 func TestInvariant(t *testing.T) {
-	t0 := New(newTestTrieManager(), EmptyNode.Hash(), testHeight)
-	t1 := New(newTestTrieManager(), EmptyNode.Hash(), testHeight)
+	t0 := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
+	t1 := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 
 	for i := 0; i < len(tests); i++ {
 		t0.Put(&tests[i].key, &tests[i].val)
@@ -257,15 +170,15 @@ func TestInvariant(t *testing.T) {
 
 // TestRebuild tests that the trie can be reconstructed from storage.
 func TestRebuild(t *testing.T) {
-	manager := newTestTrieManager()
-	oldTrie := New(manager, EmptyNode.Hash(), testHeight)
+	manager := newTestTrieManager(t)
+	oldTrie := trie.New(manager, trie.EmptyNode.Hash(), testHeight)
 
 	for _, test := range tests {
 		oldTrie.Put(&test.key, &test.val)
 	}
 
 	// New trie using the same storage.
-	newTrie := New(manager, oldTrie.Root(), testHeight)
+	newTrie := trie.New(manager, oldTrie.Root(), testHeight)
 
 	t.Run("oldTrie.RootHash().Cmp(newTrie.RootHash()) == 0", func(t *testing.T) {
 		if oldTrie.Root().Cmp(newTrie.Root()) != 0 {
@@ -384,9 +297,9 @@ func TestState(t *testing.T) {
 	)
 
 	height := 251
-	state := New(newTestTrieManager(), EmptyNode.Hash(), height)
+	state := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), height)
 	for addr, diff := range addresses {
-		storage := New(newTestTrieManager(), EmptyNode.Hash(), height)
+		storage := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))

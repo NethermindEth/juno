@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/NethermindEth/juno/pkg/collections"
@@ -9,13 +8,8 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
-var (
-	// constants
-	EmptyNode = &leafNode{&types.Felt0}
-
-	// errors
-	ErrMarshalUnmarshal = errors.New("node marshal/unmarshal error")
-)
+// constants
+var EmptyNode = &leafNode{&types.Felt0}
 
 type TrieNode interface {
 	Path() *collections.BitSet
