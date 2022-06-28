@@ -62,11 +62,19 @@ func buildResponse(result interface{}) string {
 }
 
 func TestStarknetGetStorageAt(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.GetDatabase("BLOCK")
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
+	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -101,8 +109,8 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	services.BlockService.StoreBlock(blockHash, block)
 
 	services.StateService.Setup(
-		db.NewKeyValueDb(t.TempDir(), 0),
-		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
+		codeDb,
+		db.NewBlockSpecificDatabase(storageDb),
 	)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
@@ -144,11 +152,19 @@ func TestStarknetGetStorageAt(t *testing.T) {
 }
 
 func TestStarknetGetCode(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	abiDb, err := db.GetDatabase("ABI")
+	abiDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
+	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -242,8 +258,8 @@ func TestStarknetGetCode(t *testing.T) {
 	}
 
 	services.StateService.Setup(
-		db.NewKeyValueDb(t.TempDir(), 0),
-		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
+		codeDb,
+		db.NewBlockSpecificDatabase(storageDb),
 	)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
@@ -519,19 +535,19 @@ var (
 )
 
 func TestGetBlock(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 3, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.GetDatabase("TRANSACTION")
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.GetDatabase("RECEIPT")
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.GetDatabase("BLOCK")
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
@@ -846,15 +862,15 @@ func TestGetBlockByTag(t *testing.T) {
 }
 
 func TestGetTransactionByHash(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 2, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.GetDatabase("TRANSACTION")
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.GetDatabase("RECEIPT")
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
@@ -925,19 +941,19 @@ func TestStarknetPendingTransactions(t *testing.T) {
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 3, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.GetDatabase("TRANSACTION")
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.GetDatabase("RECEIPT")
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.GetDatabase("BLOCK")
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
@@ -1022,19 +1038,19 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 3, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.GetDatabase("TRANSACTION")
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.GetDatabase("RECEIPT")
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.GetDatabase("BLOCK")
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}

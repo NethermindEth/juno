@@ -9,11 +9,11 @@ import (
 )
 
 func TestAbiService_StoreGet(t *testing.T) {
-	err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.GetDatabase("ABI")
+	database, err := db.NewMDBXDatabase(env, "ABI")
 	if err != nil {
 		t.Error(err)
 	}

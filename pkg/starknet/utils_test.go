@@ -126,12 +126,19 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 }
 
 func TestGetAndUpdateValueOnDB(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "TEST")
+	if err != nil {
+		t.Error(err)
+	}
 
 	key := "key"
 	value := 0
 
-	err := updateNumericValueFromDB(database, key, uint64(value))
+	err = updateNumericValueFromDB(database, key, uint64(value))
 	if err != nil {
 		t.Fail()
 		return
@@ -266,13 +273,23 @@ func TestUpdateState(t *testing.T) {
 	contractHashMap := map[string]*big.Int{
 		"1": big.NewInt(1),
 	}
-	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
-	txn := txnDb.Begin()
-	stateCommitment, err := updateState(txn, contractHashMap, &stateDiff, "", 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "TEST-DB")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var stateCommitment string
+	err = database.RunTxn(func(txn db.DatabaseOperations) (err error) {
+		stateCommitment, err = updateState(txn, contractHashMap, &stateDiff, "", 0)
+		return err
+	})
 	if err != nil {
 		t.Error("Error updating state")
 	}
-	txn.Commit()
 
 	want := stateTrie.Commitment()
 	commitment, _ := new(big.Int).SetString(stateCommitment, 16)

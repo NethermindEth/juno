@@ -13,12 +13,12 @@ import (
 // communications with the transactions' database must be made with this manager.
 // Transactions can have two types: DeployTransaction and InvokeFunctionTransaction.
 type Manager struct {
-	txDb      db.Databaser
-	receiptDb db.Databaser
+	txDb      db.Database
+	receiptDb db.Database
 }
 
 // NewManager returns a new instance of the Manager.
-func NewManager(txDb, receiptDb db.Databaser) *Manager {
+func NewManager(txDb, receiptDb db.Database) *Manager {
 	return &Manager{txDb, receiptDb}
 }
 

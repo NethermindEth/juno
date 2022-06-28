@@ -10,6 +10,11 @@ Let's discover **Juno in less than 5 minutes**.
 ## What You'll Need
 
 - [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
+- _For Linux_: You will need to install `clang`:
+
+```shell
+sudo apt -y install clang
+```
 
 ### Installing
 
