@@ -1,0 +1,35 @@
+package state
+
+import (
+	"github.com/NethermindEth/juno/pkg/state"
+	"github.com/NethermindEth/juno/pkg/types"
+	"google.golang.org/protobuf/proto"
+)
+
+func (m *Manager) GetContractState(address []byte) (*state.ContractState, error) {
+    raw, err := m.contractStateDatabase.Get(address)
+    if err != nil {
+        // Database error
+        return nil, err
+    }
+    if raw == nil {
+        // Not found
+        return nil, nil
+    }
+    // Unmarshal to protobuf struct
+    contractStatePB := &ContractState{}
+    err = proto.Unmarshal(raw, contractStatePB)
+    if err != nil {
+        // Protobuf error
+        return nil, err
+    }
+    // Build output struct
+    contractHash := types.BytesToFelt(contractStatePB.GetContractHash())
+    storageRoot := types.BytesToFelt(contractStatePB.GetStorageRoot())
+    contractState := state.ContractState{
+        ContractHash: &contractHash,
+        StorageRoot: &storageRoot,
+    }
+    return &contractState, nil
+}
+
