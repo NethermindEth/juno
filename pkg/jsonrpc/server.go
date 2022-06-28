@@ -23,11 +23,11 @@ type Server struct {
 }
 
 type (
-    // RequestProcessor is the type of function that processes a request. It is use by the middleware to send the requests
-    // to the server.
+	// RequestProcessor is the type of function that processes a request. It is use by the middleware to send the requests
+	// to the server.
 	RequestProcessor func(request *rpcRequest) (interface{}, error)
-    // Middleware brinds the ability to access the request and the response before and after the call to the service.
-	Middleware       func(request *rpcRequest, processor RequestProcessor) (interface{}, error)
+	// Middleware brinds the ability to access the request and the response before and after the call to the service.
+	Middleware func(request *rpcRequest, processor RequestProcessor) (interface{}, error)
 )
 
 // NewServer creates a new JSON-RPC 2.0 server instance.

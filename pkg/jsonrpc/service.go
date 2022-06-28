@@ -143,9 +143,9 @@ func (m *rpcMethod) Call(params json.RawMessage) (interface{}, error) {
 	} else {
 		// Build param object
 		paramObject := reflect.New(m.ParamT)
-        if err := json.Unmarshal(params, paramObject.Interface()); err != nil {
-            return nil, errInvalidParams 
-        }
+		if err := json.Unmarshal(params, paramObject.Interface()); err != nil {
+			return nil, errInvalidParams
+		}
 		return m.call(paramObject)
 	}
 }

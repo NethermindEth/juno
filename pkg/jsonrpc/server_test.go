@@ -12,8 +12,8 @@ import (
 type TestService struct{}
 
 type SubstractArgs struct {
-	Minuend     int
-	Substrahend int
+	Minuend     int `json:"minuend"`
+	Substrahend int `json:"substrahend"`
 }
 
 func (s *TestService) Subtract(ctx context.Context, args *SubstractArgs) (interface{}, error) {
@@ -68,13 +68,12 @@ func TestServer_Call(t *testing.T) {
 		},
 		{
 			name: "with named arguments",
-			// TODO: change param names to be parsed with the struct field json tag
-			req:  []byte(`{"jsonrpc":"2.0","method":"subtract","params":{"Substrahend":23,"Minuend":42},"id":3}`),
+			req:  []byte(`{"jsonrpc":"2.0","method":"subtract","params":{"substrahend":23,"minuend":42},"id":3}`),
 			want: []byte(`{"jsonrpc":"2.0","result":19,"id":3}`),
 		},
 		{
 			name: "with named arguments",
-			req:  []byte(`{"jsonrpc":"2.0","method":"subtract","params":{"Minuend":42,"Substrahend":23},"id":4}`),
+			req:  []byte(`{"jsonrpc":"2.0","method":"subtract","params":{"minuend":42,"substrahend":23},"id":4}`),
 			want: []byte(`{"jsonrpc":"2.0","result":19,"id":4}`),
 		},
 		{
