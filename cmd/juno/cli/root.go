@@ -97,7 +97,6 @@ var (
 			}
 			if config.Runtime.Metrics.Enabled {
 				flag, _ = cmd.PersistentFlags().GetString("metricsport")
-				fmt.Println(flag)
 				if flag != "" {
 					err := updateMetricsPort(flag)
 					if err != nil {
@@ -212,7 +211,15 @@ var (
 				// Initialize the REST Service.
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
-
+			// Print with the updated values
+			log.Default.With(
+				"Database Path", config.Runtime.DbPath,
+				"Rpc Port", config.Runtime.RPC.Port,
+				"Rpc Enabled", config.Runtime.RPC.Enabled,
+				"Rest Port", config.Runtime.REST.Port,
+				"Rest Enabled", config.Runtime.REST.Enabled,
+				"Rest Prefix", config.Runtime.REST.Prefix,
+			).Info("Config values.")
 			// endless running process
 			log.Default.Info("Starting all processes...")
 			processHandler.Run()
@@ -393,14 +400,6 @@ func initConfig() {
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
-	log.Default.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
-	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.
