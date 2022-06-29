@@ -16,6 +16,8 @@ import (
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
 
+var ErrorBlockNotFound = fmt.Errorf("block not found")
+
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient
 type HttpClient interface {
 	Do(*http.Request) (*http.Response, error)
@@ -230,6 +232,9 @@ func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber s
 }
 
 // GetBlock creates a new request to get a block from the gateway.
+// The block number can be either a number or a hash.
+// Response is a Block object. If there is any error, the response is nil.
+// If the block fetched is not found, the response is nil and the error is of type ErrorBlockNotFound.
 func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) {
 	req, err := c.newRequest("GET", "/get_block", formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
@@ -247,6 +252,11 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 		return nil, err
 	}
 	metr.IncreaseBlockReceived()
+
+	if res.StateRoot == "" && res.Timestamp == 0 {
+		return nil, ErrorBlockNotFound
+	}
+
 	return &res, err
 }
 

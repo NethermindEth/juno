@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"strconv"
+	"time"
 )
 
 var APICollector *apiCollector
@@ -20,7 +21,8 @@ type apiCollector struct {
 	chainID int
 	// buffer represent the channel of StateDiff collected
 	buffer chan *starknetTypes.StateDiff
-
+	// latestBlockOnChain is the last block on chain that need to be collected
+	latestBlockOnChain int64
 	service
 }
 
@@ -39,6 +41,10 @@ func (a *apiCollector) Run() error {
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
+		if latestStateDiffSynced >= a.latestBlockOnChain {
+
+			time.Sleep(time.Minute)
+		}
 		var update *feeder.StateUpdateResponse
 		var err error
 		if a.chainID == 1 {
@@ -67,6 +73,32 @@ func (a *apiCollector) Close(context.Context) {
 // GetChannel returns the channel of StateDiffs
 func (a *apiCollector) GetChannel() chan *starknetTypes.StateDiff {
 	return a.buffer
+}
+
+// updateLatestBlockOnChain update the latest block on chain
+func (a *apiCollector) updateLatestBlockOnChain() {
+	a.latestBlockOnChain = a.fetchLatestBlockOnChain()
+	for {
+		time.Sleep(time.Minute)
+		a.latestBlockOnChain = a.fetchLatestBlockOnChain()
+	}
+}
+
+// fetchLatestBlockOnChain fetch the latest block on chain
+func (a *apiCollector) fetchLatestBlockOnChain() int64 {
+	pendingBlock, err := a.client.GetBlock("", "pending")
+	if err != nil {
+		return 0
+	}
+	parentBlock, err := a.client.GetBlock(pendingBlock.ParentBlockHash, "")
+	if err != nil {
+		return 0
+	}
+	return int64(parentBlock.BlockNumber)
+}
+
+func (a *apiCollector) GetLatestBlockOnChain() int64 {
+	return a.latestBlockOnChain
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff

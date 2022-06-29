@@ -13,4 +13,6 @@ type StateDiffCollector interface {
 	GetChannel() chan *starknetTypes.StateDiff
 	// Close closes the collection of StateDiff.
 	Close(ctx context.Context)
+	// GetLatestBlockOnChain returns the last block to be collected by the StateDiffCollector.
+	GetLatestBlockOnChain() int64
 }

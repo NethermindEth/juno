@@ -23,6 +23,8 @@ type syncService struct {
 	ethClient *ethclient.Client
 	// chainId represent the chain id of the node.
 	chainId int
+	// latestBlockSynced is the last block that was synced.
+	latestBlockSynced int64
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
 }
@@ -71,9 +73,14 @@ func (s *syncService) Run() error {
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		// TODO: add state diff to black box
 		s.logger.With("Block Number", stateDiff.BlockNumber).Info("Synced block")
+		s.latestBlockSynced = stateDiff.BlockNumber
 
 	}
 	return nil
+}
+
+func (s *syncService) GetLatestBlockOnChain() int64 {
+	return s.stateDiffCollector.GetLatestBlockOnChain()
 }
 
 // setDefaults sets the default value for properties that are not set.
