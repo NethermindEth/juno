@@ -22,9 +22,9 @@ var (
 
 // RpcError represents an error that occurred during JSON-RPC processing.
 type RpcError struct {
-	Code    int64       `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int64  `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // Error implements the error interface.
@@ -32,7 +32,7 @@ func (err *RpcError) Error() string {
 	return err.Message
 }
 
-func newErrParseError(data interface{}) *RpcError {
+func newErrParseError(data any) *RpcError {
 	return &RpcError{
 		Code:    parseErrorCode,
 		Message: "Parse error",
@@ -40,7 +40,7 @@ func newErrParseError(data interface{}) *RpcError {
 	}
 }
 
-func newErrInvalidRequest(data interface{}) *RpcError {
+func newErrInvalidRequest(data any) *RpcError {
 	return &RpcError{
 		Code:    invalidRequestCode,
 		Message: "Invalid Request",
@@ -48,7 +48,7 @@ func newErrInvalidRequest(data interface{}) *RpcError {
 	}
 }
 
-func newErrMethodNotFound(data interface{}) *RpcError {
+func newErrMethodNotFound(data any) *RpcError {
 	return &RpcError{
 		Code:    methodNotFoundCode,
 		Message: "Method not found",
@@ -56,7 +56,7 @@ func newErrMethodNotFound(data interface{}) *RpcError {
 	}
 }
 
-func newErrInvalidParams(data interface{}) *RpcError {
+func newErrInvalidParams(data any) *RpcError {
 	return &RpcError{
 		Code:    invalidParamsCode,
 		Message: "Invalid params",
@@ -64,7 +64,7 @@ func newErrInvalidParams(data interface{}) *RpcError {
 	}
 }
 
-func newErrInternalError(data interface{}) *RpcError {
+func newErrInternalError(data any) *RpcError {
 	return &RpcError{
 		Code:    internalErrorCode,
 		Message: "Internal error",
@@ -72,7 +72,7 @@ func newErrInternalError(data interface{}) *RpcError {
 	}
 }
 
-func newErrServerError(data interface{}) *RpcError {
+func newErrServerError(data any) *RpcError {
 	return &RpcError{
 		Code:    serverErrorCode,
 		Message: "Server error",

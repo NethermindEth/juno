@@ -22,6 +22,7 @@ func (p *HttpProvider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check request method
 	if r.Method != http.MethodPost {
 		// All the requests should be POST
+		w.Header().Set("Allow", http.MethodPost)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -40,7 +41,6 @@ func (p *HttpProvider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := p.jsonrpcServer.Call(body)
 	_, err = w.Write(response)
 	if err != nil {
-		// TODO: log error
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

@@ -19,8 +19,7 @@ func NewHttpRpc(addr, pattern string, serviceName string, service interface{}) (
 	// Create JSON-RPC 2.0 server
 	httpRpc.jsonRpc = jsonrpc.NewServer()
 	// Register the service
-	err := httpRpc.jsonRpc.RegisterService(serviceName, service)
-	if err != nil {
+	if err := httpRpc.jsonRpc.RegisterService(serviceName, service); err != nil {
 		return nil, err
 	}
 	// Create HTTP provider

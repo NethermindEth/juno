@@ -16,7 +16,7 @@ type SubstractArgs struct {
 	Substrahend int `json:"substrahend"`
 }
 
-func (s *TestService) Subtract(ctx context.Context, args *SubstractArgs) (interface{}, error) {
+func (s *TestService) Subtract(ctx context.Context, args *SubstractArgs) (any, error) {
 	return args.Minuend - args.Substrahend, nil
 }
 
@@ -24,11 +24,11 @@ type UpdateArgs struct {
 	A, B, C, D, E int
 }
 
-func (s *TestService) Update(ctx context.Context, args *UpdateArgs) (interface{}, error) {
+func (s *TestService) Update(ctx context.Context, args *UpdateArgs) (any, error) {
 	return nil, nil
 }
 
-func (s *TestService) Foobar(ctx context.Context) (interface{}, error) {
+func (s *TestService) Foobar(ctx context.Context) (any, error) {
 	return nil, nil
 }
 
@@ -36,7 +36,7 @@ type SumArgs struct {
 	A, B, C int
 }
 
-func (s *TestService) Sum(ctx context.Context, args *SumArgs) (interface{}, error) {
+func (s *TestService) Sum(ctx context.Context, args *SumArgs) (any, error) {
 	return args.A + args.B + args.C, nil
 }
 
@@ -46,7 +46,7 @@ type HelloArgs struct {
 	Value int
 }
 
-func (s *NotifyService) Hello(ctx context.Context, args *HelloArgs) (interface{}, error) {
+func (s *NotifyService) Hello(ctx context.Context, args *HelloArgs) (any, error) {
 	return nil, nil
 }
 

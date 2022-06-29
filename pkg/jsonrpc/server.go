@@ -25,9 +25,9 @@ type Server struct {
 type (
 	// RequestProcessor is the type of function that processes a request. It is use by the middleware to send the requests
 	// to the server.
-	RequestProcessor func(request *rpcRequest) (interface{}, error)
+	RequestProcessor func(request *rpcRequest) (any, error)
 	// Middleware brinds the ability to access the request and the response before and after the call to the service.
-	Middleware func(request *rpcRequest, processor RequestProcessor) (interface{}, error)
+	Middleware func(request *rpcRequest, processor RequestProcessor) (any, error)
 )
 
 // NewServer creates a new JSON-RPC 2.0 server instance.
@@ -37,7 +37,7 @@ func NewServer() *Server {
 
 // RegisterService registers a service on the server. If the service already exists, it returns an error. If the service
 // does not fit the requirements, it returns an error.
-func (s *Server) RegisterService(name string, receiver interface{}) error {
+func (s *Server) RegisterService(name string, receiver any) error {
 	// Check if service already exists
 	if _, ok := s.services[name]; ok {
 		return errors.New("service already exists")
@@ -119,7 +119,7 @@ func (s *Server) callRaw(request json.RawMessage) json.RawMessage {
 	return buildResponse(requestObject.Id, out, nil)
 }
 
-func (s *Server) call(request *rpcRequest) (out interface{}, err error) {
+func (s *Server) call(request *rpcRequest) (out any, err error) {
 	if s.middleware != nil {
 		// Process request through middleware
 		out, err = s.middleware(request, s.processRequest)
@@ -137,7 +137,7 @@ func (s *Server) call(request *rpcRequest) (out interface{}, err error) {
 	return out, nil
 }
 
-func (s *Server) processRequest(request *rpcRequest) (interface{}, error) {
+func (s *Server) processRequest(request *rpcRequest) (any, error) {
 	service, ok := s.services[getServiceName(request.Method)]
 	if !ok {
 		return nil, errMethodNotFound
@@ -145,7 +145,7 @@ func (s *Server) processRequest(request *rpcRequest) (interface{}, error) {
 	return service.Call(request)
 }
 
-func buildResponse(id interface{}, result interface{}, err error) json.RawMessage {
+func buildResponse(id any, result any, err error) json.RawMessage {
 	response := rpcResponse{
 		Jsonrpc: jsonrpc,
 		Id:      id,

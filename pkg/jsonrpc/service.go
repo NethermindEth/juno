@@ -16,7 +16,7 @@ type rpcService struct {
 	Methods map[string]*rpcMethod
 }
 
-func newRpcService(name string, receiver interface{}) (*rpcService, error) {
+func newRpcService(name string, receiver any) (*rpcService, error) {
 	// Check if service is a pointer to a struct
 	if !isPointerToStruct(reflect.TypeOf(receiver)) {
 		return nil, errors.New("receiver must be a pointer to a struct")
@@ -56,7 +56,7 @@ func newRpcService(name string, receiver interface{}) (*rpcService, error) {
 	return serviceObject, nil
 }
 
-func (s *rpcService) Call(request *rpcRequest) (interface{}, error) {
+func (s *rpcService) Call(request *rpcRequest) (any, error) {
 	method, ok := s.Methods[request.Method]
 	if !ok {
 		return nil, errMethodNotFound
@@ -71,7 +71,7 @@ func (s *rpcService) Call(request *rpcRequest) (interface{}, error) {
 	return result, nil
 }
 
-func (s *rpcService) AddMethod(receiver interface{}, m reflect.Method) error {
+func (s *rpcService) AddMethod(receiver any, m reflect.Method) error {
 	var methodName string
 	if s.Name != "" {
 		methodName = s.Name + "_" + strings.ToLower(m.Name[:1]) + m.Name[1:]
@@ -98,7 +98,7 @@ type rpcMethod struct {
 	ParamT    reflect.Type
 }
 
-func newRpcMethod(name string, receiver interface{}, m reflect.Method, hasParams bool) *rpcMethod {
+func newRpcMethod(name string, receiver any, m reflect.Method, hasParams bool) *rpcMethod {
 	var paramT reflect.Type
 	if hasParams {
 		paramT = m.Type.In(2).Elem()
@@ -112,7 +112,7 @@ func newRpcMethod(name string, receiver interface{}, m reflect.Method, hasParams
 	}
 }
 
-func (m *rpcMethod) Call(params json.RawMessage) (interface{}, error) {
+func (m *rpcMethod) Call(params json.RawMessage) (any, error) {
 	if !m.HasParams {
 		if params != nil {
 			return nil, errInvalidParams
@@ -150,7 +150,7 @@ func (m *rpcMethod) Call(params json.RawMessage) (interface{}, error) {
 	}
 }
 
-func (m *rpcMethod) call(paramObject reflect.Value) (interface{}, error) {
+func (m *rpcMethod) call(paramObject reflect.Value) (any, error) {
 	// Call method
 	// TODO: pass the correct Context. Maybe the context should com from the request?
 	var result []reflect.Value

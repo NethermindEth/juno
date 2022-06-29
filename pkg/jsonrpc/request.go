@@ -8,14 +8,14 @@ import (
 type rpcRequest struct {
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
-	Id     interface{}     `json:"id"`
+	Id     any             `json:"id"`
 }
 
 func (r *rpcRequest) UnmarshalJSON(data []byte) error {
 	var rawRequest struct {
 		Method  string          `json:"method"`
 		Params  json.RawMessage `json:"params"`
-		Id      interface{}     `json:"id"`
+		Id      any             `json:"id"`
 		Jsonrpc string          `json:"jsonrpc"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
