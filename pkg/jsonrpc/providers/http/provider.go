@@ -39,10 +39,10 @@ func (p *HttpProvider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := p.jsonrpcServer.Call(body)
+	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 }
