@@ -34,8 +34,9 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 	APICollector.buffer = make(chan *starknetTypes.StateDiff, 10)
 }
 
-// bufferUpdater is a goroutine that will be used to update the buffer.
-func (a *apiCollector) bufferUpdater() {
+// Run start to store StateDiff locally
+func (a *apiCollector) Run() error {
+	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
 		var update *feeder.StateUpdateResponse
@@ -54,48 +55,18 @@ func (a *apiCollector) bufferUpdater() {
 			}
 		}
 		a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
+		a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 		latestStateDiffSynced += 1
 	}
-
 }
 
-// Run start to store StateDiff locally
-func (a *apiCollector) Run() error {
-
-	// start the buffer updater
-	go a.bufferUpdater()
-
-	latestStateDiffSynced := a.manager.GetLatestBlockSync()
-	for stateDiff := range a.buffer {
-
-		// get StateDiff from response
-
-		a.logger.With("Block Number", stateDiff.BlockNumber).Info("Saved State Diff for block")
-
-		//a.manager.(latestStateDiffSynced)
-
-		latestStateDiffSynced += 1
-	}
-
-	return nil
-}
-
-func (a *apiCollector) Close(ctx context.Context) {
+func (a *apiCollector) Close(context.Context) {
 	close(a.buffer)
-	// TODO: close context
 }
 
 // GetChannel returns the channel of StateDiffs
 func (a *apiCollector) GetChannel() chan *starknetTypes.StateDiff {
 	return a.buffer
-}
-
-func (a *apiCollector) GetStateForBlock(blockNumber int64) *starknetTypes.StateDiff {
-	update, err := a.client.GetStateUpdate("", strconv.FormatInt(blockNumber, 10))
-	if err != nil {
-		return nil
-	}
-	return stateUpdateResponseToStateDiff(*update, blockNumber)
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff

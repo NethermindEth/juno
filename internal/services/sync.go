@@ -3,14 +3,12 @@ package services
 import (
 	"context"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/sync"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
-	"time"
-
-	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/log"
 )
 
 // SyncService is the service that handle the synchronization of the node.
@@ -70,21 +68,12 @@ func (s *syncService) Run() error {
 		return err
 	}
 
-	stateDiffIterator := s.stateDiffCollector.CreateIterator()
-
-	for {
-		if !stateDiffIterator.HasNext() {
-			time.Sleep(2 * time.Second)
-			s.logger.With("blockNumber", stateDiffIterator.BlockNumberInTop()).Info("No state diff found, waiting for new one")
-			continue
-		}
+	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		// TODO: add state diff to black box
-		stateDiff := stateDiffIterator.GetNext()
 		s.logger.With("Block Number", stateDiff.BlockNumber).Info("Synced block")
-		time.Sleep(1 * time.Second)
 
 	}
-
+	return nil
 }
 
 // setDefaults sets the default value for properties that are not set.
@@ -107,6 +96,7 @@ func (s *syncService) setDefaults() error {
 // Close closes the service.
 func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
+	s.stateDiffCollector.Close(ctx)
 	s.manager.Close()
 }
 
