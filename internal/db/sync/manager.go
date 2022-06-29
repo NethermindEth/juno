@@ -8,11 +8,10 @@ import (
 )
 
 var (
-	DbError               = errors.New("database error")
-	UnmarshalError        = errors.New("unmarshal error")
-	MarshalError          = errors.New("marshal error")
-	latestBlockSyncKey    = []byte("latestBlockSync")
-	latestStateDiffSynced = []byte("latestStateDiffSynced")
+	DbError            = errors.New("database error")
+	UnmarshalError     = errors.New("unmarshal error")
+	MarshalError       = errors.New("marshal error")
+	latestBlockSyncKey = []byte("latestBlockSync")
 )
 
 // Manager is a Block database manager to save and search the blocks.
