@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
-	"github.com/NethermindEth/juno/internal/health"
 	"github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
@@ -57,8 +56,6 @@ var (
 				os.Exit(0)
 			}(sig)
 
-			health.HealthCheck()
-
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
@@ -92,6 +89,9 @@ var (
 
 			// Initialize Contract Hash storage service
 			processHandler.Add("Contract Hash Storage Service", services.ContractHashService.Run, services.ContractHashService.Close)
+
+			// Initialise Health Check
+			processHandler.Add("Health Check", services.HealthCheck.Run, services.HealthCheck.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
