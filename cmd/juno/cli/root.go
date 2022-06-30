@@ -56,6 +56,14 @@ var (
 				os.Exit(0)
 			}(sig)
 
+			// Check if the user has provided any value for configurations
+			// The order of preference
+			// 1. Values provided with flags
+			// 2. Values provided using environment variables
+			// 3. Values from config file (the default)
+			// Note that the config file isn't modified by these flags.
+			// The values provided to the flags or environment variables are
+			// used for that particular run only
 			flag, _ := cmd.PersistentFlags().GetString("feedergateway")
 			if flag != "" {
 				err := updateFeederGateway(flag)
@@ -63,10 +71,6 @@ var (
 					errpkg.CheckFatal(err, "Failed to update the feeder gateway")
 				}
 			}
-			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
-			// Subscribe the RPC client to the main loop if it is enabled in
-			// the config.
-			// Check if the user has enabled the rpc
 			flag, _ = cmd.PersistentFlags().GetString("rpcenable")
 			if flag != "" {
 				err := updateRPCEnable(flag)
@@ -74,20 +78,13 @@ var (
 					errpkg.CheckFatal(err, "Failed to update the RPC enable")
 				}
 			}
-			if config.Runtime.RPC.Enabled {
-				// Check if the user has defined the RPC port externally
-				flag, _ = cmd.PersistentFlags().GetString("rpcport")
-				if flag != "" {
-					err := updateRPCPort(flag)
-					if err != nil {
-						errpkg.CheckFatal(err, "Failed to update the RPC port")
-					}
+			flag, _ = cmd.PersistentFlags().GetString("rpcport")
+			if flag != "" {
+				err := updateRPCPort(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the RPC port")
 				}
-				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
-				// Initialize the RPC Service.
-				processHandler.Add("RPC", s.ListenAndServe, s.Close)
 			}
-
 			flag, _ = cmd.PersistentFlags().GetString("metricsenable")
 			if flag != "" {
 				err := updateMetricsEnable(flag)
@@ -95,19 +92,13 @@ var (
 					errpkg.CheckFatal(err, "Failed to update the Metrics enable")
 				}
 			}
-			if config.Runtime.Metrics.Enabled {
-				flag, _ = cmd.PersistentFlags().GetString("metricsport")
-				if flag != "" {
-					err := updateMetricsPort(flag)
-					if err != nil {
-						errpkg.CheckFatal(err, "Failed to update the Metrics port")
-					}
+			flag, _ = cmd.PersistentFlags().GetString("metricsport")
+			if flag != "" {
+				err := updateMetricsPort(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the Metrics port")
 				}
-				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-				// Initialize the Metrics Service.
-				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
 			}
-
 			flag, _ = cmd.PersistentFlags().GetString("dbpath")
 			if flag != "" {
 				err := updateDbPath(flag)
@@ -115,6 +106,63 @@ var (
 					errpkg.CheckFatal(err, "Failed to update the DB Path")
 				}
 			}
+			flag, _ = cmd.PersistentFlags().GetString("starknetenable")
+			if flag != "" {
+				err := updateStarknetEnable(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the Starknet Enable")
+				}
+			}
+			flag, _ = cmd.PersistentFlags().GetString("apisync")
+			if flag != "" {
+				err := updateAPISync(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the API sync")
+				}
+			}
+			flag, _ = cmd.PersistentFlags().GetString("ethereumnode")
+			if flag != "" {
+				err := updateEthereumNode(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the Ethereum node")
+				}
+			}
+			flag, _ = cmd.PersistentFlags().GetString("restenable")
+			if flag != "" {
+				err := updateRESTEnable(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the REST enable")
+				}
+			}
+			flag, _ = cmd.PersistentFlags().GetString("restport")
+			if flag != "" {
+				err := updateRESTPort(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the REST port")
+				}
+			}
+			flag, _ = cmd.PersistentFlags().GetString("restprefix")
+			if flag != "" {
+				err := updateRESTPrefix(flag)
+				if err != nil {
+					errpkg.CheckFatal(err, "Failed to update the REST prefix")
+				}
+			}
+			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+			// Subscribe the RPC client to the main loop if it is enabled in
+			// the config.
+			if config.Runtime.RPC.Enabled {
+				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
+				// Initialize the RPC Service.
+				processHandler.Add("RPC", s.ListenAndServe, s.Close)
+			}
+
+			if config.Runtime.Metrics.Enabled {
+				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				// Initialize the Metrics Service.
+				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
+			}
+
 			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
 				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
@@ -136,32 +184,10 @@ var (
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
-			flag, _ = cmd.PersistentFlags().GetString("starknetenable")
-			if flag != "" {
-				err := updateStarknetEnable(flag)
-				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the Starknet Enable")
-				}
-			}
 			if config.Runtime.Starknet.Enabled {
 				var ethereumClient *ethclient.Client
-				// Check if the api sync has been enabled or disabled
-				flag, _ = cmd.PersistentFlags().GetString("apisync")
-				if flag != "" {
-					err := updateAPISync(flag)
-					if err != nil {
-						errpkg.CheckFatal(err, "Failed to update the API sync")
-					}
-				}
 				if !config.Runtime.Starknet.ApiSync {
 					// check if the ethereum node has been changed
-					flag, _ = cmd.PersistentFlags().GetString("ethereumnode")
-					if flag != "" {
-						err := updateEthereumNode(flag)
-						if err != nil {
-							errpkg.CheckFatal(err, "Failed to update the Ethereum node")
-						}
-					}
 					var err error
 					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
 					if err != nil {
@@ -185,28 +211,7 @@ var (
 
 			// Subscribe the REST API client to the main loop if it is enabled in
 			// the config.
-			flag, _ = cmd.PersistentFlags().GetString("restenable")
-			if flag != "" {
-				err := updateRESTEnable(flag)
-				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the REST enable")
-				}
-			}
 			if config.Runtime.REST.Enabled {
-				flag, _ = cmd.PersistentFlags().GetString("restport")
-				if flag != "" {
-					err := updateRESTPort(flag)
-					if err != nil {
-						errpkg.CheckFatal(err, "Failed to update the REST port")
-					}
-				}
-				flag, _ = cmd.PersistentFlags().GetString("restprefix")
-				if flag != "" {
-					err := updateRESTPrefix(flag)
-					if err != nil {
-						errpkg.CheckFatal(err, "Failed to update the REST prefix")
-					}
-				}
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 				// Initialize the REST Service.
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
@@ -228,6 +233,7 @@ var (
 	}
 )
 
+// Functions for updating the configuration for the run
 func updateRPCPort(args string) error {
 	port, err := strconv.Atoi(args)
 	if err != nil {
