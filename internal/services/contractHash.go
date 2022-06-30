@@ -52,6 +52,7 @@ func (s *contractHashService) setDefaults() error {
 }
 
 func (s *contractHashService) Close(ctx context.Context) {
+	// notest
 	if !s.Running() {
 		return
 	}
