@@ -90,6 +90,7 @@ func init() {
 			return Dir, nil
 		case "darwin", "dragonfly", "freebsd", "illumos", "ios", "linux", "netbsd",
 			"openbsd", "solaris":
+			// Use XDG_DATA_HOME. If it is not configured, try $HOME/.local/share
 			// See https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 			dataHome := os.Getenv("XDG_DATA_HOME")
 			if dataHome == "" {
@@ -97,7 +98,7 @@ func init() {
 				if home == "" {
 					return "", errors.New("user home directory not found")
 				}
-				result := filepath.Join(home, ".local", "juno")
+				result := filepath.Join(home, ".local", "share", "juno")
 				// Create Juno data directory if it does not exist
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
 					err = os.MkdirAll(result, 0o744)

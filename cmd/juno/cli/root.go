@@ -69,27 +69,28 @@ var (
 
 			if config.Runtime.Metrics.Enabled {
 				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
+				// Initialize the Metrics Service.
+				processHandler.Add("Metrics", false, s.ListenAndServe, s.Close)
 			}
 
-			if err := db.InitializeDatabaseEnv(config.Runtime.DbPath, 10, 0); err != nil {
+			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
 				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
 
 			// Initialize ABI Service
-			processHandler.Add("ABI Service", services.AbiService.Run, services.AbiService.Close)
+			processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
 
 			// Initialize State storage service
-			processHandler.Add("State Storage Service", services.StateService.Run, services.StateService.Close)
+			processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
 
 			// Initialize Transactions Storage Service
-			processHandler.Add("Transactions Storage Service", services.TransactionService.Run, services.TransactionService.Close)
+			processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run, services.TransactionService.Close)
 
 			// Initialize Block Storage Service
-			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
+			processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
-			processHandler.Add("Contract Hash Storage Service", services.ContractHashService.Run, services.ContractHashService.Close)
+			processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
@@ -103,12 +104,17 @@ var (
 					}
 				}
 				// Synchronizer for Starknet State
-				synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
+				env, err := db.GetMDBXEnv()
+				if err != nil {
+					log.Default.Fatal(err)
+				}
+				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
 				if err != nil {
 					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 				}
 				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
-				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
+				// Initialize the Starknet Synchronizer Service.
+				processHandler.Add("Starknet Synchronizer", true, stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
 
@@ -116,13 +122,20 @@ var (
 			// the config.
 			if config.Runtime.REST.Enabled {
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
-				processHandler.Add("REST", s.ListenAndServe, s.Close)
+				// Initialize the REST Service.
+				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
 			}
 
-			// endless running process
-			log.Default.Info("Starting all processes...")
-			processHandler.Run()
-			cleanup()
+			primaryServiceCheck := processHandler.PrimaryServiceChecker()
+
+			if primaryServiceCheck > 0 {
+				// endless running process
+				log.Default.Info("Starting all processes...")
+				processHandler.Run()
+				cleanup()
+			} else {
+				cleanup()
+			}
 		},
 	}
 )

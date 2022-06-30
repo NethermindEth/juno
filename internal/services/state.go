@@ -16,7 +16,7 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *stateService) Setup(codeDatabase db.Database, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("service is already running")
@@ -40,11 +40,15 @@ func (s *stateService) Run() error {
 func (s *stateService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		codeDb, err := db.GetDatabase("CODE")
+		env, err := db.GetMDBXEnv()
 		if err != nil {
 			return err
 		}
-		storageDb, err := db.GetDatabase("STORAGE")
+		codeDb, err := db.NewMDBXDatabase(env, "CODE")
+		if err != nil {
+			return err
+		}
+		storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
 		if err != nil {
 			return err
 		}
@@ -55,6 +59,10 @@ func (s *stateService) setDefaults() error {
 }
 
 func (s *stateService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

@@ -556,7 +556,6 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 
 // GetTransactionIDByHash creates a new request to get a transaction ID
 // by hash.
-// notest
 func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	req, err := c.newRequest(
 		"GET", "/get_transaction_id_by_hash",
@@ -579,4 +578,33 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	resStr := fmt.Sprintf("%v", res)
 	metr.IncreaseTxIDReceived()
 	return &resStr, err
+}
+
+// EstimateFee makes a POST request to retrieve expected fee from a given transaction
+func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, callData, signature string) (*EstimateFeeResponse, error) {
+	// Request needs header with formatted block ID. Even if empty
+	blockIdentifier := formattedBlockIdentifier("", "")
+	if blockIdentifier == nil {
+		// notest
+		blockIdentifier = map[string]string{}
+	}
+
+	callDataList := []string{callData}
+	signatureList := []string{signature}
+
+	req, err := c.newRequest(
+		"POST", "/estimate_fee", blockIdentifier,
+		map[string]interface{}{
+			"contract_address":     contractAddress,
+			"entry_point_selector": entryPointSelector,
+			"calldata":             callDataList,
+			"signature":            signatureList,
+		})
+	var res EstimateFeeResponse
+	_, err = c.do(req, &res)
+	if err != nil {
+		log.Default.With("Error", err, "Gateway URL", c.BaseURL).
+			Error("Error connecting to gateway.")
+	}
+	return &res, err
 }

@@ -12,10 +12,10 @@ var ContractHashService contractHashService
 
 type contractHashService struct {
 	service
-	db db.Databaser
+	db db.Database
 }
 
-func (s *contractHashService) Setup(database db.Databaser) {
+func (s *contractHashService) Setup(database db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
@@ -38,7 +38,11 @@ func (s *contractHashService) Run() error {
 func (s *contractHashService) setDefaults() error {
 	if s.db == nil {
 		// notest
-		database, err := db.GetDatabase("CONTRACT_HASH")
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		database, err := db.NewMDBXDatabase(env, "CONTRACT_HASH")
 		if err != nil {
 			return err
 		}
@@ -48,6 +52,10 @@ func (s *contractHashService) setDefaults() error {
 }
 
 func (s *contractHashService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.db.Close()
 }

@@ -2,10 +2,15 @@ package services
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"go.uber.org/zap"
 )
+
+// ErrAlreadyRunning is returned when you try to perform an invalid action
+// while the service is running.
+var ErrAlreadyRunning = errors.New("service is already running")
 
 // Service describes the basic functionalities that all the services have in
 // common.
@@ -28,7 +33,7 @@ func (s *service) Run() error {
 	// Check if the service is already started
 	if s.Running() {
 		// notest
-		s.logger.Panic("service is already running")
+		return ErrAlreadyRunning
 	}
 	s.running = true
 	s.logger.Info("Service started")

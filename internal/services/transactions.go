@@ -23,7 +23,7 @@ type transactionService struct {
 
 // Setup is used to configure the service before it's started. The database
 // param is the database where the transactions will be stored.
-func (s *transactionService) Setup(txDb, receiptDb db.Databaser) {
+func (s *transactionService) Setup(txDb, receiptDb db.Database) {
 	if s.service.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
@@ -49,11 +49,15 @@ func (s *transactionService) Run() error {
 func (s *transactionService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		txDb, err := db.GetDatabase("TRANSACTION")
+		env, err := db.GetMDBXEnv()
 		if err != nil {
 			return err
 		}
-		receiptDb, err := db.GetDatabase("RECEIPT")
+		txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+		if err != nil {
+			return err
+		}
+		receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
 		if err != nil {
 			return err
 		}
@@ -65,6 +69,10 @@ func (s *transactionService) setDefaults() error {
 // Close stops the service, waiting to end the current operations, and closes
 // the database manager.
 func (s *transactionService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }
