@@ -65,9 +65,11 @@ var (
 			// Note that the config file isn't modified by these flags.
 			// The values provided to the flags or environment variables are
 			// used for that particular run only
+			// To update the config file, the user needs to make the
+			// -U flag true
 
 			// This variable keeps a count of the number of flags
-			// If it is zero and the user asks for updating the config file,
+			// If it is zero and the user asks to update the config file,
 			// then the file is not updated and the user is informed
 			flagcount := 0
 			flag, _ := cmd.PersistentFlags().GetString("feedergateway")
