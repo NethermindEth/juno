@@ -59,6 +59,9 @@ func (s *stateService) setDefaults() error {
 }
 
 func (s *stateService) Close(ctx context.Context) {
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

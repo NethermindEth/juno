@@ -89,3 +89,16 @@ func (h *Handler) Run() {
 	// Create an infinite loop.
 	select {}
 }
+
+func (h *Handler) PrimaryServiceChecker() bool {
+	primarypkg := false
+	for _, proc := range h.subprocs {
+		if proc.id == "Starknet Synchronizer" {
+			primarypkg = true
+		}
+	}
+	if !primarypkg {
+		log.Default.Info("No primary processes running. Closing the app.")
+	}
+	return primarypkg
+}

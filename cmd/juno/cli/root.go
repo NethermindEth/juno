@@ -124,10 +124,16 @@ var (
 				processHandler.Add("REST", s.ListenAndServe, s.Close)
 			}
 
-			// endless running process
-			log.Default.Info("Starting all processes...")
-			processHandler.Run()
-			cleanup()
+			primaryServiceCheck := processHandler.PrimaryServiceChecker()
+
+			if primaryServiceCheck {
+				// endless running process
+				log.Default.Info("Starting all processes...")
+				processHandler.Run()
+				cleanup()
+			} else {
+				cleanup()
+			}
 		},
 	}
 )
