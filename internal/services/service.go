@@ -47,7 +47,7 @@ func (s *service) Close(_ context.Context) {
 	// Check if the service is already running
 	if !s.Running() {
 		// notest
-		// s.logger.Warn("service is not running")
+		s.logger.Warn("service is not running")
 		return
 	}
 
