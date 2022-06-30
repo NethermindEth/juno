@@ -34,16 +34,18 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 	}
 	APICollector.logger = log.Default.Named("apiCollector")
 	APICollector.buffer = make(chan *starknetTypes.StateDiff, 10)
+	go APICollector.updateLatestBlockOnChain()
 }
 
 // Run start to store StateDiff locally
 func (a *apiCollector) Run() error {
+	a.logger.Info("Service Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
 		if latestStateDiffSynced >= a.latestBlockOnChain {
 
-			time.Sleep(time.Minute)
+			time.Sleep(time.Second * 3)
 		}
 		var update *feeder.StateUpdateResponse
 		var err error

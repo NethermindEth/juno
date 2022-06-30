@@ -69,6 +69,9 @@ func (s *syncService) Run() error {
 		// notest
 		return err
 	}
+	go func() {
+		_ = s.stateDiffCollector.Run()
+	}()
 
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		// TODO: add state diff to black box
