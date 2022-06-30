@@ -28,6 +28,7 @@ type Code struct {
 	Code [][]byte `protobuf:"bytes,1,rep,name=code,proto3" json:"code,omitempty"`
 }
 
+// notest
 func (x *Code) Reset() {
 	*x = Code{}
 	if protoimpl.UnsafeEnabled {
@@ -37,12 +38,15 @@ func (x *Code) Reset() {
 	}
 }
 
+// notest
 func (x *Code) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*Code) ProtoMessage() {}
 
+// notest
 func (x *Code) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -56,10 +60,12 @@ func (x *Code) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Code.ProtoReflect.Descriptor instead.
+// notest
 func (*Code) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{0}
 }
 
+// notest
 func (x *Code) GetCode() [][]byte {
 	if x != nil {
 		return x.Code
@@ -75,6 +81,7 @@ type Storage struct {
 	Storage map[string]string `protobuf:"bytes,1,rep,name=storage,proto3" json:"storage,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
+// notest
 func (x *Storage) Reset() {
 	*x = Storage{}
 	if protoimpl.UnsafeEnabled {
@@ -84,12 +91,15 @@ func (x *Storage) Reset() {
 	}
 }
 
+// notest
 func (x *Storage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*Storage) ProtoMessage() {}
 
+// notest
 func (x *Storage) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -103,10 +113,12 @@ func (x *Storage) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Storage.ProtoReflect.Descriptor instead.
+// notest
 func (*Storage) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{1}
 }
 
+// notest
 func (x *Storage) GetStorage() map[string]string {
 	if x != nil {
 		return x.Storage
@@ -138,7 +150,9 @@ var (
 	file_state_proto_rawDescData = file_state_proto_rawDesc
 )
 
+// notest
 func file_state_proto_rawDescGZIP() []byte {
+// notest
 	file_state_proto_rawDescOnce.Do(func() {
 		file_state_proto_rawDescData = protoimpl.X.CompressGZIP(file_state_proto_rawDescData)
 	})
@@ -160,12 +174,15 @@ var file_state_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
+// notest
 func init() { file_state_proto_init() }
+// notest
 func file_state_proto_init() {
 	if File_state_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
+// notest
 		file_state_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Code); i {
 			case 0:
@@ -178,6 +195,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
+// notest
 		file_state_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Storage); i {
 			case 0:

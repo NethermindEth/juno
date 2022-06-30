@@ -61,6 +61,7 @@ func (s *abiService) setDefaults() error {
 
 // Close closes the service.
 func (s *abiService) Close(ctx context.Context) {
+	// notest
 	if !s.Running() {
 		return
 	}
