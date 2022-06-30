@@ -718,7 +718,7 @@ var (
 
 // notest
 func file_transaction_proto_rawDescGZIP() []byte {
-// notest
+	// notest
 	file_transaction_proto_rawDescOnce.Do(func() {
 		file_transaction_proto_rawDescData = protoimpl.X.CompressGZIP(file_transaction_proto_rawDescData)
 	})
@@ -753,13 +753,14 @@ var file_transaction_proto_depIdxs = []int32{
 
 // notest
 func init() { file_transaction_proto_init() }
+
 // notest
 func file_transaction_proto_init() {
 	if File_transaction_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-// notest
+		// notest
 		file_transaction_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Transaction); i {
 			case 0:
@@ -772,7 +773,7 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_transaction_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Deploy); i {
 			case 0:
@@ -785,7 +786,7 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_transaction_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*InvokeFunction); i {
 			case 0:
@@ -798,7 +799,7 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_transaction_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TransactionReceipt); i {
 			case 0:
@@ -811,7 +812,7 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_transaction_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MessageToL1); i {
 			case 0:
@@ -824,7 +825,7 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_transaction_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MessageToL2); i {
 			case 0:
@@ -837,7 +838,7 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_transaction_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Event); i {
 			case 0:

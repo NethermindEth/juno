@@ -152,7 +152,7 @@ var (
 
 // notest
 func file_state_proto_rawDescGZIP() []byte {
-// notest
+	// notest
 	file_state_proto_rawDescOnce.Do(func() {
 		file_state_proto_rawDescData = protoimpl.X.CompressGZIP(file_state_proto_rawDescData)
 	})
@@ -176,13 +176,14 @@ var file_state_proto_depIdxs = []int32{
 
 // notest
 func init() { file_state_proto_init() }
+
 // notest
 func file_state_proto_init() {
 	if File_state_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-// notest
+		// notest
 		file_state_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Code); i {
 			case 0:
@@ -195,7 +196,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_state_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Storage); i {
 			case 0:

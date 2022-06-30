@@ -25,7 +25,7 @@ type Abi struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-// notest
+	// notest
 	Functions   []*Function `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
 	Events      []*AbiEvent `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 	Structs     []*Struct   `protobuf:"bytes,3,rep,name=structs,proto3" json:"structs,omitempty"`
@@ -642,7 +642,7 @@ var (
 
 // notest
 func file_abi_proto_rawDescGZIP() []byte {
-// notest
+	// notest
 	file_abi_proto_rawDescOnce.Do(func() {
 		file_abi_proto_rawDescData = protoimpl.X.CompressGZIP(file_abi_proto_rawDescData)
 	})
@@ -661,7 +661,7 @@ var file_abi_proto_goTypes = []interface{}{
 	(*Struct_Field)(nil),    // 7: Struct.Field
 }
 var file_abi_proto_depIdxs = []int32{
-// notest
+	// notest
 	1, // 0: Abi.functions:type_name -> Function
 	2, // 1: Abi.events:type_name -> AbiEvent
 	3, // 2: Abi.structs:type_name -> Struct
@@ -680,13 +680,14 @@ var file_abi_proto_depIdxs = []int32{
 
 // notest
 func init() { file_abi_proto_init() }
+
 // notest
 func file_abi_proto_init() {
 	if File_abi_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-// notest
+		// notest
 		file_abi_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Abi); i {
 			case 0:
@@ -699,7 +700,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Function); i {
 			case 0:
@@ -712,7 +713,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AbiEvent); i {
 			case 0:
@@ -725,7 +726,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Struct); i {
 			case 0:
@@ -738,7 +739,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Function_Input); i {
 			case 0:
@@ -751,7 +752,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Function_Output); i {
 			case 0:
@@ -764,7 +765,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AbiEvent_Data); i {
 			case 0:
@@ -777,7 +778,7 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
+		// notest
 		file_abi_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Struct_Field); i {
 			case 0:
