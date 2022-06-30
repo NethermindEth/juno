@@ -377,7 +377,6 @@ func updateConfigFile(cfgFile string) {
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	err = os.WriteFile(f, data, 0o644)
 	errpkg.CheckFatal(err, "Failed to write config file.")
-
 }
 
 // init defines flags and handles configuration.
