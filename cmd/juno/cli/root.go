@@ -25,6 +25,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 // Cobra configuration.
@@ -64,12 +65,18 @@ var (
 			// Note that the config file isn't modified by these flags.
 			// The values provided to the flags or environment variables are
 			// used for that particular run only
+
+			// This variable keeps a count of the number of flags
+			// If it is zero and the user asks for updating the config file,
+			// then the file is not updated and the user is informed
+			flagcount := 0
 			flag, _ := cmd.PersistentFlags().GetString("feedergateway")
 			if flag != "" {
 				err := updateFeederGateway(flag)
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the feeder gateway")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("rpcenable")
 			if flag != "" {
@@ -77,6 +84,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the RPC enable")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("rpcport")
 			if flag != "" {
@@ -84,6 +92,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the RPC port")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("metricsenable")
 			if flag != "" {
@@ -91,6 +100,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the Metrics enable")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("metricsport")
 			if flag != "" {
@@ -98,6 +108,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the Metrics port")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("dbpath")
 			if flag != "" {
@@ -105,6 +116,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the DB Path")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("starknetenable")
 			if flag != "" {
@@ -112,6 +124,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the Starknet Enable")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("apisync")
 			if flag != "" {
@@ -119,6 +132,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the API sync")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("ethereumnode")
 			if flag != "" {
@@ -126,6 +140,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the Ethereum node")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("restenable")
 			if flag != "" {
@@ -133,6 +148,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the REST enable")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("restport")
 			if flag != "" {
@@ -140,6 +156,7 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the REST port")
 				}
+				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("restprefix")
 			if flag != "" {
@@ -147,7 +164,17 @@ var (
 				if err != nil {
 					errpkg.CheckFatal(err, "Failed to update the REST prefix")
 				}
+				flagcount++
 			}
+			flag, _ = cmd.PersistentFlags().GetString("updateconfigfile")
+			if flagcount > 0 {
+				log.Default.Info("No flags provided for updating the config file")
+				flag = ""
+			}
+			if flag != "" {
+				updateConfigFile(cfgFile)
+			}
+			// Running the app
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
@@ -336,6 +363,23 @@ func cleanup() {
 	log.Default.Info("App closing...Bye!!!")
 }
 
+func updateConfigFile(cfgFile string) {
+	log.Default.Info("Updating the config file with the flags/environment variables")
+	var f string
+	if cfgFile != "" {
+		// Use Config file specified by the flag.
+		f = cfgFile
+	} else {
+		// Use the default path for user configuration.
+		f = filepath.Join(config.Dir, "juno.yaml")
+	}
+	data, err := yaml.Marshal(&config.Runtime)
+	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
+	err = os.WriteFile(f, data, 0o644)
+	errpkg.CheckFatal(err, "Failed to write config file.")
+
+}
+
 // init defines flags and handles configuration.
 func init() {
 	fmt.Println(longMsg)
@@ -346,7 +390,7 @@ func init() {
 		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
 	rootCmd.PersistentFlags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
-
+	// RPC
 	rootCmd.PersistentFlags().StringP("rpcport", "p", os.Getenv("RPCPORT"), "Set the RPC Port")
 	rootCmd.PersistentFlags().StringP("rpcenable", "P", os.Getenv("RPCENABLE"), "Set if you would like to enable the RPC")
 	// Rest
@@ -365,6 +409,8 @@ func init() {
 	rootCmd.PersistentFlags().StringP("ethereumnode", "e", os.Getenv("ETHEREUMNODE"), "Set the ethereum node")
 	// DBPath
 	rootCmd.PersistentFlags().StringP("dbpath", "d", os.Getenv("DBPATH"), "Set the DB Path")
+	// Option for updating the config file
+	rootCmd.PersistentFlags().StringP("updateconfigfile", "U", os.Getenv("UPDATECONFIGFILE"), "Set it to true if you would like to update the config file")
 }
 
 // initConfig reads in Config file or environment variables if set.
