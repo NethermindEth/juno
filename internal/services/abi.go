@@ -23,7 +23,6 @@ type abiService struct {
 func (s *abiService) Setup(database db.Database) {
 	// notest
 	if s.Running() {
-		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
 	s.manager = abi.NewABIManager(database)
