@@ -299,7 +299,7 @@ func TestState(t *testing.T) {
 	height := 251
 	state := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), height)
 	for addr, diff := range addresses {
-		storage := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
+		storage := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), height)
 		for _, slot := range diff {
 			key := types.BytesToFelt(common.FromHex(slot.key))
 			val := types.BytesToFelt(common.FromHex(slot.val))
