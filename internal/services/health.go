@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
@@ -12,8 +13,17 @@ import (
 
 var HealthService healthService
 
+// The health service contains the service information and the response
 type healthService struct {
 	service
+	healthResponse
+}
+
+// Create a health response
+type healthResponse struct {
+	GatewayUp  bool   `json:"gateway_up"`
+	RPCUp      bool   `json:"rpc_up"`
+	SyncStatus string `json:"sync_status"`
 }
 
 func (s *healthService) Setup() {
@@ -33,12 +43,26 @@ func (s *healthService) Run() error {
 		return err
 	}
 
+	// Check if the feeder gateway is down
 	if s.GatewayDown() {
 		// notest
 		s.logger.Panic("feeder gateway is down")
 	}
+	s.healthResponse.GatewayUp = true
 
-	s.logger.Info("\nGateway UP\n")
+	// Check if the RPC service is down
+	if s.RPCDown() {
+		// notest
+		s.logger.Panic("rpc service is down")
+	}
+	s.healthResponse.RPCUp = true
+
+	// TODO: Use the sync service to check status
+	// Assume that sync service is complete
+	s.healthResponse.SyncStatus = "syncing"
+
+	// Pretty print the JSON response
+	s.logger.Desugar().Info(fmt.Sprintf("%+v", s.healthResponse))
 
 	return nil
 }
@@ -56,16 +80,14 @@ func (s *healthService) GatewayDown() bool {
 
 	feederUrl := config.Runtime.Starknet.FeederGateway
 	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
-	block, err := client.GetBlock("", "latest")
-
-	if block != nil && err == nil {
-		return false
-	}
-	return false
+	_, err := client.GetBlock("", "latest")
+	return err != nil
 }
 
 // Ask the RPC service if it is running
 func (s *healthService) RPCDown() bool {
+	// Asssert that the RPC service is running
+	return false
 }
 
 // We should make an RPC implementation (async API) for this
