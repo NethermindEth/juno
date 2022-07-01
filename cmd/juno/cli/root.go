@@ -91,7 +91,7 @@ var (
 			processHandler.Add("Contract Hash Storage Service", services.ContractHashService.Run, services.ContractHashService.Close)
 
 			// Initialise Health Check
-			processHandler.Add("Health Check", services.HealthCheck.Run, services.HealthCheck.Close)
+			processHandler.Add("Health Check", services.HealthService.Run, services.HealthService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.

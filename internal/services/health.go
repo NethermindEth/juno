@@ -3,65 +3,69 @@ package services
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/health"
+	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
-var HealthCheck healthService
+// In this package we can query that the other services are running
+
+var HealthService healthService
 
 type healthService struct {
 	service
-	manager *block.Manager
+}
+
+func (s *healthService) Setup() {
+	if s.Running() {
+		// notest
+		s.logger.Panic("service is already running")
+	}
 }
 
 func (s *healthService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("Health Service")
+		s.logger = log.Default.Named("HealthService")
 	}
 
 	if err := s.service.Run(); err != nil {
+		// notest
 		return err
 	}
 
-	s.setDefaults()
-
-	s.HealthCheck()
-
-	return nil
-}
-
-func (s *healthService) setDefaults() error {
-	if s.manager == nil {
+	if s.GatewayDown() {
 		// notest
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			return err
-		}
-		database, err := db.NewMDBXDatabase(env, "BLOCK")
-		if err != nil {
-			return err
-		}
-		s.manager = block.NewManager(database)
+		s.logger.Panic("feeder gateway is down")
 	}
+
+	s.logger.Info("\nGateway UP\n")
+
 	return nil
 }
 
+// Close the service
 func (s *healthService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 }
 
-func (s *healthService) HealthCheck() bool {
-	// Last block in the feeder gateway
-	lastBlock, err := health.GetLastBlock()
-	if err != nil {
+// We can also query if the feeder gateway is UP
+func (s *healthService) GatewayDown() bool {
+	// Start up a client and query the feeder gateway
+	// if the feeder gateway is up, return true
+	// if the feeder gateway is down, return false
+
+	feederUrl := config.Runtime.Starknet.FeederGateway
+	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
+	block, err := client.GetBlock("", "latest")
+
+	if block != nil && err == nil {
 		return false
 	}
-
-	log.Default.Info("\n\nLast block in the feeder gateway \n\n", lastBlock)
-	return true
-
-	// Last block in the database
-	// localLastBlock, err := s.manager.GetLastBlock()
+	return false
 }
+
+// Ask the RPC service if it is running
+func (s *healthService) RPCDown() bool {
+}
+
+// We should make an RPC implementation (async API) for this
