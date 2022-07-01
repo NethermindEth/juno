@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 )
 
+// TODO: FIgure out how to query other processes from healthprocess
+
 // In this package we can query that the other services are running
 
 var HealthService healthService
@@ -34,6 +36,7 @@ func (s *healthService) Setup() {
 }
 
 func (s *healthService) Run() error {
+	// notest
 	if s.logger == nil {
 		s.logger = log.Default.Named("HealthService")
 	}
@@ -46,19 +49,21 @@ func (s *healthService) Run() error {
 	// Check if the feeder gateway is down
 	if s.GatewayDown() {
 		// notest
-		s.logger.Panic("feeder gateway is down")
+		s.healthResponse.GatewayUp = false
+	} else {
+		s.healthResponse.GatewayUp = true
 	}
-	s.healthResponse.GatewayUp = true
 
 	// Check if the RPC service is down
 	if s.RPCDown() {
 		// notest
-		s.logger.Panic("rpc service is down")
+		s.healthResponse.RPCUp = false
+	} else {
+		s.healthResponse.RPCUp = true
 	}
-	s.healthResponse.RPCUp = true
 
 	// TODO: Use the sync service to check status
-	// Assume that sync service is complete
+	// For now assume that sync service is running
 	s.healthResponse.SyncStatus = "syncing"
 
 	// Pretty print the JSON response
@@ -69,14 +74,15 @@ func (s *healthService) Run() error {
 
 // Close the service
 func (s *healthService) Close(ctx context.Context) {
+	// notest
 	s.service.Close(ctx)
 }
 
 // We can also query if the feeder gateway is UP
 func (s *healthService) GatewayDown() bool {
+	// notest
 	// Start up a client and query the feeder gateway
-	// if the feeder gateway is up, return true
-	// if the feeder gateway is down, return false
+	// We attempt to fetch the latest block
 
 	feederUrl := config.Runtime.Starknet.FeederGateway
 	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
@@ -86,8 +92,9 @@ func (s *healthService) GatewayDown() bool {
 
 // Ask the RPC service if it is running
 func (s *healthService) RPCDown() bool {
+	// notest
 	// Asssert that the RPC service is running
-	return false
+	return Handler.rpc.running
 }
 
 // We should make an RPC implementation (async API) for this

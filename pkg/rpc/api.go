@@ -25,6 +25,7 @@ func (HandlerRPC) EchoErr(c context.Context, message string) (string, error) {
 }
 
 // See issue #229
+// notest
 func (HandlerRPC) HealthCheck(c context.Context) (string, error) {
 	// Start by ensuring application is running (that is context?)
 	// Check that database is working correctly
