@@ -1,8 +1,8 @@
 package felt
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -106,7 +106,7 @@ func TestSetBit(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		t.Run(fmt.Sprintf("SetBit test %d", i), func (t *testing.T) {
+		t.Run(fmt.Sprintf("SetBit test %d", i), func(t *testing.T) {
 			test.z.FromMont().SetBit(test.bit, test.val)
 			test.want.FromMont()
 			if test.z.Cmp(test.want) != 0 {
