@@ -13,6 +13,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// loggerConfig represents the logger configuration
+type loggerConfig struct {
+	VerbosityLevel   string `yaml:"verbosity_level" mapstructure:"verbosity_level"`
+	EnableJsonOutput bool   `yaml:"enable_json_output" mapstructure:"enable_json_output"`
+}
+
 // rpcConfig represents the juno RPC configuration.
 type rpcConfig struct {
 	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
@@ -45,14 +51,9 @@ type starknetConfig struct {
 	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
 }
 
-type loggerConfig struct {
-	VerbosityLevel   string `yaml:"verbosity_level" mapstructure:"verbosity_level"`
-	EnableJsonOutput bool   `yaml:"enable_json_output" mapstructure:"enable_json_output"`
-}
-
 // Config represents the juno configuration.
 type Config struct {
-	Logger   loggerConfig   `yaml:"logger" mapstructure:"ethereum"`
+	Logger   loggerConfig   `yaml:"logger" mapstructure:"logger"`
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
 	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
