@@ -8,12 +8,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
-
-	"github.com/NethermindEth/juno/pkg/feeder"
 
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/bxcodec/faker"
@@ -59,6 +58,12 @@ func StructFaker(a interface{}) (string, error) {
 
 func TestClient(t *testing.T) {
 	_ = feeder.NewClient("https:/local", "/feeder_gateway/", nil)
+}
+
+func TestNewClientWithRetryFuncForDoReq(t *testing.T) {
+	_ = feeder.NewClientWithRetryFuncForDoReq("https:/local", "/feeder_gateway/", nil, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
+		return httpClient.Do(req)
+	})
 }
 
 func TestGetContractAddress(t *testing.T) {
