@@ -11,15 +11,14 @@ var (
 	Felt3 = new(Felt).SetUint64(3)
 )
 
-// ByteSlice returns z as a []byte. If z is nil, returns nil. The result
-// will be in regular form.
+// ByteSlice() is exactly the same as Marshal() except that it returns
+// null when z is null. This mimics the behavior of big.Int.
 func (z *Felt) ByteSlice() []byte {
 	if z == nil {
 		// notest
 		return nil
 	}
-	b := z.Bytes()
-	return b[:]
+	return z.Marshal()
 }
 
 // SetHex sets z to the value represented by the hex string s mod q.
