@@ -52,7 +52,7 @@ func (z *Felt) SetBit(i uint64, j uint64) *Felt {
 // necessary.
 func (z *Felt) ToggleBit(i uint64) *Felt {
 	idx := i / 64
-	if idx >= 4 {
+	if idx >= Limbs {
 		return z
 	}
 	val := uint64(1 << (i - idx*64)) // 2^(bit - idx*64)

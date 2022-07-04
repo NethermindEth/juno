@@ -14,6 +14,7 @@ import (
 func Digest(data ...*felt.Felt) *felt.Felt {
 	n := len(data)
 	if n > 2 {
+		// notest
 		panic("attempted to hash more than 2 field elements")
 	}
 
@@ -31,8 +32,7 @@ func Digest(data ...*felt.Felt) *felt.Felt {
 				// x is odd
 				pt1.Add(&points[2+i*252+j])
 			}
-			x.ToMont()
-			x.Rsh(x, 1) // Can't use halve because we don't want mod P
+			x.ToMont().Rsh(x, 1)
 		}
 	}
 

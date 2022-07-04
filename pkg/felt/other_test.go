@@ -7,6 +7,33 @@ import (
 	"testing"
 )
 
+func TestCmpCompat(t *testing.T) {
+	tests := [...]struct {
+		inputs [2]*Felt
+		want   int
+	}{
+		{
+			inputs: [2]*Felt{nil, nil},
+			want:   0,
+		},
+		{
+			inputs: [2]*Felt{{12088959491439601242, 44, 0, 0}, {12088959491439601242, 44, 0, 0}},
+			want:   0,
+		},
+		{
+			inputs: [2]*Felt{{1, 0, 0, 0}, {0, 0, 0, 0}},
+			want:   1,
+		},
+	}
+
+	for _, test := range tests {
+		got := test.inputs[0].CmpCompat(test.inputs[1])
+		if got != test.want {
+			t.Errorf("(%s).CmpCompat(%s) = %d, want %d", test.inputs[0].Hex(), test.inputs[1].Hex(), got, test.want)
+		}
+	}
+}
+
 func TestByteSlice(t *testing.T) {
 	tests := [...]struct {
 		input *Felt
@@ -101,8 +128,9 @@ func TestSetBit(t *testing.T) {
 		val  uint64
 		want *Felt
 	}{
-		{new(Felt).SetZero(), 0, 1, new(Felt).Set(Felt1)},
-		{new(Felt).SetOne(), 0, 0, new(Felt).Set(Felt0)},
+		{new(Felt).SetZero(), 0, 1, new(Felt).SetOne()},
+		{new(Felt).SetOne(), 0, 0, new(Felt).SetZero()},
+		{new(Felt).SetOne(), 0, 1, new(Felt).SetOne()},
 	}
 
 	for i, test := range tests {
@@ -123,7 +151,8 @@ func TestToggleBit(t *testing.T) {
 		bit  uint64
 		want *Felt
 	}{
-		{new(Felt).SetZero(), 1, new(Felt).Set(Felt2)},
+		{new(Felt).SetZero(), 1, new(Felt).SetUint64(2)},
+		{new(Felt).SetOne(), 64 * (Limbs + 1), new(Felt).SetOne()},
 		{new(Felt).SetOne(), 1, new(Felt).Set(Felt3)},
 		{new(Felt).SetUint64(maxUint64), 0, new(Felt).Sub(new(Felt).SetUint64(maxUint64), Felt1)},
 		{new(Felt).SetUint64(maxUint64), 65, new(Felt).Add(new(Felt).SetUint64(maxUint64), new(Felt).Exp(*Felt2, new(Felt).SetUint64(65).ToBigIntRegular(new(big.Int))))},
@@ -157,6 +186,7 @@ func TestRsh(t *testing.T) {
 		{"1", 2, "0"},
 		{"2", 0, "2"},
 		{"2", 1, "1"},
+		{"1834273", Bits + 1, "0"},
 		{"4294967296", 0, "4294967296"},
 		{"4294967296", 1, "2147483648"},
 		{"4294967296", 2, "1073741824"},
@@ -166,19 +196,22 @@ func TestRsh(t *testing.T) {
 		{"18446744073709551616", 64, "1"},
 		{"340282366920938463463374607431768211456", 64, "18446744073709551616"},
 		{"340282366920938463463374607431768211456", 128, "1"},
+		{"6277101735386680763835789423207666416102355444464034512896", 192, "1"},
+		{"0", 256, "0"},
+		{"36893488147419103232", 65, "1"},
+		{"680564733841876926926749214863536422912", 129, "1"},
+		{"12554203470773361527671578846415332832204710888928069025792", 193, "1"},
 	}
 
-	actual := new(Felt)
-	bigActual := new(big.Int)
-	want := new(big.Int)
+	got := new(Felt)
+	want := new(Felt)
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("test %d", i), func(t *testing.T) {
-			actual.SetString(test.input)
-			actual.Rsh(actual, test.shift)
-			actual.ToBigIntRegular(bigActual)
-			want.SetString(test.out, 10)
-			if bigActual.Cmp(want) != 0 {
-				t.Errorf("want := %x, got := %x", want, bigActual)
+			got.SetString(test.input)
+			got.Rsh(got, test.shift)
+			want.SetString(test.out)
+			if got.Cmp(want) != 0 {
+				t.Errorf("want := %x, got := %x", want, got)
 			}
 		})
 	}
