@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -78,6 +79,34 @@ func TestRestClient(t *testing.T) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
 	r.Close(ctx)
 	cancel()
+}
+
+// TestRestClientRetryFunction
+func TestRestClientRetryFunction(t *testing.T) {
+	queryStr := "http://localhost:8100/feeder_gateway/get_block"
+
+	// Build Request
+	req, err := http.NewRequest("GET", queryStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Query Args
+	rq := req.URL.Query()
+	rq.Add("blockNumber", "1")
+	rq.Add("blockHash", "hash")
+	req.URL.RawQuery = rq.Encode()
+
+	// Build Response Object
+	rr := httptest.NewRecorder()
+
+	httpClient.DoReturns(nil, fmt.Errorf("bad request"))
+
+	// Send Request expecting an error
+	restHandler.GetBlock(rr, req)
+
+	// Assert error message
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
 }
 
 //---------------------------------------------
