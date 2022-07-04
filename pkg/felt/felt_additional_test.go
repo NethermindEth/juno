@@ -19,68 +19,51 @@ func TestNewFelt(t *testing.T) {
 }
 
 func TestSetInterface(t *testing.T) {
+	type TestCase struct {
+		inputType string
+		input     interface{}
+	}
+
+	goodTests := []TestCase{
+		{"*Felt", new(Felt).SetZero()},
+		{"Felt", *new(Felt).SetZero()},
+		{"*big.Int", new(big.Int)},
+		{"big.Int", *new(big.Int)},
+		{"string", "0"},
+		{"[]byte", []byte{0}},
+	}
 	want := new(Felt).SetZero()
-
-	inputFeltPtr := new(Felt).SetZero()
-	gotFeltPtr, err := new(Felt).SetInterface(inputFeltPtr)
-	if err != nil {
-		t.Errorf("unexpected error on new(Felt).SetInterface(%x): %x", *inputFeltPtr, err)
-	}
-	if gotFeltPtr.Cmp(want) != 0 {
-		t.Errorf("set felt to *Felt: got %x, want %x", gotFeltPtr, want)
-	}
-
-	inputFelt := *new(Felt).SetZero()
-	gotFelt, err := new(Felt).SetInterface(inputFelt)
-	if err != nil {
-		t.Errorf("unexpected error on new(Felt).SetInterface(%x): %x", inputFelt, err)
-	}
-	if gotFelt.Cmp(want) != 0 {
-		t.Errorf("set felt to Felt: got %x, want %x", gotFelt, want)
+	for _, test := range goodTests {
+		t.Run(fmt.Sprintf("should convert %s to *Felt", test.inputType), func(t *testing.T) {
+			got, err := new(Felt).SetInterface(test.input)
+			if err != nil {
+				t.Errorf("unexpected error: %x", err)
+			}
+			if got.Cmp(want) != 0 {
+				t.Errorf("got %x, want %x", got, want)
+			}
+		})
 	}
 
 	var f *Felt
-	_, err = new(Felt).SetInterface(f)
-	if err == nil {
-		t.Error("expected error when setting felt to nil felt pointer")
+	var b *big.Int
+	errTests := []TestCase{
+		{"nil felt pointer", f},
+		{"nil big.Int pointer", b},
+		{"unknown struct", struct{ malformed int }{malformed: 0}},
 	}
-
-	inputString := "0"
-	gotString, err := new(Felt).SetInterface(inputString)
-	if err != nil {
-		t.Errorf("unexpected error on new(Felt).SetInterface(%s): %x", inputString, err)
-	}
-	if gotString.Cmp(want) != 0 {
-		t.Errorf("set felt to string: got %x, want %x", gotString, want)
-	}
-
-	inputBigInt := new(big.Int)
-	gotBigInt, err := new(Felt).SetInterface(inputBigInt)
-	if err != nil {
-		t.Errorf("unexpected error on new(Felt).SetInterface(%x): %x", inputBigInt, err)
-	}
-	if gotBigInt.Cmp(want) != 0 {
-		t.Errorf("set felt to big.Int: got %x, want %x", gotBigInt, want)
-	}
-
-	inputBytes := [32]byte{0}
-	gotBytes, err := new(Felt).SetInterface(inputBytes[:])
-	if err != nil {
-		t.Errorf("unexpected error on new(Felt).SetInterface(%x): %x", inputBytes, err)
-	}
-	if gotBytes.Cmp(want) != 0 {
-		t.Errorf("set felt to []byte: got %x, want %x", gotBytes, want)
-	}
-
-	inputUnexpected := struct{ malformed int }{malformed: 0}
-	_, err = new(Felt).SetInterface(inputUnexpected)
-	if err == nil {
-		t.Errorf("expected err on new(Felt).SetInterface(%x)", inputUnexpected)
+	for _, test := range errTests {
+		t.Run(fmt.Sprintf("should fail to convert %s", test.inputType), func(t *testing.T) {
+			_, err := new(Felt).SetInterface(test.input)
+			if err == nil {
+				t.Error("conversion did not fail")
+			}
+		})
 	}
 }
 
 func TestBit(t *testing.T) {
-	getBit := uint64(Bits + 1)
+	getBit := uint64(10000)
 	if new(Felt).Bit(getBit) != 0 {
 		t.Errorf("Bit number %d should be zero", getBit)
 	}
