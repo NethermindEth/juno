@@ -101,6 +101,11 @@ func TestCmp(t *testing.T) {
 			inputs: [2]*Felt{{0, 0, 0, 0}, {0, 1, 0, 0}},
 			want:   -1,
 		},
+		// z[0] > x[0]
+		{
+			inputs: [2]*Felt{{1, 0, 0, 0}, {0, 0, 0, 0}},
+			want:   1,
+		},
 		// z[0] < x[0]
 		{
 			inputs: [2]*Felt{{0, 0, 0, 0}, {1, 0, 0, 0}},
@@ -110,7 +115,7 @@ func TestCmp(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("comparing %x and %x", test.inputs[0], test.inputs[1]), func(t *testing.T) {
-			got := test.inputs[0].Cmp(test.inputs[1])
+			got := test.inputs[0].ToMont().Cmp(test.inputs[1].ToMont()) // Cmp will convert FromMont
 			if got != test.want {
 				t.Errorf("(%x).Cmp(%x) = %d, want %d", test.inputs[0], test.inputs[1], got, test.want)
 			}
@@ -183,5 +188,73 @@ func TestBatchInvert(t *testing.T) {
 		if want.Cmp(&got[i]) != 0 {
 			t.Errorf("got %x, want %x", got[i], want)
 		}
+	}
+
+	if len(BatchInvert(make([]Felt, 0))) != 0 {
+		t.Errorf("empty batch does not return empty")
+	}
+}
+
+func TestUint64(t *testing.T) {
+	got := new(Felt).SetOne().Uint64()
+	want := uint64(1)
+	if got != want {
+		t.Errorf("got %d, want %d", got, want)
+	}
+}
+
+func TestMulByConstant(t *testing.T) {
+	got := new(Felt).SetOne()
+	mulByConstant(got, uint8(11))
+	want := new(Felt).SetUint64(11)
+	if got.Cmp(want) != 0 {
+		t.Errorf("1 * 11 = %x, want %x", got, want)
+	}
+}
+
+func TestLegendre(t *testing.T) {
+	if new(Felt).Legendre() != 0 {
+		t.Error("legendre symbol of felt = 0 should be zero")
+	}
+}
+
+func TestText(t *testing.T) {
+	var z *Felt
+	if z.Text(10) != "<nil>" {
+		t.Errorf("nil *Felt does not return <nil> on Text()")
+	}
+
+	base := 37
+	defer func() {
+		if x := recover(); x == nil {
+			t.Errorf("incorrect base does not panic")
+		}
+	}()
+	new(Felt).Text(base)
+}
+
+func TestSetString(t *testing.T) {
+	defer func() {
+		if x := recover(); x == nil {
+			t.Errorf("incorrect string param in SetString does not cause panic")
+		}
+	}()
+	new(Felt).SetString("e")
+}
+
+func TestMulWSigned(t *testing.T) {
+	new(Felt).mulWSigned(new(Felt), -1)
+	// TODO figure out what this function is supposed to do?
+}
+
+func TestInverseExp(t *testing.T) {
+	f := new(Felt)
+	got := new(big.Int)
+	f.inverseExp(f).ToBigIntRegular(got)
+	b := new(big.Int)
+	want := b.Exp(b, Modulus().Sub(Modulus(), big.NewInt(2)), Modulus())
+
+	if got.Cmp(want) != 0 {
+		t.Errorf("got %x, want %x", got, want)
 	}
 }
