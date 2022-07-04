@@ -24,12 +24,18 @@ func TestAbiService_StoreGet(t *testing.T) {
 	defer AbiService.Close(context.Background())
 
 	for address, a := range abis {
-		AbiService.StoreAbi(address, a)
+		if err := AbiService.StoreAbi(address, a); err != nil {
+			t.Error(err)
+		}
 	}
 	for address, a := range abis {
-		result := AbiService.GetAbi(address)
-		if result == nil {
-			t.Errorf("abi not foud for key: %s", address)
+		result, err := AbiService.GetAbi(address)
+		if err != nil {
+			if db.IsNotFound(err) {
+				t.Errorf("ABI not found for address %s", address)
+			} else {
+				t.Error(err)
+			}
 		}
 		if !a.Equal(result) {
 			t.Errorf("ABI are not equal after Store-Get operations, address: %s", address)

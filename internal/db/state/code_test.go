@@ -43,8 +43,17 @@ func TestManager_Code(t *testing.T) {
 	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
 	manager := NewStateManager(codeDatabase, storageDatabase)
 	for _, code := range codes {
-		manager.PutCode(code.Address, code.Code)
-		obtainedCode := manager.GetCode(code.Address)
+		if err := manager.PutCode(code.Address, code.Code); err != nil {
+			t.Error(err)
+		}
+		obtainedCode, err := manager.GetCode(code.Address)
+		if err != nil {
+			if db.IsNotFound(err) {
+				t.Errorf("Code not found for address %s", code.Address)
+			} else {
+				t.Error(err)
+			}
+		}
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}

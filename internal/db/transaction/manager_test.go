@@ -87,7 +87,9 @@ func initManager(t *testing.T) *Manager {
 func TestManager_PutTransaction(t *testing.T) {
 	manager := initManager(t)
 	for _, tx := range txs {
-		manager.PutTransaction(tx.GetHash(), tx)
+		if err := manager.PutTransaction(tx.GetHash(), tx); err != nil {
+			t.Error(err)
+		}
 	}
 	manager.Close()
 }
@@ -96,11 +98,20 @@ func TestManager_GetTransaction(t *testing.T) {
 	manager := initManager(t)
 	// Insert all the transactions
 	for _, tx := range txs {
-		manager.PutTransaction(tx.GetHash(), tx)
+		if err := manager.PutTransaction(tx.GetHash(), tx); err != nil {
+			t.Error(err)
+		}
 	}
 	// Get all the transactions and compare
 	for _, tx := range txs {
-		outTx := manager.GetTransaction(tx.GetHash())
+		outTx, err := manager.GetTransaction(tx.GetHash())
+		if err != nil {
+			if db.IsNotFound(err) {
+				t.Errorf("Transaction %s not found", tx.GetHash())
+			} else {
+				t.Error(err)
+			}
+		}
 		if !reflect.DeepEqual(tx, outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
 		}
@@ -163,7 +174,9 @@ var receipts = []*types.TransactionReceipt{
 func TestManager_PutReceipt(t *testing.T) {
 	manager := initManager(t)
 	for _, receipt := range receipts {
-		manager.PutReceipt(receipt.TxHash, receipt)
+		if err := manager.PutReceipt(receipt.TxHash, receipt); err != nil {
+			t.Error(err)
+		}
 	}
 	manager.Close()
 }
@@ -171,10 +184,19 @@ func TestManager_PutReceipt(t *testing.T) {
 func TestManager_GetReceipt(t *testing.T) {
 	manager := initManager(t)
 	for _, receipt := range receipts {
-		manager.PutReceipt(receipt.TxHash, receipt)
+		if err := manager.PutReceipt(receipt.TxHash, receipt); err != nil {
+			t.Error(err)
+		}
 	}
 	for _, receipt := range receipts {
-		outReceipt := manager.GetReceipt(receipt.TxHash)
+		outReceipt, err := manager.GetReceipt(receipt.TxHash)
+		if err != nil {
+			if db.IsNotFound(err) {
+				t.Errorf("Receipt %s not found", receipt.TxHash)
+			} else {
+				t.Error(err)
+			}
+		}
 
 		if !reflect.DeepEqual(receipt, outReceipt) {
 			t.Errorf("receipt not equal after Put/Get operations")
