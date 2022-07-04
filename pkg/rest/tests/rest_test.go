@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/NethermindEth/juno/utils"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -33,9 +34,9 @@ func init() {
 	p = httpClient
 	var pf feeder.HttpClient
 	pf = failHttpClient
-	client = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &p)
+	client = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &p)
 	restHandler.RestFeeder = client
-	failClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &pf)
+	failClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &pf)
 	failRestHandler.RestFeeder = failClient
 }
 

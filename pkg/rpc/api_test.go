@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/NethermindEth/juno/utils"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -136,7 +137,7 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
 	}
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 
 	// test
 	testServer(t, []rpcTest{
@@ -288,7 +289,7 @@ func TestStarknetGetCode(t *testing.T) {
 	// Set up feeder client for pending block
 	input := `{"abi": [{"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "function"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "l1_handler"}, {"members": [{"offset": 1, "name": "a", "type": "a"}], "name": "a", "size": 1, "type": "struct"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "constructor"}, {"data": [{"name": "a", "type": "a"}], "keys": ["a"], "name": "a", "type": "event"}], "bytecode": ["0xa"]}`
 	fakeClient.DoReturns(generateResponse(input), nil)
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 
 	want := &abi.Abi{
 		Functions: []*abi.Function{
@@ -665,7 +666,7 @@ func TestGetBlock(t *testing.T) {
 		}
 	}
 
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 	body, err := json.Marshal(feeder.StarknetBlock{
 		BlockHash:        "a",
 		ParentBlockHash:  "a",
@@ -718,7 +719,7 @@ func generateResponse(body string) *http.Response {
 
 func TestGetBlockByTag(t *testing.T) {
 	// Reassign global feederClient with fake http client
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 
 	tx := Txn{
 		FunctionCall: FunctionCall{
@@ -896,7 +897,7 @@ func TestGetTransactionByHash(t *testing.T) {
 
 func TestStarknetPendingTransactions(t *testing.T) {
 	// Reassign global feederClient with fake http client
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 
 	// Generate fake response
 	x := feeder.StarknetBlock{
@@ -1019,7 +1020,7 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
 	}
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 	tx := Txn{
 		FunctionCall: FunctionCall{
 			ContractAddress:    types.HexToAddress("a"),
@@ -1117,7 +1118,7 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
 	}
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 	tx := Txn{
 		FunctionCall: FunctionCall{
 			ContractAddress:    types.HexToAddress("a"),
@@ -1143,7 +1144,7 @@ func TestStarknetCall(t *testing.T) {
 	}
 
 	// Reassign global feederClient with fake http client
-	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	feederClient = feeder.NewClient("https://localhost:8100", utils.FeederGatewayApiPrefix, &client)
 
 	// Generate fake response
 	x := &map[string][]string{"result": {"a"}}

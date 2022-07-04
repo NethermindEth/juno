@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/NethermindEth/juno/utils"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -28,7 +29,7 @@ var (
 func init() {
 	var p feeder.HttpClient
 	p = httpClient
-	client = feeder.NewClient("https:/local", "/feeder_gateway/", &p)
+	client = feeder.NewClient("https:/local", utils.FeederGatewayApiPrefix, &p)
 }
 
 func generateResponse(body string) *http.Response {
@@ -58,7 +59,7 @@ func StructFaker(a interface{}) (string, error) {
 }
 
 func TestClient(t *testing.T) {
-	_ = feeder.NewClient("https:/local", "/feeder_gateway/", nil)
+	_ = feeder.NewClient("https:/local", utils.FeederGatewayApiPrefix, nil)
 }
 
 func TestGetContractAddress(t *testing.T) {

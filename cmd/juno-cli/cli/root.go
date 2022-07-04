@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/NethermindEth/juno/utils"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -60,7 +61,7 @@ func init() {
 // handle networks by changing active value during call only
 func handleNetwork(network string) {
 	if network == "mainnet" {
-		viper.Set("starknet.feeder_gateway", "https://alpha-mainnet.starknet.io")
+		viper.Set("starknet.feeder_gateway", utils.FeederGatewayAlphaMainnet)
 	}
 	if network == "goerli" {
 		viper.Set("starknet.feeder_gateway", "http://alpha4.starknet.io")
@@ -134,7 +135,7 @@ func initConfig() error {
 
 func initClient() *feeder.Client {
 	feederUrl := config.Runtime.Starknet.FeederGateway
-	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
+	client := feeder.NewClient(feederUrl, utils.FeederGatewayApiPrefix, nil)
 	return client
 }
 

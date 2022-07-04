@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"github.com/NethermindEth/juno/utils"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -131,7 +132,7 @@ func New() {
 		DbPath:   DataDir,
 		REST:     restConfig{Enabled: true, Port: 8100, Prefix: "/feeder_gateway"},
 		Starknet: starknetConfig{
-			Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io",
+			Enabled: true, ApiSync: true, FeederGateway: utils.FeederGatewayAlphaMainnet,
 			Network: "mainnet",
 		},
 	})
