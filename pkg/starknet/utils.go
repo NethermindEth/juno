@@ -259,7 +259,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 		calldata = append(calldata, types.HexToFelt(data))
 	}
 
-	if info.Transaction.Type == "INVOKE" {
+	if info.Transaction.Type == "INVOKE_FUNCTION" {
 		signature := make([]types.Felt, 0)
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, types.HexToFelt(data))
