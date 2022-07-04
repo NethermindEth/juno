@@ -10,8 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Logger is the default logger. It is a "sugared" variant of the zap
-// logger.
+// Logger is a "sugared" variant of the zap logger.
 var Logger *zap.SugaredLogger
 
 func init() {
