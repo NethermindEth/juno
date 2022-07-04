@@ -1,8 +1,8 @@
 {
-  "label": "Future Implementations",
-  "position": 2,
+  "label": "Roadmap",
   "link": {
     "type": "generated-index",
-    "description": "Getting started with the project."
+    "description": "Ongoing  and future efforts to improve the Juno client.",
+    "title": "Roadmap"
   }
 }
