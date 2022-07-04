@@ -64,7 +64,7 @@ var (
 				if err != nil {
 					log.Default.With("Error", err).Error("Failed to create HTTP RPC server.")
 				}
-				processHandler.Add("HTTP RPC", httpRpc.ListenAndServe, httpRpc.Close)
+				processHandler.Add("HTTP RPC", true, httpRpc.ListenAndServe, httpRpc.Close)
 			}
 
 			if config.Runtime.Metrics.Enabled {
