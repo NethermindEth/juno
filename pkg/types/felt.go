@@ -54,6 +54,10 @@ func (f Felt) Hex() string {
 	return "0x" + s
 }
 
+func (f Felt) HexWithout0x() string {
+	return strings.TrimLeft(f.Hex(), "0x")
+}
+
 func (f Felt) String() string {
 	return f.Hex()
 }
