@@ -100,13 +100,14 @@ func TestRestClientRetryFunction(t *testing.T) {
 	// Build Response Object
 	rr := httptest.NewRecorder()
 
-	httpClient.DoReturns(nil, fmt.Errorf("bad request"))
+	errorMessage := "feeder gateway failed"
+	httpClient.DoReturns(nil, fmt.Errorf("%s", errorMessage))
 
 	// Send Request expecting an error
 	restHandler.GetBlock(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), fmt.Sprintf("Invalid request body error:%s", errorMessage))
 }
 
 //---------------------------------------------
