@@ -9,7 +9,7 @@ import (
 	"runtime"
 
 	"github.com/NethermindEth/juno/internal/errpkg"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,8 +45,14 @@ type starknetConfig struct {
 	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
 }
 
+type loggerConfig struct {
+	VerbosityLevel   string `yaml:"verbosity_level" mapstructure:"verbosity_level"`
+	EnableJsonOutput bool   `yaml:"enable_json_output" mapstructure:"enable_json_output"`
+}
+
 // Config represents the juno configuration.
 type Config struct {
+	Logger   loggerConfig   `yaml:"logger" mapstructure:"ethereum"`
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
 	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
@@ -117,7 +123,7 @@ func init() {
 // New creates a new configuration file with default values.
 func New() {
 	f := filepath.Join(Dir, "juno.yaml")
-	log.Default.With("Path", f).Info("Creating default config.")
+	Logger.With("Path", f).Info("Creating default config.")
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
 		// notest
