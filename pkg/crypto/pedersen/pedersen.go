@@ -34,7 +34,7 @@ func Digest(data ...*big.Int) *big.Int {
 			// Create a copy because *big.Int.And mutates.
 			copyX := new(big.Int).Set(x)
 			if copyX.And(copyX, big.NewInt(1)).Cmp(zero) != 0 {
-				pt1.Add(&points[2+i*252+j])
+				pt1.add(&points[2+i*252+j])
 			}
 			x.Rsh(x, 1)
 		}
