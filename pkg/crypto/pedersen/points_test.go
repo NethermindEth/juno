@@ -36,7 +36,7 @@ func TestAdd(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("(%d,%d).Add((%d,%d))", test[0].x, test[0].y, test[1].x, test[1].y), func(t *testing.T) {
 			x, y := new(big.Int).Set(test[0].x), new(big.Int).Set(test[0].y)
-			test[0].Add(&test[1])
+			test[0].add(&test[1])
 			wantX, wantY := curve.Add(x, y, test[1].x, test[1].y)
 			if test[0].x.Cmp(wantX) != 0 || test[0].y.Cmp(wantY) != 0 {
 				t.Errorf("got (%d, %d), want (%d, %d)", test[0].x, test[0].y, wantX, wantY)
