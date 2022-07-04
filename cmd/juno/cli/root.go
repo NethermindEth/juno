@@ -200,6 +200,10 @@ func initConfig() {
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
 	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
 	errpkg.CheckFatal(err, "Failed to initialise logger.")
+	Logger.With(
+		"Verbosity Level", verbosityLevel,
+		"Json Output", enableJsonOutput,
+	).Info("Logger values")
 
 	Logger.With(
 		"Database Path", config.Runtime.DbPath,
