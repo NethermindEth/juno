@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 )
 
-// TestAdd does a basic test of the point.Add function.
+// TestAdd does a basic test of the point.add function.
 func TestAdd(t *testing.T) {
 	tests := [][]point{
 		// (0, 0) + (1, 1)
