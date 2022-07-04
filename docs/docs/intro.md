@@ -1,58 +1,16 @@
 ---
 title: Welcome
 slug: /
+hide_toc: true
+sidebar_position: 1
 ---
+TODO: ARGUABLY - this page could be a quick start guide and that might be nice. Possibly too much overlap with GH readme?
 
-# Welcome to Juno
 
-Let's discover **Juno in less than 5 minutes**.
+(((TODO: Add Logo here)))
 
-## What You'll Need
+Juno is a [StarkNet](https://starknet.io/) node implementation written in [Golang](https://go.dev/doc/) with 💜 by [Nethermind](https://nethermind.io/). Designed with <b>performance</b> and <b>ease of use</b> in mind. 
 
-- [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
-- _For Linux_: You will need to install `clang`:
+We will bring decentralization to StarkNet.
 
-```shell
-sudo apt -y install clang
-```
-
-### Installing
-
-After cloning the project,
-
-```bash
-git clone https://github.com/NethermindEth/juno
-```
-
-You can install all the dependencies running the next command inside the project folder:
-
-```bash
-$ go get ./...
-```
-
-## Running Juno
-
-### Compiling Directly
-
-Compile Juno:
-
-```bash
-$ make compile
-```
-
-After compilation, you will have 2 commands inside the `build` folder of the project:
-
-- juno
-    - `juno` is the command that initialize the node
-- juno-cli
-    - `juno-cli` is the command that handle a set of different commands about the StarkNet ecosystem.
-
-```bash
-$ make run
-```
-
-For more details on the configuration, check the [config description](./running/config.mdx). 
-
-### Using Docker
-
-If you prefer to use docker, you can follow [this](./running/docker.mdx) guide.
+TODO: Possibly add more text

@@ -34,14 +34,12 @@ const config = {
             ({
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
-                    // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl:
                         'https://github.com/NethermindEth/juno/tree/main/docs/',
                 },
                 blog: {
                     showReadingTime: true,
-                    // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl:
                         'https://github.com/NethermindEth/juno/tree/main/docs/',
@@ -54,7 +52,7 @@ const config = {
     ],
 
     themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+        /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
         ({
             navbar: {
                 title: 'Juno',
@@ -69,7 +67,7 @@ const config = {
                         position: 'left',
                         label: 'Docs',
                     },
-                    {to: '/blog', label: 'Blog', position: 'left'},
+                    { to: '/blog', label: 'Blog', position: 'left' },
                     {
                         href: 'https://github.com/NethermindEth/juno',
                         label: 'GitHub',
