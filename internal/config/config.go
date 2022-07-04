@@ -131,6 +131,10 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
+		Logger: loggerConfig{
+			VerbosityLevel:   "debug",
+			EnableJsonOutput: false,
+		},
 		Ethereum: ethereumConfig{Node: ""},
 		RPC:      rpcConfig{Enabled: true, Port: 8080},
 		Metrics:  metricsConfig{Enabled: true, Port: 2048},
