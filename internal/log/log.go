@@ -3,11 +3,11 @@ package log
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Logger is a "sugared" variant of the zap logger.
