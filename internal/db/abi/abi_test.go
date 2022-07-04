@@ -1,6 +1,6 @@
 package abi
 
-var abis = map[string]Abi{
+var abis = map[string]*Abi{
 	"1bd7ca87f139693e6681be2042194cf631c4e8d77027bf0ea9e6d55fc6018ac": {
 		Functions: []*Function{
 			{

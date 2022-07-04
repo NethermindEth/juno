@@ -5,13 +5,13 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TOCInline from '@theme/TOCInline'
 
-On this page you'll find every single markdown & mdx component used in our docs
+On this page you'll find every markdown & mdx component used in our docs.
 
 ## Page Title & Data
 
-For the title of the page, and the name of the tab, at the very top of your file, just add this code snippet to the top.
+For the title of the page, and the name of the tab, at the very top of your file, add this code snippet at the top.
 
-Any thing inbetween the `---` tags will be used for the meta data of the page
+Anything inbetween the `---` tags will be used for the page meta data. 
 
 ```md
 ---
@@ -63,7 +63,7 @@ For Heading 1 specifically, you should set the page title in the meta data.
 ```md
 Some text
 
-With a line between them
+With a line break between each line
 ```
 
 ## Lists
@@ -82,28 +82,28 @@ With a line between them
 
 ### Unordered lists
 
-You don't actually have to do the numbers, as long as there is a number at the start it'll count incrementally starting with the first number in the list
+As long as there is a number at the start of a list, docusaurus will count incrementally starting with the first number in the list
 
-1. Ordererd list 1
-69. Ordererd list 2
-42. Ordererd list 3
+1. Ordered list 1
+69. Ordered list 2
+42. Ordered list 3
 
 
 ```md
-1. Ordererd list 1
-69. Ordererd list 2
-42. Ordererd list 3
+1. Ordered list 1
+69. Ordered list 2
+42. Ordered list 3
 ```
 
 ### Nested & Mixed lists
 
-1. Ordererd list
+1. Ordered list
     1. Sable
     2. Ferret
         - Cat rat
         - Fox weasel
     8. Lamp
-69. Ordererd list
+69. Ordered list
     - Grape
     - Potatoes
         - Chips
@@ -114,16 +114,16 @@ You don't actually have to do the numbers, as long as there is a number at the s
         1. Three cats
         1. Pasta
         9. Ragu
-42. Ordererd list
+42. Ordered list
 
 ```md
-1. Ordererd list
+1. Ordered list
     1. Sable
     2. Ferret
         - Cat rat
         - Fox weasel
     8. Lamp
-69. Ordererd list
+69. Ordered list
     - Grape
     - Potatoes
         - Chips
@@ -134,7 +134,7 @@ You don't actually have to do the numbers, as long as there is a number at the s
         1. Three cats
         1. Pasta
         9. Ragu
-42. Ordererd list
+42. Ordered list
 ```
 
 ## Text styling
@@ -159,22 +159,22 @@ _Italic/Emphasize_
 
 ## Codeblocks
 
-So you basically define a section using the ` ``` ` anything between two lines that contain these 3 back quotes will be in the block
+Define a section using ` ``` `. Anything between two lines that contain these 3 back quotes will be in a code block.
 
-If you want specific formatting for a certain language like for example Javascript here:
+To get syntax highlighting and formatting for a certain language succh as Javascript:
 
 ```js
 const threeCats = ["cat", "cat", "cat"]
 ```
 
 ```md
-Mind the indentation here, code blocks in code blocks isn't normal usage
+Mind indentation here, code blocks in code blocks is not standard
     ```js
     const threeCats = ["cat", "cat", "cat"]
     ```
 ```
 
-Theres a lot of different formattings to use, `md`, `js`, `ts`, etc. The package used is [Prism react render](https://github.com/FormidableLabs/prism-react-renderer)
+There are many different formattings to use, `md`, `js`, `ts`, etc. The package used to render [Prism react render](https://github.com/FormidableLabs/prism-react-renderer)
 
 
 ## Quotes
@@ -209,7 +209,7 @@ Theres a lot of different formattings to use, `md`, `js`, `ts`, etc. The package
 
 ## Admonitions
 
-These are nifty notification blocks [from Docusaurus](https://docusaurus.io/docs/next/markdown-features/admonitions)
+These are nifty notification blocks [from Docusaurus](https://docusaurus.io/docs/next/markdown-features/admonitions).
 
 :::note
 
@@ -319,7 +319,7 @@ Logo: ![Alt](/img/logo.png "Juno logo")
 Logo: ![Alt](/img/logo.png "Juno logo")
 ```
 
-You can create a image with a hyperlink to another page or a hash link on the page by adding the link in the brackets next to it
+You can create a image with a hyperlink to another page or a hash link on the page by adding the link in the brackets next to it.
 
 Linked logo: [![alt text](//img/logo.png)](https://docs.juno.io/ "Off to the docs")
 

@@ -13,25 +13,25 @@ import (
 // communications with the transactions' database must be made with this manager.
 // Transactions can have two types: DeployTransaction and InvokeFunctionTransaction.
 type Manager struct {
-	database db.Databaser
+	txDb      db.Database
+	receiptDb db.Database
 }
 
 // NewManager returns a new instance of the Manager.
-func NewManager(database db.Databaser) *Manager {
-	return &Manager{database: database}
+func NewManager(txDb, receiptDb db.Database) *Manager {
+	return &Manager{txDb, receiptDb}
 }
 
 // PutTransaction stores new transactions in the database. This method does not
 // check if the key already exists. In the case, that the key already exists the
 // value is overwritten.
 func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
-	key := buildTxKey(txHash)
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("error marshalling Transaction")
 	}
-	err = m.database.Put(key, rawData)
+	err = m.txDb.Put(txHash.Bytes(), rawData)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -41,8 +41,7 @@ func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransa
 // GetTransaction searches in the database for the transaction associated with the
 // given key. If the key does not exist then returns nil.
 func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
-	key := buildTxKey(txHash)
-	rawData, err := m.database.Get(key)
+	rawData, err := m.txDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -64,13 +63,12 @@ func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransacti
 // does not check if the key already exists. In the case, that the key already
 // exists the value is overwritten.
 func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.TransactionReceipt) {
-	key := buildReceiptKey(txHash)
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("error marshaling TransactionReceipt")
 	}
-	err = m.database.Put(key, rawData)
+	err = m.receiptDb.Put(txHash.Bytes(), rawData)
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panic("database error")
@@ -80,8 +78,7 @@ func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.Tran
 // GetReceipt searches in the database for the transaction receipt associated
 // with the given key. If the key does not exist then returns nil.
 func (m *Manager) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
-	key := buildReceiptKey(txHash)
-	rawData, err := m.database.Get(key)
+	rawData, err := m.receiptDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
 		log.Default.With("error", err).Panicf("database error")
@@ -101,21 +98,8 @@ func (m *Manager) GetReceipt(txHash types.TransactionHash) *types.TransactionRec
 
 // Close closes the manager, specific the associated database.
 func (m *Manager) Close() {
-	m.database.Close()
-}
-
-func buildTxKey(txHash types.TransactionHash) []byte {
-	key := make([]byte, 54)
-	copy(key[:12], "transaction:")
-	copy(key[12:], txHash.Bytes())
-	return key
-}
-
-func buildReceiptKey(txHash types.TransactionHash) []byte {
-	key := make([]byte, 54)
-	copy(key[:12], "receipt:")
-	copy(key[12:], txHash.Bytes())
-	return key
+	m.txDb.Close()
+	m.receiptDb.Close()
 }
 
 func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {

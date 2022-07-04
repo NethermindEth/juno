@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/log"
@@ -23,7 +22,7 @@ type blockService struct {
 
 // Setup is used to configure the service before it's started. The database
 // param is the database where the transactions will be stored.
-func (s *blockService) Setup(database db.Databaser) {
+func (s *blockService) Setup(database db.Database) {
 	if s.service.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
@@ -43,21 +42,32 @@ func (s *blockService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
-func (s *blockService) setDefaults() {
+func (s *blockService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(config.Dir+"/block", 0)
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		database, err := db.NewMDBXDatabase(env, "BLOCK")
+		if err != nil {
+			return err
+		}
 		s.manager = block.NewManager(database)
 	}
+	return nil
 }
 
 // Close stops the service, waiting to end the current operations, and closes
 // the database manager.
 func (s *blockService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

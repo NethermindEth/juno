@@ -19,6 +19,12 @@ type rpcConfig struct {
 	Port    int  `yaml:"port" mapstructure:"port"`
 }
 
+// metricsConfig represents the Prometheus Metrics configuration.
+type metricsConfig struct {
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	Port    int  `yaml:"port" mapstructure:"port"`
+}
+
 // ethereumConfig represents the juno Ethereum configuration.
 type ethereumConfig struct {
 	Node string `yaml:"node" mapstructure:"node"`
@@ -35,6 +41,7 @@ type restConfig struct {
 type starknetConfig struct {
 	Enabled       bool   `yaml:"enabled" mapstructure:"enabled"`
 	FeederGateway string `yaml:"feeder_gateway" mapstructure:"feeder_gateway"`
+	Network       string `yaml:"network" mapstructure:"network"`
 	ApiSync       bool   `yaml:"api_sync" mapstructure:"api_sync"`
 }
 
@@ -42,6 +49,7 @@ type starknetConfig struct {
 type Config struct {
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
+	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
 	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
 	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
 	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
@@ -82,6 +90,7 @@ func init() {
 			return Dir, nil
 		case "darwin", "dragonfly", "freebsd", "illumos", "ios", "linux", "netbsd",
 			"openbsd", "solaris":
+			// Use XDG_DATA_HOME. If it is not configured, try $HOME/.local/share
 			// See https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 			dataHome := os.Getenv("XDG_DATA_HOME")
 			if dataHome == "" {
@@ -89,7 +98,7 @@ func init() {
 				if home == "" {
 					return "", errors.New("user home directory not found")
 				}
-				result := filepath.Join(home, ".local", "juno")
+				result := filepath.Join(home, ".local", "share", "juno")
 				// Create Juno data directory if it does not exist
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
 					err = os.MkdirAll(result, 0o744)
@@ -116,15 +125,20 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
-		Ethereum: ethereumConfig{Node: "your_node_here"},
-		RPC:      rpcConfig{Enabled: false, Port: 8080},
+		Ethereum: ethereumConfig{Node: ""},
+		RPC:      rpcConfig{Enabled: true, Port: 8080},
+		Metrics:  metricsConfig{Enabled: true, Port: 2048},
 		DbPath:   DataDir,
-		REST:     restConfig{Enabled: false, Port: 8100, Prefix: "/feeder_gateway"},
-		Starknet: starknetConfig{Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io"},
+		REST:     restConfig{Enabled: true, Port: 8100, Prefix: "/feeder_gateway"},
+		Starknet: starknetConfig{
+			Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io",
+			Network: "mainnet",
+		},
 	})
 	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
 	// Create default Juno configuration file if it does not exist
 	if _, err := os.Stat(f); errors.Is(err, os.ErrNotExist) {
+		// notest
 		err = os.WriteFile(f, data, 0o644)
 		errpkg.CheckFatal(err, "Failed to write config file.")
 	}

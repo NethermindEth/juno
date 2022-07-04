@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/log"
@@ -26,13 +28,134 @@ func (HandlerRPC) EchoErr(c context.Context, message string) (string, error) {
 func (HandlerRPC) StarknetCall(
 	c context.Context, request FunctionCall, blockHash BlockHashOrTag,
 ) (ResultCall, error) {
+	if tag := blockHash.Tag; tag != nil {
+		calldata := make([]string, len(request.CallData))
+		for i, data := range request.CallData {
+			calldata[i] = data.Hex()
+		}
+		call := feeder.InvokeFunction{
+			ContractAddress:    request.ContractAddress.Hex(),
+			EntryPointSelector: request.EntryPointSelector.Hex(),
+			Calldata:           calldata,
+		}
+		result, err := feederClient.CallContract(call, "", string(*tag))
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("call failed %v", err)
+		}
+		return (*result)["result"], nil
+	}
+	// notest
 	return []string{"Response", "of", "starknet_call"}, nil
 }
 
-func getBlockByTag(ctx context.Context, blockTag BlockTag, scope RequestedScope) (*BlockResponse, error) {
-	// notest
-	// TODO: Implement get block by tag
-	return &BlockResponse{}, nil
+// TODO documentation
+func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (*BlockResponse, error) {
+	// TODO we should the block service keep track of the latest block we have received (if we are already fully synced)
+	// Then we only need to request pending blocks from the feeder gateway.
+
+	// We basically reimplement NewBlockResponse since we have convert the type from the feeder gateway
+	res, err := feederClient.GetBlock("", string(blockTag))
+	if err != nil {
+		// notest
+		return nil, err
+	}
+	response := &BlockResponse{
+		BlockHash:   types.HexToBlockHash(res.BlockHash),
+		ParentHash:  types.HexToBlockHash(res.ParentBlockHash),
+		BlockNumber: uint64(res.BlockNumber),
+		Status:      types.StringToBlockStatus(res.Status),
+		Sequencer:   types.HexToAddress(res.SequencerAddress),
+		NewRoot:     types.HexToFelt(res.StateRoot),
+	}
+	if scope == ScopeTxnHash {
+		txs := make([]*types.TransactionHash, len(res.Transactions))
+		for i, tx := range res.Transactions {
+			hash := types.HexToTransactionHash(tx.TransactionHash)
+			txs[i] = &hash
+		}
+		response.Transactions = txs
+		return response, nil
+	}
+
+	txs := make([]*Txn, len(res.Transactions))
+	for i, tx := range res.Transactions {
+		switch tx.Type {
+		case "INVOKE":
+			calldata := make([]types.Felt, len(tx.Calldata))
+			for j, data := range tx.Calldata {
+				calldata[j] = types.HexToFelt(data)
+			}
+			txs[i] = &Txn{
+				FunctionCall: FunctionCall{
+					ContractAddress:    types.HexToAddress(tx.ContractAddress),
+					EntryPointSelector: types.HexToFelt(tx.EntryPointSelector),
+					CallData:           calldata,
+				},
+				TxnHash: types.HexToTransactionHash(tx.TransactionHash),
+			}
+		// notest
+		default:
+			// notest
+			txs[i] = &Txn{}
+		}
+	}
+
+	if scope == ScopeFullTxns {
+		response.Transactions = txs
+		return response, nil
+	}
+
+	txnAndReceipts := make([]*TxnAndReceipt, len(res.TransactionReceipts))
+	for i, feederReceipt := range res.TransactionReceipts {
+		messagesSent := make([]*MsgToL1, len(feederReceipt.L2ToL1Messages))
+		for j, msg := range feederReceipt.L2ToL1Messages {
+			payload := make([]types.Felt, len(msg.Payload))
+			for k, data := range msg.Payload {
+				payload[k] = types.HexToFelt(data)
+			}
+			messagesSent[j] = &MsgToL1{
+				ToAddress: types.HexToEthAddress(msg.ToAddress),
+				Payload:   payload,
+			}
+		}
+		events := make([]*Event, len(feederReceipt.Events))
+		for j, event := range feederReceipt.Events {
+			keys := make([]types.Felt, len(event.Keys))
+			for k, key := range event.Keys {
+				keys[k] = types.HexToFelt(key)
+			}
+			data := make([]types.Felt, len(event.Data))
+			for k, datum := range event.Data {
+				data[k] = types.HexToFelt(datum)
+			}
+			events[j] = &Event{
+				FromAddress: types.HexToAddress(event.FromAddress),
+				EventContent: EventContent{
+					Keys: keys,
+					Data: data,
+				},
+			}
+		}
+		payload := make([]types.Felt, len(feederReceipt.Payload))
+		for j, data := range feederReceipt.Payload {
+			payload[j] = types.HexToFelt(data)
+		}
+		txnAndReceipts[i] = &TxnAndReceipt{
+			Txn: *txs[i],
+			TxnReceipt: TxnReceipt{
+				TxnHash:         txs[i].TxnHash,
+				Status:          0,
+				StatusData:      "",
+				MessagesSent:    messagesSent,
+				L1OriginMessage: &MsgToL2{FromAddress: types.HexToEthAddress(feederReceipt.FromAddress), Payload: payload},
+				Events:          events,
+			},
+		}
+	}
+	response.Transactions = txnAndReceipts
+
+	return response, nil
 }
 
 func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
@@ -86,15 +209,13 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 	if number := blockNumberOrTag.Number; number != nil {
 		return getBlockByNumber(ctx, *number, scope)
 	}
-	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
 		return getBlockByTag(ctx, *tag, scope)
 	}
 	// TODO: Send bad request error
+	// notest
 	return nil, errors.New("bad request")
 }
-
-// type bNumber string `json:"int,int,omitempty"`
 
 // StarknetGetBlockByNumber represent the handler for getting a block by
 // its number.
@@ -141,25 +262,33 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
+	var blockNumber uint64
 	if hash := blockHash.Hash; hash != nil {
 		block := services.BlockService.GetBlockByHash(*blockHash.Hash)
 		if block == nil {
 			// notest
 			return "", fmt.Errorf("block not found")
 		}
-		storage := services.StateService.GetStorage(string(contractAddress), block.BlockNumber)
-		if storage == nil {
+		blockNumber = block.BlockNumber
+	} else if tag := blockHash.Tag; tag != nil {
+		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
+		if err != nil {
 			// notest
-			return "", fmt.Errorf("storage not found")
+			return "", fmt.Errorf("block not found")
 		}
-		return Felt(storage.Storage[string(key)]), nil
+		blockNumber = blockResponse.BlockNumber
+	} else {
+		// notest
+		return "", fmt.Errorf("invalid block hash or tag")
 	}
-	// notest
-	if tag := blockHash.Tag; tag != nil {
-		// TODO: Get by tag
-		return "", fmt.Errorf("unimplmented search by block tag")
+
+	storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	if storage == nil {
+		// notest
+		return "", fmt.Errorf("storage not found")
 	}
-	return "", fmt.Errorf("invalid block hash or tag")
+
+	return Felt(storage.Storage[string(key)]), nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
@@ -182,6 +311,7 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
 		block := services.BlockService.GetBlockByHash(*blockHash)
+		// TODO check if block is nil?
 		if index < 0 || len(block.TxHashes) <= index {
 			// notest
 			return nil, fmt.Errorf("invalid index %d", index)
@@ -192,8 +322,13 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 	}
 	// notest
 	if tag := blockHashOrTag.Tag; tag != nil {
-		// TODO: search block by tag
-		return &Txn{}, nil
+		blockResponse, err := getBlockByTag(c, *tag, ScopeFullTxns)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("block not found")
+		}
+		txs := blockResponse.Transactions.([]*Txn)
+		return txs[index], nil
 	}
 	// TODO: return invalid param error
 	return nil, errors.New("invalid blockHashOrtTag param")
@@ -213,19 +348,24 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 		txn := services.TransactionService.GetTransaction(txHash)
 		return NewTxn(txn), nil
 	}
-	// notest
 	if tag := blockNumberOrTag.Tag; tag != nil {
-		// TODO: search block by tag
-		return &Txn{}, nil
+		blockResponse, err := getBlockByTag(ctx, *tag, ScopeFullTxns)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("block not found")
+		}
+		txs := blockResponse.Transactions.([]*Txn)
+		return txs[index], nil
 	}
 	// TODO: return invalid param error
+	// notest
 	return nil, errors.New("invalid blockHashOrtTag param")
 }
 
 // StarknetGetTransactionReceipt Get the transaction receipt by the
 // transaction hash.
 func (HandlerRPC) StarknetGetTransactionReceipt(
-	c context.Context, transactionHash TxnHash,
+	c context.Context, transactionHash types.TransactionHash,
 ) (TxnReceipt, error) {
 	return TxnReceipt{}, nil
 }
@@ -233,26 +373,63 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 // StarknetGetCode Get the code of a specific contract
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress types.Address,
-) (CodeResult, error) {
+) (*CodeResult, error) {
 	abi := services.AbiService.GetAbi(contractAddress.Hex())
 	if abi == nil {
-		// notest
-		return CodeResult{}, fmt.Errorf("abi not found")
+		// Try the feeder gateway for pending block
+		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("abi not found %v", err)
+		}
+		// Convert feeder type to RPC CodeResult type
+		bytecode := make([]types.Felt, len(code.Bytecode))
+		for i, code := range code.Bytecode {
+			bytecode[i] = types.HexToFelt(code)
+		}
+		marshal, err := json.Marshal(code.Abi)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("abi not found %v", err)
+		}
+		var abiResponse dbAbi.Abi
+		err = json.Unmarshal(marshal, &abiResponse)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("abi not found %v", err)
+		}
+		for i, str := range code.Abi.Structs {
+			abiResponse.Structs[i].Fields = make([]*dbAbi.Struct_Field, len(str.Members))
+			for j, field := range str.Members {
+				abiResponse.Structs[i].Fields[j] = &dbAbi.Struct_Field{
+					Name:   field.Name,
+					Type:   field.Type,
+					Offset: uint32(field.Offset),
+				}
+			}
+		}
+		marshal, err = json.Marshal(abiResponse)
+		if err != nil {
+			// notest
+			return nil, fmt.Errorf("unexpected marshal error %v", err)
+		}
+		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 	}
 	code := services.StateService.GetBinaryCode(contractAddress.Bytes())
 	if code == nil {
 		// notest
-		return CodeResult{}, fmt.Errorf("code not found")
+		return nil, fmt.Errorf("code not found")
 	}
 	marshalledAbi, err := json.Marshal(abi)
 	if err != nil {
-		return CodeResult{}, err
+		// notest
+		return nil, err
 	}
-	bytecode := make([]Felt, len(code.Code))
+	bytecode := make([]types.Felt, len(code.Code))
 	for i, b := range code.Code {
-		bytecode[i] = Felt(types.BytesToFelt(b).Hex())
+		bytecode[i] = types.BytesToFelt(b)
 	}
-	return CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
+	return &CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
@@ -269,8 +446,13 @@ func (HandlerRPC) StarknetChainId(c context.Context) (ChainID, error) {
 // transaction pool, recognized by this sequencer.
 func (HandlerRPC) StarknetPendingTransactions(
 	c context.Context,
-) ([]Txn, error) {
-	return nil, nil
+) ([]*Txn, error) {
+	block, err := getBlockByTag(c, BlocktagPending, ScopeFullTxns)
+	if err != nil {
+		// notest
+		return nil, err
+	}
+	return block.Transactions.([]*Txn), nil
 }
 
 // StarknetProtocolVersion Returns the current starknet protocol version

@@ -1,13 +1,11 @@
 package starknet
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"math/big"
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -17,7 +15,6 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -129,12 +126,19 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 }
 
 func TestGetAndUpdateValueOnDB(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "TEST")
+	if err != nil {
+		t.Error(err)
+	}
 
 	key := "key"
 	value := 0
 
-	err := updateNumericValueFromDB(database, key, uint64(value))
+	err = updateNumericValueFromDB(database, key, uint64(value))
 	if err != nil {
 		t.Fail()
 		return
@@ -266,17 +270,26 @@ func TestUpdateState(t *testing.T) {
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	database := db.Databaser(db.NewKeyValueDb(filepath.Join(t.TempDir(), "contractHash"), 0))
-	hashService := services.NewContractHashService(database)
-	go hashService.Run()
-	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
-	txn := txnDb.Begin()
-	stateCommitment, err := updateState(txn, hashService, &stateDiff, "", 0)
-	hashService.Close(context.Background())
+	contractHashMap := map[string]*big.Int{
+		"1": big.NewInt(1),
+	}
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "TEST-DB")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var stateCommitment string
+	err = database.RunTxn(func(txn db.DatabaseOperations) (err error) {
+		stateCommitment, err = updateState(txn, contractHashMap, &stateDiff, "", 0)
+		return err
+	})
 	if err != nil {
 		t.Error("Error updating state")
 	}
-	txn.Commit()
 
 	want := stateTrie.Commitment()
 	commitment, _ := new(big.Int).SetString(stateCommitment, 16)

@@ -96,11 +96,11 @@ func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
 	}
 	switch t := token.(type) {
 	case float64:
-		blockNumber := uint64(t)
-		if blockNumber < 0 {
+		if t < 0 {
 			// notest
 			return errors.New("invalid block number")
 		}
+		blockNumber := uint64(t)
 		*x = BlockNumberOrTag{Number: &blockNumber}
 	case string:
 		// notest
@@ -198,9 +198,6 @@ type StateUpdate struct {
 }
 
 type Address Felt
-
-// TxnHash The transaction hash, as assigned in StarkNet
-type TxnHash Felt
 
 // Txn Transaction
 type Txn struct {
@@ -326,8 +323,8 @@ func NewEvent(event *types.Event) *Event {
 // EmittedEvent Represent Event information decorated with metadata on where it was emitted
 type EmittedEvent struct {
 	Event
-	BlockHash       BlockHash `json:"block_hash"`
-	TransactionHash TxnHash   `json:"transaction_hash"`
+	BlockHash       BlockHash             `json:"block_hash"`
+	TransactionHash types.TransactionHash `json:"transaction_hash"`
 }
 
 // TxnReceipt Receipt of the transaction
@@ -366,7 +363,7 @@ func NewTxnReceipt(receipt *types.TransactionReceipt) *TxnReceipt {
 
 // CodeResult The code and ABI for the requested contract
 type CodeResult struct {
-	Bytecode []Felt `json:"bytecode"`
+	Bytecode []types.Felt `json:"bytecode"`
 	// The ABI of the contract in JSON format. Uses the same structure as EVM ABI
 	Abi string `json:"abi"`
 }

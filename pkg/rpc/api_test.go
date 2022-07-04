@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/NethermindEth/juno/pkg/types"
+
+	"gotest.tools/assert"
 )
 
 var (
@@ -18,6 +24,9 @@ var (
 	testFelt2 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000002")
 	testFelt3 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000003")
 	testFelt4 types.Felt = types.HexToFelt("0x0000000000000000000000000000000000000000000000000000000000000004")
+
+	fakeClient feederfakes.FakeHttpClient = feederfakes.FakeHttpClient{}
+	client     feeder.HttpClient          = &fakeClient
 )
 
 func buildRequest(method string, params ...interface{}) string {
@@ -53,8 +62,24 @@ func buildResponse(result interface{}) string {
 }
 
 func TestStarknetGetStorageAt(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
+	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Error(err)
+	}
+	stateDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	if err != nil {
+		t.Error(err)
+	}
 	// setup
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpected error starting block service: %s", err)
 	}
@@ -62,7 +87,7 @@ func TestStarknetGetStorageAt(t *testing.T) {
 
 	blockHash := types.BlockHash(testFelt1)
 	blockNumber := uint64(2175)
-	services.BlockService.StoreBlock(blockHash, &types.Block{
+	block := &types.Block{
 		BlockHash:       blockHash,
 		BlockNumber:     blockNumber,
 		ParentHash:      types.HexToBlockHash("0xf8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
@@ -80,12 +105,13 @@ func TestStarknetGetStorageAt(t *testing.T) {
 			types.HexToTransactionHash("0x5ce76214481ebb29f912cb5d31abdff34fd42217f5ece9dda76d9fcfd62dc73"),
 			types.HexToTransactionHash("0x4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
 		},
-	})
+	}
+	services.BlockService.StoreBlock(blockHash, block)
 
 	services.StateService.Setup(
-		db.NewKeyValueDb(t.TempDir(), 0),
-		db.NewKeyValueDb(t.TempDir(), 0),
-		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
+		storageDb,
+		codeDb,
+
 	)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
@@ -102,25 +128,56 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	}
 	services.StateService.StoreStorage(address.Hex(), blockNumber, storage)
 
+	// Set up feeder client for PENDING block
+	body, err := json.Marshal(block)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+	}
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
 	// test
 	testServer(t, []rpcTest{
 		{
 			Request:  buildRequest("starknet_getStorageAt", address.Hex(), key.Hex(), blockHash.Felt().String()),
 			Response: buildResponse(Felt(value.Hex())),
 		},
+		{
+			Request:  buildRequest("starknet_getStorageAt", address.Hex(), key.Hex(), BlocktagPending),
+			Response: buildResponse(Felt(value.Hex())),
+		},
 	})
 }
 
 func TestStarknetGetCode(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	abiDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
+	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	if err != nil {
+		t.Error(err)
+	}
 	// setup
-	services.AbiService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.AbiService.Setup(abiDb)
 	if err := services.AbiService.Run(); err != nil {
 		t.Fatalf("unexpected error starting abi service: %s", err)
 	}
 	defer services.AbiService.Close(context.Background())
 
 	address := types.Address(testFelt2)
-	abi := &abi.Abi{
+	wantAbi := &abi.Abi{
 		Functions: []*abi.Function{
 			{
 				Name: "initialize",
@@ -202,15 +259,20 @@ func TestStarknetGetCode(t *testing.T) {
 	}
 
 	services.StateService.Setup(
+<<<<<<< HEAD
 		db.NewKeyValueDb(t.TempDir(), 0),
 		db.NewKeyValueDb(t.TempDir(), 0),
 		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
+=======
+		codeDb,
+		db.NewBlockSpecificDatabase(storageDb),
+>>>>>>> main
 	)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
 
-	services.AbiService.StoreAbi(address.Hex(), abi)
+	services.AbiService.StoreAbi(address.Hex(), wantAbi)
 
 	defer services.StateService.Close(context.Background())
 
@@ -224,17 +286,106 @@ func TestStarknetGetCode(t *testing.T) {
 	}
 	services.StateService.StoreBinaryCode(address.Bytes(), code)
 
-	abiResponse, _ := json.Marshal(abi)
-	codeResponse := make([]Felt, len(code.Code))
+	abiResponse, _ := json.Marshal(wantAbi)
+	codeResponse := make([]types.Felt, len(code.Code))
 	for i, bcode := range code.Code {
-		codeResponse[i] = Felt(types.BytesToFelt(bcode).Hex())
+		codeResponse[i] = types.BytesToFelt(bcode)
 	}
 
+	// Set up feeder client for pending block
+	input := `{"abi": [{"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "function"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "l1_handler"}, {"members": [{"offset": 1, "name": "a", "type": "a"}], "name": "a", "size": 1, "type": "struct"}, {"inputs": [{"name": "a", "type": "a"}], "name": "a", "outputs": [{"name": "a", "type": "a"}], "type": "constructor"}, {"data": [{"name": "a", "type": "a"}], "keys": ["a"], "name": "a", "type": "event"}], "bytecode": ["0xa"]}`
+	fakeClient.DoReturns(generateResponse(input), nil)
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	want := &abi.Abi{
+		Functions: []*abi.Function{
+			{
+				Name: "a",
+				Inputs: []*abi.Function_Input{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+				Outputs: []*abi.Function_Output{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+			},
+		},
+		Events: []*abi.AbiEvent{
+			{
+				Name: "a",
+				Data: []*abi.AbiEvent_Data{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+				Keys: []string{"a"},
+			},
+		},
+		Structs: []*abi.Struct{
+			{
+				Fields: []*abi.Struct_Field{
+					{
+						Name:   "a",
+						Type:   "a",
+						Offset: 1,
+					},
+				},
+				Name: "a",
+				Size: 1,
+			},
+		},
+		L1Handlers: []*abi.Function{
+			{
+				Name: "a",
+				Inputs: []*abi.Function_Input{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+				Outputs: []*abi.Function_Output{
+					{
+						Name: "a",
+						Type: "a",
+					},
+				},
+			},
+		},
+		Constructor: &abi.Function{
+			Name: "a",
+			Inputs: []*abi.Function_Input{
+				{
+					Name: "a",
+					Type: "a",
+				},
+			},
+			Outputs: []*abi.Function_Output{
+				{
+					Name: "a",
+					Type: "a",
+				},
+			},
+		},
+	}
+	abiResponse2, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
 	// test
 	testServer(t, []rpcTest{
 		{
 			Request:  buildRequest("starknet_getCode", address.Hex()),
 			Response: buildResponse(CodeResult{Bytecode: codeResponse, Abi: string(abiResponse)}),
+		},
+		{
+			Request:  buildRequest("starknet_getCode", "0xa"), // address not held locally --> must query feeder gateway
+			Response: buildResponse(CodeResult{Bytecode: []types.Felt{types.HexToFelt("a")}, Abi: string(abiResponse2)}),
 		},
 	})
 }
@@ -391,14 +542,30 @@ var (
 )
 
 func TestGetBlock(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// Initialize transaction service
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
 	defer services.TransactionService.Close(context.Background())
 	// Initialize block service
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpeceted error starting the block service: %s", err)
 	}
@@ -504,10 +671,217 @@ func TestGetBlock(t *testing.T) {
 			})
 		}
 	}
+
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	body, err := json.Marshal(feeder.StarknetBlock{
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
+		SequencerAddress: "a",
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
+		Transactions:     []feeder.TxnSpecificInfo{},
+	})
+	if err != nil {
+		t.Fatal("unexpected marshal error")
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error while initializing fake data in feeder client")
+	}
+	want := &BlockResponse{
+		BlockHash:    types.HexToBlockHash("a"),
+		ParentHash:   types.HexToBlockHash("a"),
+		BlockNumber:  0,
+		Status:       types.StringToBlockStatus("UNKNOWN"),
+		Sequencer:    types.HexToAddress("a"),
+		NewRoot:      types.HexToFelt("a"),
+		Transactions: []*Txn{},
+	}
+	// Test request for pending block
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_getBlockByNumber", BlocktagPending, ""), // scope is irrelevant
+			Response: buildResponse(want),
+		},
+	})
+}
+
+// generateResponse returns a HTTP 200 response
+func generateResponse(body string) *http.Response {
+	return &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		ContentLength: int64(len(body)),
+		Header:        make(http.Header, 0),
+	}
+}
+
+func TestGetBlockByTag(t *testing.T) {
+	// Reassign global feederClient with fake http client
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	tx := Txn{
+		FunctionCall: FunctionCall{
+			ContractAddress:    types.HexToAddress("a"),
+			EntryPointSelector: types.HexToFelt("a"),
+			CallData:           []types.Felt{types.HexToFelt("a")},
+		},
+		TxnHash: types.HexToTransactionHash("a"),
+	}
+
+	tests := [...]struct {
+		scope RequestedScope
+		want  interface{}
+	}{
+		{
+			scope: ScopeTxnHash,
+			want:  []*types.TransactionHash{&tx.TxnHash},
+		},
+		{
+			scope: ScopeFullTxns,
+			want:  []*Txn{&tx},
+		},
+		{
+			scope: ScopeFullTxnAndReceipts,
+			want: []*TxnAndReceipt{
+				{
+					Txn: tx,
+					TxnReceipt: TxnReceipt{
+						TxnHash:    types.HexToTransactionHash("a"),
+						Status:     types.TxStatusUnknown,
+						StatusData: "",
+						MessagesSent: []*MsgToL1{
+							{
+								ToAddress: types.HexToEthAddress("a"),
+								Payload:   []types.Felt{types.HexToFelt("a")},
+							},
+						},
+						L1OriginMessage: &MsgToL2{
+							FromAddress: types.HexToEthAddress("a"),
+							Payload:     []types.Felt{types.HexToFelt("a")},
+						},
+						Events: []*Event{
+							{
+								FromAddress: types.HexToAddress("a"),
+								EventContent: EventContent{
+									Keys: []types.Felt{types.HexToFelt("a")},
+									Data: []types.Felt{types.HexToFelt("a")},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// TODO get an actual block for this. Make data more realistic
+	fakeBlock := feeder.StarknetBlock{
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
+		SequencerAddress: "a",
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
+				EntryPointSelector: "a",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
+			},
+		},
+		TransactionReceipts: []feeder.TransactionExecution{
+			{
+				TransactionIndex: 0,
+				TransactionHash:  "a",
+				L1ToL2Message: feeder.L1ToL2Message{
+					FromAddress: "a",
+					ToAddress:   "a",
+					Selector:    "a",
+					Payload:     []string{"a"},
+					Nonce:       "0",
+				},
+				L2ToL1Messages: []feeder.L2ToL1Message{
+					{
+						FromAddress: "a",
+						ToAddress:   "a",
+						Payload:     []string{"a"},
+					},
+				},
+				Events: []feeder.Event{
+					{
+						FromAddress: "a",
+						Keys:        []string{"a"},
+						Data:        []string{"a"},
+					},
+				},
+				ExecutionResources: feeder.ExecutionResources{
+					NSteps:                 0,
+					BuiltinInstanceCounter: map[string]int64{"a": 0},
+					NMemoryHoles:           0,
+				},
+				ActualFee: "0",
+			},
+		},
+	}
+
+	want := &BlockResponse{
+		BlockHash:   types.HexToBlockHash("a"),
+		ParentHash:  types.HexToBlockHash("a"),
+		BlockNumber: 0,
+		Status:      types.StringToBlockStatus("UNKNOWN"),
+		Sequencer:   types.HexToAddress("a"),
+		NewRoot:     types.HexToFelt("a"),
+	}
+
+	for _, test := range tests {
+		t.Run(string(test.scope), func(t *testing.T) {
+			body, err := json.Marshal(fakeBlock)
+			if err != nil {
+				t.Fatal("unexpected marshal error", err)
+			}
+			fakeClient.DoReturns(generateResponse(string(body)), nil)
+			if err != nil {
+				t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+			}
+
+			want.Transactions = test.want
+			response, err := getBlockByTag(context.Background(), "", test.scope)
+			if err != nil {
+				t.Fatal("unexpected error when calling `getBlockByTag`", err)
+			}
+			assert.DeepEqual(t, response, want)
+		})
+	}
 }
 
 func TestGetTransactionByHash(t *testing.T) {
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
@@ -527,15 +901,77 @@ func TestGetTransactionByHash(t *testing.T) {
 	}
 }
 
+func TestStarknetPendingTransactions(t *testing.T) {
+	// Reassign global feederClient with fake http client
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	// Generate fake response
+	x := feeder.StarknetBlock{
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
+				EntryPointSelector: "a",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
+			},
+		},
+	}
+	body, err := json.Marshal(x)
+	if err != nil {
+		t.Fatal("unexpected marshal error")
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error while initializing fake data in feeder client")
+	}
+
+	// Test
+	want := []*Txn{
+		{
+			FunctionCall: FunctionCall{
+				ContractAddress:    types.HexToAddress("a"),
+				EntryPointSelector: types.HexToFelt("a"),
+				CallData:           []types.Felt{types.HexToFelt("a")},
+			},
+			TxnHash: types.HexToTransactionHash("a"),
+		},
+	}
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_pendingTransactions"),
+			Response: buildResponse(want),
+		},
+	})
+}
+
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// Initialize transaction service
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
 	defer services.TransactionService.Close(context.Background())
 	// Initialize block service
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpeceted error starting the block service: %s", err)
 	}
@@ -558,19 +994,81 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 			})
 		}
 	}
+
+	// Make test case for pending block
+	fakeBlock := feeder.StarknetBlock{
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
+		SequencerAddress: "a",
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
+				EntryPointSelector: "a",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
+			},
+		},
+	}
+	// Set up feeder client for PENDING block
+	body, err := json.Marshal(fakeBlock)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+	}
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	tx := Txn{
+		FunctionCall: FunctionCall{
+			ContractAddress:    types.HexToAddress("a"),
+			EntryPointSelector: types.HexToFelt("a"),
+			CallData:           []types.Felt{types.HexToFelt("a")},
+		},
+		TxnHash: types.HexToTransactionHash("a"),
+	}
+	tests = append(tests, rpcTest{
+		Request:  buildRequest("starknet_getTransactionByBlockHashAndIndex", BlocktagPending, 0),
+		Response: buildResponse(tx),
+	})
+
 	// Run tests
 	testServer(t, tests)
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 3, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	if err != nil {
+		t.Error(err)
+	}
+	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	if err != nil {
+		t.Error(err)
+	}
+	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	if err != nil {
+		t.Error(err)
+	}
 	// Initialize transaction service
-	services.TransactionService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.TransactionService.Setup(txDb, receiptDb)
 	if err := services.TransactionService.Run(); err != nil {
 		t.Fatalf("unexpected error starting the transaction service: %s", err)
 	}
 	defer services.TransactionService.Close(context.Background())
 	// Initialize block service
-	services.BlockService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
+	services.BlockService.Setup(blockDb)
 	if err := services.BlockService.Run(); err != nil {
 		t.Fatalf("unexpeceted error starting the block service: %s", err)
 	}
@@ -593,6 +1091,83 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 			})
 		}
 	}
+
+	// Make test case for pending block
+	fakeBlock := feeder.StarknetBlock{
+		BlockHash:        "a",
+		ParentBlockHash:  "a",
+		BlockNumber:      0,
+		GasPrice:         "a",
+		SequencerAddress: "a",
+		StateRoot:        "a",
+		Status:           "a",
+		Timestamp:        0,
+		Transactions: []feeder.TxnSpecificInfo{
+			{
+				Calldata:           []string{"a"},
+				ContractAddress:    "a",
+				EntryPointSelector: "a",
+				EntryPointType:     "a",
+				Signature:          []string{"a"},
+				TransactionHash:    "a",
+				Type:               "INVOKE",
+			},
+		},
+	}
+
+	// Set up feeder client for PENDING block
+	body, err := json.Marshal(fakeBlock)
+	if err != nil {
+		t.Fatal("unexpected marshal error", err)
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error when calling `feeder.DoReturns`", err)
+	}
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+	tx := Txn{
+		FunctionCall: FunctionCall{
+			ContractAddress:    types.HexToAddress("a"),
+			EntryPointSelector: types.HexToFelt("a"),
+			CallData:           []types.Felt{types.HexToFelt("a")},
+		},
+		TxnHash: types.HexToTransactionHash("a"),
+	}
+	tests = append(tests, rpcTest{
+		Request:  buildRequest("starknet_getTransactionByBlockNumberAndIndex", BlocktagPending, 0),
+		Response: buildResponse(tx),
+	})
+
 	// Run tests
 	testServer(t, tests)
+}
+
+func TestStarknetCall(t *testing.T) {
+	funcCall := FunctionCall{
+		ContractAddress:    types.HexToAddress("a"),
+		EntryPointSelector: types.HexToFelt("a"),
+		CallData:           []types.Felt{types.HexToFelt("a")},
+	}
+
+	// Reassign global feederClient with fake http client
+	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
+
+	// Generate fake response
+	x := &map[string][]string{"result": {"a"}}
+	body, err := json.Marshal(x)
+	if err != nil {
+		t.Fatal("unexpected marshal error")
+	}
+	fakeClient.DoReturns(generateResponse(string(body)), nil)
+	if err != nil {
+		t.Fatal("unexpected error while initializing fake data in feeder client")
+	}
+
+	// Test
+	testServer(t, []rpcTest{
+		{
+			Request:  buildRequest("starknet_call", funcCall, BlocktagPending),
+			Response: buildResponse(ResultCall{"a"}),
+		},
+	})
 }

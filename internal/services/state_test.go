@@ -29,16 +29,29 @@ var codes = []struct {
 	},
 }
 
-func TestStateService_Code(t *testing.T) {
-	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
-	codeDefinitionDb := db.NewKeyValueDb(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	StateService.Setup(codeDatabase, codeDefinitionDb, storageDatabase)
-
-	err := StateService.Run()
+func stateServiceInitServices(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
 	if err != nil {
-		t.Errorf("unexpected error starting the service: %s", err)
+		t.Error(err)
 	}
+	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	if err != nil {
+		t.Error(err)
+	}
+	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
+	StateService.Setup(codeDb, storageDatabase)
+	err = StateService.Run()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestStateService_Code(t *testing.T) {
+	stateServiceInitServices(t)
 	defer StateService.Close(context.Background())
 
 	for _, code := range codes {
@@ -53,12 +66,12 @@ func TestStateService_Code(t *testing.T) {
 func TestService_Storage(t *testing.T) {
 	initialData := [...]struct {
 		Contract    string
-		Storage     state.Storage
+		Storage     *state.Storage
 		BlockNumber uint64
 	}{
 		{
 			"20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-			state.Storage{Storage: map[string]string{
+			&state.Storage{Storage: map[string]string{
 				"5": "22b",
 				"5aee31408163292105d875070f98cb48275b8c87e80380b78d30647e05854d5": "7e5",
 			}},
@@ -66,7 +79,7 @@ func TestService_Storage(t *testing.T) {
 		},
 		{
 			"20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-			state.Storage{Storage: map[string]string{
+			&state.Storage{Storage: map[string]string{
 				"313ad57fdf765addc71329abf8d74ac2bce6d46da8c2b9b82255a5076620300": "4e7e989d58a17cd279eca440c5eaa829efb6f9967aaad89022acbe644c39b36",
 				"313ad57fdf765addc71329abf8d74ac2bce6d46da8c2b9b82255a5076620301": "453ae0c9610197b18b13645c44d3d0a407083d96562e8752aab3fab616cecb0",
 				"6cf6c2f36d36b08e591e4489e92ca882bb67b9c39a3afccf011972a8de467f0": "7ab344d88124307c07b56f6c59c12f4543e9c96398727854a322dea82c73240",
@@ -74,20 +87,11 @@ func TestService_Storage(t *testing.T) {
 			5,
 		},
 	}
-	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
-	codeDefinitionDb := db.NewKeyValueDb(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	StateService.Setup(codeDatabase, codeDefinitionDb, storageDatabase)
-
-	err := StateService.Run()
-	if err != nil {
-		t.Errorf("error starting the service: %s", err)
-	}
+	stateServiceInitServices(t)
 	defer StateService.Close(context.Background())
 
 	for _, data := range initialData {
-		// StateService.StoreStorage(data.Contract, data.BlockNumber, &data.Storage)
-		StateService.UpdateStorage(data.Contract, data.BlockNumber, &data.Storage)
+		StateService.UpdateStorage(data.Contract, data.BlockNumber, data.Storage)
 	}
 	tests := [...]struct {
 		Contract    string

@@ -2,9 +2,7 @@ package services
 
 import (
 	"context"
-	"path/filepath"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
@@ -18,12 +16,12 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(binaryCodeDb, codeDefinitionDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *stateService) Setup(stateDb, binaryCodeDb, codeDefinitionDb db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("service is already running")
 	}
-	s.manager = state.NewStateManager(binaryCodeDb, codeDefinitionDb, storageDatabase)
+	s.manager = state.NewStateManager(stateDb, binaryCodeDb, codeDefinitionDb)
 }
 
 func (s *stateService) Run() error {
@@ -36,21 +34,38 @@ func (s *stateService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
+	return s.setDefaults()
+}
+
+func (s *stateService) setDefaults() error {
+	if s.manager == nil {
+		// notest
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		stateDb, err := db.NewMDBXDatabase(env, "STATE")
+		if err != nil {
+			return err
+		}
+		binaryCodeDb, err := db.NewMDBXDatabase(env, "BINARY_CODE")
+		if err != nil {
+			return err
+		}
+		codeDefinitionDb, err := db.NewMDBXDatabase(env, "CODE_DEFINITION")
+		if err != nil {
+			return err
+		}
+		s.manager = state.NewStateManager(stateDb, binaryCodeDb, codeDefinitionDb)
+	}
 	return nil
 }
 
-func (s *stateService) setDefaults() {
-	if s.manager == nil {
-		// notest
-		codeDatabase := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "code"), 0)
-		codeDefinitionDb := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "codeDefinition"), 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
-	}
-}
-
 func (s *stateService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

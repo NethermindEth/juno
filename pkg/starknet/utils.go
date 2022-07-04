@@ -15,7 +15,6 @@ import (
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
@@ -39,7 +38,7 @@ func (e *feederErr) Error() string {
 var errFeeder = fmt.Errorf("starknet: failed to retrieve contract definition")
 
 // newTrie returns a new Trie
-func newTrie(database db.Databaser, prefix string) trie.Trie {
+func newTrie(database db.DatabaseOperations, prefix string) trie.Trie {
 	store := db.NewKeyValueStore(database, prefix)
 	return trie.New(store, 251)
 }
@@ -145,12 +144,17 @@ func initialBlockForStarknetContract(id int64) int64 {
 }
 
 // getNumericValueFromDB get the value associated to a key and convert it to integer
-func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
+func getNumericValueFromDB(database db.Database, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
+		// notest
+		if db.IsNotFound(err) {
+			return 0, nil
+		}
 		return 0, err
 	}
 	if value == nil {
+		// notest
 		return 0, nil
 	}
 	var ret uint64
@@ -159,11 +163,11 @@ func getNumericValueFromDB(database db.Databaser, key string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(ret), nil
+	return ret, nil
 }
 
 // updateNumericValueFromDB update the value in the database for a key increasing the value in 1
-func updateNumericValueFromDB(database db.Databaser, key string, value uint64) error {
+func updateNumericValueFromDB(database db.DatabaseOperations, key string, value uint64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, value+1)
 	err := database.Put([]byte(key), b)
@@ -178,8 +182,8 @@ func updateNumericValueFromDB(database db.Databaser, key string, value uint64) e
 // updateState is a pure function (besides logging) that applies the
 // `update` StateDiff to the database transaction `txn`.
 func updateState(
-	txn db.Transaction,
-	hashService *services.ContractHashService,
+	txn db.DatabaseOperations,
+	contractHashMap map[string]*big.Int,
 	update *starknetTypes.StateDiff,
 	stateRoot string,
 	sequenceNumber uint64,
@@ -195,7 +199,6 @@ func updateState(
 			// notest
 			log.Default.Panic("Couldn't get contract hash")
 		}
-		hashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
 		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
@@ -235,7 +238,7 @@ func updateState(
 			log.Default.With("Address", formattedAddress).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
-		contractHash := hashService.GetContractHash(formattedAddress)
+		contractHash := contractHashMap[formattedAddress]
 		contractStateValue := contractState(contractHash, storageRoot)
 
 		stateTrie.Put(address, contractStateValue)
@@ -301,7 +304,7 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 	for _, data := range b.Transactions {
 		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
 	}
-	status, _ := types.BlockStatusValue[string(b.Status)]
+	status, _ := types.BlockStatusValue[b.Status]
 	return &types.Block{
 		BlockHash:   types.HexToBlockHash(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),

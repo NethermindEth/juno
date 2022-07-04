@@ -28,9 +28,23 @@ var codes = []struct {
 }
 
 func TestManager_Code(t *testing.T) {
-	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
-	codeDefinitionDd := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := NewStateManager(codeDatabase, codeDefinitionDd, nil, nil)
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateDb, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	binaryCodeDb, err := db.NewMDBXDatabase(env, "BINARY_CODE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	codeDefinitionDb, err := db.NewMDBXDatabase(env, "CODE_DEFINITION")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewStateManager(stateDb, binaryCodeDb, codeDefinitionDb)
 	for _, code := range codes {
 		manager.PutBinaryCode(code.Address, code.Code)
 		obtainedCode := manager.GetBinaryCode(code.Address)

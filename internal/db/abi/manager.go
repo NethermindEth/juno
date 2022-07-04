@@ -16,11 +16,11 @@ var (
 
 // Manager is a database to store and get the contracts ABI.
 type Manager struct {
-	database db.Databaser
+	database db.Database
 }
 
 // NewABIManager creates a new Manager instance.
-func NewABIManager(database db.Databaser) *Manager {
+func NewABIManager(database db.Database) *Manager {
 	return &Manager{database}
 }
 
@@ -32,6 +32,9 @@ func (m *Manager) GetABI(contractAddress string) *Abi {
 	// Query to database
 	data, err := m.database.Get(key)
 	if err != nil {
+		if db.ErrNotFound == err {
+			return nil
+		}
 		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}

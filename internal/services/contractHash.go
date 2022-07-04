@@ -6,73 +6,92 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/log"
-	"go.uber.org/zap"
 )
 
-var contractHashService ContractHashService
+var ContractHashService contractHashService
 
-type ContractHashService struct {
-	started      bool
-	storeChannel chan contractHashInstruction
-	db           *db.Databaser
-	logger       *zap.SugaredLogger
+type contractHashService struct {
+	service
+	db db.Database
 }
 
-func NewContractHashService(database db.Databaser) *ContractHashService {
-	storeChannel := make(chan contractHashInstruction, 100)
-	contractHashService = ContractHashService{
-		started:      false,
-		storeChannel: storeChannel,
-		db:           &database,
-		logger:       log.Default.Named("Contract Hash service"),
-	}
-	return &contractHashService
-}
-
-func (service *ContractHashService) Run() error {
-	service.started = true
-	for storeInst := range service.storeChannel {
-		err := (*service.db).Put([]byte(storeInst.ContractAddress), storeInst.ContractHash)
-		if err != nil {
-			// notest
-			log.Default.With("Error", err).Panic("Couldn't save contract hash in database")
-		}
-	}
-	return nil
-}
-
-func (service *ContractHashService) Close(ctx context.Context) {
-	service.logger.Info("Closing service...")
-	close(service.storeChannel)
-	(*service.db).Close()
-	service.logger.Info("Closed")
-}
-
-type contractHashInstruction struct {
-	ContractAddress string
-	ContractHash    []byte
-}
-
-func (service *ContractHashService) StoreContractHash(contractAddress string, contractHash *big.Int) {
-	service.storeChannel <- contractHashInstruction{
-		ContractAddress: contractAddress,
-		ContractHash:    contractHash.Bytes(),
-	}
-}
-
-func (service *ContractHashService) GetContractHash(contractAddress string) *big.Int {
-	get, err := (*service.db).Get([]byte(contractAddress))
-	if err != nil || get == nil {
+func (s *contractHashService) Setup(database db.Database) {
+	if s.Running() {
 		// notest
-		return new(big.Int)
+		s.logger.Panic("trying to Setup with service running")
 	}
-	return new(big.Int).SetBytes(get)
+	s.db = database
 }
 
-func GetContractHashService() *ContractHashService {
-	if contractHashService.started {
-		return &contractHashService
+func (s *contractHashService) Run() error {
+	if s.logger == nil {
+		s.logger = log.Default.Named("ContractHash Service")
 	}
-	// notest
+
+	if err := s.service.Run(); err != nil {
+		return err
+	}
+
+	return s.setDefaults()
+}
+
+func (s *contractHashService) setDefaults() error {
+	if s.db == nil {
+		// notest
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		database, err := db.NewMDBXDatabase(env, "CONTRACT_HASH")
+		if err != nil {
+			return err
+		}
+		s.db = database
+	}
 	return nil
+}
+
+func (s *contractHashService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
+	s.service.Close(ctx)
+	s.db.Close()
+}
+
+func (s *contractHashService) StoreContractHash(contractAddress string, contractHash *big.Int) {
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Debug("StoreContractHash")
+
+	err := s.db.Put([]byte(contractAddress), contractHash.Bytes())
+	if err != nil {
+		// notest
+		s.logger.
+			With("error", err).
+			Error("StoreContractHash error")
+	}
+}
+
+func (s *contractHashService) GetContractHash(contractAddress string) *big.Int {
+	// notest
+	s.AddProcess()
+	defer s.DoneProcess()
+
+	s.logger.
+		With("contractAddress", contractAddress).
+		Debug("GetContractHash")
+
+	rawData, err := s.db.Get([]byte(contractAddress))
+	if err != nil {
+		s.logger.
+			With("error", err).
+			Error("GetContractHash error")
+		return nil
+	}
+	return new(big.Int).SetBytes(rawData)
 }

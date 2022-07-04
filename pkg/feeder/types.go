@@ -3,7 +3,6 @@ package feeder
 // notest
 import (
 	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
-	"github.com/NethermindEth/juno/pkg/types"
 )
 
 type (
@@ -78,11 +77,11 @@ type InvokeFunction struct {
 	ExecutionResources `json:"execution_resources"`
 	// The transaction is not valid if its version is lower than the current version,
 	// defined by the SN OS.
-	Version        int              `json:"version"`
-	Signature      []int            `json:"signature"`
-	InternallCalls []InvokeFunction `json:"internall_calls"`
-	Events         []Event          `json:"events"`
-	Messages       []string         `json:"messages"`
+	Version        int      `json:"version"`
+	Signature      []int    `json:"signature"`
+	InternallCalls []string `json:"internall_calls"`
+	Events         []Event  `json:"events"`
+	Messages       []string `json:"messages"`
 	// The maximal fee to be paid in Wei for executing invoked function.
 	MaxFee string `json:"max_fee"`
 }
@@ -123,8 +122,8 @@ type L1ToL2Message struct {
 // L2ToL1Message Represents a StarkNet L2-to-L1 message.
 type L2ToL1Message struct {
 	FromAddress string   `json:"from_address"`
-	ToAddress   string   `json:"to_address,omitemtpy"`
-	Payload     []string `json:"payload,omitemtpy"`
+	ToAddress   string   `json:"to_address"`
+	Payload     []string `json:"payload"`
 }
 
 // Event Represents a StarkNet event; contains all the fields that will
@@ -170,8 +169,8 @@ type StarknetBlock struct {
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
+	Status              string                 `json:"status"`
 	OldStateRoot        string                 `json:"old_state_root"`
-	Status              types.BlockStatus      `json:"status"`
 	Transactions        []TxnSpecificInfo      `json:"transactions"`
 	Timestamp           int64                  `json:"timestamp"`
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
@@ -188,9 +187,9 @@ type CodeInfo struct {
 
 // TransactionFailureReason store reason of failure in transactions.
 type TransactionFailureReason struct {
-	TxID     int64  `json:"tx_id"`
-	Code     string `json:"code"`
-	ErrorMsg string `json:"error_message"`
+	TxID     int64  `json:"tx_id,omitempty"`
+	Code     string `json:"code,omitempty"`
+	ErrorMsg string `json:"message,omitempty"`
 }
 
 // type TxnStatus string
@@ -207,7 +206,7 @@ type TransactionInfo struct {
 // transaction that appears in a block.
 type TransactionInBlockInfo struct {
 	// The reason for the transaction failure, if applicable.
-	TransactionFailureReason `json:"transaction_failure_reason"`
+	TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
 	TransactionStatus
 	// The sequence number of the block corresponding to block_hash, which
 	// is the number of blocks prior to it in the active chain.
@@ -219,9 +218,9 @@ type TransactionInBlockInfo struct {
 
 type TransactionStatus struct {
 	// tx_status for get_transaction_status
-	TxStatus string `json:"tx_status"`
+	TxStatus string `json:"tx_status,omitempty"`
 	// status for other calls.
-	Status    string `json:"status"`
+	Status    string `json:"status,omitempty"`
 	BlockHash string `json:"block_hash"`
 }
 
@@ -263,12 +262,12 @@ type StateUpdateResponseGoerli struct {
 
 type DeployedContract struct {
 	Address      string `json:"address"`
-	ContractHash string `json:"contract_hash"`
+	ContractHash string `json:"class_hash"`
 }
 
 type StateDiff struct {
-	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
+	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 }
 
 // StateUpdateResponse represents the response of a StarkNet state
@@ -278,4 +277,14 @@ type StateUpdateResponse struct {
 	NewRoot   string    `json:"new_root"`
 	OldRoot   string    `json:"old_root"`
 	StateDiff StateDiff `json:"state_diff"`
+}
+
+type Fee struct {
+	Amount int    `json:"amount,omitempty"`
+	Unit   string `json:"unit,omitempty"`
+}
+
+type EstimateFeeResponse struct {
+	TransactionFailureReason
+	Fee
 }
