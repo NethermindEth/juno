@@ -161,8 +161,10 @@ func buildResponse(id any, result any, err error) json.RawMessage {
 			response.Error = newErrParseError(nil)
 		} else if errors.Is(err, errInvalidParams) {
 			response.Error = newErrInvalidParams(nil)
-		} else {
+		} else if errors.Is(err, errInternalError) {
 			response.Error = newErrInternalError(nil)
+		} else {
+			response.Error = err
 		}
 	}
 
