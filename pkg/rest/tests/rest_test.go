@@ -37,12 +37,8 @@ func init() {
 	client = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &p)
 	restHandler.RestFeeder = client
 	failClient = feeder.NewClientWithRetryFuncForDoReq("https://localhost:8100", "/feeder_gateway/", &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
-		var res *http.Response
-		for i := 0; err != nil && i < 2; i++ {
-			time.Sleep(failRequestTimeout)
-			res, err = httpClient.Do(req)
-		}
-		return res, err
+		time.Sleep(failRequestTimeout)
+		return httpClient.Do(req)
 	})
 	failRestHandler.RestFeeder = failClient
 }
