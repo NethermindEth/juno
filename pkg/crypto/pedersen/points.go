@@ -2058,45 +2058,45 @@ func divMod(n, m, p *big.Int) *big.Int {
 	return r.Mod(r, p)
 }
 
-// Inf returns the point at infinity i.e. (0, 0) and can also be viewed
+// inf returns the point at infinity i.e. (0, 0) and can also be viewed
 // as a default initialiser for a point on an elliptic curve.
-func Inf() *point {
+func inf() *point {
 	return &point{new(felt.Felt), new(felt.Felt)}
 }
 
-// Set sets p's coordinates to p2's coordinates and returns p.
-func (p *point) Set(other *point) *point {
+// set sets p's coordinates to p2's coordinates and returns p.
+func (p *point) set(other *point) *point {
 	p.x.Set(other.x)
 	p.y.Set(other.y)
 	return p
 }
 
-// IsInf returns true if p represents the point at infinity (0, 0), and
+// isInf returns true if p represents the point at infinity (0, 0), and
 // false otherwise.
-func (p *point) IsInf() bool {
+func (p *point) isInf() bool {
 	return p.x.IsZero() && p.y.IsZero()
 }
 
-// Add returns the sum of two points on an elliptic curve mod p and may
+// add returns the sum of two points on an elliptic curve mod p and may
 // return the point at infinity (see pedersen.Inf and *point.IsInf). It
 // is a port of the following https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164.
-func (p *point) Add(other *point) {
-	if p.IsInf() {
-		p.Set(other)
+func (p *point) add(other *point) {
+	if p.isInf() {
+		p.set(other)
 		return
 	}
 
-	if other.IsInf() {
+	if other.isInf() {
 		return
 	}
 
-	a := Inf().Set(p)
-	b := Inf().Set(other)
+	a := inf().set(p)
+	b := inf().set(other)
 
 	m := new(felt.Felt)
 	if a.x.Cmp(b.x) == 0 {
 		if a.y.Cmp(m.Neg(b.y)) == 0 {
-			p.Set(Inf())
+			p.set(inf())
 			return
 		} else {
 			// Elliptic curve slope double.

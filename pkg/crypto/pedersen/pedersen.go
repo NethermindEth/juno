@@ -30,7 +30,7 @@ func Digest(data ...*felt.Felt) *felt.Felt {
 		for j := 0; j < 252; j++ {
 			if x.FromMont().Bit(0) != 0 {
 				// x is odd
-				pt1.Add(&points[2+i*252+j])
+				pt1.add(&points[2+i*252+j])
 			}
 			x.ToMont().Rsh(x, 1)
 		}
