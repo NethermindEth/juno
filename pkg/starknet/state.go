@@ -60,9 +60,9 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		ethereumClient:      client,
 		feederGatewayClient: fClient,
 		database:            txnDb,
-		memoryPageHash:      starknetTypes.NewDictionary(txnDb, "memory_pages"),
-		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
-		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
+		memoryPageHash:      starknetTypes.NewDictionary(),
+		gpsVerifier:         starknetTypes.NewDictionary(),
+		facts:               starknetTypes.NewDictionary(),
 		chainID:             chainID.Int64(),
 	}
 }
@@ -261,13 +261,13 @@ func (s *Synchronizer) l1Sync() error {
 			if !s.facts.Exist(strconv.FormatUint(latestBlockSynced, 10)) {
 				continue
 			}
-			f, _ := s.facts.Get(strconv.FormatUint(latestBlockSynced, 10), &starknetTypes.Fact{})
+			f, _ := s.facts.Get(strconv.FormatUint(latestBlockSynced, 10))
 			fact := f.(starknetTypes.Fact)
 
 			if s.gpsVerifier.Exist(fact.Value) {
 				// Get memory pages hashes using fact
-				pagesHashes, err := s.gpsVerifier.Get(fact.Value, starknetTypes.PagesHash{})
-				if err != nil {
+				pagesHashes, ok := s.gpsVerifier.Get(fact.Value)
+				if !ok {
 					log.Default.With("Error").Panic("Fact has not been verified")
 				}
 				// If already exist the information related to the fact,
@@ -285,10 +285,7 @@ func (s *Synchronizer) l1Sync() error {
 				// update services
 				go s.updateServices(*stateDiff, "", strconv.FormatUint(fact.SequenceNumber, 10))
 
-				isNoErr := s.facts.Remove(strconv.FormatUint(latestBlockSynced-1, 10))
-				if !isNoErr {
-					return
-				}
+				s.facts.Remove(strconv.FormatUint(latestBlockSynced-1, 10))
 			}
 		}
 	}()
@@ -510,8 +507,8 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page
 		hash := common.BytesToHash(v[:])
-		transactionHash, err := s.memoryPageHash.Get(hash.Hex(), starknetTypes.TransactionHash{})
-		if err != nil {
+		transactionHash, ok := s.memoryPageHash.Get(hash.Hex())
+		if !ok {
 			return nil
 		}
 		txHash := transactionHash.(starknetTypes.TransactionHash).Hash

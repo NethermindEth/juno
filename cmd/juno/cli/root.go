@@ -100,7 +100,7 @@ var (
 				}
 				services.SetupSync(feederGatewayClient, ethereumClient)
 				// Initialize the Starknet Synchronizer Service.
-				processHandler.Add("Starknet Synchronizer", services.SyncService.Run,
+				processHandler.Add("Starknet Synchronizer", true, services.SyncService.Run,
 					services.SyncService.Close)
 			}
 
