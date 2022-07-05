@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -28,8 +28,9 @@ var (
 	restHandler        = rest.RestHandler{}
 	failRestHandler    = rest.RestHandler{}
 	failRequestTimeout = time.Millisecond * 400
-	baseUrl            = "https://localhost:8100"
+	baseURL            = "https://localhost:8100"
 	baseApi            = "/feeder_gateway/"
+	baseQuery          = baseURL + baseApi
 )
 
 func init() {
@@ -37,9 +38,9 @@ func init() {
 	p = httpClient
 	var pf feeder.HttpClient
 	pf = failHttpClient
-	client = feeder.NewClient(baseUrl, baseApi, &p)
+	client = feeder.NewClient(baseURL, baseApi, &p)
 	restHandler.RestFeeder = client
-	failClient = feeder.NewClientWithRetryFuncForDoReq(baseUrl, baseApi, &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
+	failClient = feeder.NewClientWithRetryFuncForDoReq(baseURL, baseApi, &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
 		time.Sleep(failRequestTimeout)
 		return httpClient.Do(req)
 	})
@@ -85,7 +86,7 @@ func TestRestClient(t *testing.T) {
 
 // TestRestClientRetryFunction
 func TestRestClientRetryFunction(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block"
+	queryStr := baseQuery + "/get_block"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -103,7 +104,7 @@ func TestRestClientRetryFunction(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	errorMessage := "feeder gateway failed"
-	httpClient.DoReturns(nil, fmt.Errorf("%s", errorMessage))
+	httpClient.DoReturns(nil, errors.New(errorMessage))
 
 	// Send Request expecting an error
 	restHandler.GetBlock(rr, req)
@@ -119,7 +120,7 @@ func TestRestClientRetryFunction(t *testing.T) {
 // TestGetBlockHandler
 func TestGetBlockHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_block"
+	queryStr := baseQuery + "/get_block"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +169,7 @@ func TestGetBlockHandler(t *testing.T) {
 
 // TestGetCodeHandler
 func TestGetCodeHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_code"
+	queryStr := baseQuery + "/get_code"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -213,7 +214,7 @@ func TestGetCodeHandler(t *testing.T) {
 
 // TestGetStorageAtHandler
 func TestGetStorageAtHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_storage_at"
+	queryStr := baseQuery + "/get_storage_at"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -266,7 +267,7 @@ func TestGetStorageAtHandler(t *testing.T) {
 
 // TestGetTransactionStatusHandler
 func TestGetTransactionStatusHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
+	queryStr := baseQuery + "/get_transaction_status"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -316,7 +317,7 @@ func TestGetTransactionStatusHandler(t *testing.T) {
 
 // TestGetTransactionReceiptHandler
 func TestGetTransactionRecieptHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_receipt"
+	queryStr := baseQuery + "/get_transaction_receipt"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -366,7 +367,7 @@ func TestGetTransactionRecieptHandler(t *testing.T) {
 
 // TestGetTransactionHandler
 func TestGetTransactionHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+	queryStr := baseQuery + "/get_transaction_id"
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
@@ -415,7 +416,7 @@ func TestGetTransactionHandler(t *testing.T) {
 
 // TestGetFullContractHandler
 func TestGetFullContractHandler(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_full_contract"
+	queryStr := baseQuery + "/get_full_contract"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -457,7 +458,7 @@ func TestGetFullContractHandler(t *testing.T) {
 // TestGetStateUpdateHandler
 func TestGetStateUpdateHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_state_update"
+	queryStr := baseQuery + "/get_state_update"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -507,7 +508,7 @@ func TestGetStateUpdateHandler(t *testing.T) {
 // TestGetContractAddressesHandler
 func TestGetContractAddressesHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_contract_addresses"
+	queryStr := baseQuery + "/get_contract_addresses"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -551,7 +552,7 @@ func TestGetContractAddressesHandler(t *testing.T) {
 // TestGetBlockHashByIDHandler
 func TestGetBlockHashbyIdHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_block_hash_by_id"
+	queryStr := baseQuery + "/get_block_hash_by_id"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -600,7 +601,7 @@ func TestGetBlockHashbyIdHandler(t *testing.T) {
 // TestGetBlockIDbyHashHandler
 func TestGetBlockIDByHashHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+	queryStr := baseQuery + "/get_block_id_by_hash"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -649,7 +650,7 @@ func TestGetBlockIDByHashHandler(t *testing.T) {
 // TestGetTransactionHashbyIdHandler
 func TestGetTransactionHashbyIdHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_hash_by_id"
+	queryStr := baseQuery + "/get_transaction_hash_by_id"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -698,7 +699,7 @@ func TestGetTransactionHashbyIdHandler(t *testing.T) {
 // TestGetTransactionIDbyHashHandler
 func TestGetTransactionIDByHashHandler(t *testing.T) {
 	// Build Request
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+	queryStr := baseQuery + "/get_transaction_id_by_hash"
 	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -750,7 +751,7 @@ func TestGetTransactionIDByHashHandler(t *testing.T) {
 
 // TestGetBlockWithoutBlockIdentifier
 func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block"
+	queryStr := baseQuery + "/get_block"
 
 	// Build Response without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -769,7 +770,7 @@ func TestGetBlockWithoutBlockIdentifier(t *testing.T) {
 }
 
 func TestGetCodeWithoutContractAddressAndBlockIdentifier(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_code"
+	queryStr := baseQuery + "/get_code"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -794,7 +795,7 @@ func TestGetCodeWithoutContractAddressAndBlockIdentifier(t *testing.T) {
 }
 
 func TestGetStorageAtWithoutKey(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+	queryStr := baseQuery + "/get_transaction"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -820,7 +821,7 @@ func TestGetStorageAtWithoutKey(t *testing.T) {
 }
 
 func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
+	queryStr := baseQuery + "/get_transaction_status"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -839,7 +840,7 @@ func TestGetTransactionStatusWithoutTransactionIdentifier(t *testing.T) {
 }
 
 func TestGetTransactionReceiptWithoutTransactionIdentifier(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_receipt"
+	queryStr := baseQuery + "/get_transaction_receipt"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -858,7 +859,7 @@ func TestGetTransactionReceiptWithoutTransactionIdentifier(t *testing.T) {
 }
 
 func TestGetTransactionWithoutTransactionIdentifier(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+	queryStr := baseQuery + "/get_transaction"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -877,7 +878,7 @@ func TestGetTransactionWithoutTransactionIdentifier(t *testing.T) {
 }
 
 func TestGetFullContractAtWithoutContractAddress(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+	queryStr := baseQuery + "/get_transaction"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -902,7 +903,7 @@ func TestGetFullContractAtWithoutContractAddress(t *testing.T) {
 }
 
 func TestGetStateUpdateWithoutBlockIdentifier(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_state_update"
+	queryStr := baseQuery + "/get_state_update"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -922,7 +923,7 @@ func TestGetStateUpdateWithoutBlockIdentifier(t *testing.T) {
 
 // TestGetBlockHashByIDWithoutTransactionId
 func TestGetBlockHashByIDWithoutTransactionId(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+	queryStr := baseQuery + "/get_block_id_by_hash"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -942,7 +943,7 @@ func TestGetBlockHashByIDWithoutTransactionId(t *testing.T) {
 
 // TestGetBlockIDByHashWithoutTransactionHash
 func TestGetBlockIDByHashWithoutTransactionHash(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+	queryStr := baseQuery + "/get_block_id_by_hash"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -962,7 +963,7 @@ func TestGetBlockIDByHashWithoutTransactionHash(t *testing.T) {
 
 // TestGetTransactionHashByIDWithoutTransactionId
 func TestGetTransactionHashByIDWithoutTransactionId(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+	queryStr := baseQuery + "/get_transaction_id_by_hash"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -982,7 +983,7 @@ func TestGetTransactionHashByIDWithoutTransactionId(t *testing.T) {
 
 // TestGetTransactionIDByHashWithoutTransactionHash
 func TestGetTransactionIDByHashWithoutTransactionHash(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+	queryStr := baseQuery + "/get_transaction_id_by_hash"
 
 	// Build Request without Query Args
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1006,7 +1007,7 @@ func TestGetTransactionIDByHashWithoutTransactionHash(t *testing.T) {
 
 // TestGetBlockHandlerFeederFail
 func TestGetBlockHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block"
+	queryStr := baseQuery + "/get_block"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1032,7 +1033,7 @@ func TestGetBlockHandlerFeederFail(t *testing.T) {
 
 // TestGetCodeHandlerFeederFail
 func TestGetCodeHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_code"
+	queryStr := baseQuery + "/get_code"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1059,7 +1060,7 @@ func TestGetCodeHandlerFeederFail(t *testing.T) {
 
 // TestGetStorageAtHandlerFeederFail
 func TestGetStorageAtHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_storage_at"
+	queryStr := baseQuery + "/get_storage_at"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1087,7 +1088,7 @@ func TestGetStorageAtHandlerFeederFail(t *testing.T) {
 
 // TestGetTransactionStatusHandlerFeederFail
 func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_status"
+	queryStr := baseQuery + "/get_transaction_status"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1113,7 +1114,7 @@ func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
 
 // TestGetTransactionReceiptHandlerFeederFail
 func TestGetTransactionReceiptHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_receipt"
+	queryStr := baseQuery + "/get_transaction_receipt"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1139,7 +1140,7 @@ func TestGetTransactionReceiptHandlerFeederFail(t *testing.T) {
 
 // TestGetTransactionHandlerFeederFail
 func TestGetTransactionHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction"
+	queryStr := baseQuery + "/get_transaction"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1165,7 +1166,7 @@ func TestGetTransactionHandlerFeederFail(t *testing.T) {
 
 // TestGetFullContractHandlerFeederFail
 func TestGetFullContractHandlerFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_full_contract"
+	queryStr := baseQuery + "/get_full_contract"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1192,7 +1193,7 @@ func TestGetFullContractHandlerFeederFail(t *testing.T) {
 
 // TestGetStateUpdateHandlerFeederFail
 func TestGetStateUpdateFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_state_update"
+	queryStr := baseQuery + "/get_state_update"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1218,7 +1219,7 @@ func TestGetStateUpdateFeederFail(t *testing.T) {
 
 // TestGetContractAddressesFeederFail
 func TestGetContractAddressesFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_contract_addresses"
+	queryStr := baseQuery + "/get_contract_addresses"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1238,7 +1239,7 @@ func TestGetContractAddressesFeederFail(t *testing.T) {
 
 // TestGetBlockIDByHashFeederFail
 func TestGetBlockIDByHashFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block_id_by_hash"
+	queryStr := baseQuery + "/get_block_id_by_hash"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1263,7 +1264,7 @@ func TestGetBlockIDByHashFeederFail(t *testing.T) {
 
 // TestGetBlockHashByIDFeederFail
 func TestGetBlockHashByIDFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_block_hash_by_id"
+	queryStr := baseQuery + "/get_block_hash_by_id"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1288,7 +1289,7 @@ func TestGetBlockHashByIDFeederFail(t *testing.T) {
 
 // TestGetTransactionIDByHashFeederFail
 func TestGetTransactionIDByHashFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_id_by_hash"
+	queryStr := baseQuery + "/get_transaction_id_by_hash"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
@@ -1313,7 +1314,7 @@ func TestGetTransactionIDByHashFeederFail(t *testing.T) {
 
 // TestGetBlockHashByIDFeederFail
 func TestGetTransactionHashByIDFeederFail(t *testing.T) {
-	queryStr := "http://localhost:8100/feeder_gateway/get_transaction_hash_by_id"
+	queryStr := baseQuery + "/get_transaction_hash_by_id"
 
 	// Build Request
 	req, err := http.NewRequest("GET", queryStr, nil)
