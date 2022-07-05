@@ -23,7 +23,8 @@ type HttpClient interface {
 
 // Client represents a client for the StarkNet feeder gateway.
 type Client struct {
-	httpClient *HttpClient
+	httpClient        *HttpClient
+	retryFuncForDoReq func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)
 
 	BaseURL            *url.URL
 	BaseAPI, UserAgent string
@@ -41,7 +42,25 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		p = &c
 		client = &p
 	}
-	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client}
+
+	// retry mechanism for do requests
+	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error) {
+		var res *http.Response
+		for i := 0; err != nil && i < 2; i++ {
+			time.Sleep(time.Second * 5)
+			res, err = httpClient.Do(req)
+		}
+		return res, err
+	}
+
+	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq}
+}
+
+func NewClientWithRetryFuncForDoReq(baseURL, baseAPI string, client *HttpClient, retryFunc func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)) *Client {
+	newClient := NewClient(baseURL, baseAPI, client)
+	newClient.retryFuncForDoReq = retryFunc
+
+	return newClient
 }
 
 func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
@@ -106,10 +125,8 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	metr.IncreaseRequestsSent()
 	res, err := (*c.httpClient).Do(req)
 	// notest
-	for i := 0; err != nil && i < 2; i++ {
-		time.Sleep(time.Second * 5)
-		res, err = (*c.httpClient).Do(req)
-	}
+	_, err = c.retryFuncForDoReq(req, *c.httpClient, err)
+
 	// We tried three times and still received an error
 	if err != nil {
 		metr.IncreaseRequestsFailed()
@@ -240,6 +257,7 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	}
 	var res StarknetBlock
 	metr.IncreaseBlockSent()
+
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseBlockFailed()
