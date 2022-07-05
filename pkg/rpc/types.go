@@ -418,6 +418,7 @@ type BlockResponse struct {
 }
 
 func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
+	// notest
 	response := &BlockResponse{
 		BlockHash:    block.BlockHash,
 		ParentHash:   block.ParentHash,

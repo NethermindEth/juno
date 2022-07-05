@@ -275,6 +275,7 @@ func marshalMessageL1ToL2(message *types.MessageL1ToL2) *MessageToL2 {
 
 func unmarshalMessageL1ToL2(message *MessageToL2) *types.MessageL1ToL2 {
 	if message == nil {
+		// notest
 		return nil
 	}
 	return &types.MessageL1ToL2{
