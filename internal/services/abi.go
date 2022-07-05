@@ -2,9 +2,7 @@ package services
 
 import (
 	"context"
-	"path/filepath"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/log"
@@ -22,9 +20,9 @@ type abiService struct {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *abiService) Setup(database db.Databaser) {
+func (s *abiService) Setup(database db.Database) {
+	// notest
 	if s.Running() {
-		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
 	s.manager = abi.NewABIManager(database)
@@ -41,21 +39,32 @@ func (s *abiService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
-	return nil
+	return s.setDefaults()
 }
 
 // setDefaults sets the default value for properties that are not set.
-func (s *abiService) setDefaults() {
+func (s *abiService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		database := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "abi"), 0)
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		database, err := db.NewMDBXDatabase(env, "ABI")
+		if err != nil {
+			return err
+		}
 		s.manager = abi.NewABIManager(database)
 	}
+	return nil
 }
 
 // Close closes the service.
 func (s *abiService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

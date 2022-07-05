@@ -9,7 +9,14 @@ import (
 )
 
 func TestAbiService_StoreGet(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "ABI")
+	if err != nil {
+		t.Error(err)
+	}
 	AbiService.Setup(database)
 	if err := AbiService.Run(); err != nil {
 		t.Errorf("unexpeted error in Run: %s", err)

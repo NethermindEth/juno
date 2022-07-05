@@ -2,9 +2,7 @@ package services
 
 import (
 	"context"
-	"path/filepath"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
@@ -18,7 +16,7 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(codeDatabase db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *stateService) Setup(codeDatabase db.Database, storageDatabase *db.BlockSpecificDatabase) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("service is already running")
@@ -36,20 +34,35 @@ func (s *stateService) Run() error {
 		return err
 	}
 
-	s.setDefaults()
+	return s.setDefaults()
+}
+
+func (s *stateService) setDefaults() error {
+	if s.manager == nil {
+		// notest
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		codeDb, err := db.NewMDBXDatabase(env, "CODE")
+		if err != nil {
+			return err
+		}
+		storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+		if err != nil {
+			return err
+		}
+		storageDatabase := db.NewBlockSpecificDatabase(storageDb)
+		s.manager = state.NewStateManager(codeDb, storageDatabase)
+	}
 	return nil
 }
 
-func (s *stateService) setDefaults() {
-	if s.manager == nil {
-		// notest
-		codeDatabase := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "code"), 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, storageDatabase)
-	}
-}
-
 func (s *stateService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

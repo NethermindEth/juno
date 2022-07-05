@@ -58,10 +58,9 @@ func TestDigest(t *testing.T) {
 func BenchmarkArrayDigest(b *testing.B) {
 	n := 20
 	data := make([]*big.Int, n)
-	max := curve.Params().P
 	seed := time.Now().UnixNano()
 	for i := range data {
-		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), max)
+		data[i] = new(big.Int).Rand(rand.New(rand.NewSource(seed)), prime)
 	}
 
 	b.Run(fmt.Sprintf("Benchmark pedersen.ArrayDigest over %d big.Ints", n), func(b *testing.B) {

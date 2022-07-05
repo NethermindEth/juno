@@ -172,7 +172,15 @@ func TestProcessPagesHashes(t *testing.T) {
 	defer backendClose()
 	defer rpcClose()
 
-	sync := NewSynchronizer(db.NewKeyValueDb(t.TempDir(), 0), ec, nil)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	if err != nil {
+		t.Error(err)
+	}
+	sync := NewSynchronizer(synchronizerDb, ec, nil)
 	sync.memoryPageHash.Add(hash[2:], starknetTypes.TransactionHash{Hash: finalTx.Hash()})
 
 	pages := sync.processPagesHashes(pagesHashes, memoryContract)
@@ -303,9 +311,23 @@ func TestParsePages(t *testing.T) {
 }
 
 func TestUpdateAndCommitState(t *testing.T) {
-	hashService := services.NewContractHashService(db.NewKeyValueDb(t.TempDir(), 0))
-	go hashService.Run()
-	defer hashService.Close(context.Background())
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	contractHashDb, err := db.NewMDBXDatabase(env, "CONTRACT-HASH")
+	if err != nil {
+		t.Error(err)
+	}
+	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	if err != nil {
+		t.Error(err)
+	}
+	services.ContractHashService.Setup(contractHashDb)
+	if err := services.ContractHashService.Run(); err != nil {
+		t.Error(err)
+	}
+	defer services.ContractHashService.Close(context.Background())
 	stateDiff := &starknetTypes.StateDiff{
 		DeployedContracts: []starknetTypes.DeployedContract{
 			{
@@ -315,16 +337,13 @@ func TestUpdateAndCommitState(t *testing.T) {
 			},
 		},
 	}
-	// Manually create the synchronizer without calling NewSynchronizer because
-	// we don't want to create an ethclient mock for this test
-	txnDb := db.NewKeyValueDb(t.TempDir(), 0)
+
 	s := &Synchronizer{
-		database:       txnDb,
-		memoryPageHash: starknetTypes.NewDictionary(txnDb, "memory_pages"),
-		gpsVerifier:    starknetTypes.NewDictionary(txnDb, "gps_verifier"),
-		facts:          starknetTypes.NewDictionary(txnDb, "facts"),
+		database:       synchronizerDb,
+		memoryPageHash: starknetTypes.NewDictionary(synchronizerDb, "memory_pages"),
+		gpsVerifier:    starknetTypes.NewDictionary(synchronizerDb, "gps_verifier"),
+		facts:          starknetTypes.NewDictionary(synchronizerDb, "facts"),
 		chainID:        1,
-		transactioner:  db.NewTransactionDb(txnDb.GetEnv()),
 	}
 	sequenceNumber := uint64(0)
 	s.updateAndCommitState(stateDiff, "", sequenceNumber)

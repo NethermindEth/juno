@@ -1,10 +1,6 @@
 package pedersen
 
-import (
-	"math/big"
-
-	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
-)
+import "math/big"
 
 // point represents the affine coordinates of an elliptic curve point.
 type point struct{ x, y *big.Int }
@@ -12,9 +8,8 @@ type point struct{ x, y *big.Int }
 var (
 	// points is a slice of *big.Int that contains the constant points.
 	points [506]point
-	// curve is the elliptic (STARK) curve used to compute the Pedersen
-	// hash.
-	curve weierstrass.Curve
+	// prime is the characteristic of our field.
+	prime *big.Int
 )
 
 func init() {
@@ -2049,5 +2044,97 @@ func init() {
 		y, _ := new(big.Int).SetString(p[1], 16)
 		points[i] = point{x, y}
 	}
-	curve = weierstrass.Stark()
+	prime, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
+}
+
+// divMod finds a non-negative integer x < p such that (m * x) % p == n.
+// It assumes that m and p are coprime. See the following for details
+// https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/crypto/starkware/crypto/signature/math_utils.py#L50-L56.
+func divMod(n, m, p *big.Int) *big.Int {
+	a := new(big.Int)
+	new(big.Int).GCD(a, nil, m, p)
+	r := new(big.Int).Mul(n, a)
+	return r.Mod(r, p)
+}
+
+// inf returns the point at infinity i.e. (0, 0) and can also be viewed
+// as a default initialiser for a point on an elliptic curve.
+func inf() *point {
+	return &point{new(big.Int), new(big.Int)}
+}
+
+// mod sets p to the point given by (p2.x % z, p2.y % z) and returns p.
+func (p *point) mod(p2 *point, z *big.Int) *point {
+	p.x.Mod(p2.x, z)
+	p.y.Mod(p2.y, z)
+	return p
+}
+
+// set sets p's coordinates to p2's coordinates and returns p.
+func (p *point) set(other *point) *point {
+	p.x.Set(other.x)
+	p.y.Set(other.y)
+	return p
+}
+
+// isInf returns true if p represents the point at infinity (0, 0), and
+// false otherwise.
+func (p *point) isInf() bool {
+	return p.x.Sign() == 0 && p.y.Sign() == 0
+}
+
+// add returns the sum of two points on an elliptic curve mod p and may
+// return the point at infinity (see pedersen.Inf and *point.IsInf). It
+// is a port of the following https://github.com/starkware-libs/cairo-lang/blob/2abd303e1808612b724bc1412b2b5babd04bb4e7/src/starkware/python/math_utils.py#L147-L164.
+func (p *point) add(other *point) {
+	if p.isInf() {
+		p.set(other)
+		return
+	}
+
+	if other.isInf() {
+		return
+	}
+
+	a := inf().mod(p, prime)
+	b := inf().mod(other, prime)
+
+	var m *big.Int
+	if a.x.Cmp(b.x) == 0 {
+		tmp := new(big.Int).Sub(prime, b.y)
+		tmp.Mod(tmp, prime)
+		if a.y.Cmp(tmp) == 0 {
+			p.set(inf())
+			return
+		} else {
+			// Elliptic curve double.
+			two := big.NewInt(2)
+
+			// Elliptic curve slope double.
+			p.x = new(big.Int).Mul(a.x, a.x)
+			p.x.Mul(p.x, big.NewInt(3))
+			p.x.Add(p.x, big.NewInt(1) /* alpha coefficient */)
+			m = divMod(p.x, new(big.Int).Mul(a.y, two), prime)
+
+			// Cont. elliptic curve double.
+			p.x = new(big.Int).Mul(m, m)
+			p.x.Sub(p.x, new(big.Int).Mul(two, a.x))
+		}
+	} else {
+		// Elliptic curve addition (without safety checks).
+		// Line slope.
+		m = divMod(new(big.Int).Sub(a.y, b.y), new(big.Int).Sub(a.x, b.x), prime)
+
+		p.x = new(big.Int).Mul(m, m)
+		p.x.Sub(p.x, a.x)
+		p.x.Sub(p.x, b.x)
+	}
+
+	// Cont. both elliptic curve double and addition.
+	p.x.Mod(p.x, prime)
+
+	p.y = new(big.Int).Sub(a.x, p.x)
+	p.y.Mul(p.y, m)
+	p.y.Sub(p.y, a.y)
+	p.y.Mod(p.y, prime)
 }

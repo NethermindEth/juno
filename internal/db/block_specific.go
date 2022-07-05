@@ -11,11 +11,11 @@ import (
 // BlockSpecificDatabase is a database to store values that must have a history of versions on the blockchain.
 // To get and put objects in the database is needed the key and a block number.
 type BlockSpecificDatabase struct {
-	database Databaser
+	database Database
 }
 
 // NewBlockSpecificDatabase creates a new instance of BlockSpecificDatabase
-func NewBlockSpecificDatabase(database Databaser) *BlockSpecificDatabase {
+func NewBlockSpecificDatabase(database Database) *BlockSpecificDatabase {
 	return &BlockSpecificDatabase{database: database}
 }
 
@@ -86,6 +86,9 @@ func (db *BlockSpecificDatabase) get(key []byte) []byte {
 	data, err := db.database.Get(key)
 	if err != nil {
 		// notest
+		if IsNotFound(err) {
+			return nil
+		}
 		panicWithError(err)
 	}
 	return data

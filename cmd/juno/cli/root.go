@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
+	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -55,41 +56,63 @@ var (
 				os.Exit(0)
 			}(sig)
 
+			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
-				s := rpc.NewServer(":" + strconv.Itoa(config.Runtime.RPC.Port))
-				processHandler.Add("RPC", s.ListenAndServe, s.Close)
+				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
+				// Initialize the RPC Service.
+				processHandler.Add("RPC", true, s.ListenAndServe, s.Close)
+			}
+
+			if config.Runtime.Metrics.Enabled {
+				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+				// Initialize the Metrics Service.
+				processHandler.Add("Metrics", false, s.ListenAndServe, s.Close)
+			}
+
+			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
+				log.Default.With("Error", err).Fatal("Error starting the database environment")
 			}
 
 			// Initialize ABI Service
-			processHandler.Add("ABI Service", services.AbiService.Run, services.AbiService.Close)
+			processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
 
 			// Initialize State storage service
-			processHandler.Add("State Storage Service", services.StateService.Run, services.StateService.Close)
+			processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
 
 			// Initialize Transactions Storage Service
-			processHandler.Add("Transactions Storage Service", services.TransactionService.Run, services.TransactionService.Close)
+			processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run, services.TransactionService.Close)
 
 			// Initialize Block Storage Service
-			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
+			processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
-			database := db.Databaser(db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "contractHash"), 0))
-			contractHashService := services.NewContractHashService(database)
-			processHandler.Add("Contract Hash Storage Service", contractHashService.Run, contractHashService.Close)
+			processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
-				ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
-				if err != nil {
-					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				var ethereumClient *ethclient.Client
+				if !config.Runtime.Starknet.ApiSync {
+					var err error
+					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
+					if err != nil {
+						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+					}
 				}
-				feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 				// Synchronizer for Starknet State
-				stateSynchronizer := starknet.NewSynchronizer(db.NewKeyValueDb(config.Runtime.DbPath, 0), ethereumClient, feederGatewayClient)
-				processHandler.Add("Starknet Synchronizer", stateSynchronizer.UpdateState,
+				env, err := db.GetMDBXEnv()
+				if err != nil {
+					log.Default.Fatal(err)
+				}
+				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+				if err != nil {
+					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+				}
+				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
+				// Initialize the Starknet Synchronizer Service.
+				processHandler.Add("Starknet Synchronizer", true, stateSynchronizer.UpdateState,
 					stateSynchronizer.Close)
 			}
 
@@ -97,13 +120,20 @@ var (
 			// the config.
 			if config.Runtime.REST.Enabled {
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
-				processHandler.Add("REST", s.ListenAndServe, s.Close)
+				// Initialize the REST Service.
+				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
 			}
 
-			// endless running process
-			log.Default.Info("Starting all processes...")
-			processHandler.Run()
-			cleanup()
+			primaryServiceCheck := processHandler.PrimaryServiceChecker()
+
+			if primaryServiceCheck > 0 {
+				// endless running process
+				log.Default.Info("Starting all processes...")
+				processHandler.Run()
+				cleanup()
+			} else {
+				cleanup()
+			}
 		},
 	}
 )
