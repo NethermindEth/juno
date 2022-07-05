@@ -340,9 +340,9 @@ func TestUpdateAndCommitState(t *testing.T) {
 
 	s := &Synchronizer{
 		database:       synchronizerDb,
-		memoryPageHash: starknetTypes.NewDictionary(synchronizerDb, "memory_pages"),
-		gpsVerifier:    starknetTypes.NewDictionary(synchronizerDb, "gps_verifier"),
-		facts:          starknetTypes.NewDictionary(synchronizerDb, "facts"),
+		memoryPageHash: starknetTypes.NewDictionary(),
+		gpsVerifier:    starknetTypes.NewDictionary(),
+		facts:          starknetTypes.NewDictionary(),
 		chainID:        1,
 	}
 	sequenceNumber := uint64(0)
