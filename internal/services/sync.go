@@ -16,6 +16,7 @@ var SyncService syncService
 
 type syncService struct {
 	service
+	// manager is the sync manager.
 	manager *sync.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
@@ -38,11 +39,12 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 	SyncService.feeder = feederClient
 	SyncService.setChainId()
 	SyncService.logger = log.Default.Named("Sync Service")
-	NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
-	SyncService.stateDiffCollector = APICollector
+	//NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
+	//SyncService.stateDiffCollector = APICollector
+	NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
+	SyncService.stateDiffCollector = L1Collector
 	go func() {
-
-		err = APICollector.Run()
+		err = SyncService.stateDiffCollector.Run()
 		if err != nil {
 			panic("API should initialize")
 			return
@@ -69,13 +71,11 @@ func (s *syncService) Run() error {
 		// notest
 		return err
 	}
-	go func() {
-		_ = s.stateDiffCollector.Run()
-	}()
 
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		// TODO: add state diff to black box
 		s.logger.With("Block Number", stateDiff.BlockNumber).Info("Synced block")
+		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
 		s.latestBlockSynced = stateDiff.BlockNumber
 
 	}

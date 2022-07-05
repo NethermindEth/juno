@@ -1,13 +1,6 @@
 package types
 
-import (
-	"github.com/NethermindEth/juno/internal/db"
-)
-
-// IKey - the key of the dictionary
-type IKey interface {
-	Marshal() ([]byte, error)
-}
+import "sync"
 
 // IValue - the value of the dictionary
 type IValue interface {
@@ -15,58 +8,44 @@ type IValue interface {
 	UnMarshal([]byte) (IValue, error)
 }
 
-// Dictionary - the dictionary object with key of type IKey & value of type IValue
+// Dictionary - the dictionary object with key of type string & value of type IValue
 type Dictionary struct {
-	database db.Database
-	prefix   []byte
+	database map[string]interface{}
+	mutex    sync.Mutex
 }
 
-func NewDictionary(database db.Database, prefix string) *Dictionary {
+func NewDictionary() *Dictionary {
 	return &Dictionary{
-		database: database,
-		prefix:   []byte(prefix),
+		database: make(map[string]interface{}),
 	}
 }
 
 // Add adds a new item to the dictionary
 func (dict *Dictionary) Add(key string, value IValue) {
-	v, err := value.Marshal()
-	if err != nil {
-		// notest
-		return
-	}
-	err = dict.database.Put(append(dict.prefix, []byte(key)...), v)
-	if err != nil {
-		// notest
-		return
-	}
+	dict.mutex.Lock()
+	dict.database[key] = value
+	dict.mutex.Unlock()
 }
 
 // Remove removes a value from the dictionary, given its key
-func (dict *Dictionary) Remove(key string) bool {
-	err := dict.database.Delete(append(dict.prefix, []byte(key)...))
-	return err == nil
+func (dict *Dictionary) Remove(key string) {
+	dict.mutex.Lock()
+	delete(dict.database, key)
+	dict.mutex.Unlock()
 }
 
 // Exist returns true if the key exists in the dictionary
 func (dict *Dictionary) Exist(key string) bool {
-	has, err := dict.database.Has(append(dict.prefix, []byte(key)...))
-	if err != nil {
-		// notest
-		return false
-	}
-	return has
+	dict.mutex.Lock()
+	_, ok := dict.database[key]
+	dict.mutex.Unlock()
+	return ok
 }
 
 // Get returns the value associated with the key
-func (dict *Dictionary) Get(key string, value IValue) (IValue, error) {
-	val, err := dict.database.Get(append(dict.prefix, []byte(key)...))
-	if err != nil {
-		return value, err
-	}
-	marshal, err := value.UnMarshal(val)
-	if err != nil {
-		return nil, err
-	}
-	return marshal, nil
+func (dict *Dictionary) Get(key string) (interface{}, bool) {
+	dict.mutex.Lock()
+	value, ok := dict.database[key]
+	dict.mutex.Unlock()
+	return value, ok
 }

@@ -13,17 +13,17 @@ import (
 var APICollector *apiCollector
 
 type apiCollector struct {
-	// feeder is the client that provides the Connection to the feeder gateway.
-	client *feeder.Client
+	service
 	// manager is the Sync manager
 	manager *sync.Manager
+	// feeder is the client that provides the Connection to the feeder gateway.
+	client *feeder.Client
 	// close is the channel that will be used to close the collector.
 	chainID int
 	// buffer represent the channel of StateDiff collected
 	buffer chan *starknetTypes.StateDiff
 	// latestBlockOnChain is the last block on chain that need to be collected
 	latestBlockOnChain int64
-	service
 }
 
 func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) {

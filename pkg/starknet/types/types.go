@@ -10,8 +10,8 @@ import (
 
 const (
 	LatestBlockSynced                        = "latestBlockSynced"
-	BlockOfStarknetDeploymentContractMainnet = 13627000
-	BlockOfStarknetDeploymentContractGoerli  = 5853000
+	BlockOfStarknetDeploymentContractMainnet = 13617000
+	BlockOfStarknetDeploymentContractGoerli  = 6725000
 	MaxChunk                                 = 10000
 
 	MemoryPagesContractAddressMainnet = "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
@@ -53,16 +53,18 @@ type ContractInfo struct {
 
 // EventInfo represent the information retrieved from events that comes from L1
 type EventInfo struct {
-	Block           uint64
-	Address         common.Address
-	Event           map[string]interface{}
-	TransactionHash common.Hash
+	Block              uint64
+	Address            common.Address
+	Event              map[string]interface{}
+	TransactionHash    common.Hash
+	InitialBlockLogged int64
 }
 
 type Fact struct {
-	StateRoot      string `json:"state_root"`
-	SequenceNumber uint64 `json:"block_number"`
-	Value          string `json:"value"`
+	StateRoot          string `json:"state_root"`
+	SequenceNumber     uint64 `json:"block_number"`
+	Value              string `json:"value"`
+	InitialBlockLogged int64  `json:"initial_block_logged"`
 }
 
 func (f Fact) Marshal() ([]byte, error) {

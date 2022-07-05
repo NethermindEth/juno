@@ -8,10 +8,11 @@ import (
 )
 
 var (
-	DbError            = errors.New("database error")
-	UnmarshalError     = errors.New("unmarshal error")
-	MarshalError       = errors.New("marshal error")
-	latestBlockSyncKey = []byte("latestBlockSync")
+	DbError                        = errors.New("database error")
+	UnmarshalError                 = errors.New("unmarshal error")
+	MarshalError                   = errors.New("marshal error")
+	latestBlockSyncKey             = []byte("latestBlockSync")
+	blockOfLatestEventProcessedKey = []byte("blockOfLatestEventProcessed")
 )
 
 // Manager is a Block database manager to save and search the blocks.
@@ -62,6 +63,48 @@ func (m *Manager) GetLatestBlockSync() int64 {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
 	return *latestBlockSync
+}
+
+// StoreBlockOfProcessedEvent stores the block of the latest event processed,
+func (m *Manager) StoreBlockOfProcessedEvent(starknetFact, l1Block int64) {
+
+	key := []byte(fmt.Sprintf("%s%d", blockOfLatestEventProcessedKey, starknetFact))
+	// Marshal the latest block sync
+	value, err := json.Marshal(l1Block)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", MarshalError, err)))
+	}
+
+	// Store the latest block sync
+	err = m.database.Put(key, value)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
+	}
+}
+
+// GetBlockOfProcessedEvent returns the block of the latest event processed,
+func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
+	// Query to database
+	key := []byte(fmt.Sprintf("%s%d", blockOfLatestEventProcessedKey, starknetFact))
+	data, err := m.database.Get(key)
+	if err != nil {
+		if db.ErrNotFound == err {
+			return 0
+		}
+		// notest
+		panic(any(fmt.Errorf("%w: %s", DbError, err)))
+	}
+	if data == nil {
+		// notest
+		return 0
+	}
+	// Unmarshal the data from database
+	blockSync := new(int64)
+	if err := json.Unmarshal(data, blockSync); err != nil {
+		// notest
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
+	}
+	return *blockSync
 }
 
 // Close closes the Manager.

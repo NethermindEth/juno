@@ -3,26 +3,16 @@ package types
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/internal/db"
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func newDict(database db.Database, prefix string) *Dictionary {
-	return NewDictionary(database, prefix)
+func newDict() *Dictionary {
+	return NewDictionary()
 }
 
 func TestMapUsingTransactionHash(t *testing.T) {
-	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
-	if err != nil {
-		t.Error(err)
-	}
-	database, err := db.NewMDBXDatabase(env, "DICT")
-	if err != nil {
-		t.Error(err)
-	}
-
 	// create a new Dictionary
-	dict := newDict(database, "test")
+	dict := newDict()
 
 	// Set a new value, in this case TransactionHash
 	txnHash := TransactionHash{Hash: common.HexToHash("0x01")}
@@ -35,9 +25,9 @@ func TestMapUsingTransactionHash(t *testing.T) {
 		t.Fail()
 	}
 
-	fetchedVal := TransactionHash{}
-	get, err := dict.Get("hash", fetchedVal)
-	if err != nil {
+	get, ok := dict.Get("hash")
+	if !ok {
+		t.Fail()
 		return
 	}
 	// check that retrieved value match the one that was saved
@@ -45,10 +35,8 @@ func TestMapUsingTransactionHash(t *testing.T) {
 		t.Fail()
 	}
 	// Check if key exist in the database
-	removed := dict.Remove("hash")
-	if !removed {
-		t.Fail()
-	}
+	dict.Remove("hash")
+
 	// Check if key exist in the database
 	exist = dict.Exist("hash")
 	if exist {
@@ -57,17 +45,8 @@ func TestMapUsingTransactionHash(t *testing.T) {
 }
 
 func TestMapUsingPagesHash(t *testing.T) {
-	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
-	if err != nil {
-		t.Error(err)
-	}
-	database, err := db.NewMDBXDatabase(env, "DICT")
-	if err != nil {
-		t.Error(err)
-	}
-
 	// create a new Dictionary
-	dict := newDict(database, "test")
+	dict := newDict()
 
 	// Set a new value, in this case TransactionHash
 	pagesHash := PagesHash{Bytes: make([][32]byte, 0)}
@@ -83,9 +62,8 @@ func TestMapUsingPagesHash(t *testing.T) {
 		t.Fail()
 	}
 
-	fetchedVal := PagesHash{}
-	get, err := dict.Get("pages", fetchedVal)
-	if err != nil {
+	get, ok := dict.Get("pages")
+	if !ok {
 		t.Fail()
 		return
 	}
@@ -94,10 +72,7 @@ func TestMapUsingPagesHash(t *testing.T) {
 		t.Fail()
 	}
 	// Check if key exist in the database
-	removed := dict.Remove("pages")
-	if !removed {
-		t.Fail()
-	}
+	dict.Remove("pages")
 	// Check if key exist in the database
 	exist = dict.Exist("pages")
 	if exist {
@@ -106,17 +81,8 @@ func TestMapUsingPagesHash(t *testing.T) {
 }
 
 func TestMapUsingFact(t *testing.T) {
-	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
-	if err != nil {
-		t.Error(err)
-	}
-	database, err := db.NewMDBXDatabase(env, "DICT")
-	if err != nil {
-		t.Error(err)
-	}
-
 	// create a new Dictionary
-	dict := newDict(database, "test")
+	dict := newDict()
 
 	// Set a new value, in this case TransactionHash
 	fact := Fact{
@@ -133,9 +99,9 @@ func TestMapUsingFact(t *testing.T) {
 		t.Fail()
 	}
 
-	fetchedVal := Fact{}
-	get, err := dict.Get("fact", fetchedVal)
-	if err != nil {
+	get, ok := dict.Get("fact")
+	if !ok {
+		t.Fail()
 		return
 	}
 	// check that retrieved value match the one that was saved
@@ -144,10 +110,7 @@ func TestMapUsingFact(t *testing.T) {
 		t.Fail()
 	}
 	// Check if key exist in the database
-	removed := dict.Remove("fact")
-	if !removed {
-		t.Fail()
-	}
+	dict.Remove("fact")
 	// Check if key exist in the database
 	exist = dict.Exist("fact")
 	if exist {

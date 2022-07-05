@@ -15,4 +15,6 @@ type StateDiffCollector interface {
 	Close(ctx context.Context)
 	// GetLatestBlockOnChain returns the last block to be collected by the StateDiffCollector.
 	GetLatestBlockOnChain() int64
+	// IsSynced returns true if we are Synced
+	IsSynced() bool
 }
