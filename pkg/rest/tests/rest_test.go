@@ -29,8 +29,8 @@ var (
 	failRestHandler    = rest.RestHandler{}
 	failRequestTimeout = time.Millisecond * 400
 	baseURL            = "https://localhost:8100"
-	baseApi            = "/feeder_gateway/"
-	baseQuery          = baseURL + baseApi
+	baseAPI            = "/feeder_gateway/"
+	baseQuery          = baseURL + baseAPI
 )
 
 func init() {
@@ -38,9 +38,9 @@ func init() {
 	p = httpClient
 	var pf feeder.HttpClient
 	pf = failHttpClient
-	client = feeder.NewClient(baseURL, baseApi, &p)
+	client = feeder.NewClient(baseURL, baseAPI, &p)
 	restHandler.RestFeeder = client
-	failClient = feeder.NewClientWithRetryFuncForDoReq(baseURL, baseApi, &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
+	failClient = feeder.NewClientWithRetryFuncForDoReq(baseURL, baseAPI, &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
 		time.Sleep(failRequestTimeout)
 		return httpClient.Do(req)
 	})
