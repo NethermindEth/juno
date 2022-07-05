@@ -24,6 +24,8 @@ type apiCollector struct {
 	buffer chan *starknetTypes.StateDiff
 	// latestBlockOnChain is the last block on chain that need to be collected
 	latestBlockOnChain int64
+	// Synced is the flag that indicate if the collector is synced
+	synced bool
 }
 
 func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) {
@@ -34,6 +36,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 	}
 	APICollector.logger = log.Default.Named("apiCollector")
 	APICollector.buffer = make(chan *starknetTypes.StateDiff, 10)
+	APICollector.synced = false
 	go APICollector.updateLatestBlockOnChain()
 }
 
@@ -44,7 +47,7 @@ func (a *apiCollector) Run() error {
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
 		if latestStateDiffSynced >= a.latestBlockOnChain {
-
+			a.synced = true
 			time.Sleep(time.Second * 3)
 		}
 		var update *feeder.StateUpdateResponse
@@ -101,6 +104,10 @@ func (a *apiCollector) fetchLatestBlockOnChain() int64 {
 
 func (a *apiCollector) GetLatestBlockOnChain() int64 {
 	return a.latestBlockOnChain
+}
+
+func (a *apiCollector) IsSynced() bool {
+	return a.synced
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff

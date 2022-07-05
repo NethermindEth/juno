@@ -39,10 +39,13 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 	SyncService.feeder = feederClient
 	SyncService.setChainId()
 	SyncService.logger = log.Default.Named("Sync Service")
-	//NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
-	//SyncService.stateDiffCollector = APICollector
-	NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
-	SyncService.stateDiffCollector = L1Collector
+	if config.Runtime.Starknet.ApiSync {
+		NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
+		SyncService.stateDiffCollector = APICollector
+	} else {
+		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
+		SyncService.stateDiffCollector = L1Collector
+	}
 	go func() {
 		err = SyncService.stateDiffCollector.Run()
 		if err != nil {
