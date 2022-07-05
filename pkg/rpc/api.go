@@ -163,7 +163,7 @@ func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope Reques
 	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock, err := services.BlockService.GetBlockByHash(blockHash)
 	if err != nil {
-        // notest
+		// notest
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, errors.New("block not found")
 		}
@@ -204,7 +204,7 @@ func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedSc
 	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock, err := services.BlockService.GetBlockByNumber(blockNumber)
 	if err != nil {
-        // notest
+		// notest
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, errors.New("block not found")
 		}
@@ -333,7 +333,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
 		block, err := services.BlockService.GetBlockByHash(*blockHash)
 		if err != nil {
-            // notest
+			// notest
 			if errors.Is(err, db.ErrNotFound) {
 				return nil, fmt.Errorf("block not found")
 			}
