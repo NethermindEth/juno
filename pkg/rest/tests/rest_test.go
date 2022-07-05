@@ -28,6 +28,8 @@ var (
 	restHandler        = rest.RestHandler{}
 	failRestHandler    = rest.RestHandler{}
 	failRequestTimeout = time.Millisecond * 400
+	baseUrl            = "https://localhost:8100"
+	baseApi            = "/feeder_gateway/"
 )
 
 func init() {
@@ -35,9 +37,9 @@ func init() {
 	p = httpClient
 	var pf feeder.HttpClient
 	pf = failHttpClient
-	client = feeder.NewClient("https://localhost:8100", "/feeder_gateway/", &p)
+	client = feeder.NewClient(baseUrl, baseApi, &p)
 	restHandler.RestFeeder = client
-	failClient = feeder.NewClientWithRetryFuncForDoReq("https://localhost:8100", "/feeder_gateway/", &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
+	failClient = feeder.NewClientWithRetryFuncForDoReq(baseUrl, baseApi, &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
 		time.Sleep(failRequestTimeout)
 		return httpClient.Do(req)
 	})
@@ -107,7 +109,7 @@ func TestRestClientRetryFunction(t *testing.T) {
 	restHandler.GetBlock(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), fmt.Sprintf("Invalid request body error:%s", errorMessage))
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:"+errorMessage)
 }
 
 //---------------------------------------------
