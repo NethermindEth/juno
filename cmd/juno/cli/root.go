@@ -23,6 +23,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
+)
+
+const (
+	contextTimeoutDuration = 5 * time.Second
 )
 
 // Cobra configuration.
@@ -150,25 +155,26 @@ func juno(_ *cobra.Command, _ []string) {
 }
 
 func stop() {
-	if err := rpcServer.Close(); err != nil {
+	if err := rpcServer.Close(contextTimeoutDuration); err != nil {
 		log.Default.With("Error", err).Fatal("Error while calling rpcServer.Close()")
 	}
 
-	if err := metricsServer.Close(); err != nil {
+	if err := metricsServer.Close(contextTimeoutDuration); err != nil {
 		log.Default.With("Error", err).Fatal("Error while calling metricsServer.Close()")
 	}
 
-	if err := restServer.Close(); err != nil {
+	if err := restServer.Close(contextTimeoutDuration); err != nil {
 		log.Default.With("Error", err).Fatal("Error while calling restServer.Close()")
 	}
 
-	if err := restServer.Close(); err != nil {
+	if err := restServer.Close(contextTimeoutDuration); err != nil {
 		log.Default.With("Error", err).Fatal("Error while calling restServer.Close()")
 	}
 
 	stateSynchronizer.Close()
 }
 
+// Todo: ensure shutdown happens gracefully
 func setupSignalInterruptHandler() {
 	sig := make(chan os.Signal)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)

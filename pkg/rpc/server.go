@@ -51,8 +51,8 @@ func (s *Server) ListenAndServe() error {
 }
 
 // Close gracefully shuts down the server, otherwise exit after 5 seconds.
-func (s *Server) Close() error {
+func (s *Server) Close(timeout time.Duration) error {
 	ctx := context.Background()
-	ctx, _ = context.WithTimeout(ctx, 5*time.Second)
+	ctx, _ = context.WithTimeout(ctx, timeout)
 	return s.server.Shutdown(ctx)
 }
