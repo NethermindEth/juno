@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
 
@@ -44,27 +45,14 @@ func NewServer(addr string, client *feeder.Client) *Server {
 func (s *Server) ListenAndServe() error {
 	feederClient = s.feederClient
 	// notest
-	log.Default.Info("Listening for connections .... ")
+	log.Default.Info("RPC server listening for connections .... ")
 
-	err := s.server.ListenAndServe()
-	if err != nil {
-		log.Default.With("Error", err).Error("Error occurred while trying to listen for connections.")
-		return err
-	}
-	return nil
+	return s.server.ListenAndServe()
 }
 
-// Close gracefully shuts down the server.
-func (s *Server) Close(ctx context.Context) {
-	// notest
-	log.Default.Info("Closing RPC server")
-	select {
-	case <-ctx.Done():
-		err := s.server.Shutdown(ctx)
-		if err != nil {
-			log.Default.With("Error", err).Info("Exiting with error.")
-			return
-		}
-	default:
-	}
+// Close gracefully shuts down the server, otherwise exit after 5 seconds.
+func (s *Server) Close() error {
+	ctx := context.Background()
+	ctx, _ = context.WithTimeout(ctx, 5*time.Second)
+	return s.server.Shutdown(ctx)
 }

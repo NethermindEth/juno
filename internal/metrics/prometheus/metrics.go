@@ -6,6 +6,7 @@ package prometheus
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/NethermindEth/juno/internal/log"
 
@@ -347,25 +348,13 @@ func (s *Server) ListenAndServe() error {
 	// notest
 	log.Default.Info("Handling metrics .... ")
 
-	err := s.server.ListenAndServe()
-	if err != nil {
-		log.Default.With("Error", err).Error("Error occurred while trying to handle metrics.")
-		return err
-	}
-	return nil
+	return s.server.ListenAndServe()
 }
 
 // Close gracefully shuts down the server.
-func (s *Server) Close(ctx context.Context) {
+func (s *Server) Close() error {
 	// notest
-	log.Default.Info("Closing the Metrics server.")
-	select {
-	case <-ctx.Done():
-		err := s.server.Shutdown(ctx)
-		if err != nil {
-			log.Default.With("Error", err).Info("Exiting with error.")
-			return
-		}
-	default:
-	}
+	ctx := context.Background()
+	ctx, _ = context.WithTimeout(ctx, 5*time.Second)
+	return s.server.Shutdown(ctx)
 }

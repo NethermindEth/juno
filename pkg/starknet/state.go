@@ -437,7 +437,7 @@ func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, lat
 }
 
 // Close closes the client for the Layer 1 Ethereum node
-func (s *Synchronizer) Close(_ context.Context) {
+func (s *Synchronizer) Close() {
 	// notest
 	log.Default.Info("Closing Layer 1 Synchronizer")
 	if s.ethereumClient != nil {

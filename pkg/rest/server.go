@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/NethermindEth/juno/internal/log"
 )
@@ -16,26 +17,14 @@ type Server struct {
 // incoming connections.
 func (s *Server) ListenAndServe() error {
 	// notest
-	log.Default.Info("Listening for connections .... ")
+	log.Default.Info("Rest server listening for connections .... ")
 
-	err := s.server.ListenAndServe()
-	if err != nil {
-		log.Default.With("Error", err).Error("Error occurred while trying to listen for connections.")
-		return err
-	}
-	return nil
+	return s.server.ListenAndServe()
 }
 
 // Close shuts down the server.
-func (s *Server) Close(ctx context.Context) {
-	// notest
-	select {
-	case <-ctx.Done():
-		err := s.server.Shutdown(ctx)
-		if err != nil {
-			log.Default.With("Error", err).Info("Exiting with error.")
-			return
-		}
-	default:
-	}
+func (s *Server) Close() error {
+	ctx := context.Background()
+	ctx, _ = context.WithTimeout(ctx, 5*time.Second)
+	return s.server.Shutdown(ctx)
 }
