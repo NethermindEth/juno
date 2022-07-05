@@ -110,7 +110,7 @@ func TestRestClientRetryFunction(t *testing.T) {
 	restHandler.GetBlock(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:"+errorMessage)
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: "+errorMessage)
 }
 
 //---------------------------------------------
@@ -1028,7 +1028,7 @@ func TestGetBlockHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetBlock(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetCodeHandlerFeederFail
@@ -1055,7 +1055,7 @@ func TestGetCodeHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetCode(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetStorageAtHandlerFeederFail
@@ -1083,7 +1083,7 @@ func TestGetStorageAtHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetStorageAt(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetTransactionStatusHandlerFeederFail
@@ -1109,7 +1109,7 @@ func TestGetTransactionStatusHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetTransactionStatus(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetTransactionReceiptHandlerFeederFail
@@ -1135,7 +1135,7 @@ func TestGetTransactionReceiptHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetTransactionReceipt(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetTransactionHandlerFeederFail
@@ -1161,7 +1161,7 @@ func TestGetTransactionHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetTransaction(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetFullContractHandlerFeederFail
@@ -1188,7 +1188,7 @@ func TestGetFullContractHandlerFeederFail(t *testing.T) {
 	failRestHandler.GetFullContract(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetStateUpdateHandlerFeederFail
@@ -1214,7 +1214,7 @@ func TestGetStateUpdateFeederFail(t *testing.T) {
 	failRestHandler.GetStateUpdate(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetContractAddressesFeederFail
@@ -1234,7 +1234,7 @@ func TestGetContractAddressesFeederFail(t *testing.T) {
 	failRestHandler.GetContractAddresses(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetBlockIDByHashFeederFail
@@ -1259,7 +1259,7 @@ func TestGetBlockIDByHashFeederFail(t *testing.T) {
 	failRestHandler.GetBlockIDByHash(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetBlockHashByIDFeederFail
@@ -1284,7 +1284,7 @@ func TestGetBlockHashByIDFeederFail(t *testing.T) {
 	failRestHandler.GetBlockHashById(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetTransactionIDByHashFeederFail
@@ -1309,7 +1309,7 @@ func TestGetTransactionIDByHashFeederFail(t *testing.T) {
 	failRestHandler.GetTransactionIDByHash(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
 
 // TestGetBlockHashByIDFeederFail
@@ -1334,5 +1334,5 @@ func TestGetTransactionHashByIDFeederFail(t *testing.T) {
 	failRestHandler.GetTransactionHashByID(rr, req)
 
 	// Assert error message
-	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error:feeder gateway failed")
+	assert.DeepEqual(t, rr.Body.String(), "Invalid request body error: feeder gateway failed")
 }
