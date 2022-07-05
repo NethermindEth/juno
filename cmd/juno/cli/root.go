@@ -5,13 +5,24 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/NethermindEth/juno/internal/config"
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
+	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
+	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/rest"
+	"github.com/NethermindEth/juno/pkg/rpc"
+	"github.com/NethermindEth/juno/pkg/starknet"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 )
 
@@ -23,7 +34,8 @@ var (
 	dataDir string
 	// longMsg is the long message shown in the "juno --help" output.
 	//go:embed long.txt
-	longMsg string
+	longMsg        string
+	processHandler *process.Handler
 )
 
 // rootCmd is the root command of the application.
@@ -33,86 +45,86 @@ var rootCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, _ []string) {
 		setupSignalInterruptHandler()
 
-		//feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, utils.FeederGatewayApiPrefix,
-		//	nil)
+		feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway,
+			utils.FeederGatewayApiPrefix, nil)
 
-		//// Subscribe the RPC client to the main loop if it is enabled in
-		//// the config.
-		//if config.Runtime.RPC.Enabled {
-		//	s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
-		//	// Initialize the RPC Service.
-		//	processHandler.Add("RPC", true, s.ListenAndServe, s.Close)
-		//}
-		//
-		//if config.Runtime.Metrics.Enabled {
-		//	s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-		//	// Initialize the Metrics Service.
-		//	processHandler.Add("Metrics", false, s.ListenAndServe, s.Close)
-		//}
-		//
-		//if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
-		//	log.Default.With("Error", err).Fatal("Error starting the database environment")
-		//}
-		//
-		//// Initialize ABI Service
-		//processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
-		//
-		//// Initialize State storage service
-		//processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
-		//
-		//// Initialize Transactions Storage Service
-		//processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run, services.TransactionService.Close)
-		//
-		//// Initialize Block Storage Service
-		//processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
-		//
-		//// Initialize Contract Hash storage service
-		//processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
-		//
-		//// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
-		//// the config.
-		//if config.Runtime.Starknet.Enabled {
-		//	var ethereumClient *ethclient.Client
-		//	if !config.Runtime.Starknet.ApiSync {
-		//		var err error
-		//		ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
-		//		if err != nil {
-		//			log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
-		//		}
-		//	}
-		//	// Synchronizer for Starknet State
-		//	env, err := db.GetMDBXEnv()
-		//	if err != nil {
-		//		log.Default.Fatal(err)
-		//	}
-		//	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
-		//	if err != nil {
-		//		log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
-		//	}
-		//	stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
-		//	// Initialize the Starknet Synchronizer Service.
-		//	processHandler.Add("Starknet Synchronizer", true, stateSynchronizer.UpdateState,
-		//		stateSynchronizer.Close)
-		//}
-		//
-		//// Subscribe the REST API client to the main loop if it is enabled in
-		//// the config.
-		//if config.Runtime.REST.Enabled {
-		//	s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
-		//	// Initialize the REST Service.
-		//	processHandler.Add("REST", true, s.ListenAndServe, s.Close)
-		//}
-		//
-		//primaryServiceCheck := processHandler.PrimaryServiceChecker()
-		//
-		//if primaryServiceCheck > 0 {
-		//	// endless running process
-		//	log.Default.Info("Starting all processes...")
-		//	processHandler.Run()
-		//	cleanup()
-		//} else {
-		//	cleanup()
-		//}
+		processHandler = process.NewHandler()
+		// Subscribe the RPC client to the main loop if it is enabled in the config.
+		if config.Runtime.RPC.Enabled {
+			s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
+			// Initialize the RPC Service.
+			processHandler.Add("RPC", true, s.ListenAndServe, s.Close)
+		}
+
+		if config.Runtime.Metrics.Enabled {
+			s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+			// Initialize the Metrics Service.
+			processHandler.Add("Metrics", false, s.ListenAndServe, s.Close)
+		}
+
+		if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
+			log.Default.With("Error", err).Fatal("Error starting the database environment")
+		}
+
+		// Initialize ABI Service
+		processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
+
+		// Initialize State storage service
+		processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
+
+		// Initialize Transactions Storage Service
+		processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run, services.TransactionService.Close)
+
+		// Initialize Block Storage Service
+		processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
+
+		// Initialize Contract Hash storage service
+		processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
+
+		// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
+		// the config.
+		if config.Runtime.Starknet.Enabled {
+			var ethereumClient *ethclient.Client
+			if !config.Runtime.Starknet.ApiSync {
+				var err error
+				ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
+				if err != nil {
+					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				}
+			}
+			// Synchronizer for Starknet State
+			env, err := db.GetMDBXEnv()
+			if err != nil {
+				log.Default.Fatal(err)
+			}
+			synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+			if err != nil {
+				log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+			}
+			stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
+			// Initialize the Starknet Synchronizer Service.
+			processHandler.Add("Starknet Synchronizer", true, stateSynchronizer.UpdateState,
+				stateSynchronizer.Close)
+		}
+
+		// Subscribe the REST API client to the main loop if it is enabled in
+		// the config.
+		if config.Runtime.REST.Enabled {
+			s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+			// Initialize the REST Service.
+			processHandler.Add("REST", true, s.ListenAndServe, s.Close)
+		}
+
+		primaryServiceCheck := processHandler.PrimaryServiceChecker()
+
+		if primaryServiceCheck > 0 {
+			// endless running process
+			log.Default.Info("Starting all processes...")
+			processHandler.Run()
+			cleanup()
+		} else {
+			cleanup()
+		}
 	},
 }
 
@@ -135,6 +147,11 @@ func setupSignalInterruptHandler() {
 	}(sig)
 }
 
+func cleanup() {
+	processHandler.Close()
+	log.Default.Info("App closing...Bye!!!")
+}
+
 func close() {
 
 }
@@ -146,7 +163,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf(
-		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
+		"config file (default is %s)", filepath.Join(config.ConfigurationDir, "juno.yaml")))
 	rootCmd.PersistentFlags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
 }
@@ -165,7 +182,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Use the default path for user configuration.
-		viper.AddConfigPath(config.Dir)
+		viper.AddConfigPath(config.ConfigurationDir)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("juno")
 	}
@@ -182,7 +199,7 @@ func initConfig() {
 		if !config.Exists() {
 			config.New()
 		}
-		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
+		viper.SetConfigFile(filepath.Join(config.ConfigurationDir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
 	}

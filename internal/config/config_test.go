@@ -10,7 +10,7 @@ import (
 
 func TestConfig(t *testing.T) {
 	New()
-	f, err := os.ReadFile(filepath.Join(Dir, "juno.yaml"))
+	f, err := os.ReadFile(filepath.Join(ConfigurationDir, "juno.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

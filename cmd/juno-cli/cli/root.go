@@ -49,7 +49,7 @@ var (
 func init() {
 	// Set flags shared accross commands as persistent flags.
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", fmt.Sprintf(
-		"config file (default is %s).", filepath.Join(config.Dir, "juno.yaml")))
+		"config file (default is %s).", filepath.Join(config.ConfigurationDir, "juno.yaml")))
 
 	// Pretty print flag.
 	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "Pretty print the response.")
@@ -106,7 +106,7 @@ func initConfig() error {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Use the default path for user configuration.
-		viper.AddConfigPath(config.Dir)
+		viper.AddConfigPath(config.ConfigurationDir)
 		viper.SetConfigName("juno")
 		viper.SetConfigType("yaml")
 	}
@@ -120,7 +120,7 @@ func initConfig() error {
 		if !config.Exists() {
 			config.New()
 		}
-		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
+		viper.SetConfigFile(filepath.Join(config.ConfigurationDir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
 	}
