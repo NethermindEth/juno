@@ -61,13 +61,13 @@ var (
 			if config.Runtime.RPC.Enabled {
 				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
 				// Initialize the RPC Service.
-				processHandler.Add("RPC", s.ListenAndServe, s.Close)
+				processHandler.Add("RPC", true, s.ListenAndServe, s.Close)
 			}
 
 			if config.Runtime.Metrics.Enabled {
 				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
 				// Initialize the Metrics Service.
-				processHandler.Add("Metrics", s.ListenAndServe, s.Close)
+				processHandler.Add("Metrics", false, s.ListenAndServe, s.Close)
 			}
 
 			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
@@ -75,19 +75,19 @@ var (
 			}
 
 			// Initialize ABI Service
-			processHandler.Add("ABI Service", services.AbiService.Run, services.AbiService.Close)
+			processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
 
 			// Initialize State storage service
-			processHandler.Add("State Storage Service", services.StateService.Run, services.StateService.Close)
+			processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
 
 			// Initialize Transactions Storage Service
-			processHandler.Add("Transactions Storage Service", services.TransactionService.Run, services.TransactionService.Close)
+			processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run, services.TransactionService.Close)
 
 			// Initialize Block Storage Service
-			processHandler.Add("Block Storage Service", services.BlockService.Run, services.BlockService.Close)
+			processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
-			processHandler.Add("Contract Hash Storage Service", services.ContractHashService.Run, services.ContractHashService.Close)
+			processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
@@ -109,13 +109,19 @@ var (
 			if config.Runtime.REST.Enabled {
 				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 				// Initialize the REST Service.
-				processHandler.Add("REST", s.ListenAndServe, s.Close)
+				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
 			}
 
-			// endless running process
-			log.Default.Info("Starting all processes...")
-			processHandler.Run()
-			cleanup()
+			primaryServiceCheck := processHandler.PrimaryServiceChecker()
+
+			if primaryServiceCheck > 0 {
+				// endless running process
+				log.Default.Info("Starting all processes...")
+				processHandler.Run()
+				cleanup()
+			} else {
+				cleanup()
+			}
 		},
 	}
 )
