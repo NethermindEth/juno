@@ -64,6 +64,10 @@ func (s *blockService) setDefaults() error {
 // Close stops the service, waiting to end the current operations, and closes
 // the database manager.
 func (s *blockService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }
