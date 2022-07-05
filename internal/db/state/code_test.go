@@ -3,6 +3,7 @@ package state
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -48,11 +49,10 @@ func TestManager_Code(t *testing.T) {
 		}
 		obtainedCode, err := manager.GetCode(code.Address)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("Code not found for address %s", code.Address)
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")

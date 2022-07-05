@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -23,11 +24,10 @@ func TestManager(t *testing.T) {
 		}
 		abi2, err := manager.GetABI(address)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("ABI not found for address %s", address)
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 		if !abi.Equal(abi2) {
 			t.Errorf("ABI are not equal after Put-Get operations, address: %s", address)

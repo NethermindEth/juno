@@ -29,8 +29,7 @@ func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransa
 	if err != nil {
 		return err
 	}
-	err = m.txDb.Put(txHash.Bytes(), rawData)
-	if err != nil {
+	if err := m.txDb.Put(txHash.Bytes(), rawData); err != nil {
 		return err
 	}
 	return nil
@@ -58,8 +57,7 @@ func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.Tran
 	if err != nil {
 		return err
 	}
-	err = m.receiptDb.Put(txHash.Bytes(), rawData)
-	if err != nil {
+	if err := m.receiptDb.Put(txHash.Bytes(), rawData); err != nil {
 		return err
 	}
 	return nil
@@ -111,8 +109,7 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 
 func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	var protoTx Transaction
-	err := proto.Unmarshal(b, &protoTx)
-	if err != nil {
+	if err := proto.Unmarshal(b, &protoTx); err != nil {
 		return nil, err
 	}
 	if tx := protoTx.GetInvoke(); tx != nil {
@@ -163,8 +160,7 @@ func marshalTransactionReceipt(receipt *types.TransactionReceipt) ([]byte, error
 
 func unmarshalTransactionReceipt(b []byte) (*types.TransactionReceipt, error) {
 	var protoReceipt TransactionReceipt
-	err := proto.Unmarshal(b, &protoReceipt)
-	if err != nil {
+	if err := proto.Unmarshal(b, &protoReceipt); err != nil {
 		return nil, err
 	}
 	receipt := &types.TransactionReceipt{

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -118,11 +119,10 @@ func TestManager_GetTransaction(t *testing.T) {
 	for _, tx := range txs {
 		outTx, err := TransactionService.GetTransaction(tx.GetHash())
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("transaction not found: %s", tx.GetHash().String())
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 
 		if !reflect.DeepEqual(tx, outTx) {
@@ -210,11 +210,10 @@ func TestManager_GetReceipt(t *testing.T) {
 	for _, receipt := range receipts {
 		outReceipt, err := TransactionService.GetReceipt(receipt.TxHash)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("receipt not found: %s", receipt.TxHash.String())
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 
 		if !reflect.DeepEqual(receipt, outReceipt) {

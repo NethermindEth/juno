@@ -24,8 +24,7 @@ func (x *Manager) GetStorage(contractAddress string, blockNumber uint64) (*Stora
 		return nil, err
 	}
 	value := new(Storage)
-	err = proto.Unmarshal(rawData, value)
-	if err != nil {
+	if err := proto.Unmarshal(rawData, value); err != nil {
 		return nil, err
 	}
 	return value, nil
@@ -38,8 +37,7 @@ func (x *Manager) PutStorage(contractAddress string, blockNumber uint64, storage
 	if err != nil {
 		return err
 	}
-	err = x.storageDatabase.Put([]byte(contractAddress), blockNumber, rawValue)
-	if err != nil {
+	if err := x.storageDatabase.Put([]byte(contractAddress), blockNumber, rawValue); err != nil {
 		return err
 	}
 	return nil

@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -106,11 +107,10 @@ func TestManager_GetTransaction(t *testing.T) {
 	for _, tx := range txs {
 		outTx, err := manager.GetTransaction(tx.GetHash())
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("Transaction %s not found", tx.GetHash())
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 		if !reflect.DeepEqual(tx, outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
@@ -191,11 +191,10 @@ func TestManager_GetReceipt(t *testing.T) {
 	for _, receipt := range receipts {
 		outReceipt, err := manager.GetReceipt(receipt.TxHash)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("Receipt %s not found", receipt.TxHash)
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 
 		if !reflect.DeepEqual(receipt, outReceipt) {

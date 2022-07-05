@@ -162,11 +162,10 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
 	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock, err := services.BlockService.GetBlockByHash(blockHash)
-	if db.IsNotFound(err) {
-		// notest
-		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
-		return nil, errors.New("block not found")
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, errors.New("block not found")
+		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
 	response, err := NewBlockResponse(dbBlock, scope)
@@ -203,10 +202,11 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag 
 func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
 	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock, err := services.BlockService.GetBlockByNumber(blockNumber)
-	if db.IsNotFound(err) {
-		// notest
-		return nil, errors.New("block not found")
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			// notest
+			return nil, errors.New("block not found")
+		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
 	response, err := NewBlockResponse(dbBlock, scope)
@@ -276,10 +276,11 @@ func (HandlerRPC) StarknetGetStorageAt(
 	var blockNumber uint64
 	if hash := blockHash.Hash; hash != nil {
 		block, err := services.BlockService.GetBlockByHash(*blockHash.Hash)
-		if db.IsNotFound(err) {
-			// notest
-			return "", fmt.Errorf("block not found")
-		} else if err != nil {
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				// notest
+				return "", fmt.Errorf("block not found")
+			}
 			return "", fmt.Errorf("database error: %v", err)
 		}
 		blockNumber = block.BlockNumber
@@ -296,10 +297,11 @@ func (HandlerRPC) StarknetGetStorageAt(
 	}
 
 	storage, err := services.StateService.GetStorage(string(contractAddress), blockNumber)
-	if db.IsNotFound(err) {
-		// notest
-		return "", fmt.Errorf("storage not found")
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			// notest
+			return "", fmt.Errorf("storage not found")
+		}
 		return "", fmt.Errorf("database error: %v", err)
 	}
 
@@ -312,11 +314,12 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 	c context.Context, transactionHash types.TransactionHash,
 ) (*Txn, error) {
 	tx, err := services.TransactionService.GetTransaction(transactionHash)
-	if db.IsNotFound(err) {
-		// notest
-		// TODO: return not found error
-		return &Txn{}, nil
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			// notest
+			// TODO: return not found error
+			return &Txn{}, nil
+		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
 	return NewTxn(tx), nil
@@ -328,10 +331,11 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
 		block, err := services.BlockService.GetBlockByHash(*blockHash)
-		if db.IsNotFound(err) {
-			// notest
-			return nil, fmt.Errorf("block not found")
-		} else if err != nil {
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				// notest
+				return nil, fmt.Errorf("block not found")
+			}
 			return nil, fmt.Errorf("database error: %v", err)
 		}
 		// TODO check if block is nil?
@@ -341,10 +345,11 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 		}
 		txHash := block.TxHashes[index]
 		txn, err := services.TransactionService.GetTransaction(txHash)
-		if db.IsNotFound(err) {
-			// notest
-			return nil, fmt.Errorf("transaction not found")
-		} else if err != nil {
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				// notest
+				return nil, fmt.Errorf("transaction not found")
+			}
 			return nil, fmt.Errorf("database error: %v", err)
 		}
 		return NewTxn(txn), nil
@@ -369,10 +374,11 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
 	if blockNumber := blockNumberOrTag.Number; blockNumber != nil {
 		block, err := services.BlockService.GetBlockByNumber(*blockNumber)
-		if db.IsNotFound(err) {
-			// notest
-			return nil, fmt.Errorf("block not found")
-		} else if err != nil {
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				// notest
+				return nil, fmt.Errorf("block not found")
+			}
 			return nil, fmt.Errorf("database error: %v", err)
 		}
 		if index < 0 || len(block.TxHashes) <= index {
@@ -381,10 +387,11 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 		}
 		txHash := block.TxHashes[index]
 		txn, err := services.TransactionService.GetTransaction(txHash)
-		if db.IsNotFound(err) {
-			// notest
-			return nil, fmt.Errorf("transaction not found")
-		} else if err != nil {
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				// notest
+				return nil, fmt.Errorf("transaction not found")
+			}
 			return nil, fmt.Errorf("database error: %v", err)
 		}
 		return NewTxn(txn), nil
@@ -416,53 +423,55 @@ func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress types.Address,
 ) (*CodeResult, error) {
 	abi, err := services.AbiService.GetAbi(contractAddress.Hex())
-	if db.IsNotFound(err) {
-		// Try the feeder gateway for pending block
-		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
-		if err != nil {
-			// notest
-			return nil, fmt.Errorf("abi not found %v", err)
-		}
-		// Convert feeder type to RPC CodeResult type
-		bytecode := make([]types.Felt, len(code.Bytecode))
-		for i, code := range code.Bytecode {
-			bytecode[i] = types.HexToFelt(code)
-		}
-		marshal, err := json.Marshal(code.Abi)
-		if err != nil {
-			// notest
-			return nil, fmt.Errorf("abi not found %v", err)
-		}
-		var abiResponse dbAbi.Abi
-		err = json.Unmarshal(marshal, &abiResponse)
-		if err != nil {
-			// notest
-			return nil, fmt.Errorf("abi not found %v", err)
-		}
-		for i, str := range code.Abi.Structs {
-			abiResponse.Structs[i].Fields = make([]*dbAbi.Struct_Field, len(str.Members))
-			for j, field := range str.Members {
-				abiResponse.Structs[i].Fields[j] = &dbAbi.Struct_Field{
-					Name:   field.Name,
-					Type:   field.Type,
-					Offset: uint32(field.Offset),
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			// Try the feeder gateway for pending block
+			code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
+			if err != nil {
+				// notest
+				return nil, fmt.Errorf("abi not found %v", err)
+			}
+			// Convert feeder type to RPC CodeResult type
+			bytecode := make([]types.Felt, len(code.Bytecode))
+			for i, code := range code.Bytecode {
+				bytecode[i] = types.HexToFelt(code)
+			}
+			marshal, err := json.Marshal(code.Abi)
+			if err != nil {
+				// notest
+				return nil, fmt.Errorf("abi not found %v", err)
+			}
+			var abiResponse dbAbi.Abi
+			err = json.Unmarshal(marshal, &abiResponse)
+			if err != nil {
+				// notest
+				return nil, fmt.Errorf("abi not found %v", err)
+			}
+			for i, str := range code.Abi.Structs {
+				abiResponse.Structs[i].Fields = make([]*dbAbi.Struct_Field, len(str.Members))
+				for j, field := range str.Members {
+					abiResponse.Structs[i].Fields[j] = &dbAbi.Struct_Field{
+						Name:   field.Name,
+						Type:   field.Type,
+						Offset: uint32(field.Offset),
+					}
 				}
 			}
+			marshal, err = json.Marshal(abiResponse)
+			if err != nil {
+				// notest
+				return nil, fmt.Errorf("unexpected marshal error %v", err)
+			}
+			return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 		}
-		marshal, err = json.Marshal(abiResponse)
-		if err != nil {
-			// notest
-			return nil, fmt.Errorf("unexpected marshal error %v", err)
-		}
-		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
-	} else if err != nil {
 		return nil, fmt.Errorf("database error: %v", err)
 	}
 	code, err := services.StateService.GetCode(contractAddress.Bytes())
-	if db.IsNotFound(err) {
-		// notest
-		return nil, fmt.Errorf("code not found")
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			// notest
+			return nil, fmt.Errorf("code not found")
+		}
 		// notest
 		return nil, fmt.Errorf("database error: %v", err)
 	}

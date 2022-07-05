@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -60,11 +61,10 @@ func TestStateService_Code(t *testing.T) {
 		}
 		obtainedCode, err := StateService.GetCode(code.Address)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("code not found: %s", err)
-			} else {
-				t.Errorf("error: %s", err)
 			}
+			t.Errorf("error: %s", err)
 		}
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
@@ -135,10 +135,10 @@ func TestService_Storage(t *testing.T) {
 	}
 	for _, test := range tests {
 		obtainedStorage, err := StateService.GetStorage(test.Contract, test.BlockNumber)
-		if err != nil && !db.IsNotFound(err) {
+		if err != nil && !errors.Is(err, db.ErrNotFound) {
 			t.Error(err)
 		}
-		if test.Ok && db.IsNotFound(err) {
+		if test.Ok && errors.Is(err, db.ErrNotFound) {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)
 		}
 		if obtainedStorage != nil && test.Checks != nil {

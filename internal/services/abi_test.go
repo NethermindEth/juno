@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -31,11 +32,10 @@ func TestAbiService_StoreGet(t *testing.T) {
 	for address, a := range abis {
 		result, err := AbiService.GetAbi(address)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("ABI not found for address %s", address)
-			} else {
-				t.Error(err)
 			}
+			t.Error(err)
 		}
 		if !a.Equal(result) {
 			t.Errorf("ABI are not equal after Store-Get operations, address: %s", address)

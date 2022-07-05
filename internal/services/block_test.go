@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -52,11 +53,10 @@ func TestService(t *testing.T) {
 		// Get block by hash
 		returnedBlock, err := BlockService.GetBlockByHash(key)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("Block not found for hash %s", key.Hex())
-			} else {
-				t.Errorf("Unexpected error: %s", err)
 			}
+			t.Errorf("Unexpected error: %s", err)
 		}
 		if !reflect.DeepEqual(b, returnedBlock) {
 			t.Errorf("b")
@@ -64,11 +64,10 @@ func TestService(t *testing.T) {
 		// Get block by number
 		returnedBlock, err = BlockService.GetBlockByNumber(b.BlockNumber)
 		if err != nil {
-			if db.IsNotFound(err) {
+			if errors.Is(err, db.ErrNotFound) {
 				t.Errorf("Block not found for number %d", b.BlockNumber)
-			} else {
-				t.Errorf("Unexpected error: %s", err)
 			}
+			t.Errorf("Unexpected error: %s", err)
 		}
 		if !reflect.DeepEqual(b, returnedBlock) {
 			t.Errorf("b")

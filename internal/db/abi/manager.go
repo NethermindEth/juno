@@ -41,8 +41,7 @@ func (m *Manager) PutABI(contractAddress string, abi *Abi) error {
 	if err != nil {
 		return err
 	}
-	err = m.database.Put(key, value)
-	if err != nil {
+	if err := m.database.Put(key, value); err != nil {
 		return err
 	}
 	return nil
