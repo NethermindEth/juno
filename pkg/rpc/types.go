@@ -232,6 +232,7 @@ type TxnAndReceipt struct {
 }
 
 func (x *TxnAndReceipt) MarshalJSON() ([]byte, error) {
+	// notest
 	type TxnAndReceipt struct {
 		TxnHash            *felt.Felt              `json:"txn_hash"`
 		MaxFee             *felt.Felt              `json:"max_fee"`

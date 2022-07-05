@@ -160,10 +160,10 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 }
 
 func getBlockByHash(ctx context.Context, blockHash *felt.Felt, scope RequestedScope) (*BlockResponse, error) {
+	// notest
 	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock := services.BlockService.GetBlockByHash(blockHash)
 	if dbBlock == nil {
-		// notest
 		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
 		return nil, errors.New("block not found")
 	}
@@ -172,10 +172,10 @@ func getBlockByHash(ctx context.Context, blockHash *felt.Felt, scope RequestedSc
 }
 
 func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope) (*BlockResponse, error) {
+	// notest
 	if blockHashOrTag.Hash != nil {
 		return getBlockByHash(ctx, blockHashOrTag.Hash, scope)
 	}
-	// notest
 	if blockHashOrTag.Tag != nil {
 		return getBlockByTag(ctx, *blockHashOrTag.Tag, scope)
 	}
@@ -192,14 +192,15 @@ func (HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag Blo
 // StarknetGetBlockByHashOpt represent the handler for getting a block
 // by its hash.
 func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope) (*BlockResponse, error) {
+	// notest
 	return getBlockByHashOrTag(ctx, blockHashOrTag, scope)
 }
 
 func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
+	// notest
 	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock := services.BlockService.GetBlockByNumber(blockNumber)
 	if dbBlock == nil {
-		// notest
 		return nil, errors.New("block not found")
 	}
 	response := NewBlockResponse(dbBlock, scope)
@@ -208,6 +209,7 @@ func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedSc
 
 func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTag, scope RequestedScope) (*BlockResponse, error) {
 	if number := blockNumberOrTag.Number; number != nil {
+		// notest
 		return getBlockByNumber(ctx, *number, scope)
 	}
 	if tag := blockNumberOrTag.Tag; tag != nil {

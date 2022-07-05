@@ -718,7 +718,7 @@ func generateResponse(body string) *http.Response {
 	}
 }
 
-func TestGetBlockByTag(t *testing.T) {
+func TestGetBlockByHashOrTag(t *testing.T) {
 	// Reassign global feederClient with fake http client
 	feederClient = feeder.NewClient("https://localhost:8100", "/feeder_gateway", &client)
 

@@ -13,7 +13,6 @@ all: compile run ## build and run
 
 generate: ## generate
 	@cd internal/db && $(MAKE) generate
-	@cd pkg/felt/internal && $(MAKE) generate
 
 test: ## tests
 	go test ./...
