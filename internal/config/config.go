@@ -4,14 +4,49 @@ package config
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
-	"runtime"
-
 	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	"gopkg.in/yaml.v2"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 )
+
+type EnvironmentValue string
+
+const (
+	developmentEnvValue EnvironmentValue = "DEV"
+	productionEnvValue                   = "PROD"
+)
+
+func GetEnvironmentValue(envVal string) EnvironmentValue {
+	switch strings.ToUpper(envVal) {
+	case "DEV":
+		return developmentEnvValue
+	case "PROD":
+		return productionEnvValue
+	default:
+		return ""
+	}
+}
+
+func (s EnvironmentValue) IsValid() bool {
+	switch s {
+	case developmentEnvValue, productionEnvValue:
+		return true
+	}
+	return false
+}
+
+func (s EnvironmentValue) IsProduction() bool {
+	return s == productionEnvValue
+}
+
+// loggerConfig represents the logger configuration
+type environmentConfig struct {
+	Value string `yaml:"value" mapstructure:"value"`
+}
 
 // loggerConfig represents the logger configuration
 type loggerConfig struct {
@@ -53,13 +88,14 @@ type starknetConfig struct {
 
 // Config represents the juno configuration.
 type Config struct {
-	Logger   loggerConfig   `yaml:"logger" mapstructure:"logger"`
-	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
-	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
-	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
-	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
-	DbPath   string         `yaml:"db_path" mapstructure:"db_path"`
-	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
+	Environment environmentConfig `yaml:"environment" mapstructure:"environment"`
+	Logger      loggerConfig      `yaml:"logger" mapstructure:"logger"`
+	Ethereum    ethereumConfig    `yaml:"ethereum" mapstructure:"ethereum"`
+	RPC         rpcConfig         `yaml:"rpc" mapstructure:"rpc"`
+	Metrics     metricsConfig     `yaml:"metrics" mapstructure:"metrics"`
+	REST        restConfig        `yaml:"rest" mapstructure:"rest"`
+	DbPath      string            `yaml:"db_path" mapstructure:"db_path"`
+	Starknet    starknetConfig    `yaml:"starknet" mapstructure:"starknet"`
 }
 
 var (
@@ -132,6 +168,9 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
+		Environment: environmentConfig{
+			"dev",
+		},
 		Logger: loggerConfig{
 			VerbosityLevel:   "debug",
 			EnableJsonOutput: false,

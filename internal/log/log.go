@@ -23,7 +23,7 @@ func init() {
 }
 
 // ReplaceGlobalLogger replace the logger and inject it globally
-func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string) error {
+func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string, isProductionEnv bool) error {
 	// parsing log verbosity level
 	zapVerbosityLevel, err := zapcore.ParseLevel(verbosityLevel)
 	if err != nil {
@@ -31,7 +31,7 @@ func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string) error {
 	}
 
 	// get the output format
-	encoder := getEncoder(enableJsonOutput)
+	encoder := getEncoder(enableJsonOutput, isProductionEnv)
 
 	// define where logs will be output
 	writerSyncer := os.Stdout
@@ -50,9 +50,20 @@ func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string) error {
 }
 
 // getEncoder define the output format
-func getEncoder(enableJsonOutput bool) zapcore.Encoder {
+func getEncoder(enableJsonOutput bool, isProductionEnv bool) zapcore.Encoder {
+	encoderConfig := getEnvironmentEncoder(isProductionEnv)
 	if enableJsonOutput {
-		return zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+		return zapcore.NewJSONEncoder(encoderConfig)
 	}
-	return zapcore.NewConsoleEncoder(zap.NewProductionEncoderConfig())
+	return zapcore.NewConsoleEncoder(encoderConfig)
+}
+
+//getEnvironmentEncoder
+func getEnvironmentEncoder(isProductionEnv bool) zapcore.EncoderConfig {
+	var encoderConfig zapcore.EncoderConfig
+	encoderConfig = zap.NewDevelopmentEncoderConfig()
+	if isProductionEnv {
+		encoderConfig = zap.NewProductionEncoderConfig()
+	}
+	return encoderConfig
 }

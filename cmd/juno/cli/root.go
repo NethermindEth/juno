@@ -195,10 +195,16 @@ func initConfig() {
 	err = viper.Unmarshal(&config.Runtime)
 	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
 
+	// Check environment variable
+	env := config.GetEnvironmentValue(config.Runtime.Environment.Value)
+	if !env.IsValid() {
+		Logger.Panicf("Environment variable %s is not valid", env)
+	}
+
 	// Configure logger - we want the logger to be created right after the config has been set
 	enableJsonOutput := config.Runtime.Logger.EnableJsonOutput
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
-	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
+	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel, env.IsProduction())
 	errpkg.CheckFatal(err, "Failed to initialise logger.")
 	Logger.With(
 		"Verbosity Level", verbosityLevel,

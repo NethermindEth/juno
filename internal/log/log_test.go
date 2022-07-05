@@ -38,7 +38,7 @@ func TestReplaceGlobalLogger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ReplaceGlobalLogger(tt.args.enableJsonOutput, tt.args.verbosityLevel); !reflect.DeepEqual(err, tt.err) {
+			if err := ReplaceGlobalLogger(tt.args.enableJsonOutput, tt.args.verbosityLevel, false); !reflect.DeepEqual(err, tt.err) {
 				t.Errorf("ReplaceGlobalLogger() error = %v, wantErr %v", err, tt.err.Error())
 			}
 		})
@@ -71,9 +71,45 @@ func Test_getEncoder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getEncoder(tt.args.enableJsonOutput)
+			got := getEncoder(tt.args.enableJsonOutput, false)
 			actual := typeOfObject(got)
 			expected := typeOfObject(tt.encoder)
+			if actual != expected {
+				t.Errorf("getEncoder() = %v, encoder %v", actual, expected)
+			}
+		})
+	}
+}
+
+func Test_getEnvironmentEncoder(t *testing.T) {
+	type args struct {
+		isProductionEnvironment bool
+	}
+	tests := []struct {
+		name          string
+		args          args
+		encoderConfig zapcore.EncoderConfig
+	}{
+		{
+			name: "if prod environment, should return prod environment config",
+			args: args{
+				true,
+			},
+			encoderConfig: zap.NewProductionEncoderConfig(),
+		},
+		{
+			name: "not enabling json output should return a console encoder",
+			args: args{
+				false,
+			},
+			encoderConfig: zap.NewProductionEncoderConfig(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getEnvironmentEncoder(tt.args.isProductionEnvironment)
+			actual := typeOfObject(got)
+			expected := typeOfObject(tt.encoderConfig)
 			if actual != expected {
 				t.Errorf("getEncoder() = %v, encoder %v", actual, expected)
 			}
