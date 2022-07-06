@@ -66,5 +66,4 @@ func init() {
 
 	// Add signature flag
 	estimateFeeCmd.PersistentFlags().StringArrayP("signature", "s", []string{}, "Account signature.")
-
 }
