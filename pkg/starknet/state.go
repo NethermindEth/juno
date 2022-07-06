@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
+	abiDB "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/services"
@@ -35,11 +36,13 @@ type Synchronizer struct {
 	memoryPageHash      *starknetTypes.Dictionary
 	gpsVerifier         *starknetTypes.Dictionary
 	facts               *starknetTypes.Dictionary
+	abiManager          *abiDB.Manager
 	chainID             int64
 }
 
 // NewSynchronizer creates a new Synchronizer
-func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
+func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
+	abiManager *abiDB.Manager) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -64,6 +67,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
 		chainID:             chainID.Int64(),
+		abiManager:          abiManager,
 	}
 }
 
@@ -551,7 +555,7 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 			return
 		}
 		// Save the ABI
-		services.AbiService.StoreAbi(remove0x(v.Address), toDbAbi(code.Abi))
+		s.abiManager.PutABI(remove0x(v.Address), toDbAbi(code.Abi))
 		// Save the contract code
 		services.StateService.StoreCode(common.Hex2Bytes(remove0x(v.Address)), byteCodeToStateCode(code.Bytecode))
 	}

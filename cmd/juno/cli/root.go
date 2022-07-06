@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
@@ -56,6 +56,8 @@ var (
 	restServer          *rest.Server
 	feederGatewayClient *feeder.Client
 	stateSynchronizer   *starknet.Synchronizer
+
+	abiManager *abi.Manager
 )
 
 // Execute handle flags for Cobra execution.
@@ -80,15 +82,18 @@ func init() {
 func juno(_ *cobra.Command, _ []string) {
 	setupSignalInterruptHandler()
 
-	// Initialise
-	if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
-		log.Default.With("Error", err).Fatal("Error starting the database environment")
-	}
+	// Setup client and managers
+	feederGatewayClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway, utils.FeederGatewayApiPrefix, nil)
 
+	abiDB, err := db.NewMDBXDatabase("ABI")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Error starting the ABI database")
+	}
+	abiManager = abi.NewABIManager(abiDB)
+
+	// Initialise servers and state synchronisation
 	if config.Runtime.RPC.Enabled {
-		feederGatewayClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway,
-			utils.FeederGatewayApiPrefix, nil)
-		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
+		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient, abiManager)
 	}
 
 	if config.Runtime.Metrics.Enabled {
@@ -97,11 +102,6 @@ func juno(_ *cobra.Command, _ []string) {
 
 	if config.Runtime.Starknet.Enabled {
 		var ethereumClient *ethclient.Client
-
-		if feederGatewayClient == nil {
-			feederGatewayClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway,
-				utils.FeederGatewayApiPrefix, nil)
-		}
 
 		if !config.Runtime.Starknet.ApiSync {
 			var err error
@@ -115,7 +115,7 @@ func juno(_ *cobra.Command, _ []string) {
 		if err != nil {
 			log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 		}
-		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
+		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient, abiManager)
 	}
 
 	if config.Runtime.REST.Enabled {
@@ -140,9 +140,8 @@ func juno(_ *cobra.Command, _ []string) {
 		log.Default.With("Error", err).Fatal("Error while calling stateSynchronizer.UpdateState()")
 	}
 
-	//processHandler = process.NewHandler()
-	//
-	//processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
+	processHandler = process.NewHandler()
+
 	//processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
 	//processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run,
 	//	services.TransactionService.Close)
@@ -169,6 +168,7 @@ func stop() {
 	}
 
 	stateSynchronizer.Close()
+	abiManager.Close()
 }
 
 // Todo: ensure shutdown happens gracefully

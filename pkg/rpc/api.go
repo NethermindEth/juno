@@ -371,10 +371,8 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 }
 
 // StarknetGetCode Get the code of a specific contract
-func (HandlerRPC) StarknetGetCode(
-	c context.Context, contractAddress types.Address,
-) (*CodeResult, error) {
-	abi := services.AbiService.GetAbi(contractAddress.Hex())
+func (h HandlerRPC) StarknetGetCode(c context.Context, contractAddress types.Address) (*CodeResult, error) {
+	abi := h.abiManager.GetABI(contractAddress.Hex())
 	if abi == nil {
 		// Try the feeder gateway for pending block
 		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))

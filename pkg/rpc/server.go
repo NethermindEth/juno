@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/internal/db/abi"
 	"net/http"
 	"time"
 
@@ -21,7 +22,9 @@ type Server struct {
 
 // HandlerRPC represents the struct that later we will apply reflection
 // to call rpc methods.
-type HandlerRPC struct{}
+type HandlerRPC struct {
+	abiManager *abi.Manager
+}
 
 // HandlerJsonRpc contains the JSON-RPC method functions.
 type HandlerJsonRpc struct {
@@ -34,10 +37,13 @@ func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
 }
 
 // NewServer creates a new server.
-func NewServer(addr string, client *feeder.Client) *Server {
+func NewServer(addr string, client *feeder.Client, abiManager *abi.Manager) *Server {
 	mux := http.NewServeMux()
-	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{}))
-	return &Server{server: http.Server{Addr: addr, Handler: mux}, feederClient: client}
+	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{abiManager: abiManager}))
+	return &Server{
+		server:       http.Server{Addr: addr, Handler: mux},
+		feederClient: client,
+	}
 }
 
 // ListenAndServe listens on the TCP network and handles requests on
