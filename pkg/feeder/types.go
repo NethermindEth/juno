@@ -79,7 +79,7 @@ type InvokeFunction struct {
 	// The transaction is not valid if its version is lower than the current version,
 	// defined by the SN OS.
 	Version        int      `json:"version"`
-	Signature      []string `json:"signature"`
+	Signature      []int    `json:"signature"`
 	InternallCalls []string `json:"internall_calls"`
 	Events         []Event  `json:"events"`
 	Messages       []string `json:"messages"`

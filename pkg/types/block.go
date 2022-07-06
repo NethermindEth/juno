@@ -80,7 +80,7 @@ func (b BlockHash) Hex() string {
 type BlockTag string
 
 type Block struct {
-	BlockHash    BlockHash   `json:"bloch_hash"`
+	BlockHash    BlockHash   `json:"block_hash"`
 	ParentHash   BlockHash   `json:"parent_hash"`
 	BlockNumber  uint64      `json:"block_number"`
 	Status       BlockStatus `json:"status"`
