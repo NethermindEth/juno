@@ -38,11 +38,7 @@ func (s *contractHashService) Run() error {
 func (s *contractHashService) setDefaults() error {
 	if s.db == nil {
 		// notest
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			return err
-		}
-		database, err := db.NewMDBXDatabaseWithEnv(env, "CONTRACT_HASH")
+		database, err := db.NewMDBXDatabase("CONTRACT_HASH")
 		if err != nil {
 			return err
 		}

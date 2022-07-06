@@ -48,11 +48,7 @@ func (s *blockService) Run() error {
 func (s *blockService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			return err
-		}
-		database, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
+		database, err := db.NewMDBXDatabase("BLOCK")
 		if err != nil {
 			return err
 		}

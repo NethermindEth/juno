@@ -40,15 +40,11 @@ func (s *stateService) Run() error {
 func (s *stateService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		env, err := db.GetMDBXEnv()
+		codeDb, err := db.NewMDBXDatabase("CODE")
 		if err != nil {
 			return err
 		}
-		codeDb, err := db.NewMDBXDatabaseWithEnv(env, "CODE")
-		if err != nil {
-			return err
-		}
-		storageDb, err := db.NewMDBXDatabaseWithEnv(env, "STORAGE")
+		storageDb, err := db.NewMDBXDatabase("STORAGE")
 		if err != nil {
 			return err
 		}

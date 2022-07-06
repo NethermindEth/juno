@@ -49,15 +49,11 @@ func (s *transactionService) Run() error {
 func (s *transactionService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		env, err := db.GetMDBXEnv()
+		txDb, err := db.NewMDBXDatabase("TRANSACTION")
 		if err != nil {
 			return err
 		}
-		txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
-		if err != nil {
-			return err
-		}
-		receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
+		receiptDb, err := db.NewMDBXDatabase("RECEIPT")
 		if err != nil {
 			return err
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
@@ -109,12 +110,8 @@ func juno(_ *cobra.Command, _ []string) {
 				log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 			}
 		}
-		// Synchronizer for Starknet State
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			log.Default.Fatal(err)
-		}
-		synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+
+		synchronizerDb, err := db.NewMDBXDatabase("SYNCHRONIZER")
 		if err != nil {
 			log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 		}

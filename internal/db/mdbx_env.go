@@ -13,6 +13,10 @@ var (
 
 var ErrEnvNoInitialized = errors.New("environment is no initialize")
 
+//Todo: This files should be deleted. Test functions use the function contained within this file to perform test setup.
+// Test setup function should not have an impact on how non test functions are called. Instead test files should
+// implement there own helper functions to manage test setup stage
+
 // InitializeMDBXEnv initializes the Juno LMDB environment.
 func InitializeMDBXEnv(path string, optMaxDB uint64, flags uint) (err error) {
 	defer func() {

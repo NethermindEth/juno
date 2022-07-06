@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/config"
 	"runtime"
 
 	"github.com/torquem-ch/mdbx-go/mdbx"
@@ -25,6 +26,18 @@ var (
 type MDBXDatabase struct {
 	env *mdbx.Env
 	dbi mdbx.DBI
+}
+
+func NewMDBXDatabase(name string) (*MDBXDatabase, error) {
+	env, err := defaultMDBXEnv()
+	if err != nil {
+		return nil, err
+	}
+	return NewMDBXDatabaseWithEnv(env, name)
+}
+
+func defaultMDBXEnv() (*mdbx.Env, error) {
+	return NewMDBXEnv(config.Runtime.DbPath, 100, 0)
 }
 
 // NewMDBXDatabaseWithEnv creates a new MDBXDatabase with the given environment and name.

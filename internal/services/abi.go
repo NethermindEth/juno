@@ -46,11 +46,7 @@ func (s *abiService) Run() error {
 func (s *abiService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			return err
-		}
-		database, err := db.NewMDBXDatabaseWithEnv(env, "ABI")
+		database, err := db.NewMDBXDatabase("ABI")
 		if err != nil {
 			return err
 		}
