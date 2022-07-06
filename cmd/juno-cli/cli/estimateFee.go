@@ -62,8 +62,8 @@ func init() {
 	rootCmd.AddCommand(estimateFeeCmd)
 
 	// Add calldata flag
-	estimateFeeCmd.PersistentFlags().StringArrayP("calldata", "i", []string{}, "Transaction calldata.")
+	estimateFeeCmd.PersistentFlags().StringArrayP("calldata", "i", []string{""}, "Transaction calldata.")
 
 	// Add signature flag
-	estimateFeeCmd.PersistentFlags().StringArrayP("signature", "s", []string{}, "Account signature.")
+	estimateFeeCmd.PersistentFlags().StringArrayP("signature", "s", []string{""}, "Account signature.")
 }
