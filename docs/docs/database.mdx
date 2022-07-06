@@ -1,9 +1,12 @@
 ---
 title: Database
 sidebar_position: 9
+pagination_next: null
 ---
 
-# General characteristics
+In this page we describe the current database implementation in Juno, and how we interface with it.
+
+## General characteristics
 
 Juno defines a database as an object that can store **key-value** pairs in a persistent way. Keys and values are
 arrays of bytes, that permit storing any value that can be serialized as a batch of bytes, and the same happens with the
@@ -38,7 +41,7 @@ type Database interface {
 }
 ```
 
-# Transactions
+## Transactions
 
 A transactional database is a database that supports all the database functionalities and a new functionality called
 **RunTxn** to run a batch of operations in the database inside a unique transaction. This behavior is described by
@@ -56,7 +59,7 @@ type DatabaseTxOp func(txn DatabaseOperations) error
 **RunTXn** receives a function that has a unique param that can do all the database operations, those operations are
 committed only if the `DatabaseTxOp` function ends without error.
 
-# MDBX Database
+## MDBX Database
 
 Now Juno uses an MDBX database to store all its data. An MDBX database is an environment (a database file) that can
 have multiple scopes or named databases. With that characteristic, Juno has only one MDBX environment and multiple

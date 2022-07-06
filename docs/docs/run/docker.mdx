@@ -1,35 +1,37 @@
 ---
 title: Docker Execution
 sidebar_position: 2
+pagination_next: config
 ---
 
-# Building
+It is possible to execute an isolated instance of Juno inside a docker container.
 
-```
+## Building
+
+```bash
 docker build . -t juno
 ```
 
-# Creating a volume for Data
+## Creating a volume for Data
 
 You can create your volume and bind it directly, or just use one volume created by docker. For
 example:
 
-```
+```bash
 docker volume create juno_data
 ```
 
-# Running
+## Running
 
-Create your config file and update it to the relevant values, see [Configuration](https://github.com/NethermindEth/juno#configuration)
+Create your config file and update it to your desired values, see [configuration](../config).
 in the Readme of the project.
 
-You can then run your app using docker with:
+You can then run Juno:
 
-```
+```bash
 docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
 ```
 
-You need to be aware that the value of `db_path` inside config is the same as the one set to link the value of the
-`juno_data` volume.
+Ensure that the value you are using for `db_path` inside the [juno configuration file](../config) is the same you set for the `juno_data` volume.
 
-Remember to export the ports you are using.
+Remember to expose the ports you are using with docker.
