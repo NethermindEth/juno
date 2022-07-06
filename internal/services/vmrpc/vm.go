@@ -3,12 +3,6 @@ package vmrpc
 import (
 	"context"
 	_ "embed"
-	"fmt"
-	"math/big"
-	"strings"
-
-	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/types"
 )
 
 type storageRPCServer struct {
@@ -35,57 +29,57 @@ var other = map[string]string{
 // DEBUG.
 // db is the database that serves as the back end to the state and
 // contract tries.
-var db store.Ephemeral
+//var db store.Ephemeral
 
 // DEBUG.
 func init() {
 	// tmp is the temporary database that will act as the back end to the
 	// state and storage tries but stores the nodes using the old
 	// serialisation format.
-	tmp := store.New()
-
-	// STORAGE.
-	contract, _ := trie.New(tmp, trie.EmptyNode.Hash(), 251)
-
-	// Storage modifications.
-	mods := []struct {
-		key, val types.Felt
-	}{
-		{types.BigToFelt(big.NewInt(132)), types.BigToFelt(big.NewInt(3))},
-		// TODO: Test for trie with a non-empty binary node i.e. with a
-		// modification key = 133 which would create a parent with a node
-		// that has the form (0, 0, h(H(left), H(right))) or higher up in
-		// the tree e.g. key = 131.
-	}
-
-	for _, mod := range mods {
-		contract.Put(&mod.key, &mod.val)
-	}
-
-	// STATE.
-	global, _ := trie.New(tmp, trie.EmptyNode.Hash(), 251)
-
-	// Contract address.
-	key, _ := new(big.Int).SetString("57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374", 16)
-	// h(h(h(contract_hash, storage_root), 0), 0) where h is the Pedersen
-	// hash function and storage_root is the commitment of the contract
-	// storage trie above.
-	val, _ := new(big.Int).SetString("002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5", 16)
-
-	// XXX: Why doesn't the following work?
-	// global.Put(types.BigToFelt(key), types.BigToFelt(val))
-	feltKey, feltVal := types.BigToFelt(key), types.BigToFelt(val)
-	global.Put(&feltKey, &feltVal)
-
-	// Simulate new node serialisation.
-	db = store.New()
-	nodes := tmp.List()
-	for _, pair := range nodes {
-		key := "patricia_node:" + fmt.Sprintf("%.64x", types.BytesToFelt(pair[0]).Big())
-		val := new(trie.Node)
-		val.UnmarshalJSON(pair[1])
-		db.Put([]byte(key), []byte(val.CairoRepr()))
-	}
+	//tmp := store.New()
+	//
+	//// STORAGE.
+	//contract, _ := trie.New(tmp, trie.EmptyNode.Hash(), 251)
+	//
+	//// Storage modifications.
+	//mods := []struct {
+	//	key, val types.Felt
+	//}{
+	//	{types.BigToFelt(big.NewInt(132)), types.BigToFelt(big.NewInt(3))},
+	//	// TODO: Test for trie with a non-empty binary node i.e. with a
+	//	// modification key = 133 which would create a parent with a node
+	//	// that has the form (0, 0, h(H(left), H(right))) or higher up in
+	//	// the tree e.g. key = 131.
+	//}
+	//
+	//for _, mod := range mods {
+	//	contract.Put(&mod.key, &mod.val)
+	//}
+	//
+	//// STATE.
+	//global, _ := trie.New(tmp, trie.EmptyNode.Hash(), 251)
+	//
+	//// Contract address.
+	//key, _ := new(big.Int).SetString("57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374", 16)
+	//// h(h(h(contract_hash, storage_root), 0), 0) where h is the Pedersen
+	//// hash function and storage_root is the commitment of the contract
+	//// storage trie above.
+	//val, _ := new(big.Int).SetString("002e9723e54711aec56e3fb6ad1bb8272f64ec92e0a43a20feed943b1d4f73c5", 16)
+	//
+	//// XXX: Why doesn't the following work?
+	//// global.Put(types.BigToFelt(key), types.BigToFelt(val))
+	//feltKey, feltVal := types.BigToFelt(key), types.BigToFelt(val)
+	//global.Put(&feltKey, &feltVal)
+	//
+	//// Simulate new node serialisation.
+	//db = store.New()
+	//nodes := tmp.List()
+	//for _, pair := range nodes {
+	//	key := "patricia_node:" + fmt.Sprintf("%.64x", types.BytesToFelt(pair[0]).Big())
+	//	val := new(trie.Node)
+	//	val.UnmarshalJSON(pair[1])
+	//	db.Put([]byte(key), []byte(val.CairoRepr()))
+	//}
 }
 
 func NewStorageRPCServer() *storageRPCServer {
@@ -122,15 +116,16 @@ func (s *storageRPCServer) GetValue(ctx context.Context, request *GetValueReques
 	//
 	//	4.	starknet_storage_leaf. Here the key suffix *is* the value so
 	//			that could be returned without any lookup on the Python side.
-	parts := strings.Split(string(request.GetKey()), ":")
-	switch prefix := parts[0]; prefix {
-	case "patricia_node":
-		// No need to handle the absence of a value on this side.
-		val, _ := db.Get(request.GetKey())
-		return &GetValueResponse{Value: val}, nil
-	default:
-		// TODO: Handle look ups for contract_state and
-		// contract_definition_fact.
-		return &GetValueResponse{Value: []byte(other[string(request.GetKey())])}, nil
-	}
+	//parts := strings.Split(string(request.GetKey()), ":")
+	//switch prefix := parts[0]; prefix {
+	//case "patricia_node":
+	//	// No need to handle the absence of a value on this side.
+	//	val, _ := db.Get(request.GetKey())
+	//	return &GetValueResponse{Value: val}, nil
+	//default:
+	//	// TODO: Handle look ups for contract_state and
+	//	// contract_definition_fact.
+	//	return &GetValueResponse{Value: []byte(other[string(request.GetKey())])}, nil
+	//}
+	return &GetValueResponse{Value: []byte("")}, nil
 }

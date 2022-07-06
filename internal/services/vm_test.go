@@ -9,11 +9,31 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
+func setupDatabase(path string) {
+	err := db.InitializeMDBXEnv(path, 1, 0)
+	if err != nil {
+		return
+	}
+}
+
 func TestVMCall(t *testing.T) {
-	codeDatabase := db.NewKeyValueDb(t.TempDir(), 0)
-	codeDefinitionDb := db.NewKeyValueDb(t.TempDir(), 0)
-	storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0))
-	VMService.Setup(codeDatabase, codeDefinitionDb, storageDatabase)
+	env, err := db.GetMDBXEnv()
+	if err != nil {
+		t.Fail()
+	}
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	VMService.Setup(stateDatabase, binaryDatabase, codeDatabase)
 
 	if err := VMService.Run(); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)

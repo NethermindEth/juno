@@ -12,8 +12,22 @@ import (
 )
 
 func newTestStateManager(t *testing.T) state.StateManager {
-	db := db.NewKeyValueDb(t.TempDir(), 0)
-	return statedb.NewStateManager(nil, nil, db, db)
+	env, err := db.GetMDBXEnv()
+	if err != nil {
+	}
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	return statedb.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
 }
 
 func TestStateFromStateDiffs(t *testing.T) {

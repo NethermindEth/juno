@@ -30,8 +30,23 @@ func init() {
 }
 
 func newTestTrieManager(t *testing.T) trie.TrieManager {
-	db := db.NewKeyValueDb(t.TempDir(), 0)
-	return state.NewStateManager(nil, nil, db, nil)
+	env, err := db.GetMDBXEnv()
+	if err != nil {
+		t.Fail()
+	}
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	return state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
 }
 
 func TestExample(t *testing.T) {

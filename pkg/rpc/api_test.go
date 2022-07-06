@@ -42,7 +42,10 @@ func buildRequest(method string, params ...interface{}) string {
 		ID:      1,
 	}
 	buf := new(bytes.Buffer)
-	json.NewEncoder(buf).Encode(request)
+	err := json.NewEncoder(buf).Encode(request)
+	if err != nil {
+		return ""
+	}
 	return buf.String()
 }
 
@@ -57,7 +60,10 @@ func buildResponse(result interface{}) string {
 		ID:      1,
 	}
 	buf := new(bytes.Buffer)
-	json.NewEncoder(buf).Encode(response)
+	err := json.NewEncoder(buf).Encode(response)
+	if err != nil {
+		return ""
+	}
 	return buf.String()
 }
 
@@ -67,14 +73,6 @@ func TestStarknetGetStorageAt(t *testing.T) {
 		t.Error(err)
 	}
 	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
-	if err != nil {
-		t.Error(err)
-	}
-	codeDb, err := db.NewMDBXDatabase(env, "CODE")
-	if err != nil {
-		t.Error(err)
-	}
-	stateDb, err := db.NewMDBXDatabase(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -108,11 +106,19 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	}
 	services.BlockService.StoreBlock(blockHash, block)
 
-	services.StateService.Setup(
-		storageDb,
-		codeDb,
-
-	)
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	services.StateService.Setup(stateDatabase, binaryDatabase, codeDatabase)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
@@ -121,13 +127,13 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	address := testFelt2
 	key := testFelt3
 	value := testFelt4
-	storage := &state.Storage{
-		Storage: map[string]string{
-			key.Hex(): value.Hex(),
-		},
-	}
-	services.StateService.StoreStorage(address.Hex(), blockNumber, storage)
-
+	//storage := &state.Storage{
+	//	Storage: map[string]string{
+	//		key.Hex(): value.Hex(),
+	//	},
+	//}
+	//services.StateService.StoreStorage(address.Hex(), blockNumber, storage)
+	//
 	// Set up feeder client for PENDING block
 	body, err := json.Marshal(block)
 	if err != nil {
@@ -158,14 +164,6 @@ func TestStarknetGetCode(t *testing.T) {
 		t.Error(err)
 	}
 	abiDb, err := db.NewMDBXDatabase(env, "BLOCK")
-	if err != nil {
-		t.Error(err)
-	}
-	codeDb, err := db.NewMDBXDatabase(env, "CODE")
-	if err != nil {
-		t.Error(err)
-	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -258,16 +256,20 @@ func TestStarknetGetCode(t *testing.T) {
 		},
 	}
 
-	services.StateService.Setup(
-<<<<<<< HEAD
-		db.NewKeyValueDb(t.TempDir(), 0),
-		db.NewKeyValueDb(t.TempDir(), 0),
-		db.NewBlockSpecificDatabase(db.NewKeyValueDb(t.TempDir(), 0)),
-=======
-		codeDb,
-		db.NewBlockSpecificDatabase(storageDb),
->>>>>>> main
-	)
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	services.StateService.Setup(stateDatabase, binaryDatabase, codeDatabase)
+
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}

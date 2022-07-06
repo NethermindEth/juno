@@ -61,10 +61,23 @@ var VMService vmService
 func (s *vmService) setDefaults() error {
 	if s.manager == nil {
 		// notest
-		codeDatabase := db.NewKeyValueDb(filepath.Join(s.vmDir, "code"), 0)
-		codeDefinitionDb := db.NewKeyValueDb(filepath.Join(config.Runtime.DbPath, "codeDefinition"), 0)
-		storageDatabase := db.NewBlockSpecificDatabase(db.NewKeyValueDb(filepath.Join(s.vmDir, "storage"), 0))
-		s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
+		env, err := db.GetMDBXEnv()
+		if err != nil {
+			return err
+		}
+		codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+		if err != nil {
+			return err
+		}
+		binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+		if err != nil {
+			return err
+		}
+		stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+		if err != nil {
+			return err
+		}
+		s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
 	}
 
 	s.rpcNet = "tcp"
@@ -98,12 +111,12 @@ func freePorts(n int) ([]int, error) {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *vmService) Setup(codeDatabase, codeDefinitionDb db.Databaser, storageDatabase *db.BlockSpecificDatabase) {
+func (s *vmService) Setup(stateDatabase, binaryDatabase, codeDefinitionDatabase db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = state.NewStateManager(codeDatabase, codeDefinitionDb, storageDatabase)
+	s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDefinitionDatabase)
 }
 
 /*

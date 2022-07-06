@@ -28,7 +28,7 @@ var codes = []struct {
 }
 
 func TestManager_Code(t *testing.T) {
-	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

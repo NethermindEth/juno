@@ -54,7 +54,10 @@ func (st *state) SetContractHash(address *types.Felt, hash *types.Felt) error {
 		return err
 	}
 	contract.ContractHash = hash
-	st.manager.PutContractState(contract)
+	err = st.manager.PutContractState(contract)
+	if err != nil {
+		return err
+	}
 	return st.stateTrie.Put(address, contract.Hash())
 }
 
@@ -77,6 +80,9 @@ func (st *state) SetSlot(address *types.Felt, slot *types.Felt, value *types.Fel
 		return err
 	}
 	contract.StorageRoot = storage.Root()
-	st.manager.PutContractState(contract)
+	err = st.manager.PutContractState(contract)
+	if err != nil {
+		return err
+	}
 	return st.stateTrie.Put(address, contract.Hash())
 }
