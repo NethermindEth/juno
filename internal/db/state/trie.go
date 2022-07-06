@@ -12,7 +12,7 @@ import (
 
 func (m *Manager) GetTrieNode(hash *types.Felt) (trie.TrieNode, error) {
 	// Search on the database
-	rawNode, err := m.trieDatabase.Get(hash.Bytes())
+	rawNode, err := m.stateDatabase.Get(hash.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -73,5 +73,5 @@ func (m *Manager) StoreTrieNode(node trie.TrieNode) error {
 	if err != nil {
 		return err
 	}
-	return m.trieDatabase.Put(key, rawNode)
+	return m.stateDatabase.Put(key, rawNode)
 }

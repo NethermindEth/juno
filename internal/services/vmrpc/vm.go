@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/types"
 )

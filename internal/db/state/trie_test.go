@@ -26,8 +26,15 @@ func TestManager_TrieNode(t *testing.T) {
 	}
 
 	// Init state manager
-	trieNodeDb := db.NewKeyValueDb(t.TempDir(), 0)
-	manager := NewStateManager(nil, nil, trieNodeDb, nil)
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateDb, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewStateManager(stateDb, nil, nil)
 
 	for _, n := range nodes {
 		if err := manager.StoreTrieNode(n); err != nil {

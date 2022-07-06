@@ -148,7 +148,7 @@ class VMServicer(vm_pb2_grpc.VMServicer):
             )
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)
-            raise e
+            raise e from None
 
 
 async def serve(listen_address: str, juno_address: str) -> None:
