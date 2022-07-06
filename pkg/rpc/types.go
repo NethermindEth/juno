@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-
-	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -415,7 +414,7 @@ type BlockResponse struct {
 	Transactions interface{} `json:"transactions"`
 }
 
-func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
+func NewBlockResponse(block *types.Block, scope RequestedScope, txManager *transaction.Manager) *BlockResponse {
 	response := &BlockResponse{
 		BlockHash:    block.BlockHash,
 		ParentHash:   block.ParentHash,
@@ -432,8 +431,8 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 	case ScopeFullTxns:
 		txns := make([]*Txn, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
-			transaction := services.TransactionService.GetTransaction(txHash)
-			txn := NewTxn(transaction)
+			tx := txManager.GetTransaction(txHash)
+			txn := NewTxn(tx)
 			txns[i] = txn
 		}
 		response.Transactions = txns
@@ -441,12 +440,12 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 		txns := make([]*TxnAndReceipt, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
 			txnAndReceipt := &TxnAndReceipt{}
-			transaction := services.TransactionService.GetTransaction(txHash)
-			if transaction != nil {
-				txn := NewTxn(transaction)
+			tx := txManager.GetTransaction(txHash)
+			if tx != nil {
+				txn := NewTxn(tx)
 				txnAndReceipt.Txn = *txn
 			}
-			receipt := services.TransactionService.GetReceipt(txHash)
+			receipt := txManager.GetReceipt(txHash)
 			if receipt != nil {
 				r := NewTxnReceipt(receipt)
 				txnAndReceipt.TxnReceipt = *r

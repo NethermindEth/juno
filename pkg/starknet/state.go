@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	"math/big"
 	"runtime"
 	"strconv"
@@ -31,20 +32,24 @@ import (
 
 // Synchronizer represents the base struct for Starknet Synchronization
 type Synchronizer struct {
+	chainID int64
+
 	ethereumClient      *ethclient.Client
 	feederGatewayClient *feeder.Client
-	database            db.DatabaseTransactional
 	memoryPageHash      *starknetTypes.Dictionary
 	gpsVerifier         *starknetTypes.Dictionary
 	facts               *starknetTypes.Dictionary
-	abiManager          *abiDB.Manager
-	stateManager        *state.Manager
-	chainID             int64
+
+	database db.DatabaseTransactional
+
+	abiManager         *abiDB.Manager
+	stateManager       *state.Manager
+	transactionManager *transaction.Manager
 }
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
-	abiManager *abiDB.Manager, stateManager *state.Manager) *Synchronizer {
+	abiManager *abiDB.Manager, stateManager *state.Manager, transactionManager *transaction.Manager) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -71,6 +76,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		chainID:             chainID.Int64(),
 		abiManager:          abiManager,
 		stateManager:        stateManager,
+		transactionManager:  transactionManager,
 	}
 }
 
@@ -581,7 +587,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		}
 		log.Default.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
-		services.TransactionService.StoreTransaction(localTypes.TransactionHash(localTypes.HexToFelt(bTxn.TransactionHash)),
+		s.transactionManager.PutTransaction(localTypes.TransactionHash(localTypes.HexToFelt(bTxn.TransactionHash)),
 			feederTransactionToDBTransaction(transactionInfo))
 	}
 }

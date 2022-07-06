@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/services"
@@ -158,7 +159,8 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 	return response, nil
 }
 
-func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
+func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope, txM *transaction.Manager) (*BlockResponse,
+	error) {
 	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock := services.BlockService.GetBlockByHash(blockHash)
 	if dbBlock == nil {
@@ -166,13 +168,14 @@ func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope Reques
 		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
 		return nil, errors.New("block not found")
 	}
-	response := NewBlockResponse(dbBlock, scope)
+	response := NewBlockResponse(dbBlock, scope, txM)
 	return response, nil
 }
 
-func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope) (*BlockResponse, error) {
+func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope, txM *transaction.Manager) (*BlockResponse,
+	error) {
 	if blockHashOrTag.Hash != nil {
-		return getBlockByHash(ctx, *blockHashOrTag.Hash, scope)
+		return getBlockByHash(ctx, *blockHashOrTag.Hash, scope, txM)
 	}
 	// notest
 	if blockHashOrTag.Tag != nil {
@@ -183,31 +186,33 @@ func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, sco
 
 // StarknetGetBlockByHash represent the handler for getting a block by
 // its hash.
-func (HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag BlockHashOrTag) (*BlockResponse, error) {
+func (h HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag BlockHashOrTag) (*BlockResponse, error) {
 	// notest
-	return getBlockByHashOrTag(ctx, blockHashOrTag, ScopeTxnHash)
+	return getBlockByHashOrTag(ctx, blockHashOrTag, ScopeTxnHash, h.transactionManager)
 }
 
 // StarknetGetBlockByHashOpt represent the handler for getting a block
 // by its hash.
-func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope) (*BlockResponse, error) {
-	return getBlockByHashOrTag(ctx, blockHashOrTag, scope)
+func (h HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag BlockHashOrTag,
+	scope RequestedScope) (*BlockResponse, error) {
+	return getBlockByHashOrTag(ctx, blockHashOrTag, scope, h.transactionManager)
 }
 
-func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
+func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope, txM *transaction.Manager) (*BlockResponse, error) {
 	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock := services.BlockService.GetBlockByNumber(blockNumber)
 	if dbBlock == nil {
 		// notest
 		return nil, errors.New("block not found")
 	}
-	response := NewBlockResponse(dbBlock, scope)
+	response := NewBlockResponse(dbBlock, scope, txM)
 	return response, nil
 }
 
-func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTag, scope RequestedScope) (*BlockResponse, error) {
+func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTag, scope RequestedScope,
+	txM *transaction.Manager) (*BlockResponse, error) {
 	if number := blockNumberOrTag.Number; number != nil {
-		return getBlockByNumber(ctx, *number, scope)
+		return getBlockByNumber(ctx, *number, scope, txM)
 	}
 	if tag := blockNumberOrTag.Tag; tag != nil {
 		return getBlockByTag(ctx, *tag, scope)
@@ -219,15 +224,17 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 
 // StarknetGetBlockByNumber represent the handler for getting a block by
 // its number.
-func (HandlerRPC) StarknetGetBlockByNumber(ctx context.Context, blockNumberOrTag BlockNumberOrTag) (*BlockResponse, error) {
+func (h HandlerRPC) StarknetGetBlockByNumber(ctx context.Context, blockNumberOrTag BlockNumberOrTag) (*BlockResponse,
+	error) {
 	// notest
-	return getBlockByNumberOrTag(ctx, blockNumberOrTag, ScopeTxnHash)
+	return getBlockByNumberOrTag(ctx, blockNumberOrTag, ScopeTxnHash, h.transactionManager)
 }
 
 // StarknetGetBlockByNumberOpt represent the handler for getting a block
 // by its number.
-func (HandlerRPC) StarknetGetBlockByNumberOpt(ctx context.Context, blockNumberOrTag BlockNumberOrTag, scope RequestedScope) (*BlockResponse, error) {
-	return getBlockByNumberOrTag(ctx, blockNumberOrTag, scope)
+func (h HandlerRPC) StarknetGetBlockByNumberOpt(ctx context.Context, blockNumberOrTag BlockNumberOrTag,
+	scope RequestedScope) (*BlockResponse, error) {
+	return getBlockByNumberOrTag(ctx, blockNumberOrTag, scope, h.transactionManager)
 }
 
 // StarknetGetBlockTransactionCountByHash represent the handler for
@@ -289,10 +296,9 @@ func (h HandlerRPC) StarknetGetStorageAt(c context.Context, contractAddress Addr
 
 // StarknetGetTransactionByHash Get the details and status of a
 // submitted transaction.
-func (HandlerRPC) StarknetGetTransactionByHash(
-	c context.Context, transactionHash types.TransactionHash,
-) (*Txn, error) {
-	tx := services.TransactionService.GetTransaction(transactionHash)
+func (h HandlerRPC) StarknetGetTransactionByHash(c context.Context, transactionHash types.TransactionHash) (*Txn,
+	error) {
+	tx := h.transactionManager.GetTransaction(transactionHash)
 	if tx == nil {
 		// notest
 		// TODO: return not found error
@@ -304,7 +310,8 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 // StarknetGetTransactionByBlockHashAndIndex Get the details of the
 // transaction given by the identified block and index in that block. If
 // no transaction is found, a null value is returned.
-func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
+func (h HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag,
+	index int) (*Txn, error) {
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
 		block := services.BlockService.GetBlockByHash(*blockHash)
 		// TODO check if block is nil?
@@ -313,7 +320,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 			return nil, fmt.Errorf("invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
-		txn := services.TransactionService.GetTransaction(txHash)
+		txn := h.transactionManager.GetTransaction(txHash)
 		return NewTxn(txn), nil
 	}
 	// notest
@@ -333,7 +340,8 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 // StarknetGetTransactionByBlockNumberAndIndex Get the details of the
 // transaction given by the identified block and index in that block. If
 // no transaction is found, null is returned.
-func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
+func (h HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context,
+	blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
 	if blockNumber := blockNumberOrTag.Number; blockNumber != nil {
 		block := services.BlockService.GetBlockByNumber(*blockNumber)
 		if index < 0 || len(block.TxHashes) <= index {
@@ -341,7 +349,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 			return nil, fmt.Errorf("invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
-		txn := services.TransactionService.GetTransaction(txHash)
+		txn := h.transactionManager.GetTransaction(txHash)
 		return NewTxn(txn), nil
 	}
 	if tag := blockNumberOrTag.Tag; tag != nil {
