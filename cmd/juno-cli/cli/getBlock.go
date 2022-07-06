@@ -24,7 +24,7 @@ var getBlockCmd = &cobra.Command{
 func getBlockInfo(input string) (*feeder.StarknetBlock, error) {
 	blockHash, blockNumber := "", ""
 
-	if isInteger(input) {
+	if isInteger(input) || input == "latest" {
 		blockNumber = input
 	} else {
 		blockHash = input
