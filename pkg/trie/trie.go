@@ -1,203 +1,223 @@
-// Package trie implements the [Merkle-PATRICIA tree] used in the
-// StarkNet protocol.
-//
-// The shape of the trie is independent of the key insertion or deletion
-// order. In other words, the same set of keys is guaranteed to produce
-// the same tree irrespective of the order of which keys are put and
-// removed from the tree. This property guarantees that the commitment
-// will thus remain consistent across trees that use a different
-// insertion and deletion order.
-//
-// # Worst-case time bounds for get and put operations
-//
-// The get operation is subject to the structure of the underlying data
-// store. For all intents and purposes this can be assumed to be
-// "constant" but in reality, if for example, a hashing based symbol
-// table is used as a backend to this structure, then the get operation
-// will take as much time as insertions take on that data structure.
-//
-// Put and delete operations on the other hand take at most 1 + (w * 3)
-// database accesses where w represents the bit-length of the key.
-//
-// # Space
-//
-// The tree only stores non-empty nodes so the space complexity is n * w
-// where w is the key length.
-//
-// [Merkle-Patricia tree]: https://docs.starknet.io/docs/State/starknet-state#merkle-patricia-tree
 package trie
 
 import (
-	"encoding/json"
-	"math/big"
+	"errors"
 
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
-	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/collections"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
-// A visualisation of the trie with 3-bit keys which results in a tree
-// of height 2 where empty nodes are not stored in the database.
-//
-//                           (0,0,r)
-//                           /     \
-//                        0 /       \ 1
-//                         /         \
-//                   (2,2,1)         (2,1,1)
-//                     / \             / \
-//                    /   \ 1       0 /   \
-//                         \         /
-//                       (1,0,1) (1,1,1)
-//                         / \     / \
-//                      0 /   \   /   \ 1
-//                       /             \
-//                   (0,0,1)        (0,0,1)
-//                     / \            / \
-//                    /   \          /   \
-//
-// Put and delete operations work by first committing (or removing) the
-// bottom node from the backend store and then traversing upwards to
-// compute the new node encodings and hashes which result in a new tree
-// commitment.
+var (
+	ErrNotFound      = errors.New("not found")
+	ErrInvalidValue  = errors.New("invalid value")
+	ErrUnexistingKey = errors.New("unexisting key")
+)
 
-// Trie represents a binary trie.
-type Trie struct {
-	keyLen int
-	store  store.Storer
+type Trie interface {
+	Root() *types.Felt
+	Get(key *types.Felt) (*types.Felt, error)
+	Put(key *types.Felt, value *types.Felt) error
+	Del(key *types.Felt) error
 }
 
-// New constructs a new binary trie.
-func New(store store.Storer, keyLen int) Trie {
-	return Trie{keyLen: keyLen, store: store}
+type TrieManager interface {
+	GetTrieNode(hash *types.Felt) (TrieNode, error)
+	StoreTrieNode(node TrieNode) error
 }
 
-// commit persists the given key-value pair in storage.
-func (t *Trie) commit(key, val []byte) {
-	if len(key) == 0 {
-		key = []byte("root")
-	}
-	t.store.Put(key, val)
+type trie struct {
+	height  int
+	root    *types.Felt
+	manager TrieManager
 }
 
-// remove deletes a key-value pair from storage.
-func (t *Trie) remove(key []byte) {
-	if len(key) == 0 {
-		key = []byte("root")
-	}
-	t.store.Delete(key)
+// New creates a new trie, pass zero as root hash to initialize an empty trie
+func New(manager TrieManager, root *types.Felt, height int) Trie {
+	return &trie{height, root, manager}
 }
 
-// retrieve gets a node from storage and returns true if the node was
-// found.
-func (t *Trie) retrieve(key []byte) (Node, bool) {
-	if len(key) == 0 {
-		key = []byte("root")
-	}
-	b, ok := t.store.Get(key)
-	if !ok {
-		return Node{}, false
-	}
-	var n Node
-	if err := json.Unmarshal(b, &n); err != nil {
-		// notest
-		return Node{}, false
-	}
-	return n, true
+// Root returns the hash of the root node of the trie.
+func (t *trie) Root() *types.Felt {
+	return t.root
 }
 
-// diff traverses the tree upwards from the given path (key) starting
-// from the node that immediately precedes the bottom node and either
-// deletes the node if it its child nodes are empty or recomputes the
-// encoding and hashes otherwise.
-func (t *Trie) diff(key *big.Int) {
-	for height := t.keyLen - 1; height >= 0; height-- {
-		parent := Prefix(key, height)
+// Get gets the value for a key stored in the trie.
+func (t *trie) Get(key *types.Felt) (*types.Felt, error) {
+	path := collections.NewBitSet(t.height, key.Bytes())
+	node, _, err := t.get(path, false)
+	return node, err
+}
 
-		leftChild, leftChildIsNotEmpty := t.retrieve(append(parent, 48 /* "0" */))
-		rightChild, rightChildIsNotEmpty := t.retrieve(append(parent, 49 /* "1" */))
+// Put inserts a new key/value pair into the trie.
+func (t *trie) Put(key *types.Felt, value *types.Felt) error {
+	path := collections.NewBitSet(t.height, key.Bytes())
+	_, siblings, err := t.get(path, true)
+	if err != nil {
+		return err
+	}
+	return t.put(path, value, siblings)
+}
 
-		if !leftChildIsNotEmpty && !rightChildIsNotEmpty {
-			t.remove(parent)
-		} else {
-			// Overwrite the parent node.
-			n := new(Node)
+// Del deltes the value associated with the given key.
+func (t *trie) Del(key *types.Felt) error {
+	return t.Put(key, &types.Felt0)
+}
 
-			// Compute its encoding.
-			switch {
-			case !rightChildIsNotEmpty:
-				n.Encoding = Encoding{
-					leftChild.Length + 1, leftChild.Path, new(big.Int).Set(leftChild.Bottom),
+func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []TrieNode, error) {
+	// list of siblings we need to hash with to get to the root
+	var siblings []TrieNode
+	if withSiblings {
+		siblings = make([]TrieNode, t.height)
+	}
+	curr := t.root // curr is the current node's hash in the traversal
+	for walked := 0; walked < t.height && curr.Cmp(EmptyNode.Hash()) != 0; {
+		retrieved, err := t.manager.GetTrieNode(curr)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// switch on the type of the node
+		switch node := retrieved.(type) {
+		case *EdgeNode:
+			// longest common prefix of the key and the edge's path
+			lcp := longestCommonPrefix(node.Path(), path.Slice(walked, path.Len()))
+
+			if lcp == node.Path().Len() {
+				// if the lcp is the length of the path, we need to go down the edge
+				// the node we jump to is either a leaf or a binary node, hence its
+				// hash is stored in the edge's bottom
+				curr = node.Bottom()
+			} else {
+				// our path diverges with the edge's path
+				if withSiblings {
+					// we need to collect the node lcp+1 steps down the edge
+					if lcp+1 < node.Path().Len() {
+						// sibling is still an edge node
+						edgePath := node.Path().Slice(lcp+1, node.Path().Len())
+						siblings[walked+lcp] = &EdgeNode{nil, edgePath, node.Bottom()}
+					} else if lcp+1 < path.Len()-walked {
+						// sibling is a binary node, we need to retrieve it from the store
+						sibling, err := t.manager.GetTrieNode(node.Bottom())
+						if err != nil {
+							return nil, nil, err
+						}
+						// add sibling to the list of siblings
+						siblings[walked+lcp] = sibling
+					} else {
+						// sibling is a leaf node
+						siblings[walked+lcp] = &leafNode{node.Bottom()}
+					}
 				}
-			case !leftChildIsNotEmpty:
-				n.Encoding = Encoding{
-					rightChild.Length + 1,
-					rightChild.Path.Add(
-						rightChild.Path,
-						new(big.Int).Exp(
-							new(big.Int).SetUint64(2),
-							new(big.Int).SetUint64(uint64(rightChild.Length)), nil)),
-					new(big.Int).Set(rightChild.Bottom),
-				}
-			default:
-				n.Encoding = Encoding{
-					0, new(big.Int), pedersen.Digest(leftChild.Hash, rightChild.Hash),
+
+				// we jump to an empty node since we didn't match the path in the edge
+				curr = EmptyNode.Hash()
+			}
+
+			// we just walk down lcp steps
+			walked += lcp
+
+		case *BinaryNode:
+			var nextH, siblingH *types.Felt
+			// walk left or right depending on the bit
+			if path.Get(walked) {
+				// next is right node
+				nextH, siblingH = node.RightH, node.LeftH
+			} else {
+				// next is left node
+				nextH, siblingH = node.LeftH, node.RightH
+			}
+
+			if withSiblings {
+				if path.Len()-walked > 1 {
+					// sibling is a binary node, we need to retrieve it from the store
+					sibling, err := t.manager.GetTrieNode(siblingH)
+					if err != nil {
+						return nil, nil, err
+					}
+					// add sibling to the list of siblings
+					siblings[walked] = sibling
+				} else {
+					// sibling is a leaf node
+					siblings[walked] = &leafNode{siblingH}
 				}
 			}
 
-			// Compute its hash.
-			n.hash()
-
-			// Commit to the database.
-			t.commit(parent, n.bytes())
+			// get the next node
+			curr = nextH
+			// increment the walked counter
+			walked++
+		default:
+			panic("invalid node type") // should never happen
 		}
 	}
+	return curr, siblings, nil
 }
 
-// Delete removes a key-value pair from the trie.
-func (t *Trie) Delete(key *big.Int) {
-	// The internal representation of big.Int has the least significant
-	// bit in the 0th position but this algorithm assumes the oppose so
-	// a copy with the bits reversed is used instead.
-	rev := Reversed(key, t.keyLen)
+// put inserts a node in a given path in the trie.
+func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []TrieNode) error {
+	var node TrieNode
+	node = &leafNode{value}
+	// reverse walk the key
+	for i := path.Len() - 1; i >= 0; i-- {
+		sibling := siblings[i]
+		if sibling == nil {
+			sibling = EmptyNode
+		}
 
-	t.remove(Prefix(rev, t.keyLen))
-	t.diff(rev)
-}
+		var left, right TrieNode
+		if path.Get(i) {
+			left, right = sibling, node
+		} else {
+			left, right = node, sibling
+		}
 
-// Get retrieves a value from the trie with the corresponding key.
-func (t *Trie) Get(key *big.Int) (*big.Int, bool) {
-	// The internal representation of big.Int has the least significant
-	// bit in the 0th position but this algorithm assumes the opposite so
-	// a copy with the bits reversed is passed into the function.
-	node, ok := t.retrieve(Prefix(Reversed(key, t.keyLen), t.keyLen))
-	if !ok {
-		return nil, false
+		leftIsEmpty := left.Hash().Cmp(EmptyNode.Hash()) == 0
+		rightIsEmpty := right.Hash().Cmp(EmptyNode.Hash()) == 0
+
+		// compute parent
+		if leftIsEmpty && rightIsEmpty {
+			node = EmptyNode
+		} else if leftIsEmpty {
+			edgePath := collections.NewBitSet(right.Path().Len()+1, right.Path().Bytes())
+			edgePath.Set(0)
+			node = &EdgeNode{nil, edgePath, right.Bottom()}
+		} else if rightIsEmpty {
+			edgePath := collections.NewBitSet(left.Path().Len()+1, left.Path().Bytes())
+			node = &EdgeNode{nil, edgePath, left.Bottom()}
+		} else {
+			node = &BinaryNode{nil, left.Hash(), right.Hash()}
+			if err := t.manager.StoreTrieNode(node); err != nil {
+				return err
+			}
+			if i < path.Len()-1 {
+				// don't store leafs
+				if err := t.manager.StoreTrieNode(left); err != nil {
+					return err
+				}
+				if err := t.manager.StoreTrieNode(right); err != nil {
+					return err
+				}
+			}
+		}
 	}
-	return node.Bottom, true
-}
 
-// Put inserts a [big.Int] key-value pair in the trie.
-func (t *Trie) Put(key, val *big.Int) {
-	if val.Cmp(new(big.Int)) == 0 {
-		t.Delete(key)
-		return
+	if t.height > 0 && node.Hash().Cmp(EmptyNode.Hash()) != 0 {
+		// only store root if it's neither empty nor a leaf
+		if err := t.manager.StoreTrieNode(node); err != nil {
+			return err
+		}
 	}
 
-	// The internal representation of big.Int has the least significant
-	// bit in the 0th position but this algorithm assumes the oppose so a
-	// copy with the bits reversed is used instead.
-	rev := Reversed(key, t.keyLen)
-
-	leaf := Node{Encoding{0, new(big.Int), val}, val}
-	t.commit(Prefix(rev, t.keyLen), leaf.bytes())
-	t.diff(rev)
+	t.root = node.Hash()
+	return nil
 }
 
-// Commitment returns the root hash of the trie. If the tree is empty,
-// this value is nil.
-func (t *Trie) Commitment() *big.Int {
-	root, ok := t.retrieve([]byte{})
-	if !ok {
-		return new(big.Int)
+func longestCommonPrefix(path, other *collections.BitSet) int {
+	n := 0
+	for ; n < path.Len() && n < other.Len(); n++ {
+		if path.Get(n) != other.Get(n) {
+			break
+		}
 	}
-	return root.Hash
+	return n
 }

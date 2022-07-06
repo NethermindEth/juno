@@ -1,63 +1,88 @@
-package trie
+package trie_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
-	"time"
 
+	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
-	"github.com/NethermindEth/juno/pkg/store"
+	"github.com/NethermindEth/juno/pkg/trie"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
-const testKeyLen = 3
+const testHeight = 3
 
 var tests = [...]struct {
-	key, val *big.Int
+	key, val types.Felt
 }{
-	{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
-	{big.NewInt(3) /* 0b011 */, big.NewInt(1)},
-	{big.NewInt(5) /* 0b101 */, big.NewInt(1)},
-	{big.NewInt(7) /* 0b111 */, big.NewInt(0)},
+	{types.BigToFelt(big.NewInt(2)) /* 0b010 */, types.BigToFelt(big.NewInt(1))},
+	{types.BigToFelt(big.NewInt(3)) /* 0b011 */, types.BigToFelt(big.NewInt(1))},
+	{types.BigToFelt(big.NewInt(5)) /* 0b101 */, types.BigToFelt(big.NewInt(1))},
+	{types.BigToFelt(big.NewInt(7)) /* 0b111 */, types.BigToFelt(big.NewInt(0))},
 }
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(0)
 }
 
-func Example() {
-	pairs := [...]struct {
-		key, val *big.Int
-	}{
-		{big.NewInt(2) /* 0b010 */, big.NewInt(1)},
-		{big.NewInt(5) /* 0b101 */, big.NewInt(1)},
+func newTestTrieManager(t *testing.T) trie.TrieManager {
+	if err := db.InitializeMDBXEnv(t.TempDir(), 3, 0); err != nil {
+		t.Error(err)
 	}
+	env, err := db.GetMDBXEnv()
+	if err != nil {
+		t.Fail()
+	}
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	return state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+}
 
-	// Provide the storage that the trie will use to persist data.
-	db := store.New()
+func TestExample(t *testing.T) {
+	pairs := [...]struct {
+		key, val types.Felt
+	}{
+		{types.BigToFelt(big.NewInt(2)) /* 0b010 */, types.BigToFelt(big.NewInt(1))},
+		{types.BigToFelt(big.NewInt(5)) /* 0b101 */, types.BigToFelt(big.NewInt(1))},
+	}
 
 	// Initialise trie with storage and provide the key length (height of
 	// the tree).
-	t := New(db, 3)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 
 	// Insert items into the trie.
 	for _, pair := range pairs {
-		fmt.Printf("put(key=%d, val=%d)\n", pair.key, pair.val)
-		t.Put(pair.key, pair.val)
+		t.Logf("put(key=%d, val=%d)\n", pair.key, pair.val)
+		err := trie.Put(&pair.key, &pair.val)
+		if err != nil {
+			return
+		}
 	}
 
 	// Retrieve items from the trie.
 	for _, pair := range pairs {
-		val, _ := t.Get(pair.key)
-		fmt.Printf("get(key=%d) = %d\n", pair.key, val)
+		val, _ := trie.Get(&pair.key)
+		t.Logf("get(key=%d) = %d\n", pair.key, val)
 	}
 
 	// Remove items from the trie.
 	for _, pair := range pairs {
-		fmt.Printf("delete(key=%d)\n", pair.key)
-		t.Delete(pair.key)
+		t.Logf("delete(key=%d)\n", pair.key)
+		trie.Del(&pair.key)
 	}
 
 	// Output:
@@ -70,18 +95,22 @@ func Example() {
 }
 
 func TestDelete(t *testing.T) {
-	db := store.New()
-	trie := New(db, testKeyLen)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
-		trie.Put(test.key, test.val)
+		trie.Put(&test.key, &test.val)
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("delete(%#v)", test.key), func(t *testing.T) {
-			trie.Delete(test.key)
-			_, ok := trie.Get(test.key)
-			if ok {
-				t.Errorf("key %#v not successfully removed from storage", test.key)
+		t.Run(fmt.Sprintf("delete(%s)", test.key.Hex()), func(t *testing.T) {
+			if err := trie.Del(&test.key); err != nil {
+				t.Fatal(err)
+			}
+			val, err := trie.Get(&test.key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if val.Cmp(&types.Felt0) != 0 {
+				t.Errorf("key %s not successfully removed from storage. returned %s", test.key.Hex(), val.Hex())
 			}
 		})
 	}
@@ -89,24 +118,32 @@ func TestDelete(t *testing.T) {
 
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
-	trie := New(store.New(), testKeyLen)
-	if trie.Commitment().Cmp(new(big.Int)) != 0 {
-		t.Error("trie.Commitment() != 0 for empty trie")
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
+	if trie.Root().Cmp(&types.Felt0) != 0 {
+		t.Error("trie.RootHash() != 0 for empty trie")
 	}
 }
 
 func TestGet(t *testing.T) {
-	db := store.New()
-	trie := New(db, testKeyLen)
+	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
-		trie.Put(test.key, test.val)
+		err := trie.Put(&test.key, &test.val)
+		if err != nil {
+			t.Fatalf("error inserting key (%v) on the trie: %v", test.key.Hex(), err)
+		}
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key, test.val), func(t *testing.T) {
-			got, _ := trie.Get(test.key)
-			if test.val.Cmp(new(big.Int)) != 0 && got.Cmp(test.val) != 0 {
-				t.Errorf("get(%#v) = %#v, want %#v", test.key, got, test.val)
+		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key.Hex(), test.val.Hex()), func(t *testing.T) {
+			got, err := trie.Get(&test.key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got == nil {
+				t.Errorf("got = nil, want = %x", test.val.Hex())
+			}
+			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
+				t.Errorf("get(%#v) = %#v, want %#v", test.key.Hex(), got.Hex(), test.val.Hex())
 			}
 		})
 	}
@@ -115,35 +152,35 @@ func TestGet(t *testing.T) {
 // TestInvariant checks that the root hash is independent of the
 // insertion and deletion order.
 func TestInvariant(t *testing.T) {
-	t0 := New(store.New(), testKeyLen)
-	t1 := New(store.New(), testKeyLen)
+	t0 := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
+	t1 := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 
-	for _, test := range tests {
-		t0.Put(test.key, test.val)
+	for i := 0; i < len(tests); i++ {
+		t0.Put(&tests[i].key, &tests[i].val)
 	}
 
 	// Insertion in reverse order.
 	for i := len(tests) - 1; i >= 0; i-- {
-		t1.Put(tests[i].key, tests[i].val)
+		t1.Put(&tests[i].key, &tests[i].val)
 	}
 
-	t.Run("insert: t0.Commitment().Cmp(t1.Commitment()) == 0", func(t *testing.T) {
-		if t0.Commitment().Cmp(t1.Commitment()) != 0 {
+	t.Run("insert: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
+		if t0.Root().Cmp(t1.Root()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
 	})
 
-	t.Run("delete: t0.Commitment().Cmp(t1.Commitment()) == 0", func(t *testing.T) {
-		t0.Delete(tests[1].key)
-		t1.Delete(tests[1].key)
-		if t0.Commitment().Cmp(t1.Commitment()) != 0 {
+	t.Run("delete: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
+		t0.Del(&tests[1].key)
+		t1.Del(&tests[1].key)
+		if t0.Root().Cmp(t1.Root()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
 	})
 
-	t.Run("different: t0.Commitment().Cmp(t1.Commitment()) != 0", func(t *testing.T) {
-		t0.Put(tests[1].key, tests[1].val)
-		if t0.Commitment().Cmp(t1.Commitment()) == 0 {
+	t.Run("different: t0.RootHash().Cmp(t1.RootHash()) != 0", func(t *testing.T) {
+		t0.Put(&tests[1].key, &tests[1].val)
+		if t0.Root().Cmp(t1.Root()) == 0 {
 			t.Errorf("tries with different values have the same root hashes")
 		}
 	})
@@ -151,18 +188,18 @@ func TestInvariant(t *testing.T) {
 
 // TestRebuild tests that the trie can be reconstructed from storage.
 func TestRebuild(t *testing.T) {
-	db := store.New()
-	oldTrie := New(db, testKeyLen)
+	manager := newTestTrieManager(t)
+	oldTrie := trie.New(manager, trie.EmptyNode.Hash(), testHeight)
 
 	for _, test := range tests {
-		oldTrie.Put(test.key, test.val)
+		oldTrie.Put(&test.key, &test.val)
 	}
 
 	// New trie using the same storage.
-	newTrie := New(db, testKeyLen)
+	newTrie := trie.New(manager, oldTrie.Root(), testHeight)
 
-	t.Run("oldTrie.Commitment().Cmp(newTrie.Commitment()) == 0", func(t *testing.T) {
-		if oldTrie.Commitment().Cmp(newTrie.Commitment()) != 0 {
+	t.Run("oldTrie.RootHash().Cmp(newTrie.RootHash()) == 0", func(t *testing.T) {
+		if oldTrie.Root().Cmp(newTrie.Root()) != 0 {
 			t.Errorf("new trie produced a different commitment from the same store")
 		}
 	})
@@ -171,38 +208,12 @@ func TestRebuild(t *testing.T) {
 	t.Run(
 		fmt.Sprintf("oldTrie.Get(%#v) == newTrie.Get(%#v)", randKey, randKey),
 		func(t *testing.T) {
-			got, _ := oldTrie.Get(randKey)
-			want, _ := newTrie.Get(randKey)
+			got, _ := oldTrie.Get(&randKey)
+			want, _ := newTrie.Get(&randKey)
 			if got.Cmp(want) != 0 {
 				t.Errorf("oldTrie.Get(%#v) = %#v != newTrie.Get(%#v) = %#v", randKey, got, randKey, want)
 			}
 		})
-}
-
-func TestPut(t *testing.T) {
-	db := store.New()
-	trie := New(db, testKeyLen)
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("put(%#v, %#v)", test.key, test.val), func(t *testing.T) {
-			trie.Put(test.key, test.val)
-			pre := Prefix(Reversed(test.key, testKeyLen), testKeyLen)
-			got, ok := db.Get(pre)
-			if !ok {
-				// A key with a value 0 is deleted.
-				if test.val.Cmp(new(big.Int)) == 0 {
-					t.Skip()
-				}
-				t.Fatalf("failed to retrieve value with key %s from database", pre)
-			}
-			var n Node
-			if err := json.Unmarshal(got, &n); err != nil {
-				t.Fatal("failed to unmarshal value from database")
-			}
-			if test.val.Cmp(n.Bottom) != 0 {
-				t.Errorf("failed to put value %#v at key %#v", test.key, test.val)
-			}
-		})
-	}
 }
 
 // TestState tests whether the trie produces the same state root as in
@@ -299,27 +310,36 @@ func TestState(t *testing.T) {
 			},
 		}
 
-		want, _         = new(big.Int).SetString("021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6", 16)
-		contractHash, _ = new(big.Int).SetString("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8", 16)
+		want         = types.BytesToFelt(common.FromHex("021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6"))
+		contractHash = types.BytesToFelt(common.FromHex("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"))
 	)
 
 	height := 251
-	state := New(store.New(), height)
+	state := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), height)
 	for addr, diff := range addresses {
-		storage := New(store.New(), height)
+		storage := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), height)
 		for _, slot := range diff {
-			key, _ := new(big.Int).SetString(slot.key, 16)
-			val, _ := new(big.Int).SetString(slot.val, 16)
-			storage.Put(key, val)
+			key := types.BytesToFelt(common.FromHex(slot.key))
+			val := types.BytesToFelt(common.FromHex(slot.val))
+			storage.Put(&key, &val)
 		}
 
-		key, _ := new(big.Int).SetString(addr, 16)
-		val := pedersen.Digest(pedersen.Digest(pedersen.Digest(contractHash, storage.Commitment()), new(big.Int)), new(big.Int))
-		state.Put(key, val)
+		key := types.BytesToFelt(common.FromHex(addr))
+		val := types.BigToFelt(
+			pedersen.Digest(
+				pedersen.Digest(
+					pedersen.Digest(contractHash.Big(), storage.Root().Big()),
+					types.Felt0.Big(),
+				),
+				types.Felt0.Big(),
+			),
+		)
+
+		state.Put(&key, &val)
 	}
 
-	got := state.Commitment()
+	got := state.Root()
 	if want.Cmp(got) != 0 {
-		t.Errorf("state.Commitment() = %x, want = %x", got, want)
+		t.Errorf("state.RootHash() = %x, want = %x", got, want)
 	}
 }

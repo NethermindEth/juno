@@ -28,28 +28,30 @@ var codes = []struct {
 }
 
 func TestManager_Code(t *testing.T) {
-	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 10, 0)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	stateDb, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	binaryCodeDb, err := db.NewMDBXDatabase(env, "BINARY_CODE")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
-	manager := NewStateManager(codeDatabase, storageDatabase)
+	codeDefinitionDb, err := db.NewMDBXDatabase(env, "CODE_DEFINITION")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewStateManager(stateDb, binaryCodeDb, codeDefinitionDb)
 	for _, code := range codes {
-		manager.PutCode(code.Address, code.Code)
-		obtainedCode := manager.GetCode(code.Address)
+		manager.PutBinaryCode(code.Address, code.Code)
+		obtainedCode := manager.GetBinaryCode(code.Address)
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}
 	}
-	manager.Close()
 }
 
 func decodeString(s string) []byte {

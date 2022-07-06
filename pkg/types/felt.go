@@ -9,11 +9,14 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/pkg/common"
+	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 )
 
 const (
-	// FeltLength is the expected length of the felt
+	// FeltLength is the expected length of the felt in bytes
 	FeltLength = 32
+	// FeltBitLen is the expected length of the felt in bits
+	FeltBitLen = 251
 )
 
 type IsFelt interface {
@@ -86,3 +89,43 @@ func (f *Felt) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+func (f *Felt) Bit(i uint) uint {
+	i += FeltLength*8 - FeltBitLen             // convert to bit number
+	return uint(f[i/8] & (1 << (7 - i%8)) & 1) // get bit
+}
+
+func (f *Felt) ToggleBit(i uint) {
+	if f.Bit(i) == 0 {
+		f.SetBit(i)
+	} else {
+		f.ClearBit(i)
+	}
+}
+
+func (f *Felt) SetBit(i uint) {
+	i += FeltLength*8 - FeltBitLen // convert to bit number
+	f[i/8] |= 1 << (7 - i%8)       // set bit
+}
+
+func (f *Felt) ClearBit(i uint) {
+	i += FeltLength*8 - FeltBitLen // convert to bit number
+	f[i/8] &^= (1 << (7 - i%8))    // clear bit
+}
+
+// Felt operations
+
+func (f *Felt) Add(g *Felt) Felt {
+	return BigToFelt(new(big.Int).Mod(new(big.Int).Add(f.Big(), g.Big()), FeltP.Big()))
+}
+
+func (f *Felt) Cmp(g *Felt) int {
+	return f.Big().Cmp(g.Big())
+}
+
+// Felt constants
+
+var (
+	Felt0 = Felt{0}
+	FeltP = BigToFelt(weierstrass.Stark().Params().P)
+)
