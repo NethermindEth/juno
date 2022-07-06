@@ -19,12 +19,6 @@ type syncService struct {
 	service
 	// manager is the sync manager.
 	manager *sync.Manager
-	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
-	feeder *feeder.Client
-	// ethClient is the client that will be used to fetch the data that comes from the Ethereum Node.
-	ethClient *ethclient.Client
-	// chainId represent the chain id of the node.
-	chainId int
 	// latestBlockSynced is the last block that was synced.
 	latestBlockSynced int64
 	// stateDIffCollector
@@ -36,22 +30,35 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 	if err != nil {
 		return
 	}
-	SyncService.ethClient = ethereumClient
-	SyncService.feeder = feederClient
-	SyncService.setChainId()
+	var chainID *big.Int
+	if ethereumClient == nil {
+		// notest
+		if config.Runtime.Starknet.Network == "mainnet" {
+			chainID = new(big.Int).SetInt64(1)
+		} else {
+			chainID = new(big.Int).SetInt64(0)
+		}
+	} else {
+		var err error
+		chainID, err = ethereumClient.ChainID(context.Background())
+		if err != nil {
+			// notest
+			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+		}
+	}
+	chainId := int(chainID.Int64())
 	SyncService.logger = log.Default.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
+		NewApiCollector(SyncService.manager, feederClient, chainId)
 		SyncService.stateDiffCollector = APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
+		NewL1Collector(SyncService.manager, feederClient, ethereumClient, chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
 	go func() {
 		err = SyncService.stateDiffCollector.Run()
 		if err != nil {
 			panic("API should initialize")
-			return
 		}
 	}()
 }
@@ -112,30 +119,4 @@ func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.stateDiffCollector.Close(ctx)
 	s.manager.Close()
-}
-
-// GetChainId returns the chain id of the node.
-func (s *syncService) GetChainId() int {
-	return s.chainId
-}
-
-// setChainId sets the chain id of the node.
-func (s *syncService) setChainId() {
-	var chainID *big.Int
-	if s.ethClient == nil {
-		// notest
-		if config.Runtime.Starknet.Network == "mainnet" {
-			chainID = new(big.Int).SetInt64(1)
-		} else {
-			chainID = new(big.Int).SetInt64(0)
-		}
-	} else {
-		var err error
-		chainID, err = s.ethClient.ChainID(context.Background())
-		if err != nil {
-			// notest
-			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
-		}
-	}
-	s.chainId = int(chainID.Int64())
 }
