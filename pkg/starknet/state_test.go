@@ -176,7 +176,7 @@ func TestProcessPagesHashes(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	synchronizerDb, err := db.NewMDBXDatabaseWithEnv(env, "SYNCHRONIZER")
 	if err != nil {
 		t.Error(err)
 	}
@@ -315,11 +315,11 @@ func TestUpdateAndCommitState(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	contractHashDb, err := db.NewMDBXDatabase(env, "CONTRACT-HASH")
+	contractHashDb, err := db.NewMDBXDatabaseWithEnv(env, "CONTRACT-HASH")
 	if err != nil {
 		t.Error(err)
 	}
-	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	synchronizerDb, err := db.NewMDBXDatabaseWithEnv(env, "SYNCHRONIZER")
 	if err != nil {
 		t.Error(err)
 	}

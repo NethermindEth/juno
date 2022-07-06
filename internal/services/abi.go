@@ -50,7 +50,7 @@ func (s *abiService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		database, err := db.NewMDBXDatabase(env, "ABI")
+		database, err := db.NewMDBXDatabaseWithEnv(env, "ABI")
 		if err != nil {
 			return err
 		}

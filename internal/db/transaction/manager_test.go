@@ -73,11 +73,11 @@ func initManager(t *testing.T) *Manager {
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}

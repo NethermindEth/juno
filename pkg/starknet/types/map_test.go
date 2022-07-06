@@ -16,7 +16,7 @@ func TestMapUsingTransactionHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "DICT")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "DICT")
 	if err != nil {
 		t.Error(err)
 	}
@@ -61,7 +61,7 @@ func TestMapUsingPagesHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "DICT")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "DICT")
 	if err != nil {
 		t.Error(err)
 	}
@@ -110,7 +110,7 @@ func TestMapUsingFact(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "DICT")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "DICT")
 	if err != nil {
 		t.Error(err)
 	}

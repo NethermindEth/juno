@@ -130,7 +130,7 @@ func TestGetAndUpdateValueOnDB(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "TEST")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "TEST")
 	if err != nil {
 		t.Error(err)
 	}
@@ -277,7 +277,7 @@ func TestUpdateState(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "TEST-DB")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "TEST-DB")
 	if err != nil {
 		t.Error(err)
 	}

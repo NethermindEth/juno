@@ -53,11 +53,11 @@ func (s *transactionService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+		txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
 		if err != nil {
 			return err
 		}
-		receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+		receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
 		if err != nil {
 			return err
 		}

@@ -42,7 +42,7 @@ func (s *contractHashService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		database, err := db.NewMDBXDatabase(env, "CONTRACT_HASH")
+		database, err := db.NewMDBXDatabaseWithEnv(env, "CONTRACT_HASH")
 		if err != nil {
 			return err
 		}

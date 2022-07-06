@@ -52,7 +52,7 @@ func (s *blockService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		database, err := db.NewMDBXDatabase(env, "BLOCK")
+		database, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 		if err != nil {
 			return err
 		}

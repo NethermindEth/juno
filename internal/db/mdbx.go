@@ -27,8 +27,8 @@ type MDBXDatabase struct {
 	dbi mdbx.DBI
 }
 
-// NewMDBXDatabase creates a new MDBXDatabase with the given environment and name.
-func NewMDBXDatabase(env *mdbx.Env, name string) (*MDBXDatabase, error) {
+// NewMDBXDatabaseWithEnv creates a new MDBXDatabase with the given environment and name.
+func NewMDBXDatabaseWithEnv(env *mdbx.Env, name string) (*MDBXDatabase, error) {
 	var dbi mdbx.DBI
 	// Start a READ transaction
 	err := env.Update(func(txn *mdbx.Txn) error {

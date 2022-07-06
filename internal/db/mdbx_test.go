@@ -12,11 +12,11 @@ func TestNewMDBXDatabase(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = NewMDBXDatabase(env, "DATABASE")
+	_, err = NewMDBXDatabaseWithEnv(env, "DATABASE")
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = NewMDBXDatabase(env, "DATABASE")
+	_, err = NewMDBXDatabaseWithEnv(env, "DATABASE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -213,7 +213,7 @@ func initDatabases(t *testing.T, count int) []*MDBXDatabase {
 		t.Fatal(err)
 	}
 	for i := 0; i < count; i++ {
-		out[i], err = NewMDBXDatabase(env, fmt.Sprintf("db_%d", i))
+		out[i], err = NewMDBXDatabaseWithEnv(env, fmt.Sprintf("db_%d", i))
 		if err != nil {
 			t.Fatal(err)
 		}

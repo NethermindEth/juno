@@ -67,15 +67,15 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	blockDb, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
-	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	codeDb, err := db.NewMDBXDatabaseWithEnv(env, "CODE")
 	if err != nil {
 		t.Error(err)
 	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	storageDb, err := db.NewMDBXDatabaseWithEnv(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -157,15 +157,15 @@ func TestStarknetGetCode(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	abiDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	abiDb, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
-	codeDb, err := db.NewMDBXDatabase(env, "CODE")
+	codeDb, err := db.NewMDBXDatabaseWithEnv(env, "CODE")
 	if err != nil {
 		t.Error(err)
 	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	storageDb, err := db.NewMDBXDatabaseWithEnv(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -540,15 +540,15 @@ func TestGetBlock(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	blockDb, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
@@ -867,11 +867,11 @@ func TestGetTransactionByHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
@@ -946,15 +946,15 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	blockDb, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
@@ -1043,15 +1043,15 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	txDb, err := db.NewMDBXDatabase(env, "TRANSACTION")
+	txDb, err := db.NewMDBXDatabaseWithEnv(env, "TRANSACTION")
 	if err != nil {
 		t.Error(err)
 	}
-	receiptDb, err := db.NewMDBXDatabase(env, "RECEIPT")
+	receiptDb, err := db.NewMDBXDatabaseWithEnv(env, "RECEIPT")
 	if err != nil {
 		t.Error(err)
 	}
-	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	blockDb, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}

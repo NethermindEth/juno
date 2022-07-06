@@ -44,11 +44,11 @@ func (s *stateService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		codeDb, err := db.NewMDBXDatabase(env, "CODE")
+		codeDb, err := db.NewMDBXDatabaseWithEnv(env, "CODE")
 		if err != nil {
 			return err
 		}
-		storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+		storageDb, err := db.NewMDBXDatabaseWithEnv(env, "STORAGE")
 		if err != nil {
 			return err
 		}

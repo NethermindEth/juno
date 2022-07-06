@@ -13,7 +13,7 @@ func TestAbiService_StoreGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "ABI")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "ABI")
 	if err != nil {
 		t.Error(err)
 	}

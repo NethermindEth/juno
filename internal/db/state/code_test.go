@@ -32,11 +32,11 @@ func TestManager_Code(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	codeDatabase, err := db.NewMDBXDatabaseWithEnv(env, "CODE")
 	if err != nil {
 		t.Error(err)
 	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	storageDb, err := db.NewMDBXDatabaseWithEnv(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}

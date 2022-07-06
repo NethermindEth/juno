@@ -15,7 +15,7 @@ func TestKeyValueStoreNewDbAndCommit(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	dbKV, err := NewMDBXDatabase(env, "KeyValueStore")
+	dbKV, err := NewMDBXDatabaseWithEnv(env, "KeyValueStore")
 	if err != nil {
 		t.Error(err)
 	}

@@ -47,7 +47,7 @@ func TestBlockSpecificDatabase_Put(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := NewMDBXDatabase(env, "BlockSpecific")
+	database, err := NewMDBXDatabaseWithEnv(env, "BlockSpecific")
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,7 +94,7 @@ func TestBlockSpecificDatabase_Get(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := NewMDBXDatabase(env, "BlockSpecific")
+	database, err := NewMDBXDatabaseWithEnv(env, "BlockSpecific")
 	if err != nil {
 		t.Error(err)
 	}

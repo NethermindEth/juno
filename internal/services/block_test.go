@@ -35,7 +35,7 @@ func TestService(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "BLOCK")
+	database, err := db.NewMDBXDatabaseWithEnv(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}
