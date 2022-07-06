@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
@@ -57,7 +58,8 @@ var (
 	feederGatewayClient *feeder.Client
 	stateSynchronizer   *starknet.Synchronizer
 
-	abiManager *abi.Manager
+	abiManager   *abi.Manager
+	stateManager *state.Manager
 )
 
 // Execute handle flags for Cobra execution.
@@ -87,13 +89,23 @@ func juno(_ *cobra.Command, _ []string) {
 
 	abiDB, err := db.NewMDBXDatabase("ABI")
 	if err != nil {
-		log.Default.With("Error", err).Fatal("Error starting the ABI database")
+		log.Default.With("Error", err).Fatal("Error creating the ABI database")
 	}
 	abiManager = abi.NewABIManager(abiDB)
 
+	codeDB, err := db.NewMDBXDatabase("CODE")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Error creating the CODE database")
+	}
+	storageDB, err := db.NewMDBXDatabase("STORAGE")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Error creating the STORAGE database")
+	}
+	stateManager = state.NewStateManager(codeDB, db.NewBlockSpecificDatabase(storageDB))
+
 	// Initialise servers and state synchronisation
 	if config.Runtime.RPC.Enabled {
-		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient, abiManager)
+		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient, abiManager, stateManager)
 	}
 
 	if config.Runtime.Metrics.Enabled {
@@ -115,7 +127,8 @@ func juno(_ *cobra.Command, _ []string) {
 		if err != nil {
 			log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 		}
-		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient, abiManager)
+		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient, abiManager,
+			stateManager)
 	}
 
 	if config.Runtime.REST.Enabled {
@@ -142,7 +155,6 @@ func juno(_ *cobra.Command, _ []string) {
 
 	processHandler = process.NewHandler()
 
-	//processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
 	//processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run,
 	//	services.TransactionService.Close)
 	//processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
@@ -169,6 +181,7 @@ func stop() {
 
 	stateSynchronizer.Close()
 	abiManager.Close()
+	stateManager.Close()
 }
 
 // Todo: ensure shutdown happens gracefully

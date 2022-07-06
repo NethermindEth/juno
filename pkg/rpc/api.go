@@ -256,12 +256,8 @@ func (HandlerRPC) StarknetGetStateUpdateByHash(
 
 // StarknetGetStorageAt Get the value of the storage at the given
 // address and key.
-func (HandlerRPC) StarknetGetStorageAt(
-	c context.Context,
-	contractAddress Address,
-	key Felt,
-	blockHash BlockHashOrTag,
-) (Felt, error) {
+func (h HandlerRPC) StarknetGetStorageAt(c context.Context, contractAddress Address, key Felt,
+	blockHash BlockHashOrTag) (Felt, error) {
 	var blockNumber uint64
 	if hash := blockHash.Hash; hash != nil {
 		block := services.BlockService.GetBlockByHash(*blockHash.Hash)
@@ -282,7 +278,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 		return "", fmt.Errorf("invalid block hash or tag")
 	}
 
-	storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	storage := h.stateManager.GetStorage(string(contractAddress), blockNumber)
 	if storage == nil {
 		// notest
 		return "", fmt.Errorf("storage not found")
@@ -413,7 +409,7 @@ func (h HandlerRPC) StarknetGetCode(c context.Context, contractAddress types.Add
 		}
 		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 	}
-	code := services.StateService.GetCode(contractAddress.Bytes())
+	code := h.stateManager.GetCode(contractAddress.Bytes())
 	if code == nil {
 		// notest
 		return nil, fmt.Errorf("code not found")

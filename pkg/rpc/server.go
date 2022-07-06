@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"net/http"
 	"time"
 
@@ -23,7 +24,8 @@ type Server struct {
 // HandlerRPC represents the struct that later we will apply reflection
 // to call rpc methods.
 type HandlerRPC struct {
-	abiManager *abi.Manager
+	abiManager   *abi.Manager
+	stateManager *state.Manager
 }
 
 // HandlerJsonRpc contains the JSON-RPC method functions.
@@ -37,9 +39,12 @@ func NewHandlerJsonRpc(rpc interface{}) *HandlerJsonRpc {
 }
 
 // NewServer creates a new server.
-func NewServer(addr string, client *feeder.Client, abiManager *abi.Manager) *Server {
+func NewServer(addr string, client *feeder.Client, abiManager *abi.Manager, stateManager *state.Manager) *Server {
 	mux := http.NewServeMux()
-	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{abiManager: abiManager}))
+	mux.Handle("/rpc", NewHandlerJsonRpc(HandlerRPC{
+		abiManager:   abiManager,
+		stateManager: stateManager,
+	}))
 	return &Server{
 		server:       http.Server{Addr: addr, Handler: mux},
 		feederClient: client,

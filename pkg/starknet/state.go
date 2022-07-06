@@ -5,6 +5,7 @@ package starknet
 import (
 	"context"
 	"errors"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"math/big"
 	"runtime"
 	"strconv"
@@ -37,12 +38,13 @@ type Synchronizer struct {
 	gpsVerifier         *starknetTypes.Dictionary
 	facts               *starknetTypes.Dictionary
 	abiManager          *abiDB.Manager
+	stateManager        *state.Manager
 	chainID             int64
 }
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
-	abiManager *abiDB.Manager) *Synchronizer {
+	abiManager *abiDB.Manager, stateManager *state.Manager) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -68,6 +70,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
 		chainID:             chainID.Int64(),
 		abiManager:          abiManager,
+		stateManager:        stateManager,
 	}
 }
 
@@ -557,7 +560,7 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 		// Save the ABI
 		s.abiManager.PutABI(remove0x(v.Address), toDbAbi(code.Abi))
 		// Save the contract code
-		services.StateService.StoreCode(common.Hex2Bytes(remove0x(v.Address)), byteCodeToStateCode(code.Bytecode))
+		s.stateManager.PutCode(common.Hex2Bytes(remove0x(v.Address)), byteCodeToStateCode(code.Bytecode))
 	}
 }
 
