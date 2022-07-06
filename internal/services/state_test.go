@@ -30,11 +30,10 @@ var codes = []struct {
 }
 
 func stateServiceInitServices(t *testing.T) {
-	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
-	if err != nil {
+	if err := db.InitializeMDBXEnv(t.TempDir(), 3, 0); err != nil {
 		t.Error(err)
 	}
-	env, err = db.GetMDBXEnv()
+	env, err := db.GetMDBXEnv()
 	if err != nil {
 		t.Fail()
 	}

@@ -12,6 +12,9 @@ import (
 )
 
 func newTestStateManager(t *testing.T) state.StateManager {
+	if err := db.InitializeMDBXEnv(t.TempDir(), 3, 0); err != nil {
+		t.Error(err)
+	}
 	env, err := db.GetMDBXEnv()
 	if err != nil {
 	}

@@ -262,33 +262,35 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
-	var blockNumber uint64
-	if hash := blockHash.Hash; hash != nil {
-		block := services.BlockService.GetBlockByHash(*blockHash.Hash)
-		if block == nil {
-			// notest
-			return "", fmt.Errorf("block not found")
-		}
-		blockNumber = block.BlockNumber
-	} else if tag := blockHash.Tag; tag != nil {
-		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
-		if err != nil {
-			// notest
-			return "", fmt.Errorf("block not found")
-		}
-		blockNumber = blockResponse.BlockNumber
-	} else {
-		// notest
-		return "", fmt.Errorf("invalid block hash or tag")
-	}
-
-	storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
-	if storage == nil {
-		// notest
-		return "", fmt.Errorf("storage not found")
-	}
-
-	return Felt(storage.Storage[string(key)]), nil
+	// TODO: Fix response query with the new trie
+	//var blockNumber uint64
+	//if hash := blockHash.Hash; hash != nil {
+	//	block := services.BlockService.GetBlockByHash(*blockHash.Hash)
+	//	if block == nil {
+	//		// notest
+	//		return "", fmt.Errorf("block not found")
+	//	}
+	//	blockNumber = block.BlockNumber
+	//} else if tag := blockHash.Tag; tag != nil {
+	//	blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
+	//	if err != nil {
+	//		// notest
+	//		return "", fmt.Errorf("block not found")
+	//	}
+	//	blockNumber = blockResponse.BlockNumber
+	//} else {
+	//	// notest
+	//	return "", fmt.Errorf("invalid block hash or tag")
+	//}
+	//
+	//storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	//if storage == nil {
+	//	// notest
+	//	return "", fmt.Errorf("storage not found")
+	//}
+	//
+	//return Felt(storage.Storage[string(key)]), nil
+	return Felt("ss"), nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a

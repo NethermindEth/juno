@@ -30,6 +30,9 @@ func init() {
 }
 
 func newTestTrieManager(t *testing.T) trie.TrieManager {
+	if err := db.InitializeMDBXEnv(t.TempDir(), 3, 0); err != nil {
+		t.Error(err)
+	}
 	env, err := db.GetMDBXEnv()
 	if err != nil {
 		t.Fail()
