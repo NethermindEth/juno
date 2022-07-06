@@ -9,14 +9,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
-
-var ErrorBlockNotFound = fmt.Errorf("block not found")
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient
 type HttpClient interface {
@@ -207,7 +206,6 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 // GetContractAddresses creates a new request to get contract addresses
 // from the gateway.
 func (c Client) GetContractAddresses() (*ContractAddresses, error) {
-	log.Default.With("Gateway URL", c.BaseURL).Info("Getting contract address from gateway.")
 	req, err := c.newRequest("GET", "/get_contract_addresses", nil, nil)
 	if err != nil {
 		metr.IncreaseContractAddressesFailed()
@@ -260,20 +258,18 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res StarknetBlock
 	metr.IncreaseBlockSent()
 
+	var res StarknetBlock
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseBlockFailed()
 		log.Default.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
+	} else if reflect.DeepEqual(res, StarknetBlock{}) {
+		return nil, fmt.Errorf("block not found")
 	}
 	metr.IncreaseBlockReceived()
-
-	if res.StateRoot == "" && res.Timestamp == 0 {
-		return nil, ErrorBlockNotFound
-	}
 
 	return &res, err
 }

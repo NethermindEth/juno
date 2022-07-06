@@ -91,15 +91,17 @@ func TestCallContract(t *testing.T) {
 }
 
 func TestGetBlock(t *testing.T) {
-	a := feeder.StarknetBlock{}
-	body, err := StructFaker(a)
+	// Ensure a is nonempty, else client.GetBlock will throw error
+	a := feeder.StarknetBlock{Timestamp: 1}
+	bodyBytes, err := json.Marshal(a)
 	if err != nil {
 		t.Fatal()
 	}
+	body := string(bodyBytes)
 	httpClient.DoReturns(generateResponse(body), nil)
 	starknetBlock, err := client.GetBlock("", "latest")
 	if err != nil {
-		t.Fatal()
+		t.Fatal("unexpected error when calling GetBlock")
 	}
 	assert.Equal(t, &a, starknetBlock, "StarknetBlock does not match")
 }
