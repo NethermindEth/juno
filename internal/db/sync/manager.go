@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/NethermindEth/juno/internal/db"
 )
 
@@ -27,7 +28,6 @@ func NewSyncManager(database db.Database) *Manager {
 
 // StoreLatestBlockSync stores the latest block sync.
 func (m *Manager) StoreLatestBlockSync(latestBlockSync int64) {
-
 	// Marshal the latest block sync
 	value, err := json.Marshal(latestBlockSync)
 	if err != nil {
@@ -67,7 +67,6 @@ func (m *Manager) GetLatestBlockSync() int64 {
 
 // StoreBlockOfProcessedEvent stores the block of the latest event processed,
 func (m *Manager) StoreBlockOfProcessedEvent(starknetFact, l1Block int64) {
-
 	key := []byte(fmt.Sprintf("%s%d", blockOfLatestEventProcessedKey, starknetFact))
 	// Marshal the latest block sync
 	value, err := json.Marshal(l1Block)

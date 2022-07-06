@@ -2,13 +2,14 @@ package services
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"math/big"
 )
 
 // SyncService is the service that handle the synchronization of the node.
@@ -120,7 +121,6 @@ func (s *syncService) GetChainId() int {
 
 // setChainId sets the chain id of the node.
 func (s *syncService) setChainId() {
-
 	var chainID *big.Int
 	if s.ethClient == nil {
 		// notest

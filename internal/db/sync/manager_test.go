@@ -1,9 +1,10 @@
 package sync_test
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/sync"
-	"testing"
 )
 
 // Test that the latest block sync is stored and retrieved correctly.
