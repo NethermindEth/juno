@@ -5,6 +5,7 @@ package starknet
 import (
 	"context"
 	"errors"
+	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"math/big"
@@ -45,11 +46,13 @@ type Synchronizer struct {
 	abiManager         *abiDB.Manager
 	stateManager       *state.Manager
 	transactionManager *transaction.Manager
+	blockManager       *block.Manager
 }
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
-	abiManager *abiDB.Manager, stateManager *state.Manager, transactionManager *transaction.Manager) *Synchronizer {
+	abiManager *abiDB.Manager, stateManager *state.Manager, transactionManager *transaction.Manager,
+	blockManager *block.Manager) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -77,6 +80,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		abiManager:          abiManager,
 		stateManager:        stateManager,
 		transactionManager:  transactionManager,
+		blockManager:        blockManager,
 	}
 }
 
@@ -576,9 +580,9 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	if err != nil {
 		return
 	}
-	log.Default.With("Block Hash", block.BlockHash).
-		Info("Got block")
-	services.BlockService.StoreBlock(localTypes.BlockHash(localTypes.HexToFelt(block.BlockHash)), feederBlockToDBBlock(block))
+	log.Default.With("Block Hash", block.BlockHash).Info("Got block")
+
+	s.blockManager.PutBlock(localTypes.BlockHash(localTypes.HexToFelt(block.BlockHash)), feederBlockToDBBlock(block))
 
 	for _, bTxn := range block.Transactions {
 		transactionInfo, err := s.feederGatewayClient.GetTransaction(bTxn.TransactionHash, "")

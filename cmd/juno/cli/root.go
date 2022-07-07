@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/errpkg"
@@ -62,6 +63,7 @@ var (
 	abiManager         *abi.Manager
 	stateManager       *state.Manager
 	transactionManager *transaction.Manager
+	blockManager       *block.Manager
 )
 
 // Execute handle flags for Cobra execution.
@@ -105,20 +107,26 @@ func juno(_ *cobra.Command, _ []string) {
 	}
 	stateManager = state.NewStateManager(codeDB, db.NewBlockSpecificDatabase(storageDB))
 
-	txDb, err := db.NewMDBXDatabase("TRANSACTION")
+	txDB, err := db.NewMDBXDatabase("TRANSACTION")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the TRANSACTION database")
 	}
-	receiptDb, err := db.NewMDBXDatabase("RECEIPT")
+	receiptDB, err := db.NewMDBXDatabase("RECEIPT")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the RECEIPT database")
 	}
-	transactionManager = transaction.NewManager(txDb, receiptDb)
+	transactionManager = transaction.NewManager(txDB, receiptDB)
+
+	blockDB, err := db.NewMDBXDatabase("BLOCK")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Error creating the BLOCK database")
+	}
+	blockManager = block.NewManager(blockDB)
 
 	// Initialise servers and state synchronisation
 	if config.Runtime.RPC.Enabled {
 		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient, abiManager,
-			stateManager, transactionManager)
+			stateManager, transactionManager, blockManager)
 	}
 
 	if config.Runtime.Metrics.Enabled {
@@ -141,7 +149,7 @@ func juno(_ *cobra.Command, _ []string) {
 			log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 		}
 		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient, abiManager,
-			stateManager, transactionManager)
+			stateManager, transactionManager, blockManager)
 	}
 
 	if config.Runtime.REST.Enabled {
@@ -167,8 +175,7 @@ func juno(_ *cobra.Command, _ []string) {
 	}
 
 	processHandler = process.NewHandler()
-
-	//processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
+	//
 	//processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run,
 	//	services.ContractHashService.Close)
 }
@@ -194,6 +201,7 @@ func stop() {
 	abiManager.Close()
 	stateManager.Close()
 	transactionManager.Close()
+	blockManager.Close()
 }
 
 // Todo: ensure shutdown happens gracefully
