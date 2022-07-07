@@ -18,7 +18,7 @@ import (
 // [hash function]: https://docs.starknet.io/docs/Hashing/hash-functions#starknet-keccak
 func Digest250(data []byte) *big.Int {
 	digest := Digest256(data)
-	digest[0] = digest[0] & 3 // Remove the first 6 bits from the first byte.
+	digest[0] &= 3 // Remove the first 6 bits from the first byte.
 	return new(big.Int).SetBytes(digest)
 }
 
