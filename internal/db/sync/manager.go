@@ -13,6 +13,7 @@ var (
 	MarshalError                   = errors.New("marshal error")
 	latestBlockSyncKey             = []byte("latestBlockSync")
 	blockOfLatestEventProcessedKey = []byte("blockOfLatestEventProcessed")
+	latestStateRoot                = []byte("latestStateRoot")
 )
 
 // Manager is a Block database manager to save and search the blocks.
@@ -63,6 +64,39 @@ func (m *Manager) GetLatestBlockSync() int64 {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
 	return *latestBlockSync
+}
+
+// StoreLatestStateRoot stores the latest state root.
+func (m *Manager) StoreLatestStateRoot(stateRoot string) {
+	// Store the latest state root
+	err := m.database.Put(latestStateRoot, []byte(stateRoot))
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
+	}
+}
+
+// GetLatestStateRoot returns the latest state root.
+func (m *Manager) GetLatestStateRoot() string {
+	// Query to database
+	data, err := m.database.Get(latestStateRoot)
+	if err != nil {
+		if db.ErrNotFound == err {
+			return ""
+		}
+		// notest
+		panic(any(fmt.Errorf("%w: %s", DbError, err)))
+	}
+	if data == nil {
+		// notest
+		return ""
+	}
+	// Unmarshal the data from database
+	stateRoot := new(string)
+	if err := json.Unmarshal(data, stateRoot); err != nil {
+		// notest
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
+	}
+	return *stateRoot
 }
 
 // StoreBlockOfProcessedEvent stores the block of the latest event processed,

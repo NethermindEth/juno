@@ -97,12 +97,12 @@ func IncreaseBlockSent() {
 // This increases when the request in GetStateUpdateGoerli in feeder.go is sent
 func IncreaseStateUpdateGoerliSent() {
 	// notest
-	noOfRequests.WithLabelValues("Sent", "State Update Goerli").Inc()
+	noOfRequests.WithLabelValues("Sent", "state Update Goerli").Inc()
 }
 
 // This increases when the request in GetStateUpdate in feeder.go is sent
 func IncreaseStateUpdateSent() {
-	noOfRequests.WithLabelValues("Sent", "State Update").Inc()
+	noOfRequests.WithLabelValues("Sent", "state Update").Inc()
 }
 
 // This increases when the request in GetFullContract in feeder.go is sent
@@ -174,12 +174,12 @@ func IncreaseBlockReceived() {
 // This increases when the response of GetStateUpdateGoerli in feeder.go is received
 func IncreaseStateUpdateGoerliReceived() {
 	// notest
-	noOfRequests.WithLabelValues("Received", "State Update Goerli").Inc()
+	noOfRequests.WithLabelValues("Received", "state Update Goerli").Inc()
 }
 
 // This increases when the response of GetStateUpdate in feeder.go is received
 func IncreaseStateUpdateReceived() {
-	noOfRequests.WithLabelValues("Received", "State Update").Inc()
+	noOfRequests.WithLabelValues("Received", "state Update").Inc()
 }
 
 // This increases when the response of GetFullContract in feeder.go is received
@@ -252,12 +252,12 @@ func IncreaseBlockFailed() {
 // This increases when the request in GetStateUpdateGoerli in feeder.go fails
 func IncreaseStateUpdateGoerliFailed() {
 	// notest
-	noOfRequests.WithLabelValues("Failed", "State Update Goerli").Inc()
+	noOfRequests.WithLabelValues("Failed", "state Update Goerli").Inc()
 }
 
 // This increases when the request in GetStateUpdate in feeder.go fails
 func IncreaseStateUpdateFailed() {
-	noOfRequests.WithLabelValues("Failed", "State Update").Inc()
+	noOfRequests.WithLabelValues("Failed", "state Update").Inc()
 }
 
 // This increases when the request in GetFullContract in feeder.go fails

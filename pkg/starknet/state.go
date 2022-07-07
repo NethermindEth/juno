@@ -1,4 +1,4 @@
-// Package starknet contains all the functions related to Starknet State and Synchronization
+// Package starknet contains all the functions related to Starknet state and Synchronization
 // with Layer 2
 package starknet
 
@@ -272,7 +272,7 @@ func (s *Synchronizer) l1Sync() error {
 					log.Default.With("Error").Panic("Fact has not been verified")
 				}
 				// If already exist the information related to the fact,
-				// fetch the memory pages and updated the State
+				// fetch the memory pages and updated the state
 				pages := s.processPagesHashes(
 					pagesHashes.(starknetTypes.PagesHash).Bytes,
 					contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
@@ -390,7 +390,7 @@ func (s *Synchronizer) updateAndCommitState(
 	metr.IncreaseCountStarknetStateSuccess()
 	duration := time.Since(start)
 	metr.UpdateStarknetSyncTime(duration.Seconds())
-	log.Default.With("Block Number", sequenceNumber).Info("State updated")
+	log.Default.With("Block Number", sequenceNumber).Info("state updated")
 
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, sequenceNumber)
 	if err != nil {
@@ -467,7 +467,7 @@ func (s *Synchronizer) apiSync() error {
 // gateway and apply it to the local state.
 // notest
 func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
-	log.Default.With("Number", blockIterator).Info("Updating StarkNet State")
+	log.Default.With("Number", blockIterator).Info("Updating StarkNet state")
 	var update *feeder.StateUpdateResponse
 	var err error
 	if s.chainID == 1 {

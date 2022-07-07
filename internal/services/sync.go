@@ -4,9 +4,13 @@ import (
 	"context"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	state2 "github.com/NethermindEth/juno/pkg/state"
+	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 )
@@ -28,6 +32,10 @@ type syncService struct {
 	latestBlockSynced int64
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
+	// stateManager represent the manager for the state
+	stateManager state2.StateManager
+	// state represent the state of the trie
+	state state2.State
 }
 
 func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
@@ -75,12 +83,71 @@ func (s *syncService) Run() error {
 		return err
 	}
 
+	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
-		// TODO: add state diff to black box
-		s.logger.With("Block Number", stateDiff.BlockNumber).Info("Synced block")
+
+		if s.preValidateStateDiff(stateDiff) {
+			s.logger.With("Old State Root from StateDiff", stateDiff.OldRoot,
+				"Current State Root", s.state.Root().Hex(),
+				"Block Number", s.latestBlockSynced+1).
+				Error("Fail validation before apply StateDiff")
+			continue
+		}
+
+		err := s.updateState(stateDiff)
+		if err != nil || s.postValidateStateDiff(stateDiff) {
+			// In case some errors exist or the new root of the trie didn't match with
+			// the root we receive from the StateDiff, we have to revert the trie
+			stateRoot := s.manager.GetLatestStateRoot()
+			root := types.HexToFelt(stateRoot)
+			s.logger.With("State Root from StateDiff", stateDiff.NewRoot,
+				"State Root after StateDiff", s.state.Root().Hex(),
+				"Block Number", s.latestBlockSynced+1).
+				Error("Fail validation after apply StateDiff")
+			s.state = state2.New(s.stateManager, &root)
+			continue
+		}
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Missing Blocks to fully Sync", s.stateDiffCollector.GetLatestBlockOnChain()-stateDiff.BlockNumber).
+			Info("Synced block")
 		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
+		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
 		s.latestBlockSynced = stateDiff.BlockNumber
 
+	}
+	return nil
+}
+
+func (s *syncService) postValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
+	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.NewRoot)
+}
+
+func (s *syncService) preValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
+	// The old state root that comes with the stateDiff should match with the current stateRoot
+	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.OldRoot) &&
+		// Should be the next block in the chain
+		s.latestBlockSynced+1 == stateDiff.BlockNumber
+}
+
+func (s *syncService) updateState(stateDiff *starknetTypes.StateDiff) error {
+	for _, deployedContract := range stateDiff.DeployedContracts {
+		address := types.HexToFelt(deployedContract.Address)
+		contractHash := types.HexToFelt(deployedContract.ContractHash)
+		err := s.state.SetContractHash(&address, &contractHash)
+		if err != nil {
+			return err
+		}
+	}
+	for k, v := range stateDiff.StorageDiffs {
+		for _, storageSlots := range v {
+			address := types.HexToFelt(k)
+			slotKey := types.HexToFelt(storageSlots.Key)
+			slotValue := types.HexToFelt(storageSlots.Value)
+			err := s.state.SetSlot(&address, &slotKey, &slotValue)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -101,7 +168,26 @@ func (s *syncService) setDefaults() error {
 		if err != nil {
 			return err
 		}
+		codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+		if err != nil {
+			return err
+		}
+		binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+		if err != nil {
+			return err
+		}
+		stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+		if err != nil {
+			return err
+		}
 		s.manager = sync.NewSyncManager(database)
+
+		s.stateManager = state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+
+		stateRoot := s.manager.GetLatestStateRoot()
+		root := types.HexToFelt(stateRoot)
+
+		s.state = state2.New(s.stateManager, &root)
 	}
 	return nil
 }
@@ -138,4 +224,8 @@ func (s *syncService) setChainId() {
 		}
 	}
 	s.chainId = int(chainID.Int64())
+}
+
+func initStateManager() *state2.StateManager {
+
 }

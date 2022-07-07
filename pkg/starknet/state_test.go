@@ -246,7 +246,7 @@ func TestParsePages(t *testing.T) {
 			3, // Contract hash
 			1, // Number of constructor arguments
 			2, // Constructor argument
-			// State diffs
+			// state diffs
 			1, // Number of diffs
 			3, // Contract address
 			1, // Number of updates

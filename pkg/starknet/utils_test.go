@@ -291,7 +291,7 @@ func TestUpdateState(t *testing.T) {
 	//want := stateTrie.Commitment()
 	//commitment, _ := new(big.Int).SetString(stateCommitment, 16)
 	//if commitment.Cmp(want) != 0 {
-	//	t.Error("State roots do not match")
+	//	t.Error("state roots do not match")
 	//}
 }
 

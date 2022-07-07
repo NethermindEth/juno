@@ -64,7 +64,7 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 }
 
 // contractState define the function that calculates the values stored in the
-// leaf of the Merkle Patricia Tree that represent the State in StarkNet
+// leaf of the Merkle Patricia Tree that represent the state in StarkNet
 func contractState(contractHash, storageRoot *big.Int) *big.Int {
 	// Is defined as:
 	// h(h(h(contract_hash, storage_root), 0), 0).
@@ -246,11 +246,11 @@ func updateState(
 	//
 	//if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
 	//	// notest
-	//	log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
+	//	log.Default.With("state Commitment", stateCommitment, "state Root from API", remove0x(stateRoot)).
 	//		Panic("stateRoot not equal to the one provided")
 	//}
-	//log.Default.With("State Root", stateCommitment).
-	//	Info("Got State commitment")
+	//log.Default.With("state Root", stateCommitment).
+	//	Info("Got state commitment")
 	//
 	//return stateCommitment, nil
 	return "", nil

@@ -117,7 +117,7 @@ func TestGetStateUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, getStateUpdate, "State Update response does not match")
+	assert.Equal(t, &cOrig, getStateUpdate, "state Update response does not match")
 }
 
 func TestGetStateUpdateGoerli(t *testing.T) {
@@ -133,7 +133,7 @@ func TestGetStateUpdateGoerli(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, stateUpdateResponseToGoerli(cOrig), getStateUpdate, "State Update response don't match")
+	assert.Equal(t, stateUpdateResponseToGoerli(cOrig), getStateUpdate, "state Update response don't match")
 }
 
 func stateUpdateResponseToGoerli(res feeder.StateUpdateResponseGoerli) *feeder.StateUpdateResponse {

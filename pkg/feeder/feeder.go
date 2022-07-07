@@ -319,7 +319,7 @@ func stateUpdateResponseToGoerli(res StateUpdateResponseGoerli) *StateUpdateResp
 	}
 }
 
-// GetStateUpdate creates a new request to get the State Update of a given block
+// GetStateUpdate creates a new request to get the state Update of a given block
 // from the gateway.
 func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)

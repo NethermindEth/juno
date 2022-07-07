@@ -111,7 +111,7 @@ func (l *l1Collector) Run() error {
 				continue
 			}
 			// If already exist the information related to the fact,
-			// fetch the memory pages and updated the State
+			// fetch the memory pages and updated the state
 			pages, err := l.processPagesHashes(
 				pagesHashes.(starknetTypes.PagesHash).Bytes,
 				//contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,

@@ -77,8 +77,8 @@ var (
 			// Initialize ABI Service
 			processHandler.Add("ABI Service", false, services.AbiService.Run, services.AbiService.Close)
 
-			// Initialize State storage service
-			processHandler.Add("State Storage Service", false, services.StateService.Run, services.StateService.Close)
+			// Initialize state storage service
+			processHandler.Add("state Storage Service", false, services.StateService.Run, services.StateService.Close)
 
 			// Initialize Transactions Storage Service
 			processHandler.Add("Transactions Storage Service", false, services.TransactionService.Run, services.TransactionService.Close)
