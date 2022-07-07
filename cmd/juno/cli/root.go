@@ -168,7 +168,7 @@ var (
 				flagcount++
 			}
 			flag, _ = cmd.PersistentFlags().GetString("updateconfigfile")
-			if flagcount > 0 {
+			if flagcount == 0 {
 				log.Default.Info("No flags provided for updating the config file")
 				flag = ""
 			}
