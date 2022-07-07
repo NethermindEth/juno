@@ -225,7 +225,3 @@ func (s *syncService) setChainId() {
 	}
 	s.chainId = int(chainID.Int64())
 }
-
-func initStateManager() *state2.StateManager {
-
-}
