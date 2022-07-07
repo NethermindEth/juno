@@ -2,6 +2,7 @@ package cli
 
 // notest
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	//"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -22,7 +23,9 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
-	"github.com/NethermindEth/juno/pkg/starknet"
+	"github.com/NethermindEth/juno/pkg/types"
+	//"github.com/NethermindEth/juno/pkg/starknet"
+	starknetNew "github.com/NethermindEth/juno/pkg/starknet_new"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -88,32 +91,40 @@ var (
 			processHandler.Add("Block Storage Service", false, services.BlockService.Run, services.BlockService.Close)
 
 			// Initialize Contract Hash storage service
-			processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
+			// processHandler.Add("Contract Hash Storage Service", false, services.ContractHashService.Run, services.ContractHashService.Close)
+			services.ContractHashService.Run()
+			defer services.ContractHashService.Close(context.Background())
+
+			// processHandler.Add("Synchronizer Service", false, services.SyncService.Run, services.SyncService.Close)
+			services.SyncService.Run()
+			defer services.SyncService.Close(context.Background())
 
 			// Subscribe the Starknet Synchronizer to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.Starknet.Enabled {
-				var ethereumClient *ethclient.Client
-				if !config.Runtime.Starknet.ApiSync {
-					var err error
-					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
-					if err != nil {
-						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+				stateUpdatesChan := make(chan *types.StateUpdate, 10)
+				errChan := make(chan error)
+				latestBlockNum, err := services.SyncService.GetLatestBlockNumber()
+				if err != nil {
+					tmp := uint64(0)
+					latestBlockNum = &tmp
+				}
+				if config.Runtime.Starknet.ApiSync {
+					go starknetNew.ApiLoadStateDiffs(*latestBlockNum, *feederGatewayClient, stateUpdatesChan, errChan)
+				} else {
+					panic("l1 sync not supported")
+				}
+				go func(stateDiffsChan chan *types.StateUpdate, errChan chan error) {
+					defer close(errChan)
+					for stateDiff := range stateDiffsChan {
+						err := services.SyncService.UpdateState(*stateDiff)
+						if err != nil {
+							log.Default.Error("unexpected error when updating state", err)
+							errChan <- err
+							break
+						}
 					}
-				}
-				// Synchronizer for Starknet State
-				env, err := db.GetMDBXEnv()
-				if err != nil {
-					log.Default.Fatal(err)
-				}
-				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
-				if err != nil {
-					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
-				}
-				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
-				// Initialize the Starknet Synchronizer Service.
-				processHandler.Add("Starknet Synchronizer", true, stateSynchronizer.UpdateState,
-					stateSynchronizer.Close)
+				}(stateUpdatesChan, errChan)
 			}
 
 			// Subscribe the REST API client to the main loop if it is enabled in
