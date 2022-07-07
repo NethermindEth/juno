@@ -14,7 +14,6 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/errpkg"
 	"github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
@@ -76,7 +75,7 @@ var (
 			if flag != "" {
 				err := updateFeederGateway(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the feeder gateway")
+					log.Default.With("Error", err).Error("Failed to update the feeder gateway")
 				}
 				flagcount++
 			}
@@ -84,7 +83,7 @@ var (
 			if flag != "" {
 				err := updateRPCEnable(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the RPC enable")
+					log.Default.With("Error", err).Error("Failed to update the RPC enable")
 				}
 				flagcount++
 			}
@@ -92,7 +91,7 @@ var (
 			if flag != "" {
 				err := updateRPCPort(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the RPC port")
+					log.Default.With("Error", err).Error("Failed to update the RPC port")
 				}
 				flagcount++
 			}
@@ -100,7 +99,7 @@ var (
 			if flag != "" {
 				err := updateMetricsEnable(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the Metrics enable")
+					log.Default.With("Error", err).Error("Failed to update the Metrics enable")
 				}
 				flagcount++
 			}
@@ -108,7 +107,7 @@ var (
 			if flag != "" {
 				err := updateMetricsPort(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the Metrics port")
+					log.Default.With("Error", err).Error("Failed to update the Metrics port")
 				}
 				flagcount++
 			}
@@ -116,7 +115,7 @@ var (
 			if flag != "" {
 				err := updateDbPath(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the DB Path")
+					log.Default.With("Error", err).Error("Failed to update the DB Path")
 				}
 				flagcount++
 			}
@@ -124,7 +123,7 @@ var (
 			if flag != "" {
 				err := updateStarknetEnable(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the Starknet Enable")
+					log.Default.With("Error", err).Error("Failed to update the Starknet Enable")
 				}
 				flagcount++
 			}
@@ -132,7 +131,7 @@ var (
 			if flag != "" {
 				err := updateAPISync(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the API sync")
+					log.Default.With("Error", err).Error("Failed to update the API sync")
 				}
 				flagcount++
 			}
@@ -140,7 +139,7 @@ var (
 			if flag != "" {
 				err := updateEthereumNode(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the Ethereum node")
+					log.Default.With("Error", err).Error("Failed to update the Ethereum node")
 				}
 				flagcount++
 			}
@@ -148,7 +147,7 @@ var (
 			if flag != "" {
 				err := updateRESTEnable(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the REST enable")
+					log.Default.With("Error", err).Error("Failed to update the REST enable")
 				}
 				flagcount++
 			}
@@ -156,7 +155,7 @@ var (
 			if flag != "" {
 				err := updateRESTPort(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the REST port")
+					log.Default.With("Error", err).Error("Failed to update the REST port")
 				}
 				flagcount++
 			}
@@ -164,7 +163,7 @@ var (
 			if flag != "" {
 				err := updateRESTPrefix(flag)
 				if err != nil {
-					errpkg.CheckFatal(err, "Failed to update the REST prefix")
+					log.Default.With("Error", err).Error("Failed to update the REST prefix")
 				}
 				flagcount++
 			}
@@ -383,9 +382,13 @@ func updateConfigFile(cfgFile string) {
 		f = filepath.Join(config.Dir, "juno.yaml")
 	}
 	data, err := yaml.Marshal(&config.Runtime)
-	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+	}
 	err = os.WriteFile(f, data, 0o644)
-	errpkg.CheckFatal(err, "Failed to write config file.")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Failed to write config file.")
+	}
 }
 
 // init defines flags and handles configuration.
@@ -454,12 +457,16 @@ func initConfig() {
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
-		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
+		if err != nil {
+			log.Default.With("Error", err).Fatal("Failed to read in Config after generation.")
+		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
-	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Unable to unmarshal runtime config instance.")
+	}
 }
 
 // Execute handle flags for Cobra execution.
