@@ -4,15 +4,16 @@ import (
 	"context"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/state"
+	dbState "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
-	state2 "github.com/NethermindEth/juno/pkg/state"
+	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
+	"time"
 )
 
 // SyncService is the service that handle the synchronization of the node.
@@ -33,9 +34,11 @@ type syncService struct {
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
 	// stateManager represent the manager for the state
-	stateManager state2.StateManager
+	stateManager state.StateManager
 	// state represent the state of the trie
-	state state2.State
+	state state.State
+	// synchronizer is the synchronizer that will be used to sync all the information around the blocks
+	synchronizer *Synchronizer
 }
 
 func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
@@ -54,6 +57,8 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
+	//SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
+	//	SyncService.feeder, SyncService.stateDiffCollector)
 	go func() {
 		err = SyncService.stateDiffCollector.Run()
 		if err != nil {
@@ -61,15 +66,6 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 			return
 		}
 	}()
-}
-
-// Setup sets the service configuration, service must be not running.
-func (s *syncService) Setup(database db.Database) {
-	if s.Running() {
-		// notest
-		s.logger.Panic("trying to Setup with service running")
-	}
-	s.manager = sync.NewSyncManager(database)
 }
 
 // Run starts the service.
@@ -83,8 +79,12 @@ func (s *syncService) Run() error {
 		return err
 	}
 
+	// run synchronizer of all the info that comes from the block.
+	//go s.synchronizer.Run()
+
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
+		start := time.Now()
 
 		if s.preValidateStateDiff(stateDiff) {
 			s.logger.With("Old State Root from StateDiff", stateDiff.OldRoot,
@@ -104,11 +104,12 @@ func (s *syncService) Run() error {
 				"State Root after StateDiff", s.state.Root().Hex(),
 				"Block Number", s.latestBlockSynced+1).
 				Error("Fail validation after apply StateDiff")
-			s.state = state2.New(s.stateManager, &root)
+			s.state = state.New(s.stateManager, &root)
 			continue
 		}
 		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Missing Blocks to fully Sync", s.stateDiffCollector.GetLatestBlockOnChain()-stateDiff.BlockNumber).
+			"Missing Blocks to fully Sync", s.stateDiffCollector.GetLatestBlockOnChain()-stateDiff.BlockNumber,
+			"Timer", time.Since(start)).
 			Info("Synced block")
 		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
 		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
@@ -182,14 +183,17 @@ func (s *syncService) setDefaults() error {
 		}
 		s.manager = sync.NewSyncManager(database)
 
-		s.stateManager = state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+		s.stateManager = dbState.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
 
-		stateRoot := s.manager.GetLatestStateRoot()
-		root := types.HexToFelt(stateRoot)
-
-		s.state = state2.New(s.stateManager, &root)
+		s.setStateToLatestRoot()
 	}
 	return nil
+}
+
+func (s *syncService) setStateToLatestRoot() {
+	stateRoot := s.manager.GetLatestStateRoot()
+	root := types.HexToFelt(stateRoot)
+	s.state = state.New(s.stateManager, &root)
 }
 
 // Close closes the service.

@@ -134,7 +134,11 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 		metr.IncreaseRequestsFailed()
 		return nil, err
 	}
-	defer func(Body io.ReadCloser) {
+	defer func(res *http.Response) {
+		if res == nil {
+			return
+		}
+		Body := res.Body
 		err := Body.Close()
 		if err != nil {
 			// notest
@@ -142,7 +146,7 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 			log.Default.With("Error", err).Error("Error closing body of response.")
 			return
 		}
-	}(res.Body)
+	}(res)
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		metr.IncreaseRequestsFailed()

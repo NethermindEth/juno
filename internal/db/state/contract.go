@@ -53,8 +53,8 @@ func (m *Manager) PutContractState(cs *state.ContractState) error {
 
 // GetBinaryCode returns the binary code associated with the given contract address.
 // If the contract code is not found, then nil is returned.
-func (x *Manager) GetBinaryCode(contractAddress []byte) *Code {
-	rawData, err := x.binaryCodeDatabase.Get(contractAddress)
+func (m *Manager) GetBinaryCode(contractAddress []byte) *Code {
+	rawData, err := m.binaryCodeDatabase.Get(contractAddress)
 	if err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
@@ -72,18 +72,18 @@ func (x *Manager) GetBinaryCode(contractAddress []byte) *Code {
 // PutBinaryCode stores a new contract binary code into the database, associated with the
 // given contract address. If the contract address already have a contract code
 // in the database, then the value is updated.
-func (x *Manager) PutBinaryCode(contractAddress []byte, code *Code) {
+func (m *Manager) PutBinaryCode(contractAddress []byte, code *Code) {
 	rawData, err := proto.Marshal(code)
 	if err != nil {
 		panic(any(fmt.Errorf("marshal error: %s", err)))
 	}
-	if err := x.binaryCodeDatabase.Put(contractAddress, rawData); err != nil {
+	if err := m.binaryCodeDatabase.Put(contractAddress, rawData); err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
 }
 
-func (x *Manager) GetCodeDefinition(contractHash []byte) *CodeDefinition {
-	rawData, err := x.codeDefinitionDatabase.Get(contractHash)
+func (m *Manager) GetCodeDefinition(contractHash []byte) *CodeDefinition {
+	rawData, err := m.codeDefinitionDatabase.Get(contractHash)
 	if err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
@@ -97,12 +97,12 @@ func (x *Manager) GetCodeDefinition(contractHash []byte) *CodeDefinition {
 	return codeDefinition
 }
 
-func (x *Manager) PutCodeDefinition(contractHash []byte, codeDefinition *CodeDefinition) {
+func (m *Manager) PutCodeDefinition(contractHash []byte, codeDefinition *CodeDefinition) {
 	rawData, err := proto.Marshal(codeDefinition)
 	if err != nil {
 		panic(any(fmt.Errorf("marshal error: %s", err)))
 	}
-	if err := x.codeDefinitionDatabase.Put(contractHash, rawData); err != nil {
+	if err := m.codeDefinitionDatabase.Put(contractHash, rawData); err != nil {
 		panic(any(fmt.Errorf("database error: %s", err)))
 	}
 }

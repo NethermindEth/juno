@@ -14,6 +14,7 @@ var (
 	latestBlockSyncKey             = []byte("latestBlockSync")
 	blockOfLatestEventProcessedKey = []byte("blockOfLatestEventProcessed")
 	latestStateRoot                = []byte("latestStateRoot")
+	latestBlockInfoFetched         = []byte("latestBlockInfoFetched")
 )
 
 // Manager is a Block database manager to save and search the blocks.
@@ -91,12 +92,7 @@ func (m *Manager) GetLatestStateRoot() string {
 		return ""
 	}
 	// Unmarshal the data from database
-	stateRoot := new(string)
-	if err := json.Unmarshal(data, stateRoot); err != nil {
-		// notest
-		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
-	}
-	return *stateRoot
+	return string(data)
 }
 
 // StoreBlockOfProcessedEvent stores the block of the latest event processed,
@@ -139,6 +135,45 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
 	return *blockSync
+}
+
+// StoreLatestBlockInfoFetched stores the block number of the latest block used to fetch information
+func (m *Manager) StoreLatestBlockInfoFetched(blockNumber int64) {
+
+	value, err := json.Marshal(blockNumber)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", MarshalError, err)))
+	}
+
+	// Store the latest block sync
+	err = m.database.Put(latestBlockInfoFetched, value)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
+	}
+}
+
+// GetLatestBlockInfoFetched returns the block number of the latest block used to fetch information
+func (m *Manager) GetLatestBlockInfoFetched() int64 {
+	// Query to database
+	data, err := m.database.Get(latestBlockInfoFetched)
+	if err != nil {
+		if db.ErrNotFound == err {
+			return 0
+		}
+		// notest
+		panic(any(fmt.Errorf("%w: %s", DbError, err)))
+	}
+	if data == nil {
+		// notest
+		return 0
+	}
+	// Unmarshal the data from database
+	blockNumber := new(int64)
+	if err := json.Unmarshal(data, blockNumber); err != nil {
+		// notest
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
+	}
+	return *blockNumber
 }
 
 // Close closes the Manager.
