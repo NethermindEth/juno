@@ -24,7 +24,7 @@ var getStateUpdateCmd = &cobra.Command{
 func getStateUpdate(input string) (*feeder.StateUpdateResponse, error) {
 	blockHash, blockNumber := "", ""
 
-	if isInteger(input) || input == "latest" {
+	if isInteger(input) || input == "latest" || input == "pending" {
 		blockNumber = input
 	} else {
 		blockHash = input

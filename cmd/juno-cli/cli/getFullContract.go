@@ -23,7 +23,7 @@ var getFullContractCmd = &cobra.Command{
 func getFullContract(contractAddress, input string) (map[string]interface{}, error) {
 	blockHash, blockNumber := "", ""
 
-	if isInteger(input) || input == "latest" {
+	if isInteger(input) || input == "latest" || input == "pending" {
 		blockNumber = input
 	} else {
 		blockHash = input
