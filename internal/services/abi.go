@@ -21,8 +21,8 @@ type abiService struct {
 
 // Setup sets the service configuration, service must be not running.
 func (s *abiService) Setup(database db.Database) {
+	// notest
 	if s.Running() {
-		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
 	s.manager = abi.NewABIManager(database)
@@ -61,6 +61,10 @@ func (s *abiService) setDefaults() error {
 
 // Close closes the service.
 func (s *abiService) Close(ctx context.Context) {
+	// notest
+	if !s.Running() {
+		return
+	}
 	s.service.Close(ctx)
 	s.manager.Close()
 }

@@ -17,10 +17,11 @@ type stopFunc func(ctx context.Context)
 
 // process contains information and required functions of each process
 type process struct {
-	id   string
-	err  error
-	run  runFunc
-	stop stopFunc
+	id        string
+	important bool
+	err       error
+	run       runFunc
+	stop      stopFunc
 }
 
 // Processer defines common methods for a context processor.
@@ -61,11 +62,12 @@ func (h *Handler) Close() {
 }
 
 // Add adds a process to the list of processes in the Handler.
-func (h *Handler) Add(id string, fnRun runFunc, fnStop stopFunc) {
+func (h *Handler) Add(id string, imp bool, fnRun runFunc, fnStop stopFunc) {
 	h.subprocs = append(h.subprocs, &process{
-		id:   id,
-		run:  fnRun,
-		stop: fnStop,
+		id:        id,
+		important: imp,
+		run:       fnRun,
+		stop:      fnStop,
 	})
 }
 
@@ -88,4 +90,18 @@ func (h *Handler) Run() {
 
 	// Create an infinite loop.
 	select {}
+}
+
+func (h *Handler) PrimaryServiceChecker() int {
+	// notest
+	primarypkg := 0
+	for _, proc := range h.subprocs {
+		if proc.important {
+			primarypkg = primarypkg + 1
+		}
+	}
+	if primarypkg == 0 {
+		log.Default.Info("No primary processes running. Closing the app.")
+	}
+	return primarypkg
 }

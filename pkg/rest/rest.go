@@ -16,7 +16,7 @@ func (rh *RestHandler) GetBlock(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetBlock(strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -36,7 +36,7 @@ func (rh *RestHandler) GetCode(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetCode(strings.Join(contractAddress, ""), strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -57,7 +57,7 @@ func (rh *RestHandler) GetStorageAt(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetStorageAt(strings.Join(key, ""), strings.Join(contractAddress, ""), strings.Join(blockNumber, ""), strings.Join(blockHash, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -75,7 +75,7 @@ func (rh *RestHandler) GetTransactionStatus(w http.ResponseWriter, r *http.Reque
 		res, err := rh.RestFeeder.GetTransactionStatus(strings.Join(txHash, ""), strings.Join(txId, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -93,7 +93,7 @@ func (rh *RestHandler) GetTransactionReceipt(w http.ResponseWriter, r *http.Requ
 		res, err := rh.RestFeeder.GetTransactionReceipt(strings.Join(txHash, ""), strings.Join(txId, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -111,7 +111,7 @@ func (rh *RestHandler) GetTransaction(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetTransaction(strings.Join(txHash, ""), strings.Join(txId, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -130,7 +130,7 @@ func (rh *RestHandler) GetFullContract(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetFullContract(strings.Join(contractAddress, ""), strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -148,7 +148,7 @@ func (rh *RestHandler) GetStateUpdate(w http.ResponseWriter, r *http.Request) {
 		res, err := rh.RestFeeder.GetStateUpdate(strings.Join(blockHash, ""), strings.Join(blockNumber, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -162,7 +162,7 @@ func (rh *RestHandler) GetContractAddresses(w http.ResponseWriter, r *http.Reque
 	res, err := rh.RestFeeder.GetContractAddresses()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest) // 400 http status code
-		fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+		fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 		return
 	}
 	json.NewEncoder(w).Encode(res)
@@ -176,7 +176,7 @@ func (rh *RestHandler) GetBlockHashById(w http.ResponseWriter, r *http.Request) 
 		res, err := rh.RestFeeder.GetBlockHashById(strings.Join(blockId, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -193,7 +193,7 @@ func (rh *RestHandler) GetBlockIDByHash(w http.ResponseWriter, r *http.Request) 
 		res, err := rh.RestFeeder.GetBlockIDByHash(strings.Join(blockHash, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -210,7 +210,7 @@ func (rh *RestHandler) GetTransactionHashByID(w http.ResponseWriter, r *http.Req
 		res, err := rh.RestFeeder.GetTransactionHashByID(strings.Join(transactionId, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
@@ -227,7 +227,7 @@ func (rh *RestHandler) GetTransactionIDByHash(w http.ResponseWriter, r *http.Req
 		res, err := rh.RestFeeder.GetTransactionIDByHash(strings.Join(transactionHash, ""))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest) // 400 http status code
-			fmt.Fprintf(w, "Invalid request body error:%s", err.Error())
+			fmt.Fprintf(w, "Invalid request body error: %s", err.Error())
 			return
 		}
 		json.NewEncoder(w).Encode(res)
