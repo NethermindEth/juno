@@ -58,7 +58,7 @@ func getEncoder(enableJsonOutput bool, isProductionEnv bool) zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
-//getEnvironmentEncoder
+// getEnvironmentEncoder
 func getEnvironmentEncoder(isProductionEnv bool) zapcore.EncoderConfig {
 	var encoderConfig zapcore.EncoderConfig
 	encoderConfig = zap.NewDevelopmentEncoderConfig()

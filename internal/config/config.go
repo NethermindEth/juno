@@ -4,13 +4,14 @@ package config
 
 import (
 	"errors"
-	"github.com/NethermindEth/juno/internal/errpkg"
-	. "github.com/NethermindEth/juno/internal/log"
-	"gopkg.in/yaml.v2"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/NethermindEth/juno/internal/errpkg"
+	. "github.com/NethermindEth/juno/internal/log"
+	"gopkg.in/yaml.v2"
 )
 
 type EnvironmentValue string
