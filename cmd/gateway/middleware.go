@@ -3,12 +3,18 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
+// logRequest records the IP address, HTTP method, and URL accessed by
+// the user.
 func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logInfo.Printf(
-			"%s %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
+		// Prevent CWE-117 log injection attack.
+		// https://cwe.mitre.org/data/definitions/117.html.
+		uri := fmt.Sprintf("%s", r.URL.RequestURI())
+		escaped := strings.Replace(strings.Replace(uri, "\n", "", -1), "\r", "", -1)
+		logInfo.Printf("%s %s %s %s", r.RemoteAddr, r.Proto, r.Method, escaped)
 		next.ServeHTTP(w, r)
 	})
 }
