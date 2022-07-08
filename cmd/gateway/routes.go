@@ -16,6 +16,6 @@ func routes() http.Handler {
 	mux.HandleFunc("/v1/get_transaction_hash_by_id", handlerGetTransactionHashByID)
 	mux.HandleFunc("/v1/get_transaction_id_by_hash", handlerGetTransactionIDByHash)
 
-  // Wrap the ServeMux in middleware.
-	return logRequest(mux)
+	// Wrap the ServeMux in middleware.
+	return recoverPanic(logRequest(mux))
 }
