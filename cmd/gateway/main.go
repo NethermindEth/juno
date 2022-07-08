@@ -1,13 +1,22 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
+	"os"
+)
+
+var (
+	logErr  = log.New(os.Stderr, "ERROR ", log.LstdFlags|log.Lshortfile)
+	logInfo = log.New(os.Stdout, "INFO ", log.LstdFlags)
 )
 
 func main() {
-	mux := http.NewServeMux()
+	addr := flag.String("addr", ":4000", "local network address")
+	flag.Parse()
 
+	mux := http.NewServeMux()
 	mux.HandleFunc("/", handlerNotFound)
 	mux.HandleFunc("/v1/get_block", handlerGetBlock)
 	mux.HandleFunc("/v1/get_block_hash_by_id", handlerGetBlockHashByID)
@@ -19,6 +28,12 @@ func main() {
 	mux.HandleFunc("/v1/get_transaction_hash_by_id", handlerGetTransactionHashByID)
 	mux.HandleFunc("/v1/get_transaction_id_by_hash", handlerGetTransactionIDByHash)
 
-	log.Println("serving on http://localhost:4000")
-	log.Fatal(http.ListenAndServe(":4000", mux))
+	srv := &http.Server{
+		Addr:     *addr,
+		ErrorLog: logErr,
+		Handler:  mux,
+	}
+
+	logInfo.Printf("serving on http://localhost%s", *addr)
+	logErr.Fatal(srv.ListenAndServe())
 }

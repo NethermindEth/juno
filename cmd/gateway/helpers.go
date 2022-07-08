@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -35,6 +36,7 @@ func clientErr(w http.ResponseWriter, code int, msg string) {
 	// XXX: Might prefer json.Marshal instead to reduce the payload size.
 	raw, err := json.MarshalIndent(&res, "", "  ")
 	if err != nil {
+		logErr.Println(err.Error())
 		serverErr(w, err)
 	}
 
@@ -46,7 +48,9 @@ func clientErr(w http.ResponseWriter, code int, msg string) {
 // serverErr sets a 500 Internal Server Error header and then serves a
 // JSON formatted client error.
 func serverErr(w http.ResponseWriter, err error) {
-	// TODO: Log stack trace.
+	// Log stack trace. Set frame depth to 2 in order to report the file
+	// and line number where the error occurred.
+	logErr.Output(2, fmt.Sprintf("%s\n%s", err.Error(), debug.Stack()))
 
 	res := &ErrResponse{
 		Code:     strconv.Itoa(http.StatusInternalServerError),
@@ -57,6 +61,7 @@ func serverErr(w http.ResponseWriter, err error) {
 	// XXX: Might prefer json.Marshal instead to reduce the payload size.
 	raw, err := json.MarshalIndent(&res, "", "  ")
 	if err != nil {
+		logErr.Println(err.Error())
 		panic(err)
 	}
 
