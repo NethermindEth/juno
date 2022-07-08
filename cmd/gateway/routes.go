@@ -2,7 +2,7 @@ package main
 
 import "net/http"
 
-func routes() *http.ServeMux {
+func routes() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handlerNotFound)
@@ -16,5 +16,6 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("/v1/get_transaction_hash_by_id", handlerGetTransactionHashByID)
 	mux.HandleFunc("/v1/get_transaction_id_by_hash", handlerGetTransactionIDByHash)
 
-	return mux
+  // Wrap the ServeMux in middleware.
+	return logRequest(mux)
 }
