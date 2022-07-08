@@ -80,7 +80,7 @@ func (s *transactionService) Close(ctx context.Context) {
 // GetTransaction searches for the transaction associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
+func (s *transactionService) GetTransaction(txHash types.TransactionHash) (types.IsTransaction, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -108,7 +108,7 @@ func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx t
 // GetReceipt searches for the transaction receipt associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
+func (s *transactionService) GetReceipt(txHash types.TransactionHash) (*types.TransactionReceipt, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 

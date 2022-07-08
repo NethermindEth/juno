@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -25,75 +26,78 @@ func NewManager(txDb, receiptDb db.Database) *Manager {
 // PutTransaction stores new transactions in the database. This method does not
 // check if the key already exists. In the case, that the key already exists the
 // value is overwritten.
-func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
+func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransaction) error {
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panic("error marshalling Transaction")
+		return fmt.Errorf("PutTransaction: get transaction from database failed %w", err)
 	}
 	err = m.txDb.Put(txHash.Bytes(), rawData)
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panicf("database error")
+		return fmt.Errorf("PutTransaction: put transaction receipt into database failed %w", err)
 	}
+	return nil
 }
 
 // GetTransaction searches in the database for the transaction associated with the
 // given key. If the key does not exist then returns nil.
-func (m *Manager) GetTransaction(txHash types.TransactionHash) types.IsTransaction {
+func (m *Manager) GetTransaction(txHash types.TransactionHash) (types.IsTransaction, error) {
 	rawData, err := m.txDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panicf("database error")
+		return nil, fmt.Errorf("GetTransaction: get transaction from database failed %w", err)
 	}
 	// Check not found
 	if rawData == nil {
 		// notest
-		return nil
+		return nil, errors.New("GetTransaction: raw data is nil")
 	}
 	tx, err := unmarshalTransaction(rawData)
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panicf("unmarshalling error")
+		return nil, fmt.Errorf("GetTransaction: unmarshal transaction receipt failed %w", err)
 	}
-	return tx
+	return tx, nil
 }
 
 // PutReceipt stores  new transactions receipts in the database. This method
 // does not check if the key already exists. In the case, that the key already
 // exists the value is overwritten.
-func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.TransactionReceipt) {
+func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.TransactionReceipt) error {
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panic("error marshaling TransactionReceipt")
+		return fmt.Errorf("PutReceipt: unmarshal transaction receipt failed %w", err)
 	}
 	err = m.receiptDb.Put(txHash.Bytes(), rawData)
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panic("database error")
+		return fmt.Errorf("PutReceipt: put transaction receipt into database failed %w", err)
 	}
+	return nil
 }
 
 // GetReceipt searches in the database for the transaction receipt associated
 // with the given key. If the key does not exist then returns nil.
-func (m *Manager) GetReceipt(txHash types.TransactionHash) *types.TransactionReceipt {
+func (m *Manager) GetReceipt(txHash types.TransactionHash) (*types.TransactionReceipt, error) {
 	rawData, err := m.receiptDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panicf("database error")
+		Logger.With("error", err).Error("database error")
+		return nil, fmt.Errorf("GetReceipt: get hash from database failed %w", err)
 	}
 	// Check not found
 	if rawData == nil {
 		// notest
-		return nil
+		return nil, errors.New("GetReceipt: raw data is nil")
 	}
 	receipt, err := unmarshalTransactionReceipt(rawData)
 	if err != nil {
 		// notest
-		Logger.With("error", err).Panicf("unmarshalling error")
+		return receipt, fmt.Errorf("GetReceipt: unmarshal transaction receipt failed %w", err)
 	}
-	return receipt
+	return receipt, nil
 }
 
 // Close closes the manager, specific the associated database.

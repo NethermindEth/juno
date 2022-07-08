@@ -166,8 +166,7 @@ func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope Reques
 		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
 		return nil, errors.New("block not found")
 	}
-	response := NewBlockResponse(dbBlock, scope)
-	return response, nil
+	return NewBlockResponse(dbBlock, scope)
 }
 
 func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope) (*BlockResponse, error) {
@@ -201,8 +200,7 @@ func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedSc
 		// notest
 		return nil, errors.New("block not found")
 	}
-	response := NewBlockResponse(dbBlock, scope)
-	return response, nil
+	return NewBlockResponse(dbBlock, scope)
 }
 
 func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTag, scope RequestedScope) (*BlockResponse, error) {
@@ -296,7 +294,10 @@ func (HandlerRPC) StarknetGetStorageAt(
 func (HandlerRPC) StarknetGetTransactionByHash(
 	c context.Context, transactionHash types.TransactionHash,
 ) (*Txn, error) {
-	tx := services.TransactionService.GetTransaction(transactionHash)
+	tx, err := services.TransactionService.GetTransaction(transactionHash)
+	if err != nil {
+		return nil, fmt.Errorf("StarknetGetTransactionByHash: get transaction from database failed %w", err)
+	}
 	if tx == nil {
 		// notest
 		// TODO: return not found error
@@ -317,7 +318,10 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 			return nil, fmt.Errorf("invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
-		txn := services.TransactionService.GetTransaction(txHash)
+		txn, err := services.TransactionService.GetTransaction(txHash)
+		if err != nil {
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockHashAndIndex: get transaction from database failed %w", err)
+		}
 		return NewTxn(txn), nil
 	}
 	// notest
@@ -345,7 +349,10 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 			return nil, fmt.Errorf("invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
-		txn := services.TransactionService.GetTransaction(txHash)
+		txn, err := services.TransactionService.GetTransaction(txHash)
+		if err != nil {
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockNumberAndIndex: get transaction from database failed %w", err)
+		}
 		return NewTxn(txn), nil
 	}
 	if tag := blockNumberOrTag.Tag; tag != nil {

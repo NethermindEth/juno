@@ -112,7 +112,7 @@ func TestManager_GetTransaction(t *testing.T) {
 	}
 	// Get all the transactions and compare
 	for _, tx := range txs {
-		outTx := TransactionService.GetTransaction(tx.GetHash())
+		outTx, _ := TransactionService.GetTransaction(tx.GetHash())
 
 		if !reflect.DeepEqual(tx, outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
@@ -193,7 +193,7 @@ func TestManager_GetReceipt(t *testing.T) {
 		TransactionService.StoreReceipt(receipt.TxHash, receipt)
 	}
 	for _, receipt := range receipts {
-		outReceipt := TransactionService.GetReceipt(receipt.TxHash)
+		outReceipt, _ := TransactionService.GetReceipt(receipt.TxHash)
 
 		if !reflect.DeepEqual(receipt, outReceipt) {
 			t.Errorf("receipt not equal after Put/Get operations")
