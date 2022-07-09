@@ -381,13 +381,16 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress types.Address,
 ) (*CodeResult, error) {
-	abi := services.AbiService.GetAbi(contractAddress.Hex())
+	abi, err := services.AbiService.GetAbi(contractAddress.Hex())
+	if err != nil {
+		return nil, fmt.Errorf("StarknetGetCode: failed calling abi service: %w", err)
+	}
 	if abi == nil {
 		// Try the feeder gateway for pending block
 		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
 		if err != nil {
 			// notest
-			return nil, fmt.Errorf("abi not found %v", err)
+			return nil, fmt.Errorf("StarknetGetCode: feeder failed at calling getcode: %w", err)
 		}
 		// Convert feeder type to RPC CodeResult type
 		bytecode := make([]types.Felt, len(code.Bytecode))
@@ -397,13 +400,13 @@ func (HandlerRPC) StarknetGetCode(
 		marshal, err := json.Marshal(code.Abi)
 		if err != nil {
 			// notest
-			return nil, fmt.Errorf("abi not found %v", err)
+			return nil, fmt.Errorf("StarknetGetCode: failed at marshaling code.abi: %w", err)
 		}
 		var abiResponse dbAbi.Abi
 		err = json.Unmarshal(marshal, &abiResponse)
 		if err != nil {
 			// notest
-			return nil, fmt.Errorf("abi not found %v", err)
+			return nil, fmt.Errorf("StarknetGetCode: failed at unmarshaling abi response: %w", err)
 		}
 		for i, str := range code.Abi.Structs {
 			abiResponse.Structs[i].Fields = make([]*dbAbi.Struct_Field, len(str.Members))
@@ -418,19 +421,19 @@ func (HandlerRPC) StarknetGetCode(
 		marshal, err = json.Marshal(abiResponse)
 		if err != nil {
 			// notest
-			return nil, fmt.Errorf("unexpected marshal error %v", err)
+			return nil, fmt.Errorf("StarknetGetCode: failed at marshaling abi response: %w", err)
 		}
 		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 	}
 	code := services.StateService.GetCode(contractAddress.Bytes())
 	if code == nil {
 		// notest
-		return nil, fmt.Errorf("code not found")
+		return nil, errors.New("StarknetGetCode: state service returns nil code")
 	}
 	marshalledAbi, err := json.Marshal(abi)
 	if err != nil {
 		// notest
-		return nil, err
+		return nil, fmt.Errorf("StarknetGetCode: failed at marshaling abi: %w", err)
 	}
 	bytecode := make([]types.Felt, len(code.Code))
 	for i, b := range code.Code {

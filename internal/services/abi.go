@@ -38,7 +38,6 @@ func (s *abiService) Run() error {
 		// notest
 		return err
 	}
-
 	return s.setDefaults()
 }
 
@@ -71,7 +70,7 @@ func (s *abiService) Close(ctx context.Context) {
 
 // StoreAbi stores an ABI in the database. If the key (contractAddress) already
 // exists then the value is overwritten for the given ABI.
-func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) {
+func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) error {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
 
@@ -79,12 +78,12 @@ func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) {
 		With("contractAddress", contractAddress).
 		Info("StoreAbi")
 
-	s.manager.PutABI(contractAddress, abi)
+	return s.manager.PutABI(contractAddress, abi)
 }
 
 // GetAbi search in the database for the ABI associated with the given contract
 // address.
-func (s *abiService) GetAbi(contractAddress string) *abi.Abi {
+func (s *abiService) GetAbi(contractAddress string) (*abi.Abi, error) {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
 

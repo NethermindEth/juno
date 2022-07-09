@@ -265,7 +265,10 @@ func TestStarknetGetCode(t *testing.T) {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
 
-	services.AbiService.StoreAbi(address.Hex(), wantAbi)
+	err = services.AbiService.StoreAbi(address.Hex(), wantAbi)
+	if err != nil {
+		t.Errorf("TestStarknetGetCode: unexpected error calling abi service for store abi: %s", err)
+	}
 
 	defer services.StateService.Close(context.Background())
 

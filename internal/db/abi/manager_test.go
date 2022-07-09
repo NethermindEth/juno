@@ -18,8 +18,14 @@ func TestManager(t *testing.T) {
 	manager := NewABIManager(database)
 
 	for address, abi := range abis {
-		manager.PutABI(address, abi)
-		abi2 := manager.GetABI(address)
+		err := manager.PutABI(address, abi)
+		if err != nil {
+			t.Errorf("TestManager: call put abi failed: %s", err)
+		}
+		abi2, err := manager.GetABI(address)
+		if err != nil {
+			t.Errorf("TestManager: call get abi failed: %s", err)
+		}
 		if abi2 == nil {
 			t.Errorf("ABI with key %s not found after insertion with the same key", address)
 		}
