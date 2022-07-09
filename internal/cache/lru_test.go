@@ -48,7 +48,7 @@ func TestLRUCache_Get(t *testing.T) {
 		value := []byte(fmt.Sprintf("value%d", i))
 		c.Put(key, value)
 	}
-	for i := 0; i < 3; i++ {
+	for _, i := range []int{2, 1, 0} {
 		key := []byte(fmt.Sprintf("key%d", i))
 		want := []byte(fmt.Sprintf("value%d", i))
 		value := c.Get(key)
