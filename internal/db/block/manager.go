@@ -2,6 +2,7 @@ package block
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -19,83 +20,82 @@ func NewManager(database db.Database) *Manager {
 }
 
 // GetBlockByHash search the block with the given block hash. If the block does
-// not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByHash(blockHash types.BlockHash) *types.Block {
-	// Build the hash key
-	hashKey := buildHashKey(blockHash)
-	// Search on the database
-	rawResult, err := manager.database.Get(hashKey)
+// not exist then returns nil. If any other type of error happens, then return error.
+func (manager *Manager) GetBlockByHash(blockHash types.BlockHash) (*types.Block, error) {
+	hashKey := buildHashKey(blockHash)              // Build the hash key
+	rawResult, err := manager.database.Get(hashKey) // Search on the database
 	if err != nil {
-		panic(any(err))
+		return nil, fmt.Errorf("GetBlockByHash: failed get hash key in database: %w", err)
 	}
 	// Check not found
 	if rawResult == nil {
 		// notest
-		return nil
+		return nil, nil
 	}
 	// Unmarshal the data
 	block, err := unmarshalBlock(rawResult)
 	if err != nil {
-		panic(any(err))
+		return nil, fmt.Errorf("GetBlockByHash: %w", err)
 	}
-	return block
+	return block, nil
 }
 
 // GetBlockByNumber search the block with the given block number. If the block
-// does not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByNumber(blockNumber uint64) *types.Block {
+// not exist then returns nil. If any other type of error happens, then return error.
+func (manager *Manager) GetBlockByNumber(blockNumber uint64) (*types.Block, error) {
 	// Build the number key
 	numberKey := buildNumberKey(blockNumber)
 	// Search for the hash key
 	hashKey, err := manager.database.Get(numberKey)
 	if err != nil {
-		panic(any(err))
+		return nil, fmt.Errorf("GetBlockByNumber: failed get number key in database: %w", err)
 	}
 	// Check not found
 	if hashKey == nil {
 		// notest
-		return nil
+		return nil, nil
 	}
 	// Search for the block
 	rawResult, err := manager.database.Get(hashKey)
 	if err != nil {
-		panic(any(err))
+		return nil, fmt.Errorf("GetBlockByNumber: failed get hash key in database: %w", err)
 	}
 	// Check not found
 	if rawResult == nil {
 		// notest
-		return nil
+		return nil, nil
 	}
 	// Unmarshal the data
 	block, err := unmarshalBlock(rawResult)
 	if err != nil {
-		panic(any(err))
+		return nil, fmt.Errorf("GetBlockByNumber: %w", err)
 	}
-	return block
+	return block, nil
 }
 
 // PutBlock saves the given block with the given hash as key. If any error happens
 // then panic.
-func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) {
+func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) error {
 	// Build the keys
 	hashKey := buildHashKey(blockHash)
 	numberKey := buildNumberKey(block.BlockNumber)
 	// Encode the block as []byte
 	rawValue, err := marshalBlock(block)
 	if err != nil {
-		panic(any(err))
+		return fmt.Errorf("PutBlock: %w", err)
 	}
 	// TODO: Use transaction?
 	// Save (hashKey, block)
 	err = manager.database.Put(hashKey, rawValue)
 	if err != nil {
-		panic(any(err))
+		return fmt.Errorf("PutBlock: failed put hashkey -> rawvalue in database: %w", err)
 	}
 	// Save (hashNumber, hashKey)
 	err = manager.database.Put(numberKey, hashKey)
 	if err != nil {
-		panic(any(err))
+		return fmt.Errorf("PutBlock: failed put numberkey -> hashkey in database: %w", err)
 	}
+	return nil
 }
 
 func (manager *Manager) Close() {

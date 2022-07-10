@@ -48,7 +48,10 @@ func TestService(t *testing.T) {
 		key := b.BlockHash
 		BlockService.StoreBlock(key, b)
 		// Get block by hash
-		returnedBlock := BlockService.GetBlockByHash(key)
+		returnedBlock, err := BlockService.GetBlockByHash(key)
+		if err != nil {
+			t.Errorf("unexpected err calling GetBlockByHash %s", err)
+		}
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with hash %s", key)
 		}
@@ -56,7 +59,10 @@ func TestService(t *testing.T) {
 			t.Errorf("b")
 		}
 		// Get block by number
-		returnedBlock = BlockService.GetBlockByNumber(b.BlockNumber)
+		returnedBlock, err = BlockService.GetBlockByNumber(b.BlockNumber)
+		if err != nil {
+			t.Errorf("unexpected err calling GetBlockByNumber %s", err)
+		}
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with number %d", b.BlockNumber)
 		}

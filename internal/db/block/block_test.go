@@ -43,7 +43,10 @@ func TestManager(t *testing.T) {
 		key := block.BlockHash
 		manager.PutBlock(key, block)
 		// Get block by hash
-		returnedBlock := manager.GetBlockByHash(key)
+		returnedBlock, err := manager.GetBlockByHash(key)
+		if err != nil {
+			t.Errorf("unexpected err calling GetBlockByHash %s", err)
+		}
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with hash %s", block.BlockHash)
 		}
@@ -51,7 +54,10 @@ func TestManager(t *testing.T) {
 			t.Errorf("block")
 		}
 		// Get block by number
-		returnedBlock = manager.GetBlockByNumber(block.BlockNumber)
+		returnedBlock, err = manager.GetBlockByNumber(block.BlockNumber)
+		if err != nil {
+			t.Errorf("unexpected err calling GetBlockByNumber %s", err)
+		}
 		if returnedBlock == nil {
 			t.Errorf("unexpected nil after search for block with number %d", block.BlockNumber)
 		}

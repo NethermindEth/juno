@@ -14,6 +14,11 @@ import (
 	. "github.com/NethermindEth/juno/internal/log"
 )
 
+var (
+	ErrBlockHashOrTag = errors.New("invalid blockHashOrtTag param")
+	ErrBlockNotFound  = errors.New("block not found")
+)
+
 // Echo replies with the same message.
 func (HandlerRPC) Echo(c context.Context, message string) (string, error) {
 	return message, nil
@@ -159,13 +164,19 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 }
 
 func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
+	var dbBlock *types.Block
+	var err error
 	Logger.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
-	dbBlock := services.BlockService.GetBlockByHash(blockHash)
+
+	if dbBlock, err = services.BlockService.GetBlockByHash(blockHash); err != nil {
+		return nil, err
+	}
 	if dbBlock == nil {
 		// notest
 		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
-		return nil, errors.New("block not found")
+		return nil, ErrBlockNotFound
 	}
+
 	return NewBlockResponse(dbBlock, scope)
 }
 
@@ -194,12 +205,18 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag 
 }
 
 func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
+	var dbBlock *types.Block
+	var err error
 	Logger.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
-	dbBlock := services.BlockService.GetBlockByNumber(blockNumber)
+
+	if dbBlock, err = services.BlockService.GetBlockByNumber(blockNumber); err != nil {
+		return nil, err
+	}
 	if dbBlock == nil {
 		// notest
-		return nil, errors.New("block not found")
+		return nil, ErrBlockNotFound
 	}
+
 	return NewBlockResponse(dbBlock, scope)
 }
 
@@ -262,17 +279,21 @@ func (HandlerRPC) StarknetGetStorageAt(
 ) (Felt, error) {
 	var blockNumber uint64
 	if hash := blockHash.Hash; hash != nil {
-		block := services.BlockService.GetBlockByHash(*blockHash.Hash)
+		var block *types.Block
+		var err error
+		if block, err = services.BlockService.GetBlockByHash(*blockHash.Hash); err != nil {
+			return "", err
+		}
 		if block == nil {
 			// notest
-			return "", fmt.Errorf("block not found")
+			return "", ErrBlockNotFound
 		}
 		blockNumber = block.BlockNumber
 	} else if tag := blockHash.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
 		if err != nil {
 			// notest
-			return "", fmt.Errorf("block not found")
+			return "", ErrBlockNotFound
 		}
 		blockNumber = blockResponse.BlockNumber
 	} else {
@@ -311,16 +332,19 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 // no transaction is found, a null value is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
-		block := services.BlockService.GetBlockByHash(*blockHash)
+		block, err := services.BlockService.GetBlockByHash(*blockHash)
+		if err != nil {
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockHashAndIndex: get block by hash failed: %w", err)
+		}
 		// TODO check if block is nil?
 		if index < 0 || len(block.TxHashes) <= index {
 			// notest
-			return nil, fmt.Errorf("invalid index %d", index)
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockHashAndIndex: invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
 		txn, err := services.TransactionService.GetTransaction(txHash)
 		if err != nil {
-			return nil, fmt.Errorf("StarknetGetTransactionByBlockHashAndIndex: get transaction from database failed %w", err)
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockHashAndIndex: get transaction failed: %w", err)
 		}
 		return NewTxn(txn), nil
 	}
@@ -329,13 +353,13 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 		blockResponse, err := getBlockByTag(c, *tag, ScopeFullTxns)
 		if err != nil {
 			// notest
-			return nil, fmt.Errorf("block not found")
+			return nil, ErrBlockNotFound
 		}
 		txs := blockResponse.Transactions.([]*Txn)
 		return txs[index], nil
 	}
 	// TODO: return invalid param error
-	return nil, errors.New("invalid blockHashOrtTag param")
+	return nil, ErrBlockHashOrTag
 }
 
 // StarknetGetTransactionByBlockNumberAndIndex Get the details of the
@@ -343,7 +367,10 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 // no transaction is found, null is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
 	if blockNumber := blockNumberOrTag.Number; blockNumber != nil {
-		block := services.BlockService.GetBlockByNumber(*blockNumber)
+		block, err := services.BlockService.GetBlockByNumber(*blockNumber)
+		if err != nil {
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockNumberAndIndex: get block by number failed: %w", err)
+		}
 		if index < 0 || len(block.TxHashes) <= index {
 			// notest
 			return nil, fmt.Errorf("invalid index %d", index)
@@ -351,7 +378,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 		txHash := block.TxHashes[index]
 		txn, err := services.TransactionService.GetTransaction(txHash)
 		if err != nil {
-			return nil, fmt.Errorf("StarknetGetTransactionByBlockNumberAndIndex: get transaction from database failed %w", err)
+			return nil, fmt.Errorf("StarknetGetTransactionByBlockNumberAndIndex: get transaction failed: %w", err)
 		}
 		return NewTxn(txn), nil
 	}
@@ -359,14 +386,14 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 		blockResponse, err := getBlockByTag(ctx, *tag, ScopeFullTxns)
 		if err != nil {
 			// notest
-			return nil, fmt.Errorf("block not found")
+			return nil, ErrBlockNotFound
 		}
 		txs := blockResponse.Transactions.([]*Txn)
 		return txs[index], nil
 	}
 	// TODO: return invalid param error
 	// notest
-	return nil, errors.New("invalid blockHashOrtTag param")
+	return nil, ErrBlockHashOrTag
 }
 
 // StarknetGetTransactionReceipt Get the transaction receipt by the
