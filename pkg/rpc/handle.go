@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/goccy/go-json"
 	"github.com/iancoleman/strcase"
 )
@@ -51,7 +51,7 @@ func (h *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := SendResponse(w, []*Response{{Version: Version, Error: err}}, false)
 		if err != nil {
 			// notest
-			log.Default.With("Error", err).Info("Failed to encode error object.")
+			Logger.With("Error", err).Info("Failed to encode error object.")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
@@ -64,7 +64,7 @@ func (h *HandlerJsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := SendResponse(w, res, batch); err != nil {
 		// notest
-		log.Default.With("Error", err).Info("Failed to encode result object.")
+		Logger.With("Error", err).Info("Failed to encode result object.")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
@@ -178,7 +178,7 @@ func parseArgSlice(
 	for i := 0; decoder.More(); i++ {
 		if i >= len(types) {
 			err := errorTooManyArgs
-			log.Default.With("Error", err, "Requires at most ", len(types))
+			Logger.With("Error", err, "Requires at most ", len(types))
 			return args, err
 		}
 		val := reflect.New(types[i])
@@ -197,14 +197,14 @@ func parseArgSlice(
 			// notest
 			return args, fmt.Errorf("missing value for required argument %d", i)
 		}
-		log.Default.With("Kind", val.Elem().Kind()).Info("Checking kind.")
+		Logger.With("Kind", val.Elem().Kind()).Info("Checking kind.")
 		if val.Elem().Kind() == reflect.Struct {
 			fields := val.Elem()
-			log.Default.With("Number of fields", fields.NumField()).Debug("Parsing parameters.")
+			Logger.With("Number of fields", fields.NumField()).Debug("Parsing parameters.")
 			for i := 0; i < fields.NumField(); i++ {
 				t := fields.Type().Name()
 				tag := fields.Type().Field(i).Tag.Get("required")
-				log.Default.With("Type", t, "Tag", tag).Debug("Parsing parameter.")
+				Logger.With("Type", t, "Tag", tag).Debug("Parsing parameter.")
 				if strings.Contains(tag, "true") && fields.Field(i).IsZero() {
 					// notest
 					return args, errors.New("missing required field")
@@ -228,7 +228,7 @@ func callFunc(
 	hasContext bool,
 	errResponsePosition int,
 ) (res any, errRes error) {
-	log.Default.With("Method", method).Info("Calling RPC function.")
+	Logger.With("Method", method).Info("Calling RPC function.")
 	// Create the argument slice.
 	fullArgs := make([]reflect.Value, 0, 2+len(args))
 	if receiver.IsValid() {
@@ -248,7 +248,7 @@ func callFunc(
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Default.With(
+			Logger.With(
 				"Method", method,
 				"Error", fmt.Sprintf("%v\n%s", err, buf),
 				"Arguments", args,
@@ -284,7 +284,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 	fn, ok := structToCall.Type().MethodByName(strcase.ToCamel(r.Method))
 	if !ok {
 		// notest
-		log.Default.With("Method", r.Method).Error("Method does not exist.")
+		Logger.With("Method", r.Method).Error("Method does not exist.")
 		res.Result = nil
 		res.Error = ErrMethodNotFound()
 		return res
@@ -301,7 +301,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 		args, err = parseArgs(*r.Params, argTypes)
 		if err != nil {
 			if err == errorTooManyArgs {
-				log.Default.Info("Searching for overload...")
+				Logger.Info("Searching for overload...")
 				structToCall = reflect.ValueOf(h.StructRpc)
 
 				// Check that the struct contains the method called.
@@ -309,7 +309,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 					strcase.ToCamel(r.Method) + "Opt")
 				if !ok {
 					// notest
-					log.Default.With(
+					Logger.With(
 						"Method", r.Method,
 						"Params", r.Params,
 						"Error", err,
@@ -323,7 +323,7 @@ func (h *HandlerJsonRpc) InvokeMethod(
 				args, err = parseArgs(*r.Params, argTypes)
 				if err != nil {
 					// notest
-					log.Default.With(
+					Logger.With(
 						"Method", r.Method,
 						"Params", r.Params,
 						"Error", err,
@@ -332,10 +332,10 @@ func (h *HandlerJsonRpc) InvokeMethod(
 					res.Error = ErrInvalidParams()
 					return res
 				}
-				log.Default.Info("Contains optional params, calling Overhead...")
+				Logger.Info("Contains optional params, calling Overhead...")
 			} else {
 				// notest
-				log.Default.With(
+				Logger.With(
 					"Method", r.Method,
 					"Params", r.Params,
 					"Error", err,
@@ -351,11 +351,11 @@ func (h *HandlerJsonRpc) InvokeMethod(
 	errPos := checkReturn(fn.Type)
 	// Call the function
 	if resFromCall, err := callFunc(c, r.Method, args, fn.Func, structToCall, hasContext, errPos); err != nil {
-		log.Default.With("Method", r.Method).Info("Request returned error.")
+		Logger.With("Method", r.Method).Info("Request returned error.")
 		res.Error = &Error{Message: err.Error()}
 		res.Result = nil
 	} else {
-		log.Default.With("Method", r.Method).Info("Request successful.")
+		Logger.With("Method", r.Method).Info("Request successful.")
 		res.Error = nil
 		res.Result = resFromCall
 	}
