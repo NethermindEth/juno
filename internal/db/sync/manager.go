@@ -28,13 +28,13 @@ func NewManager(database db.DatabaseTransactional) *Manager {
 	return &Manager{database: database}
 }
 
-func (manager *Manager) GetLatestBlockNumber() (*uint64, error) {
+func (manager *Manager) GetLatestBlockNumber() (uint64, error) {
 	blockHashBytes, err := manager.database.Get([]byte(latestBlockHashKey))
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	blockHash := binary.LittleEndian.Uint64(blockHashBytes)
-	return &blockHash, nil
+	return blockHash, nil
 }
 
 func (manager *Manager) SetLatestBlockNumber(blockNumber uint64) error {

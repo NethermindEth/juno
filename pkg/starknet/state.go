@@ -143,6 +143,7 @@ func (s *Synchronizer) loadEvents(
 	}
 	hLog := make(chan types.Log)
 	sub, err := s.ethereumClient.SubscribeFilterLogs(context.Background(), query, hLog)
+	defer sub.Unsubscribe()
 	if err != nil {
 		log.Default.Info("Couldn't subscribe for incoming blocks")
 		return err

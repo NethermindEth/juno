@@ -13,8 +13,8 @@ func ApiLoadStateDiffs(startStarknetBlock uint64, feederClient feeder.Client, st
 	defer close(stateDiffsChan)
 	for blockNum := startStarknetBlock; ; blockNum++ {
 		select {
-		case <-errChan:
-			log.Default.Info("stopping state diff requests")
+		case err := <-errChan:
+			log.Default.With("error", err).Error("unexpected error")
 			return
 		default:
 			log.Default.With("blockNumber", blockNum).Info("requesting state update from feeder gateway")

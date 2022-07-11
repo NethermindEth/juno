@@ -5,9 +5,9 @@ import (
 )
 
 type StateUpdate struct {
-	StateDiff      StateDiff `json:"state_diff"`
-	NewRoot        string    `json:"new_root"`
-	NewBlockNumber uint64    `json:"new_block_number"`
+	StateDiff      *StateDiff `json:"state_diff"`
+	NewRoot        string     `json:"new_root"`
+	NewBlockNumber uint64     `json:"new_block_number"`
 }
 
 type MemoryCell struct {

@@ -21,7 +21,7 @@ func TestUpdateState(t *testing.T) {
 	}
 	storageDiff := types.MemoryCell{Address: "a", Value: "b"}
 	stateDiff := types.StateUpdate{
-		StateDiff: types.StateDiff{
+		StateDiff: &types.StateDiff{
 			DeployedContracts: []types.DeployedContract{contract},
 			StorageDiffs: map[string][]types.MemoryCell{
 				contract.Address: {storageDiff},

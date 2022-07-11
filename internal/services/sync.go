@@ -67,7 +67,7 @@ func (s *syncService) Close(ctx context.Context) {
 	s.manager.Close()
 }
 
-func (s *syncService) GetLatestBlockNumber() (*uint64, error) {
+func (s *syncService) GetLatestBlockNumber() (uint64, error) {
 	return s.manager.GetLatestBlockNumber()
 }
 

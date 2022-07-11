@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"syscall"
 
-	//"github.com/ethereum/go-ethereum/ethclient"
-
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
@@ -23,9 +21,9 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/NethermindEth/juno/pkg/rpc"
-	"github.com/NethermindEth/juno/pkg/types"
-	//"github.com/NethermindEth/juno/pkg/starknet"
 	starknetNew "github.com/NethermindEth/juno/pkg/starknet_new"
+	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -105,14 +103,21 @@ var (
 				stateUpdatesChan := make(chan *types.StateUpdate, 10)
 				errChan := make(chan error)
 				latestBlockNum, err := services.SyncService.GetLatestBlockNumber()
-				if err != nil {
-					tmp := uint64(0)
-					latestBlockNum = &tmp
+				if err != nil && err.Error() != "not found error" {
+					log.Default.With("error", err).Error("error when getting latest block number from database")
 				}
 				if config.Runtime.Starknet.ApiSync {
-					go starknetNew.ApiLoadStateDiffs(*latestBlockNum, *feederGatewayClient, stateUpdatesChan, errChan)
+					go starknetNew.ApiLoadStateDiffs(latestBlockNum, *feederGatewayClient, stateUpdatesChan, errChan)
 				} else {
-					panic("l1 sync not supported")
+					l1Config, err := starknetNew.InitL1Config(1, feederGatewayClient)
+					if err != nil {
+						log.Default.With("error", err).Fatal("failed to initialize ethereum configuration")
+					}
+					ethClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+					if err != nil {
+						log.Default.With("error", err).Fatal("unable to connect to Ethereum Client")
+					}
+					go starknetNew.L1LoadStateDiffs(latestBlockNum, ethClient, l1Config, stateUpdatesChan, errChan)
 				}
 				go func(stateDiffsChan chan *types.StateUpdate, errChan chan error) {
 					defer close(errChan)
