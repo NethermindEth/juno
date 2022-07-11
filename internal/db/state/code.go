@@ -10,6 +10,7 @@ import (
 var (
 	ErrUnmarshalErr = errors.New("unmarshal error")
 	ErrMarshalErr   = errors.New("marshal error")
+	ErrCodeNotFound = errors.New("contract code not found")
 )
 
 // GetCode returns the ContractCode associated with the given contract address.
@@ -21,10 +22,10 @@ func (x *Manager) GetCode(contractAddress []byte) (*Code, error) {
 	}
 	if rawData == nil {
 		// notest
-		return nil, nil
+		return nil, fmt.Errorf("GetCode: %w", ErrCodeNotFound)
 	}
 	code := new(Code)
-	if err := proto.Unmarshal(rawData[1:], code); err != nil {
+	if err := proto.Unmarshal(rawData, code); err != nil {
 		return nil, fmt.Errorf("GetCode: %w: %s", ErrUnmarshalErr, err)
 	}
 	return code, nil

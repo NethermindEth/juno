@@ -12,6 +12,8 @@ const (
 	ErrorCodeMethodNotFound ErrorCode = -32_601
 	// ErrorCodeInvalidParams is invalid params error code.
 	ErrorCodeInvalidParams ErrorCode = -32_602
+	// ErrorResourceNotFound is resource not found error code.
+	ErrorResourceNotFound ErrorCode = -32_001
 	// ErrorCodeInternal is internal error code.
 	ErrorCodeInternal ErrorCode = -32_603
 )
@@ -57,4 +59,9 @@ func ErrInvalidParams() *Error {
 // ErrInternal returns internal error.
 func ErrInternal() *Error {
 	return &Error{Code: ErrorCodeInternal, Message: "Internal error."}
+}
+
+// ErrResourceNotFound returns resource not found error.
+func ErrResourceNotFound() *Error {
+	return &Error{Code: ErrorResourceNotFound, Message: "Resource not found."}
 }
