@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/internal/db/contractHash"
 	"math/big"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -12,7 +13,7 @@ var ContractHashService contractHashService
 
 type contractHashService struct {
 	service
-	db db.Database
+	manager *contractHash.Manager
 }
 
 func (s *contractHashService) Setup(database db.Database) {
@@ -20,7 +21,7 @@ func (s *contractHashService) Setup(database db.Database) {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.db = database
+	s.manager = contractHash.NewManager(database)
 }
 
 func (s *contractHashService) Run() error {
@@ -36,13 +37,13 @@ func (s *contractHashService) Run() error {
 }
 
 func (s *contractHashService) setDefaults() error {
-	if s.db == nil {
+	if s.manager == nil {
 		// notest
 		database, err := db.NewMDBXDatabase("CONTRACT_HASH")
 		if err != nil {
 			return err
 		}
-		s.db = database
+		s.manager = contractHash.NewManager(database)
 	}
 	return nil
 }
@@ -53,7 +54,7 @@ func (s *contractHashService) Close(ctx context.Context) {
 		return
 	}
 	s.service.Close(ctx)
-	s.db.Close()
+	s.manager.Close()
 }
 
 func (s *contractHashService) StoreContractHash(contractAddress string, contractHash *big.Int) {
@@ -64,7 +65,7 @@ func (s *contractHashService) StoreContractHash(contractAddress string, contract
 		With("contractAddress", contractAddress).
 		Debug("StoreContractHash")
 
-	err := s.db.Put([]byte(contractAddress), contractHash.Bytes())
+	err := s.manager.StoreContractHash(contractAddress, contractHash)
 	if err != nil {
 		// notest
 		s.logger.
@@ -82,12 +83,5 @@ func (s *contractHashService) GetContractHash(contractAddress string) *big.Int {
 		With("contractAddress", contractAddress).
 		Debug("GetContractHash")
 
-	rawData, err := s.db.Get([]byte(contractAddress))
-	if err != nil {
-		s.logger.
-			With("error", err).
-			Error("GetContractHash error")
-		return nil
-	}
-	return new(big.Int).SetBytes(rawData)
+	return s.manager.GetContractHash(contractAddress)
 }

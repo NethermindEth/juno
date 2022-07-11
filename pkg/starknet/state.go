@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/NethermindEth/juno/internal/db/block"
+	"github.com/NethermindEth/juno/internal/db/contractHash"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"math/big"
@@ -18,7 +19,6 @@ import (
 	abiDB "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -43,16 +43,17 @@ type Synchronizer struct {
 
 	database db.DatabaseTransactional
 
-	abiManager         *abiDB.Manager
-	stateManager       *state.Manager
-	transactionManager *transaction.Manager
-	blockManager       *block.Manager
+	abiManager          *abiDB.Manager
+	stateManager        *state.Manager
+	transactionManager  *transaction.Manager
+	blockManager        *block.Manager
+	contractHashManager *contractHash.Manager
 }
 
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
 	abiManager *abiDB.Manager, stateManager *state.Manager, transactionManager *transaction.Manager,
-	blockManager *block.Manager) *Synchronizer {
+	blockManager *block.Manager, contractHashManager *contractHash.Manager) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -81,6 +82,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		stateManager:        stateManager,
 		transactionManager:  transactionManager,
 		blockManager:        blockManager,
+		contractHashManager: contractHashManager,
 	}
 }
 
@@ -371,14 +373,10 @@ func (s *Synchronizer) l1Sync() error {
 	return errors.New("events channel closed")
 }
 
-// updateAndCommitState applies `stateDiff` to the local state and
-// commits the changes to the database.
+// updateAndCommitState applies `stateDiff` to the local state and commits the changes to the database.
 // notest
-func (s *Synchronizer) updateAndCommitState(
-	stateDiff *starknetTypes.StateDiff,
-	newRoot string,
-	sequenceNumber uint64,
-) uint64 {
+func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string,
+	sequenceNumber uint64) uint64 {
 	start := time.Now()
 	// Save contract hashes of the new contracts
 	for _, deployedContract := range stateDiff.DeployedContracts {
@@ -388,13 +386,16 @@ func (s *Synchronizer) updateAndCommitState(
 			metr.IncreaseCountStarknetStateFailed()
 			log.Default.Panic("Couldn't get contract hash")
 		}
-		services.ContractHashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
+		err := s.contractHashManager.StoreContractHash(remove0x(deployedContract.Address), contractHash)
+		if err != nil {
+			log.Default.Error("Error while storing contract hash", err)
+		}
 	}
 	// Build contractAddress-contractHash map
 	contractHashMap := make(map[string]*big.Int)
 	for contractAddress := range stateDiff.StorageDiffs {
 		formattedAddress := remove0x(contractAddress)
-		contractHashMap[formattedAddress] = services.ContractHashService.GetContractHash(formattedAddress)
+		contractHashMap[formattedAddress] = s.contractHashManager.GetContractHash(formattedAddress)
 	}
 
 	err := s.database.RunTxn(func(txn db.DatabaseOperations) error {
