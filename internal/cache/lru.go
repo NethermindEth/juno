@@ -14,13 +14,20 @@ type cacheNode struct {
 
 // LRUCache is a cache with the least-recently-used policy.
 type LRUCache struct {
-	hashMap  map[uint64]*cacheNode
-	start    *cacheNode
-	end      *cacheNode
-	count    int
+	// hashMap contaiins the current cache contents that can be accessed by the key
+	hashMap map[uint64]*cacheNode
+	// start is a reference to the first node in the cache queue
+	start *cacheNode
+	// end is a reference to the last node in the cache queue
+	end *cacheNode
+	// count is the current ammount of items in the cache
+	count int
+	// capacity is the max ammount of items that can be stored in the cache
 	capacity int
-	hash     maphash.Hash
-	lock     sync.Mutex
+	// hash is used to hash the key
+	hash maphash.Hash
+	// lock is used to protect the cache from concurrent access
+	lock sync.Mutex
 }
 
 // NewLRUCache creates a new LRUCache instance with the given capacity.
