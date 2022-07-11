@@ -1,11 +1,12 @@
 package cache
 
 import (
+	"hash/maphash"
 	"sync"
 )
 
 type cacheNode struct {
-	Key   chacheKey
+	Key   uint64
 	Value []byte
 	Next  *cacheNode
 	Prev  *cacheNode
@@ -13,19 +14,21 @@ type cacheNode struct {
 
 // LRUCache is a cache with the least-recently-used policy.
 type LRUCache struct {
-	hashMap  map[chacheKey]*cacheNode
+	hashMap  map[uint64]*cacheNode
 	start    *cacheNode
 	end      *cacheNode
 	count    int
 	capacity int
+	hash     maphash.Hash
 	lock     sync.Mutex
 }
 
 // NewLRUCache creates a new LRUCache instance with the given capacity.
 func NewLRUCache(capacity int) *LRUCache {
 	return &LRUCache{
-		hashMap:  make(map[chacheKey]*cacheNode, capacity),
+		hashMap:  make(map[uint64]*cacheNode, capacity),
 		capacity: capacity,
+		hash:     maphash.Hash{},
 	}
 }
 
@@ -36,7 +39,7 @@ func (c *LRUCache) Put(k []byte, v []byte) {
 	defer c.lock.Unlock()
 
 	// Build the cache key and node
-	key := newCacheKey(k)
+	key := c.key(k)
 	node := &cacheNode{Key: key, Value: v}
 
 	// Cache is empty
@@ -71,7 +74,7 @@ func (c *LRUCache) Get(k []byte) []byte {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	key := newCacheKey(k)
+	key := c.key(k)
 	if node, ok := c.hashMap[key]; ok {
 		// Move the node to the start of the queue
 		if node != c.start {
@@ -112,8 +115,14 @@ func (c *LRUCache) Clear() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.hashMap = make(map[chacheKey]*cacheNode, c.capacity)
+	c.hashMap = make(map[uint64]*cacheNode, c.capacity)
 	c.start = nil
 	c.end = nil
 	c.count = 0
+}
+
+func (c *LRUCache) key(v []byte) uint64 {
+	c.hash.Reset()
+	c.hash.Write(v)
+	return c.hash.Sum64()
 }
