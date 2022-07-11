@@ -51,7 +51,7 @@ To run the project inside a Docker container, read [here](./run/docker.mdx).
 
 ## Example usage
 
-<!-- QUESTION: Need help here. Would a user just use the make run command? -->
+TODO: Would a user use make all to run Juno?
 
 <fontcolor:red>
 - How would a normal user want to use Juno? 
