@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/torquem-ch/mdbx-go/mdbx"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -66,6 +67,8 @@ var (
 	transactionManager  *transaction.Manager
 	blockManager        *block.Manager
 	contractHashManager *contractHash.Manager
+
+	mdbxEnv *mdbx.Env
 )
 
 // Execute handle flags for Cobra execution.
@@ -93,39 +96,44 @@ func juno(_ *cobra.Command, _ []string) {
 	// Setup client and managers
 	feederGatewayClient = feeder.NewClient(config.Runtime.Starknet.FeederGateway, utils.FeederGatewayApiPrefix, nil)
 
-	abiDB, err := db.NewMDBXDatabase("ABI")
+	mdbxEnv, err := db.NewMDBXEnv(config.Runtime.DbPath, 100, 0)
+	if err != nil {
+		log.Default.With("Error", err).Fatal("Error creating the database environment")
+	}
+
+	abiDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "ABI")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the ABI database")
 	}
 	abiManager = abi.NewABIManager(abiDB)
 
-	codeDB, err := db.NewMDBXDatabase("CODE")
+	codeDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "CODE")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the CODE database")
 	}
-	storageDB, err := db.NewMDBXDatabase("STORAGE")
+	storageDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "STORAGE")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the STORAGE database")
 	}
 	stateManager = state.NewStateManager(codeDB, db.NewBlockSpecificDatabase(storageDB))
 
-	txDB, err := db.NewMDBXDatabase("TRANSACTION")
+	txDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "TRANSACTION")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the TRANSACTION database")
 	}
-	receiptDB, err := db.NewMDBXDatabase("RECEIPT")
+	receiptDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "RECEIPT")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the RECEIPT database")
 	}
 	transactionManager = transaction.NewManager(txDB, receiptDB)
 
-	blockDB, err := db.NewMDBXDatabase("BLOCK")
+	blockDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "BLOCK")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the BLOCK database")
 	}
 	blockManager = block.NewManager(blockDB)
 
-	contractHashDB, err := db.NewMDBXDatabase("CONTRACT_HASH")
+	contractHashDB, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "CONTRACT_HASH")
 	if err != nil {
 		log.Default.With("Error", err).Fatal("Error creating the CONTRACT_HASH database")
 	}
@@ -152,7 +160,7 @@ func juno(_ *cobra.Command, _ []string) {
 			}
 		}
 
-		synchronizerDb, err := db.NewMDBXDatabase("SYNCHRONIZER")
+		synchronizerDb, err := db.NewMDBXDatabaseWithEnv(mdbxEnv, "SYNCHRONIZER")
 		if err != nil {
 			log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 		}

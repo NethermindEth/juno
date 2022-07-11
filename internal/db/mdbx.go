@@ -3,7 +3,6 @@ package db
 import (
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/config"
 	"runtime"
 
 	"github.com/torquem-ch/mdbx-go/mdbx"
@@ -28,16 +27,28 @@ type MDBXDatabase struct {
 	dbi mdbx.DBI
 }
 
-func NewMDBXDatabase(name string) (*MDBXDatabase, error) {
-	env, err := defaultMDBXEnv()
+func NewMDBXEnv(path string, optMaxDB uint64, flags uint) (*mdbx.Env, error) {
+	env, err := mdbx.NewEnv()
 	if err != nil {
+		// notest
 		return nil, err
 	}
-	return NewMDBXDatabaseWithEnv(env, name)
-}
-
-func defaultMDBXEnv() (*mdbx.Env, error) {
-	return NewMDBXEnv(config.Runtime.DbPath, 100, 0)
+	err = env.SetOption(mdbx.OptMaxDB, optMaxDB)
+	if err != nil {
+		// notest
+		return nil, err
+	}
+	err = env.SetGeometry(268435456, 268435456, 25769803776, 268435456, 268435456, 4096)
+	if err != nil {
+		// notest
+		return nil, err
+	}
+	err = env.Open(path, flags|mdbx.Exclusive, 0o664)
+	if err != nil {
+		// notest
+		return nil, err
+	}
+	return env, nil
 }
 
 // NewMDBXDatabaseWithEnv creates a new MDBXDatabase with the given environment and name.
