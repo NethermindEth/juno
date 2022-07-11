@@ -74,7 +74,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) (*types.Block, erro
 }
 
 // PutBlock saves the given block with the given hash as key. If any error happens
-// then panic.
+// then return error.
 func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) error {
 	// Build the keys
 	hashKey := buildHashKey(blockHash)

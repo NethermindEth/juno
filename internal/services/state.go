@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
@@ -67,7 +68,7 @@ func (s *stateService) Close(ctx context.Context) {
 	s.manager.Close()
 }
 
-func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
+func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) error {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -75,10 +76,10 @@ func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) {
 		With("contractAddress", common.Bytes2Hex(contractAddress)).
 		Debug("StoreCode")
 
-	s.manager.PutCode(contractAddress, code)
+	return s.manager.PutCode(contractAddress, code)
 }
 
-func (s *stateService) GetCode(contractAddress []byte) *state.Code {
+func (s *stateService) GetCode(contractAddress []byte) (*state.Code, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -89,7 +90,7 @@ func (s *stateService) GetCode(contractAddress []byte) *state.Code {
 	return s.manager.GetCode(contractAddress)
 }
 
-func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, storage *state.Storage) {
+func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, storage *state.Storage) error {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -97,10 +98,10 @@ func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, 
 		With("contractAddress", contractAddress, "blockNumber", blockNumber).
 		Debug("StoreStorage")
 
-	s.manager.PutStorage(contractAddress, blockNumber, storage)
+	return s.manager.PutStorage(contractAddress, blockNumber, storage)
 }
 
-func (s *stateService) GetStorage(contractAddress string, blockNumber uint64) *state.Storage {
+func (s *stateService) GetStorage(contractAddress string, blockNumber uint64) (*state.Storage, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -111,7 +112,7 @@ func (s *stateService) GetStorage(contractAddress string, blockNumber uint64) *s
 	return s.manager.GetStorage(contractAddress, blockNumber)
 }
 
-func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64, storage *state.Storage) {
+func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64, storage *state.Storage) error {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -119,12 +120,20 @@ func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64,
 		With("contractAddress", contractAddress, "blockNumber", blockNumber).
 		Debug("UpdateStorage")
 
-	oldStorage := s.GetStorage(contractAddress, blockNumber)
+	oldStorage, err := s.GetStorage(contractAddress, blockNumber)
+	if err != nil {
+		return err
+	}
 	if oldStorage == nil {
 		// notest
-		s.StoreStorage(contractAddress, blockNumber, storage)
+		if err := s.StoreStorage(contractAddress, blockNumber, storage); err != nil {
+			return fmt.Errorf("UpdateStorage: failed storing storage: %w", err)
+		}
 	} else {
 		oldStorage.Update(storage)
-		s.StoreStorage(contractAddress, blockNumber, oldStorage)
+		if err := s.StoreStorage(contractAddress, blockNumber, oldStorage); err != nil {
+			return fmt.Errorf("UpdateStorage: failed storing storage with old storage param: %w", err)
+		}
 	}
+	return nil
 }

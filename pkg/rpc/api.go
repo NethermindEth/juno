@@ -286,25 +286,28 @@ func (HandlerRPC) StarknetGetStorageAt(
 		}
 		if block == nil {
 			// notest
-			return "", ErrBlockNotFound
+			return "", fmt.Errorf("StarknetGetStorageAt: get block by hash returns: %w", ErrBlockNotFound)
 		}
 		blockNumber = block.BlockNumber
 	} else if tag := blockHash.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
 		if err != nil {
 			// notest
-			return "", ErrBlockNotFound
+			return "", fmt.Errorf("StarknetGetStorageAt: get block by tag returns: %w", ErrBlockNotFound)
 		}
 		blockNumber = blockResponse.BlockNumber
 	} else {
 		// notest
-		return "", fmt.Errorf("invalid block hash or tag")
+		return "", fmt.Errorf("StarknetGetStorageAt: %w", ErrBlockHashOrTag)
 	}
 
-	storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	storage, err := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	if err != nil {
+		return "", fmt.Errorf("StarknetGetStorageAt: failed get database call: %w", err)
+	}
 	if storage == nil {
 		// notest
-		return "", fmt.Errorf("storage not found")
+		return "", errors.New("StarknetGetStorageAt: storage not found")
 	}
 
 	return Felt(storage.Storage[string(key)]), nil
@@ -452,7 +455,10 @@ func (HandlerRPC) StarknetGetCode(
 		}
 		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 	}
-	code := services.StateService.GetCode(contractAddress.Bytes())
+	code, err := services.StateService.GetCode(contractAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("StarknetGetCode: failed getcode database call: %w", err)
+	}
 	if code == nil {
 		// notest
 		return nil, errors.New("StarknetGetCode: state service returns nil code")

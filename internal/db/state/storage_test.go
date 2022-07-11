@@ -46,7 +46,10 @@ func TestManager_Storage(t *testing.T) {
 	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
 	manager := NewStateManager(codeDb, storageDatabase)
 	for _, data := range initialData {
-		manager.PutStorage(data.Contract, data.BlockNumber, data.Storage)
+		err := manager.PutStorage(data.Contract, data.BlockNumber, data.Storage)
+		if err != nil {
+			t.Errorf("Unexpected error PutStorage: %s", err)
+		}
 	}
 	tests := [...]struct {
 		Contract    string
@@ -78,7 +81,10 @@ func TestManager_Storage(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		obtainedStorage := manager.GetStorage(test.Contract, test.BlockNumber)
+		obtainedStorage, err := manager.GetStorage(test.Contract, test.BlockNumber)
+		if err != nil {
+			t.Errorf("Unexpected error GetStorage: %s", err)
+		}
 		if test.Ok && obtainedStorage == nil {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)
 		}

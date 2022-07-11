@@ -55,8 +55,14 @@ func TestStateService_Code(t *testing.T) {
 	defer StateService.Close(context.Background())
 
 	for _, code := range codes {
-		StateService.StoreCode(code.Address, code.Code)
-		obtainedCode := StateService.GetCode(code.Address)
+		err := StateService.StoreCode(code.Address, code.Code)
+		if err != nil {
+			t.Error(err)
+		}
+		obtainedCode, err := StateService.GetCode(code.Address)
+		if err != nil {
+			t.Error(err)
+		}
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}
@@ -91,7 +97,10 @@ func TestService_Storage(t *testing.T) {
 	defer StateService.Close(context.Background())
 
 	for _, data := range initialData {
-		StateService.UpdateStorage(data.Contract, data.BlockNumber, data.Storage)
+		err := StateService.UpdateStorage(data.Contract, data.BlockNumber, data.Storage)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 	tests := [...]struct {
 		Contract    string
@@ -123,7 +132,10 @@ func TestService_Storage(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		obtainedStorage := StateService.GetStorage(test.Contract, test.BlockNumber)
+		obtainedStorage, err := StateService.GetStorage(test.Contract, test.BlockNumber)
+		if err != nil {
+			t.Error(err)
+		}
 		if test.Ok && obtainedStorage == nil {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)
 		}
