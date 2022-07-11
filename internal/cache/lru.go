@@ -94,16 +94,16 @@ func (c *LRUCache) Get(k []byte) []byte {
 	return nil
 }
 
-// Count returns the current ammount of items in the cache.
-func (c *LRUCache) Count() int {
+// Len returns the current ammount of items in the cache.
+func (c *LRUCache) Len() int {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	return c.count
 }
 
-// Capacity returns the max ammount of items that can be stored in the cache.
-func (c *LRUCache) Capacity() int {
+// Cap returns the max ammount of items that can be stored in the cache.
+func (c *LRUCache) Cap() int {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

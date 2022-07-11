@@ -4,7 +4,7 @@ package cache
 type Cache interface {
 	Put(key []byte, value []byte)
 	Get(key []byte) []byte
-	Count() int
-	Capacity() int
+	Len() int
+	Cap() int
 	Clear()
 }
