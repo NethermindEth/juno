@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/errpkg"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
@@ -50,7 +50,7 @@ var (
 			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 			go func(sig chan os.Signal) {
 				<-sig
-				log.Default.Info("Trying to close...")
+				Logger.Info("Trying to close...")
 				cleanup()
 				os.Exit(0)
 			}(sig)
@@ -71,7 +71,7 @@ var (
 			}
 
 			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
-				log.Default.With("Error", err).Fatal("Error starting the database environment")
+				Logger.With("Error", err).Fatal("Error starting the database environment")
 			}
 
 			// Initialize ABI Service
@@ -96,7 +96,7 @@ var (
 				var err error
 				ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
 				if err != nil {
-					log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+					Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 				}
 				services.SetupSync(feederGatewayClient, ethereumClient)
 				// Initialize the Starknet Synchronizer Service.
@@ -116,7 +116,7 @@ var (
 
 			if primaryServiceCheck > 0 {
 				// endless running process
-				log.Default.Info("Starting all processes...")
+				Logger.Info("Starting all processes...")
 				processHandler.Run()
 				cleanup()
 			} else {
@@ -128,7 +128,7 @@ var (
 
 func cleanup() {
 	processHandler.Close()
-	log.Default.Info("App closing...Bye!!!")
+	Logger.Info("App closing...Bye!!!")
 }
 
 // init defines flags and handles configuration.
@@ -148,7 +148,7 @@ func initConfig() {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			log.Default.Info("Invalid data directory. The default data directory will be used")
+			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
 		}
 	}
@@ -168,9 +168,9 @@ func initConfig() {
 
 	err := viper.ReadInConfig()
 	if err == nil {
-		log.Default.With("File", viper.ConfigFileUsed()).Info("Using config file:")
+		Logger.With("File", viper.ConfigFileUsed()).Info("Using config file:")
 	} else {
-		log.Default.Info("Config file not found.")
+		Logger.Info("Config file not found.")
 		if !config.Exists() {
 			config.New()
 		}
@@ -182,7 +182,18 @@ func initConfig() {
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
-	log.Default.With(
+
+	// Configure logger - we want the logger to be created right after the config has been set
+	enableJsonOutput := config.Runtime.Logger.EnableJsonOutput
+	verbosityLevel := config.Runtime.Logger.VerbosityLevel
+	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
+	errpkg.CheckFatal(err, "Failed to initialise logger.")
+	Logger.With(
+		"Verbosity Level", verbosityLevel,
+		"Json Output", enableJsonOutput,
+	).Info("Logger values")
+
+	Logger.With(
 		"Database Path", config.Runtime.DbPath,
 		"Rpc Port", config.Runtime.RPC.Port,
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
@@ -195,6 +206,6 @@ func initConfig() {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Default.With("Error", err).Error("Failed to execute CLI.")
+		Logger.With("Error", err).Error("Failed to execute CLI.")
 	}
 }

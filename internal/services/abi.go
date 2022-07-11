@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // AbiService is the service to store and put the contracts ABI. Before
@@ -31,7 +31,7 @@ func (s *abiService) Setup(database db.Database) {
 // Run starts the service.
 func (s *abiService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("AbiService")
+		s.logger = Logger.Named("AbiService")
 	}
 
 	if err := s.service.Run(); err != nil {

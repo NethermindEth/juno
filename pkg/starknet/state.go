@@ -12,7 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/state"
+	. "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/services"
@@ -54,7 +54,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		chainID, err = client.ChainID(context.Background())
 		if err != nil {
 			// notest
-			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
 		}
 	}
 	return &Synchronizer{
@@ -72,7 +72,7 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 // feeder gateway or Layer 1 depending on the configuration.
 // notest
 func (s *Synchronizer) UpdateState() error {
-	log.Default.Info("Starting to update state")
+	Logger.Info("Starting to update state")
 	if config.Runtime.Starknet.ApiSync {
 		return s.apiSync()
 	}
@@ -96,7 +96,7 @@ func (s *Synchronizer) loadEvents(
 	}
 	latestBlockNumber, err := s.ethereumClient.BlockNumber(context.Background())
 	if err != nil {
-		log.Default.With("Error", err).Error("Couldn't get the latest block")
+		Logger.With("Error", err).Error("Couldn't get the latest block")
 		return err
 	}
 
@@ -104,7 +104,7 @@ func (s *Synchronizer) loadEvents(
 	increment := uint64(starknetTypes.MaxChunk)
 	i := uint64(initialBlock)
 	for i < latestBlockNumber {
-		log.Default.With("From Block", i, "To Block", i+increment).Info("Fetching logs....")
+		Logger.With("From Block", i, "To Block", i+increment).Info("Fetching logs....")
 		query := ethereum.FilterQuery{
 			FromBlock: new(big.Int).SetUint64(i),
 			ToBlock:   new(big.Int).SetUint64(i + increment),
@@ -114,19 +114,19 @@ func (s *Synchronizer) loadEvents(
 
 		starknetLogs, err := s.ethereumClient.FilterLogs(context.Background(), query)
 		if err != nil {
-			log.Default.With("Error", err, "Initial block", i, "End block", i+increment, "Addresses", addresses).
+			Logger.With("Error", err, "Initial block", i, "End block", i+increment, "Addresses", addresses).
 				Info("Couldn't get logs")
 			break
 		}
-		log.Default.With("Count", len(starknetLogs)).Info("Logs fetched")
+		Logger.With("Count", len(starknetLogs)).Info("Logs fetched")
 		for _, vLog := range starknetLogs {
-			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
+			Logger.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber,
 				"TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
 			event := map[string]interface{}{}
 
 			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
 			if err != nil {
-				log.Default.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
+				Logger.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
 				continue
 			}
 			eventChan <- starknetTypes.EventInfo{
@@ -145,21 +145,21 @@ func (s *Synchronizer) loadEvents(
 	hLog := make(chan types.Log)
 	sub, err := s.ethereumClient.SubscribeFilterLogs(context.Background(), query, hLog)
 	if err != nil {
-		log.Default.Info("Couldn't subscribe for incoming blocks")
+		Logger.Info("Couldn't subscribe for incoming blocks")
 		return err
 	}
 	for {
 		select {
 		case err := <-sub.Err():
-			log.Default.With("Error", err).Info("Error getting the latest logs")
+			Logger.With("Error", err).Info("Error getting the latest logs")
 		case vLog := <-hLog:
-			log.Default.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(),
+			Logger.With("Log Fetched", contracts[vLog.Address].EventName, "BlockHash", vLog.BlockHash.Hex(),
 				"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).
 				Info("Event Fetched")
 			event := map[string]interface{}{}
 			err = contracts[vLog.Address].Contract.UnpackIntoMap(event, contracts[vLog.Address].EventName, vLog.Data)
 			if err != nil {
-				log.Default.With("Error", err).Info("Couldn't get event from log")
+				Logger.With("Error", err).Info("Couldn't get event from log")
 				continue
 			}
 			eventChan <- starknetTypes.EventInfo{
@@ -197,11 +197,11 @@ func (s *Synchronizer) loadEvents(
 // transactions.
 // notest
 func (s *Synchronizer) l1Sync() error {
-	log.Default.Info("Starting to update state")
+	Logger.Info("Starting to update state")
 
 	contractAddresses, err := s.feederGatewayClient.GetContractAddresses()
 	if err != nil {
-		log.Default.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
+		Logger.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
 		return err
 	}
 	event := make(chan starknetTypes.EventInfo)
@@ -212,7 +212,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.StarknetAbi,
 		"LogStateTransitionFact", contracts)
 	if err != nil {
-		log.Default.With("Address", contractAddresses.Starknet).
+		Logger.With("Address", contractAddresses.Starknet).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -223,7 +223,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.GpsVerifierAbi,
 		"LogMemoryPagesHashes", contracts)
 	if err != nil {
-		log.Default.With("Address", gpsAddress).
+		Logger.With("Address", gpsAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -233,7 +233,7 @@ func (s *Synchronizer) l1Sync() error {
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", contracts)
 	if err != nil {
-		log.Default.With("Address", memoryPagesContractAddress).
+		Logger.With("Address", memoryPagesContractAddress).
 			Panic("Couldn't load contract from disk ")
 		return err
 	}
@@ -241,14 +241,14 @@ func (s *Synchronizer) l1Sync() error {
 	go func() {
 		err = s.loadEvents(contracts, event)
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't get events")
+			Logger.With("Error", err).Info("Couldn't get events")
 			close(event)
 		}
 	}()
 
 	latestBlockSynced, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
-		log.Default.With("Error", err).Panic("Unable to get the Value of the latest fact synced")
+		Logger.With("Error", err).Panic("Unable to get the Value of the latest fact synced")
 	}
 	latestBlockSaved := latestBlockSynced
 
@@ -269,7 +269,7 @@ func (s *Synchronizer) l1Sync() error {
 				// Get memory pages hashes using fact
 				pagesHashes, ok := s.gpsVerifier.Get(fact.Value)
 				if !ok {
-					log.Default.With("Error").Panic("Fact has not been verified")
+					Logger.With("Error").Panic("Fact has not been verified")
 				}
 				// If already exist the information related to the fact,
 				// fetch the memory pages and updated the state
@@ -321,7 +321,7 @@ func (s *Synchronizer) l1Sync() error {
 			starknetAddress := common.HexToAddress(contractAddresses.Starknet)
 
 			if err != nil {
-				log.Default.With("Error", err).
+				Logger.With("Error", err).
 					Info("Unable to get the Value of the latest fact synced")
 				return err
 			}
@@ -336,7 +336,7 @@ func (s *Synchronizer) l1Sync() error {
 
 			starknetLogs, err := s.ethereumClient.FilterLogs(context.Background(), query)
 			if err != nil {
-				log.Default.With("Error", err, "Initial block", l.Block, "End block", l.Block+1).
+				Logger.With("Error", err, "Initial block", l.Block, "End block", l.Block+1).
 					Info("Couldn't get logs")
 			}
 			fullFact, err := getFactInfo(starknetLogs, contractAbi, common.BytesToHash(b).Hex(), latestBlockSaved, l.TransactionHash)
@@ -367,7 +367,7 @@ func (s *Synchronizer) updateAndCommitState(
 		if !ok {
 			// notest
 			metr.IncreaseCountStarknetStateFailed()
-			log.Default.Panic("Couldn't get contract hash")
+			Logger.Panic("Couldn't get contract hash")
 		}
 		services.ContractHashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
 	}
@@ -384,17 +384,17 @@ func (s *Synchronizer) updateAndCommitState(
 	})
 	if err != nil {
 		metr.IncreaseCountStarknetStateFailed()
-		log.Default.Fatal(err)
+		Logger.Fatal(err)
 	}
 
 	metr.IncreaseCountStarknetStateSuccess()
 	duration := time.Since(start)
 	metr.UpdateStarknetSyncTime(duration.Seconds())
-	log.Default.With("Block Number", sequenceNumber).Info("state updated")
+	Logger.With("Block Number", sequenceNumber).Info("state updated")
 
 	err = updateNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced, sequenceNumber)
 	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+		Logger.With("Error", err).Info("Couldn't save latest block queried")
 	}
 	return sequenceNumber + 1
 }
@@ -404,12 +404,12 @@ func (s *Synchronizer) updateAndCommitState(
 // notest
 func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, latestFactSaved uint64, txHash common.Hash) (*starknetTypes.Fact, error) {
 	for _, vLog := range starknetLogs {
-		log.Default.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
+		Logger.With("Log Fetched", "LogStateUpdate", "BlockHash", vLog.BlockHash.Hex(),
 			"BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex())
 		event := map[string]interface{}{}
 		err := contract.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+			Logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
 			continue // TODO Can we recover from this? Should we panic?
 		}
 		// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
@@ -418,26 +418,26 @@ func getFactInfo(starknetLogs []types.Log, contract ethAbi.ABI, fact string, lat
 			// If we are caught up to the blocks in the database, this will be true.
 			// If we are catching up, this will be false.
 			if sequenceNumber == latestFactSaved {
-				log.Default.With("Sequence number", sequenceNumber).Info("Found LogStateUpdate")
+				Logger.With("Sequence number", sequenceNumber).Info("Found LogStateUpdate")
 				return &starknetTypes.Fact{
 					StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
 					SequenceNumber: sequenceNumber,
 					Value:          fact,
 				}, nil
 			} else {
-				log.Default.Info("Catching up to saved state.")
+				Logger.Info("Catching up to saved state.")
 				return nil, errors.New("catching up to saved state")
 			}
 		}
 	}
-	log.Default.Panic("Couldn't find a block number that match in the logs for given fact")
+	Logger.Panic("Couldn't find a block number that match in the logs for given fact")
 	return nil, nil
 }
 
 // Close closes the client for the Layer 1 Ethereum node
 func (s *Synchronizer) Close(_ context.Context) {
 	// notest
-	log.Default.Info("Closing Layer 1 Synchronizer")
+	Logger.Info("Closing Layer 1 Synchronizer")
 	if s.ethereumClient != nil {
 		s.ethereumClient.Close()
 	}
@@ -449,7 +449,7 @@ func (s *Synchronizer) Close(_ context.Context) {
 func (s *Synchronizer) apiSync() error {
 	blockIterator, err := getNumericValueFromDB(s.database, starknetTypes.LatestBlockSynced)
 	if err != nil {
-		log.Default.With("Error", err).Info("Couldn't get latest Block queried")
+		Logger.With("Error", err).Info("Couldn't get latest Block queried")
 		return err
 	}
 	lastBlockHash := ""
@@ -467,27 +467,27 @@ func (s *Synchronizer) apiSync() error {
 // gateway and apply it to the local state.
 // notest
 func (s *Synchronizer) updateStateForOneBlock(blockIterator uint64, lastBlockHash string) (uint64, string) {
-	log.Default.With("Number", blockIterator).Info("Updating StarkNet state")
+	Logger.With("Number", blockIterator).Info("Updating StarkNet state")
 	var update *feeder.StateUpdateResponse
 	var err error
 	if s.chainID == 1 {
 		update, err = s.feederGatewayClient.GetStateUpdate("", strconv.FormatUint(blockIterator, 10))
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't get state update")
+			Logger.With("Error", err).Info("Couldn't get state update")
 			return blockIterator, lastBlockHash
 		}
 	} else {
 		update, err = s.feederGatewayClient.GetStateUpdateGoerli("", strconv.FormatUint(blockIterator, 10))
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't get state update")
+			Logger.With("Error", err).Info("Couldn't get state update")
 			return blockIterator, lastBlockHash
 		}
 	}
 	if lastBlockHash == update.BlockHash || update.BlockHash == "" || update.NewRoot == "" {
-		log.Default.With("Block Number", blockIterator).Info("Block is pending ...")
+		Logger.With("Block Number", blockIterator).Info("Block is pending ...")
 		return blockIterator, lastBlockHash
 	}
-	log.Default.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
+	Logger.With("Block Hash", update.BlockHash, "New Root", update.NewRoot, "Old Root", update.OldRoot).
 		Info("Updating state")
 
 	upd := stateUpdateResponseToStateDiff(*update)
@@ -513,10 +513,10 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 			return nil
 		}
 		txHash := transactionHash.(starknetTypes.TransactionHash).Hash
-		log.Default.With("Hash", txHash.Hex()).Info("Getting transaction...")
+		Logger.With("Hash", txHash.Hex()).Info("Getting transaction...")
 		txn, _, err := s.ethereumClient.TransactionByHash(context.Background(), txHash)
 		if err != nil {
-			log.Default.With("Error", err, "Transaction Hash", v).
+			Logger.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")
 			return nil
 		}
@@ -526,7 +526,7 @@ func (s *Synchronizer) processPagesHashes(pagesHashes [][32]byte, memoryContract
 		inputs := make(map[string]interface{})
 		err = memoryContract.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, data)
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't unpack into map")
+			Logger.With("Error", err).Info("Couldn't unpack into map")
 			return nil
 		}
 		// Append calldata to pages
@@ -569,7 +569,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	if err != nil {
 		return
 	}
-	log.Default.With("Block Hash", block.BlockHash).
+	Logger.With("Block Hash", block.BlockHash).
 		Info("Got block")
 	services.BlockService.StoreBlock(localTypes.BlockHash(localTypes.HexToFelt(block.BlockHash)), feederBlockToDBBlock(block))
 
@@ -578,7 +578,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		if err != nil {
 			return
 		}
-		log.Default.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
+		Logger.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
 		services.TransactionService.StoreTransaction(localTypes.TransactionHash(localTypes.HexToFelt(bTxn.TransactionHash)),
 			feederTransactionToDBTransaction(transactionInfo))

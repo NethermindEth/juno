@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
@@ -170,7 +170,7 @@ func updateNumericValueFromDB(database db.DatabaseOperations, key string, value 
 	binary.BigEndian.PutUint64(b, value+1)
 	err := database.Put([]byte(key), b)
 	if err != nil {
-		log.Default.With("Value", value, "Key", key).
+		Logger.With("Value", value, "Key", key).
 			Info("Couldn't store the kv-pair on the database")
 		return err
 	}
@@ -186,74 +186,73 @@ func updateState(
 	stateRoot string,
 	sequenceNumber uint64,
 ) (string, error) {
-	//log.Default.With("Block Number", sequenceNumber).Info("Processing block")
-	//
-	//stateTrie := newTrie(txn, "state_trie_")
-	//
-	//log.Default.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
-	//for _, deployedContract := range update.DeployedContracts {
-	//	contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
-	//	if !ok {
-	//		// notest
-	//		log.Default.Panic("Couldn't get contract hash")
-	//	}
-	//	storageTrie := newTrie(txn, remove0x(deployedContract.Address))
-	//	storageRoot := storageTrie.Commitment()
-	//	address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
-	//	if !ok {
-	//		// notest
-	//		log.Default.With("Address", deployedContract.Address).
-	//			Panic("Couldn't convert Address to Big.Int ")
-	//	}
-	//	contractStateValue := contractState(contractHash, storageRoot)
-	//	stateTrie.Put(address, contractStateValue)
-	//}
-	//
-	//log.Default.With("Block Number", sequenceNumber).Info("Processing storage diffs")
-	//for k, v := range update.StorageDiffs {
-	//	formattedAddress := remove0x(k)
-	//	storageTrie := newTrie(txn, formattedAddress)
-	//	for _, storageSlots := range v {
-	//		key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
-	//		if !ok {
-	//			// notest
-	//			log.Default.With("Storage Slot Key", storageSlots.Key).
-	//				Panic("Couldn't get the ")
-	//		}
-	//		val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
-	//		if !ok {
-	//			// notest
-	//			log.Default.With("Storage Slot Value", storageSlots.Value).
-	//				Panic("Couldn't get the contract Hash")
-	//		}
-	//		storageTrie.Put(key, val)
-	//	}
-	//	storageRoot := storageTrie.Commitment()
-	//
-	//	address, ok := new(big.Int).SetString(formattedAddress, 16)
-	//	if !ok {
-	//		// notest
-	//		log.Default.With("Address", formattedAddress).
-	//			Panic("Couldn't convert Address to Big.Int ")
-	//	}
-	//	contractHash := contractHashMap[formattedAddress]
-	//	contractStateValue := contractState(contractHash, storageRoot)
-	//
-	//	stateTrie.Put(address, contractStateValue)
-	//}
-	//
-	//stateCommitment := remove0x(stateTrie.Commitment().Text(16))
-	//
-	//if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
-	//	// notest
-	//	log.Default.With("state Commitment", stateCommitment, "state Root from API", remove0x(stateRoot)).
-	//		Panic("stateRoot not equal to the one provided")
-	//}
-	//log.Default.With("state Root", stateCommitment).
-	//	Info("Got state commitment")
-	//
-	//return stateCommitment, nil
-	return "", nil
+	Logger.With("Block Number", sequenceNumber).Info("Processing block")
+
+	stateTrie := newTrie(txn, "state_trie_")
+
+	Logger.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
+	for _, deployedContract := range update.DeployedContracts {
+		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
+		if !ok {
+			// notest
+			Logger.Panic("Couldn't get contract hash")
+		}
+		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
+		storageRoot := storageTrie.Commitment()
+		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
+		if !ok {
+			// notest
+			Logger.With("Address", deployedContract.Address).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractStateValue := contractState(contractHash, storageRoot)
+		stateTrie.Put(address, contractStateValue)
+	}
+
+	Logger.With("Block Number", sequenceNumber).Info("Processing storage diffs")
+	for k, v := range update.StorageDiffs {
+		formattedAddress := remove0x(k)
+		storageTrie := newTrie(txn, formattedAddress)
+		for _, storageSlots := range v {
+			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
+			if !ok {
+				// notest
+				Logger.With("Storage Slot Key", storageSlots.Key).
+					Panic("Couldn't get the ")
+			}
+			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
+			if !ok {
+				// notest
+				Logger.With("Storage Slot Value", storageSlots.Value).
+					Panic("Couldn't get the contract Hash")
+			}
+			storageTrie.Put(key, val)
+		}
+		storageRoot := storageTrie.Commitment()
+
+		address, ok := new(big.Int).SetString(formattedAddress, 16)
+		if !ok {
+			// notest
+			Logger.With("Address", formattedAddress).
+				Panic("Couldn't convert Address to Big.Int ")
+		}
+		contractHash := contractHashMap[formattedAddress]
+		contractStateValue := contractState(contractHash, storageRoot)
+
+		stateTrie.Put(address, contractStateValue)
+	}
+
+	stateCommitment := remove0x(stateTrie.Commitment().Text(16))
+
+	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
+		// notest
+		Logger.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
+			Panic("stateRoot not equal to the one provided")
+	}
+	Logger.With("State Root", stateCommitment).
+		Info("Got State commitment")
+
+	return stateCommitment, nil
 }
 
 // byteCodeToStateCode convert an array of strings to the Code
