@@ -27,7 +27,7 @@ type LRUCache struct {
 	// hash is used to hash the key
 	hash maphash.Hash
 	// lock is used to protect the cache from concurrent access
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 // NewLRUCache creates a new LRUCache instance with the given capacity.
@@ -103,16 +103,16 @@ func (c *LRUCache) Get(k []byte) []byte {
 
 // Len returns the current ammount of items in the cache.
 func (c *LRUCache) Len() int {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
 	return c.count
 }
 
 // Cap returns the max ammount of items that can be stored in the cache.
 func (c *LRUCache) Cap() int {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
 	return c.capacity
 }
