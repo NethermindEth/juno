@@ -6,8 +6,6 @@ import (
 	"math/big"
 	"strings"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	contractAbis "github.com/NethermindEth/juno/pkg/starknet_new/contracts"
@@ -26,7 +24,7 @@ type ethereumClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 }
 
-type PagesHashes [][32]byte
+type PagesHashes [][32]byte // TODO should be []ethcommon.Hash
 
 type L1Config struct {
 	ChainId                   uint64
@@ -78,7 +76,7 @@ func InitL1Config(chainId uint64, feederClient *feeder.Client) (*L1Config, error
 		return nil, err
 	}
 	starknetAddress := ethcommon.HexToAddress(contractAddresses.Starknet)
-	gpsVerifierAddress := ethcommon.HexToAddress(contractAddresses.GpsStatementVerifier)
+	gpsVerifierAddress := ethcommon.HexToAddress("0xa739b175325cca7b71fcb51c3032935ef7ac338f")
 
 	return &L1Config{
 		ChainId:                 chainId,
@@ -300,10 +298,10 @@ func processLogs(vLogs []ethtypes.Log, config *L1Config, facts *dictionary, fact
 
 		switch contract.EventName {
 		case config.Contracts[config.MemoryPageRegistryAddress].EventName:
-			memoryPageToTxHash.Add(event["memoryHash"].(*big.Int).Text(16), vLog.TxHash)
+			memoryPageToTxHash.Add(ethcommon.BigToHash(event["memoryHash"].(*big.Int)), vLog.TxHash)
 		case config.Contracts[config.GpsVerifierAddress].EventName:
 			fact := event["factHash"].([32]byte)
-			factToPageHash.Add("0x"+ethcommon.Bytes2Hex(fact[:]), event["pagesHashes"].(PagesHashes))
+			factToPageHash.Add(ethcommon.BytesToHash(fact[:]), event["pagesHashes"].([][32]byte))
 		case config.Contracts[config.StarknetAddress].EventName:
 			tmp := event["stateTransitionFact"].([32]byte)
 			fact := ethcommon.BytesToHash(tmp[:])
@@ -348,20 +346,23 @@ func createStateUpdate(startBlockNum uint64, facts *dictionary, factToPageHash *
 		}
 		stateUpdate := l1StateUpdateInterface.(l1StateUpdate)
 
-		pagesHashesInterface, ok := factToPageHash.Get(stateUpdate.Fact.Hex())
+		pagesHashesInterface, ok := factToPageHash.Get(stateUpdate.Fact)
 		if !ok {
 			return nextBlockNumber, nil
 		}
-		pagesHashes := pagesHashesInterface.(PagesHashes)
+		pagesHashes := pagesHashesInterface.([][32]byte)
 
-		for _, pageHash := range pagesHashes {
-			if !memoryPageToTxHash.Exist(pageHash) {
+		txHashes := make([]ethcommon.Hash, len(pagesHashes))
+		for i, pageHash := range pagesHashes {
+			txHash, ok := memoryPageToTxHash.Get(ethcommon.Hash(pageHash))
+			if !ok {
 				return nextBlockNumber, nil
 			}
+			txHashes[i] = txHash.(ethcommon.Hash)
 		}
 
 		// Now we have everything we need to construct a state update object
-		txs, err := txsFromPagesHashes(memoryPageToTxHash, ethclient)
+		txs, err := txsFromTxHashes(txHashes, ethclient)
 		if err != nil {
 			log.Default.With("error", err).Error("failed to receive memory page transactions from ethereum client")
 			return nextBlockNumber, nil
@@ -382,31 +383,22 @@ func createStateUpdate(startBlockNum uint64, facts *dictionary, factToPageHash *
 	}
 }
 
-func txsFromPagesHashes(pagesHashesToTxHashes *dictionary, ethclient ethereumClient) ([]*ethtypes.Transaction, error) {
-	numTxs := len(pagesHashesToTxHashes.m)
-	txs := make([]*ethtypes.Transaction, numTxs)
-
-	errChan := make(chan error)
-	defer close(errChan)
-
-	var g errgroup.Group
+func txsFromTxHashes(txHashes []ethcommon.Hash, ethclient ethereumClient) ([]*ethtypes.Transaction, error) {
+	txs := make([]*ethtypes.Transaction, len(txHashes))
 
 	i := 0
-	for _, transactionHash := range pagesHashesToTxHashes.m {
-		g.Go(func() error {
-			txHash := transactionHash.(ethcommon.Hash)
-			tx, _, err := ethclient.TransactionByHash(context.Background(), txHash)
-			// TODO handle isPending?
-			if err != nil {
-				return err
-			}
-			txs[i] = tx
-			return nil
-		})
+	for _, txHash := range txHashes {
+		// TODO execute requests in parallel
+		tx, _, err := ethclient.TransactionByHash(context.Background(), txHash)
+		// TODO handle isPending?
+		if err != nil {
+			return nil, err
+		}
+		txs[i] = tx
 		i++
 	}
 
-	return txs, g.Wait()
+	return txs, nil
 }
 
 func pagesFromTxs(txs []*ethtypes.Transaction, memoryContract ethabi.ABI) ([][]*big.Int, error) {
