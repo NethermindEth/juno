@@ -108,7 +108,6 @@ func L1LoadStateDiffs(nextBlock uint64, ethclient ethereumClient, config *L1Conf
 
 	memoryPageToTxHash := NewDictionary()
 	factToPageHash := NewDictionary()
-	blockNumToFact := NewDictionary()
 
 	// Latest block
 	latestEthBlockNumber, err := ethclient.BlockNumber(context.Background())
@@ -125,9 +124,6 @@ func L1LoadStateDiffs(nextBlock uint64, ethclient ethereumClient, config *L1Conf
 	bigFromBlock := new(big.Int)
 	bigToBlock := new(big.Int)
 
-	nextBlockNumber := nextBlock
-	nextFact := nextBlock
-	// TODO send ethblock to service
 	for startBlock, endBlock := config.StarknetDeploymentBlock, config.StarknetDeploymentBlock+10_000; endBlock < latestEthBlockNumber; startBlock, endBlock = endBlock, endBlock+10_000 {
 		query.FromBlock = bigFromBlock.SetUint64(startBlock)
 		query.ToBlock = bigToBlock.SetUint64(endBlock)
@@ -138,11 +134,16 @@ func L1LoadStateDiffs(nextBlock uint64, ethclient ethereumClient, config *L1Conf
 		}
 		log.Default.With("count", len(starknetLogs)).Info("fetched logs")
 
-		nextFact, err = processLogs(starknetLogs, config, blockNumToFact, factToPageHash, memoryPageToTxHash, ethclient, nextFact)
-		if err != nil {
-			panic(err)
+		for _, vLog := range starknetLogs {
+			if vLog.Removed {
+				continue
+			}
+			nextBlock, err = processLog(vLog, nextBlock, config, factToPageHash, memoryPageToTxHash, ethclient, stateDiffsChan)
+			if err != nil {
+				log.Default.With("error", err, "ethTransaction", vLog.TxHash, "logIndex", vLog.Index).Error("failed to process log")
+				return
+			}
 		}
-		nextBlockNumber, _ = createStateUpdate(nextBlockNumber, blockNumToFact, factToPageHash, memoryPageToTxHash, ethclient, config.Contracts[config.MemoryPageRegistryAddress].ABI, stateDiffsChan)
 	}
 	// TODO do we need to poll again? from endblock to the latest block?
 
@@ -167,16 +168,19 @@ func L1LoadStateDiffs(nextBlock uint64, ethclient ethereumClient, config *L1Conf
 			log.Default.With("error", err).Info("error getting the latest logs")
 			return
 		case vLog := <-hLog:
-			processLogs([]ethtypes.Log{vLog}, config, blockNumToFact, factToPageHash, memoryPageToTxHash, ethclient, nextBlockNumber)
-			if err != nil {
-				panic(err)
+			if vLog.Removed {
+				continue
 			}
-			nextBlockNumber, _ = createStateUpdate(nextBlockNumber, blockNumToFact, factToPageHash, memoryPageToTxHash, ethclient, config.Contracts[config.MemoryPageRegistryAddress].ABI, stateDiffsChan)
+			nextBlock, err = processLog(vLog, nextBlock, config, factToPageHash, memoryPageToTxHash, ethclient, stateDiffsChan)
+			if err != nil {
+				log.Default.With("error", err, "ethTransaction", vLog.TxHash, "logIndex", vLog.Index).Error("failed to process log")
+				return
+			}
 		}
 	}
 }
 
-func getFactInfo(starknetLogs []ethtypes.Log, contract ethabi.ABI, latestFactSaved uint64, txHash ethcommon.Hash) (string, error) {
+func getFactInfo(starknetLogs []ethtypes.Log, nextBlock uint64, contract ethabi.ABI, txHash ethcommon.Hash) (string, uint64, error) {
 	for _, vLog := range starknetLogs {
 		// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
 		if vLog.TxHash.Hex() == txHash.Hex() {
@@ -186,18 +190,16 @@ func getFactInfo(starknetLogs []ethtypes.Log, contract ethabi.ABI, latestFactSav
 				continue
 			}
 			sequenceNumber := event["blockNumber"].(*big.Int).Uint64()
-			// If we are caught up to the blocks in the database, this will be true.
-			// If we are catching up, this will be false.
-			if sequenceNumber == latestFactSaved {
+			if nextBlock == sequenceNumber {
 				log.Default.With("sequence number", sequenceNumber).Info("found LogStateUpdate")
 				stateRoot := event["globalRoot"].(*big.Int).Text(16)
-				return stateRoot, nil
+				return stateRoot, sequenceNumber, nil
 			} else {
-				return "", errors.New("catching up to saved state")
+				return "", sequenceNumber, errors.New("catching up to saved state")
 			}
 		}
 	}
-	return "", errors.New("couldn't find a block number in logs for given fact")
+	return "", 0, errors.New("couldn't find a block number in logs for given fact")
 }
 
 // stateDiffFromPages converts an array of memory pages into a state diff that
@@ -282,82 +284,53 @@ func stateDiffFromPages(pages [][]*big.Int) *types.StateDiff {
 	}
 }
 
-func processLogs(vLogs []ethtypes.Log, config *L1Config, facts *dictionary, factToPageHash *dictionary, memoryPageToTxHash *dictionary, ethclient ethereumClient, nextFact uint64) (uint64, error) {
-	for _, vLog := range vLogs {
-		if vLog.Removed {
-			continue
+func processLog(vLog ethtypes.Log, nextBlock uint64, config *L1Config, factToPageHash *dictionary, memoryPageToTxHash *dictionary, ethclient ethereumClient, stateDiffsChan chan *types.StateUpdate) (uint64, error) {
+	contract := config.Contracts[vLog.Address]
+	event := map[string]interface{}{}
+	err := contract.ABI.UnpackIntoMap(event, contract.EventName, vLog.Data)
+	if err != nil {
+		log.Default.With("Error", err).Info("Couldn't get event from log")
+		return nextBlock, err
+	}
+
+	switch contract.EventName {
+	case config.Contracts[config.MemoryPageRegistryAddress].EventName:
+		memoryPageToTxHash.Add(ethcommon.BigToHash(event["memoryHash"].(*big.Int)), vLog.TxHash)
+	case config.Contracts[config.GpsVerifierAddress].EventName:
+		fact := event["factHash"].([32]byte)
+		factToPageHash.Add(ethcommon.BytesToHash(fact[:]), event["pagesHashes"].([][32]byte))
+	case config.Contracts[config.StarknetAddress].EventName:
+		tmp := event["stateTransitionFact"].([32]byte)
+		fact := ethcommon.BytesToHash(tmp[:])
+		ethBlockNumber := new(big.Int).SetUint64(vLog.BlockNumber)
+		query := eth.FilterQuery{
+			FromBlock: ethBlockNumber,
+			ToBlock:   ethBlockNumber,
+			Addresses: []ethcommon.Address{vLog.Address},
+			Topics:    [][]ethcommon.Hash{{getTopic(contract, "LogStateUpdate")}},
 		}
-		contract := config.Contracts[vLog.Address]
-		log.Default.With("Log Fetched", contract.EventName, "BlockHash", vLog.BlockHash.Hex(), "BlockNumber", vLog.BlockNumber, "TxHash", vLog.TxHash.Hex()).Info("Event Fetched")
-		event := map[string]interface{}{}
-		err := contract.ABI.UnpackIntoMap(event, contract.EventName, vLog.Data)
+		starknetLogs, err := ethclient.FilterLogs(context.Background(), query)
 		if err != nil {
-			log.Default.With("Error", err).Info("Couldn't get event from log")
-			return nextFact, err
+			log.Default.With("error", err).Error("ethereum client failed to return LogStateUpdate logs")
+			return nextBlock, err
 		}
 
-		switch contract.EventName {
-		case config.Contracts[config.MemoryPageRegistryAddress].EventName:
-			memoryPageToTxHash.Add(ethcommon.BigToHash(event["memoryHash"].(*big.Int)), vLog.TxHash)
-		case config.Contracts[config.GpsVerifierAddress].EventName:
-			fact := event["factHash"].([32]byte)
-			factToPageHash.Add(ethcommon.BytesToHash(fact[:]), event["pagesHashes"].([][32]byte))
-		case config.Contracts[config.StarknetAddress].EventName:
-			tmp := event["stateTransitionFact"].([32]byte)
-			fact := ethcommon.BytesToHash(tmp[:])
-			ethBlockNumber := new(big.Int).SetUint64(vLog.BlockNumber)
-			query := eth.FilterQuery{
-				FromBlock: ethBlockNumber,
-				ToBlock:   ethBlockNumber,
-				Addresses: []ethcommon.Address{vLog.Address},
-				Topics:    [][]ethcommon.Hash{{getTopic(contract, "LogStateUpdate")}},
+		newRoot, newBlockNumber, err := getFactInfo(starknetLogs, nextBlock, contract.ABI, vLog.TxHash)
+		if err != nil {
+			if err.Error() == "catching up to saved state" {
+				log.Default.With("currentBlock", newBlockNumber, "savedBlock", nextBlock).Info("catching up to saved state")
+				return nextBlock, nil
 			}
-			starknetLogs, err := ethclient.FilterLogs(context.Background(), query)
-			if err != nil {
-				log.Default.With("error", err).Error("ethereum client failed to return LogStateUpdate logs")
-				return nextFact, err
-			}
-
-			newRoot, err := getFactInfo(starknetLogs, contract.ABI, nextFact, vLog.TxHash)
-			if err != nil {
-				log.Default.With("error", err).Error("could not find LogStateUpdate")
-				return nextFact, err
-			}
-			facts.Add(nextFact, l1StateUpdate{Fact: fact, NewRoot: newRoot})
-			nextFact++
+			log.Default.With("error", err).Error("could not find LogStateUpdate")
+			return nextBlock, err
 		}
-	}
-	return nextFact, nil
-}
+		nextBlock++
 
-func getTopic(contract contractInfo, eventName string) ethcommon.Hash {
-	if eventName == "" {
-		eventName = contract.EventName
-	}
-	return ethcrypto.Keccak256Hash([]byte(contract.ABI.Events[eventName].Sig))
-}
-
-func createStateUpdate(startBlockNum uint64, facts *dictionary, factToPageHash *dictionary, memoryPageToTxHash *dictionary, ethclient ethereumClient, memoryContract ethabi.ABI, stateDiffsChan chan *types.StateUpdate) (uint64, error) {
-	// Send state updates until we don't have enough information to construct one
-	for nextBlockNumber := startBlockNum; ; nextBlockNumber++ {
-		l1StateUpdateInterface, ok := facts.Get(nextBlockNumber)
-		if !ok {
-			return nextBlockNumber, nil
-		}
-		stateUpdate := l1StateUpdateInterface.(l1StateUpdate)
-
-		pagesHashesInterface, ok := factToPageHash.Get(stateUpdate.Fact)
-		if !ok {
-			return nextBlockNumber, nil
-		}
+		pagesHashesInterface, _ := factToPageHash.Get(fact)
 		pagesHashes := pagesHashesInterface.([][32]byte)
-
 		txHashes := make([]ethcommon.Hash, len(pagesHashes))
 		for i, pageHash := range pagesHashes {
-			txHash, ok := memoryPageToTxHash.Get(ethcommon.Hash(pageHash))
-			if !ok {
-				return nextBlockNumber, nil
-			}
+			txHash, _ := memoryPageToTxHash.Get(ethcommon.Hash(pageHash))
 			txHashes[i] = txHash.(ethcommon.Hash)
 		}
 
@@ -365,22 +338,35 @@ func createStateUpdate(startBlockNum uint64, facts *dictionary, factToPageHash *
 		txs, err := txsFromTxHashes(txHashes, ethclient)
 		if err != nil {
 			log.Default.With("error", err).Error("failed to receive memory page transactions from ethereum client")
-			return nextBlockNumber, nil
+			return nextBlock, nil
 		}
 
-		pages, err := pagesFromTxs(txs, memoryContract)
+		pages, err := pagesFromTxs(txs, config.Contracts[config.MemoryPageRegistryAddress].ABI)
 		if err != nil {
 			log.Default.With("error", err).Error("failed to parse memory page transaction calldata")
-			return nextBlockNumber, err
+			return nextBlock, err
 		}
 
 		stateDiffsChan <- &types.StateUpdate{
 			StateDiff:      stateDiffFromPages(pages),
-			NewRoot:        stateUpdate.NewRoot,
-			NewBlockNumber: nextBlockNumber,
+			NewRoot:        newRoot,
+			NewBlockNumber: newBlockNumber,
 		}
-		// TODO delete processed events
+
+		// StateDiff has been processed, remove unnecessary elements from dictionaries
+		factToPageHash.Remove(fact)
+		for _, pageHash := range pagesHashes {
+			memoryPageToTxHash.Remove(pageHash)
+		}
 	}
+	return nextBlock, nil
+}
+
+func getTopic(contract contractInfo, eventName string) ethcommon.Hash {
+	if eventName == "" {
+		eventName = contract.EventName
+	}
+	return ethcrypto.Keccak256Hash([]byte(contract.ABI.Events[eventName].Sig))
 }
 
 func txsFromTxHashes(txHashes []ethcommon.Hash, ethclient ethereumClient) ([]*ethtypes.Transaction, error) {

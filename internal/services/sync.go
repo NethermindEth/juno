@@ -71,10 +71,6 @@ func (s *syncService) GetLatestBlockNumber() (uint64, error) {
 	return s.manager.GetLatestBlockNumber()
 }
 
-func (s *syncService) setLatestBlockNumber(blockNum uint64) error {
-	return s.manager.SetLatestBlockNumber(blockNum)
-}
-
 func (s *syncService) UpdateState(update types.StateUpdate) error {
 	// Save contract hashes of the new contracts
 	for _, deployedContract := range update.StateDiff.DeployedContracts {
@@ -96,8 +92,8 @@ func (s *syncService) UpdateState(update types.StateUpdate) error {
 		log.Default.Fatal(err)
 	}
 
-	if err := s.setLatestBlockNumber(update.NewBlockNumber); err != nil {
-		log.Default.With("Error", err).Info("Couldn't save latest block queried")
+	if err := s.manager.SetLatestBlockNumber(update.NewBlockNumber); err != nil {
+		log.Default.With("Error", err).Info("Couldn't save latest ethereum block")
 		return err
 	}
 

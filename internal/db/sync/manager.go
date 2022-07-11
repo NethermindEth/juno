@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	latestBlockKey     string = "LatestBlock"
-	latestBlockHashKey string = "LatestBlockHash"
+	latestBlockNumberKey string = "LatestBlockNumber"
 )
 
 // Manager is a Sync database manager to save and search the blocks.
@@ -29,7 +28,7 @@ func NewManager(database db.DatabaseTransactional) *Manager {
 }
 
 func (manager *Manager) GetLatestBlockNumber() (uint64, error) {
-	blockHashBytes, err := manager.database.Get([]byte(latestBlockHashKey))
+	blockHashBytes, err := manager.database.Get([]byte(latestBlockNumberKey))
 	if err != nil {
 		return 0, err
 	}
@@ -40,7 +39,7 @@ func (manager *Manager) GetLatestBlockNumber() (uint64, error) {
 func (manager *Manager) SetLatestBlockNumber(blockNumber uint64) error {
 	var blockNumBytes [8]byte
 	binary.LittleEndian.PutUint64(blockNumBytes[:], blockNumber)
-	return manager.database.Put([]byte(latestBlockHashKey), blockNumBytes[:])
+	return manager.database.Put([]byte(latestBlockNumberKey), blockNumBytes[:])
 }
 
 func (manager *Manager) UpdateState(update types.StateUpdate, contractHashMap map[string]*big.Int) error {
