@@ -75,39 +75,42 @@ func TestArrayDigest(t *testing.T) {
 		input []string
 		want  string
 	}{
-		// Contract address computation (https://docs.starknet.io/docs/Contracts/contract-address/)
-		// See https://alpha-goerli.starknet.io/feeder_gateway/get_transaction?transactionHash=0x1b50380d45ebd70876518203f131a12428b2ac1a3a75f1a74241a4abdd614e8
+		// Contract address calculation. See the following links for how the
+		// it is carried out and the result referenced.
+		//
+		//	- https://docs.starknet.io/docs/Contracts/contract-address/
+		//	- https://alpha-goerli.starknet.io/feeder_gateway/get_transaction?transactionHash=0x1b50380d45ebd70876518203f131a12428b2ac1a3a75f1a74241a4abdd614e8
 		{
 			input: []string{
-				// big-endian hex representation of `STARKNET_CONTRACT_ADDRESS`
+				// Hex representation of []byte("STARKNET_CONTRACT_ADDRESS").
 				"535441524b4e45545f434f4e54524143545f41444452455353",
-				// caller_address (always zero in current starknet version)
+				// caller_address.
 				"0",
-				// salt
+				// salt.
 				"5bebda1b28ba6daa824126577b9fbc984033e8b18360f5e1ef694cb172c7aa5",
-				// contract_hash
-				// See https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x53e61cb9a53136ecb782e7396f7330e6bb3d069763d866612da3cf93cdf55b5
+				// contract_hash. See the following for reference https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x53e61cb9a53136ecb782e7396f7330e6bb3d069763d866612da3cf93cdf55b5.
 				"0439218681f9108b470d2379cf589ef47e60dc5888ee49ec70071671d74ca9c6",
-				// calldata_hash (empty calldata for this contract, hash is defined to be h(0, 0))
-				// see https://docs.starknet.io/docs/Hashing/hash-functions/#array-hashing
+				// calldata_hash. (here h(0, 0) where h is the Pedersen hash
+				// function).
 				Digest(new(big.Int), new(big.Int)).Text(16),
 			},
-			// contract_address
+			// contract_address.
 			want: "43c6817e70b3fd99a4f120790b2e82c6843df62b573fdadf9e2d677b60ac5eb",
 		},
-		// Transaction hash calculation
-		// See https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75
+		// Transaction hash calculation. See the following for reference.
+		//
+		// 	- https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75.
 		{
 			input: []string{
-				// Big-endian hex representation of `deploy`
+				// Hex representation of []byte("deploy").
 				"6465706c6f79",
-				// contract_address
+				// contract_address.
 				"20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-				// keccak.Digest250([]byte("constructor")) (big-endian hex representation)
+				// Hex representation of keccak.Digest250([]byte("constructor")).
 				"28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
-				// calldata_hash (big-endian hex representation)
+				// calldata_hash.
 				"7885ba4f628b6cdcd0b5e6282d2a1b17fe7cd4dd536230c5db3eac890528b4d",
-				// chain_id (big-endian hex representation of `SN_MAIN`)
+				// chain_id. Hex representation of []byte("SN_MAIN").
 				"534e5f4d41494e",
 			},
 			want: "e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
