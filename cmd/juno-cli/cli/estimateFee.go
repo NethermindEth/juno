@@ -21,11 +21,11 @@ var estimateFeeCmd = &cobra.Command{
 	Example with multiple inputs and expected response being returned:
 	
 	Input:
-	  juno-cli cx estimate_fee 0x0003a4d1be6ae6cccc7b6cc3cc16bbfd092c2a724ffe6be86c7b5b5fe6ec11d0 increase_decrease --network goerli -p -i 1 -i 2
+	  juno-cli estimate_fee 0x0003a4d1be6ae6cccc7b6cc3cc16bbfd092c2a724ffe6be86c7b5b5fe6ec11d0 increase_decrease --network goerli -p -i 1 -i 2
 	
 	Response:
 	  {
-		"amount": 2455450017189,
+		"amount": 3683175027010,
 		"unit": "wei"
 	  } 
 	
