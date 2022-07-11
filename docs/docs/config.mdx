@@ -9,6 +9,9 @@ node execution.
 
 The basic structure is:
 ```yaml
+logger:
+  verbosity_level: "debug"
+  enable_json_output: true
 ethereum:
   node: "you_node_here"
 rpc:
@@ -32,6 +35,11 @@ starknet:
 <!-- TODO: Usually, this configuration file will be in?? -->
 
 ## Parameters
+
+### logger
+
+- `verbosity_level`: set the verbosity level of the node. Accepted values are an extension of zapcore.Level (debug, info, warn, error, dpanic, panic, fatal).
+- `enable_json_output`: enable the log output to be in JSON format.
 
 ### ethereum
 
