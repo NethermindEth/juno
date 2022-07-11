@@ -6,10 +6,10 @@ import (
 )
 
 type cacheNode struct {
-	Key   uint64
-	Value []byte
-	Next  *cacheNode
-	Prev  *cacheNode
+	key   uint64
+	value []byte
+	next  *cacheNode
+	prev  *cacheNode
 }
 
 // LRUCache is a cache with the least-recently-used policy.
@@ -47,7 +47,7 @@ func (c *LRUCache) Put(k []byte, v []byte) {
 
 	// Build the cache key and node
 	key := c.key(k)
-	node := &cacheNode{Key: key, Value: v}
+	node := &cacheNode{key: key, value: v}
 
 	// Cache is empty
 	if c.count == 0 {
@@ -60,17 +60,17 @@ func (c *LRUCache) Put(k []byte, v []byte) {
 
 	// Put the new node at the start of the queue
 	c.hashMap[key] = node
-	c.start.Prev = node
-	node.Next = c.start
+	c.start.prev = node
+	node.next = c.start
 	c.start = node
 	c.count++
 
 	// Remove the last node if the cache is full
 	if c.count > c.capacity {
-		delete(c.hashMap, c.end.Key)
-		c.end = c.end.Prev
-		c.end.Next.Prev = nil
-		c.end.Next = nil
+		delete(c.hashMap, c.end.key)
+		c.end = c.end.prev
+		c.end.next.prev = nil
+		c.end.next = nil
 		c.count--
 	}
 }
@@ -83,20 +83,20 @@ func (c *LRUCache) Get(k []byte) []byte {
 
 	key := c.key(k)
 	if node, ok := c.hashMap[key]; ok {
-		// Move the node to the start of the queue
 		if node != c.start {
-			node.Prev.Next = node.Next
+			// Move the node to the start of the queue
+			node.prev.next = node.next
 			if node == c.end {
-				c.end = node.Prev
+				c.end = node.prev
 			} else {
-				node.Next.Prev = node.Prev
+				node.next.prev = node.prev
 			}
-			c.start.Prev = node
-			node.Next = c.start
-			node.Prev = nil
+			c.start.prev = node
+			node.next = c.start
+			node.prev = nil
 			c.start = node
 		}
-		return node.Value
+		return node.value
 	}
 	return nil
 }
