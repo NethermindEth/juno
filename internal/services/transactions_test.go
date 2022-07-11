@@ -94,7 +94,10 @@ func TestTransactionService_StoreTransaction(t *testing.T) {
 	}
 
 	for _, tx := range txs {
-		TransactionService.StoreTransaction(tx.GetHash(), tx)
+		err := TransactionService.StoreTransaction(tx.GetHash(), tx)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 	TransactionService.Close(context.Background())
 }
@@ -108,11 +111,17 @@ func TestManager_GetTransaction(t *testing.T) {
 	}
 	// Insert all the transactions
 	for _, tx := range txs {
-		TransactionService.StoreTransaction(tx.GetHash(), tx)
+		err := TransactionService.StoreTransaction(tx.GetHash(), tx)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 	// Get all the transactions and compare
 	for _, tx := range txs {
-		outTx, _ := TransactionService.GetTransaction(tx.GetHash())
+		outTx, err := TransactionService.GetTransaction(tx.GetHash())
+		if err != nil {
+			t.Error(err)
+		}
 
 		if !reflect.DeepEqual(tx, outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
@@ -177,7 +186,10 @@ func TestManager_PutReceipt(t *testing.T) {
 		t.Errorf("error running the service: %s", err)
 	}
 	for _, receipt := range receipts {
-		TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		err := TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 	TransactionService.Close(context.Background())
 }
@@ -190,10 +202,16 @@ func TestManager_GetReceipt(t *testing.T) {
 		t.Errorf("error running the service: %s", err)
 	}
 	for _, receipt := range receipts {
-		TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		err := TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 	for _, receipt := range receipts {
-		outReceipt, _ := TransactionService.GetReceipt(receipt.TxHash)
+		outReceipt, err := TransactionService.GetReceipt(receipt.TxHash)
+		if err != nil {
+			t.Error(err)
+		}
 
 		if !reflect.DeepEqual(receipt, outReceipt) {
 			t.Errorf("receipt not equal after Put/Get operations")

@@ -94,7 +94,7 @@ func (s *transactionService) GetTransaction(txHash types.TransactionHash) (types
 // StoreTransaction stores the given transaction into the database. The key used
 // to map the transaction it's the hash of the transaction. If the database
 // already has a transaction with the same key, then the value is overwritten.
-func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx types.IsTransaction) {
+func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx types.IsTransaction) error {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -102,7 +102,7 @@ func (s *transactionService) StoreTransaction(txHash types.TransactionHash, tx t
 		With("txHash", txHash.String()).
 		Debug("StoreTransaction")
 
-	s.manager.PutTransaction(txHash, tx)
+	return s.manager.PutTransaction(txHash, tx)
 }
 
 // GetReceipt searches for the transaction receipt associated with the given
@@ -119,11 +119,11 @@ func (s *transactionService) GetReceipt(txHash types.TransactionHash) (*types.Tr
 
 // StoreReceipt stores the given transaction receipt into the database. If the
 // database already has a receipt with the same key, the value is overwritten.
-func (s *transactionService) StoreReceipt(txHash types.TransactionHash, receipt *types.TransactionReceipt) {
+func (s *transactionService) StoreReceipt(txHash types.TransactionHash, receipt *types.TransactionReceipt) error {
 	s.AddProcess()
 	defer s.DoneProcess()
 
 	s.logger.With("txHash", txHash).Debug("StoreReceipt")
 
-	s.manager.PutReceipt(txHash, receipt)
+	return s.manager.PutReceipt(txHash, receipt)
 }
