@@ -48,11 +48,8 @@ func (HandlerRPC) StarknetCall(
 			Calldata:           calldata,
 		}
 		result, err := feederClient.CallContract(call, "", string(*tag))
-		if err != nil {
-			// notest
-			if err := returnRPCErrResponseIfNilObjectOrErr("StarknetCall", result, err); err != nil {
-				return nil, err
-			}
+		if err := returnRPCErrResponse("StarknetCall", result, err); err != nil {
+			return nil, err
 		}
 		return (*result)["result"], nil
 	}
@@ -196,7 +193,11 @@ func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, sco
 // its hash.
 func (HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag BlockHashOrTag) (*BlockResponse, error) {
 	block, err := getBlockByHashOrTag(ctx, blockHashOrTag, ScopeTxnHash)
-	if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetBlockByHash", block, err); err != nil {
+	if err := returnRPCErrResponse(
+		"StarknetGetBlockByHash",
+		block,
+		err,
+	); err != nil {
 		return nil, err
 	}
 	return block, nil
@@ -206,7 +207,11 @@ func (HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag Blo
 // by its hash.
 func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag BlockHashOrTag, scope RequestedScope) (*BlockResponse, error) {
 	block, err := getBlockByHashOrTag(ctx, blockHashOrTag, scope)
-	if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetBlockByHashOpt", block, err); err != nil {
+	if err := returnRPCErrResponse(
+		"StarknetGetBlockByHashOpt",
+		block,
+		err,
+	); err != nil {
 		return nil, err
 	}
 	return block, nil
@@ -244,13 +249,29 @@ func getBlockByNumberOrTag(ctx context.Context, blockNumberOrTag BlockNumberOrTa
 // its number.
 func (HandlerRPC) StarknetGetBlockByNumber(ctx context.Context, blockNumberOrTag BlockNumberOrTag) (*BlockResponse, error) {
 	// notest
-	return getBlockByNumberOrTag(ctx, blockNumberOrTag, ScopeTxnHash)
+	block, err := getBlockByNumberOrTag(ctx, blockNumberOrTag, ScopeTxnHash)
+	if err := returnRPCErrResponse(
+		"StarknetGetBlockByNumber",
+		block,
+		err,
+	); err != nil {
+		return nil, err
+	}
+	return block, nil
 }
 
 // StarknetGetBlockByNumberOpt represent the handler for getting a block
 // by its number.
 func (HandlerRPC) StarknetGetBlockByNumberOpt(ctx context.Context, blockNumberOrTag BlockNumberOrTag, scope RequestedScope) (*BlockResponse, error) {
-	return getBlockByNumberOrTag(ctx, blockNumberOrTag, scope)
+	block, err := getBlockByNumberOrTag(ctx, blockNumberOrTag, scope)
+	if err := returnRPCErrResponse(
+		"StarknetGetBlockByNumberOpt",
+		block,
+		err,
+	); err != nil {
+		return nil, err
+	}
+	return block, nil
 }
 
 // StarknetGetBlockTransactionCountByHash represent the handler for
@@ -286,28 +307,30 @@ func (HandlerRPC) StarknetGetStorageAt(
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
 	var blockNumber uint64
+	controllerName := "StarknetGetStorageAt"
+
 	if hash := blockHash.Hash; hash != nil {
 		var block *types.Block
 		var err error
 		block, err = services.BlockService.GetBlockByHash(*blockHash.Hash)
-		if err = returnRPCErrResponseIfNilObjectOrErr("StarknetGetStorageAt", block, err); err != nil {
+		if err = returnRPCErrResponse(controllerName, block, err); err != nil {
 			return "", err
 		}
 
 		blockNumber = block.BlockNumber
 	} else if tag := blockHash.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
-		if err = returnRPCErrResponseIfNilObjectOrErr("StarknetGetStorageAt", blockResponse, err); err != nil {
+		if err = returnRPCErrResponse(controllerName, blockResponse, err); err != nil {
 			return "", err
 		}
 		blockNumber = blockResponse.BlockNumber
 	} else {
 		// notest
-		return "", returnRPCErrResponseIfNilObjectOrErr("StarknetGetStorageAt", nil, ErrBlockHashOrTag)
+		return "", returnRPCErrResponse(controllerName, nil, ErrBlockHashOrTag)
 	}
 
 	storage, err := services.StateService.GetStorage(string(contractAddress), blockNumber)
-	if err = returnRPCErrResponseIfNilObjectOrErr("StarknetGetStorageAt", storage, err); err != nil {
+	if err = returnRPCErrResponse(controllerName, storage, err); err != nil {
 		return "", err
 	}
 
@@ -320,7 +343,11 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 	c context.Context, transactionHash types.TransactionHash,
 ) (*Txn, error) {
 	tx, err := services.TransactionService.GetTransaction(transactionHash)
-	if err = returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByHash", tx, err); err != nil {
+	if err = returnRPCErrResponse(
+		"StarknetGetTransactionByHash",
+		tx,
+		err,
+	); err != nil {
 		return nil, err
 	}
 	return NewTxn(tx), nil
@@ -330,20 +357,25 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 // transaction given by the identified block and index in that block. If
 // no transaction is found, a null value is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
+	controllerName := "StarknetGetTransactionByBlockHashAndIndex"
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
 		block, err := services.BlockService.GetBlockByHash(*blockHash)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockHashAndIndex", block, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, block, err); err != nil {
 			return nil, err
 		}
 
 		if index < 0 || len(block.TxHashes) <= index {
 			// notest
-			return nil, returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockHashAndIndex", nil, fmt.Errorf("%w with value %d", ErrBlockIndex, index))
+			return nil, returnRPCErrResponse(
+				controllerName,
+				nil,
+				fmt.Errorf("%w with value %d", ErrBlockIndex, index),
+			)
 		}
 
 		txHash := block.TxHashes[index]
 		txn, err := services.TransactionService.GetTransaction(txHash)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockHashAndIndex", txn, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, txn, err); err != nil {
 			return nil, err
 		}
 
@@ -352,7 +384,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 	// notest
 	if tag := blockHashOrTag.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(c, *tag, ScopeFullTxns)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockHashAndIndex", blockResponse, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, blockResponse, err); err != nil {
 			return nil, err
 		}
 
@@ -360,27 +392,35 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 		return txs[index], nil
 	}
 
-	return nil, returnRPCErrResponseIfNilObjectOrErr("StarknetGetStorageAt", nil, ErrBlockHashOrTag)
+	return nil, returnRPCErrResponse(controllerName, nil, ErrBlockHashOrTag)
 }
 
 // StarknetGetTransactionByBlockNumberAndIndex Get the details of the
 // transaction given by the identified block and index in that block. If
 // no transaction is found, null is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
+	var err error
+	var block *types.Block
+	controllerName := "StarknetGetTransactionByBlockNumberAndIndex"
+
 	if blockNumber := blockNumberOrTag.Number; blockNumber != nil {
-		block, err := services.BlockService.GetBlockByNumber(*blockNumber)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockNumberAndIndex", block, err); err != nil {
+		block, err = services.BlockService.GetBlockByNumber(*blockNumber)
+		if err = returnRPCErrResponse(controllerName, block, err); err != nil {
 			return nil, err
 		}
 
 		if index < 0 || len(block.TxHashes) <= index {
 			// notest
-			return nil, returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockNumberAndIndex", nil, fmt.Errorf("%w with value %d", ErrBlockIndex, index))
+			return nil, returnRPCErrResponse(
+				controllerName,
+				nil,
+				fmt.Errorf("%w with value %d", ErrBlockIndex, index),
+			)
 		}
 
 		txHash := block.TxHashes[index]
 		txn, err := services.TransactionService.GetTransaction(txHash)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockNumberAndIndex", txn, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, txn, err); err != nil {
 			return nil, err
 		}
 
@@ -389,7 +429,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 
 	if tag := blockNumberOrTag.Tag; tag != nil {
 		blockResponse, err := getBlockByTag(ctx, *tag, ScopeFullTxns)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockNumberAndIndex", blockResponse, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, blockResponse, err); err != nil {
 			return nil, err
 		}
 
@@ -398,7 +438,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 	}
 
 	// notest
-	return nil, returnRPCErrResponseIfNilObjectOrErr("StarknetGetTransactionByBlockNumberAndIndex", nil, ErrBlockHashOrTag)
+	return nil, returnRPCErrResponse(controllerName, nil, ErrBlockHashOrTag)
 }
 
 // StarknetGetTransactionReceipt Get the transaction receipt by the
@@ -413,14 +453,16 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress types.Address,
 ) (*CodeResult, error) {
+	controllerName := "StarknetGetCode"
+
 	abi, err := services.AbiService.GetAbi(contractAddress.Hex())
-	if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", abi, err); err != nil {
+	if err := returnRPCErrResponse(controllerName, abi, err); err != nil {
 		return nil, err
 	}
 	if abi == nil {
 		// Try the feeder gateway for pending block
 		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", code, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, code, err); err != nil {
 			return nil, err
 		}
 		// Convert feeder type to RPC CodeResult type
@@ -429,12 +471,12 @@ func (HandlerRPC) StarknetGetCode(
 			bytecode[i] = types.HexToFelt(code)
 		}
 		marshal, err := json.Marshal(code.Abi)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", marshal, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, marshal, err); err != nil {
 			return nil, err
 		}
 		var abiResponse dbAbi.Abi
 		err = json.Unmarshal(marshal, &abiResponse)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", abiResponse, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, abiResponse, err); err != nil {
 			return nil, err
 		}
 		for i, str := range code.Abi.Structs {
@@ -448,7 +490,7 @@ func (HandlerRPC) StarknetGetCode(
 			}
 		}
 		marshal, err = json.Marshal(abiResponse)
-		if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", marshal, err); err != nil {
+		if err := returnRPCErrResponse(controllerName, marshal, err); err != nil {
 			return nil, err
 		}
 
@@ -456,12 +498,12 @@ func (HandlerRPC) StarknetGetCode(
 	}
 
 	code, err := services.StateService.GetCode(contractAddress.Bytes())
-	if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", code, err); err != nil {
+	if err := returnRPCErrResponse(controllerName, code, err); err != nil {
 		return nil, err
 	}
 
 	marshalledAbi, err := json.Marshal(abi)
-	if err := returnRPCErrResponseIfNilObjectOrErr("StarknetGetCode", marshalledAbi, err); err != nil {
+	if err := returnRPCErrResponse(controllerName, marshalledAbi, err); err != nil {
 		return nil, err
 	}
 
@@ -489,7 +531,11 @@ func (HandlerRPC) StarknetPendingTransactions(
 	c context.Context,
 ) ([]*Txn, error) {
 	block, err := getBlockByTag(c, BlocktagPending, ScopeFullTxns)
-	if err := returnRPCErrResponseIfNilObjectOrErr("StarknetPendingTransactions", block, err); err != nil {
+	if err := returnRPCErrResponse(
+		"StarknetPendingTransactions",
+		block,
+		err,
+	); err != nil {
 		return nil, err
 	}
 	return block.Transactions.([]*Txn), nil
@@ -520,7 +566,7 @@ func (HandlerRPC) StarknetGetEvents(
 }
 
 //util function
-func returnRPCErrResponseIfNilObjectOrErr(controllerName string, obj interface{}, err error) error {
+func returnRPCErrResponse(controllerName string, obj interface{}, err error) error {
 	if err != nil {
 		Logger.Errorf("%s: %s", controllerName, err)
 		if errors.As(err, &ErrCodeNotFound) {
