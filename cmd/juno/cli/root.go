@@ -21,7 +21,7 @@ import (
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/rest"
+	"github.com/NethermindEth/juno/pkg/gateway"
 	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/ethereum/go-ethereum/ethclient"

@@ -37,9 +37,10 @@ type ethereumConfig struct {
 
 // restConfig represents the juno REST configuration.
 type restConfig struct {
-	Enabled bool   `yaml:"enabled" mapstructure:"enabled"`
-	Port    int    `yaml:"port" mapstructure:"port"`
-	Prefix  string `yaml:"prefix" mapstructure:"prefix"`
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	Port    int  `yaml:"port" mapstructure:"port"`
+	// TODO: Does this need to be configured?
+	// Prefix  string `yaml:"prefix" mapstructure:"prefix"`
 }
 
 // starknetConfig represents the juno StarkNet configuration.
@@ -151,7 +152,7 @@ func New() {
 		RPC:      rpcConfig{Enabled: true, Port: 8080},
 		Metrics:  metricsConfig{Enabled: true, Port: 2048},
 		DbPath:   DataDir,
-		REST:     restConfig{Enabled: true, Port: 8100, Prefix: "/feeder_gateway"},
+		REST:     restConfig{Enabled: true, Port: 8100 /*, Prefix: "/feeder_gateway" */},
 		Starknet: starknetConfig{
 			Enabled: true, ApiSync: true, FeederGateway: "https://alpha-mainnet.starknet.io",
 			Network: "mainnet",
