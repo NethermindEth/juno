@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/rest"
+	"github.com/NethermindEth/juno/pkg/gateway"
 	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
@@ -116,12 +116,11 @@ var (
 					stateSynchronizer.Close)
 			}
 
-			// Subscribe the REST API client to the main loop if it is enabled in
-			// the config.
+			// Subscribe the REST API client to the main loop if it is enabled
+			// in the config.
 			if config.Runtime.REST.Enabled {
-				s := rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port), config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
-				// Initialize the REST Service.
-				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
+				gw := gateway.New(fmt.Sprintf(":%d", config.Runtime.REST.Port))
+				processHandler.Add("REST", true, gw.Run, gw.Shutdown)
 			}
 
 			primaryServiceCheck := processHandler.PrimaryServiceChecker()
@@ -200,7 +199,8 @@ func initConfig() {
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
 		"Rest Port", config.Runtime.REST.Port,
 		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
+		// TODO: Is this required?
+		// "Rest Prefix", config.Runtime.REST.Prefix,
 	).Info("Config values.")
 }
 
