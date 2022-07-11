@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/types"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
 )
 
@@ -161,7 +161,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 
 func getBlockByHash(ctx context.Context, blockHash *felt.Felt, scope RequestedScope) (*BlockResponse, error) {
 	// notest
-	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
+	Logger.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock := services.BlockService.GetBlockByHash(blockHash)
 	if dbBlock == nil {
 		// TODO: Send custom error for not found. Maybe sent InvalidBlockHash?
@@ -197,8 +197,7 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag 
 }
 
 func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
-	// notest
-	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
+	Logger.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock := services.BlockService.GetBlockByNumber(blockNumber)
 	if dbBlock == nil {
 		return nil, errors.New("block not found")

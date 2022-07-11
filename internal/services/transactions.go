@@ -8,7 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // TransactionService is a service to manage the transaction database. Before
@@ -36,7 +36,7 @@ func (s *transactionService) Setup(txDb, receiptDb db.Database) {
 // values are used.
 func (s *transactionService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("Transaction Service")
+		s.logger = Logger.Named("Transaction Service")
 	}
 
 	if err := s.service.Run(); err != nil {

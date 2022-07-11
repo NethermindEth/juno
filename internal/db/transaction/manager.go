@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 
@@ -31,12 +31,12 @@ func (m *Manager) PutTransaction(txHash *felt.Felt, tx types.IsTransaction) {
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panic("error marshalling Transaction")
+		Logger.With("error", err).Panic("error marshalling Transaction")
 	}
 	err = m.txDb.Put(txHash.ByteSlice(), rawData)
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panicf("database error")
+		Logger.With("error", err).Panicf("database error")
 	}
 }
 
@@ -46,7 +46,7 @@ func (m *Manager) GetTransaction(txHash *felt.Felt) types.IsTransaction {
 	rawData, err := m.txDb.Get(txHash.ByteSlice())
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panicf("database error")
+		Logger.With("error", err).Panicf("database error")
 	}
 	// Check not found
 	if rawData == nil {
@@ -56,7 +56,7 @@ func (m *Manager) GetTransaction(txHash *felt.Felt) types.IsTransaction {
 	tx, err := unmarshalTransaction(rawData)
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panicf("unmarshalling error")
+		Logger.With("error", err).Panicf("unmarshalling error")
 	}
 	return tx
 }
@@ -68,12 +68,12 @@ func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt *types.TransactionRece
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panic("error marshaling TransactionReceipt")
+		Logger.With("error", err).Panic("error marshaling TransactionReceipt")
 	}
 	err = m.receiptDb.Put(txHash.ByteSlice(), rawData)
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panic("database error")
+		Logger.With("error", err).Panic("database error")
 	}
 }
 
@@ -83,7 +83,7 @@ func (m *Manager) GetReceipt(txHash *felt.Felt) *types.TransactionReceipt {
 	rawData, err := m.receiptDb.Get(txHash.ByteSlice())
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panicf("database error")
+		Logger.With("error", err).Panicf("database error")
 	}
 	// Check not found
 	if rawData == nil {
@@ -93,7 +93,7 @@ func (m *Manager) GetReceipt(txHash *felt.Felt) *types.TransactionReceipt {
 	receipt, err := unmarshalTransactionReceipt(rawData)
 	if err != nil {
 		// notest
-		log.Default.With("error", err).Panicf("unmarshalling error")
+		Logger.With("error", err).Panicf("unmarshalling error")
 	}
 	return receipt
 }

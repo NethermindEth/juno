@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
@@ -156,7 +156,7 @@ func updateNumericValueFromDB(database db.DatabaseOperations, key string, value 
 	binary.BigEndian.PutUint64(b, value+1)
 	err := database.Put([]byte(key), b)
 	if err != nil {
-		log.Default.With("Value", value, "Key", key).
+		Logger.With("Value", value, "Key", key).
 			Info("Couldn't store the kv-pair on the database")
 		return err
 	}
@@ -172,21 +172,21 @@ func updateState(
 	stateRoot string,
 	sequenceNumber uint64,
 ) (string, error) {
-	log.Default.With("Block Number", sequenceNumber).Info("Processing block")
+	Logger.With("Block Number", sequenceNumber).Info("Processing block")
 
 	stateTrie := newTrie(txn, "state_trie_")
 
-	log.Default.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
+	Logger.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
 		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
-		address := new(felt.Felt).SetString(deployedContract.Address)
+		address := new(felt.Felt).SetHex(deployedContract.Address)
 		contractStateValue := contractState(contractHash, storageRoot)
 		stateTrie.Put(address, contractStateValue)
 	}
 
-	log.Default.With("Block Number", sequenceNumber).Info("Processing storage diffs")
+	Logger.With("Block Number", sequenceNumber).Info("Processing storage diffs")
 	for k, v := range update.StorageDiffs {
 		formattedAddress := remove0x(k)
 		storageTrie := newTrie(txn, formattedAddress)
@@ -208,10 +208,10 @@ func updateState(
 
 	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
 		// notest
-		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
+		Logger.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
 			Panic("stateRoot not equal to the one provided")
 	}
-	log.Default.With("State Root", stateCommitment).
+	Logger.With("State Root", stateCommitment).
 		Info("Got State commitment")
 
 	return stateCommitment, nil
@@ -264,7 +264,7 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 	for _, data := range b.Transactions {
 		txnsHash = append(txnsHash, new(felt.Felt).SetHex(data.TransactionHash))
 	}
-	status, _ := types.BlockStatusValue[b.Status]
+	status := types.BlockStatusValue[b.Status]
 	return &types.Block{
 		BlockHash:   new(felt.Felt).SetHex(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),

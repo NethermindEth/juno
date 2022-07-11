@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
 )
 
@@ -25,7 +25,7 @@ func (s *contractHashService) Setup(database db.Database) {
 
 func (s *contractHashService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("ContractHash Service")
+		s.logger = Logger.Named("ContractHash Service")
 	}
 
 	if err := s.service.Run(); err != nil {
