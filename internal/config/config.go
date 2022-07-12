@@ -161,3 +161,24 @@ func Exists() bool {
 	_, err := os.Stat(f)
 	return err == nil
 }
+
+// updateConfigFile updates
+func UpdateConfigFile(cfgFile string) {
+	Logger.Info("Updating the config file with the flags/environment variables")
+	var f string
+	if cfgFile != "" {
+		// Use Config file specified by the flag.
+		f = cfgFile
+	} else {
+		// Use the default path for user configuration.
+		f = filepath.Join(Dir, "juno.yaml")
+	}
+	data, err := yaml.Marshal(&Runtime)
+	if err != nil {
+		Logger.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+	}
+	err = os.WriteFile(f, data, 0o644)
+	if err != nil {
+		Logger.With("Error", err).Fatal("Failed to write config file.")
+	}
+}
