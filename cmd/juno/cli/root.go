@@ -14,7 +14,8 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/errpkg"
+	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
 	"github.com/NethermindEth/juno/internal/services"
@@ -51,7 +52,7 @@ var (
 			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 			go func(sig chan os.Signal) {
 				<-sig
-				log.Default.Info("Trying to close...")
+				Logger.Info("Trying to close...")
 				cleanup()
 				os.Exit(0)
 			}(sig)
@@ -67,111 +68,41 @@ var (
 			// To update the config file, the user needs to make the
 			// -U flag true
 
-			// This variable keeps a count of the number of flags
-			// If it is zero and the user asks to update the config file,
-			// then the file is not updated and the user is informed
-			flagcount := 0
-			flag, _ := cmd.PersistentFlags().GetString("feedergateway")
-			if flag != "" {
-				err := updateFeederGateway(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the feeder gateway")
-				}
-				flagcount++
-			}
-			flag, _ = cmd.PersistentFlags().GetString("rpcenable")
-			if flag != "" {
-				err := updateRPCEnable(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the RPC enable")
-				}
-				flagcount++
-			}
+			flag, _ := cmd.PersistentFlags().GetString("rpcenable")
+			handleConfig("rpc.enabled", flag, "RPCENABLE", 0)
 			flag, _ = cmd.PersistentFlags().GetString("rpcport")
-			if flag != "" {
-				err := updateRPCPort(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the RPC port")
-				}
-				flagcount++
-			}
+			handleConfig("rpc.port", flag, "RPCPORT", 1)
+
 			flag, _ = cmd.PersistentFlags().GetString("metricsenable")
-			if flag != "" {
-				err := updateMetricsEnable(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the Metrics enable")
-				}
-				flagcount++
-			}
+			handleConfig("metrics.enabled", flag, "METRICSENABLE", 0)
 			flag, _ = cmd.PersistentFlags().GetString("metricsport")
-			if flag != "" {
-				err := updateMetricsPort(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the Metrics port")
-				}
-				flagcount++
-			}
+			handleConfig("metrics.port", flag, "METRICSPORT", 1)
+
 			flag, _ = cmd.PersistentFlags().GetString("dbpath")
-			if flag != "" {
-				err := updateDbPath(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the DB Path")
-				}
-				flagcount++
-			}
+			handleConfig("db_path", flag, "DBPATH", 2)
+
 			flag, _ = cmd.PersistentFlags().GetString("starknetenable")
-			if flag != "" {
-				err := updateStarknetEnable(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the Starknet Enable")
-				}
-				flagcount++
-			}
+			handleConfig("starknet.enabled", flag, "STARKNETENABLE", 0)
 			flag, _ = cmd.PersistentFlags().GetString("apisync")
-			if flag != "" {
-				err := updateAPISync(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the API sync")
-				}
-				flagcount++
-			}
+			handleConfig("starknet.api_sync", flag, "APISYNC", 0)
+			flag, _ = cmd.PersistentFlags().GetString("feedergateway")
+			handleConfig("starknet.feeder_gateway", flag, "FEEDERGATEWAY", 2)
+
 			flag, _ = cmd.PersistentFlags().GetString("ethereumnode")
-			if flag != "" {
-				err := updateEthereumNode(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the Ethereum node")
-				}
-				flagcount++
-			}
+			handleConfig("ethereum.node", flag, "ETHEREUMNODE", 2)
+
 			flag, _ = cmd.PersistentFlags().GetString("restenable")
-			if flag != "" {
-				err := updateRESTEnable(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the REST enable")
-				}
-				flagcount++
-			}
+			handleConfig("rest.enabled", flag, "RESTENABLE", 0)
 			flag, _ = cmd.PersistentFlags().GetString("restport")
-			if flag != "" {
-				err := updateRESTPort(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the REST port")
-				}
-				flagcount++
-			}
+			handleConfig("rest.port", flag, "RESTPORT", 1)
 			flag, _ = cmd.PersistentFlags().GetString("restprefix")
-			if flag != "" {
-				err := updateRESTPrefix(flag)
-				if err != nil {
-					log.Default.With("Error", err).Error("Failed to update the REST prefix")
-				}
-				flagcount++
-			}
+			handleConfig("rest.prefix", flag, "RESTPREFIX", 2)
+
+			erru := viper.Unmarshal(&config.Runtime)
+			errpkg.CheckFatal(erru, "Unable to unmarshal runtime config instance.")
+
 			flag, _ = cmd.PersistentFlags().GetString("updateconfigfile")
-			if flagcount == 0 {
-				log.Default.Info("No flags provided for updating the config file")
-				flag = ""
-			}
+
 			if flag != "" {
 				updateConfigFile(cfgFile)
 			}
@@ -192,7 +123,7 @@ var (
 			}
 
 			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
-				log.Default.With("Error", err).Fatal("Error starting the database environment")
+				Logger.With("Error", err).Fatal("Error starting the database environment")
 			}
 
 			// Initialize ABI Service
@@ -219,17 +150,17 @@ var (
 					var err error
 					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
 					if err != nil {
-						log.Default.With("Error", err).Fatal("Unable to connect to Ethereum Client")
+						Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 					}
 				}
 				// Synchronizer for Starknet State
 				env, err := db.GetMDBXEnv()
 				if err != nil {
-					log.Default.Fatal(err)
+					Logger.Fatal(err)
 				}
 				synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
 				if err != nil {
-					log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+					Logger.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 				}
 				stateSynchronizer := starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient)
 				// Initialize the Starknet Synchronizer Service.
@@ -245,7 +176,7 @@ var (
 				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
 			}
 			// Print with the updated values
-			log.Default.With(
+			Logger.With(
 				"Database Path", config.Runtime.DbPath,
 				"Rpc Port", config.Runtime.RPC.Port,
 				"Rpc Enabled", config.Runtime.RPC.Enabled,
@@ -258,7 +189,7 @@ var (
 
 			if primaryServiceCheck > 0 {
 				// endless running process
-				log.Default.Info("Starting all processes...")
+				Logger.Info("Starting all processes...")
 				processHandler.Run()
 				cleanup()
 			} else {
@@ -268,111 +199,44 @@ var (
 	}
 )
 
-// Functions for updating the configuration for the run
-func updateRPCPort(args string) error {
-	port, err := strconv.Atoi(args)
-	if err != nil {
-		return err
+func handleConfig(configParam, flag, envVarName string, t int) error {
+	val := ""
+	if flag != "" {
+		val = flag
+	} else {
+		envVar := os.Getenv(envVarName)
+		val = envVar
 	}
-	config.Runtime.RPC.Port = port
-	return nil
-}
 
-func updateRPCEnable(args string) error {
-	enabled, err := strconv.ParseBool(args)
-	if err != nil {
-		return err
+	if val != "" {
+		if t == 0 {
+			enabled, err := strconv.ParseBool(val)
+			if err != nil {
+				return err
+			}
+			viper.Set(configParam, enabled)
+		} else {
+			if t == 1 {
+				num, err := strconv.Atoi(val)
+				if err != nil {
+					return err
+				}
+				viper.Set(configParam, num)
+			} else {
+				viper.Set(configParam, val)
+			}
+		}
 	}
-	config.Runtime.RPC.Enabled = enabled
-	return nil
-}
-
-func updateRESTPort(args string) error {
-	port, err := strconv.Atoi(args)
-	if err != nil {
-		return err
-	}
-	config.Runtime.REST.Port = port
-	return nil
-}
-
-func updateRESTEnable(args string) error {
-	enabled, err := strconv.ParseBool(args)
-	if err != nil {
-		return err
-	}
-	config.Runtime.REST.Enabled = enabled
-	return nil
-}
-
-func updateRESTPrefix(args string) error {
-	config.Runtime.REST.Prefix = args
-	return nil
-}
-
-func updateMetricsPort(args string) error {
-	port, err := strconv.Atoi(args)
-	if err != nil {
-		return err
-	}
-	config.Runtime.Metrics.Port = port
-	return nil
-}
-
-func updateMetricsEnable(args string) error {
-	enabled, err := strconv.ParseBool(args)
-	if err != nil {
-		return err
-	}
-	config.Runtime.Metrics.Enabled = enabled
-	return nil
-}
-
-func updateFeederGateway(args string) error {
-	config.Runtime.Starknet.FeederGateway = args
-	return nil
-}
-
-func updateNetwork(args string) error {
-	config.Runtime.Starknet.Network = args
-	return nil
-}
-
-func updateStarknetEnable(args string) error {
-	enabled, err := strconv.ParseBool(args)
-	if err != nil {
-		return err
-	}
-	config.Runtime.Starknet.Enabled = enabled
-	return nil
-}
-
-func updateAPISync(args string) error {
-	enabled, err := strconv.ParseBool(args)
-	if err != nil {
-		return err
-	}
-	config.Runtime.Starknet.ApiSync = enabled
-	return nil
-}
-
-func updateEthereumNode(args string) error {
-	config.Runtime.Ethereum.Node = args
-	return nil
-}
-
-func updateDbPath(args string) error {
-	config.Runtime.DbPath = args
 	return nil
 }
 
 func cleanup() {
 	processHandler.Close()
-	log.Default.Info("App closing...Bye!!!")
+	Logger.Info("App closing...Bye!!!")
 }
 
 func updateConfigFile(cfgFile string) {
-	log.Default.Info("Updating the config file with the flags/environment variables")
+	Logger.Info("Updating the config file with the flags/environment variables")
 	var f string
 	if cfgFile != "" {
 		// Use Config file specified by the flag.
@@ -383,11 +247,11 @@ func updateConfigFile(cfgFile string) {
 	}
 	data, err := yaml.Marshal(&config.Runtime)
 	if err != nil {
-		log.Default.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
+		Logger.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
 	}
 	err = os.WriteFile(f, data, 0o644)
 	if err != nil {
-		log.Default.With("Error", err).Fatal("Failed to write config file.")
+		Logger.With("Error", err).Fatal("Failed to write config file.")
 	}
 }
 
@@ -429,7 +293,7 @@ func initConfig() {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			log.Default.Info("Invalid data directory. The default data directory will be used")
+			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
 		}
 	}
@@ -449,29 +313,46 @@ func initConfig() {
 
 	err := viper.ReadInConfig()
 	if err == nil {
-		log.Default.With("File", viper.ConfigFileUsed()).Info("Using config file:")
+		Logger.With("File", viper.ConfigFileUsed()).Info("Using config file:")
 	} else {
-		log.Default.Info("Config file not found.")
+		Logger.Info("Config file not found.")
 		if !config.Exists() {
 			config.New()
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			log.Default.With("Error", err).Fatal("Failed to read in Config after generation.")
+			Logger.With("Error", err).Fatal("Failed to read in Config after generation.")
 		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
-	if err != nil {
-		log.Default.With("Error", err).Fatal("Unable to unmarshal runtime config instance.")
-	}
+	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
+
+	// Configure logger - we want the logger to be created right after the config has been set
+	enableJsonOutput := config.Runtime.Logger.EnableJsonOutput
+	verbosityLevel := config.Runtime.Logger.VerbosityLevel
+	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
+	errpkg.CheckFatal(err, "Failed to initialise logger.")
+	Logger.With(
+		"Verbosity Level", verbosityLevel,
+		"Json Output", enableJsonOutput,
+	).Info("Logger values")
+
+	Logger.With(
+		"Database Path", config.Runtime.DbPath,
+		"Rpc Port", config.Runtime.RPC.Port,
+		"Rpc Enabled", config.Runtime.RPC.Enabled,
+		"Rest Port", config.Runtime.REST.Port,
+		"Rest Enabled", config.Runtime.REST.Enabled,
+		"Rest Prefix", config.Runtime.REST.Prefix,
+	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Default.With("Error", err).Error("Failed to execute CLI.")
+		Logger.With("Error", err).Error("Failed to execute CLI.")
 	}
 }
