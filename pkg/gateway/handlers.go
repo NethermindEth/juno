@@ -7,6 +7,7 @@ import (
 
 func handlerGetBlock(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -57,6 +58,7 @@ func handlerGetBlock(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -76,6 +78,7 @@ func handlerGetBlockHashByID(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -95,6 +98,7 @@ func handlerGetBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetCode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -143,6 +147,7 @@ func handlerGetCode(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetContractAddresses(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -154,6 +159,7 @@ func handlerGetContractAddresses(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetStorageAt(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -225,6 +231,7 @@ func handlerGetStorageAt(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetTransaction(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -263,6 +270,7 @@ func handlerGetTransaction(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
@@ -283,6 +291,7 @@ func handlerGetTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 
 func handlerGetTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "")
 		return
 	}
