@@ -1,20 +1,30 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/NethermindEth/juno/internal/config"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 // updateConfig updates the configuration values from an instance of the Config struct.
-func updateConfig(*config.Config) {
+func updateConfig(newConfig config.Config) error {
+	file := viper.ConfigFileUsed()
+	data, err := yaml.Marshal(&newConfig)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(file, data, 0o644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // createDynamicConfigCmd represents the createDynamicConfig command
@@ -22,11 +32,18 @@ var createDynamicConfigCmd = &cobra.Command{
 	Use:   "configure",
 	Short: "Update your juno configuration file",
 	Long: `Available fields:
-		- nodeURL: The URL of the node to connect to.
-		- network: The network to connect to (mainnet or testnet).
-		- rpc: Whether or not to enable the RPC server and which port to use.
-		- metrics: Whether or not to enable the metrics server and which port to use.
+		- Enable/Disable:
+			- RPC Server 
+			- Node Metrics Server
+			- Node REST API
+			- API Synchronization Mode
 
+		- Ethereum Node URL
+		- Network ID
+
+		Advanced:
+		- Port Settings
+		- Logger Verbosity Settings
 	.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		main()
@@ -38,18 +55,25 @@ func main() {
 	runtime := *config.Runtime
 	newConfig := &runtime
 
-	// TODO: Preselect logger and network from current values
-	networkList := []string{"mainnet", "goerli"}
-	// currentNetwork := newConfig.Starknet.Network
+	networkList := []string{"NO CHANGE", "mainnet", "goerli"}
 	verbosityList := []string{"NO CHANGE", "DEBUG", "INFO", "WARN", "ERROR", "DPANIC", "PANIC", "FATAL"}
 
 	// Create two forms which are shown in the same flex window.
 	formLeft := tview.NewForm()
-	formLeft.SetBorder(true).SetTitle("Juno Config").SetTitleColor(tcell.ColorPurple)
+	formLeft.SetBorder(true).SetTitle(fmt.Sprintf("Juno Config (%s)", viper.ConfigFileUsed())).SetTitleColor(tcell.ColorPurple)
 
 	// Add fields to the form.
 	formLeft.
-		AddInputField("Node URL", runtime.Ethereum.Node, 20, nil, func(nodeURL string) {
+		AddCheckbox("RPC Enabled", runtime.RPC.Enabled, func(checked bool) {
+			newConfig.RPC.Enabled = checked
+		}).
+		AddCheckbox("Metrics Enabled", runtime.Metrics.Enabled, func(checked bool) {
+			newConfig.Metrics.Enabled = checked
+		}).
+		AddCheckbox("REST API Enabled", runtime.REST.Enabled, func(checked bool) {
+			newConfig.REST.Enabled = checked
+		}).
+		AddInputField("Ethereum Node URL", runtime.Ethereum.Node, 20, nil, func(nodeURL string) {
 			newConfig.Ethereum.Node = nodeURL
 		}).
 		AddDropDown("Network", networkList, 0, func(option string, index int) {
@@ -61,11 +85,32 @@ func main() {
 			case "goerli":
 				newConfig.Starknet.FeederGateway = "https://alpha4.starknet.io"
 				newConfig.Starknet.Network = "goerli"
+			case "NO CHANGE":
+				newConfig.Starknet.FeederGateway = runtime.Starknet.FeederGateway
+				newConfig.Starknet.Network = runtime.Starknet.Network
 			}
 		}).
-		AddCheckbox("RPC Enabled", runtime.RPC.Enabled, func(checked bool) {
-			newConfig.RPC.Enabled = checked
+		AddCheckbox("API Sync Enabled", runtime.Starknet.ApiSync, func(checked bool) {
+			newConfig.Starknet.ApiSync = checked
 		}).
+		AddButton("Save (CTRL + S)", func() {
+			// Close the application
+			app.Stop()
+			// Update the config file with the new values
+			updateConfig(*newConfig)
+		}).
+		AddButton("Cancel (esc)", func() {
+			// Close the application
+			app.Stop()
+			fmt.Println("Cancelled Config Update.")
+		})
+
+	// Create new form and set title to Juno Config, draw box edges.
+	formRight := tview.NewForm()
+	formRight.SetBorder(true).SetTitle("Advanced Settings").SetTitleAlign(tview.AlignCenter)
+
+	// Add checkboxes, input fields, and buttons.
+	formRight.
 		AddInputField("RPC Port", fmt.Sprintf("%d", runtime.RPC.Port), 5, nil, func(rpcPort string) {
 			port, err := strconv.Atoi(rpcPort)
 			// If the port is not a number, set it to the previous value.
@@ -73,16 +118,6 @@ func main() {
 				newConfig.RPC.Port = port
 			}
 			newConfig.RPC.Port = port
-		})
-
-	// Create new form and set title to Juno Config, draw box edges.
-	formRight := tview.NewForm()
-	formRight.SetBorder(true).SetTitle(viper.ConfigFileUsed()).SetTitleAlign(tview.AlignCenter)
-
-	// Add checkboxes, input fields, and buttons.
-	formRight.
-		AddCheckbox("Metrics Enabled", runtime.Metrics.Enabled, func(checked bool) {
-			newConfig.Metrics.Enabled = checked
 		}).
 		AddInputField("Metrics Port", fmt.Sprintf("%d", runtime.Metrics.Port), 5, nil, func(metricsPort string) {
 			port, err := strconv.Atoi(metricsPort)
@@ -91,9 +126,6 @@ func main() {
 				newConfig.Metrics.Port = port
 			}
 			newConfig.Metrics.Port = port
-		}).
-		AddCheckbox("REST Enabled", runtime.REST.Enabled, func(checked bool) {
-			newConfig.REST.Enabled = checked
 		}).
 		AddInputField("REST Port", fmt.Sprintf("%d", runtime.REST.Port), 5, nil, func(restPort string) {
 			port, err := strconv.Atoi(restPort)
@@ -104,32 +136,20 @@ func main() {
 			newConfig.REST.Port = port
 		}).
 		AddDropDown("Logger Verbosity", verbosityList, 0, func(option string, index int) {
-			if option == "KEEP" {
+			if option == "NO CHANGE" {
 				newConfig.Logger.VerbosityLevel = runtime.Logger.VerbosityLevel
+			} else {
+				newConfig.Logger.VerbosityLevel = option
 			}
 		}).
 		AddCheckbox("Logger JSON output", runtime.Logger.EnableJsonOutput, func(checked bool) {
 			newConfig.Logger.EnableJsonOutput = checked
-		}).
-		AddButton("Save (CTRL + S)", func() {
-			// Update the config file with the new values
-			updateConfig(newConfig)
-			// Close the application
-			app.Stop()
-
-			printConfigInfo(*newConfig)
-		}).
-		AddButton("Cancel (esc)", func() {
-			// Close the application
-			app.Stop()
-			fmt.Println("Cancelled Config Update.")
 		})
 
 	// Create flex layout with forms.
 	flex := tview.NewFlex().
 		AddItem(formLeft, 0, 1, true).
-		AddItem(formRight, 0, 1, true).
-		AddItem(tview.NewTextView(), 0, 3, false)
+		AddItem(formRight, 0, 1, true)
 
 	// Allow q to quit the application.
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -137,11 +157,8 @@ func main() {
 		if event.Key() == tcell.KeyEscape {
 			app.Stop()
 		} else if event.Key() == tcell.KeyCtrlS {
-			updateConfig(newConfig)
 			app.Stop()
-
-			printConfigInfo(*newConfig)
-
+			updateConfig(*newConfig)
 		}
 		return event
 	})
@@ -149,13 +166,6 @@ func main() {
 	if err := app.SetRoot(flex, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
-}
-
-func printConfigInfo(newConfig config.Config) {
-	// Marshal DEBUG
-	empJSON, _ := json.MarshalIndent(newConfig, "", "  ")
-	Logger.Info("Updating Config... in %s")
-	fmt.Printf("Updated Config Values: \n %s \n", string(empJSON))
 }
 
 func init() {
