@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/pkg/feeder"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // Global feederClient that we use to request pending blocks
@@ -44,11 +44,11 @@ func NewServer(addr string, client *feeder.Client) *Server {
 func (s *Server) ListenAndServe() error {
 	feederClient = s.feederClient
 	// notest
-	log.Default.Info("Listening for connections .... ")
+	Logger.Info("Listening for connections .... ")
 
 	err := s.server.ListenAndServe()
 	if err != nil {
-		log.Default.With("Error", err).Error("Error occurred while trying to listen for connections.")
+		Logger.With("Error", err).Error("Error occurred while trying to listen for connections.")
 		return err
 	}
 	return nil
@@ -57,12 +57,12 @@ func (s *Server) ListenAndServe() error {
 // Close gracefully shuts down the server.
 func (s *Server) Close(ctx context.Context) {
 	// notest
-	log.Default.Info("Closing RPC server")
+	Logger.Info("Closing RPC server")
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
 		if err != nil {
-			log.Default.With("Error", err).Info("Exiting with error.")
+			Logger.With("Error", err).Info("Exiting with error.")
 			return
 		}
 	default:
