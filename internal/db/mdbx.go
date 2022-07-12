@@ -17,8 +17,7 @@ var (
 	ErrTx = errors.New("transaction error")
 )
 
-// MDBXDatabase is a Database that works with the LMDB database. A database is a
-// named database (isolated collection stored on the same file) of a certain
+// MDBXDatabase is a named database (isolated collection stored on the same file) of a certain
 // environment (database file). One environment can have many named databases.
 // The environment must be initialized and configured with the correct number of
 // named databases before creating the MDBXDatabase instances.
@@ -27,7 +26,9 @@ type MDBXDatabase struct {
 	dbi mdbx.DBI
 }
 
-// NewMDBXDatabase creates a new MDBXDatabase with the given environment and name.
+// NewMDBXDatabase creates a new MDBXDatabase instance with the given environment
+// and name. If the environment does not have a named database with the given
+// name, it is created and returned, otherwise the existing database is returned.
 func NewMDBXDatabase(env *mdbx.Env, name string) (*MDBXDatabase, error) {
 	var dbi mdbx.DBI
 	// Start a READ transaction
