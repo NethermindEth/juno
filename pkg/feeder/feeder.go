@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/NethermindEth/juno/internal/errpkg"
@@ -264,20 +265,18 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res StarknetBlock
 	metr.IncreaseBlockSent()
 
+	var res StarknetBlock
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseBlockFailed()
 		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
+	} else if reflect.DeepEqual(res, StarknetBlock{}) {
+		return nil, fmt.Errorf("block not found")
 	}
 	metr.IncreaseBlockReceived()
-
-	if res.StateRoot == "" && res.Timestamp == 0 {
-		return nil, ErrorBlockNotFound
-	}
 
 	return &res, err
 }
