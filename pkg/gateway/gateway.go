@@ -9,7 +9,7 @@ import (
 	zap "github.com/NethermindEth/juno/internal/log"
 )
 
-// TODO: Use substitute for zap.
+// TODO: Substitute for zap.
 var (
 	logErr  = log.New(os.Stderr, "ERROR ", log.LstdFlags|log.Lshortfile)
 	logInfo = log.New(os.Stdout, "INFO ", log.LstdFlags)
