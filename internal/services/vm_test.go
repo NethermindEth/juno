@@ -21,19 +21,15 @@ func TestVMCall(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	contractDefDb, err := db.NewMDBXDatabase(env, "CODE")
 	if err != nil {
 		t.Fail()
 	}
-	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	stateDb, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
 		t.Fail()
 	}
-	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
-	if err != nil {
-		t.Fail()
-	}
-	VMService.Setup(stateDatabase, binaryDatabase, codeDatabase)
+	VMService.Setup(stateDb, contractDefDb)
 
 	if err := VMService.Run(); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)

@@ -12,28 +12,6 @@ type Abi []struct {
 	Outputs []interface{} `json:"outputs"`
 }
 
-type ContractDefinition struct {
-	Program struct {
-		DebugInfo        string   `json:"debug_info"`
-		Attributes       []string `json:"attributes"`
-		ReferenceManager string   `json:"reference_manager"`
-		Builtins         []string `json:"builtins"`
-		Bytecode         []*Felt  `json:"data"`
-		Prime            string   `json:"prime"`
-		Hints            []string `json:"hints"`
-		MainScope        string   `json:"main_scope"`
-		Identifiers      string   `json:"identifiers"`
-	} `json:"program"`
-	EntryPointsByType struct {
-		External []struct {
-			Offset   string `json:"offset"`
-			Selector string `json:"selector"`
-		} `json:"EXTERNAL"`
-		L1Handler   []interface{} `json:"L1_HANDLER"`
-		Constructor []interface{} `json:"CONSTRUCTOR"`
-	} `json:"entry_points_by_type"`
-}
-
 type Contract struct {
 	Abi      Abi
 	Bytecode []*Felt

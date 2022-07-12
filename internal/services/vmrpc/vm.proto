@@ -6,12 +6,26 @@ message GetValueRequest {
   bytes key = 1;
 }
 
-message GetValueResponse {
-  bytes value = 1;
+message TrieNode {
+    uint32 len = 1;
+    bytes bottom = 2;
+    bytes path = 3;
+}
+
+message ContractState {
+    bytes contractHash = 1;
+    bytes storageRoot = 2;
+    uint32 height = 3;
+}
+
+message ContractDefinition {
+    bytes value = 1;
 }
 
 service StorageAdapter {
-  rpc GetValue (GetValueRequest) returns (GetValueResponse) {}
+  rpc GetPatriciaNode(GetValueRequest) returns (TrieNode) {}
+  rpc GetContractState(GetValueRequest) returns (ContractState) {}
+  rpc GetContractDefinition(GetValueRequest) returns (ContractDefinition) {}
 }
 
 message VMCallRequest {

@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 var StateService stateService
@@ -16,12 +15,12 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(stateDb, binaryCodeDb, codeDefinitionDb db.Database) {
+func (s *stateService) Setup(stateDb, codeDefinitionDb db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("service is already running")
 	}
-	s.manager = state.NewStateManager(stateDb, binaryCodeDb, codeDefinitionDb)
+	s.manager = state.NewStateManager(stateDb, codeDefinitionDb)
 }
 
 func (s *stateService) Run() error {
@@ -48,15 +47,11 @@ func (s *stateService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		binaryCodeDb, err := db.NewMDBXDatabase(env, "BINARY_CODE")
+		codeDefinitionDb, err := db.NewMDBXDatabase(env, "CONTRACT_DEFINITION")
 		if err != nil {
 			return err
 		}
-		codeDefinitionDb, err := db.NewMDBXDatabase(env, "CODE_DEFINITION")
-		if err != nil {
-			return err
-		}
-		s.manager = state.NewStateManager(stateDb, binaryCodeDb, codeDefinitionDb)
+		s.manager = state.NewStateManager(stateDb, codeDefinitionDb)
 	}
 	return nil
 }
@@ -68,48 +63,4 @@ func (s *stateService) Close(ctx context.Context) {
 	}
 	s.service.Close(ctx)
 	s.manager.Close()
-}
-
-func (s *stateService) StoreBinaryCode(contractAddress []byte, code *state.Code) {
-	s.AddProcess()
-	defer s.DoneProcess()
-
-	s.logger.
-		With("contractAddress", common.Bytes2Hex(contractAddress)).
-		Debug("StoreBinaryCode")
-
-	s.manager.PutBinaryCode(contractAddress, code)
-}
-
-func (s *stateService) GetBinaryCode(contractAddress []byte) *state.Code {
-	s.AddProcess()
-	defer s.DoneProcess()
-
-	s.logger.
-		With("contractAddress", contractAddress).
-		Debug("GetBinaryCode")
-
-	return s.manager.GetBinaryCode(contractAddress)
-}
-
-func (s *stateService) StoreCodeDefinition(contractHash []byte, codeDefinition *state.CodeDefinition) {
-	s.AddProcess()
-	defer s.DoneProcess()
-
-	s.logger.
-		With("contractHash", common.Bytes2Hex(contractHash)).
-		Debug("StoreCodeDefinition")
-
-	s.manager.PutCodeDefinition(contractHash, codeDefinition)
-}
-
-func (s *stateService) GetCodeDefinition(contractHash []byte) *state.CodeDefinition {
-	s.AddProcess()
-	defer s.DoneProcess()
-
-	s.logger.
-		With("contractHash", common.Bytes2Hex(contractHash)).
-		Debug("GetCodeDefinition")
-
-	return s.manager.GetCodeDefinition(contractHash)
 }

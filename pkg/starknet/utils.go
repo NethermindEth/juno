@@ -36,8 +36,8 @@ func (e *feederErr) Error() string {
 // newTrie returns a new Trie
 func newTrie(database db.DatabaseOperations, prefix string) trie.Trie {
 	return nil
-	//store := db.NewKeyValueStore(database, prefix)
-	//return trie.New(store, 251)
+	// store := db.NewKeyValueStore(database, prefix)
+	// return trie.New(store, 251)
 }
 
 // loadContractInfo loads a contract ABI and set the events that later we are going to use

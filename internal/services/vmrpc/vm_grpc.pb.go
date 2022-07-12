@@ -22,7 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StorageAdapterClient interface {
-	GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error)
+	GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*TrieNode, error)
+	GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractState, error)
+	GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractDefinition, error)
 }
 
 type storageAdapterClient struct {
@@ -33,9 +35,27 @@ func NewStorageAdapterClient(cc grpc.ClientConnInterface) StorageAdapterClient {
 	return &storageAdapterClient{cc}
 }
 
-func (c *storageAdapterClient) GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error) {
-	out := new(GetValueResponse)
-	err := c.cc.Invoke(ctx, "/StorageAdapter/GetValue", in, out, opts...)
+func (c *storageAdapterClient) GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*TrieNode, error) {
+	out := new(TrieNode)
+	err := c.cc.Invoke(ctx, "/StorageAdapter/GetPatriciaNode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storageAdapterClient) GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractState, error) {
+	out := new(ContractState)
+	err := c.cc.Invoke(ctx, "/StorageAdapter/GetContractState", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storageAdapterClient) GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractDefinition, error) {
+	out := new(ContractDefinition)
+	err := c.cc.Invoke(ctx, "/StorageAdapter/GetContractDefinition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +66,9 @@ func (c *storageAdapterClient) GetValue(ctx context.Context, in *GetValueRequest
 // All implementations must embed UnimplementedStorageAdapterServer
 // for forward compatibility
 type StorageAdapterServer interface {
-	GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error)
+	GetPatriciaNode(context.Context, *GetValueRequest) (*TrieNode, error)
+	GetContractState(context.Context, *GetValueRequest) (*ContractState, error)
+	GetContractDefinition(context.Context, *GetValueRequest) (*ContractDefinition, error)
 	mustEmbedUnimplementedStorageAdapterServer()
 }
 
@@ -54,8 +76,14 @@ type StorageAdapterServer interface {
 type UnimplementedStorageAdapterServer struct {
 }
 
-func (UnimplementedStorageAdapterServer) GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetValue not implemented")
+func (UnimplementedStorageAdapterServer) GetPatriciaNode(context.Context, *GetValueRequest) (*TrieNode, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPatriciaNode not implemented")
+}
+func (UnimplementedStorageAdapterServer) GetContractState(context.Context, *GetValueRequest) (*ContractState, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContractState not implemented")
+}
+func (UnimplementedStorageAdapterServer) GetContractDefinition(context.Context, *GetValueRequest) (*ContractDefinition, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContractDefinition not implemented")
 }
 func (UnimplementedStorageAdapterServer) mustEmbedUnimplementedStorageAdapterServer() {}
 
@@ -70,20 +98,56 @@ func RegisterStorageAdapterServer(s grpc.ServiceRegistrar, srv StorageAdapterSer
 	s.RegisterService(&StorageAdapter_ServiceDesc, srv)
 }
 
-func _StorageAdapter_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _StorageAdapter_GetPatriciaNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetValueRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageAdapterServer).GetValue(ctx, in)
+		return srv.(StorageAdapterServer).GetPatriciaNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/StorageAdapter/GetValue",
+		FullMethod: "/StorageAdapter/GetPatriciaNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageAdapterServer).GetValue(ctx, req.(*GetValueRequest))
+		return srv.(StorageAdapterServer).GetPatriciaNode(ctx, req.(*GetValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StorageAdapter_GetContractState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StorageAdapterServer).GetContractState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/StorageAdapter/GetContractState",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StorageAdapterServer).GetContractState(ctx, req.(*GetValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StorageAdapter_GetContractDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StorageAdapterServer).GetContractDefinition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/StorageAdapter/GetContractDefinition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StorageAdapterServer).GetContractDefinition(ctx, req.(*GetValueRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -96,8 +160,16 @@ var StorageAdapter_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*StorageAdapterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetValue",
-			Handler:    _StorageAdapter_GetValue_Handler,
+			MethodName: "GetPatriciaNode",
+			Handler:    _StorageAdapter_GetPatriciaNode_Handler,
+		},
+		{
+			MethodName: "GetContractState",
+			Handler:    _StorageAdapter_GetContractState_Handler,
+		},
+		{
+			MethodName: "GetContractDefinition",
+			Handler:    _StorageAdapter_GetContractDefinition_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

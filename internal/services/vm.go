@@ -65,19 +65,15 @@ func (s *vmService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+		contractDefDb, err := db.NewMDBXDatabase(env, "CODE")
 		if err != nil {
 			return err
 		}
-		binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+		stateDb, err := db.NewMDBXDatabase(env, "STATE")
 		if err != nil {
 			return err
 		}
-		stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
-		if err != nil {
-			return err
-		}
-		s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+		s.manager = state.NewStateManager(stateDb, contractDefDb)
 	}
 
 	s.rpcNet = "tcp"
@@ -111,12 +107,12 @@ func freePorts(n int) ([]int, error) {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *vmService) Setup(stateDatabase, binaryDatabase, codeDefinitionDatabase db.Database) {
+func (s *vmService) Setup(stateDb, contractDefDb db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDefinitionDatabase)
+	s.manager = state.NewStateManager(stateDb, contractDefDb)
 }
 
 func (s *vmService) Run() error {
@@ -171,7 +167,7 @@ func (s *vmService) Run() error {
 	if err != nil {
 		s.logger.Errorf("failed to listen: %v", err)
 	}
-	storageServer := vmrpc.NewStorageRPCServer()
+	storageServer := vmrpc.NewStorageRPCServer(s.manager)
 	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
 	// Run the gRPC server.

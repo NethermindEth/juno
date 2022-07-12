@@ -1,7 +1,7 @@
 package state
 
 import (
-	"fmt"
+	"encoding/json"
 
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -51,58 +51,29 @@ func (m *Manager) PutContractState(cs *state.ContractState) error {
 	return m.stateDatabase.Put(cs.Hash().Bytes(), raw)
 }
 
-// GetBinaryCode returns the binary code associated with the given contract address.
-// If the contract code is not found, then nil is returned.
-func (x *Manager) GetBinaryCode(contractAddress []byte) *Code {
-	rawData, err := x.binaryCodeDatabase.Get(contractAddress)
+func (x *Manager) GetContract(contractHash *types.Felt) (*types.Contract, error) {
+	rawData, err := x.contractDef.Get(contractHash.Bytes())
 	if err != nil {
-		panic(any(fmt.Errorf("database error: %s", err)))
+		return nil, err
 	}
 	if rawData == nil {
-		// notest
-		return nil
+		return nil, nil
 	}
-	code := new(Code)
-	if err := proto.Unmarshal(rawData, code); err != nil {
-		panic(any(fmt.Errorf("unmarshal error: %s", err)))
+	var codeDefinition CodeDefinition
+	if err := proto.Unmarshal(rawData, &codeDefinition); err != nil {
+		return nil, err
 	}
-	return code
+	var contract types.Contract
+	return &contract, json.Unmarshal([]byte(codeDefinition.GetDefinition()), &contract)
 }
 
-// PutBinaryCode stores a new contract binary code into the database, associated with the
-// given contract address. If the contract address already have a contract code
-// in the database, then the value is updated.
-func (x *Manager) PutBinaryCode(contractAddress []byte, code *Code) {
-	rawData, err := proto.Marshal(code)
+func (x *Manager) PutContract(contractHash *types.Felt, contract *types.Contract) error {
+	codeDefinition := CodeDefinition{
+		Definition: string(contract.FullDef),
+	}
+	rawData, err := proto.Marshal(&codeDefinition)
 	if err != nil {
-		panic(any(fmt.Errorf("marshal error: %s", err)))
+		return err
 	}
-	if err := x.binaryCodeDatabase.Put(contractAddress, rawData); err != nil {
-		panic(any(fmt.Errorf("database error: %s", err)))
-	}
-}
-
-func (x *Manager) GetCodeDefinition(contractHash []byte) *CodeDefinition {
-	rawData, err := x.codeDefinitionDatabase.Get(contractHash)
-	if err != nil {
-		panic(any(fmt.Errorf("database error: %s", err)))
-	}
-	if rawData == nil {
-		return nil
-	}
-	codeDefinition := new(CodeDefinition)
-	if err := proto.Unmarshal(rawData, codeDefinition); err != nil {
-		panic(any(fmt.Errorf("unmarshal error: %s", err)))
-	}
-	return codeDefinition
-}
-
-func (x *Manager) PutCodeDefinition(contractHash []byte, codeDefinition *CodeDefinition) {
-	rawData, err := proto.Marshal(codeDefinition)
-	if err != nil {
-		panic(any(fmt.Errorf("marshal error: %s", err)))
-	}
-	if err := x.codeDefinitionDatabase.Put(contractHash, rawData); err != nil {
-		panic(any(fmt.Errorf("database error: %s", err)))
-	}
+	return x.contractDef.Put(contractHash.Bytes(), rawData)
 }

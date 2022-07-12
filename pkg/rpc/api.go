@@ -417,21 +417,12 @@ func (HandlerRPC) StarknetGetCode(
 		}
 		return &CodeResult{Abi: string(marshal), Bytecode: bytecode}, nil
 	}
-	code := services.StateService.GetBinaryCode(contractAddress.Bytes())
-	if code == nil {
-		// notest
-		return nil, fmt.Errorf("code not found")
-	}
 	marshalledAbi, err := json.Marshal(abi)
 	if err != nil {
 		// notest
 		return nil, err
 	}
-	bytecode := make([]types.Felt, len(code.Code))
-	for i, b := range code.Code {
-		bytecode[i] = types.BytesToFelt(b)
-	}
-	return &CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
+	return &CodeResult{Abi: string(marshalledAbi)}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number
