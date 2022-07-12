@@ -2,18 +2,19 @@ package services
 
 import (
 	"context"
+	"math/big"
+	"time"
+
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	dbState "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/sync"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"math/big"
-	"time"
 )
 
 // SyncService is the service that handle the synchronization of the node.
@@ -49,7 +50,7 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 	SyncService.ethClient = ethereumClient
 	SyncService.feeder = feederClient
 	SyncService.setChainId()
-	SyncService.logger = log.Default.Named("Sync Service")
+	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
 		NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
 		SyncService.stateDiffCollector = APICollector
@@ -57,7 +58,7 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
-	//SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
+	// SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
 	//	SyncService.feeder, SyncService.stateDiffCollector)
 	go func() {
 		err = SyncService.stateDiffCollector.Run()
@@ -71,7 +72,7 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 // Run starts the service.
 func (s *syncService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("SyncService")
+		s.logger = Logger.Named("SyncService")
 	}
 
 	if err := s.service.Run(); err != nil {
@@ -80,7 +81,7 @@ func (s *syncService) Run() error {
 	}
 
 	// run synchronizer of all the info that comes from the block.
-	//go s.synchronizer.Run()
+	// go s.synchronizer.Run()
 
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
@@ -210,7 +211,6 @@ func (s *syncService) GetChainId() int {
 
 // setChainId sets the chain id of the node.
 func (s *syncService) setChainId() {
-
 	var chainID *big.Int
 	if s.ethClient == nil {
 		// notest
@@ -224,7 +224,7 @@ func (s *syncService) setChainId() {
 		chainID, err = s.ethClient.ChainID(context.Background())
 		if err != nil {
 			// notest
-			log.Default.Panic("Unable to retrieve chain ID from Ethereum Node")
+			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
 		}
 	}
 	s.chainId = int(chainID.Int64())

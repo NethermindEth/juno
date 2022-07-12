@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services/vmrpc"
 	"github.com/NethermindEth/juno/pkg/types"
 	"go.uber.org/zap"
@@ -168,7 +168,7 @@ func python() (string, error) {
 
 func (s *vmService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("VMService")
+		s.logger = Logger.Named("VMService")
 	}
 
 	if err := s.service.Run(); err != nil {

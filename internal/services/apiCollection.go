@@ -2,12 +2,13 @@ package services
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/internal/db/sync"
-	"github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/feeder"
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/db/sync"
+	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/feeder"
+	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 )
 
 var APICollector *apiCollector
@@ -34,7 +35,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 		manager: manager,
 		chainID: chainID,
 	}
-	APICollector.logger = log.Default.Named("apiCollector")
+	APICollector.logger = Logger.Named("apiCollector")
 	APICollector.buffer = make(chan *starknetTypes.StateDiff, 10)
 	APICollector.synced = false
 	go APICollector.updateLatestBlockOnChain()

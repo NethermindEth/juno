@@ -3,8 +3,13 @@ package services
 import (
 	"context"
 	"errors"
+	"math"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/NethermindEth/juno/internal/db/sync"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
@@ -14,16 +19,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"math"
-	"math/big"
-	"strconv"
-	"time"
 )
 
 var L1Collector *l1Collector
 
-var ErrorMemoryPageNotFound = errors.New("memory page not found")
-var ErrorFactAlreadySaved = errors.New("fact already saved")
+var (
+	ErrorMemoryPageNotFound = errors.New("memory page not found")
+	ErrorFactAlreadySaved   = errors.New("fact already saved")
+)
 
 var windowSize = 5_000
 
@@ -71,7 +74,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, ethClient *eth
 		chainID:        chainID,
 		ethereumClient: ethClient,
 	}
-	L1Collector.logger = log.Default.Named("l1Collector")
+	L1Collector.logger = Logger.Named("l1Collector")
 	L1Collector.buffer = make(chan *starknetTypes.StateDiff, 10)
 	L1Collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	L1Collector.memoryPageHash = starknetTypes.NewDictionary()
@@ -114,7 +117,7 @@ func (l *l1Collector) Run() error {
 			// fetch the memory pages and updated the state
 			pages, err := l.processPagesHashes(
 				pagesHashes.(starknetTypes.PagesHash).Bytes,
-				//contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
+				// contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
 				l.contractInfo[l.memoryPagesContractAddress].Contract)
 			if err != nil {
 				l.logger.With("Error", err).Debug("Error processing pages hashes")
@@ -160,7 +163,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 	// build query for the latest block
 	query := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetInt64(int64(number) - int64(10*windowSize)),
-		//ToBlock:   new(big.Int).SetInt64(int64(number)),
+		// ToBlock:   new(big.Int).SetInt64(int64(number)),
 		Addresses: []common.Address{l.starknetContractAddress},
 		Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(l.starknetABI.Events["LogStateUpdate"].Sig))}},
 	}
@@ -257,7 +260,6 @@ func (l *l1Collector) loadContractsAbi() {
 		return
 	}
 	l.memoryPagesContractAddress = common.HexToAddress(memoryPagesContractAddress)
-
 }
 
 func (l *l1Collector) handleEvents() {
@@ -304,12 +306,10 @@ func (l *l1Collector) handleEvents() {
 		l.logger.With("Error", err).Error("Error subscribing to events")
 		return
 	}
-
 }
 
 // processSubscription iterates over the logs that has been thrown while subscribed to the L1
 func (l *l1Collector) processSubscription(initialBlock int64) error {
-
 	addresses := make([]common.Address, 0)
 
 	topics := make([]common.Hash, 0)
@@ -354,7 +354,6 @@ func (l *l1Collector) processSubscription(initialBlock int64) error {
 
 // processBatchOfEvents iterates over a batch of events and extracts the EventInfo
 func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
-
 	addresses := make([]common.Address, 0)
 
 	topics := make([]common.Hash, 0)
@@ -398,7 +397,6 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 }
 
 func (l *l1Collector) processEvents(event *starknetTypes.EventInfo) {
-
 	// Process GpsStatementVerifier contract
 	factHash, ok := event.Event["factHash"]
 	pagesHashes, ok1 := event.Event["pagesHashes"]
@@ -480,7 +478,6 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash 
 }
 
 func (l *l1Collector) removeFactTree(fact *starknetTypes.Fact) {
-
 	// Load GpsStatementVerifier from fact
 	pagesHashes, _ := l.gpsVerifier.Get(fact.Value)
 
@@ -499,11 +496,9 @@ func (l *l1Collector) removeFactTree(fact *starknetTypes.Fact) {
 	}
 	// remove Fact from facts
 	l.facts.Remove(strconv.FormatUint(fact.SequenceNumber, 10))
-
 }
 
 func (l *l1Collector) updateBlockOnChain(logFetched types.Log) {
-
 	event := map[string]interface{}{}
 	err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", logFetched.Data)
 	if err != nil {
