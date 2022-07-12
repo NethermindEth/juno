@@ -18,13 +18,18 @@ type ErrResponse struct {
 
 // clientErr sets a 400 Bad Request header and then serves a JSON
 // formatted client error. If msg != "", ErrResponse.Code will be set to
-// "StarkErrorCode.MALFORMED_REQUEST" with ErrResponse.Message == msg,
-// otherwise a generic error is returned.
-func clientErr(w http.ResponseWriter, code int, msg string) {
+// starkErr ErrResponse.Message == msg, otherwise a generic error is
+// returned.
+func clientErr(w http.ResponseWriter, code int, starkErr, msg string) {
+	// XXX: Client error currently defaults to a
+	// "StarkErrorCode.MALFORMED_REQUEST" error code but the feeder tends
+	// return more informative codes as well such as the indication of an
+	// out of bounds error so that could also serve as an input to this
+	// function.
 	var res *ErrResponse
 	switch {
 	case msg != "":
-		res = &ErrResponse{Code: "StarkErrorCode.MALFORMED_REQUEST", Message: msg}
+		res = &ErrResponse{Code: starkErr, Message: msg}
 	default:
 		res = &ErrResponse{
 			Code:     strconv.Itoa(code),
