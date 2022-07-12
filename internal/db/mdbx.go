@@ -27,7 +27,7 @@ type MDBXDatabase struct {
 }
 
 // NewMDBXDatabase creates a new MDBXDatabase instance with the given environment
-// and name. If the environment already no has a named database with the given
+// and name. If the environment does not have a named database with the given
 // name, it is created and returned, otherwise the existing database is returned.
 func NewMDBXDatabase(env *mdbx.Env, name string) (*MDBXDatabase, error) {
 	var dbi mdbx.DBI

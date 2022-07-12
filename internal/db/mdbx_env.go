@@ -11,7 +11,7 @@ var (
 	initialized bool
 )
 
-var ErrEnvNoInitialized = errors.New("environment is not initialized")
+var ErrEnvNotInitialized = errors.New("environment is not initialized")
 
 // InitializeMDBXEnv initializes the Juno MDBX environment.
 func InitializeMDBXEnv(path string, optMaxDB uint64, flags uint) (err error) {
@@ -50,11 +50,11 @@ func NewMDBXEnv(path string, optMaxDB uint64, flags uint) (*mdbx.Env, error) {
 	return env, nil
 }
 
-// GetMDBXEnv returns the Juno MDBX environment. If the environment is not initialized then ErrEnvNoInitialized is
+// GetMDBXEnv returns the Juno MDBX environment. If the environment is not initialized then ErrEnvNotInitialized is
 // returned.
 func GetMDBXEnv() (*mdbx.Env, error) {
 	if !initialized {
-		return nil, ErrEnvNoInitialized
+		return nil, ErrEnvNotInitialized
 	}
 	return env, nil
 }
