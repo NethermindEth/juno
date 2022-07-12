@@ -12,10 +12,11 @@ const (
 
 type State interface {
 	Root() *types.Felt
-	GetContract(*types.Felt) (*ContractState, error)
-	SetContractHash(*types.Felt, *types.Felt) error
-	GetSlot(*types.Felt, *types.Felt) (*types.Felt, error)
-	SetSlot(*types.Felt, *types.Felt, *types.Felt) error
+	GetContractState(address *types.Felt) (*ContractState, error)
+	GetCode(address *types.Felt) (*types.Contract, error)
+	SetCode(address *types.Felt, hash *types.Felt, code *types.Contract) error
+	GetSlot(address *types.Felt, slot *types.Felt) (*types.Felt, error)
+	SetSlot(address *types.Felt, slot *types.Felt, value *types.Felt) error
 }
 
 type StateManager interface {
@@ -37,7 +38,7 @@ func (st *state) Root() *types.Felt {
 	return st.stateTrie.Root()
 }
 
-func (st *state) GetContract(address *types.Felt) (*ContractState, error) {
+func (st *state) GetContractState(address *types.Felt) (*ContractState, error) {
 	leaf, err := st.stateTrie.Get(address)
 	if err != nil {
 		return nil, err
@@ -48,8 +49,12 @@ func (st *state) GetContract(address *types.Felt) (*ContractState, error) {
 	return st.manager.GetContractState(leaf)
 }
 
-func (st *state) SetContractHash(address *types.Felt, hash *types.Felt) error {
-	contract, err := st.GetContract(address)
+func (st *state) GetCode(address *types.Felt) (*types.Contract, error) {
+	return nil, nil
+}
+
+func (st *state) SetCode(address *types.Felt, hash *types.Felt, code *types.Contract) error {
+	contract, err := st.GetContractState(address)
 	if err != nil {
 		return err
 	}
@@ -62,7 +67,7 @@ func (st *state) SetContractHash(address *types.Felt, hash *types.Felt) error {
 }
 
 func (st *state) GetSlot(address *types.Felt, slot *types.Felt) (*types.Felt, error) {
-	contract, err := st.GetContract(address)
+	contract, err := st.GetContractState(address)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +76,7 @@ func (st *state) GetSlot(address *types.Felt, slot *types.Felt) (*types.Felt, er
 }
 
 func (st *state) SetSlot(address *types.Felt, slot *types.Felt, value *types.Felt) error {
-	contract, err := st.GetContract(address)
+	contract, err := st.GetContractState(address)
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ type pySubProcessLogger struct {
 }
 
 func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
-	p.logger.Warn("Python VM Subprocess: \n%s\n", p0)
+	p.logger.Warnf("Python VM Subprocess: \n%s\n", p0)
 	return len(p0), nil
 }
 
@@ -119,53 +119,6 @@ func (s *vmService) Setup(stateDatabase, binaryDatabase, codeDefinitionDatabase 
 	s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDefinitionDatabase)
 }
 
-/*
-// isValidPythonVer returns true if the Python version detected has a
-// major version of 3 and returns an error if it failed to retrieve such
-// information from the system.
-func isValidPythonVer(path string) (bool, error) {
-	out, err := exec.Command(path, "--version").Output()
-	if err != nil {
-		return false, fmt.Errorf("services: failed to check Python version")
-	}
-	re := regexp.MustCompile(`\d`)
-	return fmt.Sprintf("%s", re.Find(out)) == "3", nil
-}
-*/
-
-// python returns the location of Python on the system by searching the
-// $PATH environment variable and returns an error otherwise.
-func python() (string, error) {
-	path, err := exec.LookPath("python")
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			// Assumes that python3 is indeed Python version 3 but there is
-			// another case where the user could have multiple Python 3
-			// versions installed and thus it would be more like python3.9 🤔.
-			path, err = exec.LookPath("python3")
-			if err != nil {
-				return "", errPythonNotFound
-			}
-			return path, nil
-		}
-		return "", errPythonNotFound
-	}
-	// Could be Python 2.
-	/*
-		ok, err := isValidPythonVer(path)
-		if err != nil {
-			return "", err
-		}
-		if !ok {
-			path, err = exec.LookPath("python3")
-			if err != nil {
-				return "", errPythonNotFound
-			}
-		}
-	*/
-	return path, nil
-}
-
 func (s *vmService) Run() error {
 	if s.logger == nil {
 		s.logger = log.Default.Named("VMService")
@@ -203,12 +156,8 @@ func (s *vmService) Run() error {
 	}
 	s.logger.Infof("vm dir: %s", s.vmDir)
 
-	py, err := python()
-	if err != nil {
-		return err
-	}
 	// Start the cairo-lang gRPC server (serving contract calls).
-	s.vmCmd = exec.Command(py, filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
+	s.vmCmd = exec.Command("python3", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
 	pyLogger := &pySubProcessLogger{logger: s.logger}
 	s.vmCmd.Stdout = pyLogger
 	s.vmCmd.Stderr = pyLogger
