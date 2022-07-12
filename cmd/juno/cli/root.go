@@ -199,6 +199,11 @@ var (
 	}
 )
 
+// Function for updating the parameters of the config
+// configParam - The argument for corresponding to the viper variable
+// flag - The value of the flag (if provided by the user)
+// envVarName - The corresponding environment variable name
+// t - The datatype of the config parameter (can be bool, int, string)
 func handleConfig(configParam, flag, envVarName string, t int) error {
 	val := ""
 	if flag != "" {
