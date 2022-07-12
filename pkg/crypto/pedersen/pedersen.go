@@ -42,9 +42,10 @@ func Digest(data ...*felt.Felt) *felt.Felt {
 // ArrayDigest returns a field element that is the result of hashing an
 // array of field elements. This is generally used to overcome the
 // limitation of the Digest function which has an upper bound on the
-// amount of field elements that can be hashed. See the array hashing
-// section of the StarkNet documentation https://docs.starknet.io/docs/Hashing/hash-functions#array-hashing
-// for more details.
+// amount of field elements that can be hashed. See the [array hashing]
+// section of the StarkNet documentation for more details.
+//
+// - [array hashing]: https://github.com/golang/proposal/blob/master/design/51082-godocfmt.md
 func ArrayDigest(data ...*felt.Felt) *felt.Felt {
 	digest := new(felt.Felt)
 	for _, item := range data {
