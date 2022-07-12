@@ -12,123 +12,182 @@ type cacheNode struct {
 	prev  *cacheNode
 }
 
-// LRUCache is a cache with the least-recently-used policy.
-type LRUCache struct {
+// Cache is a cache with the least-recently-used policy.
+type Cache struct {
+	*sync.RWMutex
+
 	// hashMap contaiins the current cache contents that can be accessed by the key
 	hashMap map[uint64]*cacheNode
-	// start is a reference to the first node in the cache queue
-	start *cacheNode
-	// end is a reference to the last node in the cache queue
-	end *cacheNode
-	// count is the current ammount of items in the cache
-	count int
-	// capacity is the max ammount of items that can be stored in the cache
-	capacity int
+	// front is a reference to the first node in the cache queue
+	front *cacheNode
+	// back is a reference to the last node in the cache queue
+	back *cacheNode
+	// len is the current amount of items in the cache
+	len int
+	// cap is the max amount of items that can be stored in the cache
+	cap int
 	// hash is used to hash the key
 	hash maphash.Hash
-	// lock is used to protect the cache from concurrent access
-	lock sync.RWMutex
 }
 
-// NewLRUCache creates a new LRUCache instance with the given capacity.
-func NewLRUCache(capacity int) *LRUCache {
-	return &LRUCache{
-		hashMap:  make(map[uint64]*cacheNode, capacity),
-		capacity: capacity,
-		hash:     maphash.Hash{},
+// NewCache creates a new Cache instance with the given cap. If cap == 0, nil is
+// returned.
+func NewCache(cap int) *Cache {
+	if cap < 1 {
+		return nil
+	}
+	return &Cache{
+		RWMutex: new(sync.RWMutex),
+		hashMap: make(map[uint64]*cacheNode, cap),
+		cap:     cap,
+		hash:    maphash.Hash{},
 	}
 }
 
 // Put adds a new key-value pair to the cache. If the cache is full then
-// the least-recently-used key-value pair is removed.
-func (c *LRUCache) Put(k []byte, v []byte) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+// the least-recently-used key-value pair is removed. If the key already exist
+// in the cache then the node will be replaced and put at the front of the
+// cache.
+func (c *Cache) Put(k []byte, v []byte) {
+	c.Lock()
+	defer c.Unlock()
 
-	// Build the cache key and node
 	key := c.key(k)
-	node := &cacheNode{key: key, value: v}
+	newN := &cacheNode{key: key, value: v}
 
-	// Cache is empty
-	if c.count == 0 {
-		c.hashMap[key] = node
-		c.start = node
-		c.end = node
-		c.count = 1
+	if c.len == 0 {
+		c.hashMap[key] = newN
+		c.front = newN
+		c.back = newN
+		c.len++
 		return
 	}
 
-	// Put the new node at the start of the queue
-	c.hashMap[key] = node
-	c.start.prev = node
-	node.next = c.start
-	c.start = node
-	c.count++
+	node, ok := c.hashMap[key]
 
-	// Remove the last node if the cache is full
-	if c.count > c.capacity {
-		delete(c.hashMap, c.end.key)
-		c.end = c.end.prev
-		c.end.next.prev = nil
-		c.end.next = nil
-		c.count--
+	// key doesn't already exist in cache so add the node to the front and
+	// delete the last node if cache is full
+	if !ok {
+		c.hashMap[key] = newN
+		c.front.prev = newN
+		newN.next = c.front
+		c.front = newN
+		c.len++
+
+		if c.len > c.cap {
+			delete(c.hashMap, c.back.key)
+			c.back = c.back.prev
+			c.back.next.prev = nil
+			c.back.next = nil
+			c.len--
+		}
+		return
 	}
+
+	// key already exists in the cache so replace the map reference, delete the
+	// old node from the cache and add the new node to the front of the cache.
+	c.hashMap[key] = newN
+	if node == c.front {
+		newN.next = c.front.next
+		c.front.next.prev = newN
+		c.front = newN
+		node.next = nil
+		return
+	} else if node == c.back {
+		c.back = node.prev
+		node.prev = nil
+	} else {
+		node.prev.next = node.next
+		node.next.prev = node.prev
+		node.next = nil
+		node.prev = nil
+	}
+	c.front.prev = newN
+	newN.next = c.front
+	c.front = newN
+
 }
 
 // Get returns the value for the given key. If the key is not found then
 // returns nil.
-func (c *LRUCache) Get(k []byte) []byte {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (c *Cache) Get(k []byte) []byte {
+	c.Lock()
+	defer c.Unlock()
 
 	key := c.key(k)
 	if node, ok := c.hashMap[key]; ok {
-		if node != c.start {
-			// Move the node to the start of the queue
+		if node != c.front {
+			// Move the node to the front of the queue
 			node.prev.next = node.next
-			if node == c.end {
-				c.end = node.prev
+			if node == c.back {
+				c.back = node.prev
 			} else {
 				node.next.prev = node.prev
 			}
-			c.start.prev = node
-			node.next = c.start
+			c.front.prev = node
+			node.next = c.front
 			node.prev = nil
-			c.start = node
+			c.front = node
 		}
-		return node.value
+		v := make([]byte, len(node.value))
+		copy(v, node.value)
+		return v
 	}
 	return nil
 }
 
-// Len returns the current ammount of items in the cache.
-func (c *LRUCache) Len() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+// Front returns a copy of the value at front of the cache
+func (c Cache) Front() []byte {
+	c.RLock()
+	defer c.RUnlock()
 
-	return c.count
+	if c.front != nil {
+		v := make([]byte, len(c.front.value))
+		copy(v, c.front.value)
+		return v
+	}
+	return nil
 }
 
-// Cap returns the max ammount of items that can be stored in the cache.
-func (c *LRUCache) Cap() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+// Back returns a copy of value at the back of the cache
+func (c Cache) Back() []byte {
+	c.RLock()
+	defer c.RUnlock()
 
-	return c.capacity
+	if c.back != nil {
+		v := make([]byte, len(c.back.value))
+		copy(v, c.back.value)
+		return v
+	}
+	return nil
+}
+
+// Len returns the current amount of items in the cache.
+func (c *Cache) Len() int {
+	c.RLock()
+	defer c.RUnlock()
+	return c.len
+}
+
+// Cap returns the max amount of items that can be stored in the cache.
+func (c *Cache) Cap() int {
+	c.RLock()
+	defer c.RUnlock()
+	return c.cap
 }
 
 // Clear removes all items from the cache.
-func (c *LRUCache) Clear() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (c *Cache) Clear() {
+	c.Lock()
+	defer c.Unlock()
 
-	c.hashMap = make(map[uint64]*cacheNode, c.capacity)
-	c.start = nil
-	c.end = nil
-	c.count = 0
+	c.hashMap = make(map[uint64]*cacheNode, c.cap)
+	c.front = nil
+	c.back = nil
+	c.len = 0
 }
 
-func (c *LRUCache) key(v []byte) uint64 {
+func (c *Cache) key(v []byte) uint64 {
 	c.hash.Reset()
 	c.hash.Write(v)
 	return c.hash.Sum64()
