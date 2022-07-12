@@ -90,7 +90,7 @@ func TestArrayDigest(t *testing.T) {
 				"0439218681f9108b470d2379cf589ef47e60dc5888ee49ec70071671d74ca9c6",
 				// calldata_hash (empty calldata for this contract, hash is defined to be h(0, 0))
 				// see https://docs.starknet.io/docs/Hashing/hash-functions/#array-hashing
-				Digest(new(big.Int), new(big.Int)).Text(16),
+				"49ee3eba8c1600700ee1b87eb599f16716b0b1022947733551fde4050ca6804",
 			},
 			// contract_address
 			want: "43c6817e70b3fd99a4f120790b2e82c6843df62b573fdadf9e2d677b60ac5eb",
