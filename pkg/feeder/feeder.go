@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
@@ -33,7 +32,9 @@ type Client struct {
 // NewClient returns a new Client.
 func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	u, err := url.Parse(baseURL)
-	errpkg.CheckFatal(err, "Bad base URL.")
+	if err != nil {
+		Logger.Fatalf("Unable to parse base URL: %v", err)
+	}
 	if client == nil {
 		var p HttpClient
 		c := http.Client{

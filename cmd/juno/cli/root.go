@@ -14,7 +14,6 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
@@ -188,18 +187,25 @@ func initConfig() {
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
-		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
+		if err != nil {
+			Logger.Fatalf("Error reading config file: %s", err)
+		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
-	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
+	if err != nil {
+		Logger.Fatalf("Error unmarshalling Config instance: %s", err)
+	}
 
 	// Configure logger - we want the logger to be created right after the config has been set
 	enableJsonOutput := config.Runtime.Logger.EnableJsonOutput
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
 	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
-	errpkg.CheckFatal(err, "Failed to initialise logger.")
+	if err != nil {
+		Logger.Fatalf("Error initialising Logger: %s", err)
+	}
+
 	Logger.With(
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,

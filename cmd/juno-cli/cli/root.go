@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/internal/config"
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
@@ -121,12 +120,16 @@ func initConfig() error {
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
-		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
+		if err != nil {
+			Logger.Fatalf("Failed to read config file: %v", err)
+		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
-	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
+	if err != nil {
+		Logger.Fatalf("Failed to unmarshal runtime config: %v", err)
+	}
 
 	// If config successfully loaded, return no error.
 	return nil

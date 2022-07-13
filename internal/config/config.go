@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	"gopkg.in/yaml.v2"
 )
@@ -84,7 +83,9 @@ var Runtime *Config
 func init() {
 	// Set user config directory.
 	d, err := os.UserConfigDir()
-	errpkg.CheckFatal(err, "Unable to get the user config directory.")
+	if err != nil {
+		Logger.Fatalf("Could not get user config directory: %v", err)
+	}
 	Dir = filepath.Join(d, "juno")
 
 	// Set user data directory.
@@ -109,7 +110,9 @@ func init() {
 				// Create Juno data directory if it does not exist
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
 					err = os.MkdirAll(result, 0o744)
-					errpkg.CheckFatal(err, "Unable to create user data directory.")
+					if err != nil {
+						Logger.Fatalf("Could not create user data directory: %v", err)
+					}
 				}
 				return result, nil
 			}
@@ -118,7 +121,9 @@ func init() {
 			return "", errors.New("user data directory not found")
 		}
 	}()
-	errpkg.CheckFatal(err, "Unable to get user data directory.")
+	if err != nil {
+		Logger.Fatalf("Could not get user data directory: %v", err)
+	}
 }
 
 // New creates a new configuration file with default values.
@@ -129,7 +134,9 @@ func New() {
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
 		// notest
 		err := os.MkdirAll(Dir, 0o755)
-		errpkg.CheckFatal(err, "Failed to create Config directory.")
+		if err != nil {
+			Logger.Fatalf("Could not create config directory: %v", err)
+		}
 	}
 	data, err := yaml.Marshal(&Config{
 		Logger: loggerConfig{
@@ -146,12 +153,16 @@ func New() {
 			Network: "mainnet",
 		},
 	})
-	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
+	if err != nil {
+		Logger.Fatalf("Could not marshal default config: %v", err)
+	}
 	// Create default Juno configuration file if it does not exist
 	if _, err := os.Stat(f); errors.Is(err, os.ErrNotExist) {
 		// notest
 		err = os.WriteFile(f, data, 0o644)
-		errpkg.CheckFatal(err, "Failed to write config file.")
+		if err != nil {
+			Logger.Fatalf("Could not create default config file: %v", err)
+		}
 	}
 }
 
