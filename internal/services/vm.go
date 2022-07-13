@@ -192,14 +192,17 @@ func (s *vmService) Close(ctx context.Context) {
 
 func (s *vmService) Call(
 	ctx context.Context,
-	calldata []types.Felt,
-	callerAddr types.Felt,
-	contractAddr types.Felt,
-	root types.Felt,
-	selector types.Felt,
-) ([]string, error) {
+	calldata []*types.Felt,
+	callerAddr *types.Felt,
+	contractAddr *types.Felt,
+	root *types.Felt,
+	selector *types.Felt,
+	sequencer *types.Felt,
+) ([]*types.Felt, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
+
+	s.logger.Info("Call")
 
 	// XXX: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -210,23 +213,30 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
-	strconvCalldata := make([]string, 0, len(calldata))
-	for _, felt := range calldata {
-		strconvCalldata = append(strconvCalldata, felt.String())
+	calldataBytes := make([][]byte, len(calldata))
+	for i, felt := range calldata {
+		calldataBytes[i] = felt.Bytes()
 	}
 
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
-		Calldata:        strconvCalldata,
-		CallerAddress:   callerAddr.String(),
-		ContractAddress: contractAddr.String(),
-		Root:            root.String(),
-		Selector:        selector.String(),
+		Calldata:        calldataBytes,
+		CallerAddress:   callerAddr.Bytes(),
+		ContractAddress: contractAddr.Bytes(),
+		Root:            root.Bytes(),
+		Selector:        selector.Bytes(),
+		Sequencer:       sequencer.Bytes(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)
 		return nil, err
 	}
 
-	return r.Retdata, nil
+	retdataFelts := make([]*types.Felt, len(r.Retdata))
+	for i, ret := range r.Retdata {
+		f := types.BytesToFelt(ret)
+		retdataFelts[i] = &f
+	}
+
+	return retdataFelts, nil
 }

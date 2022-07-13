@@ -29,15 +29,16 @@ service StorageAdapter {
 }
 
 message VMCallRequest {
-  repeated string calldata = 1;
-  string caller_address = 2;
-  string contract_address = 3;
-  string root = 4;
-  string selector = 5;
+  repeated bytes calldata = 1;
+  bytes caller_address = 2;
+  bytes contract_address = 3;
+  bytes root = 4;
+  bytes selector = 5;
+  bytes sequencer = 6;
 }
 
 message VMCallResponse {
-  repeated string retdata = 1;
+  repeated bytes retdata = 1;
 }
 
 service VM {

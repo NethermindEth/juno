@@ -62,42 +62,46 @@ def split_key(key):
 
 
 async def call(
-    adapter,
-    calldata,
-    caller_address,
-    contract_address,
-    root,
-    selector,
+    adapter=None,
+    calldata=None,
+    caller_address=None,
+    contract_address=None,
+    root=None,
+    selector=None,
+    sequencer=None,
 ):
-    # Parse values.
-    calldata = hex_str_list_to_int_list(calldata)
-    caller_address = hex_str_to_int(caller_address)
-    contract_address = hex_str_to_int(contract_address)
-    root = int_to_bytes(hex_str_to_int(root))
-    selector = hex_str_to_int(selector)
-
-    # XXX: Sequencer's address. This does not appear to be important so
-    # a dummy value could suffice.
-    sequencer = 0x37B2CD6BAAA515F520383BEE7B7094F892F4C770695FC329A8973E841A971AE
-
-    shared_state = SharedState(
-        contract_states=PatriciaTree(root=root, height=251),
-        block_info=BlockInfo.empty(sequencer_address=sequencer),
+    # shared_state = SharedState(
+    #     contract_states=PatriciaTree(root=root, height=251),
+    #     block_info=BlockInfo.empty(sequencer_address=sequencer),
+    # )
+    # carried_state = await shared_state.get_filled_carried_state(
+    #     ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
+    #     state_selector=StateSelector(contract_addresses={contract_address}),
+    # )
+    #
+    # state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
+    # result = await state.call_raw(
+    #     contract_address=contract_address,
+    #     selector=selector,
+    #     calldata=calldata,
+    #     caller_address=caller_address,
+    #     max_fee=0,
+    # )
+    # return [int(ret) for ret in result.retdata]
+    print(
+        f"""
+        call(
+            calldata={[hex(c) for c in calldata]},
+            caller_address={hex(caller_address)},
+            contract_address={hex(contract_address)},
+            root={hex(root)},
+            selector={hex(selector)},
+            sequencer={hex(sequencer)}
+        )
+        """,
+        file=sys.stderr,
     )
-    carried_state = await shared_state.get_filled_carried_state(
-        ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
-        state_selector=StateSelector(contract_addresses={contract_address}),
-    )
-
-    state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
-    result = await state.call_raw(
-        contract_address=contract_address,
-        selector=selector,
-        calldata=calldata,
-        caller_address=caller_address,
-        max_fee=0,
-    )
-    return int_list_to_hex_str_list(result.retdata)
+    return [bytes.fromhex("03")]
 
 
 class StorageRPCClient(Storage):
@@ -136,14 +140,23 @@ class VMServicer(vm_pb2_grpc.VMServicer):
 
     async def Call(self, request, context):
         try:
+            # Parse values.
+            calldata = [int.from_bytes(c, byteorder="big") for c in request.calldata]
+            caller_address = int.from_bytes(request.caller_address, byteorder="big")
+            contract_address = int.from_bytes(request.contract_address, byteorder="big")
+            root = int.from_bytes(request.root, byteorder="big")
+            selector = int.from_bytes(request.selector, byteorder="big")
+            sequencer = int.from_bytes(request.sequencer, byteorder="big")
+
             return vm_pb2.VMCallResponse(
                 retdata=await call(
                     adapter=self.storage,
-                    calldata=request.calldata,
-                    caller_address=request.caller_address,
-                    contract_address=request.contract_address,
-                    root=request.root,
-                    selector=request.selector,
+                    calldata=calldata,
+                    caller_address=caller_address,
+                    contract_address=contract_address,
+                    root=root,
+                    selector=selector,
+                    sequencer=sequencer,
                 )
             )
         except Exception as e:
