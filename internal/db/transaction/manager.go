@@ -48,6 +48,7 @@ func (m *Manager) GetTransaction(txHash types.TransactionHash) (types.IsTransact
 	}
 	// Check not found
 	if rawData == nil {
+		// notest
 		return nil, fmt.Errorf("GetTransaction: %w", db.ErrNotFound)
 	}
 	tx, err := unmarshalTransaction(rawData)

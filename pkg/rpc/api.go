@@ -194,6 +194,7 @@ func getBlockByHashOrTag(ctx context.Context, blockHashOrTag BlockHashOrTag, sco
 // StarknetGetBlockByHash represent the handler for getting a block by
 // its hash.
 func (HandlerRPC) StarknetGetBlockByHash(ctx context.Context, blockHashOrTag BlockHashOrTag) (*BlockResponse, error) {
+	// notest
 	block, err := getBlockByHashOrTag(ctx, blockHashOrTag, ScopeTxnHash)
 	if err := returnRPCErrResponse(
 		"StarknetGetBlockByHash",
@@ -326,6 +327,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 		if err = returnRPCErrResponse(controllerName, blockResponse, err); err != nil {
 			return "", err
 		}
+
 		blockNumber = blockResponse.BlockNumber
 	} else {
 		// notest
@@ -402,13 +404,11 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 // transaction given by the identified block and index in that block. If
 // no transaction is found, null is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
-	var err error
-	var block *types.Block
 	controllerName := "StarknetGetTransactionByBlockNumberAndIndex"
 
 	if blockNumber := blockNumberOrTag.Number; blockNumber != nil {
-		block, err = services.BlockService.GetBlockByNumber(*blockNumber)
-		if err = returnRPCErrResponse(controllerName, block, err); err != nil {
+		block, err := services.BlockService.GetBlockByNumber(*blockNumber)
+		if err := returnRPCErrResponse(controllerName, block, err); err != nil {
 			return nil, err
 		}
 
@@ -457,11 +457,14 @@ func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress types.Address,
 ) (*CodeResult, error) {
 	controllerName := "StarknetGetCode"
+	var err error
+	var abi *dbAbi.Abi
 
-	abi, err := services.AbiService.GetAbi(contractAddress.Hex())
-	if err := returnRPCErrResponse(controllerName, abi, err); err != nil && !db.IsNotFound(err) {
-		return nil, err
+	abi, err = services.AbiService.GetAbi(contractAddress.Hex())
+	if err != nil && !db.IsNotFound(err) {
+		return nil, returnRPCErrResponse(controllerName, abi, err)
 	}
+
 	if abi == nil {
 		// Try the feeder gateway for pending block
 		code, err := feederClient.GetCode(contractAddress.Felt().String(), "", string(BlocktagPending))
@@ -568,29 +571,27 @@ func (HandlerRPC) StarknetGetEvents(
 	return EventResponse{}, nil
 }
 
+// no test
 // util function
-func returnRPCErrResponse(controllerName string, obj interface{}, err error) error {
+func returnRPCErrResponse(controllerName string, res interface{}, err error) error {
 	if err != nil {
 		Logger.Errorf("%s: %s", controllerName, err)
-		if errors.As(err, &ErrCodeNotFound) {
-			return ErrCodeNotFound
+		if db.IsNotFound(err) ||
+			errors.Is(err, ErrBlockNotFound) ||
+			errors.Is(err, ErrAbiNotFound) ||
+			errors.Is(err, ErrCodeNotFound) {
+			return ErrResourceNotFound()
 		}
-		if errors.As(err, &ErrBlockNotFound) {
-			return ErrBlockNotFound
-		}
-		if errors.As(err, &ErrAbiNotFound) {
-			return ErrAbiNotFound
-		}
-		if errors.As(err, &ErrBlockHashOrTag) {
+		if errors.Is(err, ErrBlockHashOrTag) {
 			return ErrInvalidParams()
 		}
-		if errors.As(err, &ErrBlockIndex) {
+		if errors.Is(err, ErrBlockIndex) {
 			return ErrInvalidParams()
 		}
 		return ErrInternal()
 	}
 
-	if obj == nil {
+	if res == nil {
 		return ErrResourceNotFound()
 	}
 
