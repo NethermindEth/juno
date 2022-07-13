@@ -285,6 +285,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
 func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 	txnsHash := make([]types.TransactionHash, 0)
+	// notest
 	for _, data := range b.Transactions {
 		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
 	}
