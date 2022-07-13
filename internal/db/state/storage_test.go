@@ -48,7 +48,7 @@ func TestManager_Storage(t *testing.T) {
 	for _, data := range initialData {
 		err := manager.PutStorage(data.Contract, data.BlockNumber, data.Storage)
 		if err != nil {
-			t.Errorf("Unexpected error PutStorage: %s", err)
+			t.Errorf("unexpected error PutStorage: %s", err)
 		}
 	}
 	tests := [...]struct {
@@ -82,8 +82,8 @@ func TestManager_Storage(t *testing.T) {
 	}
 	for _, test := range tests {
 		obtainedStorage, err := manager.GetStorage(test.Contract, test.BlockNumber)
-		if err != nil {
-			t.Errorf("Unexpected error GetStorage: %s", err)
+		if err != nil && !db.IsNotFound(err) {
+			t.Errorf("unexpected error GetStorage: %s", err)
 		}
 		if test.Ok && obtainedStorage == nil {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)

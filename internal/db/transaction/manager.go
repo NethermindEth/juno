@@ -1,11 +1,9 @@
 package transaction
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
@@ -30,33 +28,32 @@ func (m *Manager) PutTransaction(txHash types.TransactionHash, tx types.IsTransa
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
 		// notest
-		return fmt.Errorf("PutTransaction: get transaction from database failed %w", err)
+		return fmt.Errorf("PutTransaction: %s: %w", db.ErrMarshal, err)
 	}
 	err = m.txDb.Put(txHash.Bytes(), rawData)
 	if err != nil {
 		// notest
-		return fmt.Errorf("PutTransaction: put transaction receipt into database failed %w", err)
+		return fmt.Errorf("PutTransaction: failed put operation: %w", err)
 	}
 	return nil
 }
 
 // GetTransaction searches in the database for the transaction associated with the
-// given key. If the key does not exist then returns nil.
+// given key. If the key does not exist then returns error.
 func (m *Manager) GetTransaction(txHash types.TransactionHash) (types.IsTransaction, error) {
 	rawData, err := m.txDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
-		return nil, fmt.Errorf("GetTransaction: get transaction from database failed %w", err)
+		return nil, fmt.Errorf("GetTransaction: failed get operation: %w", err)
 	}
 	// Check not found
 	if rawData == nil {
-		// notest
-		return nil, errors.New("GetTransaction: raw data is nil")
+		return nil, fmt.Errorf("GetTransaction: %w", db.ErrNotFound)
 	}
 	tx, err := unmarshalTransaction(rawData)
 	if err != nil {
 		// notest
-		return nil, fmt.Errorf("GetTransaction: unmarshal transaction receipt failed %w", err)
+		return nil, fmt.Errorf("GetTransaction: %s: %w", db.ErrUnmarshal, err)
 	}
 	return tx, nil
 }
@@ -68,34 +65,33 @@ func (m *Manager) PutReceipt(txHash types.TransactionHash, txReceipt *types.Tran
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		// notest
-		return fmt.Errorf("PutReceipt: unmarshal transaction receipt failed %w", err)
+		return fmt.Errorf("PutReceipt: %s: %w", db.ErrMarshal, err)
 	}
 	err = m.receiptDb.Put(txHash.Bytes(), rawData)
 	if err != nil {
 		// notest
-		return fmt.Errorf("PutReceipt: put transaction receipt into database failed %w", err)
+		return fmt.Errorf("PutReceipt: failed put operation: %w", err)
 	}
 	return nil
 }
 
 // GetReceipt searches in the database for the transaction receipt associated
-// with the given key. If the key does not exist then returns nil.
+// with the given key. If the key does not exist then returns error.
 func (m *Manager) GetReceipt(txHash types.TransactionHash) (*types.TransactionReceipt, error) {
 	rawData, err := m.receiptDb.Get(txHash.Bytes())
 	if err != nil {
 		// notest
-		Logger.With("error", err).Error("database error")
-		return nil, fmt.Errorf("GetReceipt: get hash from database failed %w", err)
+		return nil, fmt.Errorf("GetReceipt: failed get operation: %w", err)
 	}
 	// Check not found
 	if rawData == nil {
 		// notest
-		return nil, errors.New("GetReceipt: raw data is nil")
+		return nil, fmt.Errorf("GetReceipt: %w", db.ErrNotFound)
 	}
 	receipt, err := unmarshalTransactionReceipt(rawData)
 	if err != nil {
 		// notest
-		return receipt, fmt.Errorf("GetReceipt: unmarshal transaction receipt failed %w", err)
+		return nil, fmt.Errorf("GetReceipt: %s: %w", db.ErrUnmarshal, err)
 	}
 	return receipt, nil
 }

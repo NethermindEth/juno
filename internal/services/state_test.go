@@ -98,8 +98,8 @@ func TestService_Storage(t *testing.T) {
 
 	for _, data := range initialData {
 		err := StateService.UpdateStorage(data.Contract, data.BlockNumber, data.Storage)
-		if err != nil {
-			t.Error(err)
+		if err != nil && !db.IsNotFound(err) {
+			t.Errorf("unexpected error UpdateStorage: %s", err)
 		}
 	}
 	tests := [...]struct {
@@ -133,8 +133,8 @@ func TestService_Storage(t *testing.T) {
 	}
 	for _, test := range tests {
 		obtainedStorage, err := StateService.GetStorage(test.Contract, test.BlockNumber)
-		if err != nil {
-			t.Error(err)
+		if err != nil && !db.IsNotFound(err) {
+			t.Errorf("unexpected error GetStorage: %s", err)
 		}
 		if test.Ok && obtainedStorage == nil {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)

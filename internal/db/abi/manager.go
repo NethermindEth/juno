@@ -1,17 +1,10 @@
 package abi
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"google.golang.org/protobuf/proto"
-)
-
-var (
-	DbError        = errors.New("database error")
-	UnmarshalError = errors.New("unmarshal error")
-	MarshalError   = errors.New("marshal error")
 )
 
 // Manager is a database to store and get the contracts ABI.
@@ -25,30 +18,23 @@ func NewABIManager(database db.Database) *Manager {
 }
 
 // GetABI gets the ABI associated with the contract address. If the ABI does
-// not exist, then returns nil without error.
+// not exist, then returns error.
 func (m *Manager) GetABI(contractAddress string) (*Abi, error) {
 	key := []byte(contractAddress)   // Build the key from contract address
 	data, err := m.database.Get(key) // Query to database
-
 	if err != nil {
-		if db.ErrNotFound == err {
-			//TODO: talk with team about it.
-			//Higher level should be the one handling what to do with type of error
-			//we now use %w, error.is can be used
-			//return nil, errors.New("GetABI: " + db.ErrNotFound.Error())
-			return nil, nil
-		}
+		// notest
 		return nil, fmt.Errorf("GetABI: failed get operation: %w", err)
 	}
 	if data == nil {
 		// notest
-		return nil, fmt.Errorf("GetABI: data from key %s from get operation is null", key)
+		return nil, fmt.Errorf("GetABI: %w", db.ErrNotFound)
 	}
 	// Unmarshal the data from database
 	abi := new(Abi)
 	if err := proto.Unmarshal(data, abi); err != nil {
 		// notest
-		return nil, fmt.Errorf("GetABI: %s: %w", UnmarshalError, err)
+		return nil, fmt.Errorf("GetABI: %s: %w", db.ErrUnmarshal, err)
 	}
 
 	return abi, nil
@@ -61,7 +47,7 @@ func (m *Manager) PutABI(contractAddress string, abi *Abi) error {
 	value, err := proto.Marshal(abi)
 	if err != nil {
 		// notest
-		return fmt.Errorf("PutABI: %s: %w", MarshalError, err)
+		return fmt.Errorf("PutABI: %s: %w", db.ErrMarshal, err)
 	}
 	err = m.database.Put(key, value)
 	if err != nil {

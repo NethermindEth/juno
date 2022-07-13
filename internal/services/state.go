@@ -121,18 +121,18 @@ func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64,
 		Debug("UpdateStorage")
 
 	oldStorage, err := s.GetStorage(contractAddress, blockNumber)
-	if err != nil {
+	if err != nil && !db.IsNotFound(err) {
 		return err
 	}
 	if oldStorage == nil {
 		// notest
 		if err := s.StoreStorage(contractAddress, blockNumber, storage); err != nil {
-			return fmt.Errorf("UpdateStorage: failed storing storage: %w", err)
+			return fmt.Errorf("UpdateStorage: with default storage: %w", err)
 		}
 	} else {
 		oldStorage.Update(storage)
 		if err := s.StoreStorage(contractAddress, blockNumber, oldStorage); err != nil {
-			return fmt.Errorf("UpdateStorage: failed storing storage with old storage param: %w", err)
+			return fmt.Errorf("UpdateStorage: with old storage: %w", err)
 		}
 	}
 	return nil

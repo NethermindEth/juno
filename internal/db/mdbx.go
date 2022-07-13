@@ -1,20 +1,10 @@
 package db
 
 import (
-	"errors"
 	"fmt"
 	"runtime"
 
 	"github.com/torquem-ch/mdbx-go/mdbx"
-)
-
-var (
-	// ErrInternal represents an internal database error.
-	ErrInternal = errors.New("internal error")
-	// ErrNotFound is used when a key is not found in the database.
-	ErrNotFound = errors.New("not found error")
-	// ErrTx is returned when a transaction fails for some reason.
-	ErrTx = errors.New("transaction error")
 )
 
 // MDBXDatabase is a named database (isolated collection stored on the same file) of a certain
@@ -194,11 +184,6 @@ func (tx MDBXTransaction) Delete(key []byte) error {
 
 func (tx MDBXTransaction) NumberOfItems() (uint64, error) {
 	return numberOfItems(tx.txn, tx.dbi)
-}
-
-// IsNotFound checks is the given error is an ErrNotFound.
-func IsNotFound(err error) bool {
-	return errors.Is(err, ErrNotFound)
 }
 
 func has(txn *mdbx.Txn, dbi mdbx.DBI, key []byte) (bool, error) {

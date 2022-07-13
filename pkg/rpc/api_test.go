@@ -280,7 +280,10 @@ func TestStarknetGetCode(t *testing.T) {
 			types.HexToFelt("0x1114").Bytes(),
 		},
 	}
-	services.StateService.StoreCode(address.Bytes(), code)
+	err = services.StateService.StoreCode(address.Bytes(), code)
+	if err != nil {
+		t.Errorf("unexpected error StoreCode: %s", err)
+	}
 
 	abiResponse, _ := json.Marshal(wantAbi)
 	codeResponse := make([]types.Felt, len(code.Code))

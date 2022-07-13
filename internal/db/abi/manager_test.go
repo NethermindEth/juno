@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"gotest.tools/assert"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -32,6 +33,24 @@ func TestManager(t *testing.T) {
 		if !abi.Equal(abi2) {
 			t.Errorf("ABI are not equal after Put-Get operations, address: %s", address)
 		}
+	}
+	manager.Close()
+}
+
+func TestManager_withUnknownABI_shouldReturnError(t *testing.T) {
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "ABI")
+	if err != nil {
+		t.Error(err)
+	}
+	manager := NewABIManager(database)
+
+	for address, _ := range abis {
+		_, err := manager.GetABI(address)
+		assert.ErrorContains(t, err, db.ErrNotFound.Error())
 	}
 	manager.Close()
 }

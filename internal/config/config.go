@@ -21,6 +21,7 @@ const (
 	productionEnvValue                   = "PROD"
 )
 
+// notest
 func GetEnvironmentValue(envVal string) EnvironmentValue {
 	switch strings.ToUpper(envVal) {
 	case "DEV":
@@ -32,6 +33,7 @@ func GetEnvironmentValue(envVal string) EnvironmentValue {
 	}
 }
 
+// notest
 func (s EnvironmentValue) IsValid() bool {
 	switch s {
 	case developmentEnvValue, productionEnvValue:
@@ -40,6 +42,7 @@ func (s EnvironmentValue) IsValid() bool {
 	return false
 }
 
+// notest
 func (s EnvironmentValue) IsProduction() bool {
 	return s == productionEnvValue
 }

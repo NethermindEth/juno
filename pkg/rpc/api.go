@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -225,7 +226,7 @@ func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedSc
 	if dbBlock, err = services.BlockService.GetBlockByNumber(blockNumber); err != nil {
 		return nil, err
 	}
-  
+
 	if dbBlock == nil {
 		// notest
 		return nil, ErrBlockNotFound
@@ -457,7 +458,7 @@ func (HandlerRPC) StarknetGetCode(
 	controllerName := "StarknetGetCode"
 
 	abi, err := services.AbiService.GetAbi(contractAddress.Hex())
-	if err := returnRPCErrResponse(controllerName, abi, err); err != nil {
+	if err := returnRPCErrResponse(controllerName, abi, err); err != nil && !db.IsNotFound(err) {
 		return nil, err
 	}
 	if abi == nil {

@@ -20,55 +20,55 @@ func NewManager(database db.Database) *Manager {
 }
 
 // GetBlockByHash search the block with the given block hash. If the block does
-// not exist then returns nil. If any other type of error happens, then return error.
+// not exist then returns error. If any other type of error happens, then return error.
 func (manager *Manager) GetBlockByHash(blockHash types.BlockHash) (*types.Block, error) {
 	hashKey := buildHashKey(blockHash)              // Build the hash key
 	rawResult, err := manager.database.Get(hashKey) // Search on the database
 	if err != nil {
-		return nil, fmt.Errorf("GetBlockByHash: failed get hash key in database: %w", err)
+		return nil, fmt.Errorf("GetBlockByHash: failed get operation: %w", err)
 	}
 	// Check not found
 	if rawResult == nil {
 		// notest
-		return nil, nil
+		return nil, fmt.Errorf("GetBlockByHash: %w", db.ErrNotFound)
 	}
 	// Unmarshal the data
 	block, err := unmarshalBlock(rawResult)
 	if err != nil {
-		return nil, fmt.Errorf("GetBlockByHash: %w", err)
+		return nil, fmt.Errorf("GetBlockByHash: %s: %w", db.ErrUnmarshal, err)
 	}
 	return block, nil
 }
 
 // GetBlockByNumber search the block with the given block number. If the block
-// not exist then returns nil. If any other type of error happens, then return error.
+// not exist then returns error. If any other type of error happens, then return error.
 func (manager *Manager) GetBlockByNumber(blockNumber uint64) (*types.Block, error) {
 	// Build the number key
 	numberKey := buildNumberKey(blockNumber)
 	// Search for the hash key
 	hashKey, err := manager.database.Get(numberKey)
 	if err != nil {
-		return nil, fmt.Errorf("GetBlockByNumber: failed get number key in database: %w", err)
+		return nil, fmt.Errorf("GetBlockByNumber: failed get (hashkey) operation: %w", err)
 	}
 	// Check not found
 	if hashKey == nil {
 		// notest
-		return nil, nil
+		return nil, fmt.Errorf("GetBlockByNumber: %w", db.ErrNotFound)
 	}
 	// Search for the block
 	rawResult, err := manager.database.Get(hashKey)
 	if err != nil {
-		return nil, fmt.Errorf("GetBlockByNumber: failed get hash key in database: %w", err)
+		return nil, fmt.Errorf("GetBlockByNumber: failed get (block) operation: %w", err)
 	}
 	// Check not found
 	if rawResult == nil {
 		// notest
-		return nil, nil
+		return nil, fmt.Errorf("GetBlockByNumber: %w", db.ErrNotFound)
 	}
 	// Unmarshal the data
 	block, err := unmarshalBlock(rawResult)
 	if err != nil {
-		return nil, fmt.Errorf("GetBlockByNumber: %w", err)
+		return nil, fmt.Errorf("GetBlockByNumber: %w: %s", db.ErrUnmarshal, err)
 	}
 	return block, nil
 }
@@ -82,18 +82,18 @@ func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) 
 	// Encode the block as []byte
 	rawValue, err := marshalBlock(block)
 	if err != nil {
-		return fmt.Errorf("PutBlock: %w", err)
+		return fmt.Errorf("PutBlock: %s: %w", db.ErrMarshal, err)
 	}
 	// TODO: Use transaction?
 	// Save (hashKey, block)
 	err = manager.database.Put(hashKey, rawValue)
 	if err != nil {
-		return fmt.Errorf("PutBlock: failed put hashkey -> rawvalue in database: %w", err)
+		return fmt.Errorf("PutBlock: failed put (hashkey -> rawvalue) operation: %w", err)
 	}
 	// Save (hashNumber, hashKey)
 	err = manager.database.Put(numberKey, hashKey)
 	if err != nil {
-		return fmt.Errorf("PutBlock: failed put numberkey -> hashkey in database: %w", err)
+		return fmt.Errorf("PutBlock: failed put (numberkey -> hashkey) operation: %w", err)
 	}
 	return nil
 }

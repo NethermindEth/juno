@@ -41,7 +41,10 @@ func TestManager(t *testing.T) {
 	manager := NewManager(database)
 	for _, block := range blocks {
 		key := block.BlockHash
-		manager.PutBlock(key, block)
+		err := manager.PutBlock(key, block)
+		if err != nil {
+			t.Errorf("unexpected err calling PutBlock %s", err)
+		}
 		// Get block by hash
 		returnedBlock, err := manager.GetBlockByHash(key)
 		if err != nil {

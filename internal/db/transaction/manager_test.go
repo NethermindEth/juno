@@ -87,7 +87,10 @@ func initManager(t *testing.T) *Manager {
 func TestManager_PutTransaction(t *testing.T) {
 	manager := initManager(t)
 	for _, tx := range txs {
-		manager.PutTransaction(tx.GetHash(), tx)
+		err := manager.PutTransaction(tx.GetHash(), tx)
+		if err != nil {
+			t.Errorf("unexpected error during PutTransaction: %s", err)
+		}
 	}
 	manager.Close()
 }
@@ -96,7 +99,10 @@ func TestManager_GetTransaction(t *testing.T) {
 	manager := initManager(t)
 	// Insert all the transactions
 	for _, tx := range txs {
-		manager.PutTransaction(tx.GetHash(), tx)
+		err := manager.PutTransaction(tx.GetHash(), tx)
+		if err != nil {
+			t.Errorf("unexpected error during PutTransaction: %s", err)
+		}
 	}
 	// Get all the transactions and compare
 	for _, tx := range txs {
@@ -163,7 +169,10 @@ var receipts = []*types.TransactionReceipt{
 func TestManager_PutReceipt(t *testing.T) {
 	manager := initManager(t)
 	for _, receipt := range receipts {
-		manager.PutReceipt(receipt.TxHash, receipt)
+		err := manager.PutReceipt(receipt.TxHash, receipt)
+		if err != nil {
+			t.Errorf("unexpected error during PutReceipt: %s", err)
+		}
 	}
 	manager.Close()
 }
@@ -171,7 +180,10 @@ func TestManager_PutReceipt(t *testing.T) {
 func TestManager_GetReceipt(t *testing.T) {
 	manager := initManager(t)
 	for _, receipt := range receipts {
-		manager.PutReceipt(receipt.TxHash, receipt)
+		err := manager.PutReceipt(receipt.TxHash, receipt)
+		if err != nil {
+			t.Errorf("unexpected error during PutReceipt: %s", err)
+		}
 	}
 	for _, receipt := range receipts {
 		outReceipt, _ := manager.GetReceipt(receipt.TxHash)
