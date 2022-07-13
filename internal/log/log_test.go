@@ -1,9 +1,6 @@
 package log
 
-import (
-	"errors"
-	"testing"
-)
+import "testing"
 
 func TestReplaceGlobalLogger(t *testing.T) {
 	type args struct {
@@ -35,9 +32,7 @@ func TestReplaceGlobalLogger(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if err := ReplaceGlobalLogger(test.args.enableJsonOutput, test.args.verbosityLevel); err != nil {
-				if !errors.Is(err, test.err) {
-					t.Errorf("ReplaceGlobalLogger() error = %v, wantErr %v", err, test.err.Error())
-				}
+				t.Errorf("ReplaceGlobalLogger() error = %v", err)
 			}
 		})
 	}
