@@ -22,9 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StorageAdapterClient interface {
-	GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*TrieNode, error)
-	GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractState, error)
-	GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractDefinition, error)
+	GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMTrieNode, error)
+	GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMContractState, error)
+	GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMContractDefinition, error)
 }
 
 type storageAdapterClient struct {
@@ -35,8 +35,8 @@ func NewStorageAdapterClient(cc grpc.ClientConnInterface) StorageAdapterClient {
 	return &storageAdapterClient{cc}
 }
 
-func (c *storageAdapterClient) GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*TrieNode, error) {
-	out := new(TrieNode)
+func (c *storageAdapterClient) GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMTrieNode, error) {
+	out := new(VMTrieNode)
 	err := c.cc.Invoke(ctx, "/StorageAdapter/GetPatriciaNode", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -44,8 +44,8 @@ func (c *storageAdapterClient) GetPatriciaNode(ctx context.Context, in *GetValue
 	return out, nil
 }
 
-func (c *storageAdapterClient) GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractState, error) {
-	out := new(ContractState)
+func (c *storageAdapterClient) GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMContractState, error) {
+	out := new(VMContractState)
 	err := c.cc.Invoke(ctx, "/StorageAdapter/GetContractState", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -53,8 +53,8 @@ func (c *storageAdapterClient) GetContractState(ctx context.Context, in *GetValu
 	return out, nil
 }
 
-func (c *storageAdapterClient) GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*ContractDefinition, error) {
-	out := new(ContractDefinition)
+func (c *storageAdapterClient) GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMContractDefinition, error) {
+	out := new(VMContractDefinition)
 	err := c.cc.Invoke(ctx, "/StorageAdapter/GetContractDefinition", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -66,9 +66,9 @@ func (c *storageAdapterClient) GetContractDefinition(ctx context.Context, in *Ge
 // All implementations must embed UnimplementedStorageAdapterServer
 // for forward compatibility
 type StorageAdapterServer interface {
-	GetPatriciaNode(context.Context, *GetValueRequest) (*TrieNode, error)
-	GetContractState(context.Context, *GetValueRequest) (*ContractState, error)
-	GetContractDefinition(context.Context, *GetValueRequest) (*ContractDefinition, error)
+	GetPatriciaNode(context.Context, *GetValueRequest) (*VMTrieNode, error)
+	GetContractState(context.Context, *GetValueRequest) (*VMContractState, error)
+	GetContractDefinition(context.Context, *GetValueRequest) (*VMContractDefinition, error)
 	mustEmbedUnimplementedStorageAdapterServer()
 }
 
@@ -76,13 +76,13 @@ type StorageAdapterServer interface {
 type UnimplementedStorageAdapterServer struct {
 }
 
-func (UnimplementedStorageAdapterServer) GetPatriciaNode(context.Context, *GetValueRequest) (*TrieNode, error) {
+func (UnimplementedStorageAdapterServer) GetPatriciaNode(context.Context, *GetValueRequest) (*VMTrieNode, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPatriciaNode not implemented")
 }
-func (UnimplementedStorageAdapterServer) GetContractState(context.Context, *GetValueRequest) (*ContractState, error) {
+func (UnimplementedStorageAdapterServer) GetContractState(context.Context, *GetValueRequest) (*VMContractState, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetContractState not implemented")
 }
-func (UnimplementedStorageAdapterServer) GetContractDefinition(context.Context, *GetValueRequest) (*ContractDefinition, error) {
+func (UnimplementedStorageAdapterServer) GetContractDefinition(context.Context, *GetValueRequest) (*VMContractDefinition, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetContractDefinition not implemented")
 }
 func (UnimplementedStorageAdapterServer) mustEmbedUnimplementedStorageAdapterServer() {}

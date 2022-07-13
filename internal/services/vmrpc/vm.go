@@ -95,39 +95,39 @@ func NewStorageRPCServer(stateManager *statedb.Manager) *storageRPCServer {
 	}
 }
 
-func (s *storageRPCServer) GetPatriciaNode(ctx context.Context, request *GetValueRequest) (*TrieNode, error) {
+func (s *storageRPCServer) GetPatriciaNode(ctx context.Context, request *GetValueRequest) (*VMTrieNode, error) {
 	f := types.BytesToFelt(request.GetKey())
 	node, err := s.stateManager.GetTrieNode(&f)
 	if err != nil {
 		return nil, err
 	}
-	return &TrieNode{
+	return &VMTrieNode{
 		Len:    uint32(node.Path().Len()),
 		Path:   node.Path().Bytes(),
 		Bottom: node.Bottom().Bytes(),
 	}, nil
 }
 
-func (s *storageRPCServer) GetContractState(ctx context.Context, request *GetValueRequest) (*ContractState, error) {
+func (s *storageRPCServer) GetContractState(ctx context.Context, request *GetValueRequest) (*VMContractState, error) {
 	f := types.BytesToFelt(request.GetKey())
 	st, err := s.stateManager.GetContractState(&f)
 	if err != nil {
 		return nil, err
 	}
-	return &ContractState{
+	return &VMContractState{
 		ContractHash: st.ContractHash.Bytes(),
 		StorageRoot:  st.StorageRoot.Bytes(),
 		Height:       uint32(state.StorageTrieHeight),
 	}, nil
 }
 
-func (s *storageRPCServer) GetContractDefinition(ctx context.Context, request *GetValueRequest) (*ContractDefinition, error) {
+func (s *storageRPCServer) GetContractDefinition(ctx context.Context, request *GetValueRequest) (*VMContractDefinition, error) {
 	f := types.BytesToFelt(request.GetKey())
 	cd, err := s.stateManager.GetContract(&f)
 	if err != nil {
 		return nil, err
 	}
-	return &ContractDefinition{
+	return &VMContractDefinition{
 		Value: cd.FullDef,
 	}, nil
 }

@@ -2,7 +2,6 @@ package services
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"testing"
 
@@ -41,31 +40,14 @@ func stateServiceInitServices(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
-	if err != nil {
-		t.Fail()
-	}
 	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
 		t.Fail()
 	}
-	StateService.Setup(stateDatabase, binaryDatabase, codeDatabase)
+	StateService.Setup(stateDatabase, codeDatabase)
 	err = StateService.Run()
 	if err != nil {
 		t.Error(err)
-	}
-}
-
-func TestStateService_Code(t *testing.T) {
-	stateServiceInitServices(t)
-	defer StateService.Close(context.Background())
-
-	for _, code := range codes {
-		StateService.StoreBinaryCode(code.Address, code.Code)
-		obtainedCode := StateService.GetBinaryCode(code.Address)
-		if !equalCodes(t, code.Code, obtainedCode) {
-			t.Errorf("Code are different afte Put-Get operation")
-		}
 	}
 }
 

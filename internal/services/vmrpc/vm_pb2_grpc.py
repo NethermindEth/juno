@@ -17,17 +17,17 @@ class StorageAdapterStub(object):
         self.GetPatriciaNode = channel.unary_unary(
                 '/StorageAdapter/GetPatriciaNode',
                 request_serializer=vm__pb2.GetValueRequest.SerializeToString,
-                response_deserializer=vm__pb2.TrieNode.FromString,
+                response_deserializer=vm__pb2.VMTrieNode.FromString,
                 )
         self.GetContractState = channel.unary_unary(
                 '/StorageAdapter/GetContractState',
                 request_serializer=vm__pb2.GetValueRequest.SerializeToString,
-                response_deserializer=vm__pb2.ContractState.FromString,
+                response_deserializer=vm__pb2.VMContractState.FromString,
                 )
         self.GetContractDefinition = channel.unary_unary(
                 '/StorageAdapter/GetContractDefinition',
                 request_serializer=vm__pb2.GetValueRequest.SerializeToString,
-                response_deserializer=vm__pb2.ContractDefinition.FromString,
+                response_deserializer=vm__pb2.VMContractDefinition.FromString,
                 )
 
 
@@ -58,17 +58,17 @@ def add_StorageAdapterServicer_to_server(servicer, server):
             'GetPatriciaNode': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPatriciaNode,
                     request_deserializer=vm__pb2.GetValueRequest.FromString,
-                    response_serializer=vm__pb2.TrieNode.SerializeToString,
+                    response_serializer=vm__pb2.VMTrieNode.SerializeToString,
             ),
             'GetContractState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetContractState,
                     request_deserializer=vm__pb2.GetValueRequest.FromString,
-                    response_serializer=vm__pb2.ContractState.SerializeToString,
+                    response_serializer=vm__pb2.VMContractState.SerializeToString,
             ),
             'GetContractDefinition': grpc.unary_unary_rpc_method_handler(
                     servicer.GetContractDefinition,
                     request_deserializer=vm__pb2.GetValueRequest.FromString,
-                    response_serializer=vm__pb2.ContractDefinition.SerializeToString,
+                    response_serializer=vm__pb2.VMContractDefinition.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -93,7 +93,7 @@ class StorageAdapter(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetPatriciaNode',
             vm__pb2.GetValueRequest.SerializeToString,
-            vm__pb2.TrieNode.FromString,
+            vm__pb2.VMTrieNode.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -110,7 +110,7 @@ class StorageAdapter(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetContractState',
             vm__pb2.GetValueRequest.SerializeToString,
-            vm__pb2.ContractState.FromString,
+            vm__pb2.VMContractState.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -127,7 +127,7 @@ class StorageAdapter(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetContractDefinition',
             vm__pb2.GetValueRequest.SerializeToString,
-            vm__pb2.ContractDefinition.FromString,
+            vm__pb2.VMContractDefinition.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

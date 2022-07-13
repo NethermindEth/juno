@@ -14,14 +14,14 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08vm.proto\"\x1e\n\x0fGetValueRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\"5\n\x08TrieNode\x12\x0b\n\x03len\x18\x01 \x01(\r\x12\x0e\n\x06\x62ottom\x18\x02 \x01(\x0c\x12\x0c\n\x04path\x18\x03 \x01(\x0c\"J\n\rContractState\x12\x14\n\x0c\x63ontractHash\x18\x01 \x01(\x0c\x12\x13\n\x0bstorageRoot\x18\x02 \x01(\x0c\x12\x0e\n\x06height\x18\x03 \x01(\r\"#\n\x12\x43ontractDefinition\x12\r\n\x05value\x18\x01 \x01(\x0c\"s\n\rVMCallRequest\x12\x10\n\x08\x63\x61lldata\x18\x01 \x03(\t\x12\x16\n\x0e\x63\x61ller_address\x18\x02 \x01(\t\x12\x18\n\x10\x63ontract_address\x18\x03 \x01(\t\x12\x0c\n\x04root\x18\x04 \x01(\t\x12\x10\n\x08selector\x18\x05 \x01(\t\"!\n\x0eVMCallResponse\x12\x0f\n\x07retdata\x18\x01 \x03(\t2\xbc\x01\n\x0eStorageAdapter\x12\x30\n\x0fGetPatriciaNode\x12\x10.GetValueRequest\x1a\t.TrieNode\"\x00\x12\x36\n\x10GetContractState\x12\x10.GetValueRequest\x1a\x0e.ContractState\"\x00\x12@\n\x15GetContractDefinition\x12\x10.GetValueRequest\x1a\x13.ContractDefinition\"\x00\x32/\n\x02VM\x12)\n\x04\x43\x61ll\x12\x0e.VMCallRequest\x1a\x0f.VMCallResponse\"\x00\x42\x37Z5github.com/NethermindEth/juno/internal/services/vmrpcb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08vm.proto\"\x1e\n\x0fGetValueRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\"7\n\nVMTrieNode\x12\x0b\n\x03len\x18\x01 \x01(\r\x12\x0e\n\x06\x62ottom\x18\x02 \x01(\x0c\x12\x0c\n\x04path\x18\x03 \x01(\x0c\"L\n\x0fVMContractState\x12\x14\n\x0c\x63ontractHash\x18\x01 \x01(\x0c\x12\x13\n\x0bstorageRoot\x18\x02 \x01(\x0c\x12\x0e\n\x06height\x18\x03 \x01(\r\"%\n\x14VMContractDefinition\x12\r\n\x05value\x18\x01 \x01(\x0c\"s\n\rVMCallRequest\x12\x10\n\x08\x63\x61lldata\x18\x01 \x03(\t\x12\x16\n\x0e\x63\x61ller_address\x18\x02 \x01(\t\x12\x18\n\x10\x63ontract_address\x18\x03 \x01(\t\x12\x0c\n\x04root\x18\x04 \x01(\t\x12\x10\n\x08selector\x18\x05 \x01(\t\"!\n\x0eVMCallResponse\x12\x0f\n\x07retdata\x18\x01 \x03(\t2\xc2\x01\n\x0eStorageAdapter\x12\x32\n\x0fGetPatriciaNode\x12\x10.GetValueRequest\x1a\x0b.VMTrieNode\"\x00\x12\x38\n\x10GetContractState\x12\x10.GetValueRequest\x1a\x10.VMContractState\"\x00\x12\x42\n\x15GetContractDefinition\x12\x10.GetValueRequest\x1a\x15.VMContractDefinition\"\x00\x32/\n\x02VM\x12)\n\x04\x43\x61ll\x12\x0e.VMCallRequest\x1a\x0f.VMCallResponse\"\x00\x42\x37Z5github.com/NethermindEth/juno/internal/services/vmrpcb\x06proto3')
 
 
 
 _GETVALUEREQUEST = DESCRIPTOR.message_types_by_name['GetValueRequest']
-_TRIENODE = DESCRIPTOR.message_types_by_name['TrieNode']
-_CONTRACTSTATE = DESCRIPTOR.message_types_by_name['ContractState']
-_CONTRACTDEFINITION = DESCRIPTOR.message_types_by_name['ContractDefinition']
+_VMTRIENODE = DESCRIPTOR.message_types_by_name['VMTrieNode']
+_VMCONTRACTSTATE = DESCRIPTOR.message_types_by_name['VMContractState']
+_VMCONTRACTDEFINITION = DESCRIPTOR.message_types_by_name['VMContractDefinition']
 _VMCALLREQUEST = DESCRIPTOR.message_types_by_name['VMCallRequest']
 _VMCALLRESPONSE = DESCRIPTOR.message_types_by_name['VMCallResponse']
 GetValueRequest = _reflection.GeneratedProtocolMessageType('GetValueRequest', (_message.Message,), {
@@ -31,26 +31,26 @@ GetValueRequest = _reflection.GeneratedProtocolMessageType('GetValueRequest', (_
   })
 _sym_db.RegisterMessage(GetValueRequest)
 
-TrieNode = _reflection.GeneratedProtocolMessageType('TrieNode', (_message.Message,), {
-  'DESCRIPTOR' : _TRIENODE,
+VMTrieNode = _reflection.GeneratedProtocolMessageType('VMTrieNode', (_message.Message,), {
+  'DESCRIPTOR' : _VMTRIENODE,
   '__module__' : 'vm_pb2'
-  # @@protoc_insertion_point(class_scope:TrieNode)
+  # @@protoc_insertion_point(class_scope:VMTrieNode)
   })
-_sym_db.RegisterMessage(TrieNode)
+_sym_db.RegisterMessage(VMTrieNode)
 
-ContractState = _reflection.GeneratedProtocolMessageType('ContractState', (_message.Message,), {
-  'DESCRIPTOR' : _CONTRACTSTATE,
+VMContractState = _reflection.GeneratedProtocolMessageType('VMContractState', (_message.Message,), {
+  'DESCRIPTOR' : _VMCONTRACTSTATE,
   '__module__' : 'vm_pb2'
-  # @@protoc_insertion_point(class_scope:ContractState)
+  # @@protoc_insertion_point(class_scope:VMContractState)
   })
-_sym_db.RegisterMessage(ContractState)
+_sym_db.RegisterMessage(VMContractState)
 
-ContractDefinition = _reflection.GeneratedProtocolMessageType('ContractDefinition', (_message.Message,), {
-  'DESCRIPTOR' : _CONTRACTDEFINITION,
+VMContractDefinition = _reflection.GeneratedProtocolMessageType('VMContractDefinition', (_message.Message,), {
+  'DESCRIPTOR' : _VMCONTRACTDEFINITION,
   '__module__' : 'vm_pb2'
-  # @@protoc_insertion_point(class_scope:ContractDefinition)
+  # @@protoc_insertion_point(class_scope:VMContractDefinition)
   })
-_sym_db.RegisterMessage(ContractDefinition)
+_sym_db.RegisterMessage(VMContractDefinition)
 
 VMCallRequest = _reflection.GeneratedProtocolMessageType('VMCallRequest', (_message.Message,), {
   'DESCRIPTOR' : _VMCALLREQUEST,
@@ -74,18 +74,18 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._serialized_options = b'Z5github.com/NethermindEth/juno/internal/services/vmrpc'
   _GETVALUEREQUEST._serialized_start=12
   _GETVALUEREQUEST._serialized_end=42
-  _TRIENODE._serialized_start=44
-  _TRIENODE._serialized_end=97
-  _CONTRACTSTATE._serialized_start=99
-  _CONTRACTSTATE._serialized_end=173
-  _CONTRACTDEFINITION._serialized_start=175
-  _CONTRACTDEFINITION._serialized_end=210
-  _VMCALLREQUEST._serialized_start=212
-  _VMCALLREQUEST._serialized_end=327
-  _VMCALLRESPONSE._serialized_start=329
-  _VMCALLRESPONSE._serialized_end=362
-  _STORAGEADAPTER._serialized_start=365
-  _STORAGEADAPTER._serialized_end=553
-  _VM._serialized_start=555
-  _VM._serialized_end=602
+  _VMTRIENODE._serialized_start=44
+  _VMTRIENODE._serialized_end=99
+  _VMCONTRACTSTATE._serialized_start=101
+  _VMCONTRACTSTATE._serialized_end=177
+  _VMCONTRACTDEFINITION._serialized_start=179
+  _VMCONTRACTDEFINITION._serialized_end=216
+  _VMCALLREQUEST._serialized_start=218
+  _VMCALLREQUEST._serialized_end=333
+  _VMCALLRESPONSE._serialized_start=335
+  _VMCALLRESPONSE._serialized_end=368
+  _STORAGEADAPTER._serialized_start=371
+  _STORAGEADAPTER._serialized_end=565
+  _VM._serialized_start=567
+  _VM._serialized_end=614
 # @@protoc_insertion_point(module_scope)
