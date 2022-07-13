@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/services"
@@ -567,7 +568,7 @@ func (HandlerRPC) StarknetGetEvents(
 	return EventResponse{}, nil
 }
 
-//util function
+// util function
 func returnRPCErrResponse(controllerName string, obj interface{}, err error) error {
 	if err != nil {
 		Logger.Errorf("%s: %s", controllerName, err)

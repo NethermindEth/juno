@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+
 	"github.com/NethermindEth/juno/internal/db"
 
 	"google.golang.org/protobuf/proto"

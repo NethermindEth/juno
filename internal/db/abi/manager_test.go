@@ -1,8 +1,9 @@
 package abi
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 
 	"github.com/NethermindEth/juno/internal/db"
 )
@@ -48,7 +49,7 @@ func TestManager_withUnknownABI_shouldReturnError(t *testing.T) {
 	}
 	manager := NewABIManager(database)
 
-	for address, _ := range abis {
+	for address := range abis {
 		_, err := manager.GetABI(address)
 		assert.ErrorContains(t, err, db.ErrNotFound.Error())
 	}
