@@ -135,6 +135,9 @@ func main() {
 			}
 			newConfig.REST.Port = port
 		}).
+		AddInputField("Database Path", runtime.DbPath, 50, nil, func(dbPath string) {
+			newConfig.DbPath = dbPath
+		}).
 		AddDropDown("Logger Verbosity", verbosityList, 0, func(option string, index int) {
 			if option == "NO CHANGE" {
 				newConfig.Logger.VerbosityLevel = runtime.Logger.VerbosityLevel
@@ -146,7 +149,7 @@ func main() {
 			newConfig.Logger.EnableJsonOutput = checked
 		})
 
-	// Create flex layout with forms.
+	// Create a layout where half of the available space is given to the left form and the other half to the right form.
 	flex := tview.NewFlex().
 		AddItem(formLeft, 0, 1, true).
 		AddItem(formRight, 0, 1, true)
