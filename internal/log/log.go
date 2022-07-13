@@ -27,6 +27,7 @@ func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string) error {
 
 	// Timestamp format (ISO8601) and time zone (UTC)
 	config.EncoderConfig.EncodeTime = zapcore.TimeEncoder(func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		// notest
 		enc.AppendString(t.UTC().Format("2006-01-02T15:04:05Z0700"))
 	})
 
