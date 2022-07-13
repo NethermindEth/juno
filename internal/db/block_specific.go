@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // BlockSpecificDatabase is a database to store values that must have a history of versions on the blockchain.
@@ -103,6 +103,6 @@ func newCompoundedKey(key []byte, blockNumber uint64) []byte {
 }
 
 func panicWithError(err error) {
-	log.Default.With("error", err).Error("unexpected error")
+	Logger.With("error", err).Error("unexpected error")
 	panic(any(err))
 }

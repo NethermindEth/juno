@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/types"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // Echo replies with the same message.
@@ -160,7 +160,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 }
 
 func getBlockByHash(ctx context.Context, blockHash types.BlockHash, scope RequestedScope) (*BlockResponse, error) {
-	log.Default.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
+	Logger.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
 	dbBlock, err := services.BlockService.GetBlockByHash(blockHash)
 	if err != nil {
 		// notest
@@ -201,7 +201,7 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag 
 }
 
 func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
-	log.Default.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
+	Logger.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
 	dbBlock, err := services.BlockService.GetBlockByNumber(blockNumber)
 	if err != nil {
 		// notest

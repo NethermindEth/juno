@@ -187,8 +187,8 @@ func TestGetMDBXEnv(t *testing.T) {
 	env = nil
 	initialized = false
 	_, err := GetMDBXEnv()
-	if !errors.Is(err, ErrEnvNoInitialized) {
-		t.Errorf("expected ErrEnvNoInitialized error")
+	if !errors.Is(err, ErrEnvNotInitialized) {
+		t.Errorf("expected ErrEnvNotInitialized error")
 	}
 	err = InitializeMDBXEnv(t.TempDir(), 1, 0)
 	if err != nil {

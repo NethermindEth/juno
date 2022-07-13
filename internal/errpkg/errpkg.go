@@ -11,14 +11,14 @@ package errpkg
 import (
 	"os"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // CheckFatal checks whether an error occurred, logs it using the default
 // logger, and then calls os.Exit(1).
 func CheckFatal(err error, msg string) {
 	if err != nil {
-		log.Default.With("Error", err).Error(msg)
+		Logger.With("Error", err).Error(msg)
 		os.Exit(1)
 	}
 }

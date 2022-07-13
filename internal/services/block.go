@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -34,7 +34,7 @@ func (s *blockService) Setup(database db.Database) {
 // values are used.
 func (s *blockService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("Block Service")
+		s.logger = Logger.Named("Block Service")
 	}
 
 	if err := s.service.Run(); err != nil {
