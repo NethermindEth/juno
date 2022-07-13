@@ -31,6 +31,7 @@ type Client struct {
 
 // NewClient returns a new Client.
 func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
+	// notest
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		Logger.With("Error", err).Error("Unable to parse base URL")
