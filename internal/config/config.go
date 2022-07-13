@@ -82,6 +82,7 @@ var Runtime *Config
 
 func init() {
 	// Set user config directory.
+	// notest
 	d, err := os.UserConfigDir()
 	if err != nil {
 		Logger.With("Error", err).Error("Could not get user config directory")
@@ -89,6 +90,7 @@ func init() {
 	Dir = filepath.Join(d, "juno")
 
 	// Set user data directory.
+	// notest
 	DataDir, err = func() (string, error) {
 		// notest
 		switch runtime.GOOS {
@@ -121,6 +123,7 @@ func init() {
 			return "", errors.New("user data directory not found")
 		}
 	}()
+	// If there is an error
 	if err != nil {
 		Logger.With("Error", err).Error("Could not get user data directory")
 	}
@@ -138,6 +141,7 @@ func New() {
 			Logger.With("Error", err).Error("Could not create config directory")
 		}
 	}
+	// notest
 	data, err := yaml.Marshal(&Config{
 		Logger: loggerConfig{
 			VerbosityLevel:   "debug",
