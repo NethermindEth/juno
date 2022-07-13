@@ -121,14 +121,14 @@ func initConfig() error {
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			Logger.Fatalf("Failed to read config file: %v", err)
+			Logger.With("Error", err).Error("Failed to read config file")
 		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	if err != nil {
-		Logger.Fatalf("Failed to unmarshal runtime config: %v", err)
+		Logger.With("Error", err).Error("Failed to unmarshal runtime config")
 	}
 
 	// If config successfully loaded, return no error.

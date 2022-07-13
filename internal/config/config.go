@@ -84,7 +84,7 @@ func init() {
 	// Set user config directory.
 	d, err := os.UserConfigDir()
 	if err != nil {
-		Logger.Fatalf("Could not get user config directory: %v", err)
+		Logger.With("Error", err).Error("Could not get user config directory")
 	}
 	Dir = filepath.Join(d, "juno")
 
@@ -111,7 +111,7 @@ func init() {
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
 					err = os.MkdirAll(result, 0o744)
 					if err != nil {
-						Logger.Fatalf("Could not create user data directory: %v", err)
+						Logger.With("Error", err).Error("Could not create user data directory")
 					}
 				}
 				return result, nil
@@ -122,7 +122,7 @@ func init() {
 		}
 	}()
 	if err != nil {
-		Logger.Fatalf("Could not get user data directory: %v", err)
+		Logger.With("Error", err).Error("Could not get user data directory")
 	}
 }
 
@@ -135,7 +135,7 @@ func New() {
 		// notest
 		err := os.MkdirAll(Dir, 0o755)
 		if err != nil {
-			Logger.Fatalf("Could not create config directory: %v", err)
+			Logger.With("Error", err).Error("Could not create config directory")
 		}
 	}
 	data, err := yaml.Marshal(&Config{
@@ -154,14 +154,14 @@ func New() {
 		},
 	})
 	if err != nil {
-		Logger.Fatalf("Could not marshal default config: %v", err)
+		Logger.With("Error", err).Error("Could not marshal default config")
 	}
 	// Create default Juno configuration file if it does not exist
 	if _, err := os.Stat(f); errors.Is(err, os.ErrNotExist) {
 		// notest
 		err = os.WriteFile(f, data, 0o644)
 		if err != nil {
-			Logger.Fatalf("Could not create default config file: %v", err)
+			Logger.With("Error", err).Error("Could not create default config file")
 		}
 	}
 }

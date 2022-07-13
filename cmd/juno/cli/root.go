@@ -188,14 +188,14 @@ func initConfig() {
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			Logger.Fatalf("Error reading config file: %s", err)
+			Logger.With("Error", err).Error("Error reading config file")
 		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	if err != nil {
-		Logger.Fatalf("Error unmarshalling Config instance: %s", err)
+		Logger.With("Error", err).Error("Error unmarshalling Config instance")
 	}
 
 	// Configure logger - we want the logger to be created right after the config has been set
@@ -203,7 +203,7 @@ func initConfig() {
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
 	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
 	if err != nil {
-		Logger.Fatalf("Error initialising Logger: %s", err)
+		Logger.With("Error", err).Error("Error initialising Logger")
 	}
 
 	Logger.With(
