@@ -225,6 +225,7 @@ func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedSc
 	if dbBlock, err = services.BlockService.GetBlockByNumber(blockNumber); err != nil {
 		return nil, err
 	}
+  
 	if dbBlock == nil {
 		// notest
 		return nil, ErrBlockNotFound
