@@ -37,7 +37,7 @@ func (g *Gateway) Shutdown(ctx context.Context) {
 	case <-ctx.Done():
 		err := g.Server.Shutdown(ctx)
 		if err != nil {
-			zap.Default.With("Error", err).Info("Exiting with error.")
+			zap.Logger.With("Error", err).Info("Exiting with error.")
 			return
 		}
 	default:
