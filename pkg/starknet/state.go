@@ -12,9 +12,13 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
+	abiM "github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/block"
+	"github.com/NethermindEth/juno/internal/db/contracthash"
+	"github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
@@ -36,10 +40,19 @@ type Synchronizer struct {
 	gpsVerifier         *starknetTypes.Dictionary
 	facts               *starknetTypes.Dictionary
 	chainID             int64
+
+	contractHashManager *contracthash.Manager
+	abiManager          *abiM.Manager
+	stateManager        *state.Manager
+	transactionManager  *transaction.Manager
+	blockManager        *block.Manager
 }
 
 // NewSynchronizer creates a new Synchronizer
-func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client) *Synchronizer {
+func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
+	contractHashM *contracthash.Manager, abiM *abiM.Manager, stateM *state.Manager,
+	transactionM *transaction.Manager, blockM *block.Manager,
+) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
@@ -64,6 +77,11 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 		gpsVerifier:         starknetTypes.NewDictionary(txnDb, "gps_verifier"),
 		facts:               starknetTypes.NewDictionary(txnDb, "facts"),
 		chainID:             chainID.Int64(),
+		contractHashManager: contractHashM,
+		abiManager:          abiM,
+		stateManager:        stateM,
+		transactionManager:  transactionM,
+		blockManager:        blockM,
 	}
 }
 
@@ -357,22 +375,20 @@ func (s *Synchronizer) l1Sync() error {
 // updateAndCommitState applies `stateDiff` to the local state and
 // commits the changes to the database.
 // notest
-func (s *Synchronizer) updateAndCommitState(
-	stateDiff *starknetTypes.StateDiff,
-	newRoot string,
+func (s *Synchronizer) updateAndCommitState(stateDiff *starknetTypes.StateDiff, newRoot string,
 	sequenceNumber uint64,
 ) uint64 {
 	start := time.Now()
 	// Save contract hashes of the new contracts
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
-		services.ContractHashService.StoreContractHash(remove0x(deployedContract.Address), contractHash)
+		s.contractHashManager.StoreContractHash(remove0x(deployedContract.Address), contractHash)
 	}
 	// Build contractAddress-contractHash map
 	contractHashMap := make(map[string]*felt.Felt)
 	for contractAddress := range stateDiff.StorageDiffs {
 		formattedAddress := remove0x(contractAddress)
-		contractHash, err := services.ContractHashService.GetContractHash(formattedAddress)
+		contractHash, err := s.contractHashManager.GetContractHash(formattedAddress)
 		if err != nil {
 			// notest
 			metr.IncreaseCountStarknetStateFailed()
@@ -438,7 +454,7 @@ func getFactInfo(starknetLogs []ethtypes.Log, contract ethAbi.ABI, fact string, 
 }
 
 // Close closes the client for the Layer 1 Ethereum node
-func (s *Synchronizer) Close(_ context.Context) {
+func (s *Synchronizer) Close() {
 	// notest
 	Logger.Info("Closing Layer 1 Synchronizer")
 	if s.ethereumClient != nil {
@@ -552,9 +568,9 @@ func (s *Synchronizer) updateAbiAndCode(update starknetTypes.StateDiff, blockHas
 			return
 		}
 		// Save the ABI
-		services.AbiService.StoreAbi(remove0x(v.Address), toDbAbi(code.Abi))
+		s.abiManager.PutABI(remove0x(v.Address), toDbAbi(code.Abi))
 		// Save the contract code
-		services.StateService.StoreCode(common.Hex2Bytes(remove0x(v.Address)), byteCodeToStateCode(code.Bytecode))
+		s.stateManager.PutCode(common.Hex2Bytes(remove0x(v.Address)), byteCodeToStateCode(code.Bytecode))
 	}
 }
 
@@ -566,7 +582,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 	}
 	Logger.With("Block Hash", block.BlockHash).
 		Info("Got block")
-	services.BlockService.StoreBlock(new(felt.Felt).SetHex(block.BlockHash), feederBlockToDBBlock(block))
+	s.blockManager.PutBlock(new(felt.Felt).SetHex(block.BlockHash), feederBlockToDBBlock(block))
 
 	for _, bTxn := range block.Transactions {
 		transactionInfo, err := s.feederGatewayClient.GetTransaction(bTxn.TransactionHash, "")
@@ -575,7 +591,7 @@ func (s *Synchronizer) updateBlocksAndTransactions(blockHash, blockNumber string
 		}
 		Logger.With("Transaction Hash", transactionInfo.Transaction.TransactionHash).
 			Info("Got transactions of block")
-		services.TransactionService.StoreTransaction(new(felt.Felt).SetHex(bTxn.TransactionHash),
+		s.transactionManager.PutTransaction(new(felt.Felt).SetHex(bTxn.TransactionHash),
 			feederTransactionToDBTransaction(transactionInfo))
 	}
 }
