@@ -204,15 +204,6 @@ func initConfig() {
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,
 	).Info("Logger values")
-	Logger.Info("Default values from the config file are:")
-	Logger.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
-	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.
