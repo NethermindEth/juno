@@ -25,7 +25,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 // Cobra configuration.
@@ -101,11 +100,6 @@ var (
 			erru := viper.Unmarshal(&config.Runtime)
 			errpkg.CheckFatal(erru, "Unable to unmarshal runtime config instance.")
 
-			flag, _ := cmd.Flags().GetString("updateconfigfile")
-
-			if flag != "" {
-				updateConfigFile(cfgFile)
-			}
 			// Running the app
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
@@ -176,6 +170,8 @@ var (
 				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
 			}
 			// Print with the updated values
+			// Printing these here because printing them in the
+			// initConfig only gives the value from the config file
 			Logger.With(
 				"Database Path", config.Runtime.DbPath,
 				"Rpc Port", config.Runtime.RPC.Port,
@@ -244,26 +240,6 @@ func cleanup() {
 	Logger.Info("App closing...Bye!!!")
 }
 
-func updateConfigFile(cfgFile string) {
-	Logger.Info("Updating the config file with the flags/environment variables")
-	var f string
-	if cfgFile != "" {
-		// Use Config file specified by the flag.
-		f = cfgFile
-	} else {
-		// Use the default path for user configuration.
-		f = filepath.Join(config.Dir, "juno.yaml")
-	}
-	data, err := yaml.Marshal(&config.Runtime)
-	if err != nil {
-		Logger.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
-	}
-	err = os.WriteFile(f, data, 0o644)
-	if err != nil {
-		Logger.With("Error", err).Fatal("Failed to write config file.")
-	}
-}
-
 // init defines flags and handles configuration.
 func init() {
 	fmt.Println(longMsg)
@@ -293,8 +269,6 @@ func init() {
 	rootCmd.Flags().StringP("ethereumnode", "e", "", "Set the ethereum node")
 	// DBPath
 	rootCmd.Flags().StringP("dbpath", "d", "", "Set the DB Path")
-	// Option for updating the config file
-	rootCmd.Flags().BoolP("updateconfigfile", "U", false, "Set it to true if you would like to update the config file")
 }
 
 // initConfig reads in Config file or environment variables if set.
@@ -348,15 +322,6 @@ func initConfig() {
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,
 	).Info("Logger values")
-
-	Logger.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
-	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.
