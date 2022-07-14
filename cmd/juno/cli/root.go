@@ -56,20 +56,6 @@ var (
 				os.Exit(0)
 			}(sig)
 
-			// Check if the user has provided any value for configurations
-			// The order of preference
-			// 1. Values provided with flags
-			// 2. Values provided using environment variables
-			// 3. Values from config file (the default)
-			// Note that the config file isn't modified by these flags.
-			// The values provided to the flags or environment variables are
-			// used for that particular run only
-			// To update the config file, the user needs to make the
-			// -U flag true
-
-			erru := viper.Unmarshal(&config.Runtime)
-			errpkg.CheckFatal(erru, "Unable to unmarshal runtime config instance.")
-
 			// Running the app
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
@@ -180,6 +166,14 @@ func init() {
 		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
 	rootCmd.Flags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
+
+	// The order of preference
+	// 1. Values provided with flags
+	// 2. Values provided using environment variables
+	// 3. Values from config file (the default)
+	// Note that the config file isn't modified by these flags.
+	// The values provided to the flags or environment variables are
+	// used for that particular run only
 	// RPC
 	rootCmd.Flags().IntP("rpcport", "p", 0, "Set the RPC Port")
 	rootCmd.Flags().BoolP("rpcenabled", "P", true, "Set if you would like to enable the RPC")
