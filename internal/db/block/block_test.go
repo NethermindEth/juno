@@ -1,6 +1,7 @@
 package block
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -42,19 +43,27 @@ func TestManager(t *testing.T) {
 	manager := NewManager(database)
 	for _, block := range blocks {
 		key := block.BlockHash
-		manager.PutBlock(key, block)
+		if err := manager.PutBlock(key, block); err != nil {
+			t.Error(err)
+		}
 		// Get block by hash
-		returnedBlock := manager.GetBlockByHash(key)
-		if returnedBlock == nil {
-			t.Errorf("unexpected nil after search for block with hash %s", block.BlockHash)
+		returnedBlock, err := manager.GetBlockByHash(key)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				t.Errorf("unexpected nil after search for block with hash %s", block.BlockHash)
+			}
+			t.Error(err)
 		}
 		if !reflect.DeepEqual(block, returnedBlock) {
 			t.Errorf("block")
 		}
 		// Get block by number
-		returnedBlock = manager.GetBlockByNumber(block.BlockNumber)
-		if returnedBlock == nil {
-			t.Errorf("unexpected nil after search for block with number %d", block.BlockNumber)
+		returnedBlock, err = manager.GetBlockByNumber(block.BlockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				t.Errorf("unexpected nil after search for block with number %d", block.BlockNumber)
+			}
+			t.Error(err)
 		}
 		if !reflect.DeepEqual(block, returnedBlock) {
 			t.Errorf("block")

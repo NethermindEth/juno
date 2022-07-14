@@ -4,11 +4,9 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db"
-	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 // Manager manages all the related to the database of Transactions. All the
@@ -27,75 +25,57 @@ func NewManager(txDb, receiptDb db.Database) *Manager {
 // PutTransaction stores new transactions in the database. This method does not
 // check if the key already exists. In the case, that the key already exists the
 // value is overwritten.
-func (m *Manager) PutTransaction(txHash *felt.Felt, tx types.IsTransaction) {
+func (m *Manager) PutTransaction(txHash *felt.Felt, tx types.IsTransaction) error {
 	rawData, err := marshalTransaction(tx)
 	if err != nil {
-		// notest
-		Logger.With("error", err).Panic("error marshalling Transaction")
+		return err
 	}
-	err = m.txDb.Put(txHash.ByteSlice(), rawData)
-	if err != nil {
-		// notest
-		Logger.With("error", err).Panicf("database error")
+	if err := m.txDb.Put(txHash.ByteSlice(), rawData); err != nil {
+		return err
 	}
+	return nil
 }
 
 // GetTransaction searches in the database for the transaction associated with the
 // given key. If the key does not exist then returns nil.
-func (m *Manager) GetTransaction(txHash *felt.Felt) types.IsTransaction {
+func (m *Manager) GetTransaction(txHash *felt.Felt) (types.IsTransaction, error) {
 	rawData, err := m.txDb.Get(txHash.ByteSlice())
 	if err != nil {
-		// notest
-		Logger.With("error", err).Panicf("database error")
-	}
-	// Check not found
-	if rawData == nil {
-		// notest
-		return nil
+		return nil, err
 	}
 	tx, err := unmarshalTransaction(rawData)
 	if err != nil {
-		// notest
-		Logger.With("error", err).Panicf("unmarshalling error")
+		return nil, err
 	}
-	return tx
+	return tx, nil
 }
 
 // PutReceipt stores  new transactions receipts in the database. This method
 // does not check if the key already exists. In the case, that the key already
 // exists the value is overwritten.
-func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt *types.TransactionReceipt) {
+func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt *types.TransactionReceipt) error {
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
-		// notest
-		Logger.With("error", err).Panic("error marshaling TransactionReceipt")
+		return err
 	}
-	err = m.receiptDb.Put(txHash.ByteSlice(), rawData)
-	if err != nil {
-		// notest
-		Logger.With("error", err).Panic("database error")
+	if err := m.receiptDb.Put(txHash.ByteSlice(), rawData); err != nil {
+		return err
 	}
+	return nil
 }
 
 // GetReceipt searches in the database for the transaction receipt associated
 // with the given key. If the key does not exist then returns nil.
-func (m *Manager) GetReceipt(txHash *felt.Felt) *types.TransactionReceipt {
+func (m *Manager) GetReceipt(txHash *felt.Felt) (*types.TransactionReceipt, error) {
 	rawData, err := m.receiptDb.Get(txHash.ByteSlice())
 	if err != nil {
-		// notest
-		Logger.With("error", err).Panicf("database error")
-	}
-	// Check not found
-	if rawData == nil {
-		// notest
-		return nil
+		return nil, err
 	}
 	receipt, err := unmarshalTransactionReceipt(rawData)
 	if err != nil {
-		// notest
-		Logger.With("error", err).Panicf("unmarshalling error")
+		return nil, err
 	}
-	return receipt
+	return receipt, nil
 }
 
 // Close closes the manager, specific the associated database.
@@ -130,8 +110,7 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 
 func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	var protoTx Transaction
-	err := proto.Unmarshal(b, &protoTx)
-	if err != nil {
+	if err := proto.Unmarshal(b, &protoTx); err != nil {
 		return nil, err
 	}
 	if tx := protoTx.GetInvoke(); tx != nil {
@@ -182,8 +161,7 @@ func marshalTransactionReceipt(receipt *types.TransactionReceipt) ([]byte, error
 
 func unmarshalTransactionReceipt(b []byte) (*types.TransactionReceipt, error) {
 	var protoReceipt TransactionReceipt
-	err := proto.Unmarshal(b, &protoReceipt)
-	if err != nil {
+	if err := proto.Unmarshal(b, &protoReceipt); err != nil {
 		return nil, err
 	}
 	receipt := &types.TransactionReceipt{

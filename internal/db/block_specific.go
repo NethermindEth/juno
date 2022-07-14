@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	. "github.com/NethermindEth/juno/internal/log"
@@ -86,7 +87,7 @@ func (db *BlockSpecificDatabase) get(key []byte) []byte {
 	data, err := db.database.Get(key)
 	if err != nil {
 		// notest
-		if IsNotFound(err) {
+		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		panicWithError(err)

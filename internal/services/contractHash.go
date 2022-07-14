@@ -60,38 +60,16 @@ func (s *contractHashService) Close(ctx context.Context) {
 	s.db.Close()
 }
 
-func (s *contractHashService) StoreContractHash(contractAddress string, contractHash *felt.Felt) {
+func (s *contractHashService) StoreContractHash(contractAddress string, contractHash *felt.Felt) error {
 	s.AddProcess()
 	defer s.DoneProcess()
-
-	s.logger.
-		With("contractAddress", contractAddress).
-		Debug("StoreContractHash")
-
-	err := s.db.Put([]byte(contractAddress), contractHash.ByteSlice())
-	if err != nil {
-		// notest
-		s.logger.
-			With("error", err).
-			Error("StoreContractHash error")
-	}
+	return s.db.Put([]byte(contractAddress), contractHash.ByteSlice())
 }
 
-func (s *contractHashService) GetContractHash(contractAddress string) *felt.Felt {
+func (s *contractHashService) GetContractHash(contractAddress string) (*felt.Felt, error) {
 	// notest
 	s.AddProcess()
 	defer s.DoneProcess()
-
-	s.logger.
-		With("contractAddress", contractAddress).
-		Debug("GetContractHash")
-
 	rawData, err := s.db.Get([]byte(contractAddress))
-	if err != nil {
-		s.logger.
-			With("error", err).
-			Error("GetContractHash error")
-		return nil
-	}
-	return new(felt.Felt).SetBytes(rawData)
+	return new(felt.Felt).SetBytes(rawData), err
 }

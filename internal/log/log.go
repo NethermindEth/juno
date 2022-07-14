@@ -2,9 +2,8 @@
 package log
 
 import (
-	"fmt"
 	"log"
-	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -17,42 +16,41 @@ func init() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		// notest
-		log.Fatalln("failed to initialise application logger")
+		log.Fatalln("failed to initialise logger")
 	}
 	Logger = logger.Sugar()
 }
 
 // ReplaceGlobalLogger replace the logger and inject it globally
 func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string) error {
-	// parsing log verbosity level
-	zapVerbosityLevel, err := zapcore.ParseLevel(verbosityLevel)
-	if err != nil {
-		return fmt.Errorf("parsing logger verbosity level failed %s", err)
-	}
+	config := zap.NewProductionConfig()
 
-	// get the output format
-	encoder := getEncoder(enableJsonOutput)
+	// Timestamp format (ISO8601) and time zone (UTC)
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoder(func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		// notest
+		enc.AppendString(t.UTC().Format("2006-01-02T15:04:05Z0700"))
+	})
 
-	// define where logs will be output
-	writerSyncer := os.Stdout
-
-	// initiate logger core config
-	core := zapcore.NewCore(encoder, writerSyncer, zapVerbosityLevel)
-	zapLogger := zap.New(core)
-
-	// inject globally
-	zap.ReplaceGlobals(zapLogger)
-
-	// replace default
-	Logger = zapLogger.Sugar()
-
-	return nil
-}
-
-// getEncoder define the output format
-func getEncoder(enableJsonOutput bool) zapcore.Encoder {
+	// Output encoding
+	config.Encoding = "console"
 	if enableJsonOutput {
-		return zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+		config.Encoding = "json"
 	}
-	return zapcore.NewConsoleEncoder(zap.NewProductionEncoderConfig())
+
+	// Log level
+	logLevel, err := zapcore.ParseLevel(verbosityLevel)
+	if err != nil {
+		// notest
+		return err
+	}
+	config.Level.SetLevel(logLevel)
+
+	logger, err := config.Build()
+	if err != nil {
+		// notest
+		return err
+	}
+
+	Logger = logger.Sugar()
+	return nil
 }

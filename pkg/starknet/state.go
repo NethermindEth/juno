@@ -373,7 +373,13 @@ func (s *Synchronizer) updateAndCommitState(
 	contractHashMap := make(map[string]*felt.Felt)
 	for contractAddress := range stateDiff.StorageDiffs {
 		formattedAddress := remove0x(contractAddress)
-		contractHashMap[formattedAddress] = services.ContractHashService.GetContractHash(formattedAddress)
+		contractHash, err := services.ContractHashService.GetContractHash(formattedAddress)
+		if err != nil {
+			// notest
+			metr.IncreaseCountStarknetStateFailed()
+			Logger.Fatal("Couldn't get contract hash")
+		}
+		contractHashMap[formattedAddress] = contractHash
 	}
 
 	err := s.database.RunTxn(func(txn db.DatabaseOperations) error {

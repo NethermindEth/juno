@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -46,7 +47,9 @@ func TestManager_Storage(t *testing.T) {
 	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
 	manager := NewStateManager(codeDb, storageDatabase)
 	for _, data := range initialData {
-		manager.PutStorage(data.Contract, data.BlockNumber, data.Storage)
+		if err := manager.PutStorage(data.Contract, data.BlockNumber, data.Storage); err != nil {
+			t.Error(err)
+		}
 	}
 	tests := [...]struct {
 		Contract    string
@@ -78,8 +81,11 @@ func TestManager_Storage(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		obtainedStorage := manager.GetStorage(test.Contract, test.BlockNumber)
-		if test.Ok && obtainedStorage == nil {
+		obtainedStorage, err := manager.GetStorage(test.Contract, test.BlockNumber)
+		if err != nil && !errors.Is(err, db.ErrNotFound) {
+			t.Error(err)
+		}
+		if test.Ok && errors.Is(err, db.ErrNotFound) {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)
 		}
 		if obtainedStorage != nil && test.Checks != nil {

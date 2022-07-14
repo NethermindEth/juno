@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -95,7 +96,9 @@ func TestTransactionService_StoreTransaction(t *testing.T) {
 	}
 
 	for _, tx := range txs {
-		TransactionService.StoreTransaction(tx.GetHash(), tx)
+		if err := TransactionService.StoreTransaction(tx.GetHash(), tx); err != nil {
+			t.Error(err)
+		}
 	}
 	TransactionService.Close(context.Background())
 }
@@ -109,11 +112,19 @@ func TestManager_GetTransaction(t *testing.T) {
 	}
 	// Insert all the transactions
 	for _, tx := range txs {
-		TransactionService.StoreTransaction(tx.GetHash(), tx)
+		if err := TransactionService.StoreTransaction(tx.GetHash(), tx); err != nil {
+			t.Error(err)
+		}
 	}
 	// Get all the transactions and compare
 	for _, tx := range txs {
-		outTx := TransactionService.GetTransaction(tx.GetHash())
+		outTx, err := TransactionService.GetTransaction(tx.GetHash())
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				t.Errorf("transaction not found: %s", tx.GetHash().String())
+			}
+			t.Error(err)
+		}
 
 		if !reflect.DeepEqual(tx, outTx) {
 			t.Errorf("transaction not equal after Put/Get operations")
@@ -178,7 +189,9 @@ func TestManager_PutReceipt(t *testing.T) {
 		t.Errorf("error running the service: %s", err)
 	}
 	for _, receipt := range receipts {
-		TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		if err := TransactionService.StoreReceipt(receipt.TxHash, receipt); err != nil {
+			t.Error(err)
+		}
 	}
 	TransactionService.Close(context.Background())
 }
@@ -191,10 +204,18 @@ func TestManager_GetReceipt(t *testing.T) {
 		t.Errorf("error running the service: %s", err)
 	}
 	for _, receipt := range receipts {
-		TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		if err := TransactionService.StoreReceipt(receipt.TxHash, receipt); err != nil {
+			t.Error(err)
+		}
 	}
 	for _, receipt := range receipts {
-		outReceipt := TransactionService.GetReceipt(receipt.TxHash)
+		outReceipt, err := TransactionService.GetReceipt(receipt.TxHash)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				t.Errorf("receipt not found: %s", receipt.TxHash.String())
+			}
+			t.Error(err)
+		}
 
 		if !reflect.DeepEqual(receipt, outReceipt) {
 			t.Errorf("receipt not equal after Put/Get operations")
