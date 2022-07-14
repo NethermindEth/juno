@@ -86,6 +86,8 @@ var (
 			handleConfig("starknet.api_sync", "APISYNC", flagb, true, 0)
 			flags, _ = cmd.Flags().GetString("feedergateway")
 			handleConfig("starknet.feeder_gateway", "FEEDERGATEWAY", flags, "", 2)
+			flags, _ = cmd.Flags().GetString("network")
+			handleConfig("starknet.network", "NETWORK", flags, "", 2)
 
 			flags, _ = cmd.Flags().GetString("ethereumnode")
 			handleConfig("ethereum.node", "ETHEREUMNODE", flags, "", 2)
