@@ -3,7 +3,6 @@ package trie
 import (
 	"encoding/json"
 	"fmt"
-	//"math/big"
 	"math/rand"
 	"testing"
 	"time"
