@@ -105,7 +105,6 @@ func (c *Cache) Put(k []byte, v []byte) {
 	c.front.prev = newN
 	newN.next = c.front
 	c.front = newN
-
 }
 
 // Get returns the value for the given key. If the key is not found then

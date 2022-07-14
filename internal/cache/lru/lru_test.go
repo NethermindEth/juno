@@ -84,7 +84,6 @@ func TestCache_Put(t *testing.T) {
 		if res := bytes.Compare(wantV, gotV); res != 0 {
 			t.Fatalf("expected value \"%s\" for key \"%s\" but got \"%s\"", wantV, k, gotV)
 		}
-
 	})
 	t.Run("node with same key but different value at the back of the full cache", func(t *testing.T) {
 		wantCap := 5
@@ -130,7 +129,6 @@ func TestCache_Put(t *testing.T) {
 		if res := bytes.Compare(wantV, gotV); res != 0 {
 			t.Fatalf("expected value \"%s\" for key \"%s\" but got \"%s\"", wantV, k, gotV)
 		}
-
 	})
 	t.Run("node with same key but different value at the back of the sparse cache", func(t *testing.T) {
 		wantCap, wantLen := 10, 5
