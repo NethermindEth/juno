@@ -204,7 +204,7 @@ func initConfig() {
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,
 	).Info("Logger values")
-
+	Logger.Info("Default values from the config file are:")
 	Logger.With(
 		"Database Path", config.Runtime.DbPath,
 		"Rpc Port", config.Runtime.RPC.Port,
