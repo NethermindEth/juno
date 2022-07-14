@@ -199,10 +199,10 @@ func init() {
 	rootCmd.Flags().StringP("ethereumnode", "e", "", "Set the ethereum node")
 	// DBPath
 	rootCmd.Flags().StringP("dbpath", "d", "", "Set the DB Path")
-	bindWithConfigEnv()
+	bindWithConfigAndEnv()
 }
 
-func bindWithConfigEnv() {
+func bindWithConfigAndEnv() {
 	viper.BindPFlag("rpc.port", rootCmd.Flags().Lookup("rpcport"))
 	viper.BindEnv("rpc.port", "RPCPORT")
 	viper.BindPFlag("rpcenabled", rootCmd.Flags().Lookup("rpcenabled"))
