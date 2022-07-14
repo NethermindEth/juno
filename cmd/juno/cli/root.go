@@ -67,38 +67,6 @@ var (
 			// To update the config file, the user needs to make the
 			// -U flag true
 
-			flagb, _ := cmd.Flags().GetBool("rpcenabled")
-			handleConfig("rpc.enabled", "RPCENABLED", flagb, true, 0)
-			flagi, _ := cmd.Flags().GetInt("rpcport")
-			handleConfig("rpc.port", "RPCPORT", flagi, 0, 1)
-
-			flagb, _ = cmd.Flags().GetBool("metricsenabled")
-			handleConfig("metrics.enabled", "METRICSENABLED", flagb, true, 0)
-			flagi, _ = cmd.Flags().GetInt("metricsport")
-			handleConfig("metrics.port", "METRICSPORT", flagi, 0, 1)
-
-			flags, _ := cmd.Flags().GetString("dbpath")
-			handleConfig("db_path", "DBPATH", flags, "", 2)
-
-			flagb, _ = cmd.Flags().GetBool("starknetenabled")
-			handleConfig("starknet.enabled", "STARKNETENABLED", flagb, true, 0)
-			flagb, _ = cmd.Flags().GetBool("apisync")
-			handleConfig("starknet.api_sync", "APISYNC", flagb, true, 0)
-			flags, _ = cmd.Flags().GetString("feedergateway")
-			handleConfig("starknet.feeder_gateway", "FEEDERGATEWAY", flags, "", 2)
-			flags, _ = cmd.Flags().GetString("network")
-			handleConfig("starknet.network", "NETWORK", flags, "", 2)
-
-			flags, _ = cmd.Flags().GetString("ethereumnode")
-			handleConfig("ethereum.node", "ETHEREUMNODE", flags, "", 2)
-
-			flagb, _ = cmd.Flags().GetBool("restenabled")
-			handleConfig("rest.enabled", "RESTENABLED", flagb, true, 0)
-			flagi, _ = cmd.Flags().GetInt("restport")
-			handleConfig("rest.port", "RESTPORT", flagi, 0, 1)
-			flags, _ = cmd.Flags().GetString("restprefix")
-			handleConfig("rest.prefix", "RESTPREFIX", flags, "", 2)
-
 			erru := viper.Unmarshal(&config.Runtime)
 			errpkg.CheckFatal(erru, "Unable to unmarshal runtime config instance.")
 
@@ -197,46 +165,6 @@ var (
 	}
 )
 
-// Function for updating the parameters of the config
-// configParam - The argument for corresponding to the viper variable
-// envVarName - The corresponding environment variable name
-// flag - The value of the flag (if provided by the user)
-// defaultVal - The default value of the flag
-// t - The datatype of the config parameter (can be bool, int, string)
-func handleConfig(configParam, envVarName string, flag, defaultVal interface{}, t int) error {
-	// check if any flag has been provided
-	// if no flag has been provided, check for the environment variable
-	// if no flag or env variable has been provided, do nothing
-	// do nothing -> juno runs with values loaded from config
-	if flag != defaultVal {
-		viper.Set(configParam, flag)
-	} else {
-		// os.Getenv() returns a string
-		// therefore, we have to typecast
-		envVar := os.Getenv(envVarName)
-		if envVar != "" {
-			if t == 0 {
-				enabled, err := strconv.ParseBool(envVar)
-				if err != nil {
-					return err
-				}
-				viper.Set(configParam, enabled)
-			} else {
-				if t == 1 {
-					num, err := strconv.Atoi(envVar)
-					if err != nil {
-						return err
-					}
-					viper.Set(configParam, num)
-				} else {
-					viper.Set(configParam, envVar)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func cleanup() {
 	processHandler.Close()
 	Logger.Info("App closing...Bye!!!")
@@ -271,6 +199,36 @@ func init() {
 	rootCmd.Flags().StringP("ethereumnode", "e", "", "Set the ethereum node")
 	// DBPath
 	rootCmd.Flags().StringP("dbpath", "d", "", "Set the DB Path")
+	bindWithConfigEnv()
+}
+
+func bindWithConfigEnv() {
+	viper.BindPFlag("rpc.port", rootCmd.Flags().Lookup("rpcport"))
+	viper.BindEnv("rpc.port", "RPCPORT")
+	viper.BindPFlag("rpcenabled", rootCmd.Flags().Lookup("rpcenabled"))
+	viper.BindEnv("rpc.enabled", "RPCENABLED")
+	viper.BindPFlag("rest.port", rootCmd.Flags().Lookup("restport"))
+	viper.BindEnv("rest.port", "RESTPORT")
+	viper.BindPFlag("rest.enabled", rootCmd.Flags().Lookup("restenabled"))
+	viper.BindEnv("rest.enabled", "RESTENABLED")
+	viper.BindPFlag("rest.prefix", rootCmd.Flags().Lookup("restprefix"))
+	viper.BindEnv("rest.prefix", "RESTPREFIX")
+	viper.BindPFlag("metrics.port", rootCmd.Flags().Lookup("metricsport"))
+	viper.BindEnv("metrics.port", "METRICSPORT")
+	viper.BindPFlag("metrics.enabled", rootCmd.Flags().Lookup("metricsenabled"))
+	viper.BindEnv("metrics.enabled", "METRICSENABLED")
+	viper.BindPFlag("starknet.feeder_gateway", rootCmd.Flags().Lookup("feedergateway"))
+	viper.BindEnv("starknet.feeder_gateway", "FEEDERGATEWAY")
+	viper.BindPFlag("starknet.network", rootCmd.Flags().Lookup("network"))
+	viper.BindEnv("starknet.network", "NETWORK")
+	viper.BindPFlag("starknet.enabled", rootCmd.Flags().Lookup("starknetenabled"))
+	viper.BindEnv("starknet.enabled", "STARKNETENABLED")
+	viper.BindPFlag("starknet.api_sync", rootCmd.Flags().Lookup("apisync"))
+	viper.BindEnv("starknet.api_sync", "APISYNC")
+	viper.BindPFlag("ethereum.node", rootCmd.Flags().Lookup("ethereumnode"))
+	viper.BindEnv("ethereum.node", "ETHEREUMNODE")
+	viper.BindPFlag("dbpath", rootCmd.Flags().Lookup("dbpath"))
+	viper.BindEnv("dbpath", "DBPATH")
 }
 
 // initConfig reads in Config file or environment variables if set.
