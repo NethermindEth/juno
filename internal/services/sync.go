@@ -64,7 +64,6 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 		err = SyncService.stateDiffCollector.Run()
 		if err != nil {
 			panic("API should initialize")
-			return
 		}
 	}()
 }
@@ -86,14 +85,6 @@ func (s *syncService) Run() error {
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
-
-		if s.preValidateStateDiff(stateDiff) {
-			s.logger.With("Old State Root from StateDiff", stateDiff.OldRoot,
-				"Current State Root", s.state.Root().Hex(),
-				"Block Number", s.latestBlockSynced+1).
-				Error("Fail validation before apply StateDiff")
-			continue
-		}
 
 		err := s.updateState(stateDiff)
 		if err != nil || s.postValidateStateDiff(stateDiff) {
@@ -122,13 +113,6 @@ func (s *syncService) Run() error {
 
 func (s *syncService) postValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
 	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.NewRoot)
-}
-
-func (s *syncService) preValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
-	// The old state root that comes with the stateDiff should match with the current stateRoot
-	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.OldRoot) &&
-		// Should be the next block in the chain
-		s.latestBlockSynced+1 == stateDiff.BlockNumber
 }
 
 func (s *syncService) updateState(stateDiff *starknetTypes.StateDiff) error {
