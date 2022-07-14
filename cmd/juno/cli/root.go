@@ -280,7 +280,7 @@ func init() {
 	// Rest
 	rootCmd.Flags().IntP("restport", "r", 0, "Set the REST Port")
 	rootCmd.Flags().BoolP("restenabled", "R", true, "Set if you would like to enable the REST")
-	rootCmd.Flags().StringP("restprefix", "x", viper.GetString("rest.prefix"), "Set the REST prefix")
+	rootCmd.Flags().StringP("restprefix", "x", "", "Set the REST prefix")
 	// Metrics
 	rootCmd.Flags().IntP("metricsport", "m", 0, "Set the port where you would like to see the metrics")
 	rootCmd.Flags().BoolP("metricsenabled", "M", true, "Set if you would like to enable metrics")
