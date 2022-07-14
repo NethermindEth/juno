@@ -5,7 +5,9 @@ package prometheus
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	. "github.com/NethermindEth/juno/internal/log"
 
@@ -341,31 +343,33 @@ func SetupMetric(port string) *Server {
 	return &Server{server: http.Server{Addr: port, Handler: mux}}
 }
 
-// ListenAndServe listens on the TCP network and handles requests on
-// incoming connections.
-func (s *Server) ListenAndServe() error {
+// ListenAndServe listens to TCP port and handles requests on incoming
+// connections. ListenAndServe runs in a separate go routine so that it doesn't
+// block the caller.
+func (s *Server) ListenAndServe(errCh chan<- error) {
 	// notest
-	Logger.Info("Handling metrics .... ")
+	go s.listenAndServe(errCh)
+}
 
-	err := s.server.ListenAndServe()
-	if err != nil {
-		Logger.With("Error", err).Error("Error occurred while trying to handle metrics.")
-		return err
+func (s *Server) listenAndServe(errCh chan<- error) {
+	// notest
+	Logger.Info("Handling Metrics...")
+
+	// Since ListenAndServe always returns an error we need to ensure that there
+	// is no write to a closed channel. Therefore, we check for ErrServerClosed
+	// since that is only returned after ShutDown or Closed is called. Hence, no
+	// write to the channel is required. Otherwise, any other error is written
+	// which will cause the program to exit.
+	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		errCh <- errors.New("Failed to ListenAndServe on Metrics server: " + err.Error())
 	}
-	return nil
+	close(errCh)
 }
 
 // Close gracefully shuts down the server.
-func (s *Server) Close(ctx context.Context) {
+func (s *Server) Close(timeout time.Duration) error {
 	// notest
-	Logger.Info("Closing the Metrics server.")
-	select {
-	case <-ctx.Done():
-		err := s.server.Shutdown(ctx)
-		if err != nil {
-			Logger.With("Error", err).Info("Exiting with error.")
-			return
-		}
-	default:
-	}
+	Logger.Info("Shutting down Metrics server...")
+	ctx, _ := context.WithTimeout(context.Background(), timeout)
+	return s.server.Shutdown(ctx)
 }
