@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -55,8 +56,16 @@ func TestStateService_Code(t *testing.T) {
 	defer StateService.Close(context.Background())
 
 	for _, code := range codes {
-		StateService.StoreCode(code.Address, code.Code)
-		obtainedCode := StateService.GetCode(code.Address)
+		if err := StateService.StoreCode(code.Address, code.Code); err != nil {
+			t.Error(err)
+		}
+		obtainedCode, err := StateService.GetCode(code.Address)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				t.Errorf("code not found: %s", err)
+			}
+			t.Errorf("error: %s", err)
+		}
 		if !equalCodes(t, code.Code, obtainedCode) {
 			t.Errorf("Code are different afte Put-Get operation")
 		}
@@ -91,7 +100,9 @@ func TestService_Storage(t *testing.T) {
 	defer StateService.Close(context.Background())
 
 	for _, data := range initialData {
-		StateService.UpdateStorage(data.Contract, data.BlockNumber, data.Storage)
+		if err := StateService.UpdateStorage(data.Contract, data.BlockNumber, data.Storage); err != nil {
+			t.Error(err)
+		}
 	}
 	tests := [...]struct {
 		Contract    string
@@ -123,8 +134,11 @@ func TestService_Storage(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		obtainedStorage := StateService.GetStorage(test.Contract, test.BlockNumber)
-		if test.Ok && obtainedStorage == nil {
+		obtainedStorage, err := StateService.GetStorage(test.Contract, test.BlockNumber)
+		if err != nil && !errors.Is(err, db.ErrNotFound) {
+			t.Error(err)
+		}
+		if test.Ok && errors.Is(err, db.ErrNotFound) {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)
 		}
 		if obtainedStorage != nil && test.Checks != nil {
