@@ -91,7 +91,8 @@ async def call(
         caller_address=caller_address,
         max_fee=0,
     )
-    return [int(ret) for ret in result.retdata]
+    print(result.retdata, type(result.retdata[0]), file=sys.stderr)
+    return result.retdata
     # print(
     #     f"""
     #     call(
@@ -120,34 +121,37 @@ class StorageRPCClient(Storage):
 
     async def get_value(self, key):
         prefix, suffix = split_key(key)
-        # Leaf keys encode their value in the suffix so there is no need
-        # to make the database call.
-        if prefix == b"starknet_storage_leaf":
-            return bytes.fromhex(suffix.decode("ascii"))
+        print(prefix, suffix, file=sys.stderr)
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
+            suffix = bytes.fromhex(suffix.decode("ascii"))
             request = vm_pb2.GetValueRequest(key=suffix)
 
             if prefix == b"patricia_node":
                 response = await stub.GetPatriciaNode(request)
-                return (
+                out = (
                     response.bottom
                     + response.path
                     + response.len.to_bytes(1, "big").strip(b"\x00")
                 )
+                print(out, file=sys.stderr)
+                return out
             elif prefix == b"contract_state":
                 response = await stub.GetContractState(request)
-                return (
+                out =  (
                     b'{"storage_commitment_tree": {"root": "'
-                    + response.storage_root.hex().encode("utf-8")
+                    + response.storageRoot.hex().encode("utf-8")
                     + b'", "height": 251}, "contract_hash": "'
-                    + response.contract_hash.hex().encode("utf-8")
+                    + response.contractHash.hex().encode("utf-8")
                     + b'"}'
                 )
-
+                print(out, file=sys.stderr)
+                return out
             elif prefix == b"contract_definition_fact":
+                print("contract_definition_fact request",request.key, file=sys.stderr)
                 response = await stub.GetContractDefinition(request)
-                return b'{"contract_definition":', response.value, b"}"
+                out = b'{"contract_definition":' + response.value + b"}"
+                return out
             elif prefix == b"starknet_storage_leaf":
                 return suffix
             else:
@@ -169,17 +173,18 @@ class VMServicer(vm_pb2_grpc.VMServicer):
             selector = int.from_bytes(request.selector, byteorder="big")
             sequencer = int.from_bytes(request.sequencer, byteorder="big")
 
+            retdata=await call(
+                adapter=self.storage,
+                calldata=calldata,
+                caller_address=caller_address,
+                contract_address=contract_address,
+                class_hash=class_hash,
+                root=root,
+                selector=selector,
+                sequencer=sequencer,
+            )
             return vm_pb2.VMCallResponse(
-                retdata=await call(
-                    adapter=self.storage,
-                    calldata=calldata,
-                    caller_address=caller_address,
-                    contract_address=contract_address,
-                    class_hash=class_hash,
-                    root=root,
-                    selector=selector,
-                    sequencer=sequencer,
-                )
+                retdata=[c.to_bytes(32, byteorder="big") for c in retdata]
             )
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)

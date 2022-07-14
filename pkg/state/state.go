@@ -23,6 +23,7 @@ type StateManager interface {
 	trie.TrieManager
 	GetContractState(*types.Felt) (*ContractState, error)
 	PutContractState(*ContractState) error
+    PutContract(*types.Felt, *types.Contract) error
 }
 
 type state struct {
@@ -59,10 +60,12 @@ func (st *state) SetCode(address *types.Felt, hash *types.Felt, code *types.Cont
 		return err
 	}
 	contract.ContractHash = hash
-	err = st.manager.PutContractState(contract)
-	if err != nil {
+    if err := st.manager.PutContractState(contract); err != nil {
 		return err
 	}
+    if err := st.manager.PutContract(hash, code); err != nil {
+        return err
+    }
 	return st.stateTrie.Put(address, contract.Hash())
 }
 
