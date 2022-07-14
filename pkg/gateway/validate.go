@@ -16,7 +16,7 @@ var (
 // the field element a ∈ 𝔽²ₚ where p = 2²⁵¹ + 17·2¹⁹² + 1 with prefix
 // "0x".
 func isValid(felt string) error {
-	re := regexp.MustCompile(`^0x0[a-fA-F0-9]{1,63}$`)
+	re := regexp.MustCompile(`^0x[a-fA-F0-9]{1,64}$`)
 	if re.MatchString(felt) {
 		p, _ := new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
 		// XXX: Can this check for ok be omitted given the regular
