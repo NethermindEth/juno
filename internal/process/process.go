@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // runFunc represents a function that runs a process.
@@ -55,7 +55,7 @@ func (h *Handler) Close() {
 			context.Background(), time.Now().Add(5*time.Second))
 		proc.stop(ctx)
 		if proc.err != nil {
-			log.Default.With("Error", proc.err).Error("Error occurred while closing process.")
+			Logger.With("Error", proc.err).Error("Error occurred while closing process.")
 		}
 		cancel()
 	}
@@ -74,7 +74,7 @@ func (h *Handler) Add(id string, imp bool, fnRun runFunc, fnStop stopFunc) {
 // Run runs all the processes.
 func (h *Handler) Run() {
 	if len(h.subprocs) == 0 {
-		log.Default.Info("No processes found.")
+		Logger.Info("No processes found.")
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *Handler) PrimaryServiceChecker() int {
 		}
 	}
 	if primarypkg == 0 {
-		log.Default.Info("No primary processes running. Closing the app.")
+		Logger.Info("No primary processes running. Closing the app.")
 	}
 	return primarypkg
 }

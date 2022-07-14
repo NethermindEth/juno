@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -345,11 +345,11 @@ func SetupMetric(port string) *Server {
 // incoming connections.
 func (s *Server) ListenAndServe() error {
 	// notest
-	log.Default.Info("Handling metrics .... ")
+	Logger.Info("Handling metrics .... ")
 
 	err := s.server.ListenAndServe()
 	if err != nil {
-		log.Default.With("Error", err).Error("Error occurred while trying to handle metrics.")
+		Logger.With("Error", err).Error("Error occurred while trying to handle metrics.")
 		return err
 	}
 	return nil
@@ -358,12 +358,12 @@ func (s *Server) ListenAndServe() error {
 // Close gracefully shuts down the server.
 func (s *Server) Close(ctx context.Context) {
 	// notest
-	log.Default.Info("Closing the Metrics server.")
+	Logger.Info("Closing the Metrics server.")
 	select {
 	case <-ctx.Done():
 		err := s.server.Shutdown(ctx)
 		if err != nil {
-			log.Default.With("Error", err).Info("Exiting with error.")
+			Logger.With("Error", err).Info("Exiting with error.")
 			return
 		}
 	default:
