@@ -32,9 +32,10 @@ message VMCallRequest {
   repeated bytes calldata = 1;
   bytes caller_address = 2;
   bytes contract_address = 3;
-  bytes root = 4;
-  bytes selector = 5;
-  bytes sequencer = 6;
+  bytes class_hash = 4;
+  bytes root = 5;
+  bytes selector = 6;
+  bytes sequencer = 7;
 }
 
 message VMCallResponse {

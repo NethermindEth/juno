@@ -12,9 +12,10 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/state"
+	statedb "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services/vmrpc"
+	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -34,7 +35,7 @@ func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
 
 type vmService struct {
 	service
-	manager *state.Manager
+	manager *statedb.Manager
 
 	vmDir string
 	vmCmd *exec.Cmd
@@ -73,7 +74,7 @@ func (s *vmService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		s.manager = state.NewStateManager(stateDb, contractDefDb)
+		s.manager = statedb.NewStateManager(stateDb, contractDefDb)
 	}
 
 	s.rpcNet = "tcp"
@@ -112,7 +113,7 @@ func (s *vmService) Setup(stateDb, contractDefDb db.Database) {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = state.NewStateManager(stateDb, contractDefDb)
+	s.manager = statedb.NewStateManager(stateDb, contractDefDb)
 }
 
 func (s *vmService) Run() error {
@@ -192,11 +193,11 @@ func (s *vmService) Close(ctx context.Context) {
 
 func (s *vmService) Call(
 	ctx context.Context,
+	state state.State,
 	calldata []*types.Felt,
-	callerAddr *types.Felt,
-	contractAddr *types.Felt,
-	root *types.Felt,
-	selector *types.Felt,
+	callerAddr,
+	contractAddr,
+	selector,
 	sequencer *types.Felt,
 ) ([]*types.Felt, error) {
 	s.AddProcess()
@@ -213,6 +214,11 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
+	contractState, err := state.GetContractState(contractAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	calldataBytes := make([][]byte, len(calldata))
 	for i, felt := range calldata {
 		calldataBytes[i] = felt.Bytes()
@@ -223,7 +229,8 @@ func (s *vmService) Call(
 		Calldata:        calldataBytes,
 		CallerAddress:   callerAddr.Bytes(),
 		ContractAddress: contractAddr.Bytes(),
-		Root:            root.Bytes(),
+		ClassHash:       contractState.ContractHash.Bytes(),
+		Root:            state.Root().Bytes(),
 		Selector:        selector.Bytes(),
 		Sequencer:       sequencer.Bytes(),
 	})

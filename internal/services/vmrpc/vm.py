@@ -9,6 +9,7 @@ from starkware.starknet.business_logic.state.state import (
     SharedState,
     StateSelector,
 )
+from starkware.starknet.core.os import class_hash
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.testing.state import StarknetState
 from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import (
@@ -65,43 +66,46 @@ async def call(
     adapter=None,
     calldata=None,
     caller_address=None,
+    class_hash=None,
     contract_address=None,
     root=None,
     selector=None,
     sequencer=None,
 ):
-    # shared_state = SharedState(
-    #     contract_states=PatriciaTree(root=root, height=251),
-    #     block_info=BlockInfo.empty(sequencer_address=sequencer),
-    # )
-    # carried_state = await shared_state.get_filled_carried_state(
-    #     ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
-    #     state_selector=StateSelector(contract_addresses={contract_address}),
-    # )
-    #
-    # state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
-    # result = await state.call_raw(
-    #     contract_address=contract_address,
-    #     selector=selector,
-    #     calldata=calldata,
-    #     caller_address=caller_address,
-    #     max_fee=0,
-    # )
-    # return [int(ret) for ret in result.retdata]
-    print(
-        f"""
-        call(
-            calldata={[hex(c) for c in calldata]},
-            caller_address={hex(caller_address)},
-            contract_address={hex(contract_address)},
-            root={hex(root)},
-            selector={hex(selector)},
-            sequencer={hex(sequencer)}
-        )
-        """,
-        file=sys.stderr,
+    shared_state = SharedState(
+        contract_states=PatriciaTree(root=root, height=251),
+        block_info=BlockInfo.empty(sequencer_address=sequencer),
     )
-    return [bytes.fromhex("03")]
+    carried_state = await shared_state.get_filled_carried_state(
+        ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
+        state_selector=StateSelector(
+            contract_addresses={contract_address}, class_hashes={class_hash}
+        ),
+    )
+
+    state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
+    result = await state.call_raw(
+        contract_address=contract_address,
+        selector=selector,
+        calldata=calldata,
+        caller_address=caller_address,
+        max_fee=0,
+    )
+    return [int(ret) for ret in result.retdata]
+    # print(
+    #     f"""
+    #     call(
+    #         calldata={[hex(c) for c in calldata]},
+    #         caller_address={hex(caller_address)},
+    #         contract_address={hex(contract_address)},
+    #         root={hex(root)},
+    #         selector={hex(selector)},
+    #         sequencer={hex(sequencer)}
+    #     )
+    #     """,
+    #     file=sys.stderr,
+    # )
+    # return [bytes.fromhex("03")]
 
 
 class StorageRPCClient(Storage):
@@ -122,16 +126,32 @@ class StorageRPCClient(Storage):
             return bytes.fromhex(suffix.decode("ascii"))
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
-            request = vm_pb2.GetValueRequest(key=prefix + b":" + suffix)
-            response = await stub.GetValue(request)
-            # XXX: Using structural pattern matching here would probably
-            # be a cleaner way to express the following but Python 3.10
-            # does not play nice with cairo-lang.
-            if prefix == b"contract_state" or prefix == b"contract_definition_fact":
-                return response.value
-            elif prefix == b"patricia_node":
-                return bytes.fromhex(response.value.decode("ascii"))
-            raise ValueError("invalid prefix: " + prefix.decode("ascii"))
+            request = vm_pb2.GetValueRequest(key=suffix)
+
+            if prefix == b"patricia_node":
+                response = await stub.GetPatriciaNode(request)
+                return (
+                    response.bottom
+                    + response.path
+                    + response.len.to_bytes(1, "big").strip(b"\x00")
+                )
+            elif prefix == b"contract_state":
+                response = await stub.GetContractState(request)
+                return (
+                    b'{"storage_commitment_tree": {"root": "'
+                    + response.storage_root.hex().encode("utf-8")
+                    + b'", "height": 251}, "contract_hash": "'
+                    + response.contract_hash.hex().encode("utf-8")
+                    + b'"}'
+                )
+
+            elif prefix == b"contract_definition_fact":
+                response = await stub.GetContractDefinition(request)
+                return b'{"contract_definition":', response.value, b"}"
+            elif prefix == b"starknet_storage_leaf":
+                return suffix
+            else:
+                raise ValueError(f"Unknown prefix: {prefix}")
 
 
 class VMServicer(vm_pb2_grpc.VMServicer):
@@ -144,7 +164,8 @@ class VMServicer(vm_pb2_grpc.VMServicer):
             calldata = [int.from_bytes(c, byteorder="big") for c in request.calldata]
             caller_address = int.from_bytes(request.caller_address, byteorder="big")
             contract_address = int.from_bytes(request.contract_address, byteorder="big")
-            root = int.from_bytes(request.root, byteorder="big")
+            class_hash = request.class_hash
+            root = request.root
             selector = int.from_bytes(request.selector, byteorder="big")
             sequencer = int.from_bytes(request.sequencer, byteorder="big")
 
@@ -154,6 +175,7 @@ class VMServicer(vm_pb2_grpc.VMServicer):
                     calldata=calldata,
                     caller_address=caller_address,
                     contract_address=contract_address,
+                    class_hash=class_hash,
                     root=root,
                     selector=selector,
                     sequencer=sequencer,
