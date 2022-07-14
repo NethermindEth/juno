@@ -49,6 +49,10 @@ func TestIsValid(t *testing.T) {
 			nil,
 		},
 		{
+			"0x00123456789AaBbCcDdeEFf0000000000000000000000000000000.569",
+			errInvalidHex,
+		},
+		{
 			"800000000000011123456789AaBbCcDdeEFf00000000000000000002",
 			errInvalidHex,
 		},
