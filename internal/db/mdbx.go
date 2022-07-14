@@ -196,11 +196,6 @@ func (tx MDBXTransaction) NumberOfItems() (uint64, error) {
 	return numberOfItems(tx.txn, tx.dbi)
 }
 
-// IsNotFound checks is the given error is an ErrNotFound.
-func IsNotFound(err error) bool {
-	return errors.Is(err, ErrNotFound)
-}
-
 func has(txn *mdbx.Txn, dbi mdbx.DBI, key []byte) (bool, error) {
 	_, err := txn.Get(dbi, key)
 	if err != nil {
