@@ -29,7 +29,7 @@ var other = map[string]string{
 // DEBUG.
 // db is the database that serves as the back end to the state and
 // contract tries.
-//var db store.Ephemeral
+// var db store.Ephemeral
 
 // DEBUG.
 func init() {

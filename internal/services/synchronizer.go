@@ -1,12 +1,13 @@
 package services
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
-	"strconv"
-	"time"
 )
 
 type Synchronizer struct {
@@ -23,8 +24,8 @@ type Synchronizer struct {
 }
 
 func NewSynchronizer(syncManager *sync.Manager, stateManager state.StateManager, feederClient *feeder.Client,
-	stateDiffCollector StateDiffCollector) *Synchronizer {
-
+	stateDiffCollector StateDiffCollector,
+) *Synchronizer {
 	return &Synchronizer{
 		stateManager:       stateManager,
 		syncManager:        syncManager,
@@ -39,7 +40,6 @@ func (s *Synchronizer) Run() {
 	currentBlock := latestBlockInfoFetched
 	for {
 		if currentBlock == s.latestBlockOnChain {
-
 		}
 		err := s.updateBlock(currentBlock)
 		if err != nil {
@@ -49,13 +49,11 @@ func (s *Synchronizer) Run() {
 		currentBlock++
 
 	}
-
 }
 
 func (s *Synchronizer) updateBlock(blockNumber int64) error {
 	block, err := s.feederClient.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
-
 		return err
 	}
 
@@ -85,7 +83,6 @@ func (s *Synchronizer) updateBlock(blockNumber int64) error {
 }
 
 func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
-
 	transactionInfo, err := s.feederClient.GetTransaction(txn.TransactionHash, "")
 	if err != nil {
 		return err
@@ -97,11 +94,9 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 }
 
 func (s *Synchronizer) updateContractState() {
-
 }
 
 func (s *Synchronizer) updateLatestBlockOnChain() {
-
 }
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
