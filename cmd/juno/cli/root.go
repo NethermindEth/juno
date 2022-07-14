@@ -43,7 +43,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "juno [options]",
 		Short: "Starknet client implementation in Go.",
-		Run: func(_ *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			processHandler = process.NewHandler()
 
 			// Handle signal interrupts and exits.
@@ -56,6 +56,7 @@ var (
 				os.Exit(0)
 			}(sig)
 
+			// Running the app
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
@@ -95,6 +96,7 @@ var (
 			if config.Runtime.Starknet.Enabled {
 				var ethereumClient *ethclient.Client
 				if !config.Runtime.Starknet.ApiSync {
+					// check if the ethereum node has been changed
 					var err error
 					ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
 					if err != nil {
@@ -123,6 +125,17 @@ var (
 				// Initialize the REST Service.
 				processHandler.Add("REST", true, s.ListenAndServe, s.Close)
 			}
+			// Print with the updated values
+			// Printing these here because printing them in the
+			// initConfig only gives the value from the config file
+			Logger.With(
+				"Database Path", config.Runtime.DbPath,
+				"Rpc Port", config.Runtime.RPC.Port,
+				"Rpc Enabled", config.Runtime.RPC.Enabled,
+				"Rest Port", config.Runtime.REST.Port,
+				"Rest Enabled", config.Runtime.REST.Enabled,
+				"Rest Prefix", config.Runtime.REST.Prefix,
+			).Info("Config values.")
 
 			primaryServiceCheck := processHandler.PrimaryServiceChecker()
 
@@ -149,10 +162,67 @@ func init() {
 	// Set the functions to be run when rootCmd.Execute() is called.
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf(
+	rootCmd.Flags().StringVar(&cfgFile, "config", "", fmt.Sprintf(
 		"config file (default is %s)", filepath.Join(config.Dir, "juno.yaml")))
-	rootCmd.PersistentFlags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
+	rootCmd.Flags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
+
+	// The order of preference
+	// 1. Values provided with flags
+	// 2. Values provided using environment variables
+	// 3. Values from config file (the default)
+	// Note that the config file isn't modified by these flags.
+	// The values provided to the flags or environment variables are
+	// used for that particular run only
+	// RPC
+	rootCmd.Flags().IntP("rpcport", "p", 0, "Set the RPC Port")
+	rootCmd.Flags().BoolP("rpcenabled", "P", true, "Set if you would like to enable the RPC")
+	// Rest
+	rootCmd.Flags().IntP("restport", "r", 0, "Set the REST Port")
+	rootCmd.Flags().BoolP("restenabled", "R", true, "Set if you would like to enable the REST")
+	rootCmd.Flags().StringP("restprefix", "x", "", "Set the REST prefix")
+	// Metrics
+	rootCmd.Flags().IntP("metricsport", "m", 0, "Set the port where you would like to see the metrics")
+	rootCmd.Flags().BoolP("metricsenabled", "M", true, "Set if you would like to enable metrics")
+	// Starknet
+	rootCmd.Flags().StringP("feedergateway", "s", "", "Set the link to the feeder gateway")
+	rootCmd.Flags().StringP("network", "n", "", "Set the network")
+	rootCmd.Flags().BoolP("starknetenabled", "S", true, "Set if you would like to enable calls from feeder gateway")
+	rootCmd.Flags().BoolP("apisync", "A", true, "Set if you would like to enable api sync")
+	// Ethereum
+	rootCmd.Flags().StringP("ethereumnode", "e", "", "Set the ethereum node")
+	// DBPath
+	rootCmd.Flags().StringP("dbpath", "d", "", "Set the DB Path")
+	bindWithConfigAndEnv()
+}
+
+func bindWithConfigAndEnv() {
+	viper.BindPFlag("rpc.port", rootCmd.Flags().Lookup("rpcport"))
+	viper.BindEnv("rpc.port", "RPCPORT")
+	viper.BindPFlag("rpcenabled", rootCmd.Flags().Lookup("rpcenabled"))
+	viper.BindEnv("rpc.enabled", "RPCENABLED")
+	viper.BindPFlag("rest.port", rootCmd.Flags().Lookup("restport"))
+	viper.BindEnv("rest.port", "RESTPORT")
+	viper.BindPFlag("rest.enabled", rootCmd.Flags().Lookup("restenabled"))
+	viper.BindEnv("rest.enabled", "RESTENABLED")
+	viper.BindPFlag("rest.prefix", rootCmd.Flags().Lookup("restprefix"))
+	viper.BindEnv("rest.prefix", "RESTPREFIX")
+	viper.BindPFlag("metrics.port", rootCmd.Flags().Lookup("metricsport"))
+	viper.BindEnv("metrics.port", "METRICSPORT")
+	viper.BindPFlag("metrics.enabled", rootCmd.Flags().Lookup("metricsenabled"))
+	viper.BindEnv("metrics.enabled", "METRICSENABLED")
+	viper.BindPFlag("starknet.feeder_gateway", rootCmd.Flags().Lookup("feedergateway"))
+	viper.BindEnv("starknet.feeder_gateway", "FEEDERGATEWAY")
+	viper.BindPFlag("starknet.network", rootCmd.Flags().Lookup("network"))
+	viper.BindEnv("starknet.network", "NETWORK")
+	viper.BindPFlag("starknet.enabled", rootCmd.Flags().Lookup("starknetenabled"))
+	viper.BindEnv("starknet.enabled", "STARKNETENABLED")
+	viper.BindPFlag("starknet.api_sync", rootCmd.Flags().Lookup("apisync"))
+	viper.BindEnv("starknet.api_sync", "APISYNC")
+	viper.BindPFlag("ethereum.node", rootCmd.Flags().Lookup("ethereumnode"))
+	viper.BindEnv("ethereum.node", "ETHEREUMNODE")
+	viper.BindPFlag("dbpath", rootCmd.Flags().Lookup("dbpath"))
+	viper.BindEnv("dbpath", "DBPATH")
 }
 
 // initConfig reads in Config file or environment variables if set.
@@ -188,7 +258,9 @@ func initConfig() {
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
-		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
+		if err != nil {
+			Logger.With("Error", err).Fatal("Failed to read in Config after generation.")
+		}
 	}
 
 	// Unmarshal and log runtime config instance.
@@ -204,15 +276,6 @@ func initConfig() {
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,
 	).Info("Logger values")
-
-	Logger.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
-	).Info("Config values.")
 }
 
 // Execute handle flags for Cobra execution.
