@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"strings"
 
@@ -132,7 +133,7 @@ func getNumericValueFromDB(database db.Database, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
 		// notest
-		if db.IsNotFound(err) {
+		if errors.Is(err, db.ErrNotFound) {
 			return 0, nil
 		}
 		return 0, err

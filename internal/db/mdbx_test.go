@@ -75,7 +75,7 @@ func TestMDBXDatabase_Get_NotFound(t *testing.T) {
 
 	db := dbs[0]
 	value, err := db.Get([]byte("key"))
-	if err == nil || !IsNotFound(err) {
+	if err == nil || !errors.Is(err, ErrNotFound) {
 		t.Errorf("error must be an ErrNotFound")
 	}
 	if value != nil {
