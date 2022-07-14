@@ -50,6 +50,12 @@ func clientErr(w http.ResponseWriter, code int, starkErr, msg string) {
 	w.Write(raw)
 }
 
+// notImplementedErr sets a 501 Not Implemented header and then serves
+// a JSON formatted error.
+func notImplementedErr(w http.ResponseWriter) {
+	clientErr(w, http.StatusNotImplemented, "", "")
+}
+
 // serverErr sets a 500 Internal Server Error header and then serves a
 // JSON formatted client error.
 func serverErr(w http.ResponseWriter, err error) {
