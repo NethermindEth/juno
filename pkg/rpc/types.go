@@ -415,7 +415,7 @@ type BlockResponse struct {
 	Transactions interface{} `json:"transactions"`
 }
 
-func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
+func NewBlockResponse(block *types.Block, scope RequestedScope) (*BlockResponse, error) {
 	response := &BlockResponse{
 		BlockHash:    block.BlockHash,
 		ParentHash:   block.ParentHash,
@@ -432,7 +432,10 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 	case ScopeFullTxns:
 		txns := make([]*Txn, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
-			transaction := services.TransactionService.GetTransaction(txHash)
+			transaction, err := services.TransactionService.GetTransaction(txHash)
+			if err != nil {
+				return nil, err
+			}
 			txn := NewTxn(transaction)
 			txns[i] = txn
 		}
@@ -441,12 +444,18 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 		txns := make([]*TxnAndReceipt, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
 			txnAndReceipt := &TxnAndReceipt{}
-			transaction := services.TransactionService.GetTransaction(txHash)
+			transaction, err := services.TransactionService.GetTransaction(txHash)
+			if err != nil {
+				return nil, err
+			}
 			if transaction != nil {
 				txn := NewTxn(transaction)
 				txnAndReceipt.Txn = *txn
 			}
-			receipt := services.TransactionService.GetReceipt(txHash)
+			receipt, err := services.TransactionService.GetReceipt(txHash)
+			if err != nil {
+				return nil, err
+			}
 			if receipt != nil {
 				r := NewTxnReceipt(receipt)
 				txnAndReceipt.TxnReceipt = *r
@@ -455,7 +464,7 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 		}
 		response.Transactions = txns
 	}
-	return response
+	return response, nil
 }
 
 type StarkNetHash struct{}

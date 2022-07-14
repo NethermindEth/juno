@@ -75,26 +75,51 @@ func TestArrayDigest(t *testing.T) {
 		input []string
 		want  string
 	}{
-		{
-			input: []string{"1", "2", "3", "4", "5"},
-			want:  "79c2de2c34baea4a6aa66288140b205e075dd05177c3e05222f48fb6808454a",
-		},
+		// Contract address calculation. See the following links for how the
+		// it is carried out and the result referenced.
+		//
+		//	- https://docs.starknet.io/docs/Contracts/contract-address/
+		//	- https://alpha-goerli.starknet.io/feeder_gateway/get_transaction?transactionHash=0x1b50380d45ebd70876518203f131a12428b2ac1a3a75f1a74241a4abdd614e8
 		{
 			input: []string{
-				"3ca0cfe4b3bc6ddf346d49d06ea0ed34e621062c0e056c1d0405d266e10268a",
-				"5668060aa49730b7be4801df46ec62de53ecd11abe43a32873000c36e8dc1f",
-				"3b056f100f96fb21e889527d41f4e39940135dd7a6c94cc6ed0268ee89e5615",
-				"7122e9063d239d89d4e336753845b76f2b33ca0d7f0c1acd4b9fe974994cc19",
-				"109f720a79e2a41471f054ca885efd90c8cfbbec37991d1b6343991e0a3e740",
+				// Hex representation of []byte("STARKNET_CONTRACT_ADDRESS").
+				"535441524b4e45545f434f4e54524143545f41444452455353",
+				// caller_address.
+				"0",
+				// salt.
+				"5bebda1b28ba6daa824126577b9fbc984033e8b18360f5e1ef694cb172c7aa5",
+				// contract_hash. See the following for reference https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x53e61cb9a53136ecb782e7396f7330e6bb3d069763d866612da3cf93cdf55b5.
+				"0439218681f9108b470d2379cf589ef47e60dc5888ee49ec70071671d74ca9c6",
+				// calldata_hash. (here h(0, 0) where h is the Pedersen hash
+				// function).
+				"49ee3eba8c1600700ee1b87eb599f16716b0b1022947733551fde4050ca6804",
 			},
-			want: "3b4649f0914d7a85ae0bae94c33125bcbbe6a8a60091466b5d15b0c3d77c53e",
+			// contract_address.
+			want: "43c6817e70b3fd99a4f120790b2e82c6843df62b573fdadf9e2d677b60ac5eb",
+		},
+		// Transaction hash calculation. See the following for reference.
+		//
+		// 	- https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75.
+		{
+			input: []string{
+				// Hex representation of []byte("deploy").
+				"6465706c6f79",
+				// contract_address.
+				"20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+				// Hex representation of keccak.Digest250([]byte("constructor")).
+				"28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+				// calldata_hash.
+				"7885ba4f628b6cdcd0b5e6282d2a1b17fe7cd4dd536230c5db3eac890528b4d",
+				// chain_id. Hex representation of []byte("SN_MAIN").
+				"534e5f4d41494e",
+			},
+			want: "e0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
 		},
 	}
 	for _, test := range tests {
-		data := []*big.Int{}
-		for _, item := range test.input {
-			v, _ := new(big.Int).SetString(item, 16)
-			data = append(data, v)
+		data := make([]*big.Int, len(test.input))
+		for i, item := range test.input {
+			data[i], _ = new(big.Int).SetString(item, 16)
 		}
 		want, _ := new(big.Int).SetString(test.want, 16)
 		got := ArrayDigest(data...)

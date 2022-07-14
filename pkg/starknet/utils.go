@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"strings"
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
@@ -132,7 +133,7 @@ func getNumericValueFromDB(database db.Database, key string) (uint64, error) {
 	value, err := database.Get([]byte(key))
 	if err != nil {
 		// notest
-		if db.IsNotFound(err) {
+		if errors.Is(err, db.ErrNotFound) {
 			return 0, nil
 		}
 		return 0, err
@@ -156,7 +157,7 @@ func updateNumericValueFromDB(database db.DatabaseOperations, key string, value 
 	binary.BigEndian.PutUint64(b, value+1)
 	err := database.Put([]byte(key), b)
 	if err != nil {
-		log.Default.With("Value", value, "Key", key).
+		Logger.With("Value", value, "Key", key).
 			Info("Couldn't store the kv-pair on the database")
 		return err
 	}
@@ -172,30 +173,30 @@ func updateState(
 	stateRoot string,
 	sequenceNumber uint64,
 ) (string, error) {
-	log.Default.With("Block Number", sequenceNumber).Info("Processing block")
+	Logger.With("Block Number", sequenceNumber).Info("Processing block")
 
 	stateTrie := newTrie(txn, "state_trie_")
 
-	log.Default.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
+	Logger.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
 		if !ok {
 			// notest
-			log.Default.Panic("Couldn't get contract hash")
+			Logger.Panic("Couldn't get contract hash")
 		}
 		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
 		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
 		if !ok {
 			// notest
-			log.Default.With("Address", deployedContract.Address).
+			Logger.With("Address", deployedContract.Address).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
 		contractStateValue := contractState(contractHash, storageRoot)
 		stateTrie.Put(address, contractStateValue)
 	}
 
-	log.Default.With("Block Number", sequenceNumber).Info("Processing storage diffs")
+	Logger.With("Block Number", sequenceNumber).Info("Processing storage diffs")
 	for k, v := range update.StorageDiffs {
 		formattedAddress := remove0x(k)
 		storageTrie := newTrie(txn, formattedAddress)
@@ -203,13 +204,13 @@ func updateState(
 			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
 			if !ok {
 				// notest
-				log.Default.With("Storage Slot Key", storageSlots.Key).
+				Logger.With("Storage Slot Key", storageSlots.Key).
 					Panic("Couldn't get the ")
 			}
 			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
 			if !ok {
 				// notest
-				log.Default.With("Storage Slot Value", storageSlots.Value).
+				Logger.With("Storage Slot Value", storageSlots.Value).
 					Panic("Couldn't get the contract Hash")
 			}
 			storageTrie.Put(key, val)
@@ -219,7 +220,7 @@ func updateState(
 		address, ok := new(big.Int).SetString(formattedAddress, 16)
 		if !ok {
 			// notest
-			log.Default.With("Address", formattedAddress).
+			Logger.With("Address", formattedAddress).
 				Panic("Couldn't convert Address to Big.Int ")
 		}
 		contractHash := contractHashMap[formattedAddress]
@@ -232,10 +233,10 @@ func updateState(
 
 	if stateRoot != "" && stateCommitment != remove0x(stateRoot) {
 		// notest
-		log.Default.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
+		Logger.With("State Commitment", stateCommitment, "State Root from API", remove0x(stateRoot)).
 			Panic("stateRoot not equal to the one provided")
 	}
-	log.Default.With("State Root", stateCommitment).
+	Logger.With("State Root", stateCommitment).
 		Info("Got State commitment")
 
 	return stateCommitment, nil

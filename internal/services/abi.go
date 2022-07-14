@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // AbiService is the service to store and put the contracts ABI. Before
@@ -31,7 +31,7 @@ func (s *abiService) Setup(database db.Database) {
 // Run starts the service.
 func (s *abiService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("AbiService")
+		s.logger = Logger.Named("AbiService")
 	}
 
 	if err := s.service.Run(); err != nil {
@@ -71,26 +71,16 @@ func (s *abiService) Close(ctx context.Context) {
 
 // StoreAbi stores an ABI in the database. If the key (contractAddress) already
 // exists then the value is overwritten for the given ABI.
-func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) {
+func (s *abiService) StoreAbi(contractAddress string, abi *abi.Abi) error {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
-
-	s.logger.
-		With("contractAddress", contractAddress).
-		Info("StoreAbi")
-
-	s.manager.PutABI(contractAddress, abi)
+	return s.manager.PutABI(contractAddress, abi)
 }
 
 // GetAbi search in the database for the ABI associated with the given contract
 // address.
-func (s *abiService) GetAbi(contractAddress string) *abi.Abi {
+func (s *abiService) GetAbi(contractAddress string) (*abi.Abi, error) {
 	s.service.AddProcess()
 	defer s.service.DoneProcess()
-
-	s.logger.
-		With("contractAddress", contractAddress).
-		Info("GetAbi")
-
 	return s.manager.GetABI(contractAddress)
 }

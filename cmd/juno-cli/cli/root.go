@@ -11,7 +11,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/errpkg"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -71,7 +71,7 @@ func handleNetwork(network string) {
 func prettyPrint(res interface{}) {
 	resJSON, err := json.MarshalIndent(res, "", "  ")
 	if err != nil {
-		log.Default.With("Error", err).Error("Failed to marshal and indent response.")
+		Logger.With("Error", err).Error("Failed to marshal and indent response.")
 	}
 	fmt.Println(string(resJSON))
 }
@@ -80,7 +80,7 @@ func prettyPrint(res interface{}) {
 func normalReturn(res interface{}) {
 	resJSON, err := json.Marshal(res)
 	if err != nil {
-		log.Default.With("Error", err).Error("Failed to marshal response.")
+		Logger.With("Error", err).Error("Failed to marshal response.")
 	}
 	fmt.Println(string(resJSON))
 }
@@ -96,7 +96,7 @@ func initConfig() error {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			log.Default.Info("Invalid data directory. The default data directory will be used")
+			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
 		}
 	}
@@ -115,7 +115,7 @@ func initConfig() error {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Default.Info("Config file not found.")
+		Logger.Info("Config file not found.")
 		if !config.Exists() {
 			config.New()
 		}
@@ -141,6 +141,6 @@ func initClient() *feeder.Client {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Default.With("Error", err).Error("Failed to execute CLI.")
+		Logger.With("Error", err).Error("Failed to execute CLI.")
 	}
 }

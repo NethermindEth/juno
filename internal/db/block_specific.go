@@ -3,9 +3,10 @@ package db
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // BlockSpecificDatabase is a database to store values that must have a history of versions on the blockchain.
@@ -86,7 +87,7 @@ func (db *BlockSpecificDatabase) get(key []byte) []byte {
 	data, err := db.database.Get(key)
 	if err != nil {
 		// notest
-		if IsNotFound(err) {
+		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		panicWithError(err)
@@ -102,6 +103,6 @@ func newCompoundedKey(key []byte, blockNumber uint64) []byte {
 }
 
 func panicWithError(err error) {
-	log.Default.With("error", err).Error("unexpected error")
+	Logger.With("error", err).Error("unexpected error")
 	panic(any(err))
 }
