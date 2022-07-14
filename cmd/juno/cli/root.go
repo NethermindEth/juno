@@ -68,40 +68,40 @@ var (
 			// To update the config file, the user needs to make the
 			// -U flag true
 
-			flag, _ := cmd.Flags().GetString("rpcenable")
-			handleConfig("rpc.enabled", flag, "RPCENABLE", 0)
-			flag, _ = cmd.Flags().GetString("rpcport")
-			handleConfig("rpc.port", flag, "RPCPORT", 1)
+			flagb, _ := cmd.Flags().GetBool("rpcenabled")
+			handleConfig("rpc.enabled", "RPCENABLED", flagb, true, 0)
+			flagi, _ := cmd.Flags().GetInt("rpcport")
+			handleConfig("rpc.port", "RPCPORT", flagi, 0, 1)
 
-			flag, _ = cmd.Flags().GetString("metricsenable")
-			handleConfig("metrics.enabled", flag, "METRICSENABLE", 0)
-			flag, _ = cmd.Flags().GetString("metricsport")
-			handleConfig("metrics.port", flag, "METRICSPORT", 1)
+			flagb, _ = cmd.Flags().GetBool("metricsenabled")
+			handleConfig("metrics.enabled", "METRICSENABLED", flagb, true, 0)
+			flagi, _ = cmd.Flags().GetInt("metricsport")
+			handleConfig("metrics.port", "METRICSPORT", flagi, 0, 1)
 
-			flag, _ = cmd.Flags().GetString("dbpath")
-			handleConfig("db_path", flag, "DBPATH", 2)
+			flags, _ := cmd.Flags().GetString("dbpath")
+			handleConfig("db_path", "DBPATH", flags, "", 2)
 
-			flag, _ = cmd.Flags().GetString("starknetenable")
-			handleConfig("starknet.enabled", flag, "STARKNETENABLE", 0)
-			flag, _ = cmd.Flags().GetString("apisync")
-			handleConfig("starknet.api_sync", flag, "APISYNC", 0)
-			flag, _ = cmd.Flags().GetString("feedergateway")
-			handleConfig("starknet.feeder_gateway", flag, "FEEDERGATEWAY", 2)
+			flagb, _ = cmd.Flags().GetBool("starknetenabled")
+			handleConfig("starknet.enabled", "STARKNETENABLED", flagb, true, 0)
+			flagb, _ = cmd.Flags().GetBool("apisync")
+			handleConfig("starknet.api_sync", "APISYNC", flagb, true, 0)
+			flags, _ = cmd.Flags().GetString("feedergateway")
+			handleConfig("starknet.feeder_gateway", "FEEDERGATEWAY", flags, "", 2)
 
-			flag, _ = cmd.Flags().GetString("ethereumnode")
-			handleConfig("ethereum.node", flag, "ETHEREUMNODE", 2)
+			flags, _ = cmd.Flags().GetString("ethereumnode")
+			handleConfig("ethereum.node", "ETHEREUMNODE", flags, "", 2)
 
-			flag, _ = cmd.Flags().GetString("restenable")
-			handleConfig("rest.enabled", flag, "RESTENABLE", 0)
-			flag, _ = cmd.Flags().GetString("restport")
-			handleConfig("rest.port", flag, "RESTPORT", 1)
-			flag, _ = cmd.Flags().GetString("restprefix")
-			handleConfig("rest.prefix", flag, "RESTPREFIX", 2)
+			flagb, _ = cmd.Flags().GetBool("restenabled")
+			handleConfig("rest.enabled", "RESTENABLED", flagb, true, 0)
+			flagi, _ = cmd.Flags().GetInt("restport")
+			handleConfig("rest.port", "RESTPORT", flagi, 0, 1)
+			flags, _ = cmd.Flags().GetString("restprefix")
+			handleConfig("rest.prefix", "RESTPREFIX", flags, "", 2)
 
 			erru := viper.Unmarshal(&config.Runtime)
 			errpkg.CheckFatal(erru, "Unable to unmarshal runtime config instance.")
 
-			flag, _ = cmd.Flags().GetString("updateconfigfile")
+			flag, _ := cmd.Flags().GetString("updateconfigfile")
 
 			if flag != "" {
 				updateConfigFile(cfgFile)
@@ -201,34 +201,38 @@ var (
 
 // Function for updating the parameters of the config
 // configParam - The argument for corresponding to the viper variable
-// flag - The value of the flag (if provided by the user)
 // envVarName - The corresponding environment variable name
+// flag - The value of the flag (if provided by the user)
+// defaultVal - The default value of the flag
 // t - The datatype of the config parameter (can be bool, int, string)
-func handleConfig(configParam, flag, envVarName string, t int) error {
-	val := ""
-	if flag != "" {
-		val = flag
+func handleConfig(configParam, envVarName string, flag, defaultVal interface{}, t int) error {
+	// check if any flag has been provided
+	// if no flag has been provided, check for the environment variable
+	// if no flag or env variable has been provided, do nothing
+	// do nothing -> juno runs with values loaded from config
+	if flag != defaultVal {
+		viper.Set(configParam, flag)
 	} else {
+		// os.Getenv() returns a string
+		// therefore, we have to typecast
 		envVar := os.Getenv(envVarName)
-		val = envVar
-	}
-
-	if val != "" {
-		if t == 0 {
-			enabled, err := strconv.ParseBool(val)
-			if err != nil {
-				return err
-			}
-			viper.Set(configParam, enabled)
-		} else {
-			if t == 1 {
-				num, err := strconv.Atoi(val)
+		if envVar != "" {
+			if t == 0 {
+				enabled, err := strconv.ParseBool(envVar)
 				if err != nil {
 					return err
 				}
-				viper.Set(configParam, num)
+				viper.Set(configParam, enabled)
 			} else {
-				viper.Set(configParam, val)
+				if t == 1 {
+					num, err := strconv.Atoi(envVar)
+					if err != nil {
+						return err
+					}
+					viper.Set(configParam, num)
+				} else {
+					viper.Set(configParam, envVar)
+				}
 			}
 		}
 	}
@@ -271,26 +275,26 @@ func init() {
 	rootCmd.Flags().StringVar(&dataDir, "dataDir", "", fmt.Sprintf(
 		"data path (default is %s)", config.DataDir))
 	// RPC
-	rootCmd.Flags().StringP("rpcport", "p", "", "Set the RPC Port")
-	rootCmd.Flags().StringP("rpcenable", "P", "", "Set if you would like to enable the RPC")
+	rootCmd.Flags().IntP("rpcport", "p", 0, "Set the RPC Port")
+	rootCmd.Flags().BoolP("rpcenabled", "P", true, "Set if you would like to enable the RPC")
 	// Rest
-	rootCmd.Flags().StringP("restport", "r", "", "Set the REST Port")
-	rootCmd.Flags().StringP("restenable", "R", "", "Set if you would like to enable the REST")
-	rootCmd.Flags().StringP("restprefix", "x", "", "Set the REST prefix")
+	rootCmd.Flags().IntP("restport", "r", 0, "Set the REST Port")
+	rootCmd.Flags().BoolP("restenabled", "R", true, "Set if you would like to enable the REST")
+	rootCmd.Flags().StringP("restprefix", "x", viper.GetString("rest.prefix"), "Set the REST prefix")
 	// Metrics
-	rootCmd.Flags().StringP("metricsport", "m", "", "Set the port where you would like to see the metrics")
-	rootCmd.Flags().StringP("metricsenable", "M", "", "Set if you would like to enable metrics")
+	rootCmd.Flags().IntP("metricsport", "m", 0, "Set the port where you would like to see the metrics")
+	rootCmd.Flags().BoolP("metricsenabled", "M", true, "Set if you would like to enable metrics")
 	// Starknet
 	rootCmd.Flags().StringP("feedergateway", "s", "", "Set the link to the feeder gateway")
 	rootCmd.Flags().StringP("network", "n", "", "Set the network")
-	rootCmd.Flags().StringP("starknetenable", "S", "", "Set if you would like to enable calls from feeder gateway")
-	rootCmd.Flags().StringP("apisync", "A", "", "Set if you would like to enable api sync")
+	rootCmd.Flags().BoolP("starknetenabled", "S", true, "Set if you would like to enable calls from feeder gateway")
+	rootCmd.Flags().BoolP("apisync", "A", true, "Set if you would like to enable api sync")
 	// Ethereum
 	rootCmd.Flags().StringP("ethereumnode", "e", "", "Set the ethereum node")
 	// DBPath
 	rootCmd.Flags().StringP("dbpath", "d", "", "Set the DB Path")
 	// Option for updating the config file
-	rootCmd.Flags().StringP("updateconfigfile", "U", "", "Set it to true if you would like to update the config file")
+	rootCmd.Flags().BoolP("updateconfigfile", "U", false, "Set it to true if you would like to update the config file")
 }
 
 // initConfig reads in Config file or environment variables if set.
