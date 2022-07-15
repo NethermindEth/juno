@@ -71,7 +71,7 @@ var (
 			}
 
 			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
-				Logger.With("Error", err).Fatal("Error starting the database environment")
+				Logger.Fatal("Error starting the database environment")
 			}
 
 			// Initialize ABI Service
@@ -159,8 +159,8 @@ func initConfig() {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
+			Logger.Infof("Invalid data directory. The default data directory (%s) will be used.", dataDir)
 		}
 	}
 	if cfgFile != "" {
@@ -188,14 +188,14 @@ func initConfig() {
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			Logger.With("Error", err).Error("Error reading config file")
+			Logger.Fatal("Failed to read Juno configuration file.")
 		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	if err != nil {
-		Logger.With("Error", err).Error("Error unmarshalling Config instance")
+		Logger.Fatalf("Failed to parse runtime configuration: %v", err)
 	}
 
 	// Configure logger - we want the logger to be created right after the config has been set
@@ -203,7 +203,7 @@ func initConfig() {
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
 	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
 	if err != nil {
-		Logger.With("Error", err).Error("Error initialising Logger")
+		Logger.Fatal("Failed to initialize Logger.")
 	}
 
 	Logger.With(
@@ -224,6 +224,6 @@ func initConfig() {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		Logger.With("Error", err).Error("Failed to execute CLI.")
+		Logger.Fatal("Failed to execute Juno CLI.")
 	}
 }

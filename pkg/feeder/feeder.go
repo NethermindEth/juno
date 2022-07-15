@@ -34,7 +34,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	// notest
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		Logger.With("Error", err).Error("Unable to parse base URL")
+		Logger.Fatalf("Unable to parse base URL: %v", err)
 	}
 	if client == nil {
 		var p HttpClient

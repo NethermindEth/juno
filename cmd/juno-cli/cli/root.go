@@ -95,8 +95,8 @@ func initConfig() error {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
+			Logger.Infof("Invalid data directory. The default data directory (%s) will be used.", dataDir)
 		}
 	}
 	if cfgFile != "" {
@@ -121,14 +121,14 @@ func initConfig() error {
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			Logger.With("Error", err).Error("Failed to read config file")
+			Logger.Fatalf("Failed to read Juno configuration file: %v", err)
 		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	if err != nil {
-		Logger.With("Error", err).Error("Failed to unmarshal runtime config")
+		Logger.Fatalf("Failed to parse runtime configuration: %v", err)
 	}
 
 	// If config successfully loaded, return no error.
@@ -144,6 +144,6 @@ func initClient() *feeder.Client {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		Logger.With("Error", err).Error("Failed to execute CLI.")
+		Logger.Fatalf("Failed to execute Juno: %v", err)
 	}
 }
