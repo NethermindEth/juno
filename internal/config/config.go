@@ -9,9 +9,15 @@ import (
 	"runtime"
 
 	"github.com/NethermindEth/juno/internal/errpkg"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"gopkg.in/yaml.v2"
 )
+
+// loggerConfig represents the logger configuration
+type loggerConfig struct {
+	VerbosityLevel   string `yaml:"verbosity_level" mapstructure:"verbosity_level"`
+	EnableJsonOutput bool   `yaml:"enable_json_output" mapstructure:"enable_json_output"`
+}
 
 // rpcConfig represents the juno RPC configuration.
 type rpcConfig struct {
@@ -47,6 +53,7 @@ type starknetConfig struct {
 
 // Config represents the juno configuration.
 type Config struct {
+	Logger   loggerConfig   `yaml:"logger" mapstructure:"logger"`
 	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
 	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
 	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
@@ -117,7 +124,7 @@ func init() {
 // New creates a new configuration file with default values.
 func New() {
 	f := filepath.Join(Dir, "juno.yaml")
-	log.Default.With("Path", f).Info("Creating default config.")
+	Logger.With("Path", f).Info("Creating default config.")
 	// Create the juno configuration directory if it does not exist.
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
 		// notest
@@ -125,6 +132,10 @@ func New() {
 		errpkg.CheckFatal(err, "Failed to create Config directory.")
 	}
 	data, err := yaml.Marshal(&Config{
+		Logger: loggerConfig{
+			VerbosityLevel:   "debug",
+			EnableJsonOutput: false,
+		},
 		Ethereum: ethereumConfig{Node: ""},
 		RPC:      rpcConfig{Enabled: true, Port: 8080},
 		Metrics:  metricsConfig{Enabled: true, Port: 2048},

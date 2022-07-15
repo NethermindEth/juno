@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 var StateService stateService
@@ -25,7 +25,7 @@ func (s *stateService) Setup(stateDb, codeDefinitionDb db.Database) {
 
 func (s *stateService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("StateService")
+		s.logger = Logger.Named("StateService")
 	}
 
 	if err := s.service.Run(); err != nil {

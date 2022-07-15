@@ -3,13 +3,14 @@ package state
 import (
 	"encoding/json"
 
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
 
-func (m *Manager) GetContractState(hash *types.Felt) (*state.ContractState, error) {
-	raw, err := m.stateDatabase.Get(hash.Bytes())
+func (m *Manager) GetContractState(hash *felt.Felt) (*state.ContractState, error) {
+	raw, err := m.stateDatabase.Get(hash.ByteSlice())
 	if err != nil {
 		// Database error
 		return nil, err
@@ -26,11 +27,9 @@ func (m *Manager) GetContractState(hash *types.Felt) (*state.ContractState, erro
 		return nil, err
 	}
 	// Build output struct
-	contractHash := types.BytesToFelt(contractStatePB.GetContractHash())
-	storageRoot := types.BytesToFelt(contractStatePB.GetStorageRoot())
 	contractState := state.ContractState{
-		ContractHash: &contractHash,
-		StorageRoot:  &storageRoot,
+		ContractHash: new(felt.Felt).SetBytes(contractStatePB.GetContractHash()),
+		StorageRoot:  new(felt.Felt).SetBytes(contractStatePB.GetStorageRoot()),
 	}
 	return &contractState, nil
 }
@@ -38,8 +37,8 @@ func (m *Manager) GetContractState(hash *types.Felt) (*state.ContractState, erro
 func (m *Manager) PutContractState(cs *state.ContractState) error {
 	// Build protobuf struct
 	contractStatePB := &ContractState{
-		ContractHash: cs.ContractHash.Bytes(),
-		StorageRoot:  cs.StorageRoot.Bytes(),
+		ContractHash: cs.ContractHash.ByteSlice(),
+		StorageRoot:  cs.StorageRoot.ByteSlice(),
 	}
 	// Marshal to protobuf bytes
 	raw, err := proto.Marshal(contractStatePB)
@@ -48,11 +47,11 @@ func (m *Manager) PutContractState(cs *state.ContractState) error {
 		return err
 	}
 	// Put in database
-	return m.stateDatabase.Put(cs.Hash().Bytes(), raw)
+	return m.stateDatabase.Put(cs.Hash().ByteSlice(), raw)
 }
 
-func (x *Manager) GetContract(contractHash *types.Felt) (*types.Contract, error) {
-	rawData, err := x.contractDef.Get(contractHash.Bytes())
+func (x *Manager) GetContract(contractHash *felt.Felt) (*types.Contract, error) {
+	rawData, err := x.contractDef.Get(contractHash.ByteSlice())
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +66,7 @@ func (x *Manager) GetContract(contractHash *types.Felt) (*types.Contract, error)
 	return &contract, json.Unmarshal([]byte(codeDefinition.GetDefinition()), &contract)
 }
 
-func (x *Manager) PutContract(contractHash *types.Felt, contract *types.Contract) error {
+func (x *Manager) PutContract(contractHash *felt.Felt, contract *types.Contract) error {
 	codeDefinition := CodeDefinition{
 		Definition: string(contract.FullDef),
 	}
@@ -75,5 +74,5 @@ func (x *Manager) PutContract(contractHash *types.Felt, contract *types.Contract
 	if err != nil {
 		return err
 	}
-	return x.contractDef.Put(contractHash.Bytes(), rawData)
+	return x.contractDef.Put(contractHash.ByteSlice(), rawData)
 }

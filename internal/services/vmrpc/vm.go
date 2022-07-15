@@ -3,9 +3,8 @@ package vmrpc
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
-
-	"github.com/NethermindEth/juno/pkg/types"
 
 	statedb "github.com/NethermindEth/juno/internal/db/state"
 )
@@ -22,34 +21,31 @@ func NewStorageRPCServer(stateManager *statedb.Manager) *storageRPCServer {
 }
 
 func (s *storageRPCServer) GetPatriciaNode(ctx context.Context, request *GetValueRequest) (*VMTrieNode, error) {
-	f := types.BytesToFelt(request.GetKey())
-	node, err := s.stateManager.GetTrieNode(&f)
+	node, err := s.stateManager.GetTrieNode(new(felt.Felt).SetBytes(request.GetKey()))
 	if err != nil {
 		return nil, err
 	}
 	return &VMTrieNode{
 		Len:    uint32(node.Path().Len()),
 		Path:   node.Path().Bytes(),
-		Bottom: node.Bottom().Bytes(),
+		Bottom: node.Bottom().ByteSlice(),
 	}, nil
 }
 
 func (s *storageRPCServer) GetContractState(ctx context.Context, request *GetValueRequest) (*VMContractState, error) {
-	f := types.BytesToFelt(request.GetKey())
-	st, err := s.stateManager.GetContractState(&f)
+	st, err := s.stateManager.GetContractState(new(felt.Felt).SetBytes(request.GetKey()))
 	if err != nil {
 		return nil, err
 	}
 	return &VMContractState{
-		ContractHash: st.ContractHash.Bytes(),
-		StorageRoot:  st.StorageRoot.Bytes(),
+		ContractHash: st.ContractHash.ByteSlice(),
+		StorageRoot:  st.StorageRoot.ByteSlice(),
 		Height:       uint32(state.StorageTrieHeight),
 	}, nil
 }
 
 func (s *storageRPCServer) GetContractDefinition(ctx context.Context, request *GetValueRequest) (*VMContractDefinition, error) {
-	f := types.BytesToFelt(request.GetKey())
-	cd, err := s.stateManager.GetContract(&f)
+	cd, err := s.stateManager.GetContract(new(felt.Felt).SetBytes(request.GetKey()))
 	if err != nil {
 		return nil, err
 	}

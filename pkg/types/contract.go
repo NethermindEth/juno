@@ -1,6 +1,10 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/NethermindEth/juno/pkg/felt"
+)
 
 type Abi []struct {
 	Name   string `json:"name"`
@@ -14,7 +18,7 @@ type Abi []struct {
 
 type Contract struct {
 	Abi      Abi
-	Bytecode []*Felt
+	Bytecode []*felt.Felt
 
 	FullDef json.RawMessage
 }
@@ -29,7 +33,7 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 	var contract struct {
 		Abi     Abi `json:"abi"`
 		Program struct {
-			Data []*Felt `json:"data"`
+			Data []*felt.Felt `json:"data"`
 		} `json:"program"`
 	}
 	if err := json.Unmarshal(data, &contract); err != nil {

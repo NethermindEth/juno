@@ -13,10 +13,10 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services/vmrpc"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
-	"github.com/NethermindEth/juno/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -118,7 +118,7 @@ func (s *vmService) Setup(stateDb, contractDefDb db.Database) {
 
 func (s *vmService) Run() error {
 	if s.logger == nil {
-		s.logger = log.Default.Named("VMService")
+		s.logger = Logger.Named("VMService")
 	}
 
 	if err := s.service.Run(); err != nil {
@@ -194,12 +194,12 @@ func (s *vmService) Close(ctx context.Context) {
 func (s *vmService) Call(
 	ctx context.Context,
 	state state.State,
-	calldata []*types.Felt,
+	calldata []*felt.Felt,
 	callerAddr,
 	contractAddr,
 	selector,
-	sequencer *types.Felt,
-) ([]*types.Felt, error) {
+	sequencer *felt.Felt,
+) ([]*felt.Felt, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 
@@ -221,28 +221,27 @@ func (s *vmService) Call(
 
 	calldataBytes := make([][]byte, len(calldata))
 	for i, felt := range calldata {
-		calldataBytes[i] = felt.Bytes()
+		calldataBytes[i] = felt.ByteSlice()
 	}
 
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
 		Calldata:        calldataBytes,
-		CallerAddress:   callerAddr.Bytes(),
-		ContractAddress: contractAddr.Bytes(),
-		ClassHash:       contractState.ContractHash.Bytes(),
-		Root:            state.Root().Bytes(),
-		Selector:        selector.Bytes(),
-		Sequencer:       sequencer.Bytes(),
+		CallerAddress:   callerAddr.ByteSlice(),
+		ContractAddress: contractAddr.ByteSlice(),
+		ClassHash:       contractState.ContractHash.ByteSlice(),
+		Root:            state.Root().ByteSlice(),
+		Selector:        selector.ByteSlice(),
+		Sequencer:       sequencer.ByteSlice(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)
 		return nil, err
 	}
 
-	retdataFelts := make([]*types.Felt, len(r.Retdata))
+	retdataFelts := make([]*felt.Felt, len(r.Retdata))
 	for i, ret := range r.Retdata {
-		f := types.BytesToFelt(ret)
-		retdataFelts[i] = &f
+		retdataFelts[i] = new(felt.Felt).SetBytes(ret)
 	}
 
 	return retdataFelts, nil

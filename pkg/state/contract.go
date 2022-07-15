@@ -1,25 +1,21 @@
 package state
 
 import (
-	"math/big"
-
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 type ContractState struct {
-	ContractHash *types.Felt
-	StorageRoot  *types.Felt
+	ContractHash *felt.Felt
+	StorageRoot  *felt.Felt
 }
 
-func (c *ContractState) Hash() *types.Felt {
-	hashBig := pedersen.Digest(
+func (c *ContractState) Hash() *felt.Felt {
+	return pedersen.Digest(
 		pedersen.Digest(
-			pedersen.Digest(c.ContractHash.Big(), c.StorageRoot.Big()),
-			big.NewInt(0),
+			pedersen.Digest(c.ContractHash, c.StorageRoot),
+			new(felt.Felt),
 		),
-		big.NewInt(0),
+		new(felt.Felt),
 	)
-	hashFelt := types.BigToFelt(hashBig)
-	return &hashFelt
 }
