@@ -2,13 +2,13 @@ package services
 
 import (
 	"context"
+	starknetTypes "github.com/NethermindEth/juno/pkg/types"
 	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 )
 
 var APICollector *apiCollector

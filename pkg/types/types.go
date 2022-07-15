@@ -56,7 +56,7 @@ type EventInfo struct {
 	Block              uint64
 	Address            common.Address
 	Event              map[string]interface{}
-	TransactionHash    common.Hash
+	TxnHash            common.Hash
 	InitialBlockLogged int64
 }
 
@@ -80,16 +80,16 @@ func (f Fact) UnMarshal(bytes []byte) (IValue, error) {
 	return val, nil
 }
 
-type TransactionHash struct {
+type TxnHash struct {
 	Hash common.Hash
 }
 
-func (t TransactionHash) Marshal() ([]byte, error) {
+func (t TxnHash) Marshal() ([]byte, error) {
 	return t.Hash.Bytes(), nil
 }
 
-func (t TransactionHash) UnMarshal(bytes []byte) (IValue, error) {
-	return TransactionHash{
+func (t TxnHash) UnMarshal(bytes []byte) (IValue, error) {
+	return TxnHash{
 		Hash: common.BytesToHash(bytes),
 	}, nil
 }

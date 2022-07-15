@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -120,18 +119,18 @@ func (s *syncService) Run() error {
 	return nil
 }
 
-func (s *syncService) postValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
+func (s *syncService) postValidateStateDiff(stateDiff *types.StateDiff) bool {
 	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.NewRoot)
 }
 
-func (s *syncService) preValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
+func (s *syncService) preValidateStateDiff(stateDiff *types.StateDiff) bool {
 	// The old state root that comes with the stateDiff should match with the current stateRoot
 	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.OldRoot) &&
 		// Should be the next block in the chain
 		s.latestBlockSynced+1 == stateDiff.BlockNumber
 }
 
-func (s *syncService) updateState(stateDiff *starknetTypes.StateDiff) error {
+func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		address := types.HexToFelt(deployedContract.Address)
 		contractHash := types.HexToFelt(deployedContract.ContractHash)

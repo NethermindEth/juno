@@ -1,7 +1,7 @@
 package services
 
 import (
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	starknetTypes "github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"strings"
