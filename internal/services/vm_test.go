@@ -76,7 +76,7 @@ func TestVMCall(t *testing.T) {
 		// Caller's address.
 		feltp(types.HexToFelt("0x0")),
 		// Contract's address.
-		feltp(address),
+		&address,
 		// Selector (StarkNet Keccak hash of the ASCII encoded string "get_value").
 		feltp(types.HexToFelt("0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0")),
 		// Sequencer

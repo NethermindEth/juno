@@ -9,7 +9,6 @@ from starkware.starknet.business_logic.state.state import (
     SharedState,
     StateSelector,
 )
-from starkware.starknet.core.os import class_hash
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.testing.state import StarknetState
 from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import (
@@ -19,36 +18,6 @@ from starkware.storage.storage import FactFetchingContext, Storage
 
 import vm_pb2
 import vm_pb2_grpc
-
-# Helpers.
-
-
-def hex_str_to_int(hex_str):
-    """Returns an int from a string hexadecimal representation of a
-    number. The function is agnostic to whether the string has a 0x
-    prefix.
-    """
-    return int(hex_str, 16)
-
-
-def hex_str_list_to_int_list(hex_str_list):
-    """Returns an [int] where the contents are strings that form a
-    hexadecimal representation of a number. The function is agnostic to
-    whether the string has a 0x prefix.
-    """
-    return list(map(hex_str_to_int, hex_str_list))
-
-
-def int_to_bytes(n):
-    """Takes an int and returns a 32-byte string representation of said
-    int."""
-    return n.to_bytes(32, "big")
-
-
-def int_list_to_hex_str_list(int_list):
-    """Takes a list of ints and returns a list of 32-byte string
-    representations of the contents."""
-    return list(map(hex, int_list))
 
 
 def split_key(key):
@@ -63,14 +32,14 @@ def split_key(key):
 
 
 async def call(
-    adapter=None,
-    calldata=None,
-    caller_address=None,
-    class_hash=None,
-    contract_address=None,
-    root=None,
-    selector=None,
-    sequencer=None,
+        adapter=None,
+        calldata=None,
+        caller_address=None,
+        class_hash=None,
+        contract_address=None,
+        root=None,
+        selector=None,
+        sequencer=None,
 ):
     shared_state = SharedState(
         contract_states=PatriciaTree(root=root, height=251),
@@ -82,7 +51,6 @@ async def call(
             contract_addresses={contract_address}, class_hashes={class_hash}
         ),
     )
-
     state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
     result = await state.call_raw(
         contract_address=contract_address,
@@ -91,22 +59,7 @@ async def call(
         caller_address=caller_address,
         max_fee=0,
     )
-    print(result.retdata, type(result.retdata[0]), file=sys.stderr)
     return result.retdata
-    # print(
-    #     f"""
-    #     call(
-    #         calldata={[hex(c) for c in calldata]},
-    #         caller_address={hex(caller_address)},
-    #         contract_address={hex(contract_address)},
-    #         root={hex(root)},
-    #         selector={hex(selector)},
-    #         sequencer={hex(sequencer)}
-    #     )
-    #     """,
-    #     file=sys.stderr,
-    # )
-    # return [bytes.fromhex("03")]
 
 
 class StorageRPCClient(Storage):
@@ -121,37 +74,29 @@ class StorageRPCClient(Storage):
 
     async def get_value(self, key):
         prefix, suffix = split_key(key)
-        print(prefix, suffix, file=sys.stderr)
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
             suffix = bytes.fromhex(suffix.decode("ascii"))
             request = vm_pb2.GetValueRequest(key=suffix)
-
-            if prefix == b"patricia_node":
+            if prefix == b'patricia_node':
                 response = await stub.GetPatriciaNode(request)
-                out = (
-                    response.bottom
-                    + response.path
-                    + response.len.to_bytes(1, "big").strip(b"\x00")
+                return (
+                        response.bottom
+                        + response.path
+                        + response.len.to_bytes(1, "big").strip(b"\x00")
                 )
-                print(out, file=sys.stderr)
-                return out
             elif prefix == b"contract_state":
                 response = await stub.GetContractState(request)
-                out =  (
-                    b'{"storage_commitment_tree": {"root": "'
-                    + response.storageRoot.hex().encode("utf-8")
-                    + b'", "height": 251}, "contract_hash": "'
-                    + response.contractHash.hex().encode("utf-8")
-                    + b'"}'
+                return (
+                        b'{"storage_commitment_tree": {"root": "'
+                        + response.storageRoot.hex().encode("utf-8")
+                        + b'", "height": 251}, "contract_hash": "'
+                        + response.contractHash.hex().encode("utf-8")
+                        + b'"}'
                 )
-                print(out, file=sys.stderr)
-                return out
             elif prefix == b"contract_definition_fact":
-                print("contract_definition_fact request",request.key, file=sys.stderr)
                 response = await stub.GetContractDefinition(request)
-                out = b'{"contract_definition":' + response.value + b"}"
-                return out
+                return b'{"contract_definition":' + response.value + b"}"
             elif prefix == b"starknet_storage_leaf":
                 return suffix
             else:
@@ -173,7 +118,7 @@ class VMServicer(vm_pb2_grpc.VMServicer):
             selector = int.from_bytes(request.selector, byteorder="big")
             sequencer = int.from_bytes(request.sequencer, byteorder="big")
 
-            retdata=await call(
+            retdata = await call(
                 adapter=self.storage,
                 calldata=calldata,
                 caller_address=caller_address,
