@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := generator.GenerateFF(felt, "../"); err != nil {
+	if err := generator.GenerateFF(felt, "../../"); err != nil {
 		panic(err)
 	}
 	fmt.Println("successfully generated felt")
