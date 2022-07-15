@@ -17,6 +17,7 @@ func BytesToEthAddress(b []byte) EthAddress {
 }
 
 func (a EthAddress) MarshalJSON() ([]byte, error) {
+	// notest
 	return json.Marshal(eth.Address(a))
 }
 
