@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 
 	"github.com/NethermindEth/juno/internal/db"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
@@ -20,7 +21,7 @@ func NewManager(database db.Database) *Manager {
 
 // GetBlockByHash search the block with the given block hash. If the block does
 // not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByHash(blockHash types.BlockHash) (*types.Block, error) {
+func (manager *Manager) GetBlockByHash(blockHash *felt.Felt) (*types.Block, error) {
 	// Build the hash key
 	hashKey := buildHashKey(blockHash)
 	// Search on the database
@@ -61,7 +62,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) (*types.Block, erro
 
 // PutBlock saves the given block with the given hash as key. If any error happens
 // then panic.
-func (manager *Manager) PutBlock(blockHash types.BlockHash, block *types.Block) error {
+func (manager *Manager) PutBlock(blockHash *felt.Felt, block *types.Block) error {
 	// Build the keys
 	hashKey := buildHashKey(blockHash)
 	numberKey := buildNumberKey(block.BlockNumber)
@@ -88,8 +89,8 @@ func (manager *Manager) Close() {
 	manager.database.Close()
 }
 
-func buildHashKey(blockHash types.BlockHash) []byte {
-	return append([]byte("blockHash:"), blockHash.Bytes()...)
+func buildHashKey(blockHash *felt.Felt) []byte {
+	return append([]byte("blockHash:"), blockHash.ByteSlice()...)
 }
 
 func buildNumberKey(blockNumber uint64) []byte {
@@ -100,28 +101,28 @@ func buildNumberKey(blockNumber uint64) []byte {
 
 func marshalBlock(block *types.Block) ([]byte, error) {
 	protoBlock := Block{
-		Hash:             block.BlockHash.Bytes(),
+		Hash:             block.BlockHash.ByteSlice(),
 		BlockNumber:      block.BlockNumber,
-		ParentBlockHash:  block.ParentHash.Bytes(),
+		ParentBlockHash:  block.ParentHash.ByteSlice(),
 		Status:           block.Status.String(),
-		SequencerAddress: block.Sequencer.Bytes(),
-		GlobalStateRoot:  block.NewRoot.Bytes(),
-		OldRoot:          block.OldRoot.Bytes(),
+		SequencerAddress: block.Sequencer.ByteSlice(),
+		GlobalStateRoot:  block.NewRoot.ByteSlice(),
+		OldRoot:          block.OldRoot.ByteSlice(),
 		AcceptedTime:     block.AcceptedTime,
 		TimeStamp:        block.TimeStamp,
 		TxCount:          block.TxCount,
-		TxCommitment:     block.TxCommitment.Bytes(),
+		TxCommitment:     block.TxCommitment.ByteSlice(),
 		TxHashes:         marshalBlockTxHashes(block.TxHashes),
 		EventCount:       block.EventCount,
-		EventCommitment:  block.EventCommitment.Bytes(),
+		EventCommitment:  block.EventCommitment.ByteSlice(),
 	}
 	return proto.Marshal(&protoBlock)
 }
 
-func marshalBlockTxHashes(txHashes []types.TransactionHash) [][]byte {
+func marshalBlockTxHashes(txHashes []*felt.Felt) [][]byte {
 	out := make([][]byte, len(txHashes))
 	for i, txHash := range txHashes {
-		out[i] = txHash.Bytes()
+		out[i] = txHash.ByteSlice()
 	}
 	return out
 }
@@ -133,28 +134,28 @@ func unmarshalBlock(data []byte) (*types.Block, error) {
 		return nil, err
 	}
 	block := types.Block{
-		BlockHash:       types.BytesToBlockHash(protoBlock.Hash),
-		ParentHash:      types.BytesToBlockHash(protoBlock.ParentBlockHash),
+		BlockHash:       new(felt.Felt).SetBytes(protoBlock.Hash),
+		ParentHash:      new(felt.Felt).SetBytes(protoBlock.ParentBlockHash),
 		BlockNumber:     protoBlock.BlockNumber,
 		Status:          types.StringToBlockStatus(protoBlock.Status),
-		Sequencer:       types.BytesToAddress(protoBlock.SequencerAddress),
-		NewRoot:         types.BytesToFelt(protoBlock.GlobalStateRoot),
-		OldRoot:         types.BytesToFelt(protoBlock.OldRoot),
+		Sequencer:       new(felt.Felt).SetBytes(protoBlock.SequencerAddress),
+		NewRoot:         new(felt.Felt).SetBytes(protoBlock.GlobalStateRoot),
+		OldRoot:         new(felt.Felt).SetBytes(protoBlock.OldRoot),
 		AcceptedTime:    protoBlock.AcceptedTime,
 		TimeStamp:       protoBlock.TimeStamp,
 		TxCount:         protoBlock.TxCount,
-		TxCommitment:    types.BytesToFelt(protoBlock.TxCommitment),
+		TxCommitment:    new(felt.Felt).SetBytes(protoBlock.TxCommitment),
 		TxHashes:        unmarshalBlockTxHashes(protoBlock.TxHashes),
 		EventCount:      protoBlock.EventCount,
-		EventCommitment: types.BytesToFelt(protoBlock.EventCommitment),
+		EventCommitment: new(felt.Felt).SetBytes(protoBlock.EventCommitment),
 	}
 	return &block, nil
 }
 
-func unmarshalBlockTxHashes(txHashes [][]byte) []types.TransactionHash {
-	out := make([]types.TransactionHash, len(txHashes))
+func unmarshalBlockTxHashes(txHashes [][]byte) []*felt.Felt {
+	out := make([]*felt.Felt, len(txHashes))
 	for i, txHash := range txHashes {
-		out[i] = types.BytesToTransactionHash(txHash)
+		out[i] = new(felt.Felt).SetBytes(txHash)
 	}
 	return out
 }
