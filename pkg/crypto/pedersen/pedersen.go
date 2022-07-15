@@ -4,40 +4,38 @@ package pedersen
 
 import (
 	_ "embed"
-	"fmt"
-	"math/big"
+
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 // Digest returns a field element that is the result of hashing an input
 // (a, b) ∈ 𝔽²ₚ where p = 2²⁵¹ + 17·2¹⁹² + 1. This function will panic
 // if len(data) > 2. In order to hash n > 2 items, use ArrayDigest.
-func Digest(data ...*big.Int) *big.Int {
+func Digest(data ...*felt.Felt) *felt.Felt {
 	n := len(data)
 	if n > 2 {
+		// notest
 		panic("attempted to hash more than 2 field elements")
 	}
 
 	// Make a defensive copy of the input data.
-	elements := make([]*big.Int, n)
+	elements := make([]*felt.Felt, n)
 	for i, e := range data {
-		elements[i] = new(big.Int).Set(e)
+		elements[i] = new(felt.Felt).Set(e)
 	}
 
 	// Shift point.
 	pt1 := points[0]
 	for i, x := range elements {
-		if x.Cmp(new(big.Int)) == -1 || x.Cmp(prime) == 1 {
-			panic(fmt.Sprintf("%x is not in the range 0 <= x < 2²⁵¹ + 17·2¹⁹² + 1", x))
-		}
 		for j := 0; j < 252; j++ {
-			// Create a copy of the x-coordinate because *big.Int.And mutates.
-			copyX := new(big.Int).Set(x)
-			if copyX.And(copyX, big.NewInt(1)).Cmp(new(big.Int)) != 0 {
+			if x.FromMont().Bit(0) != 0 {
+				// x is odd
 				pt1.add(&points[2+i*252+j])
 			}
-			x.Rsh(x, 1)
+			x.ToMont().Rsh(x, 1)
 		}
 	}
+
 	return pt1.x
 }
 
@@ -48,10 +46,10 @@ func Digest(data ...*big.Int) *big.Int {
 // section of the StarkNet documentation for more details.
 //
 // - [array hashing]: https://github.com/golang/proposal/blob/master/design/51082-godocfmt.md
-func ArrayDigest(data ...*big.Int) *big.Int {
-	digest := new(big.Int)
+func ArrayDigest(data ...*felt.Felt) *felt.Felt {
+	digest := new(felt.Felt)
 	for _, item := range data {
 		digest = Digest(digest, item)
 	}
-	return Digest(digest, big.NewInt(int64(len(data))))
+	return Digest(digest, new(felt.Felt).SetUint64(uint64(len(data))))
 }
