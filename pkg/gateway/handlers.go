@@ -21,7 +21,7 @@ const (
 	outOfRangeTransactionHash = "StarknetErrorCode.OUT_OF_RANGE_TRANSACTION_HASH"
 )
 
-func handlerGetBlock(w http.ResponseWriter, r *http.Request) {
+func getBlock(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -122,7 +122,7 @@ func handlerGetBlock(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlerGetBlockHashByID(w http.ResponseWriter, r *http.Request) {
+func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -177,7 +177,7 @@ func handlerGetBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
 }
 
-func handlerGetBlockIDByHash(w http.ResponseWriter, r *http.Request) {
+func getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -218,7 +218,7 @@ func handlerGetBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
 }
 
-func handlerGetCode(w http.ResponseWriter, r *http.Request) {
+func getCode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -344,7 +344,7 @@ func handlerGetCode(w http.ResponseWriter, r *http.Request) {
 	*/
 }
 
-func handlerGetContractAddresses(w http.ResponseWriter, r *http.Request) {
+func getContractAddresses(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -356,7 +356,7 @@ func handlerGetContractAddresses(w http.ResponseWriter, r *http.Request) {
 	notImplementedErr(w)
 }
 
-func handlerGetStorageAt(w http.ResponseWriter, r *http.Request) {
+func getStorageAt(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -505,7 +505,7 @@ func handlerGetStorageAt(w http.ResponseWriter, r *http.Request) {
 	notImplementedErr(w)
 }
 
-func handlerGetTransaction(w http.ResponseWriter, r *http.Request) {
+func getTransaction(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -571,7 +571,7 @@ func handlerGetTransaction(w http.ResponseWriter, r *http.Request) {
 	panic("Reached code marked as unreachable.")
 }
 
-func handlerGetTransactionHashByID(w http.ResponseWriter, r *http.Request) {
+func getTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -602,7 +602,7 @@ func handlerGetTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'transactionId'")
 }
 
-func handlerGetTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
+func getTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -655,6 +655,6 @@ func handlerGetTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 	panic("Reached code marked as unreachable.")
 }
 
-func handlerNotFound(w http.ResponseWriter, r *http.Request) {
+func notFound(w http.ResponseWriter, r *http.Request) {
 	clientErr(w, http.StatusNotFound, "", "")
 }
