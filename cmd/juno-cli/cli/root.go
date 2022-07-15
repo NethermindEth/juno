@@ -121,14 +121,14 @@ func initConfig() error {
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			Logger.Fatalf("Failed to read Juno configuration file: %v", err)
+			Logger.Fatal("Failed to read Juno configuration file.")
 		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	if err != nil {
-		Logger.Fatalf("Failed to parse runtime configuration: %v", err)
+		Logger.Fatal("Failed to parse runtime configuration.")
 	}
 
 	// If config successfully loaded, return no error.
@@ -144,6 +144,6 @@ func initClient() *feeder.Client {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		Logger.Fatalf("Failed to execute Juno: %v", err)
+		Logger.Fatal("Failed to execute Juno.")
 	}
 }

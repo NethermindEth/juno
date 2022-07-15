@@ -179,7 +179,7 @@ func initConfig() {
 
 	err := viper.ReadInConfig()
 	if err == nil {
-		Logger.With("File", viper.ConfigFileUsed()).Info("Using config file:")
+		Logger.Infof("Using config file: %s.", viper.ConfigFileUsed())
 	} else {
 		Logger.Info("Config file not found.")
 		if !config.Exists() {
@@ -195,7 +195,7 @@ func initConfig() {
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
 	if err != nil {
-		Logger.Fatalf("Failed to parse runtime configuration: %v", err)
+		Logger.Fatal("Failed to parse runtime configuration.")
 	}
 
 	// Configure logger - we want the logger to be created right after the config has been set
