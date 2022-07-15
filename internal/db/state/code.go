@@ -1,38 +1,33 @@
 package state
 
 import (
-	"fmt"
-
 	"google.golang.org/protobuf/proto"
 )
 
 // GetCode returns the ContractCode associated with the given contract address.
 // If the contract code is not found, then nil is returned.
-func (x *Manager) GetCode(contractAddress []byte) *Code {
+func (x *Manager) GetCode(contractAddress []byte) (*Code, error) {
 	rawData, err := x.codeDatabase.Get(contractAddress)
 	if err != nil {
-		panic(any(fmt.Errorf("database error: %s", err)))
-	}
-	if rawData == nil {
-		// notest
-		return nil
+		return nil, err
 	}
 	code := new(Code)
 	if err := proto.Unmarshal(rawData, code); err != nil {
-		panic(any(fmt.Errorf("unmarshal error: %s", err)))
+		return nil, err
 	}
-	return code
+	return code, nil
 }
 
 // PutCode stores a new contract code into the database, associated with the
 // given contract address. If the contract address already have a contract code
 // in the database, then the value is updated.
-func (x *Manager) PutCode(contractAddress []byte, code *Code) {
+func (x *Manager) PutCode(contractAddress []byte, code *Code) error {
 	rawData, err := proto.Marshal(code)
 	if err != nil {
-		panic(any(fmt.Errorf("marshal error: %s", err)))
+		return err
 	}
 	if err := x.codeDatabase.Put(contractAddress, rawData); err != nil {
-		panic(any(fmt.Errorf("database error: %s", err)))
+		return err
 	}
+	return nil
 }
