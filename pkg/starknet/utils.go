@@ -57,8 +57,8 @@ func contractState(contractHash, storageRoot *felt.Felt) *felt.Felt {
 	// Is defined as:
 	// h(h(h(contract_hash, storage_root), 0), 0).
 	val := pedersen.Digest(contractHash, storageRoot)
-	val = pedersen.Digest(val, felt.Felt0)
-	val = pedersen.Digest(val, felt.Felt0)
+	val = pedersen.Digest(val, new(felt.Felt).SetZero())
+	val = pedersen.Digest(val, new(felt.Felt).SetZero())
 	return val
 }
 

@@ -158,7 +158,7 @@ func TestSetBigInt(t *testing.T) {
 		},
 		{
 			big:  new(big.Int).Exp(big.NewInt(2), big65, nil), // 2^65
-			want: new(Felt).Exp(*Felt2, big65),
+			want: new(Felt).Exp(NewFelt(2), big65),
 		},
 	}
 

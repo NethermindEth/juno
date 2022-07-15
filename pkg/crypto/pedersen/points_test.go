@@ -29,7 +29,7 @@ func TestAdd(t *testing.T) {
 		},
 		// (1, P - 1) + (1, 1)
 		{
-			point{new(felt.Felt).SetOne(), new(felt.Felt).Sub(felt.Felt0, felt.Felt1)},
+			point{new(felt.Felt).SetOne(), new(felt.Felt).Sub(new(felt.Felt).SetZero(), new(felt.Felt).SetOne())},
 			point{new(felt.Felt).SetOne(), new(felt.Felt).SetOne()},
 		},
 	}

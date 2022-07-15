@@ -173,7 +173,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, bool) {
 
 // Put inserts a [felt.Felt] key-value pair in the trie.
 func (t *Trie) Put(key, val *felt.Felt) {
-	if val.CmpCompat(felt.Felt0) == 0 {
+	if val.CmpCompat(new(felt.Felt).SetZero()) == 0 {
 		t.Delete(key)
 		return
 	}

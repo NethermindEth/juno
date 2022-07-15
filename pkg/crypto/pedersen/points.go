@@ -2101,8 +2101,8 @@ func (p *point) add(other *point) {
 		} else {
 			// Elliptic curve slope double.
 			p.x = new(felt.Felt).Square(a.x)
-			p.x.Mul(p.x, felt.Felt3)
-			p.x.Add(p.x, felt.Felt1 /* alpha coefficient */)
+			p.x.Mul(p.x, new(felt.Felt).SetUint64(3))
+			p.x.Add(p.x, new(felt.Felt).SetOne() /* alpha coefficient */)
 			m.SetBigInt(divMod(p.x.ToBigIntRegular(new(big.Int)), new(felt.Felt).Double(a.y).ToBigIntRegular(new(big.Int)), felt.Modulus()))
 
 			// Cont. elliptic curve double.

@@ -153,9 +153,9 @@ func TestToggleBit(t *testing.T) {
 	}{
 		{new(Felt).SetZero(), 1, new(Felt).SetUint64(2)},
 		{new(Felt).SetOne(), 64 * (Limbs + 1), new(Felt).SetOne()},
-		{new(Felt).SetOne(), 1, new(Felt).Set(Felt3)},
-		{new(Felt).SetUint64(maxUint64), 0, new(Felt).Sub(new(Felt).SetUint64(maxUint64), Felt1)},
-		{new(Felt).SetUint64(maxUint64), 65, new(Felt).Add(new(Felt).SetUint64(maxUint64), new(Felt).Exp(*Felt2, new(Felt).SetUint64(65).ToBigIntRegular(new(big.Int))))},
+		{new(Felt).SetOne(), 1, new(Felt).Set(new(Felt).SetUint64(3))},
+		{new(Felt).SetUint64(maxUint64), 0, new(Felt).Sub(new(Felt).SetUint64(maxUint64), new(Felt).SetOne())},
+		{new(Felt).SetUint64(maxUint64), 65, new(Felt).Add(new(Felt).SetUint64(maxUint64), new(Felt).Exp(NewFelt(2), new(Felt).SetUint64(65).ToBigIntRegular(new(big.Int))))},
 	}
 
 	for i, test := range tests {

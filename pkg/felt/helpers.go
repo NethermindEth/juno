@@ -4,13 +4,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/common"
 )
 
-var (
-	Felt0 = new(Felt).SetZero()
-	Felt1 = new(Felt).SetOne()
-	Felt2 = new(Felt).SetUint64(2)
-	Felt3 = new(Felt).SetUint64(3)
-)
-
 // ByteSlice() is exactly the same as Marshal() except that it returns
 // null when z is null. This mimics the behavior of big.Int.
 func (z *Felt) ByteSlice() []byte {

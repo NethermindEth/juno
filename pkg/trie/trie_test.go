@@ -17,10 +17,10 @@ const testKeyLen = 3
 var tests = [...]struct {
 	key, val *felt.Felt
 }{
-	{new(felt.Felt).Set(felt.Felt2) /* 0b010 */, new(felt.Felt).Set(felt.Felt1)},
-	{new(felt.Felt).Set(felt.Felt3) /* 0b011 */, new(felt.Felt).Set(felt.Felt1)},
-	{new(felt.Felt).SetUint64(5) /* 0b101 */, new(felt.Felt).Set(felt.Felt1)},
-	{new(felt.Felt).SetUint64(7) /* 0b111 */, new(felt.Felt).Set(felt.Felt0)},
+	{new(felt.Felt).SetUint64(2) /* 0b010 */, new(felt.Felt).SetOne()},
+	{new(felt.Felt).SetUint64(3) /* 0b011 */, new(felt.Felt).SetOne()},
+	{new(felt.Felt).SetUint64(5) /* 0b101 */, new(felt.Felt).SetOne()},
+	{new(felt.Felt).SetUint64(7) /* 0b111 */, new(felt.Felt).SetZero()},
 }
 
 func init() {
@@ -31,8 +31,8 @@ func Example() {
 	pairs := [...]struct {
 		key, val *felt.Felt
 	}{
-		{new(felt.Felt).Set(felt.Felt2) /* 0b010 */, new(felt.Felt).Set(felt.Felt1)},
-		{new(felt.Felt).SetUint64(5) /* 0b101 */, new(felt.Felt).Set(felt.Felt1)},
+		{new(felt.Felt).SetUint64(2) /* 0b010 */, new(felt.Felt).SetUint64(1)},
+		{new(felt.Felt).SetUint64(5) /* 0b101 */, new(felt.Felt).SetUint64(1)},
 	}
 
 	// Provide the storage that the trie will use to persist data.
@@ -90,7 +90,7 @@ func TestDelete(t *testing.T) {
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
 	trie := New(store.New(), testKeyLen)
-	if trie.Commitment().CmpCompat(felt.Felt0) != 0 {
+	if trie.Commitment().CmpCompat(new(felt.Felt).SetZero()) != 0 {
 		t.Error("trie.Commitment() != 0 for empty trie")
 	}
 }
