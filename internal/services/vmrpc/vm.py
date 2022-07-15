@@ -19,36 +19,6 @@ from starkware.storage.storage import FactFetchingContext, Storage
 import vm_pb2
 import vm_pb2_grpc
 
-# Helpers.
-
-
-def hex_str_to_int(hex_str):
-    """Returns an int from a string hexadecimal representation of a
-    number. The function is agnostic to whether the string has a 0x
-    prefix.
-    """
-    return int(hex_str, 16)
-
-
-def hex_str_list_to_int_list(hex_str_list):
-    """Returns an [int] where the contents are strings that form a
-    hexadecimal representation of a number. The function is agnostic to
-    whether the string has a 0x prefix.
-    """
-    return list(map(hex_str_to_int, hex_str_list))
-
-
-def int_to_bytes(n):
-    """Takes an int and returns a 32-byte string representation of said
-    int."""
-    return n.to_bytes(32, "big")
-
-
-def int_list_to_hex_str_list(int_list):
-    """Takes a list of ints and returns a list of 32-byte string
-    representations of the contents."""
-    return list(map(hex, int_list))
-
 
 def split_key(key):
     """Takes a byte string of the form prefix:suffix where the suffix is
@@ -62,33 +32,25 @@ def split_key(key):
 
 
 async def call(
-    adapter,
-    calldata,
-    caller_address,
-    contract_address,
-    root,
-    selector,
+        adapter=None,
+        calldata=None,
+        caller_address=None,
+        class_hash=None,
+        contract_address=None,
+        root=None,
+        selector=None,
+        sequencer=None,
 ):
-    # Parse values.
-    calldata = hex_str_list_to_int_list(calldata)
-    caller_address = hex_str_to_int(caller_address)
-    contract_address = hex_str_to_int(contract_address)
-    root = int_to_bytes(hex_str_to_int(root))
-    selector = hex_str_to_int(selector)
-
-    # XXX: Sequencer's address. This does not appear to be important so
-    # a dummy value could suffice.
-    sequencer = 0x37B2CD6BAAA515F520383BEE7B7094F892F4C770695FC329A8973E841A971AE
-
     shared_state = SharedState(
         contract_states=PatriciaTree(root=root, height=251),
         block_info=BlockInfo.empty(sequencer_address=sequencer),
     )
     carried_state = await shared_state.get_filled_carried_state(
         ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
-        state_selector=StateSelector(contract_addresses={contract_address}),
+        state_selector=StateSelector(
+            contract_addresses={contract_address}, class_hashes={class_hash}
+        ),
     )
-
     state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
     result = await state.call_raw(
         contract_address=contract_address,
@@ -97,7 +59,7 @@ async def call(
         caller_address=caller_address,
         max_fee=0,
     )
-    return int_list_to_hex_str_list(result.retdata)
+    return result.retdata
 
 
 class StorageRPCClient(Storage):
@@ -112,22 +74,33 @@ class StorageRPCClient(Storage):
 
     async def get_value(self, key):
         prefix, suffix = split_key(key)
-        # Leaf keys encode their value in the suffix so there is no need
-        # to make the database call.
-        if prefix == b"starknet_storage_leaf":
-            return bytes.fromhex(suffix.decode("ascii"))
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
-            request = vm_pb2.GetValueRequest(key=prefix + b":" + suffix)
-            response = await stub.GetValue(request)
-            # XXX: Using structural pattern matching here would probably
-            # be a cleaner way to express the following but Python 3.10
-            # does not play nice with cairo-lang.
-            if prefix == b"contract_state" or prefix == b"contract_definition_fact":
-                return response.value
-            elif prefix == b"patricia_node":
-                return bytes.fromhex(response.value.decode("ascii"))
-            raise ValueError("invalid prefix: " + prefix.decode("ascii"))
+            suffix = bytes.fromhex(suffix.decode("ascii"))
+            request = vm_pb2.GetValueRequest(key=suffix)
+            if prefix == b'patricia_node':
+                response = await stub.GetPatriciaNode(request)
+                return (
+                        response.bottom
+                        + response.path
+                        + response.len.to_bytes(1, "big").strip(b"\x00")
+                )
+            elif prefix == b"contract_state":
+                response = await stub.GetContractState(request)
+                return (
+                        b'{"storage_commitment_tree": {"root": "'
+                        + response.storageRoot.hex().encode("utf-8")
+                        + b'", "height": 251}, "contract_hash": "'
+                        + response.contractHash.hex().encode("utf-8")
+                        + b'"}'
+                )
+            elif prefix == b"contract_definition_fact":
+                response = await stub.GetContractDefinition(request)
+                return b'{"contract_definition":' + response.value + b"}"
+            elif prefix == b"starknet_storage_leaf":
+                return suffix
+            else:
+                raise ValueError(f"Unknown prefix: {prefix}")
 
 
 class VMServicer(vm_pb2_grpc.VMServicer):
@@ -136,15 +109,27 @@ class VMServicer(vm_pb2_grpc.VMServicer):
 
     async def Call(self, request, context):
         try:
+            # Parse values.
+            calldata = [int.from_bytes(c, byteorder="big") for c in request.calldata]
+            caller_address = int.from_bytes(request.caller_address, byteorder="big")
+            contract_address = int.from_bytes(request.contract_address, byteorder="big")
+            class_hash = request.class_hash
+            root = request.root
+            selector = int.from_bytes(request.selector, byteorder="big")
+            sequencer = int.from_bytes(request.sequencer, byteorder="big")
+
+            retdata = await call(
+                adapter=self.storage,
+                calldata=calldata,
+                caller_address=caller_address,
+                contract_address=contract_address,
+                class_hash=class_hash,
+                root=root,
+                selector=selector,
+                sequencer=sequencer,
+            )
             return vm_pb2.VMCallResponse(
-                retdata=await call(
-                    adapter=self.storage,
-                    calldata=request.calldata,
-                    caller_address=request.caller_address,
-                    contract_address=request.contract_address,
-                    root=request.root,
-                    selector=request.selector,
-                )
+                retdata=[c.to_bytes(32, byteorder="big") for c in retdata]
             )
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)

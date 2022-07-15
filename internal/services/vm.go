@@ -12,10 +12,11 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/state"
+	statedb "github.com/NethermindEth/juno/internal/db/state"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services/vmrpc"
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/state"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -28,13 +29,13 @@ type pySubProcessLogger struct {
 }
 
 func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
-	p.logger.Warn("Python VM Subprocess: \n%s\n", p0)
+	p.logger.Warnf("Python VM Subprocess: \n%s\n", p0)
 	return len(p0), nil
 }
 
 type vmService struct {
 	service
-	manager *state.Manager
+	manager *statedb.Manager
 
 	vmDir string
 	vmCmd *exec.Cmd
@@ -65,19 +66,15 @@ func (s *vmService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+		contractDefDb, err := db.NewMDBXDatabase(env, "CODE")
 		if err != nil {
 			return err
 		}
-		binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+		stateDb, err := db.NewMDBXDatabase(env, "STATE")
 		if err != nil {
 			return err
 		}
-		stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
-		if err != nil {
-			return err
-		}
-		s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+		s.manager = statedb.NewStateManager(stateDb, contractDefDb)
 	}
 
 	s.rpcNet = "tcp"
@@ -111,59 +108,12 @@ func freePorts(n int) ([]int, error) {
 }
 
 // Setup sets the service configuration, service must be not running.
-func (s *vmService) Setup(stateDatabase, binaryDatabase, codeDefinitionDatabase db.Database) {
+func (s *vmService) Setup(stateDb, contractDefDb db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("trying to Setup with service running")
 	}
-	s.manager = state.NewStateManager(stateDatabase, binaryDatabase, codeDefinitionDatabase)
-}
-
-/*
-// isValidPythonVer returns true if the Python version detected has a
-// major version of 3 and returns an error if it failed to retrieve such
-// information from the system.
-func isValidPythonVer(path string) (bool, error) {
-	out, err := exec.Command(path, "--version").Output()
-	if err != nil {
-		return false, fmt.Errorf("services: failed to check Python version")
-	}
-	re := regexp.MustCompile(`\d`)
-	return fmt.Sprintf("%s", re.Find(out)) == "3", nil
-}
-*/
-
-// python returns the location of Python on the system by searching the
-// $PATH environment variable and returns an error otherwise.
-func python() (string, error) {
-	path, err := exec.LookPath("python")
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			// Assumes that python3 is indeed Python version 3 but there is
-			// another case where the user could have multiple Python 3
-			// versions installed and thus it would be more like python3.9 🤔.
-			path, err = exec.LookPath("python3")
-			if err != nil {
-				return "", errPythonNotFound
-			}
-			return path, nil
-		}
-		return "", errPythonNotFound
-	}
-	// Could be Python 2.
-	/*
-		ok, err := isValidPythonVer(path)
-		if err != nil {
-			return "", err
-		}
-		if !ok {
-			path, err = exec.LookPath("python3")
-			if err != nil {
-				return "", errPythonNotFound
-			}
-		}
-	*/
-	return path, nil
+	s.manager = statedb.NewStateManager(stateDb, contractDefDb)
 }
 
 func (s *vmService) Run() error {
@@ -203,12 +153,8 @@ func (s *vmService) Run() error {
 	}
 	s.logger.Infof("vm dir: %s", s.vmDir)
 
-	py, err := python()
-	if err != nil {
-		return err
-	}
 	// Start the cairo-lang gRPC server (serving contract calls).
-	s.vmCmd = exec.Command(py, filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
+	s.vmCmd = exec.Command("python3", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
 	pyLogger := &pySubProcessLogger{logger: s.logger}
 	s.vmCmd.Stdout = pyLogger
 	s.vmCmd.Stderr = pyLogger
@@ -222,7 +168,7 @@ func (s *vmService) Run() error {
 	if err != nil {
 		s.logger.Errorf("failed to listen: %v", err)
 	}
-	storageServer := vmrpc.NewStorageRPCServer()
+	storageServer := vmrpc.NewStorageRPCServer(s.manager)
 	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
 	// Run the gRPC server.
@@ -247,14 +193,17 @@ func (s *vmService) Close(ctx context.Context) {
 
 func (s *vmService) Call(
 	ctx context.Context,
-	calldata []types.Felt,
-	callerAddr types.Felt,
-	contractAddr types.Felt,
-	root types.Felt,
-	selector types.Felt,
-) ([]string, error) {
+	state state.State,
+	calldata []*felt.Felt,
+	callerAddr,
+	contractAddr,
+	selector,
+	sequencer *felt.Felt,
+) ([]*felt.Felt, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
+
+	s.logger.Info("Call")
 
 	// XXX: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -265,23 +214,35 @@ func (s *vmService) Call(
 	defer conn.Close()
 	c := vmrpc.NewVMClient(conn)
 
-	strconvCalldata := make([]string, 0, len(calldata))
-	for _, felt := range calldata {
-		strconvCalldata = append(strconvCalldata, felt.String())
+	contractState, err := state.GetContractState(contractAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	calldataBytes := make([][]byte, len(calldata))
+	for i, felt := range calldata {
+		calldataBytes[i] = felt.ByteSlice()
 	}
 
 	// Contact the server and print out its response.
 	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
-		Calldata:        strconvCalldata,
-		CallerAddress:   callerAddr.String(),
-		ContractAddress: contractAddr.String(),
-		Root:            root.String(),
-		Selector:        selector.String(),
+		Calldata:        calldataBytes,
+		CallerAddress:   callerAddr.ByteSlice(),
+		ContractAddress: contractAddr.ByteSlice(),
+		ClassHash:       contractState.ContractHash.ByteSlice(),
+		Root:            state.Root().ByteSlice(),
+		Selector:        selector.ByteSlice(),
+		Sequencer:       sequencer.ByteSlice(),
 	})
 	if err != nil {
 		s.logger.Errorf("failed to call: %v", err)
 		return nil, err
 	}
 
-	return r.Retdata, nil
+	retdataFelts := make([]*felt.Felt, len(r.Retdata))
+	for i, ret := range r.Retdata {
+		retdataFelts[i] = new(felt.Felt).SetBytes(ret)
+	}
+
+	return retdataFelts, nil
 }

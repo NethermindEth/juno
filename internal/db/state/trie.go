@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/pkg/collections"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
 
-func (m *Manager) GetTrieNode(hash *types.Felt) (trie.TrieNode, error) {
+func (m *Manager) GetTrieNode(hash *felt.Felt) (trie.TrieNode, error) {
 	// Search on the database
-	rawNode, err := m.stateDatabase.Get(hash.Bytes())
+	rawNode, err := m.stateDatabase.Get(hash.ByteSlice())
 	if err != nil {
 		panic(err)
 	}
@@ -28,32 +28,31 @@ func (m *Manager) GetTrieNode(hash *types.Felt) (trie.TrieNode, error) {
 	}
 	if binaryNode := node.GetBinaryNode(); binaryNode != nil {
 		// Return binary node
-		leftH := types.BytesToFelt(binaryNode.GetLeftH())
-		rightH := types.BytesToFelt(binaryNode.GetRightH())
 		return &trie.BinaryNode{
-			LeftH:  &leftH,
-			RightH: &rightH,
+			LeftH:  new(felt.Felt).SetBytes(binaryNode.GetLeftH()),
+			RightH: new(felt.Felt).SetBytes(binaryNode.GetRightH()),
 		}, nil
 	}
 	if edgeNode := node.GetEdgeNode(); edgeNode != nil {
 		// Return edge node
-		path := collections.NewBitSet(int(edgeNode.GetLength()), edgeNode.GetPath())
-		bottom := types.BytesToFelt(edgeNode.GetBottom())
-		return trie.NewEdgeNode(path, &bottom), nil
+		return trie.NewEdgeNode(
+			collections.NewBitSet(int(edgeNode.GetLength()), edgeNode.GetPath()),
+			new(felt.Felt).SetBytes(edgeNode.GetBottom()),
+		), nil
 	}
 	// Return error if unknown node type
 	return nil, errors.New("unknown node type")
 }
 
 func (m *Manager) StoreTrieNode(node trie.TrieNode) error {
-	key := node.Hash().Bytes()
+	key := node.Hash().ByteSlice()
 	var pbTrieNode isTrieNode_Node
 	switch node := node.(type) {
 	case *trie.BinaryNode:
 		pbTrieNode = &TrieNode_BinaryNode{
 			BinaryNode: &BinaryNode{
-				LeftH:  node.LeftH.Bytes(),
-				RightH: node.RightH.Bytes(),
+				LeftH:  node.LeftH.ByteSlice(),
+				RightH: node.RightH.ByteSlice(),
 			},
 		}
 	case *trie.EdgeNode:
@@ -61,7 +60,7 @@ func (m *Manager) StoreTrieNode(node trie.TrieNode) error {
 			&EdgeNode{
 				Length: uint32(node.Path().Len()),
 				Path:   node.Path().Bytes(),
-				Bottom: node.Bottom().Bytes(),
+				Bottom: node.Bottom().ByteSlice(),
 			},
 		}
 	default:

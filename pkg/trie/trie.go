@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/pkg/collections"
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 var (
@@ -14,43 +14,43 @@ var (
 )
 
 type Trie interface {
-	Root() *types.Felt
-	Get(key *types.Felt) (*types.Felt, error)
-	Put(key *types.Felt, value *types.Felt) error
-	Del(key *types.Felt) error
+	Root() *felt.Felt
+	Get(key *felt.Felt) (*felt.Felt, error)
+	Put(key *felt.Felt, value *felt.Felt) error
+	Del(key *felt.Felt) error
 }
 
 type TrieManager interface {
-	GetTrieNode(hash *types.Felt) (TrieNode, error)
+	GetTrieNode(hash *felt.Felt) (TrieNode, error)
 	StoreTrieNode(node TrieNode) error
 }
 
 type trie struct {
 	height  int
-	root    *types.Felt
+	root    *felt.Felt
 	manager TrieManager
 }
 
 // New creates a new trie, pass zero as root hash to initialize an empty trie
-func New(manager TrieManager, root *types.Felt, height int) Trie {
+func New(manager TrieManager, root *felt.Felt, height int) Trie {
 	return &trie{height, root, manager}
 }
 
 // Root returns the hash of the root node of the trie.
-func (t *trie) Root() *types.Felt {
+func (t *trie) Root() *felt.Felt {
 	return t.root
 }
 
 // Get gets the value for a key stored in the trie.
-func (t *trie) Get(key *types.Felt) (*types.Felt, error) {
-	path := collections.NewBitSet(t.height, key.Bytes())
+func (t *trie) Get(key *felt.Felt) (*felt.Felt, error) {
+	path := collections.NewBitSet(t.height, key.ByteSlice())
 	node, _, err := t.get(path, false)
 	return node, err
 }
 
 // Put inserts a new key/value pair into the trie.
-func (t *trie) Put(key *types.Felt, value *types.Felt) error {
-	path := collections.NewBitSet(t.height, key.Bytes())
+func (t *trie) Put(key *felt.Felt, value *felt.Felt) error {
+	path := collections.NewBitSet(t.height, key.ByteSlice())
 	_, siblings, err := t.get(path, true)
 	if err != nil {
 		return err
@@ -59,11 +59,11 @@ func (t *trie) Put(key *types.Felt, value *types.Felt) error {
 }
 
 // Del deltes the value associated with the given key.
-func (t *trie) Del(key *types.Felt) error {
-	return t.Put(key, &types.Felt0)
+func (t *trie) Del(key *felt.Felt) error {
+	return t.Put(key, new(felt.Felt))
 }
 
-func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []TrieNode, error) {
+func (t *trie) get(path *collections.BitSet, withSiblings bool) (*felt.Felt, []TrieNode, error) {
 	// list of siblings we need to hash with to get to the root
 	var siblings []TrieNode
 	if withSiblings {
@@ -117,7 +117,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 			walked += lcp
 
 		case *BinaryNode:
-			var nextH, siblingH *types.Felt
+			var nextH, siblingH *felt.Felt
 			// walk left or right depending on the bit
 			if path.Get(walked) {
 				// next is right node
@@ -154,7 +154,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*types.Felt, []
 }
 
 // put inserts a node in a given path in the trie.
-func (t *trie) put(path *collections.BitSet, value *types.Felt, siblings []TrieNode) error {
+func (t *trie) put(path *collections.BitSet, value *felt.Felt, siblings []TrieNode) error {
 	var node TrieNode
 	node = &leafNode{value}
 	// reverse walk the key

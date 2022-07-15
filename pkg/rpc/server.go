@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/state"
 
 	. "github.com/NethermindEth/juno/internal/log"
 )
@@ -20,7 +21,9 @@ type Server struct {
 
 // HandlerRPC represents the struct that later we will apply reflection
 // to call rpc methods.
-type HandlerRPC struct{}
+type HandlerRPC struct {
+	state state.StateManager
+}
 
 // HandlerJsonRpc contains the JSON-RPC method functions.
 type HandlerJsonRpc struct {
