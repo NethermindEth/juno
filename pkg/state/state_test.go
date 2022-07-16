@@ -18,11 +18,7 @@ func newTestStateManager(t *testing.T) state.StateManager {
 	env, err := db.GetMDBXEnv()
 	if err != nil {
 	}
-	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
-	if err != nil {
-		t.Fail()
-	}
-	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+	contractDef, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
 	if err != nil {
 		t.Fail()
 	}
@@ -30,7 +26,7 @@ func newTestStateManager(t *testing.T) state.StateManager {
 	if err != nil {
 		t.Fail()
 	}
-	return statedb.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+	return statedb.NewStateManager(stateDatabase, contractDef)
 }
 
 func TestStateFromStateDiffs(t *testing.T) {

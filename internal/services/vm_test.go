@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"math/big"
 	"testing"
 	"time"
@@ -52,19 +53,19 @@ func TestVMCall(t *testing.T) {
 
 	state := state.New(VMService.manager, trie.EmptyNode.Hash())
 	b, _ := new(big.Int).SetString("2483955865838519930787573649413589905962103032695051953168137837593959392116", 10)
-	address := types.BigToFelt(b)
-	hash := types.HexToFelt("0x050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b")
+	address := new(felt.Felt).SetBigInt(b)
+	hash := new(felt.Felt).SetHex("0x050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b")
 	var contract types.Contract
 	if err := json.Unmarshal(testContract, &contract); err != nil {
 		t.Fatal(err)
 	}
-	state.SetCode(&address, &hash, &contract)
-	slot := types.HexToFelt("0x84")
-	value := types.HexToFelt("0x3")
-	state.SetSlot(&address, &slot, &value)
+	state.SetCode(address, hash, &contract)
+	slot := new(felt.Felt).SetHex("0x84")
+	value := new(felt.Felt).SetHex("0x3")
+	state.SetSlot(address, slot, value)
 
-	feltp := func(f types.Felt) *types.Felt {
-		return &f
+	feltp := func(f felt.Felt) felt.Felt {
+		return f
 	}
 
 	ret, err := VMService.Call(
@@ -72,7 +73,7 @@ func TestVMCall(t *testing.T) {
 		// State
 		state,
 		// Calldata.
-		[]*types.Felt{feltp(slot)},
+		[]felt.Felt{feltp(slot)},
 		// Caller's address.
 		feltp(types.HexToFelt("0x0")),
 		// Contract's address.
