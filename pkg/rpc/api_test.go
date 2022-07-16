@@ -162,7 +162,7 @@ func TestStarknetGetCode(t *testing.T) {
 		t.Error(err)
 	}
 	// setup
-	abiManager = abi.NewABIManager(abiDb)
+	abiManager = abi.NewManager(abiDb)
 	defer abiManager.Close()
 
 	address := *testFelt2
