@@ -197,7 +197,7 @@ func setupDatabaseManagers() {
 	logDBErr(dbName, err)
 
 	contractHashManager = contracthash.NewManager(contractHashDb)
-	abiManager = abi.NewABIManager(abiDb)
+	abiManager = abi.NewManager(abiDb)
 	stateManager = state.NewStateManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
 	transactionManager = transaction.NewManager(txDb, receiptDb)
 	blockManager = block.NewManager(blockDb)
