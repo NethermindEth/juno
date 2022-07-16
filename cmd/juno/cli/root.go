@@ -198,7 +198,7 @@ func setupDatabaseManagers() {
 
 	contractHashManager = contracthash.NewManager(contractHashDb)
 	abiManager = abi.NewManager(abiDb)
-	stateManager = state.NewStateManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
 	transactionManager = transaction.NewManager(txDb, receiptDb)
 	blockManager = block.NewManager(blockDb)
 }
