@@ -107,7 +107,7 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	}
 	blockManager.PutBlock(&blockHash, b)
 
-	stateManager = state.NewStateManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
 	defer stateManager.Close()
 
 	address := testFelt2
@@ -247,7 +247,7 @@ func TestStarknetGetCode(t *testing.T) {
 		},
 	}
 
-	stateManager = state.NewStateManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
 	defer stateManager.Close()
 
 	abiManager.PutABI(address.Hex(), wantAbi)
