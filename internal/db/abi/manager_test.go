@@ -16,7 +16,7 @@ func TestManager(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	manager := NewABIManager(database)
+	manager := NewManager(database)
 
 	for address, abi := range abis {
 		if err := manager.PutABI(address, abi); err != nil {
