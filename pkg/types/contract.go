@@ -23,7 +23,31 @@ type Contract struct {
 	FullDef json.RawMessage
 }
 
-// UnmarshalJSON unmarshals the JSON-encoded data into the contract.
+// UnmarshalRaw unmarshal the raw message data into the contract.
+func (c *Contract) UnmarshalRaw(raw *json.RawMessage) error {
+
+	data, err := raw.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	var contract struct {
+		Abi     Abi `json:"abi"`
+		Program struct {
+			Data []*felt.Felt `json:"data"`
+		} `json:"program"`
+	}
+	if err = json.Unmarshal(data, &contract); err != nil {
+		return err
+	}
+
+	c.Abi = contract.Abi
+	c.Bytecode = contract.Program.Data
+	c.FullDef = *raw
+	return nil
+}
+
+// UnmarshalJSON unmarshal the JSON-encoded data into the contract.
 func (c *Contract) UnmarshalJSON(data []byte) error {
 	var fullDef json.RawMessage
 	if err := json.Unmarshal(data, &fullDef); err != nil {

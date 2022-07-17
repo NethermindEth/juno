@@ -61,10 +61,10 @@ func (st *state) SetCode(address *felt.Felt, hash *felt.Felt, code *types.Contra
 		return err
 	}
 	contract.ContractHash = hash
-	if err := st.manager.PutContractState(contract); err != nil {
+	if err = st.manager.PutContractState(contract); err != nil {
 		return err
 	}
-	if err := st.manager.PutContract(hash, code); err != nil {
+	if err = st.manager.PutContract(hash, code); err != nil {
 		return err
 	}
 	return st.stateTrie.Put(address, contract.Hash())
