@@ -118,6 +118,11 @@ const config = {
                 theme: lightCodeTheme,
                 darkTheme: darkCodeTheme,
             },
+            algolia: {
+              appId: '3WO9O7LAF0',
+              apiKey: '5fe4fabebdd22f4784af7b63809916a1',
+              indexName: 'gojuno',
+            }
         }),
 };
 
