@@ -134,53 +134,14 @@ func (s *syncService) preValidateStateDiff(stateDiff *types.StateDiff) bool {
 
 func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 
-	//var wg sync.WaitGroup
-
-	for _, deployedContract := range stateDiff.DeployedContracts {
-		//wg.Add(1)
-
-		//go func(deployedContract *types.DeployedContract) {
-		//defer wg.Done()
-		address := new(felt.Felt).SetHex(deployedContract.Address)
-		contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
-
-		// Get Full Contract
-		contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address, "",
-			strconv.FormatInt(stateDiff.BlockNumber, 10))
-		if err != nil {
-			s.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address).
-				Error("Error getting full contract")
-			return err
+	go func() {
+		for _, deployedContract := range stateDiff.DeployedContracts {
+			err := s.SetCode(stateDiff, deployedContract)
+			if err != nil {
+				return
+			}
 		}
-
-		//bytes, err := json.Marshal(contractFromApi)
-		//if err != nil {
-		//	s.logger.With("Block Number", stateDiff.BlockNumber,
-		//		"Contract Address", deployedContract.Address).
-		//		Error("Error updating state")
-		//	return
-		//}
-
-		contract := new(types.Contract)
-		err = contract.UnmarshalRaw(contractFromApi)
-		if err != nil {
-			s.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address).
-				Error("Error unmarshalling contract")
-			return err
-		}
-		err = s.state.SetCode(address, contractHash, contract)
-		if err != nil {
-			s.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address).
-				Error("Error setting code")
-			return err
-		}
-		s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
-		//}(&deployedContract)
-	}
-	//wg.Wait()
+	}()
 	for k, v := range stateDiff.StorageDiffs {
 		for _, storageSlots := range v {
 			address := new(felt.Felt).SetHex(k)
@@ -193,6 +154,39 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 		}
 	}
 	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
+	return nil
+}
+
+func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
+	address := new(felt.Felt).SetHex(deployedContract.Address)
+	contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
+
+	// Get Full Contract
+	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address, "",
+		strconv.FormatInt(stateDiff.BlockNumber, 10))
+	if err != nil {
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error getting full contract")
+		return err
+	}
+
+	contract := new(types.Contract)
+	err = contract.UnmarshalRaw(contractFromApi)
+	if err != nil {
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error unmarshalling contract")
+		return err
+	}
+	err = s.state.SetCode(address, contractHash, contract)
+	if err != nil {
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error setting code")
+		return err
+	}
+	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
 	return nil
 }
 
