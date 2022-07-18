@@ -113,9 +113,6 @@ func main() {
 			case "goerli":
 				newConfig.Starknet.FeederGateway = "https://alpha4.starknet.io"
 				newConfig.Starknet.Network = "goerli"
-			case "NO CHANGE":
-				newConfig.Starknet.FeederGateway = runtime.Starknet.FeederGateway
-				newConfig.Starknet.Network = runtime.Starknet.Network
 			}
 		}).
 		AddCheckbox("API Sync Enabled", runtime.Starknet.ApiSync, func(checked bool) {
@@ -167,11 +164,7 @@ func main() {
 			newConfig.DbPath = dbPath
 		}).
 		AddDropDown("Logger Verbosity", verbosityList, selectedVerbIndex, func(option string, index int) {
-			if option == "NO CHANGE" {
-				newConfig.Logger.VerbosityLevel = runtime.Logger.VerbosityLevel
-			} else {
-				newConfig.Logger.VerbosityLevel = option
-			}
+			newConfig.Logger.VerbosityLevel = option
 		}).
 		AddCheckbox("Logger JSON output", runtime.Logger.EnableJsonOutput, func(checked bool) {
 			newConfig.Logger.EnableJsonOutput = checked
