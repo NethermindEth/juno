@@ -15,7 +15,7 @@ func TestMapUsingTransactionHash(t *testing.T) {
 	dict := newDict()
 
 	// Set a new value, in this case TransactionHash
-	txnHash := TransactionHash{Hash: common.HexToHash("0x01")}
+	txnHash := TxnHash{Hash: common.HexToHash("0x01")}
 
 	dict.Add("hash", txnHash)
 
@@ -31,7 +31,7 @@ func TestMapUsingTransactionHash(t *testing.T) {
 		return
 	}
 	// check that retrieved value match the one that was saved
-	if get.(TransactionHash).Hash.Hex() != txnHash.Hash.Hex() {
+	if get.(TxnHash).Hash.Hex() != txnHash.Hash.Hex() {
 		t.Fail()
 	}
 	// Check if key exist in the database
