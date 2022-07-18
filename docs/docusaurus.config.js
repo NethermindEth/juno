@@ -18,6 +18,8 @@ const config = {
     // If you aren't using GitHub pages, you don't need these.
     organizationName: 'NethermindEth', // Usually your GitHub org/user name.
     projectName: 'juno', // Usually your repo name.
+    deploymentBranch: 'gh-pages',
+    trailingSlash: false,
 
     // Even if you don't use internalization, you can use this field to set useful
     // metadata like html lang. For example, if your site is Chinese, you may want
@@ -118,6 +120,11 @@ const config = {
                 theme: lightCodeTheme,
                 darkTheme: darkCodeTheme,
             },
+            algolia: {
+              appId: '3WO9O7LAF0',
+              apiKey: '5fe4fabebdd22f4784af7b63809916a1',
+              indexName: 'gojuno',
+            }
         }),
 };
 
