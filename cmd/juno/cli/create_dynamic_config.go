@@ -65,8 +65,26 @@ func main() {
 	runtime := *config.Runtime
 	newConfig := &runtime
 
-	networkList := []string{"NO CHANGE", "mainnet", "goerli"}
-	verbosityList := []string{"NO CHANGE", "DEBUG", "INFO", "WARN", "ERROR", "DPANIC", "PANIC", "FATAL"}
+	networkList := []string{"mainnet", "goerli"}
+	selectedNw := runtime.Starknet.Network
+	// Find index of selected network inside the networkList
+	selectedNwIndex := -1
+	for i, nw := range networkList {
+		if nw == selectedNw {
+			selectedNwIndex = i
+			break
+		}
+	}
+	verbosityList := []string{"DEBUG", "INFO", "WARN", "ERROR", "DPANIC", "PANIC", "FATAL"}
+	selectedVerb := runtime.Logger.VerbosityLevel
+	// Find index of selected verbosity level inside the verbosityList
+	selectedVerbIndex := -1
+	for i, verb := range verbosityList {
+		if verb == selectedVerb {
+			selectedVerbIndex = i
+			break
+		}
+	}
 
 	// Create two forms which are shown in the same flex window.
 	formLeft := tview.NewForm()
@@ -86,7 +104,7 @@ func main() {
 		AddInputField("Ethereum Node URL", runtime.Ethereum.Node, 20, nil, func(nodeURL string) {
 			newConfig.Ethereum.Node = nodeURL
 		}).
-		AddDropDown("Network", networkList, 0, func(option string, index int) {
+		AddDropDown("Network", networkList, selectedNwIndex, func(option string, index int) {
 			// Set both the network and feeder gateway URL
 			switch option {
 			case "mainnet":
@@ -148,7 +166,7 @@ func main() {
 		AddInputField("Database Path", runtime.DbPath, 50, nil, func(dbPath string) {
 			newConfig.DbPath = dbPath
 		}).
-		AddDropDown("Logger Verbosity", verbosityList, 0, func(option string, index int) {
+		AddDropDown("Logger Verbosity", verbosityList, selectedVerbIndex, func(option string, index int) {
 			if option == "NO CHANGE" {
 				newConfig.Logger.VerbosityLevel = runtime.Logger.VerbosityLevel
 			} else {
