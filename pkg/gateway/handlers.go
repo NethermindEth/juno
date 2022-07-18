@@ -342,6 +342,9 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 
 		w.Write(res)
 	*/
+
+	// TODO: Fetch code from database relative to the latest block.
+	notImplementedErr(w)
 }
 
 func getContractAddresses(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strconv"
+
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // ErrResponse represents the JSON formatted error response that is
@@ -41,7 +43,7 @@ func clientErr(w http.ResponseWriter, code int, starkErr, msg string) {
 	// XXX: Might prefer json.Marshal instead to reduce the payload size.
 	raw, err := json.MarshalIndent(&res, "", "  ")
 	if err != nil {
-		logErr.Println(err.Error())
+		Logger.Errorw("failed to marshal JSON", "error", err.Error())
 		serverErr(w, err)
 	}
 
@@ -59,9 +61,7 @@ func notImplementedErr(w http.ResponseWriter) {
 // serverErr sets a 500 Internal Server Error header and then serves a
 // JSON formatted client error.
 func serverErr(w http.ResponseWriter, err error) {
-	// Log stack trace. Set frame depth to 2 in order to report the file
-	// and line number where the error occurred.
-	logErr.Output(2, fmt.Sprintf("%s\n%s", err.Error(), debug.Stack()))
+	Logger.Error(debug.Stack())
 
 	res := &ErrResponse{
 		Code:     strconv.Itoa(http.StatusInternalServerError),
@@ -72,7 +72,7 @@ func serverErr(w http.ResponseWriter, err error) {
 	// XXX: Might prefer json.Marshal instead to reduce the payload size.
 	raw, err := json.MarshalIndent(&res, "", "  ")
 	if err != nil {
-		logErr.Println(err.Error())
+		Logger.Errorw("failed to marshal JSON", "error", err.Error())
 		panic(err)
 	}
 

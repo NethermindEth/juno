@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // logRequest records the IP address, HTTP method, and URL accessed by
 // the user.
 func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Prevent CWE-117 log injection attack.
-		// https://cwe.mitre.org/data/definitions/117.html.
+		// Prevent CWE-117 log injection attack. See the following for
+		// details https://cwe.mitre.org/data/definitions/117.html.
 		uri := fmt.Sprintf("%s", r.URL.RequestURI())
-		escaped := strings.Replace(strings.Replace(uri, "\n", "", -1), "\r", "", -1)
-		logInfo.Printf("%s %s %s %s", r.RemoteAddr, r.Proto, r.Method, escaped)
+		escURI := strings.Replace(strings.Replace(uri, "\n", "", -1), "\r", "", -1)
+		Logger.With("protocol", r.Proto, "method", r.Method, "uri", escURI).Info("API request")
+
 		next.ServeHTTP(w, r)
 	})
 }
