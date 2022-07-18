@@ -125,14 +125,13 @@ func (s *syncService) preValidateStateDiff(stateDiff *types.StateDiff) bool {
 }
 
 func (s *syncService) updateState(stateDiff *types.StateDiff) error {
-	go func() {
-		for _, deployedContract := range stateDiff.DeployedContracts {
-			err := s.SetCode(stateDiff, deployedContract)
-			if err != nil {
-				return
-			}
+	for _, deployedContract := range stateDiff.DeployedContracts {
+		err := s.SetCode(stateDiff, deployedContract)
+		if err != nil {
+			return err
 		}
-	}()
+	}
+
 	for k, v := range stateDiff.StorageDiffs {
 		for _, storageSlots := range v {
 			address := new(felt.Felt).SetHex(k)
