@@ -60,35 +60,31 @@ func TestVMCall(t *testing.T) {
 	if err := json.Unmarshal(testContract, &contract); err != nil {
 		t.Fatal(err)
 	}
-	state.SetCode(address, hash, &contract)
+	state.SetContract(address, hash, &contract)
 	slot := new(felt.Felt).SetHex("0x84")
 	value := new(felt.Felt).SetHex("0x3")
 	state.SetSlot(address, slot, value)
-
-	feltp := func(f felt.Felt) felt.Felt {
-		return f
-	}
 
 	ret, err := VMService.Call(
 		context.Background(),
 		// State
 		state,
 		// Calldata.
-		[]felt.Felt{feltp(slot)},
+		[]*felt.Felt{slot},
 		// Caller's address.
-		feltp(types.HexToFelt("0x0")),
+		new(felt.Felt).SetHex("0x0"),
 		// Contract's address.
-		&address,
+		address,
 		// Selector (StarkNet Keccak hash of the ASCII encoded string "get_value").
-		feltp(types.HexToFelt("0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0")),
+		new(felt.Felt).SetHex("0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0"),
 		// Sequencer
-		feltp(types.HexToFelt("0x000000000000000000000000000000000000000000000000000000000000001")),
+		new(felt.Felt).SetHex("0x000000000000000000000000000000000000000000000000000000000000001"),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	if ret[0].Cmp(feltp(types.HexToFelt("0x3"))) != 0 {
+	if !ret[0].Equal(new(felt.Felt).SetHex("0x3")) {
 		t.Errorf("got %s, want 0x3 from executing cairo-lang call", ret[0])
 	}
 }

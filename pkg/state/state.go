@@ -14,8 +14,8 @@ const (
 type State interface {
 	Root() *felt.Felt
 	GetContractState(address *felt.Felt) (*ContractState, error)
-	GetCode(address *felt.Felt) (*types.Contract, error)
-	SetCode(address *felt.Felt, hash *felt.Felt, code *types.Contract) error
+	GetContract(address *felt.Felt) (*types.Contract, error)
+	SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
 	SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) error
 }
@@ -25,6 +25,7 @@ type StateManager interface {
 	GetContractState(*felt.Felt) (*ContractState, error)
 	PutContractState(*ContractState) error
 	PutContract(*felt.Felt, *types.Contract) error
+	GetContract(*felt.Felt) (*types.Contract, error)
 }
 
 type state struct {
@@ -33,7 +34,10 @@ type state struct {
 }
 
 func New(manager StateManager, root *felt.Felt) State {
-	return &state{manager, trie.New(manager, root, StateTrieHeight)}
+	return &state{
+		manager,
+		trie.New(manager, root, StateTrieHeight),
+	}
 }
 
 func (st *state) Root() *felt.Felt {
@@ -51,11 +55,15 @@ func (st *state) GetContractState(address *felt.Felt) (*ContractState, error) {
 	return st.manager.GetContractState(leaf)
 }
 
-func (st *state) GetCode(address *felt.Felt) (*types.Contract, error) {
-	return nil, nil
+func (st *state) GetContract(address *felt.Felt) (*types.Contract, error) {
+	contractState, err := st.GetContractState(address)
+	if err != nil {
+		return nil, err
+	}
+	return st.manager.GetContract(contractState.ContractHash)
 }
 
-func (st *state) SetCode(address *felt.Felt, hash *felt.Felt, code *types.Contract) error {
+func (st *state) SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error {
 	contract, err := st.GetContractState(address)
 	if err != nil {
 		return err

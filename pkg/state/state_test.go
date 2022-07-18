@@ -1,14 +1,15 @@
 package state_test
 
 import (
+	"encoding/json"
 	"testing"
 
-	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/pkg/common"
-	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 
+	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/state"
 )
 
 func newTestStateManager(t *testing.T) state.StateManager {
@@ -18,7 +19,7 @@ func newTestStateManager(t *testing.T) state.StateManager {
 	env, err := db.GetMDBXEnv()
 	if err != nil {
 	}
-	contractDef, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
+	contractDef, err := db.NewMDBXDatabase(env, "CONTRACT")
 	if err != nil {
 		t.Fail()
 	}
@@ -121,25 +122,33 @@ func TestStateFromStateDiffs(t *testing.T) {
 			},
 		}
 
-		want         = types.BytesToFelt(common.FromHex("021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6"))
-		contractHash = types.BytesToFelt(common.FromHex("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"))
+		want         = new(felt.Felt).SetHex("021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6")
+		contractHash = new(felt.Felt).SetHex("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
-	state := state.New(newTestStateManager(t), &types.Felt0)
+	state := state.New(newTestStateManager(t), new(felt.Felt))
 	for addr, diff := range addresses {
-		addr := types.BytesToFelt(common.FromHex(addr))
+		addr := new(felt.Felt).SetHex(addr)
 
 		for _, slot := range diff {
-			key := types.BytesToFelt(common.FromHex(slot.key))
-			val := types.BytesToFelt(common.FromHex(slot.val))
-			state.SetSlot(&addr, &key, &val)
+			key := new(felt.Felt).SetHex(slot.key)
+			val := new(felt.Felt).SetHex(slot.val)
+			if err := state.SetSlot(addr, key, val); err != nil {
+				t.Fatal(err)
+			}
 		}
 
-		state.SetContractHash(&addr, &contractHash)
+		if err := state.SetContract(addr, contractHash, &types.Contract{
+			Abi:      nil,
+			Bytecode: nil,
+			FullDef:  json.RawMessage{},
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	got := state.Root()
-	if want.Cmp(got) != 0 {
+	if !got.Equal(want) {
 		t.Errorf("state.RootHash() = %x, want = %x", got, want)
 	}
 }

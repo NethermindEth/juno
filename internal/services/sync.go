@@ -169,7 +169,7 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 			Error("Error unmarshalling contract")
 		return err
 	}
-	err = s.state.SetCode(address, contractHash, contract)
+	err = s.state.SetContract(address, contractHash, contract)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).
