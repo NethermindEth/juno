@@ -2,27 +2,26 @@ package trie_test
 
 import (
 	"fmt"
-	"math/big"
 	"math/rand"
 	"testing"
 
+	"github.com/NethermindEth/juno/pkg/trie"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
-	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 const testHeight = 3
 
 var tests = [...]struct {
-	key, val types.Felt
+	key, val *felt.Felt
 }{
-	{types.BigToFelt(big.NewInt(2)) /* 0b010 */, types.BigToFelt(big.NewInt(1))},
-	{types.BigToFelt(big.NewInt(3)) /* 0b011 */, types.BigToFelt(big.NewInt(1))},
-	{types.BigToFelt(big.NewInt(5)) /* 0b101 */, types.BigToFelt(big.NewInt(1))},
-	{types.BigToFelt(big.NewInt(7)) /* 0b111 */, types.BigToFelt(big.NewInt(0))},
+	{new(felt.Felt).SetUint64(2) /* 0b010 */, new(felt.Felt).SetOne()},
+	{new(felt.Felt).SetUint64(3) /* 0b011 */, new(felt.Felt).SetOne()},
+	{new(felt.Felt).SetUint64(5) /* 0b101 */, new(felt.Felt).SetOne()},
+	{new(felt.Felt).SetUint64(7) /* 0b111 */, new(felt.Felt).SetZero()},
 }
 
 func init() {
@@ -41,23 +40,19 @@ func newTestTrieManager(t *testing.T) trie.TrieManager {
 	if err != nil {
 		t.Fail()
 	}
-	binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
-	if err != nil {
-		t.Fail()
-	}
 	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
 		t.Fail()
 	}
-	return state.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+	return state.NewStateManager(stateDatabase, codeDatabase)
 }
 
 func TestExample(t *testing.T) {
 	pairs := [...]struct {
-		key, val types.Felt
+		key, val *felt.Felt
 	}{
-		{types.BigToFelt(big.NewInt(2)) /* 0b010 */, types.BigToFelt(big.NewInt(1))},
-		{types.BigToFelt(big.NewInt(5)) /* 0b101 */, types.BigToFelt(big.NewInt(1))},
+		{new(felt.Felt).SetUint64(2) /* 0b010 */, new(felt.Felt).SetUint64(1)},
+		{new(felt.Felt).SetUint64(5) /* 0b101 */, new(felt.Felt).SetUint64(1)},
 	}
 
 	// Initialise trie with storage and provide the key length (height of
@@ -67,7 +62,7 @@ func TestExample(t *testing.T) {
 	// Insert items into the trie.
 	for _, pair := range pairs {
 		t.Logf("put(key=%d, val=%d)\n", pair.key, pair.val)
-		err := trie.Put(&pair.key, &pair.val)
+		err := trie.Put(pair.key, pair.val)
 		if err != nil {
 			return
 		}
@@ -75,14 +70,16 @@ func TestExample(t *testing.T) {
 
 	// Retrieve items from the trie.
 	for _, pair := range pairs {
-		val, _ := trie.Get(&pair.key)
+		val, _ := trie.Get(pair.key)
 		t.Logf("get(key=%d) = %d\n", pair.key, val)
 	}
 
 	// Remove items from the trie.
 	for _, pair := range pairs {
 		t.Logf("delete(key=%d)\n", pair.key)
-		trie.Del(&pair.key)
+		if err := trie.Del(pair.key); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Output:
@@ -97,19 +94,22 @@ func TestExample(t *testing.T) {
 func TestDelete(t *testing.T) {
 	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
-		trie.Put(&test.key, &test.val)
+		err := trie.Put(test.key, test.val)
+		if err != nil {
+			t.Fatalf("error inserting key (%v) on the trie: %v", test.key.Hex(), err)
+		}
 	}
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("delete(%s)", test.key.Hex()), func(t *testing.T) {
-			if err := trie.Del(&test.key); err != nil {
+			if err := trie.Del(test.key); err != nil {
 				t.Fatal(err)
 			}
-			val, err := trie.Get(&test.key)
+			val, err := trie.Get(test.key)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if val.Cmp(&types.Felt0) != 0 {
+			if !val.Equal(new(felt.Felt)) {
 				t.Errorf("key %s not successfully removed from storage. returned %s", test.key.Hex(), val.Hex())
 			}
 		})
@@ -119,7 +119,7 @@ func TestDelete(t *testing.T) {
 // TestEmptyTrie asserts that the commitment of an empty trie is zero.
 func TestEmptyTrie(t *testing.T) {
 	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
-	if trie.Root().Cmp(&types.Felt0) != 0 {
+	if !trie.Root().Equal(new(felt.Felt)) {
 		t.Error("trie.RootHash() != 0 for empty trie")
 	}
 }
@@ -127,7 +127,7 @@ func TestEmptyTrie(t *testing.T) {
 func TestGet(t *testing.T) {
 	trie := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 	for _, test := range tests {
-		err := trie.Put(&test.key, &test.val)
+		err := trie.Put(test.key, test.val)
 		if err != nil {
 			t.Fatalf("error inserting key (%v) on the trie: %v", test.key.Hex(), err)
 		}
@@ -135,14 +135,14 @@ func TestGet(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("get(%#v) = %#v", test.key.Hex(), test.val.Hex()), func(t *testing.T) {
-			got, err := trie.Get(&test.key)
+			got, err := trie.Get(test.key)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if got == nil {
 				t.Errorf("got = nil, want = %x", test.val.Hex())
 			}
-			if test.val.Big().Cmp(new(big.Int)) != 0 && got.Big().Cmp(test.val.Big()) != 0 {
+			if !test.val.Equal(new(felt.Felt)) && !got.Equal(test.val) {
 				t.Errorf("get(%#v) = %#v, want %#v", test.key.Hex(), got.Hex(), test.val.Hex())
 			}
 		})
@@ -156,12 +156,16 @@ func TestInvariant(t *testing.T) {
 	t1 := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), testHeight)
 
 	for i := 0; i < len(tests); i++ {
-		t0.Put(&tests[i].key, &tests[i].val)
+		if err := t0.Put(tests[i].key, tests[i].val); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Insertion in reverse order.
 	for i := len(tests) - 1; i >= 0; i-- {
-		t1.Put(&tests[i].key, &tests[i].val)
+		if err := t1.Put(tests[i].key, tests[i].val); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	t.Run("insert: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
@@ -171,15 +175,21 @@ func TestInvariant(t *testing.T) {
 	})
 
 	t.Run("delete: t0.RootHash().Cmp(t1.RootHash()) == 0", func(t *testing.T) {
-		t0.Del(&tests[1].key)
-		t1.Del(&tests[1].key)
+		if err := t0.Del(tests[1].key); err != nil {
+			t.Fatal(err)
+		}
+		if err := t1.Del(tests[1].key); err != nil {
+			t.Fatal(err)
+		}
 		if t0.Root().Cmp(t1.Root()) != 0 {
 			t.Errorf("tries with the same values have diverging root hashes")
 		}
 	})
 
 	t.Run("different: t0.RootHash().Cmp(t1.RootHash()) != 0", func(t *testing.T) {
-		t0.Put(&tests[1].key, &tests[1].val)
+		if err := t0.Put(tests[1].key, tests[1].val); err != nil {
+			t.Fatal(err)
+		}
 		if t0.Root().Cmp(t1.Root()) == 0 {
 			t.Errorf("tries with different values have the same root hashes")
 		}
@@ -192,7 +202,9 @@ func TestRebuild(t *testing.T) {
 	oldTrie := trie.New(manager, trie.EmptyNode.Hash(), testHeight)
 
 	for _, test := range tests {
-		oldTrie.Put(&test.key, &test.val)
+		if err := oldTrie.Put(test.key, test.val); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// New trie using the same storage.
@@ -208,8 +220,8 @@ func TestRebuild(t *testing.T) {
 	t.Run(
 		fmt.Sprintf("oldTrie.Get(%#v) == newTrie.Get(%#v)", randKey, randKey),
 		func(t *testing.T) {
-			got, _ := oldTrie.Get(&randKey)
-			want, _ := newTrie.Get(&randKey)
+			got, _ := oldTrie.Get(randKey)
+			want, _ := newTrie.Get(randKey)
 			if got.Cmp(want) != 0 {
 				t.Errorf("oldTrie.Get(%#v) = %#v != newTrie.Get(%#v) = %#v", randKey, got, randKey, want)
 			}
@@ -310,8 +322,8 @@ func TestState(t *testing.T) {
 			},
 		}
 
-		want         = types.BytesToFelt(common.FromHex("021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6"))
-		contractHash = types.BytesToFelt(common.FromHex("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"))
+		want         = new(felt.Felt).SetHex("021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6")
+		contractHash = new(felt.Felt).SetHex("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
 	height := 251
@@ -319,23 +331,25 @@ func TestState(t *testing.T) {
 	for addr, diff := range addresses {
 		storage := trie.New(newTestTrieManager(t), trie.EmptyNode.Hash(), height)
 		for _, slot := range diff {
-			key := types.BytesToFelt(common.FromHex(slot.key))
-			val := types.BytesToFelt(common.FromHex(slot.val))
-			storage.Put(&key, &val)
+			key := new(felt.Felt).SetHex(slot.key)
+			val := new(felt.Felt).SetHex(slot.val)
+			if err := storage.Put(key, val); err != nil {
+				t.Fatal(err)
+			}
 		}
 
-		key := types.BytesToFelt(common.FromHex(addr))
-		val := types.BigToFelt(
+		key := new(felt.Felt).SetHex(addr)
+		val := pedersen.Digest(
 			pedersen.Digest(
-				pedersen.Digest(
-					pedersen.Digest(contractHash.Big(), storage.Root().Big()),
-					types.Felt0.Big(),
-				),
-				types.Felt0.Big(),
+				pedersen.Digest(contractHash, storage.Root()),
+				new(felt.Felt),
 			),
+			new(felt.Felt),
 		)
 
-		state.Put(&key, &val)
+		if err := state.Put(key, val); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	got := state.Root()

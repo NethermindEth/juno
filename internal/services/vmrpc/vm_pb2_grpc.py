@@ -14,17 +14,39 @@ class StorageAdapterStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetValue = channel.unary_unary(
-                '/StorageAdapter/GetValue',
+        self.GetPatriciaNode = channel.unary_unary(
+                '/StorageAdapter/GetPatriciaNode',
                 request_serializer=vm__pb2.GetValueRequest.SerializeToString,
-                response_deserializer=vm__pb2.GetValueResponse.FromString,
+                response_deserializer=vm__pb2.VMTrieNode.FromString,
+                )
+        self.GetContractState = channel.unary_unary(
+                '/StorageAdapter/GetContractState',
+                request_serializer=vm__pb2.GetValueRequest.SerializeToString,
+                response_deserializer=vm__pb2.VMContractState.FromString,
+                )
+        self.GetContractDefinition = channel.unary_unary(
+                '/StorageAdapter/GetContractDefinition',
+                request_serializer=vm__pb2.GetValueRequest.SerializeToString,
+                response_deserializer=vm__pb2.VMContractDefinition.FromString,
                 )
 
 
 class StorageAdapterServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def GetValue(self, request, context):
+    def GetPatriciaNode(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetContractState(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetContractDefinition(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -33,10 +55,20 @@ class StorageAdapterServicer(object):
 
 def add_StorageAdapterServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetValue': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetValue,
+            'GetPatriciaNode': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPatriciaNode,
                     request_deserializer=vm__pb2.GetValueRequest.FromString,
-                    response_serializer=vm__pb2.GetValueResponse.SerializeToString,
+                    response_serializer=vm__pb2.VMTrieNode.SerializeToString,
+            ),
+            'GetContractState': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetContractState,
+                    request_deserializer=vm__pb2.GetValueRequest.FromString,
+                    response_serializer=vm__pb2.VMContractState.SerializeToString,
+            ),
+            'GetContractDefinition': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetContractDefinition,
+                    request_deserializer=vm__pb2.GetValueRequest.FromString,
+                    response_serializer=vm__pb2.VMContractDefinition.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -49,7 +81,7 @@ class StorageAdapter(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def GetValue(request,
+    def GetPatriciaNode(request,
             target,
             options=(),
             channel_credentials=None,
@@ -59,9 +91,43 @@ class StorageAdapter(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetValue',
+        return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetPatriciaNode',
             vm__pb2.GetValueRequest.SerializeToString,
-            vm__pb2.GetValueResponse.FromString,
+            vm__pb2.VMTrieNode.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetContractState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetContractState',
+            vm__pb2.GetValueRequest.SerializeToString,
+            vm__pb2.VMContractState.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetContractDefinition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/StorageAdapter/GetContractDefinition',
+            vm__pb2.GetValueRequest.SerializeToString,
+            vm__pb2.VMContractDefinition.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

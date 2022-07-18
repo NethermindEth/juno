@@ -369,6 +369,34 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 	return &res, err
 }
 
+// GetFullContractRaw creates a new request to get the full state of a
+// contract and returns the raw message.
+func (c Client) GetFullContractRaw(contractAddress, blockHash, blockNumber string) (*json.RawMessage, error) {
+	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
+	if blockIdentifier == nil {
+		// notest
+		blockIdentifier = map[string]string{}
+	}
+	blockIdentifier["contractAddress"] = contractAddress
+	req, err := c.newRequest("GET", "/get_full_contract", blockIdentifier, nil)
+	if err != nil {
+		metr.IncreaseFullContractsFailed()
+		metr.IncreaseRequestsFailed()
+		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_full_contract.")
+		return nil, err
+	}
+	var res *json.RawMessage
+	metr.IncreaseFullContractsSent()
+	_, err = c.do(req, &res)
+	if err != nil {
+		metr.IncreaseFullContractsFailed()
+		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	metr.IncreaseFullContractsReceived()
+	return res, err
+}
+
 // GetFullContract creates a new request to get the full state of a
 // contract.
 func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) (map[string]interface{}, error) {

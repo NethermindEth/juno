@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
+	starknetTypes "github.com/NethermindEth/juno/pkg/types"
 )
 
 // StateDiffCollector is a collection of StateDiff provided from the feeder gateway that can be iterated over.

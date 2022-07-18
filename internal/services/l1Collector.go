@@ -8,11 +8,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NethermindEth/juno/internal/services/abi"
+	types2 "github.com/NethermindEth/juno/pkg/types"
+
 	"github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/starknet/abi"
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/ethereum/go-ethereum"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,7 +44,7 @@ type l1Collector struct {
 	// latestBlockSynced is the last block that was synced.
 	latestBlockSynced int64
 	// buffer is the channel that will be used to collect the StateDiff.
-	buffer chan *starknetTypes.StateDiff
+	buffer chan *types2.StateDiff
 	// latestBlockOnChain is the last block on chain that need to be collected
 	latestBlockOnChain int64
 	// starknetContractAddress is the address of the Starknet contract on Layer 1.
@@ -59,12 +60,12 @@ type l1Collector struct {
 	Synced bool
 
 	// contractInfo is the information of the contracts on Layer 1.
-	contractInfo map[common.Address]starknetTypes.ContractInfo
+	contractInfo map[common.Address]types2.ContractInfo
 
 	// factInformation
-	memoryPageHash *starknetTypes.Dictionary
-	gpsVerifier    *starknetTypes.Dictionary
-	facts          *starknetTypes.Dictionary
+	memoryPageHash *types2.Dictionary
+	gpsVerifier    *types2.Dictionary
+	facts          *types2.Dictionary
 }
 
 func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, ethClient *ethclient.Client, chainID int) {
@@ -75,11 +76,11 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, ethClient *eth
 		ethereumClient: ethClient,
 	}
 	L1Collector.logger = Logger.Named("l1Collector")
-	L1Collector.buffer = make(chan *starknetTypes.StateDiff, 10)
+	L1Collector.buffer = make(chan *types2.StateDiff, 10)
 	L1Collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
-	L1Collector.memoryPageHash = starknetTypes.NewDictionary()
-	L1Collector.gpsVerifier = starknetTypes.NewDictionary()
-	L1Collector.facts = starknetTypes.NewDictionary()
+	L1Collector.memoryPageHash = types2.NewDictionary()
+	L1Collector.gpsVerifier = types2.NewDictionary()
+	L1Collector.facts = types2.NewDictionary()
 	L1Collector.Synced = false
 	go L1Collector.updateLatestBlockOnChain()
 }
@@ -103,7 +104,7 @@ func (l *l1Collector) Run() error {
 			continue
 		}
 		f, _ := l.facts.Get(strconv.FormatInt(l.latestBlockSynced, 10))
-		fact := f.(*starknetTypes.Fact)
+		fact := f.(*types2.Fact)
 
 		if l.gpsVerifier.Exist(fact.Value) {
 			// Get memory pages hashes using fact
@@ -116,7 +117,7 @@ func (l *l1Collector) Run() error {
 			// If already exist the information related to the fact,
 			// fetch the memory pages and updated the state
 			pages, err := l.processPagesHashes(
-				pagesHashes.(starknetTypes.PagesHash).Bytes,
+				pagesHashes.(types2.PagesHash).Bytes,
 				// contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
 				l.contractInfo[l.memoryPagesContractAddress].Contract)
 			if err != nil {
@@ -137,7 +138,7 @@ func (l *l1Collector) Run() error {
 	}
 }
 
-func (l *l1Collector) GetChannel() chan *starknetTypes.StateDiff {
+func (l *l1Collector) GetChannel() chan *types2.StateDiff {
 	return l.buffer
 }
 
@@ -197,7 +198,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 		if !ok {
 			return nil, ErrorMemoryPageNotFound
 		}
-		txHash := transactionHash.(starknetTypes.TransactionHash).Hash
+		txHash := transactionHash.(types2.TxnHash).Hash
 		txn, _, err := l.ethereumClient.TransactionByHash(context.Background(), txHash)
 		if err != nil {
 			l.logger.With("Error", err, "Transaction Hash", v).
@@ -220,7 +221,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 }
 
 func (l *l1Collector) loadContractsAbi() {
-	l.contractInfo = make(map[common.Address]starknetTypes.ContractInfo)
+	l.contractInfo = make(map[common.Address]types2.ContractInfo)
 
 	contractAddresses, err := l.client.GetContractAddresses()
 	if err != nil {
@@ -338,11 +339,11 @@ func (l *l1Collector) processSubscription(initialBlock int64) error {
 				l.logger.With("Error", err).Debug("Couldn't get event from log")
 				continue
 			}
-			eventChan := &starknetTypes.EventInfo{
+			eventChan := &types2.EventInfo{
 				Block:              vLog.BlockNumber,
 				Event:              event,
 				Address:            l.contractInfo[vLog.Address].Address,
-				TransactionHash:    vLog.TxHash,
+				TxnHash:            vLog.TxHash,
 				InitialBlockLogged: int64(vLog.BlockNumber),
 			}
 
@@ -384,11 +385,11 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 			l.logger.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
 			continue
 		}
-		eventValue := &starknetTypes.EventInfo{
+		eventValue := &types2.EventInfo{
 			Block:              vLog.BlockNumber,
 			Event:              event,
 			Address:            l.contractInfo[vLog.Address].Address,
-			TransactionHash:    vLog.TxHash,
+			TxnHash:            vLog.TxHash,
 			InitialBlockLogged: initialBlock,
 		}
 		l.processEvents(eventValue)
@@ -396,7 +397,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	return nil
 }
 
-func (l *l1Collector) processEvents(event *starknetTypes.EventInfo) {
+func (l *l1Collector) processEvents(event *types2.EventInfo) {
 	// Process GpsStatementVerifier contract
 	factHash, ok := event.Event["factHash"]
 	pagesHashes, ok1 := event.Event["pagesHashes"]
@@ -406,13 +407,13 @@ func (l *l1Collector) processEvents(event *starknetTypes.EventInfo) {
 		for _, v := range factHash.([32]byte) {
 			b = append(b, v)
 		}
-		value := starknetTypes.PagesHash{Bytes: pagesHashes.([][32]byte)}
+		value := types2.PagesHash{Bytes: pagesHashes.([][32]byte)}
 		l.gpsVerifier.Add(common.BytesToHash(b).Hex(), value)
 	}
 	// Process MemoryPageFactRegistry contract
 	if memoryHash, ok := event.Event["memoryHash"]; ok {
 		key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
-		value := starknetTypes.TransactionHash{Hash: event.TransactionHash}
+		value := types2.TxnHash{Hash: event.TxnHash}
 		l.memoryPageHash.Add(key, value)
 	}
 	// Process Starknet logs
@@ -435,7 +436,7 @@ func (l *l1Collector) processEvents(event *starknetTypes.EventInfo) {
 			l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
 				Info("Couldn't get logs")
 		}
-		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b).Hex(), event.TransactionHash)
+		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b).Hex(), event.TxnHash)
 		if err != nil {
 			l.logger.With("Error", err).Info("Couldn't get fact info")
 			return
@@ -450,7 +451,7 @@ func (l *l1Collector) processEvents(event *starknetTypes.EventInfo) {
 // getFactInfo gets the state root and sequence number associated with
 // a given StateTransitionFact.
 // notest
-func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash common.Hash) (*starknetTypes.Fact, error) {
+func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash common.Hash) (*types2.Fact, error) {
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
 		err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
@@ -465,7 +466,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash 
 			if ok {
 				return nil, ErrorFactAlreadySaved
 			} else {
-				return &starknetTypes.Fact{
+				return &types2.Fact{
 					StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
 					SequenceNumber: sequenceNumber,
 					Value:          fact,
@@ -477,12 +478,12 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash 
 	return nil, nil
 }
 
-func (l *l1Collector) removeFactTree(fact *starknetTypes.Fact) {
+func (l *l1Collector) removeFactTree(fact *types2.Fact) {
 	// Load GpsStatementVerifier from fact
 	pagesHashes, _ := l.gpsVerifier.Get(fact.Value)
 
 	if pagesHashes != nil {
-		realPagesHashes := pagesHashes.(starknetTypes.PagesHash)
+		realPagesHashes := pagesHashes.(types2.PagesHash)
 
 		// remove pages from MemoryPageFactRegistry
 		for _, v := range realPagesHashes.Bytes {
@@ -513,7 +514,7 @@ func (l *l1Collector) updateBlockOnChain(logFetched types.Log) {
 
 // parsePages converts an array of memory pages into a state diff that
 // can be used to update the local state.
-func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
+func parsePages(pages [][]*big.Int) *types2.StateDiff {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]
 
@@ -526,7 +527,7 @@ func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 	// Get the number of contracts deployed in this block
 	deployedContractsInfoLen := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
-	deployedContracts := make([]starknetTypes.DeployedContract, 0)
+	deployedContracts := make([]types2.DeployedContract, 0)
 
 	// Get the info of the deployed contracts
 	deployedContractsData := pagesFlatter[:deployedContractsInfoLen]
@@ -553,7 +554,7 @@ func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 		}
 
 		// Store deployed ContractInfo information
-		deployedContracts = append(deployedContracts, starknetTypes.DeployedContract{
+		deployedContracts = append(deployedContracts, types2.DeployedContract{
 			Address:             address,
 			ContractHash:        contractHash,
 			ConstructorCallData: constructorArguments,
@@ -565,7 +566,7 @@ func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 	numContractsUpdate := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
 
-	storageDiffs := make(map[string][]starknetTypes.KV, 0)
+	storageDiffs := make(map[string][]types2.KV, 0)
 
 	// Iterate over all the contracts that had been updated and collect the needed information
 	for i := int64(0); i < numContractsUpdate; i++ {
@@ -577,9 +578,9 @@ func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 		numStorageUpdates := pagesFlatter[0].Int64()
 		pagesFlatter = pagesFlatter[1:]
 
-		kvs := make([]starknetTypes.KV, 0)
+		kvs := make([]types2.KV, 0)
 		for k := int64(0); k < numStorageUpdates; k++ {
-			kvs = append(kvs, starknetTypes.KV{
+			kvs = append(kvs, types2.KV{
 				Key:   common.Bytes2Hex(pagesFlatter[0].Bytes()),
 				Value: common.Bytes2Hex(pagesFlatter[1].Bytes()),
 			})
@@ -588,7 +589,7 @@ func parsePages(pages [][]*big.Int) *starknetTypes.StateDiff {
 		storageDiffs[address] = kvs
 	}
 
-	return &starknetTypes.StateDiff{
+	return &types2.StateDiff{
 		DeployedContracts: deployedContracts,
 		StorageDiffs:      storageDiffs,
 	}

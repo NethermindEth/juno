@@ -3,15 +3,17 @@ package services
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/pkg/felt"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	dbState "github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/db/sync"
+	syncDB "github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -23,7 +25,7 @@ var SyncService syncService
 type syncService struct {
 	service
 	// manager is the sync manager.
-	manager *sync.Manager
+	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
 	// ethClient is the client that will be used to fetch the data that comes from the Ethereum Node.
@@ -91,12 +93,12 @@ func (s *syncService) Run() error {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
 			stateRoot := s.manager.GetLatestStateRoot()
-			root := types.HexToFelt(stateRoot)
+			root := new(felt.Felt).SetHex(stateRoot)
 			s.logger.With("State Root from StateDiff", stateDiff.NewRoot,
 				"State Root after StateDiff", s.state.Root().Hex(),
-				"Block Number", s.latestBlockSynced+1).
+				"Block Number", s.latestBlockSynced).
 				Error("Fail validation after apply StateDiff")
-			s.state = state.New(s.stateManager, &root)
+			s.state = state.New(s.stateManager, root)
 			continue
 		}
 		s.logger.With("Block Number", stateDiff.BlockNumber,
@@ -111,30 +113,71 @@ func (s *syncService) Run() error {
 	return nil
 }
 
-func (s *syncService) postValidateStateDiff(stateDiff *starknetTypes.StateDiff) bool {
+func (s *syncService) postValidateStateDiff(stateDiff *types.StateDiff) bool {
 	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.NewRoot)
 }
 
-func (s *syncService) updateState(stateDiff *starknetTypes.StateDiff) error {
-	for _, deployedContract := range stateDiff.DeployedContracts {
-		address := types.HexToFelt(deployedContract.Address)
-		contractHash := types.HexToFelt(deployedContract.ContractHash)
-		err := s.state.SetContractHash(&address, &contractHash)
-		if err != nil {
-			return err
+func (s *syncService) preValidateStateDiff(stateDiff *types.StateDiff) bool {
+	// The old state root that comes with the stateDiff should match with the current stateRoot
+	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.OldRoot) &&
+		// Should be the next block in the chain
+		s.latestBlockSynced+1 == stateDiff.BlockNumber
+}
+
+func (s *syncService) updateState(stateDiff *types.StateDiff) error {
+	go func() {
+		for _, deployedContract := range stateDiff.DeployedContracts {
+			err := s.SetCode(stateDiff, deployedContract)
+			if err != nil {
+				return
+			}
 		}
-	}
+	}()
 	for k, v := range stateDiff.StorageDiffs {
 		for _, storageSlots := range v {
-			address := types.HexToFelt(k)
-			slotKey := types.HexToFelt(storageSlots.Key)
-			slotValue := types.HexToFelt(storageSlots.Value)
-			err := s.state.SetSlot(&address, &slotKey, &slotValue)
+			address := new(felt.Felt).SetHex(k)
+			slotKey := new(felt.Felt).SetHex(storageSlots.Key)
+			slotValue := new(felt.Felt).SetHex(storageSlots.Value)
+			err := s.state.SetSlot(address, slotKey, slotValue)
 			if err != nil {
 				return err
 			}
 		}
 	}
+	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
+	return nil
+}
+
+func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
+	address := new(felt.Felt).SetHex(deployedContract.Address)
+	contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
+
+	// Get Full Contract
+	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address, "",
+		strconv.FormatInt(stateDiff.BlockNumber, 10))
+	if err != nil {
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error getting full contract")
+		return err
+	}
+
+	contract := new(types.Contract)
+	err = contract.UnmarshalRaw(contractFromApi)
+	if err != nil {
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error unmarshalling contract")
+		return err
+	}
+	err = s.state.SetCode(address, contractHash, contract)
+	if err != nil {
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error setting code")
+		return err
+	}
+	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
 	return nil
 }
 
@@ -154,11 +197,7 @@ func (s *syncService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
-		if err != nil {
-			return err
-		}
-		binaryDatabase, err := db.NewMDBXDatabase(env, "BINARY_DATABASE")
+		contractDef, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
 		if err != nil {
 			return err
 		}
@@ -166,9 +205,9 @@ func (s *syncService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		s.manager = sync.NewSyncManager(database)
+		s.manager = syncDB.NewSyncManager(database)
 
-		s.stateManager = dbState.NewStateManager(stateDatabase, binaryDatabase, codeDatabase)
+		s.stateManager = dbState.NewStateManager(stateDatabase, contractDef)
 
 		s.setStateToLatestRoot()
 	}
@@ -177,8 +216,8 @@ func (s *syncService) setDefaults() error {
 
 func (s *syncService) setStateToLatestRoot() {
 	stateRoot := s.manager.GetLatestStateRoot()
-	root := types.HexToFelt(stateRoot)
-	s.state = state.New(s.stateManager, &root)
+	root := new(felt.Felt).SetHex(stateRoot)
+	s.state = state.New(s.stateManager, root)
 }
 
 // Close closes the service.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 )
@@ -77,8 +78,11 @@ func (s *Synchronizer) updateBlock(blockNumber int64) error {
 		}
 	}
 
-	blockHash := types.HexToBlockHash(block.BlockHash)
-	BlockService.StoreBlock(blockHash, feederBlockToDBBlock(block))
+	blockHash := new(felt.Felt).SetHex(block.BlockHash)
+	err = BlockService.StoreBlock(blockHash, feederBlockToDBBlock(block))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -88,8 +92,12 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 		return err
 	}
 
-	transactionHash := types.HexToTransactionHash(transactionInfo.Transaction.TransactionHash)
-	TransactionService.StoreTransaction(transactionHash, feederTransactionToDBTransaction(transactionInfo))
+	transactionHash := new(felt.Felt).SetHex(transactionInfo.Transaction.TransactionHash)
+	// transactionHash := types.HexToTransactionHash(transactionInfo.Transaction.TransactionHash)
+	err = TransactionService.StoreTransaction(transactionHash, feederTransactionToDBTransaction(transactionInfo))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -101,19 +109,19 @@ func (s *Synchronizer) updateLatestBlockOnChain() {
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
 func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
-	txnsHash := make([]types.TransactionHash, 0)
+	txnsHash := make([]*felt.Felt, 0)
 	for _, data := range b.Transactions {
-		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
+		txnsHash = append(txnsHash, new(felt.Felt).SetHex(data.TransactionHash))
 	}
 	status, _ := types.BlockStatusValue[b.Status]
 	return &types.Block{
-		BlockHash:   types.HexToBlockHash(b.BlockHash),
+		BlockHash:   new(felt.Felt).SetHex(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),
-		ParentHash:  types.HexToBlockHash(b.ParentBlockHash),
+		ParentHash:  new(felt.Felt).SetHex(b.ParentBlockHash),
 		Status:      status,
-		Sequencer:   types.HexToAddress(b.SequencerAddress),
-		NewRoot:     types.HexToFelt(b.StateRoot),
-		OldRoot:     types.HexToFelt(b.OldStateRoot),
+		Sequencer:   new(felt.Felt).SetHex(b.SequencerAddress),
+		NewRoot:     new(felt.Felt).SetHex(b.StateRoot),
+		OldRoot:     new(felt.Felt).SetHex(b.OldStateRoot),
 		TimeStamp:   b.Timestamp,
 		TxCount:     uint64(len(b.Transactions)),
 		TxHashes:    txnsHash,
@@ -122,30 +130,30 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 
 // feederTransactionToDBTransaction convert the feeder TransactionInfo to the transaction stored in DB
 func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTransaction {
-	calldata := make([]types.Felt, 0)
+	calldata := make([]*felt.Felt, 0)
 	for _, data := range info.Transaction.Calldata {
-		calldata = append(calldata, types.HexToFelt(data))
+		calldata = append(calldata, new(felt.Felt).SetHex(data))
 	}
 
 	if info.Transaction.Type == "INVOKE" {
-		signature := make([]types.Felt, 0)
+		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
-			signature = append(signature, types.HexToFelt(data))
+			signature = append(signature, new(felt.Felt).SetHex(data))
 		}
 		return &types.TransactionInvoke{
-			Hash:               types.HexToTransactionHash(info.Transaction.TransactionHash),
-			ContractAddress:    types.HexToAddress(info.Transaction.ContractAddress),
-			EntryPointSelector: types.HexToFelt(info.Transaction.EntryPointSelector),
+			Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
 			CallData:           calldata,
 			Signature:          signature,
-			MaxFee:             types.Felt{},
+			MaxFee:             new(felt.Felt),
 		}
 	}
 
 	// Is a DEPLOY Transaction
 	return &types.TransactionDeploy{
-		Hash:                types.HexToTransactionHash(info.Transaction.TransactionHash),
-		ContractAddress:     types.HexToAddress(info.Transaction.ContractAddress),
+		Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+		ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
 		ConstructorCallData: calldata,
 	}
 }
