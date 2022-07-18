@@ -59,7 +59,6 @@ func BenchmarkFeltSetBytes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		benchResFelt.SetBytes(bb[:])
 	}
-
 }
 
 func BenchmarkFeltMulByConstants(b *testing.B) {
@@ -95,7 +94,6 @@ func BenchmarkFeltInverse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		benchResFelt.Inverse(&x)
 	}
-
 }
 
 func BenchmarkFeltButterfly(b *testing.B) {
@@ -180,6 +178,7 @@ func BenchmarkFeltToMont(b *testing.B) {
 		benchResFelt.ToMont()
 	}
 }
+
 func BenchmarkFeltSquare(b *testing.B) {
 	benchResFelt.SetRandom()
 	b.ResetTimer()
@@ -326,7 +325,6 @@ func init() {
 		a[0]++
 		staticTestValues = append(staticTestValues, a)
 	}
-
 }
 
 func TestFeltReduce(t *testing.T) {
@@ -372,7 +370,6 @@ func TestFeltReduce(t *testing.T) {
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		supportAdx = true
 	}
-
 }
 
 func TestFeltEqual(t *testing.T) {
@@ -475,7 +472,6 @@ func TestFeltInverseExp(t *testing.T) {
 }
 
 func TestFeltMulByConstants(t *testing.T) {
-
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -564,7 +560,6 @@ func TestFeltMulByConstants(t *testing.T) {
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		supportAdx = true
 	}
-
 }
 
 func TestFeltLegendre(t *testing.T) {
@@ -595,11 +590,9 @@ func TestFeltLegendre(t *testing.T) {
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		supportAdx = true
 	}
-
 }
 
 func TestFeltButterflies(t *testing.T) {
-
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -633,7 +626,6 @@ func TestFeltButterflies(t *testing.T) {
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		supportAdx = true
 	}
-
 }
 
 func TestFeltLexicographicallyLargest(t *testing.T) {
@@ -676,7 +668,6 @@ func TestFeltLexicographicallyLargest(t *testing.T) {
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		supportAdx = true
 	}
-
 }
 
 func TestFeltAdd(t *testing.T) {
@@ -1355,7 +1346,6 @@ func TestFeltSquare(t *testing.T) {
 
 	properties.Property("Square: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPairFelt) bool {
-
 			var b Felt
 
 			b.Square(&a.element)
@@ -1434,7 +1424,6 @@ func TestFeltInverse(t *testing.T) {
 
 	properties.Property("Inverse: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPairFelt) bool {
-
 			var b Felt
 
 			b.Inverse(&a.element)
@@ -1513,7 +1502,6 @@ func TestFeltSqrt(t *testing.T) {
 
 	properties.Property("Sqrt: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPairFelt) bool {
-
 			b := a.element
 
 			b.Sqrt(&a.element)
@@ -1592,7 +1580,6 @@ func TestFeltDouble(t *testing.T) {
 
 	properties.Property("Double: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPairFelt) bool {
-
 			var b Felt
 
 			b.Double(&a.element)
@@ -1688,7 +1675,6 @@ func TestFeltNeg(t *testing.T) {
 
 	properties.Property("Neg: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPairFelt) bool {
-
 			var b Felt
 
 			b.Neg(&a.element)
@@ -1770,7 +1756,6 @@ func TestFeltNeg(t *testing.T) {
 }
 
 func TestFeltHalve(t *testing.T) {
-
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -1820,8 +1805,8 @@ func TestFeltSelect(t *testing.T) {
 
 	genA := genFull()
 	genB := genFull()
-	genC := ggen.Int64() //the condition
-	genZ := ggen.Int8()  //to make zeros artificially more likely
+	genC := ggen.Int64() // the condition
+	genZ := ggen.Int8()  // to make zeros artificially more likely
 
 	properties.Property("Select: must select correctly", prop.ForAll(
 		func(a, b Felt, cond int64, z int8) bool {
@@ -1862,7 +1847,6 @@ func TestFeltSelect(t *testing.T) {
 }
 
 func TestFeltSetInt64(t *testing.T) {
-
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -1892,7 +1876,6 @@ func TestFeltSetInt64(t *testing.T) {
 }
 
 func TestFeltSetInterface(t *testing.T) {
-
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -2050,7 +2033,6 @@ func TestFeltSetInterface(t *testing.T) {
 }
 
 func TestFeltFromMont(t *testing.T) {
-
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -2122,7 +2104,6 @@ func TestFeltJSON(t *testing.T) {
 	assert.NoError(err)
 
 	assert.Equal(s, decodedS, " json with strings  -> element  failed")
-
 }
 
 type testPairFelt struct {
@@ -2189,7 +2170,6 @@ func gen() gopter.Gen {
 
 func genFull() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-
 		genRandomFq := func() Felt {
 			var g Felt
 
@@ -2245,9 +2225,8 @@ func (z *Felt) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	return field.BigIntMatchUint64Slice(&aIntMod, slice)
 }
 
-//TODO: Phase out in favor of property based testing
+// TODO: Phase out in favor of property based testing
 func (z *Felt) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
 	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
@@ -2346,7 +2325,6 @@ func TestFeltLinearComb(t *testing.T) {
 
 // Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
 func TestFeltInversionCorrectionFactor(t *testing.T) {
-
 	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
 
 	var one Felt
@@ -2446,7 +2424,6 @@ func genVeryBigIntSigned(sign int) gopter.Gen {
 }
 
 func TestFeltMontReduce(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -2488,7 +2465,6 @@ func TestFeltMontReduce(t *testing.T) {
 }
 
 func TestFeltMontReduceMultipleOfR(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -2541,7 +2517,7 @@ func TestFelt0Inverse(t *testing.T) {
 	}
 }
 
-//TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
+// TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorSubtraction(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 
@@ -2575,7 +2551,7 @@ func TestUpdateFactorsDouble(t *testing.T) {
 		if f > 1<<30 || f < (-1<<31+1)/2 {
 			f /= 2
 			if g <= 1<<29 && g >= (-1<<31+1)/4 {
-				g *= 2 //g was kept small on f's account. Now that we're halving f, we can double g
+				g *= 2 // g was kept small on f's account. Now that we're halving f, we can double g
 			}
 		}
 
@@ -2583,7 +2559,7 @@ func TestUpdateFactorsDouble(t *testing.T) {
 			g /= 2
 
 			if f <= 1<<29 && f >= (-1<<31+1)/4 {
-				f *= 2 //f was kept small on g's account. Now that we're halving g, we can double f
+				f *= 2 // f was kept small on g's account. Now that we're halving g, we can double f
 			}
 		}
 
@@ -2664,7 +2640,6 @@ func TestUpdateFactorDecomposition(t *testing.T) {
 }
 
 func TestUpdateFactorInitialValues(t *testing.T) {
-
 	f0, g0 := updateFactorsDecompose(updateFactorIdentityMatrixRow0)
 	f1, g1 := updateFactorsDecompose(updateFactorIdentityMatrixRow1)
 
@@ -2676,13 +2651,12 @@ func TestUpdateFactorInitialValues(t *testing.T) {
 func TestUpdateFactorsRandomization(t *testing.T) {
 	var maxLen int
 
-	//t.Log("|f| + |g| is not to exceed", 1 << 31)
+	// t.Log("|f| + |g| is not to exceed", 1 << 31)
 	for i := 0; i < 1000; i++ {
 		f, g := randomizeUpdateFactors()
 		lf, lg := abs64T32(f), abs64T32(g)
 		absSum := lf + lg
 		if absSum >= 1<<31 {
-
 			if absSum == 1<<31 {
 				maxLen++
 			} else {
@@ -2739,10 +2713,10 @@ func randomizeUpdateFactors() (int64, int64) {
 
 	f[b] = randomizeUpdateFactor(1 << 31)
 
-	//As per the paper, |f| + |g| \le 2³¹.
+	// As per the paper, |f| + |g| \le 2³¹.
 	f[1-b] = randomizeUpdateFactor(1<<31 - abs64T32(f[b]))
 
-	//Patching another edge case
+	// Patching another edge case
 	if f[0]+f[1] == -1<<31 {
 		b = mrand.Int() % 2
 		f[b]++
@@ -2752,7 +2726,6 @@ func randomizeUpdateFactors() (int64, int64) {
 }
 
 func testLinearComb(t *testing.T, x *Felt, xC int64, y *Felt, yC int64) {
-
 	var p1 big.Int
 	x.ToBigInt(&p1)
 	p1.Mul(&p1, big.NewInt(xC))
@@ -2822,7 +2795,6 @@ func assertMulProduct(t *testing.T, x *Felt, c int64, result *Felt, resultHi uin
 }
 
 func approximateRef(x *Felt) uint64 {
-
 	var asInt big.Int
 	x.ToBigInt(&asInt)
 	n := x.BitLen()

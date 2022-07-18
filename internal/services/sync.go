@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 // SyncService is the service that handle the synchronization of the node.
@@ -28,8 +27,6 @@ type syncService struct {
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
-	// ethClient is the client that will be used to fetch the data that comes from the Ethereum Node.
-	ethClient *ethclient.Client
 	// chainId represent the chain id of the node.
 	chainId int
 	// latestBlockSynced is the last block that was synced.
@@ -44,20 +41,19 @@ type syncService struct {
 	synchronizer *Synchronizer
 }
 
-func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
+func SetupSync(feederClient *feeder.Client, l1client L1Client) {
 	err := SyncService.setDefaults()
 	if err != nil {
 		return
 	}
-	SyncService.ethClient = ethereumClient
 	SyncService.feeder = feederClient
-	SyncService.setChainId()
+	SyncService.setChainId(l1client)
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
 		NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
 		SyncService.stateDiffCollector = APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
+		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, SyncService.chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
 	// SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
@@ -232,9 +228,9 @@ func (s *syncService) GetChainId() int {
 }
 
 // setChainId sets the chain id of the node.
-func (s *syncService) setChainId() {
+func (s *syncService) setChainId(l1client L1Client) {
 	var chainID *big.Int
-	if s.ethClient == nil {
+	if l1client == nil {
 		// notest
 		if config.Runtime.Starknet.Network == "mainnet" {
 			chainID = new(big.Int).SetInt64(1)
@@ -243,7 +239,7 @@ func (s *syncService) setChainId() {
 		}
 	} else {
 		var err error
-		chainID, err = s.ethClient.ChainID(context.Background())
+		chainID, err = l1client.ChainID(context.Background())
 		if err != nil {
 			// notest
 			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
