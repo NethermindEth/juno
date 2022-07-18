@@ -14,7 +14,7 @@ jobs:
       matrix:
         go: [ '1.18' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up go
         uses: actions/setup-go@v3
         with:
