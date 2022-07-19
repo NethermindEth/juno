@@ -135,7 +135,8 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumb
 				Value:   new(felt.Felt).SetHex(cell.Value),
 			})
 		}
-		stateDiff.StorageDiff[new(felt.Felt).SetHex(contractAddress)] = kvs
+		// Create felt and convert to string for consistency
+		stateDiff.StorageDiff[new(felt.Felt).SetHex(contractAddress).String()] = kvs
 	}
 
 	return &stateDiff

@@ -586,7 +586,7 @@ func parsePages(pages [][]*big.Int) *types2.StateDiff {
 			})
 			pagesFlatter = pagesFlatter[2:]
 		}
-		storageDiff[address] = kvs
+		storageDiff[address.String()] = kvs
 	}
 
 	return &types2.StateDiff{
