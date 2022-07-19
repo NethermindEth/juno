@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	starknetTypes "github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
@@ -23,7 +24,7 @@ type apiCollector struct {
 	// close is the channel that will be used to close the collector.
 	chainID int
 	// buffer represent the channel of StateDiff collected
-	buffer chan *starknetTypes.StateDiff
+	buffer chan *types.StateDiff
 	// latestBlockOnChain is the last block on chain that need to be collected
 	latestBlockOnChain int64
 	// Synced is the flag that indicate if the collector is synced
@@ -37,7 +38,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 		chainID: chainID,
 	}
 	APICollector.logger = Logger.Named("apiCollector")
-	APICollector.buffer = make(chan *starknetTypes.StateDiff, 10)
+	APICollector.buffer = make(chan *types.StateDiff, 10)
 	APICollector.synced = false
 	go APICollector.updateLatestBlockOnChain()
 }
@@ -54,13 +55,13 @@ func (a *apiCollector) Run() error {
 		}
 		var update *feeder.StateUpdateResponse
 		var err error
-		if a.chainID == 1 {
+		if a.chainID == 1 { // mainnet
 			update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
 				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
 				continue
 			}
-		} else {
+		} else { // goerli
 			update, err = a.client.GetStateUpdateGoerli("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
 				a.logger.With("Error", err).Info("Couldn't get state update")
@@ -78,7 +79,7 @@ func (a *apiCollector) Close(context.Context) {
 }
 
 // GetChannel returns the channel of StateDiffs
-func (a *apiCollector) GetChannel() chan *starknetTypes.StateDiff {
+func (a *apiCollector) GetChannel() chan *types.StateDiff {
 	return a.buffer
 }
 
@@ -113,29 +114,28 @@ func (a *apiCollector) IsSynced() bool {
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
-func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumber int64) *starknetTypes.StateDiff {
-	var stateDiff starknetTypes.StateDiff
-	stateDiff.NewRoot = update.NewRoot
+func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumber int64) *types.StateDiff {
+	var stateDiff types.StateDiff
+	stateDiff.NewRoot = new(felt.Felt).SetHex(update.NewRoot)
 	stateDiff.BlockNumber = blockNumber
-	stateDiff.OldRoot = update.OldRoot
-	stateDiff.DeployedContracts = make([]starknetTypes.DeployedContract, len(update.StateDiff.DeployedContracts))
+	stateDiff.OldRoot = new(felt.Felt).SetHex(update.OldRoot)
+	stateDiff.DeployedContracts = make([]types.DeployedContract, len(update.StateDiff.DeployedContracts))
 	for i, v := range update.StateDiff.DeployedContracts {
-		stateDiff.DeployedContracts[i] = starknetTypes.DeployedContract{
-			Address:      v.Address,
-			ContractHash: v.ContractHash,
+		stateDiff.DeployedContracts[i] = types.DeployedContract{
+			Address: new(felt.Felt).SetHex(v.Address),
+			Hash:    new(felt.Felt).SetHex(v.ContractHash),
 		}
 	}
-	stateDiff.StorageDiffs = make(map[string][]starknetTypes.KV)
-	for addressDiff, keyVals := range update.StateDiff.StorageDiffs {
-		address := addressDiff
-		kvs := make([]starknetTypes.KV, 0)
-		for _, kv := range keyVals {
-			kvs = append(kvs, starknetTypes.KV{
-				Key:   kv.Key,
-				Value: kv.Value,
+	stateDiff.StorageDiff = make(types.StorageDiff)
+	for contractAddress, memoryCells := range update.StateDiff.StorageDiffs {
+		kvs := make([]types.MemoryCell, 0)
+		for _, cell := range memoryCells {
+			kvs = append(kvs, types.MemoryCell{
+				Address: new(felt.Felt).SetHex(cell.Key),
+				Value:   new(felt.Felt).SetHex(cell.Value),
 			})
 		}
-		stateDiff.StorageDiffs[address] = kvs
+		stateDiff.StorageDiff[new(felt.Felt).SetHex(contractAddress)] = kvs
 	}
 
 	return &stateDiff

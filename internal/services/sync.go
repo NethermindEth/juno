@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"math/big"
 	"strconv"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 // SyncService is the service that handle the synchronization of the node.
@@ -28,10 +26,6 @@ type syncService struct {
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
-	// ethClient is the client that will be used to fetch the data that comes from the Ethereum Node.
-	ethClient *ethclient.Client
-	// chainId represent the chain id of the node.
-	chainId int
 	// latestBlockSynced is the last block that was synced.
 	latestBlockSynced int64
 	// stateDIffCollector
@@ -44,20 +38,24 @@ type syncService struct {
 	synchronizer *Synchronizer
 }
 
-func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
+func SetupSync(feederClient *feeder.Client, l1client L1Client) {
 	err := SyncService.setDefaults()
 	if err != nil {
 		return
 	}
-	SyncService.ethClient = ethereumClient
 	SyncService.feeder = feederClient
-	SyncService.setChainId()
+	bigChainId, err := l1client.ChainID(context.Background())
+	if err != nil {
+		// notest
+		Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
+	}
+	chainId := int(bigChainId.Int64())
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
+		NewApiCollector(SyncService.manager, SyncService.feeder, chainId)
 		SyncService.stateDiffCollector = APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
+		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
 	// SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
@@ -89,7 +87,7 @@ func (s *syncService) Run() error {
 		start := time.Now()
 
 		err := s.updateState(stateDiff)
-		if err != nil || s.postValidateStateDiff(stateDiff) {
+		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
 			stateRoot := s.manager.GetLatestStateRoot()
@@ -113,17 +111,6 @@ func (s *syncService) Run() error {
 	return nil
 }
 
-func (s *syncService) postValidateStateDiff(stateDiff *types.StateDiff) bool {
-	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.NewRoot)
-}
-
-func (s *syncService) preValidateStateDiff(stateDiff *types.StateDiff) bool {
-	// The old state root that comes with the stateDiff should match with the current stateRoot
-	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.OldRoot) &&
-		// Should be the next block in the chain
-		s.latestBlockSynced+1 == stateDiff.BlockNumber
-}
-
 func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		err := s.SetCode(stateDiff, deployedContract)
@@ -132,12 +119,9 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 		}
 	}
 
-	for k, v := range stateDiff.StorageDiffs {
-		for _, storageSlots := range v {
-			address := new(felt.Felt).SetHex(k)
-			slotKey := new(felt.Felt).SetHex(storageSlots.Key)
-			slotValue := new(felt.Felt).SetHex(storageSlots.Value)
-			err := s.state.SetSlot(address, slotKey, slotValue)
+	for contractAddress, memoryCells := range stateDiff.StorageDiff {
+		for _, cell := range memoryCells {
+			err := s.state.SetSlot(contractAddress, cell.Address, cell.Value)
 			if err != nil {
 				return err
 			}
@@ -148,15 +132,11 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 }
 
 func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
-	address := new(felt.Felt).SetHex(deployedContract.Address)
-	contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
-
 	// Get Full Contract
-	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address, "",
-		strconv.FormatInt(stateDiff.BlockNumber, 10))
+	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex(), "", strconv.FormatInt(stateDiff.BlockNumber, 10))
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
+			"Contract Address", deployedContract.Address.Hex()).
 			Error("Error getting full contract")
 		return err
 	}
@@ -165,11 +145,11 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 	err = contract.UnmarshalRaw(contractFromApi)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
+			"Contract Address", deployedContract.Address.Hex()).
 			Error("Error unmarshalling contract")
 		return err
 	}
-	err = s.state.SetContract(address, contractHash, contract)
+	err = s.state.SetContract(deployedContract.Address, deployedContract.Hash, contract)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).
@@ -224,30 +204,4 @@ func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.stateDiffCollector.Close(ctx)
 	s.manager.Close()
-}
-
-// GetChainId returns the chain id of the node.
-func (s *syncService) GetChainId() int {
-	return s.chainId
-}
-
-// setChainId sets the chain id of the node.
-func (s *syncService) setChainId() {
-	var chainID *big.Int
-	if s.ethClient == nil {
-		// notest
-		if config.Runtime.Starknet.Network == "mainnet" {
-			chainID = new(big.Int).SetInt64(1)
-		} else {
-			chainID = new(big.Int).SetInt64(0)
-		}
-	} else {
-		var err error
-		chainID, err = s.ethClient.ChainID(context.Background())
-		if err != nil {
-			// notest
-			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
-		}
-	}
-	s.chainId = int(chainID.Int64())
 }
