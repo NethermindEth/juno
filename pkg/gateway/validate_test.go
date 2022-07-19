@@ -1,7 +1,9 @@
 package gateway
 
-import "testing"
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestIsValid(t *testing.T) {
 	tests := [...]struct {
@@ -9,59 +11,67 @@ func TestIsValid(t *testing.T) {
 		want  error
 	}{
 		{
+			// p + 1.
 			"0x800000000000011000000000000000000000000000000000000000000000002",
 			errOutOfRangeFelt,
 		},
 		{
-			"0xA000000000000022000000000000000000000000000000000000000000000001",
-			errOutOfRangeFelt,
-		},
-		{
-			"0x800000000000011000000000000000000000000000000000000000000000000",
+			// Hexadecimal string formatted using capital letters.
+			"0xABCDE",
 			nil,
 		},
 		{
+			// Within range.
+			"0x12345",
+			nil,
+		},
+		{
+			// p.
 			"0x800000000000011000000000000000000000000000000000000000000000001",
 			errOutOfRangeFelt,
 		},
 		{
-			"0x80000000000001100000000000000000000000000000000000000000000000t",
+			// Invalid hexadecimal character 'g'.
+			"0xabcdefg",
 			errInvalidHex,
 		},
 		{
+			// Zero, which is on the lower boundary of the range.
 			"0x0",
 			nil,
 		},
 		{
-			"0x000000000000000000000000000000000000000000000000000000000000001",
+			// Hexadecimal string with leading zeroes.
+			"0x00abc",
 			nil,
 		},
 		{
-			"0X800000000000011000000000000000000000000000000000000000000000001",
+			// Capital letter in the prefix should be flagged as invalid.
+			"0Xabc",
 			errInvalidHex,
 		},
 		{
-			"800000000000011000000000000000000000000000000000000000000000002",
+			// Missing "0x" prefix.
+			"abc",
 			errInvalidHex,
 		},
 		{
-			"0x00123456789AaBbCcDdeEFf0000000000000000000000000000000000000000",
+			// Mixture of upper case and lowercase hexadecimal characters.
+			"0x00123456789AaBbCcDdeEFf0",
 			nil,
 		},
 		{
-			"0x00123456789AaBbCcDdeEFf0000000000000000000000000000000.569",
-			errInvalidHex,
-		},
-		{
-			"800000000000011123456789AaBbCcDdeEFf00000000000000000002",
+			// Decimal number with valid hexadecimal characters.
+			"3.1415",
 			errInvalidHex,
 		},
 	}
+
 	for _, test := range tests {
 		got := isValid(test.input)
 		if got != test.want {
 			fmt.Println(got)
-			t.Errorf("isValid(%x) = %x, want %x", test.input, got, test.want)
+			t.Errorf("isValid(%q) = %x, want %x", test.input, got, test.want)
 		}
 	}
 }
