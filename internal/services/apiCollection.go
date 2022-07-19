@@ -55,13 +55,13 @@ func (a *apiCollector) Run() error {
 		}
 		var update *feeder.StateUpdateResponse
 		var err error
-		if a.chainID == 1 {
+		if a.chainID == 1 { // mainnet
 			update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
 				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
 				continue
 			}
-		} else {
+		} else { // goerli
 			update, err = a.client.GetStateUpdateGoerli("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
 				a.logger.With("Error", err).Info("Couldn't get state update")

@@ -26,8 +26,6 @@ type syncService struct {
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
-	// chainId represent the chain id of the node.
-	chainId int
 	// latestBlockSynced is the last block that was synced.
 	latestBlockSynced int64
 	// stateDIffCollector
@@ -46,13 +44,18 @@ func SetupSync(feederClient *feeder.Client, l1client L1Client) {
 		return
 	}
 	SyncService.feeder = feederClient
-	SyncService.setChainId(l1client)
+	bigChainId, err := l1client.ChainID(context.Background())
+	if err != nil {
+		// notest
+		Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
+	}
+	chainId := int(bigChainId.Int64())
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		NewApiCollector(SyncService.manager, SyncService.feeder, SyncService.chainId)
+		NewApiCollector(SyncService.manager, SyncService.feeder, chainId)
 		SyncService.stateDiffCollector = APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, SyncService.chainId)
+		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
 	// SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
@@ -201,29 +204,4 @@ func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.stateDiffCollector.Close(ctx)
 	s.manager.Close()
-}
-
-// GetChainId returns the chain id of the node.
-func (s *syncService) GetChainId() int {
-	return s.chainId
-}
-
-// setChainId sets the chain id of the node.
-func (s *syncService) setChainId(l1client L1Client) {
-	if l1client == nil {
-		// notest
-		if config.Runtime.Starknet.Network == "mainnet" {
-			s.chainId = 1
-		} else {
-			s.chainId = 0
-		}
-	} else {
-		var err error
-		chainId, err := l1client.ChainID(context.Background())
-		if err != nil {
-			// notest
-			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
-		}
-		s.chainId = int(chainId.Int64())
-	}
 }
