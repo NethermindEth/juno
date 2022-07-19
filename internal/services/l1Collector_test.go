@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -19,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	gocmp "github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp"
 	"gotest.tools/assert"
 )
 
@@ -153,10 +154,9 @@ func TestProcessPagesHashes(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not finish test: failed to load contract ABI")
 	}
-	hash := "0x2f8c1a2e8c9c550d1a62b8d42543f3dac973ea8d30e52dcb49d2e1c787007203"
-	var pageHash [32]byte
-	copy(pageHash[:], common.Hex2Bytes(hash[2:]))
-	pagesHashes := [][32]byte{pageHash}
+	hash := common.HexToHash("0x2f8c1a2e8c9c550d1a62b8d42543f3dac973ea8d30e52dcb49d2e1c787007203")
+	pagesHashes := make([][32]byte, 1)
+	copy(pagesHashes[0][:], hash.Bytes())
 
 	to := common.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b")
 	r, _ := new(big.Int).SetString("a681faea68ff81d191169010888bbbe90ec3eb903e31b0572cd34f13dae281b9", 16)
@@ -193,7 +193,7 @@ func TestProcessPagesHashes(t *testing.T) {
 		l1client:       ec,
 		memoryPageHash: types.NewDictionary(),
 	}
-	l.memoryPageHash.Add(hash[2:], types.TxnHash{Hash: finalTx.Hash()})
+	l.memoryPageHash.Add(hash, types.TxnHash{Hash: finalTx.Hash()})
 
 	pages, _ := l.processPagesHashes(pagesHashes, memoryContract)
 
@@ -236,13 +236,7 @@ func TestProcessPagesHashes(t *testing.T) {
 		}
 	}
 
-	for i, page := range pages {
-		for j, x := range page {
-			if x.Cmp(wantPages[i][j]) != 0 {
-				t.Fatal("Pages are not equal")
-			}
-		}
-	}
+	assert.DeepEqual(t, pages, wantPages, cmp.Comparer(func(x, y *big.Int) bool { return x.Cmp(y) == 0 }))
 }
 
 func TestParsePages(t *testing.T) {
@@ -295,5 +289,100 @@ func TestParsePages(t *testing.T) {
 
 	stateDiff := parsePages(data)
 
-	assert.DeepEqual(t, stateDiff, wantDiff, gocmp.Comparer(func(x *felt.Felt, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
+	assert.DeepEqual(t, stateDiff, wantDiff, cmp.Comparer(func(x *felt.Felt, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
+}
+
+func TestUpdateBlockOnChain(t *testing.T) {
+	starknetAbi, err := loadAbiOfContract(abi.StarknetAbi)
+	if err != nil {
+		t.Errorf("loading contract: %x", err)
+	}
+
+	tests := [...]struct {
+		data        string
+		want        int64
+		description string
+	}{
+		// See https://etherscan.io/tx/0x7e4543c64f058d15035febcc39ff52dc871c0c591b486ef5498c2fe39fc19f11#eventlog
+		{
+			data:        "04b954914f21ba9beab17ce2a067a7f0d177ba7876b98abbcc10fd37833f1ee20000000000000000000000000000000000000000000000000000000000000cfb",
+			want:        3323,
+			description: "starknet block 3323",
+		},
+		{
+			data:        "0",
+			want:        0, // should not update
+			description: "malformed input",
+		},
+	}
+
+	for _, test := range tests {
+		// Set up a new l1collector on every test
+		l := l1Collector{
+			starknetABI: starknetAbi,
+		}
+		l.logger = Logger
+
+		t.Run(test.description, func(t *testing.T) {
+			l.updateBlockOnChain(common.Hex2Bytes(test.data))
+			assert.Equal(t, l.latestBlockOnChain, test.want, fmt.Sprintf("got %d, want %d", l.latestBlockOnChain, test.want))
+		})
+	}
+}
+
+func TestRemoveFactTree(t *testing.T) {
+	tests := [...]struct {
+		factToRemove     *types.Fact
+		gpsVerifier      map[common.Hash]types.PagesHash
+		pageHashRegistry map[common.Hash]types.TxnHash
+		facts            map[string]types.Fact
+		description      string
+	}{
+		{
+			factToRemove: &types.Fact{
+				Value:          common.HexToHash("0x0"),
+				SequenceNumber: 0,
+			},
+			gpsVerifier: map[common.Hash]types.PagesHash{
+				common.HexToHash("0x0"): {Bytes: [][32]byte{{0}}},
+			},
+			pageHashRegistry: map[common.Hash]types.TxnHash{
+				common.HexToHash("0x0"): {},
+			},
+			facts: map[string]types.Fact{
+				"0": {},
+			},
+			description: "simple sanity test",
+		},
+	}
+
+	for _, test := range tests {
+		// Set up a new l1collector on every test
+		facts := types.NewDictionary()
+		for k, v := range test.facts {
+			facts.Add(k, v)
+		}
+		gpsVerifier := types.NewDictionary()
+		for k, v := range test.gpsVerifier {
+			gpsVerifier.Add(k, v)
+		}
+		pageHashRegistry := types.NewDictionary()
+		for k, v := range test.pageHashRegistry {
+			pageHashRegistry.Add(k, v)
+		}
+
+		l := l1Collector{
+			facts:          facts,
+			gpsVerifier:    gpsVerifier,
+			memoryPageHash: pageHashRegistry,
+		}
+		l.logger = Logger
+
+		t.Run(test.description, func(t *testing.T) {
+			l.removeFactTree(test.factToRemove)
+			assert.Equal(t, l.facts.Size(), 0, "facts dictionary not empty")
+			assert.Equal(t, l.gpsVerifier.Size(), 0, "gpsVerifier dictionary not empty")
+			assert.Equal(t, l.memoryPageHash.Size(), 0, "memoryPageHash dictionary not empty")
+		})
+	}
 }

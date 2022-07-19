@@ -27,6 +27,10 @@ func (dict *Dictionary) Add(key interface{}, value IValue) {
 	dict.mutex.Unlock()
 }
 
+func (dict *Dictionary) Size() int {
+	return len(dict.database)
+}
+
 // Remove removes a value from the dictionary, given its key
 func (dict *Dictionary) Remove(key interface{}) {
 	dict.mutex.Lock()
