@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"math/big"
 	"strconv"
 	"time"
 
@@ -211,21 +210,20 @@ func (s *syncService) GetChainId() int {
 
 // setChainId sets the chain id of the node.
 func (s *syncService) setChainId(l1client L1Client) {
-	var chainID *big.Int
 	if l1client == nil {
 		// notest
 		if config.Runtime.Starknet.Network == "mainnet" {
-			chainID = new(big.Int).SetInt64(1)
+			s.chainId = 1
 		} else {
-			chainID = new(big.Int).SetInt64(0)
+			s.chainId = 0
 		}
 	} else {
 		var err error
-		chainID, err = l1client.ChainID(context.Background())
+		chainId, err := l1client.ChainID(context.Background())
 		if err != nil {
 			// notest
 			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
 		}
+		s.chainId = int(chainId.Int64())
 	}
-	s.chainId = int(chainID.Int64())
 }
