@@ -22,6 +22,8 @@ type Synchronizer struct {
 	stateDiffCollector StateDiffCollector
 	// latestBlockOnChain is the latest block on chain.
 	latestBlockOnChain int64
+
+	pendingBlock *feeder.StarknetBlock
 }
 
 func NewSynchronizer(syncManager *sync.Manager, stateManager state.StateManager, feederClient *feeder.Client,
@@ -101,10 +103,11 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 	return nil
 }
 
-func (s *Synchronizer) updateContractState() {
-}
-
 func (s *Synchronizer) updateLatestBlockOnChain() {
+	for {
+		time.Sleep(time.Second * 1)
+		s.latestBlockOnChain = s.stateDiffCollector.GetLatestBlockOnChain()
+	}
 }
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database

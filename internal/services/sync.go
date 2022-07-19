@@ -60,8 +60,8 @@ func SetupSync(feederClient *feeder.Client, ethereumClient *ethclient.Client) {
 		NewL1Collector(SyncService.manager, SyncService.feeder, SyncService.ethClient, SyncService.chainId)
 		SyncService.stateDiffCollector = L1Collector
 	}
-	// SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
-	//	SyncService.feeder, SyncService.stateDiffCollector)
+	SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
+		SyncService.feeder, SyncService.stateDiffCollector)
 	go func() {
 		err = SyncService.stateDiffCollector.Run()
 		if err != nil {
@@ -82,7 +82,7 @@ func (s *syncService) Run() error {
 	}
 
 	// run synchronizer of all the info that comes from the block.
-	// go s.synchronizer.Run()
+	go s.synchronizer.Run()
 
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
