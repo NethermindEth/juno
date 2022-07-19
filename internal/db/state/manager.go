@@ -7,16 +7,16 @@ import (
 // Manager is a database manager, with the objective of managing
 // the contract codes and contract storages databases.
 type Manager struct {
-	codeDatabase    db.Database
-	storageDatabase *db.BlockSpecificDatabase
+	stateDatabase db.Database
+	contractDef   db.Database
 }
 
 // NewStateManager returns a new instance of Manager with the given database sources.
-func NewStateManager(codeDatabase db.Database, storageDatabase *db.BlockSpecificDatabase) *Manager {
-	return &Manager{codeDatabase, storageDatabase}
+func NewStateManager(stateDatabase, contractDef db.Database) *Manager {
+	return &Manager{stateDatabase, contractDef}
 }
 
 func (m *Manager) Close() {
-	m.codeDatabase.Close()
-	m.storageDatabase.Close()
+	m.stateDatabase.Close()
+	m.contractDef.Close()
 }

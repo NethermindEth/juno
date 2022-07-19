@@ -64,12 +64,9 @@ func Modulus() *big.Int {
 
 // q (modulus)
 const qFeltWord0 uint64 = 1
-
-const (
-	qFeltWord1 uint64 = 0
-	qFeltWord2 uint64 = 0
-	qFeltWord3 uint64 = 576460752303423505
-)
+const qFeltWord1 uint64 = 0
+const qFeltWord2 uint64 = 0
+const qFeltWord3 uint64 = 576460752303423505
 
 var qFelt = Felt{
 	qFeltWord0,
@@ -119,6 +116,7 @@ func (z *Felt) SetUint64(v uint64) *Felt {
 
 // SetInt64 sets z to v and returns z
 func (z *Felt) SetInt64(v int64) *Felt {
+
 	// absolute value of v
 	m := v >> 63
 	z.SetUint64(uint64((v ^ m) - m))
@@ -321,7 +319,6 @@ func (z *Felt) LexicographicallyLargest() bool {
 func (z *Felt) SetRandom() (*Felt, error) {
 	var bytes [32]byte
 	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
-		// notest
 		return nil, err
 	}
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
@@ -333,7 +330,6 @@ func (z *Felt) SetRandom() (*Felt, error) {
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
-		// notest
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 1, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -370,6 +366,7 @@ func (z *Felt) Halve() {
 	z[1] = z[1]>>1 | z[2]<<63
 	z[2] = z[2]>>1 | z[3]<<63
 	z[3] >>= 1
+
 }
 
 // API with assembly impl
@@ -433,6 +430,7 @@ func (z *Felt) Select(c int, x0 *Felt, x1 *Felt) *Felt {
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z, x, y *Felt) {
+
 	var t [4]uint64
 	var c [3]uint64
 	{
@@ -500,6 +498,7 @@ func _mulGeneric(z, x, y *Felt) {
 }
 
 func _mulWGeneric(z, x *Felt, y uint64) {
+
 	var t [4]uint64
 	{
 		// round 0
@@ -541,7 +540,6 @@ func _mulWGeneric(z, x *Felt, y uint64) {
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
-		// notest
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 1, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -593,7 +591,6 @@ func _fromMontGeneric(z *Felt) {
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
-		// notest
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 1, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -668,6 +665,7 @@ func _negGeneric(z, x *Felt) {
 }
 
 func _reduceGeneric(z *Felt) {
+
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
@@ -918,7 +916,6 @@ func (z *Felt) setBigInt(v *big.Int) *Felt {
 			z[i] = uint64(vBits[i])
 		}
 	} else {
-		// notest
 		for i := 0; i < len(vBits); i++ {
 			if i%2 == 0 {
 				z[i/2] = uint64(vBits[i])
@@ -966,7 +963,6 @@ func (z *Felt) SetString(number string) *Felt {
 // MarshalJSON returns json encoding of z (z.Text(10))
 // If z == nil, returns null
 func (z *Felt) MarshalJSON() ([]byte, error) {
-	// notest
 	if z == nil {
 		return []byte("null"), nil
 	}
@@ -975,7 +971,6 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 	if len(s) <= maxSafeBound {
 		return []byte(s), nil
 	}
-	// notest
 	var sbb strings.Builder
 	sbb.WriteByte('"')
 	sbb.WriteString(s)
@@ -986,10 +981,8 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON accepts numbers and strings as input
 // See Felt.SetString for valid prefixes (0x, 0b, ...)
 func (z *Felt) UnmarshalJSON(data []byte) error {
-	// notest
 	s := string(data)
 	if len(s) > Bits*3 {
-		// notest
 		return errors.New("value too large (max = Felt.Bits * 3)")
 	}
 
@@ -1005,7 +998,6 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	vv := bigIntPool.Get().(*big.Int)
 
 	if _, ok := vv.SetString(s, 0); !ok {
-		// notest
 		return errors.New("can't parse into a big.Int: " + s)
 	}
 
@@ -1063,7 +1055,7 @@ func (z *Felt) Sqrt(x *Felt) *Felt {
 	b.Mul(&w, &y)
 
 	// g = nonResidue ^ s
-	g := Felt{
+	var g = Felt{
 		4685640052668284376,
 		12298664652803292137,
 		735711535595279732,
@@ -1126,11 +1118,9 @@ func min(a int, b int) int {
 	return b
 }
 
-const (
-	updateFactorsConversionBias    int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
-	updateFactorIdentityMatrixRow0       = 1
-	updateFactorIdentityMatrixRow1       = 1 << 32
-)
+const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+const updateFactorIdentityMatrixRow0 = 1
+const updateFactorIdentityMatrixRow1 = 1 << 32
 
 func updateFactorsDecompose(c int64) (int64, int64) {
 	c += updateFactorsConversionBias
@@ -1140,16 +1130,14 @@ func updateFactorsDecompose(c int64) (int64, int64) {
 	return f, g
 }
 
-const (
-	k                              = 32 // word size / 2
-	signBitSelector                = uint64(1) << 63
-	approxLowBitsN                 = k - 1
-	approxHighBitsN                = k + 1
-	inversionCorrectionFactorWord0 = 10132152449811117243
-	inversionCorrectionFactorWord1 = 7504201226514183749
-	inversionCorrectionFactorWord2 = 12924471856011987582
-	inversionCorrectionFactorWord3 = 34918322287812780
-)
+const k = 32 // word size / 2
+const signBitSelector = uint64(1) << 63
+const approxLowBitsN = k - 1
+const approxHighBitsN = k + 1
+const inversionCorrectionFactorWord0 = 10132152449811117243
+const inversionCorrectionFactorWord1 = 7504201226514183749
+const inversionCorrectionFactorWord2 = 12924471856011987582
+const inversionCorrectionFactorWord3 = 34918322287812780
 
 const invIterationsN = 18
 
@@ -1157,6 +1145,7 @@ const invIterationsN = 18
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Felt) Inverse(x *Felt) *Felt {
+
 	a := *x
 	b := Felt{
 		qFeltWord0,
@@ -1239,7 +1228,6 @@ func (z *Felt) Inverse(x *Felt) *Felt {
 		f1, c1 = updateFactorsDecompose(c1)
 		bHi := b.linearCombNonModular(&s, f1, &b, c1)
 		if bHi&signBitSelector != 0 {
-			// notest
 			// if bHi < 0
 			f1, c1 = -f1, -c1
 			bHi = b.neg(&b, bHi)
@@ -1296,18 +1284,16 @@ func (z *Felt) Inverse(x *Felt) *Felt {
 	// correctness check
 	v.Mul(&u, z)
 	if !v.IsOne() && !u.IsZero() {
-		// notest
 		return z.inverseExp(&u)
 	}
 
 	return z
 }
 
-var qMinusTwo *big.Int // test routines can set this to an incorrect value to fail whenever inverseExp was triggered
+var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
 
 // inverseExp is a fallback in case the inversion algorithm failed
 func (z *Felt) inverseExp(x *Felt) *Felt {
-	// notest
 	if qMinusTwo == nil {
 		qMinusTwo = Modulus()
 		qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
@@ -1318,6 +1304,7 @@ func (z *Felt) inverseExp(x *Felt) *Felt {
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
 // if x fits in a word as is, no approximation necessary
 func approximate(x *Felt, nBits int) uint64 {
+
 	if nBits <= 64 {
 		return x[0]
 	}
@@ -1352,6 +1339,7 @@ func (z *Felt) linearComb(x *Felt, xC int64, y *Felt, yC int64) {
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *Felt) montReduceSigned(x *Felt, xHi uint64) {
+
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
@@ -1446,6 +1434,7 @@ func (z *Felt) montReduceSigned(x *Felt, xHi uint64) {
 }
 
 func (z *Felt) montReduceSignedSimpleButSlow(x *Felt, xHi uint64) {
+
 	*z = *x
 	z.FromMont() // z = x r⁻¹
 
@@ -1461,7 +1450,6 @@ func (z *Felt) montReduceSignedSimpleButSlow(x *Felt, xHi uint64) {
 		// if z > q → z -= q
 		// note: this is NOT constant time
 		if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
-			// notest
 			var b uint64
 			z[0], b = bits.Sub64(z[0], 1, 0)
 			z[1], b = bits.Sub64(z[1], 0, b)
@@ -1517,6 +1505,7 @@ func (z *Felt) neg(x *Felt, xHi uint64) uint64 {
 
 // mulWNonModular multiplies by one word in non-montgomery, without reducing
 func (z *Felt) mulWNonModular(x *Felt, y int64) uint64 {
+
 	// w := abs(y)
 	m := y >> 63
 	w := uint64((y ^ m) - m)

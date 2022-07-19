@@ -5,6 +5,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -22,10 +25,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// feederErr describes an error from the feeder gateway API response.
+type feederErr struct {
+	response []byte
+}
+
+func (e *feederErr) Error() string {
+	return string(e.response)
+}
+
 // newTrie returns a new Trie
 func newTrie(database db.DatabaseOperations, prefix string) trie.Trie {
-	store := db.NewKeyValueStore(database, prefix)
-	return trie.New(store, 251)
+	return nil
+	// store := db.NewKeyValueStore(database, prefix)
+	// return trie.New(store, 251)
 }
 
 // loadContractInfo loads a contract ABI and set the events that later we are going to use
@@ -180,22 +193,28 @@ func updateState(
 	Logger.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
 	for _, deployedContract := range update.DeployedContracts {
 		contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
+		// TODO: change for the new trie
 		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
+		// TODO: get storage root
 		storageRoot := storageTrie.Commitment()
 		address := new(felt.Felt).SetHex(deployedContract.Address)
 		contractStateValue := contractState(contractHash, storageRoot)
 		stateTrie.Put(address, contractStateValue)
+		// TODO: manage error
 	}
 
 	Logger.With("Block Number", sequenceNumber).Info("Processing storage diffs")
 	for k, v := range update.StorageDiffs {
 		formattedAddress := remove0x(k)
+		// TODO: change for the new trie
 		storageTrie := newTrie(txn, formattedAddress)
 		for _, storageSlots := range v {
 			key := new(felt.Felt).SetHex(storageSlots.Key)
 			val := new(felt.Felt).SetHex(storageSlots.Value)
 			storageTrie.Put(key, val)
+			// TODO: manage error
 		}
+		// TODO: get commitment
 		storageRoot := storageTrie.Commitment()
 
 		address := new(felt.Felt).SetHex(formattedAddress)
@@ -203,6 +222,7 @@ func updateState(
 		contractStateValue := contractState(contractHash, storageRoot)
 
 		stateTrie.Put(address, contractStateValue)
+		// TODO: manage error
 	}
 
 	stateCommitment := remove0x(stateTrie.Commitment().Text(16))
@@ -306,4 +326,38 @@ func toDbAbi(abi feederAbi.Abi) *dbAbi.Abi {
 	}
 
 	return &abiResponse
+}
+
+// getFullContract retrieves the compiled contract at address (with 0x
+// prefix) from the feeder gateway and returns an error otherwise. Note
+// that the feeder gateway client cannot be used here because it returns
+// Go objects and what is required here is the raw JSON response.
+func getFullContract(baseURL *url.URL, address string) ([]byte, error) {
+	// TODO: check if this function is needed
+	url, err := url.Parse(baseURL.String() + "/feeder_gateway/get_full_contract")
+	if err != nil {
+		return nil, err
+	}
+
+	vals := url.Query()
+	vals.Add("contractAddress", address)
+	url.RawQuery = vals.Encode()
+
+	resp, err := http.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure that the feeder gateway did not return an error.
+	if bytes.Contains(body, []byte(`{"code": "StarkErrorCode.`)) {
+		return nil, &feederErr{body}
+	}
+
+	return body, nil
 }

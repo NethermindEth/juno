@@ -8,11 +8,11 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
 )
 
@@ -27,28 +27,33 @@ func (HandlerRPC) EchoErr(c context.Context, message string) (string, error) {
 }
 
 // StarknetCall represents the handler of "starknet_call" rpc call.
-func (HandlerRPC) StarknetCall(
+func (s *HandlerRPC) StarknetCall(
 	c context.Context, request FunctionCall, blockHash BlockHashOrTag,
 ) (ResultCall, error) {
-	if tag := blockHash.Tag; tag != nil {
-		calldata := make([]string, len(request.CallData))
-		for i, data := range request.CallData {
-			calldata[i] = data.Hex()
-		}
-		call := feeder.InvokeFunction{
-			ContractAddress:    request.ContractAddress.Hex(),
-			EntryPointSelector: request.EntryPointSelector.Hex(),
-			Calldata:           calldata,
-		}
-		result, err := feederClient.CallContract(call, "", string(*tag))
+	if hash := blockHash.Hash; hash != nil {
+		block, err := services.BlockService.GetBlockByHash(hash)
 		if err != nil {
-			// notest
-			return nil, fmt.Errorf("call failed %v", err)
+			return nil, err
 		}
-		return (*result)["result"], nil
+		response, err := services.VMService.Call(
+			c,
+			state.New(s.state, block.NewRoot),
+			request.CallData,
+			new(felt.Felt),
+			request.ContractAddress,
+			request.EntryPointSelector,
+			block.Sequencer,
+		)
+		out := make([]string, len(response))
+		for i := 0; i < len(response); i++ {
+			out[i] = response[i].String()
+		}
+		return out, err
 	}
-	// notest
-	return []string{"Response", "of", "starknet_call"}, nil
+	if tag := blockHash.Tag; tag != nil {
+		panic("not implemented")
+	}
+	return nil, ErrInvalidRequest()
 }
 
 // TODO documentation
@@ -250,16 +255,37 @@ func (HandlerRPC) StarknetGetBlockByNumberOpt(ctx context.Context, blockNumberOr
 // StarknetGetBlockTransactionCountByHash represent the handler for
 // getting block transaction count by the blocks hash.
 func (HandlerRPC) StarknetGetBlockTransactionCountByHash(
-	c context.Context, blockHash BlockHashOrTag,
+	ctx context.Context, blockHash BlockHashOrTag,
 ) (BlockTransactionCount, error) {
-	return BlockTransactionCount{}, nil
+	if hash := blockHash.Hash; hash != nil {
+		block, err := services.BlockService.GetBlockByHash(hash)
+		if err != nil {
+			return BlockTransactionCount{}, err
+		}
+		return BlockTransactionCount{
+			TransactionCount: int(block.TxCount),
+		}, nil
+	}
+	if tag := blockHash.Tag; tag != nil {
+		panic("implement me")
+	}
+	return BlockTransactionCount{}, ErrInvalidRequest()
 }
 
 // StarknetGetBlockTransactionCountByNumber Get the number of
 // transactions in a block given a block number (height).
 func (HandlerRPC) StarknetGetBlockTransactionCountByNumber(
-	c context.Context, blockNumber interface{},
+	ctx context.Context, blockNumber BlockNumberOrTag,
 ) (BlockTransactionCount, error) {
+	if number := blockNumber.Number; number != nil {
+		block, err := services.BlockService.GetBlockByNumber(*number)
+		if err != nil {
+			return BlockTransactionCount{}, err
+		}
+		return BlockTransactionCount{
+			TransactionCount: int(block.TxCount),
+		}, nil
+	}
 	return BlockTransactionCount{}, nil
 }
 
@@ -279,39 +305,35 @@ func (HandlerRPC) StarknetGetStorageAt(
 	key Felt,
 	blockHash BlockHashOrTag,
 ) (Felt, error) {
-	var blockNumber uint64
-	if hash := blockHash.Hash; hash != nil {
-		block, err := services.BlockService.GetBlockByHash(blockHash.Hash)
-		if err != nil {
-			// notest
-			if errors.Is(err, db.ErrNotFound) {
-				return "", fmt.Errorf("block not found")
-			}
-			return "", fmt.Errorf("database error: %v", err)
-		}
-		blockNumber = block.BlockNumber
-	} else if tag := blockHash.Tag; tag != nil {
-		blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
-		if err != nil {
-			// notest
-			return "", fmt.Errorf("block not found")
-		}
-		blockNumber = blockResponse.BlockNumber
-	} else {
-		// notest
-		return "", fmt.Errorf("invalid block hash or tag")
-	}
-
-	storage, err := services.StateService.GetStorage(string(contractAddress), blockNumber)
-	if err != nil {
-		// notest
-		if errors.Is(err, db.ErrNotFound) {
-			return "", fmt.Errorf("storage not found")
-		}
-		return "", fmt.Errorf("database error: %v", err)
-	}
-
-	return Felt(storage.Storage[string(key)]), nil
+	// TODO: Fix response query with the new trie
+	//var blockNumber uint64
+	//if hash := blockHash.Hash; hash != nil {
+	//	block := services.BlockService.GetBlockByHash(*blockHash.Hash)
+	//	if block == nil {
+	//		// notest
+	//		return "", fmt.Errorf("block not found")
+	//	}
+	//	blockNumber = block.BlockNumber
+	//} else if tag := blockHash.Tag; tag != nil {
+	//	blockResponse, err := getBlockByTag(c, *tag, ScopeTxnHash)
+	//	if err != nil {
+	//		// notest
+	//		return "", fmt.Errorf("block not found")
+	//	}
+	//	blockNumber = blockResponse.BlockNumber
+	//} else {
+	//	// notest
+	//	return "", fmt.Errorf("invalid block hash or tag")
+	//}
+	//
+	//storage := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	//if storage == nil {
+	//	// notest
+	//	return "", fmt.Errorf("storage not found")
+	//}
+	//
+	//return Felt(storage.Storage[string(key)]), nil
+	return Felt("ss"), nil
 }
 
 // StarknetGetTransactionByHash Get the details and status of a
@@ -472,24 +494,12 @@ func (HandlerRPC) StarknetGetCode(
 		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
-	code, err := services.StateService.GetCode(contractAddress.ByteSlice())
-	if err != nil {
-		// notest
-		if errors.Is(err, db.ErrNotFound) {
-			return nil, fmt.Errorf("code not found")
-		}
-		return nil, fmt.Errorf("database error: %v", err)
-	}
 	marshalledAbi, err := json.Marshal(abi)
 	if err != nil {
 		// notest
 		return nil, err
 	}
-	bytecode := make([]*felt.Felt, len(code.Code))
-	for i, b := range code.Code {
-		bytecode[i] = new(felt.Felt).SetBytes(b)
-	}
-	return &CodeResult{Abi: string(marshalledAbi), Bytecode: bytecode}, nil
+	return &CodeResult{Abi: string(marshalledAbi)}, nil
 }
 
 // StarknetBlockNumber Get the most recent accepted block number

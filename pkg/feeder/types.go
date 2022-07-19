@@ -3,7 +3,6 @@ package feeder
 // notest
 import (
 	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
-	"github.com/NethermindEth/juno/pkg/feeder/types"
 )
 
 type (
@@ -166,7 +165,7 @@ type TransactionExecution struct {
 type StarknetBlock struct {
 	BlockHash           string                 `json:"block_hash"`
 	ParentBlockHash     string                 `json:"parent_block_hash"`
-	BlockNumber         types.BlockNumber      `json:"block_number"`
+	BlockNumber         BlockNumber            `json:"block_number"`
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`

@@ -16,7 +16,6 @@ import (
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
 	"github.com/NethermindEth/juno/pkg/felt"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
-	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -258,14 +257,17 @@ func TestUpdateState(t *testing.T) {
 	}
 
 	// Want
+	// TODO: use the new type
 	stateTrie := trie.New(store.New(), 251)
 	storageTrie := trie.New(store.New(), 251)
 	key := new(felt.Felt).SetHex(storageDiff.Key)
 	val := new(felt.Felt).SetHex(storageDiff.Value)
 	storageTrie.Put(key, val)
+	// TODO: manage error
 	hash := new(felt.Felt).SetHex(contract.ContractHash)
 	address := new(felt.Felt).SetHex(contract.Address)
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
+	// TODO: manage error
 
 	// Actual
 	contractHashMap := map[string]*felt.Felt{
@@ -289,6 +291,7 @@ func TestUpdateState(t *testing.T) {
 		t.Error("Error updating state")
 	}
 
+	// TODO: get commitment from the new trie
 	want := stateTrie.Commitment()
 	commitment := new(felt.Felt).SetHex(stateCommitment)
 	if commitment.Cmp(want) != 0 {

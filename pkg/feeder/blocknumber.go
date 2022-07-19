@@ -1,4 +1,4 @@
-package types
+package feeder
 
 import (
 	"encoding/json"

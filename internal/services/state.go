@@ -15,12 +15,12 @@ type stateService struct {
 	manager *state.Manager
 }
 
-func (s *stateService) Setup(codeDatabase db.Database, storageDatabase *db.BlockSpecificDatabase) {
+func (s *stateService) Setup(stateDb, codeDefinitionDb db.Database) {
 	if s.Running() {
 		// notest
 		s.logger.Panic("service is already running")
 	}
-	s.manager = state.NewStateManager(codeDatabase, storageDatabase)
+	s.manager = state.NewStateManager(stateDb, codeDefinitionDb)
 }
 
 func (s *stateService) Run() error {
@@ -43,16 +43,15 @@ func (s *stateService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		codeDb, err := db.NewMDBXDatabase(env, "CODE")
+		stateDb, err := db.NewMDBXDatabase(env, "STATE")
 		if err != nil {
 			return err
 		}
-		storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+		codeDefinitionDb, err := db.NewMDBXDatabase(env, "CONTRACT_DEFINITION")
 		if err != nil {
 			return err
 		}
-		storageDatabase := db.NewBlockSpecificDatabase(storageDb)
-		s.manager = state.NewStateManager(codeDb, storageDatabase)
+		s.manager = state.NewStateManager(stateDb, codeDefinitionDb)
 	}
 	return nil
 }
@@ -64,44 +63,4 @@ func (s *stateService) Close(ctx context.Context) {
 	}
 	s.service.Close(ctx)
 	s.manager.Close()
-}
-
-func (s *stateService) StoreCode(contractAddress []byte, code *state.Code) error {
-	s.AddProcess()
-	defer s.DoneProcess()
-	return s.manager.PutCode(contractAddress, code)
-}
-
-func (s *stateService) GetCode(contractAddress []byte) (*state.Code, error) {
-	s.AddProcess()
-	defer s.DoneProcess()
-	return s.manager.GetCode(contractAddress)
-}
-
-func (s *stateService) StoreStorage(contractAddress string, blockNumber uint64, storage *state.Storage) error {
-	s.AddProcess()
-	defer s.DoneProcess()
-	return s.manager.PutStorage(contractAddress, blockNumber, storage)
-}
-
-func (s *stateService) GetStorage(contractAddress string, blockNumber uint64) (*state.Storage, error) {
-	s.AddProcess()
-	defer s.DoneProcess()
-	return s.manager.GetStorage(contractAddress, blockNumber)
-}
-
-func (s *stateService) UpdateStorage(contractAddress string, blockNumber uint64, storage *state.Storage) error {
-	s.AddProcess()
-	defer s.DoneProcess()
-	oldStorage, err := s.GetStorage(contractAddress, blockNumber)
-	if err != nil {
-		return err
-	}
-	if oldStorage == nil {
-		// notest
-		return s.StoreStorage(contractAddress, blockNumber, storage)
-	} else {
-		oldStorage.Update(storage)
-		return s.StoreStorage(contractAddress, blockNumber, oldStorage)
-	}
 }

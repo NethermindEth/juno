@@ -44,7 +44,10 @@ func buildRequest(method string, params ...interface{}) string {
 		ID:      1,
 	}
 	buf := new(bytes.Buffer)
-	json.NewEncoder(buf).Encode(request)
+	err := json.NewEncoder(buf).Encode(request)
+	if err != nil {
+		return ""
+	}
 	return buf.String()
 }
 
@@ -59,7 +62,10 @@ func buildResponse(result interface{}) string {
 		ID:      1,
 	}
 	buf := new(bytes.Buffer)
-	json.NewEncoder(buf).Encode(response)
+	err := json.NewEncoder(buf).Encode(response)
+	if err != nil {
+		return ""
+	}
 	return buf.String()
 }
 
@@ -69,14 +75,6 @@ func TestStarknetGetStorageAt(t *testing.T) {
 		t.Error(err)
 	}
 	blockDb, err := db.NewMDBXDatabase(env, "BLOCK")
-	if err != nil {
-		t.Error(err)
-	}
-	codeDb, err := db.NewMDBXDatabase(env, "CODE")
-	if err != nil {
-		t.Error(err)
-	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
@@ -109,11 +107,17 @@ func TestStarknetGetStorageAt(t *testing.T) {
 		},
 	}
 	services.BlockService.StoreBlock(&blockHash, block)
+	// TODO: manage error
 
-	services.StateService.Setup(
-		codeDb,
-		db.NewBlockSpecificDatabase(storageDb),
-	)
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	services.StateService.Setup(stateDatabase, codeDatabase)
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
@@ -122,13 +126,13 @@ func TestStarknetGetStorageAt(t *testing.T) {
 	address := testFelt2
 	key := testFelt3
 	value := testFelt4
-	storage := &state.Storage{
-		Storage: map[string]string{
-			key.Hex(): value.Hex(),
-		},
-	}
-	services.StateService.StoreStorage(address.Hex(), blockNumber, storage)
-
+	//storage := &state.Storage{
+	//	Storage: map[string]string{
+	//		key.Hex(): value.Hex(),
+	//	},
+	//}
+	//services.StateService.StoreStorage(address.Hex(), blockNumber, storage)
+	//
 	// Set up feeder client for PENDING block
 	body, err := json.Marshal(block)
 	if err != nil {
@@ -158,15 +162,7 @@ func TestStarknetGetCode(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	abiDb, err := db.NewMDBXDatabase(env, "BLOCK")
-	if err != nil {
-		t.Error(err)
-	}
-	codeDb, err := db.NewMDBXDatabase(env, "CODE")
-	if err != nil {
-		t.Error(err)
-	}
-	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
+	abiDb, err := db.NewMDBXDatabase(env, "ABI")
 	if err != nil {
 		t.Error(err)
 	}
@@ -259,15 +255,22 @@ func TestStarknetGetCode(t *testing.T) {
 		},
 	}
 
-	services.StateService.Setup(
-		codeDb,
-		db.NewBlockSpecificDatabase(storageDb),
-	)
+	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
+	if err != nil {
+		t.Fail()
+	}
+	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+	if err != nil {
+		t.Fail()
+	}
+	services.StateService.Setup(stateDatabase, codeDatabase)
+
 	if err := services.StateService.Run(); err != nil {
 		t.Fatalf("unexpected error starting state service: %s", err)
 	}
 
 	services.AbiService.StoreAbi(address.Hex(), wantAbi)
+	// TODO: manage error
 
 	defer services.StateService.Close(context.Background())
 
@@ -279,7 +282,6 @@ func TestStarknetGetCode(t *testing.T) {
 			new(felt.Felt).SetHex("0x1114").ByteSlice(),
 		},
 	}
-	services.StateService.StoreCode(address.ByteSlice(), code)
 
 	abiResponse, _ := json.Marshal(wantAbi)
 	codeResponse := make([]*felt.Felt, len(code.Code))
@@ -568,14 +570,17 @@ func TestGetBlock(t *testing.T) {
 	// Store transactions
 	for _, txn := range txns {
 		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		// TODO: manage error
 	}
 	// Store receipts
 	for _, receipt := range receipts {
 		services.TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		// TODO: manage error
 	}
 	// Store blocks
 	for _, block := range blocks {
 		services.BlockService.StoreBlock(block.BlockHash, &block)
+		// TODO: manage error
 	}
 
 	type testItem struct {
@@ -884,6 +889,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	responses := make(map[string]*Txn)
 	for _, txn := range txns {
 		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		// TODO: manage error
 		responses[txn.GetHash().String()] = NewTxn(txn)
 	}
 	for _, txn := range txns {
@@ -974,10 +980,12 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	// Store transactions
 	for _, txn := range txns {
 		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		// TODO: manage error
 	}
 	// Store blocks
 	for _, block := range blocks {
 		services.BlockService.StoreBlock(block.BlockHash, &block)
+		// TODO: manage error
 	}
 	// Build test cases
 	tests := make([]rpcTest, 0)
@@ -1071,10 +1079,12 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	// Store transactions
 	for _, txn := range txns {
 		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		// TODO: manage error
 	}
 	// Store blocks
 	for _, block := range blocks {
 		services.BlockService.StoreBlock(block.BlockHash, &block)
+		// TODO: manage error
 	}
 	// Build test cases
 	tests := make([]rpcTest, 0)
