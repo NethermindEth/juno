@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/internal/services/abi"
+	"github.com/NethermindEth/juno/pkg/felt"
 	types2 "github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db/sync"
@@ -193,7 +194,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 	for _, v := range pagesHashes {
 		// Get transactionsHash based on the memory page
 		hash := common.BytesToHash(v[:])
-		transactionHash, ok := l.memoryPageHash.Get(hash.Hex())
+		transactionHash, ok := l.memoryPageHash.Get(hash)
 		if !ok {
 			return nil, ErrorMemoryPageNotFound
 		}
@@ -407,11 +408,11 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 			b = append(b, v)
 		}
 		value := types2.PagesHash{Bytes: pagesHashes.([][32]byte)}
-		l.gpsVerifier.Add(common.BytesToHash(b).Hex(), value)
+		l.gpsVerifier.Add(common.BytesToHash(b), value)
 	}
 	// Process MemoryPageFactRegistry contract
 	if memoryHash, ok := event.Event["memoryHash"]; ok {
-		key := common.BytesToHash(memoryHash.(*big.Int).Bytes()).Hex()
+		key := common.BytesToHash(memoryHash.(*big.Int).Bytes())
 		value := types2.TxnHash{Hash: event.TxnHash}
 		l.memoryPageHash.Add(key, value)
 	}
@@ -435,7 +436,7 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 			l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
 				Info("Couldn't get logs")
 		}
-		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b).Hex(), event.TxnHash)
+		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b), event.TxnHash)
 		if err != nil {
 			l.logger.With("Error", err).Info("Couldn't get fact info")
 			return
@@ -450,7 +451,7 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 // getFactInfo gets the state root and sequence number associated with
 // a given StateTransitionFact.
 // notest
-func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash common.Hash) (*types2.Fact, error) {
+func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, txHash common.Hash) (*types2.Fact, error) {
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
 		err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
@@ -466,7 +467,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact string, txHash 
 				return nil, ErrorFactAlreadySaved
 			} else {
 				return &types2.Fact{
-					StateRoot:      common.BigToHash(event["globalRoot"].(*big.Int)).String(),
+					StateRoot:      new(felt.Felt).SetBigInt(event["globalRoot"].(*big.Int)),
 					SequenceNumber: sequenceNumber,
 					Value:          fact,
 				}, nil
@@ -488,7 +489,7 @@ func (l *l1Collector) removeFactTree(fact *types2.Fact) {
 		for _, v := range realPagesHashes.Bytes {
 			// Get transactionsHash based on the memory page
 			hash := common.BytesToHash(v[:])
-			l.memoryPageHash.Remove(hash.Hex())
+			l.memoryPageHash.Remove(hash)
 		}
 
 		// remove fact from GpsStatementVerifier
@@ -534,11 +535,11 @@ func parsePages(pages [][]*big.Int) *types2.StateDiff {
 	// Iterate while contains contract data to be processed
 	for len(deployedContractsData) > 0 {
 		// Parse the Address of the contract
-		address := common.Bytes2Hex(deployedContractsData[0].Bytes())
+		address := new(felt.Felt).SetBigInt(deployedContractsData[0])
 		deployedContractsData = deployedContractsData[1:]
 
 		// Parse the ContractInfo Hash
-		contractHash := common.Bytes2Hex(deployedContractsData[0].Bytes())
+		contractHash := new(felt.Felt).SetBigInt(deployedContractsData[0])
 		deployedContractsData = deployedContractsData[1:]
 
 		// Parse the number of Arguments the constructor contains
@@ -546,16 +547,16 @@ func parsePages(pages [][]*big.Int) *types2.StateDiff {
 		deployedContractsData = deployedContractsData[1:]
 
 		// Parse constructor arguments
-		constructorArguments := make([]*big.Int, 0)
+		constructorArguments := make([]*felt.Felt, 0)
 		for i := int64(0); i < constructorArgumentsLen; i++ {
-			constructorArguments = append(constructorArguments, deployedContractsData[0])
+			constructorArguments = append(constructorArguments, new(felt.Felt).SetBigInt(deployedContractsData[0]))
 			deployedContractsData = deployedContractsData[1:]
 		}
 
 		// Store deployed ContractInfo information
 		deployedContracts = append(deployedContracts, types2.DeployedContract{
 			Address:             address,
-			ContractHash:        contractHash,
+			Hash:                contractHash,
 			ConstructorCallData: constructorArguments,
 		})
 	}
@@ -565,31 +566,31 @@ func parsePages(pages [][]*big.Int) *types2.StateDiff {
 	numContractsUpdate := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
 
-	storageDiffs := make(map[string][]types2.KV, 0)
+	storageDiff := make(types2.StorageDiff, 0)
 
 	// Iterate over all the contracts that had been updated and collect the needed information
 	for i := int64(0); i < numContractsUpdate; i++ {
 		// Parse the Address of the contract
-		address := common.Bytes2Hex(pagesFlatter[0].Bytes())
+		address := new(felt.Felt).SetBigInt(pagesFlatter[0])
 		pagesFlatter = pagesFlatter[1:]
 
 		// Parse the number storage updates
 		numStorageUpdates := pagesFlatter[0].Int64()
 		pagesFlatter = pagesFlatter[1:]
 
-		kvs := make([]types2.KV, 0)
+		kvs := make([]types2.MemoryCell, 0)
 		for k := int64(0); k < numStorageUpdates; k++ {
-			kvs = append(kvs, types2.KV{
-				Key:   common.Bytes2Hex(pagesFlatter[0].Bytes()),
-				Value: common.Bytes2Hex(pagesFlatter[1].Bytes()),
+			kvs = append(kvs, types2.MemoryCell{
+				Address: new(felt.Felt).SetBigInt(pagesFlatter[0]),
+				Value:   new(felt.Felt).SetBigInt(pagesFlatter[1]),
 			})
 			pagesFlatter = pagesFlatter[2:]
 		}
-		storageDiffs[address] = kvs
+		storageDiff[address] = kvs
 	}
 
 	return &types2.StateDiff{
 		DeployedContracts: deployedContracts,
-		StorageDiffs:      storageDiffs,
+		StorageDiff:       storageDiff,
 	}
 }

@@ -8,34 +8,34 @@ type IValue interface {
 	UnMarshal([]byte) (IValue, error)
 }
 
-// Dictionary - the dictionary object with key of type string & value of type IValue
+// Dictionary - the dictionary object with key of type interface{} & value of type IValue
 type Dictionary struct {
-	database map[string]interface{}
+	database map[interface{}]interface{}
 	mutex    sync.Mutex
 }
 
 func NewDictionary() *Dictionary {
 	return &Dictionary{
-		database: make(map[string]interface{}),
+		database: make(map[interface{}]interface{}),
 	}
 }
 
 // Add adds a new item to the dictionary
-func (dict *Dictionary) Add(key string, value IValue) {
+func (dict *Dictionary) Add(key interface{}, value IValue) {
 	dict.mutex.Lock()
 	dict.database[key] = value
 	dict.mutex.Unlock()
 }
 
 // Remove removes a value from the dictionary, given its key
-func (dict *Dictionary) Remove(key string) {
+func (dict *Dictionary) Remove(key interface{}) {
 	dict.mutex.Lock()
 	delete(dict.database, key)
 	dict.mutex.Unlock()
 }
 
 // Exist returns true if the key exists in the dictionary
-func (dict *Dictionary) Exist(key string) bool {
+func (dict *Dictionary) Exist(key interface{}) bool {
 	dict.mutex.Lock()
 	_, ok := dict.database[key]
 	dict.mutex.Unlock()
@@ -43,7 +43,7 @@ func (dict *Dictionary) Exist(key string) bool {
 }
 
 // Get returns the value associated with the key
-func (dict *Dictionary) Get(key string) (interface{}, bool) {
+func (dict *Dictionary) Get(key interface{}) (interface{}, bool) {
 	dict.mutex.Lock()
 	value, ok := dict.database[key]
 	dict.mutex.Unlock()

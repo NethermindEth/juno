@@ -2,8 +2,8 @@ package types
 
 import (
 	"encoding/json"
-	"math/big"
 
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -20,28 +20,30 @@ const (
 	GpsVerifierContractAddressGoerli  = "0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"
 )
 
-// KV represents a key-Value pair.
-type KV struct {
-	Key   string `json:"key"`
-	Value string `json:"Value"`
+// MemoryCell represents a memory cell in Cairo
+type MemoryCell struct {
+	Address *felt.Felt `json:"key"`
+	Value   *felt.Felt `json:"Value"`
 }
 
 // DeployedContract represent the contracts that have been deployed in this Block
 // and the information stored on-chain
 type DeployedContract struct {
-	Address             string     `json:"address"`
-	ContractHash        string     `json:"contract_hash"`
-	ConstructorCallData []*big.Int `json:"constructor_call_data"`
+	Address             *felt.Felt   `json:"address"`
+	Hash                *felt.Felt   `json:"contract_hash"`
+	ConstructorCallData []*felt.Felt `json:"constructor_call_data"`
 }
+
+type StorageDiff map[*felt.Felt][]MemoryCell
 
 // StateDiff Represent the deployed contracts and the storage diffs for those and
 // for the one's already deployed
 type StateDiff struct {
+	StorageDiff       `json:"storage_diffs"`
 	BlockNumber       int64              `json:"block_number"`
-	NewRoot           string             `json:"new_root"`
-	OldRoot           string             `json:"old_root"`
+	NewRoot           *felt.Felt         `json:"new_root"`
+	OldRoot           *felt.Felt         `json:"old_root"`
 	DeployedContracts []DeployedContract `json:"deployed_contracts"`
-	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
 }
 
 // ContractInfo represent the info associated to one contract
@@ -61,10 +63,10 @@ type EventInfo struct {
 }
 
 type Fact struct {
-	StateRoot          string `json:"state_root"`
-	SequenceNumber     uint64 `json:"block_number"`
-	Value              string `json:"value"`
-	InitialBlockLogged int64  `json:"initial_block_logged"`
+	StateRoot          *felt.Felt  `json:"state_root"`
+	SequenceNumber     uint64      `json:"block_number"`
+	Value              common.Hash `json:"value"`
+	InitialBlockLogged int64       `json:"initial_block_logged"`
 }
 
 func (f Fact) Marshal() ([]byte, error) {

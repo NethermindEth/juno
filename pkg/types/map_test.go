@@ -3,6 +3,7 @@ package types
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -86,9 +87,9 @@ func TestMapUsingFact(t *testing.T) {
 
 	// Set a new value, in this case TransactionHash
 	fact := Fact{
-		StateRoot:      "stateRoot",
+		StateRoot:      new(felt.Felt),
 		SequenceNumber: 0,
-		Value:          "Value",
+		Value:          common.Hash{},
 	}
 
 	dict.Add("fact", fact)

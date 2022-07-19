@@ -85,7 +85,7 @@ func (s *syncService) Run() error {
 		start := time.Now()
 
 		err := s.updateState(stateDiff)
-		if err != nil || s.postValidateStateDiff(stateDiff) {
+		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
 			stateRoot := s.manager.GetLatestStateRoot()
@@ -109,17 +109,6 @@ func (s *syncService) Run() error {
 	return nil
 }
 
-func (s *syncService) postValidateStateDiff(stateDiff *types.StateDiff) bool {
-	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.NewRoot)
-}
-
-func (s *syncService) preValidateStateDiff(stateDiff *types.StateDiff) bool {
-	// The old state root that comes with the stateDiff should match with the current stateRoot
-	return remove0x(s.state.Root().Hex()) != remove0x(stateDiff.OldRoot) &&
-		// Should be the next block in the chain
-		s.latestBlockSynced+1 == stateDiff.BlockNumber
-}
-
 func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		err := s.SetCode(stateDiff, deployedContract)
@@ -128,12 +117,9 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 		}
 	}
 
-	for k, v := range stateDiff.StorageDiffs {
-		for _, storageSlots := range v {
-			address := new(felt.Felt).SetHex(k)
-			slotKey := new(felt.Felt).SetHex(storageSlots.Key)
-			slotValue := new(felt.Felt).SetHex(storageSlots.Value)
-			err := s.state.SetSlot(address, slotKey, slotValue)
+	for contractAddress, memoryCells := range stateDiff.StorageDiff {
+		for _, cell := range memoryCells {
+			err := s.state.SetSlot(contractAddress, cell.Address, cell.Value)
 			if err != nil {
 				return err
 			}
@@ -144,15 +130,11 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 }
 
 func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
-	address := new(felt.Felt).SetHex(deployedContract.Address)
-	contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
-
 	// Get Full Contract
-	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address, "",
-		strconv.FormatInt(stateDiff.BlockNumber, 10))
+	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex(), "", strconv.FormatInt(stateDiff.BlockNumber, 10))
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
+			"Contract Address", deployedContract.Address.Hex()).
 			Error("Error getting full contract")
 		return err
 	}
@@ -161,11 +143,11 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 	err = contract.UnmarshalRaw(contractFromApi)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
+			"Contract Address", deployedContract.Address.Hex()).
 			Error("Error unmarshalling contract")
 		return err
 	}
-	err = s.state.SetContract(address, contractHash, contract)
+	err = s.state.SetContract(deployedContract.Address, deployedContract.Hash, contract)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).
