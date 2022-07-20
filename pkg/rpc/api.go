@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/types"
 
@@ -163,7 +162,7 @@ func getBlockByTag(_ context.Context, blockTag BlockTag, scope RequestedScope) (
 func getBlockByHash(ctx context.Context, blockHash *felt.Felt, scope RequestedScope) (*BlockResponse, error) {
 	// notest
 	Logger.With("blockHash", blockHash, "scope", scope).Info("StarknetGetBlockByHash")
-	dbBlock, err := services.BlockService.GetBlockByHash(blockHash)
+	dbBlock, err := blockManager.GetBlockByHash(blockHash)
 	if err != nil {
 		// notest
 		if errors.Is(err, db.ErrNotFound) {
@@ -206,7 +205,7 @@ func (HandlerRPC) StarknetGetBlockByHashOpt(ctx context.Context, blockHashOrTag 
 func getBlockByNumber(ctx context.Context, blockNumber uint64, scope RequestedScope) (*BlockResponse, error) {
 	// notest
 	Logger.With("blockNumber", blockNumber, "scope", scope).Info("StarknetGetBlockNyNumber")
-	dbBlock, err := services.BlockService.GetBlockByNumber(blockNumber)
+	dbBlock, err := blockManager.GetBlockByNumber(blockNumber)
 	if err != nil {
 		// notest
 		if errors.Is(err, db.ErrNotFound) {
@@ -281,7 +280,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 ) (Felt, error) {
 	var blockNumber uint64
 	if hash := blockHash.Hash; hash != nil {
-		block, err := services.BlockService.GetBlockByHash(blockHash.Hash)
+		block, err := blockManager.GetBlockByHash(blockHash.Hash)
 		if err != nil {
 			// notest
 			if errors.Is(err, db.ErrNotFound) {
@@ -302,7 +301,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 		return "", fmt.Errorf("invalid block hash or tag")
 	}
 
-	storage, err := services.StateService.GetStorage(string(contractAddress), blockNumber)
+	storage, err := stateManager.GetStorage(string(contractAddress), blockNumber)
 	if err != nil {
 		// notest
 		if errors.Is(err, db.ErrNotFound) {
@@ -319,7 +318,7 @@ func (HandlerRPC) StarknetGetStorageAt(
 func (HandlerRPC) StarknetGetTransactionByHash(
 	c context.Context, transactionHash *felt.Felt,
 ) (*Txn, error) {
-	tx, err := services.TransactionService.GetTransaction(transactionHash)
+	tx, err := transactionManager.GetTransaction(transactionHash)
 	if err != nil {
 		// notest
 		if errors.Is(err, db.ErrNotFound) {
@@ -336,7 +335,7 @@ func (HandlerRPC) StarknetGetTransactionByHash(
 // no transaction is found, a null value is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, blockHashOrTag BlockHashOrTag, index int) (*Txn, error) {
 	if blockHash := blockHashOrTag.Hash; blockHash != nil {
-		block, err := services.BlockService.GetBlockByHash(blockHash)
+		block, err := blockManager.GetBlockByHash(blockHash)
 		if err != nil {
 			// notest
 			if errors.Is(err, db.ErrNotFound) {
@@ -350,7 +349,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 			return nil, fmt.Errorf("invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
-		txn, err := services.TransactionService.GetTransaction(txHash)
+		txn, err := transactionManager.GetTransaction(txHash)
 		if err != nil {
 			// notest
 			if errors.Is(err, db.ErrNotFound) {
@@ -379,7 +378,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockHashAndIndex(c context.Context, b
 // no transaction is found, null is returned.
 func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumberOrTag BlockNumberOrTag, index int) (*Txn, error) {
 	if blockNumber := blockNumberOrTag.Number; blockNumber != nil {
-		block, err := services.BlockService.GetBlockByNumber(*blockNumber)
+		block, err := blockManager.GetBlockByNumber(*blockNumber)
 		if err != nil {
 			// notest
 			if errors.Is(err, db.ErrNotFound) {
@@ -392,7 +391,7 @@ func (HandlerRPC) StarknetGetTransactionByBlockNumberAndIndex(ctx context.Contex
 			return nil, fmt.Errorf("invalid index %d", index)
 		}
 		txHash := block.TxHashes[index]
-		txn, err := services.TransactionService.GetTransaction(txHash)
+		txn, err := transactionManager.GetTransaction(txHash)
 		if err != nil {
 			// notest
 			if errors.Is(err, db.ErrNotFound) {
@@ -428,7 +427,7 @@ func (HandlerRPC) StarknetGetTransactionReceipt(
 func (HandlerRPC) StarknetGetCode(
 	c context.Context, contractAddress *felt.Felt,
 ) (*CodeResult, error) {
-	abi, err := services.AbiService.GetAbi(contractAddress.Hex())
+	abi, err := abiManager.GetABI(contractAddress.Hex())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			// Try the feeder gateway for pending block
@@ -472,7 +471,7 @@ func (HandlerRPC) StarknetGetCode(
 		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
-	code, err := services.StateService.GetCode(contractAddress.ByteSlice())
+	code, err := stateManager.GetCode(contractAddress.ByteSlice())
 	if err != nil {
 		// notest
 		if errors.Is(err, db.ErrNotFound) {

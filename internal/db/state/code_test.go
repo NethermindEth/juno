@@ -42,7 +42,7 @@ func TestManager_Code(t *testing.T) {
 		t.Error(err)
 	}
 	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
-	manager := NewStateManager(codeDatabase, storageDatabase)
+	manager := NewManager(codeDatabase, storageDatabase)
 	for _, code := range codes {
 		if err := manager.PutCode(code.Address, code.Code); err != nil {
 			t.Error(err)
