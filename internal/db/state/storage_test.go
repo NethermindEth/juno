@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -31,22 +32,24 @@ func TestManager_Storage(t *testing.T) {
 		},
 	}
 
-	err := db.InitializeDatabaseEnv(t.TempDir(), 2, 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	codeDb, err := db.GetDatabase("CODE")
+	codeDb, err := db.NewMDBXDatabase(env, "CODE")
 	if err != nil {
 		t.Error(err)
 	}
-	storageDb, err := db.GetDatabase("STORAGE")
+	storageDb, err := db.NewMDBXDatabase(env, "STORAGE")
 	if err != nil {
 		t.Error(err)
 	}
 	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
-	manager := NewStateManager(codeDb, storageDatabase)
+	manager := NewManager(codeDb, storageDatabase)
 	for _, data := range initialData {
-		manager.PutStorage(data.Contract, data.BlockNumber, data.Storage)
+		if err := manager.PutStorage(data.Contract, data.BlockNumber, data.Storage); err != nil {
+			t.Error(err)
+		}
 	}
 	tests := [...]struct {
 		Contract    string
@@ -78,8 +81,11 @@ func TestManager_Storage(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		obtainedStorage := manager.GetStorage(test.Contract, test.BlockNumber)
-		if test.Ok && obtainedStorage == nil {
+		obtainedStorage, err := manager.GetStorage(test.Contract, test.BlockNumber)
+		if err != nil && !errors.Is(err, db.ErrNotFound) {
+			t.Error(err)
+		}
+		if test.Ok && errors.Is(err, db.ErrNotFound) {
 			t.Errorf("storage of contract %s must not found for bloc %d", test.Contract, test.BlockNumber)
 		}
 		if obtainedStorage != nil && test.Checks != nil {

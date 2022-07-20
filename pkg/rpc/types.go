@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/NethermindEth/juno/internal/services"
-
 	"github.com/NethermindEth/juno/pkg/common"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -51,11 +50,11 @@ var (
 // FunctionCall represents the details of the function call
 type FunctionCall struct {
 	// ContractAddress Is a field element of 251 bits. Represented as up to 64 hex digits
-	ContractAddress types.Address `json:"contract_address"`
+	ContractAddress *felt.Felt `json:"contract_address"`
 	// EntryPointSelector Is a field element of 251 bits. Represented as up to 64 hex digits
-	EntryPointSelector types.Felt `json:"entry_point_selector"`
+	EntryPointSelector *felt.Felt `json:"entry_point_selector"`
 	// CallData are the parameters passed to the function
-	CallData []types.Felt `json:"calldata"`
+	CallData []*felt.Felt `json:"calldata"`
 }
 
 // BlockHash Is a field element of 251 bits. Represented as up to 64 hex digits
@@ -119,7 +118,7 @@ func (x *BlockNumberOrTag) UnmarshalJSON(data []byte) error {
 
 // BlockHashOrTag The hash (id) of the requested block or a block tag, for the block referencing the state or call the transaction on.
 type BlockHashOrTag struct {
-	Hash *types.BlockHash
+	Hash *felt.Felt
 	Tag  *BlockTag
 }
 
@@ -139,9 +138,9 @@ func (x *BlockHashOrTag) UnmarshalJSON(data []byte) error {
 			}
 		}
 		if common.IsHex(t) {
-			hash := types.HexToBlockHash(t)
+			hash := new(felt.Felt).SetHex(t)
 			*x = BlockHashOrTag{
-				Hash: &hash,
+				Hash: hash,
 			}
 		}
 	default:
@@ -204,8 +203,8 @@ type Txn struct {
 	// The function the transaction invokes
 	FunctionCall
 	// The hash identifying the transaction
-	TxnHash types.TransactionHash `json:"txn_hash"`
-	MaxFee  types.Felt            `json:"max_fee"`
+	TxnHash *felt.Felt `json:"txn_hash"`
+	MaxFee  *felt.Felt `json:"max_fee"`
 }
 
 func NewTxn(transaction types.IsTransaction) *Txn {
@@ -231,12 +230,13 @@ type TxnAndReceipt struct {
 }
 
 func (x *TxnAndReceipt) MarshalJSON() ([]byte, error) {
+	// notest
 	type TxnAndReceipt struct {
-		TxnHash            types.TransactionHash   `json:"txn_hash"`
-		MaxFee             types.Felt              `json:"max_fee"`
-		ContractAddress    types.Address           `json:"contract_address"`
-		EntryPointSelector types.Felt              `json:"entry_point_selector"`
-		CallData           []types.Felt            `json:"call_data"`
+		TxnHash            *felt.Felt              `json:"txn_hash"`
+		MaxFee             *felt.Felt              `json:"max_fee"`
+		ContractAddress    *felt.Felt              `json:"contract_address"`
+		EntryPointSelector *felt.Felt              `json:"entry_point_selector"`
+		CallData           []*felt.Felt            `json:"call_data"`
 		Status             types.TransactionStatus `json:"status,omitempty"`
 		StatusData         string                  `json:"status_data,omitempty"`
 		MessagesSent       []*MsgToL1              `json:"message_sent,omitempty"`
@@ -266,7 +266,7 @@ type MsgToL1 struct {
 	// The target L1 address the message is sent to
 	ToAddress types.EthAddress `json:"to_address"`
 	// The Payload of the message
-	Payload []types.Felt `json:"payload"`
+	Payload []*felt.Felt `json:"payload"`
 }
 
 func NewMsgToL1(msg *types.MessageL2ToL1) *MsgToL1 {
@@ -280,7 +280,7 @@ type MsgToL2 struct {
 	// The originating L1 contract that sent the message
 	FromAddress types.EthAddress `json:"from_address"`
 	// The Payload of the message. The call data to the L1 handler
-	Payload []types.Felt `json:"payload"`
+	Payload []*felt.Felt `json:"payload"`
 }
 
 func NewMsgToL2(msg *types.MessageL1ToL2) *MsgToL2 {
@@ -300,14 +300,14 @@ type EventFilter struct {
 
 // EventContent represent the content of an Event
 type EventContent struct {
-	Keys []types.Felt `json:"keys"`
-	Data []types.Felt `json:"data"`
+	Keys []*felt.Felt `json:"keys"`
+	Data []*felt.Felt `json:"data"`
 }
 
 // Event represent a StarkNet Event
 type Event struct {
 	EventContent
-	FromAddress types.Address `json:"from_address"`
+	FromAddress *felt.Felt `json:"from_address"`
 }
 
 func NewEvent(event *types.Event) *Event {
@@ -323,13 +323,13 @@ func NewEvent(event *types.Event) *Event {
 // EmittedEvent Represent Event information decorated with metadata on where it was emitted
 type EmittedEvent struct {
 	Event
-	BlockHash       BlockHash             `json:"block_hash"`
-	TransactionHash types.TransactionHash `json:"transaction_hash"`
+	BlockHash       BlockHash  `json:"block_hash"`
+	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
 
 // TxnReceipt Receipt of the transaction
 type TxnReceipt struct {
-	TxnHash         types.TransactionHash   `json:"txn_hash,omitempty"`
+	TxnHash         *felt.Felt              `json:"txn_hash,omitempty"`
 	Status          types.TransactionStatus `json:"status,omitempty"`
 	StatusData      string                  `json:"status_data,omitempty"`
 	MessagesSent    []*MsgToL1              `json:"messages_sent,omitempty"`
@@ -363,7 +363,7 @@ func NewTxnReceipt(receipt *types.TransactionReceipt) *TxnReceipt {
 
 // CodeResult The code and ABI for the requested contract
 type CodeResult struct {
-	Bytecode []types.Felt `json:"bytecode"`
+	Bytecode []*felt.Felt `json:"bytecode"`
 	// The ABI of the contract in JSON format. Uses the same structure as EVM ABI
 	Abi string `json:"abi"`
 }
@@ -396,26 +396,27 @@ type Transactions struct{}
 
 type BlockResponse struct {
 	// A field element of 251 bits. Represented as up to 64 hex digits
-	BlockHash types.BlockHash `json:"block_hash"`
+	BlockHash *felt.Felt `json:"block_hash"`
 	// The hash of this block's parent
-	ParentHash types.BlockHash `json:"parent_hash"`
+	ParentHash *felt.Felt `json:"parent_hash"`
 	// The block number (its height)
 	BlockNumber uint64 `json:"block_number"`
 	// The status of the block
 	Status types.BlockStatus `json:"status"`
 	// The identity of the sequencer submitting this block
-	Sequencer types.Address `json:"sequencer"`
+	Sequencer *felt.Felt `json:"sequencer"`
 	// The new global state root
-	NewRoot types.Felt `json:"new_root"`
+	NewRoot *felt.Felt `json:"new_root"`
 	// The previous global state root
-	OldRoot types.Felt `json:"old_root"`
+	OldRoot *felt.Felt `json:"old_root"`
 	// When the block was accepted on L1. Formatted as...
 	AcceptedTime int64 `json:"accepted_time"`
 	// Transactions in the Block
 	Transactions interface{} `json:"transactions"`
 }
 
-func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
+func NewBlockResponse(block *types.Block, scope RequestedScope) (*BlockResponse, error) {
+	// notest
 	response := &BlockResponse{
 		BlockHash:    block.BlockHash,
 		ParentHash:   block.ParentHash,
@@ -432,7 +433,10 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 	case ScopeFullTxns:
 		txns := make([]*Txn, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
-			transaction := services.TransactionService.GetTransaction(txHash)
+			transaction, err := transactionManager.GetTransaction(txHash)
+			if err != nil {
+				return nil, err
+			}
 			txn := NewTxn(transaction)
 			txns[i] = txn
 		}
@@ -441,12 +445,18 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 		txns := make([]*TxnAndReceipt, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
 			txnAndReceipt := &TxnAndReceipt{}
-			transaction := services.TransactionService.GetTransaction(txHash)
+			transaction, err := transactionManager.GetTransaction(txHash)
+			if err != nil {
+				return nil, err
+			}
 			if transaction != nil {
 				txn := NewTxn(transaction)
 				txnAndReceipt.Txn = *txn
 			}
-			receipt := services.TransactionService.GetReceipt(txHash)
+			receipt, err := transactionManager.GetReceipt(txHash)
+			if err != nil {
+				return nil, err
+			}
 			if receipt != nil {
 				r := NewTxnReceipt(receipt)
 				txnAndReceipt.TxnReceipt = *r
@@ -455,7 +465,7 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) *BlockResponse {
 		}
 		response.Transactions = txns
 	}
-	return response
+	return response, nil
 }
 
 type StarkNetHash struct{}

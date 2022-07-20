@@ -5,11 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
-	"math/big"
 	"reflect"
 	"testing"
-
-	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/bxcodec/faker"
 
@@ -17,6 +14,7 @@ import (
 	dbAbi "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
+	"github.com/NethermindEth/juno/pkg/felt"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/store"
 	"github.com/NethermindEth/juno/pkg/trie"
@@ -126,12 +124,19 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 }
 
 func TestGetAndUpdateValueOnDB(t *testing.T) {
-	database := db.NewKeyValueDb(t.TempDir(), 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "TEST")
+	if err != nil {
+		t.Error(err)
+	}
 
 	key := "key"
 	value := 0
 
-	err := updateNumericValueFromDB(database, key, uint64(value))
+	err = updateNumericValueFromDB(database, key, uint64(value))
 	if err != nil {
 		t.Fail()
 		return
@@ -255,27 +260,37 @@ func TestUpdateState(t *testing.T) {
 	// Want
 	stateTrie := trie.New(store.New(), 251)
 	storageTrie := trie.New(store.New(), 251)
-	key, _ := new(big.Int).SetString(storageDiff.Key, 16)
-	val, _ := new(big.Int).SetString(storageDiff.Value, 16)
+	key := new(felt.Felt).SetHex(storageDiff.Key)
+	val := new(felt.Felt).SetHex(storageDiff.Value)
 	storageTrie.Put(key, val)
-	hash, _ := new(big.Int).SetString(contract.ContractHash, 16)
-	address, _ := new(big.Int).SetString(contract.Address, 16)
+	hash := new(felt.Felt).SetHex(contract.ContractHash)
+	address := new(felt.Felt).SetHex(contract.Address)
 	stateTrie.Put(address, contractState(hash, storageTrie.Commitment()))
 
 	// Actual
-	contractHashMap := map[string]*big.Int{
-		"1": big.NewInt(1),
+	contractHashMap := map[string]*felt.Felt{
+		"1": new(felt.Felt).SetOne(),
 	}
-	txnDb := db.NewTransactionDb(db.NewKeyValueDb(t.TempDir(), 0).GetEnv())
-	txn := txnDb.Begin()
-	stateCommitment, err := updateState(txn, contractHashMap, &stateDiff, "", 0)
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	database, err := db.NewMDBXDatabase(env, "TEST-DB")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var stateCommitment string
+	err = database.RunTxn(func(txn db.DatabaseOperations) (err error) {
+		stateCommitment, err = updateState(txn, contractHashMap, &stateDiff, "", 0)
+		return err
+	})
 	if err != nil {
 		t.Error("Error updating state")
 	}
-	txn.Commit()
 
 	want := stateTrie.Commitment()
-	commitment, _ := new(big.Int).SetString(stateCommitment, 16)
+	commitment := new(felt.Felt).SetHex(stateCommitment)
 	if commitment.Cmp(want) != 0 {
 		t.Error("State roots do not match")
 	}
@@ -382,7 +397,7 @@ func TestByteCodeToStateCode(t *testing.T) {
 		t.Fail()
 	}
 	for i, s := range sample {
-		if remove0x(types.BytesToFelt(stateCode.Code[i]).Hex()) != remove0x(types.HexToFelt(s).Hex()) {
+		if remove0x(new(felt.Felt).SetBytes(stateCode.Code[i]).Hex()) != remove0x(new(felt.Felt).SetHex(s).Hex()) {
 			t.Error("state code didn't match", s)
 			t.Fail()
 		}
@@ -417,7 +432,7 @@ func TxnTest(t *testing.T, txnType string) {
 	txnSample.Transaction.Type = txnType
 	txn := feederTransactionToDBTransaction(&txnSample)
 
-	if remove0x(txn.GetHash().Felt().Hex()) != remove0x(txnSample.Transaction.TransactionHash) {
+	if remove0x(txn.GetHash().Hex()) != remove0x(txnSample.Transaction.TransactionHash) {
 		t.Fail()
 	}
 }

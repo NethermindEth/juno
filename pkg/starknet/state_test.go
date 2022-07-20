@@ -1,12 +1,11 @@
 package starknet
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/internal/db/contracthash"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -172,14 +171,15 @@ func TestProcessPagesHashes(t *testing.T) {
 	defer backendClose()
 	defer rpcClose()
 
-	if err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0); err != nil {
-		t.Error(err)
-	}
-	synchronizerDb, err := db.GetDatabase("SYNCHRONIZER")
+	env, err := db.NewMDBXEnv(t.TempDir(), 1, 0)
 	if err != nil {
 		t.Error(err)
 	}
-	sync := NewSynchronizer(synchronizerDb, ec, nil)
+	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	if err != nil {
+		t.Error(err)
+	}
+	sync := NewSynchronizer(synchronizerDb, ec, nil, nil, nil, nil, nil, nil)
 	sync.memoryPageHash.Add(hash[2:], starknetTypes.TransactionHash{Hash: finalTx.Hash()})
 
 	pages := sync.processPagesHashes(pagesHashes, memoryContract)
@@ -310,11 +310,20 @@ func TestParsePages(t *testing.T) {
 }
 
 func TestUpdateAndCommitState(t *testing.T) {
-	services.ContractHashService.Setup(db.NewKeyValueDb(t.TempDir(), 0))
-	if err := services.ContractHashService.Run(); err != nil {
+	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
+	if err != nil {
 		t.Error(err)
 	}
-	defer services.ContractHashService.Close(context.Background())
+	contractHashDb, err := db.NewMDBXDatabase(env, "CONTRACT-HASH")
+	if err != nil {
+		t.Error(err)
+	}
+	synchronizerDb, err := db.NewMDBXDatabase(env, "SYNCHRONIZER")
+	if err != nil {
+		t.Error(err)
+	}
+
+	contractHashM := contracthash.NewManager(contractHashDb)
 	stateDiff := &starknetTypes.StateDiff{
 		DeployedContracts: []starknetTypes.DeployedContract{
 			{
@@ -324,22 +333,14 @@ func TestUpdateAndCommitState(t *testing.T) {
 			},
 		},
 	}
-	// Manually create the synchronizer without calling NewSynchronizer because
-	// we don't want to create an ethclient mock for this test
-	if err := db.InitializeDatabaseEnv(t.TempDir(), 1, 0); err != nil {
-		t.Error(err)
-	}
-	txnDb, err := db.GetDatabase("SYNCHRONIZER")
-	if err != nil {
-		t.Error(err)
-	}
+
 	s := &Synchronizer{
-		database:       txnDb,
-		memoryPageHash: starknetTypes.NewDictionary(txnDb, "memory_pages"),
-		gpsVerifier:    starknetTypes.NewDictionary(txnDb, "gps_verifier"),
-		facts:          starknetTypes.NewDictionary(txnDb, "facts"),
-		chainID:        1,
-		transactioner:  txnDb,
+		database:            synchronizerDb,
+		memoryPageHash:      starknetTypes.NewDictionary(synchronizerDb, "memory_pages"),
+		gpsVerifier:         starknetTypes.NewDictionary(synchronizerDb, "gps_verifier"),
+		facts:               starknetTypes.NewDictionary(synchronizerDb, "facts"),
+		chainID:             1,
+		contractHashManager: contractHashM,
 	}
 	sequenceNumber := uint64(0)
 	s.updateAndCommitState(stateDiff, "", sequenceNumber)
