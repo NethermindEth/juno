@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/internal/config"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
@@ -25,15 +24,7 @@ func updateConfig(newConfig config.Config) error {
 	if err != nil {
 		return err
 	}
-	Logger.Info("Values in config have been updated to")
-	Logger.With(
-		"Database Path", newConfig.DbPath,
-		"Rpc Port", newConfig.RPC.Port,
-		"Rpc Enabled", newConfig.RPC.Enabled,
-		"Rest Port", newConfig.REST.Port,
-		"Rest Enabled", newConfig.REST.Enabled,
-		"Rest Prefix", newConfig.REST.Prefix,
-	).Info("Config values.")
+
 	return nil
 }
 
