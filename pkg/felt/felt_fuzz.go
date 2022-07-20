@@ -80,14 +80,12 @@ func Fuzz(data []byte) int {
 	}
 
 	return fuzzNormal
-
 }
 
 // SetRawBytes reads up to Bytes (bytes needed to represent Felt) from reader
 // and interpret it as big endian uint64
 // used for fuzzing purposes only
 func (z *Felt) SetRawBytes(r io.Reader) {
-
 	buf := make([]byte, 8)
 
 	for i := 0; i < len(z); i++ {

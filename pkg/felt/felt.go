@@ -64,9 +64,12 @@ func Modulus() *big.Int {
 
 // q (modulus)
 const qFeltWord0 uint64 = 1
-const qFeltWord1 uint64 = 0
-const qFeltWord2 uint64 = 0
-const qFeltWord3 uint64 = 576460752303423505
+
+const (
+	qFeltWord1 uint64 = 0
+	qFeltWord2 uint64 = 0
+	qFeltWord3 uint64 = 576460752303423505
+)
 
 var qFelt = Felt{
 	qFeltWord0,
@@ -116,7 +119,6 @@ func (z *Felt) SetUint64(v uint64) *Felt {
 
 // SetInt64 sets z to v and returns z
 func (z *Felt) SetInt64(v int64) *Felt {
-
 	// absolute value of v
 	m := v >> 63
 	z.SetUint64(uint64((v ^ m) - m))
@@ -366,7 +368,6 @@ func (z *Felt) Halve() {
 	z[1] = z[1]>>1 | z[2]<<63
 	z[2] = z[2]>>1 | z[3]<<63
 	z[3] >>= 1
-
 }
 
 // API with assembly impl
@@ -430,7 +431,6 @@ func (z *Felt) Select(c int, x0 *Felt, x1 *Felt) *Felt {
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z, x, y *Felt) {
-
 	var t [4]uint64
 	var c [3]uint64
 	{
@@ -498,7 +498,6 @@ func _mulGeneric(z, x, y *Felt) {
 }
 
 func _mulWGeneric(z, x *Felt, y uint64) {
-
 	var t [4]uint64
 	{
 		// round 0
@@ -665,7 +664,6 @@ func _negGeneric(z, x *Felt) {
 }
 
 func _reduceGeneric(z *Felt) {
-
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
@@ -1055,7 +1053,7 @@ func (z *Felt) Sqrt(x *Felt) *Felt {
 	b.Mul(&w, &y)
 
 	// g = nonResidue ^ s
-	var g = Felt{
+	g := Felt{
 		4685640052668284376,
 		12298664652803292137,
 		735711535595279732,
@@ -1118,9 +1116,11 @@ func min(a int, b int) int {
 	return b
 }
 
-const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
-const updateFactorIdentityMatrixRow0 = 1
-const updateFactorIdentityMatrixRow1 = 1 << 32
+const (
+	updateFactorsConversionBias    int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+	updateFactorIdentityMatrixRow0       = 1
+	updateFactorIdentityMatrixRow1       = 1 << 32
+)
 
 func updateFactorsDecompose(c int64) (int64, int64) {
 	c += updateFactorsConversionBias
@@ -1130,14 +1130,16 @@ func updateFactorsDecompose(c int64) (int64, int64) {
 	return f, g
 }
 
-const k = 32 // word size / 2
-const signBitSelector = uint64(1) << 63
-const approxLowBitsN = k - 1
-const approxHighBitsN = k + 1
-const inversionCorrectionFactorWord0 = 10132152449811117243
-const inversionCorrectionFactorWord1 = 7504201226514183749
-const inversionCorrectionFactorWord2 = 12924471856011987582
-const inversionCorrectionFactorWord3 = 34918322287812780
+const (
+	k                              = 32 // word size / 2
+	signBitSelector                = uint64(1) << 63
+	approxLowBitsN                 = k - 1
+	approxHighBitsN                = k + 1
+	inversionCorrectionFactorWord0 = 10132152449811117243
+	inversionCorrectionFactorWord1 = 7504201226514183749
+	inversionCorrectionFactorWord2 = 12924471856011987582
+	inversionCorrectionFactorWord3 = 34918322287812780
+)
 
 const invIterationsN = 18
 
@@ -1145,7 +1147,6 @@ const invIterationsN = 18
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Felt) Inverse(x *Felt) *Felt {
-
 	a := *x
 	b := Felt{
 		qFeltWord0,
@@ -1290,7 +1291,7 @@ func (z *Felt) Inverse(x *Felt) *Felt {
 	return z
 }
 
-var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
+var qMinusTwo *big.Int // test routines can set this to an incorrect value to fail whenever inverseExp was triggered
 
 // inverseExp is a fallback in case the inversion algorithm failed
 func (z *Felt) inverseExp(x *Felt) *Felt {
@@ -1304,7 +1305,6 @@ func (z *Felt) inverseExp(x *Felt) *Felt {
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
 // if x fits in a word as is, no approximation necessary
 func approximate(x *Felt, nBits int) uint64 {
-
 	if nBits <= 64 {
 		return x[0]
 	}
@@ -1339,7 +1339,6 @@ func (z *Felt) linearComb(x *Felt, xC int64, y *Felt, yC int64) {
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *Felt) montReduceSigned(x *Felt, xHi uint64) {
-
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
@@ -1434,7 +1433,6 @@ func (z *Felt) montReduceSigned(x *Felt, xHi uint64) {
 }
 
 func (z *Felt) montReduceSignedSimpleButSlow(x *Felt, xHi uint64) {
-
 	*z = *x
 	z.FromMont() // z = x r⁻¹
 
@@ -1505,7 +1503,6 @@ func (z *Felt) neg(x *Felt, xHi uint64) uint64 {
 
 // mulWNonModular multiplies by one word in non-montgomery, without reducing
 func (z *Felt) mulWNonModular(x *Felt, y int64) uint64 {
-
 	// w := abs(y)
 	m := y >> 63
 	w := uint64((y ^ m) - m)
