@@ -3,7 +3,6 @@ package tests
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -76,12 +75,17 @@ func StructFaker(a interface{}) (string, error) {
 // TestRestClient
 func TestRestClient(t *testing.T) {
 	r := rest.NewServer(":8100", "http://localhost/", "feeder_gateway")
-	go func() {
-		_ = r.ListenAndServe()
-	}()
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
-	r.Close(ctx)
-	cancel()
+	errCh := make(chan error)
+
+	r.ListenAndServe(errCh)
+	err := r.Close(5 * time.Millisecond)
+	if err != nil {
+		t.Fatalf("did not expect error when shutting down rest server, however got: %s", err.Error())
+	}
+
+	if err = <-errCh; err != nil {
+		t.Fatalf("did not expect error when starting rest server, however got: %s", err.Error())
+	}
 }
 
 // TestRestClientRetryFunction
