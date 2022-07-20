@@ -164,6 +164,10 @@ func (s *syncService) GetLatestBlockOnChain() int64 {
 	return s.stateDiffCollector.GetLatestBlockOnChain()
 }
 
+func (s *syncService) GetPendingBlock() *feeder.StarknetBlock {
+	return s.synchronizer.PendingBlock()
+}
+
 // setDefaults sets the default value for properties that are not set.
 func (s *syncService) setDefaults() error {
 	if s.manager == nil {

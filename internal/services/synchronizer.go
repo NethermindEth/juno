@@ -54,6 +54,10 @@ func (s *Synchronizer) Run() {
 	}
 }
 
+func (s *Synchronizer) PendingBlock() *feeder.StarknetBlock {
+	return s.pendingBlock
+}
+
 func (s *Synchronizer) updateBlock(blockNumber int64) error {
 	block, err := s.feederClient.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
@@ -107,6 +111,12 @@ func (s *Synchronizer) updateLatestBlockOnChain() {
 	for {
 		time.Sleep(time.Second * 1)
 		s.latestBlockOnChain = s.stateDiffCollector.GetLatestBlockOnChain()
+
+		pendingBlock, err := s.feederClient.GetBlock("", "pending")
+		if err != nil {
+			continue
+		}
+		s.pendingBlock = pendingBlock
 	}
 }
 
