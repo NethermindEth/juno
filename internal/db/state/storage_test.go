@@ -45,7 +45,7 @@ func TestManager_Storage(t *testing.T) {
 		t.Error(err)
 	}
 	storageDatabase := db.NewBlockSpecificDatabase(storageDb)
-	manager := NewStateManager(codeDb, storageDatabase)
+	manager := NewManager(codeDb, storageDatabase)
 	for _, data := range initialData {
 		if err := manager.PutStorage(data.Contract, data.BlockNumber, data.Storage); err != nil {
 			t.Error(err)

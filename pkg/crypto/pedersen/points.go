@@ -1,16 +1,16 @@
 package pedersen
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/NethermindEth/juno/pkg/felt"
+)
 
 // point represents the affine coordinates of an elliptic curve point.
-type point struct{ x, y *big.Int }
+type point struct{ x, y *felt.Felt }
 
-var (
-	// points is a slice of *big.Int that contains the constant points.
-	points [506]point
-	// prime is the characteristic of our field.
-	prime *big.Int
-)
+// points is a slice of *felt.Felt that contains the constant points.
+var points [506]point
 
 func init() {
 	hex := [506][2]string{
@@ -2040,11 +2040,12 @@ func init() {
 		},
 	}
 	for i, p := range hex {
-		x, _ := new(big.Int).SetString(p[0], 16)
-		y, _ := new(big.Int).SetString(p[1], 16)
+		_x, _ := new(big.Int).SetString(p[0], 16)
+		x := new(felt.Felt).SetBigInt(_x)
+		_y, _ := new(big.Int).SetString(p[1], 16)
+		y := new(felt.Felt).SetBigInt(_y)
 		points[i] = point{x, y}
 	}
-	prime, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
 }
 
 // divMod finds a non-negative integer x < p such that (m * x) % p == n.
@@ -2060,14 +2061,7 @@ func divMod(n, m, p *big.Int) *big.Int {
 // inf returns the point at infinity i.e. (0, 0) and can also be viewed
 // as a default initialiser for a point on an elliptic curve.
 func inf() *point {
-	return &point{new(big.Int), new(big.Int)}
-}
-
-// mod sets p to the point given by (p2.x % z, p2.y % z) and returns p.
-func (p *point) mod(p2 *point, z *big.Int) *point {
-	p.x.Mod(p2.x, z)
-	p.y.Mod(p2.y, z)
-	return p
+	return &point{new(felt.Felt), new(felt.Felt)}
 }
 
 // set sets p's coordinates to p2's coordinates and returns p.
@@ -2080,7 +2074,7 @@ func (p *point) set(other *point) *point {
 // isInf returns true if p represents the point at infinity (0, 0), and
 // false otherwise.
 func (p *point) isInf() bool {
-	return p.x.Sign() == 0 && p.y.Sign() == 0
+	return p.x.IsZero() && p.y.IsZero()
 }
 
 // add returns the sum of two points on an elliptic curve mod p and may
@@ -2096,45 +2090,37 @@ func (p *point) add(other *point) {
 		return
 	}
 
-	a := inf().mod(p, prime)
-	b := inf().mod(other, prime)
+	a := inf().set(p)
+	b := inf().set(other)
 
-	var m *big.Int
+	m := new(felt.Felt)
 	if a.x.Cmp(b.x) == 0 {
-		tmp := new(big.Int).Sub(prime, b.y)
-		tmp.Mod(tmp, prime)
-		if a.y.Cmp(tmp) == 0 {
+		if a.y.Cmp(m.Neg(b.y)) == 0 {
 			p.set(inf())
 			return
 		} else {
-			// Elliptic curve double.
-			two := big.NewInt(2)
-
 			// Elliptic curve slope double.
-			p.x = new(big.Int).Mul(a.x, a.x)
-			p.x.Mul(p.x, big.NewInt(3))
-			p.x.Add(p.x, big.NewInt(1) /* alpha coefficient */)
-			m = divMod(p.x, new(big.Int).Mul(a.y, two), prime)
+			p.x = new(felt.Felt).Square(a.x)
+			p.x.Mul(p.x, new(felt.Felt).SetUint64(3))
+			p.x.Add(p.x, new(felt.Felt).SetOne() /* alpha coefficient */)
+			m.SetBigInt(divMod(p.x.ToBigIntRegular(new(big.Int)), new(felt.Felt).Double(a.y).ToBigIntRegular(new(big.Int)), felt.Modulus()))
 
 			// Cont. elliptic curve double.
-			p.x = new(big.Int).Mul(m, m)
-			p.x.Sub(p.x, new(big.Int).Mul(two, a.x))
+			p.x = new(felt.Felt).Square(m)
+			p.x.Sub(p.x, new(felt.Felt).Double(a.x))
 		}
 	} else {
 		// Elliptic curve addition (without safety checks).
 		// Line slope.
-		m = divMod(new(big.Int).Sub(a.y, b.y), new(big.Int).Sub(a.x, b.x), prime)
+		m.SetBigInt(divMod(new(felt.Felt).Sub(a.y, b.y).ToBigIntRegular(new(big.Int)), new(felt.Felt).Sub(a.x, b.x).ToBigIntRegular(new(big.Int)), felt.Modulus()))
 
-		p.x = new(big.Int).Mul(m, m)
+		p.x = new(felt.Felt).Square(m)
 		p.x.Sub(p.x, a.x)
 		p.x.Sub(p.x, b.x)
 	}
 
 	// Cont. both elliptic curve double and addition.
-	p.x.Mod(p.x, prime)
-
-	p.y = new(big.Int).Sub(a.x, p.x)
+	p.y = new(felt.Felt).Sub(a.x, p.x)
 	p.y.Mul(p.y, m)
 	p.y.Sub(p.y, a.y)
-	p.y.Mod(p.y, prime)
 }

@@ -1,12 +1,11 @@
 package starknet
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/internal/db/contracthash"
 	"github.com/NethermindEth/juno/pkg/starknet/abi"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -180,7 +179,7 @@ func TestProcessPagesHashes(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	sync := NewSynchronizer(synchronizerDb, ec, nil)
+	sync := NewSynchronizer(synchronizerDb, ec, nil, nil, nil, nil, nil, nil)
 	sync.memoryPageHash.Add(hash[2:], starknetTypes.TransactionHash{Hash: finalTx.Hash()})
 
 	pages := sync.processPagesHashes(pagesHashes, memoryContract)
@@ -323,11 +322,8 @@ func TestUpdateAndCommitState(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	services.ContractHashService.Setup(contractHashDb)
-	if err := services.ContractHashService.Run(); err != nil {
-		t.Error(err)
-	}
-	defer services.ContractHashService.Close(context.Background())
+
+	contractHashM := contracthash.NewManager(contractHashDb)
 	stateDiff := &starknetTypes.StateDiff{
 		DeployedContracts: []starknetTypes.DeployedContract{
 			{
@@ -339,11 +335,12 @@ func TestUpdateAndCommitState(t *testing.T) {
 	}
 
 	s := &Synchronizer{
-		database:       synchronizerDb,
-		memoryPageHash: starknetTypes.NewDictionary(synchronizerDb, "memory_pages"),
-		gpsVerifier:    starknetTypes.NewDictionary(synchronizerDb, "gps_verifier"),
-		facts:          starknetTypes.NewDictionary(synchronizerDb, "facts"),
-		chainID:        1,
+		database:            synchronizerDb,
+		memoryPageHash:      starknetTypes.NewDictionary(synchronizerDb, "memory_pages"),
+		gpsVerifier:         starknetTypes.NewDictionary(synchronizerDb, "gps_verifier"),
+		facts:               starknetTypes.NewDictionary(synchronizerDb, "facts"),
+		chainID:             1,
+		contractHashManager: contractHashM,
 	}
 	sequenceNumber := uint64(0)
 	s.updateAndCommitState(stateDiff, "", sequenceNumber)

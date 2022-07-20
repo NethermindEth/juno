@@ -1,69 +1,33 @@
 package types
 
 import (
-	"encoding/json"
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
-type TransactionHash Felt
-
-func BytesToTransactionHash(b []byte) TransactionHash {
-	return TransactionHash(BytesToFelt(b))
-}
-
-func HexToTransactionHash(s string) TransactionHash {
-	return TransactionHash(HexToFelt(s))
-}
-
-func (t TransactionHash) Felt() Felt {
-	return Felt(t)
-}
-
-func (t TransactionHash) Bytes() []byte {
-	return t.Felt().Bytes()
-}
-
-func (t TransactionHash) MarshalJSON() ([]byte, error) {
-	return json.Marshal(Felt(t))
-}
-
-func (t TransactionHash) String() string {
-	return Felt(t).String()
-}
-
-func (t *TransactionHash) UnmarshalJSON(data []byte) error {
-	f := Felt{}
-	err := f.UnmarshalJSON(data)
-	if err != nil {
-		return err
-	}
-	*t = TransactionHash(f)
-	return nil
-}
-
 type IsTransaction interface {
-	GetHash() TransactionHash
+	GetHash() *felt.Felt
 }
 
 type TransactionDeploy struct {
-	Hash                TransactionHash
-	ContractAddress     Address
-	ConstructorCallData []Felt
+	Hash                *felt.Felt
+	ContractAddress     *felt.Felt
+	ConstructorCallData []*felt.Felt
 }
 
-func (tx *TransactionDeploy) GetHash() TransactionHash {
+func (tx *TransactionDeploy) GetHash() *felt.Felt {
 	return tx.Hash
 }
 
 type TransactionInvoke struct {
-	Hash               TransactionHash `json:"txn_hash"`
-	ContractAddress    Address         `json:"contract_address"`
-	EntryPointSelector Felt            `json:"entry_point_selector"`
-	CallData           []Felt          `json:"calldata"`
-	Signature          []Felt          `json:"-"`
-	MaxFee             Felt            `json:"max_fee"`
+	Hash               *felt.Felt   `json:"txn_hash"`
+	ContractAddress    *felt.Felt   `json:"contract_address"`
+	EntryPointSelector *felt.Felt   `json:"entry_point_selector"`
+	CallData           []*felt.Felt `json:"calldata"`
+	Signature          []*felt.Felt `json:"-"`
+	MaxFee             *felt.Felt   `json:"max_fee"`
 }
 
-func (tx *TransactionInvoke) GetHash() TransactionHash {
+func (tx *TransactionInvoke) GetHash() *felt.Felt {
 	return tx.Hash
 }
 
@@ -106,8 +70,8 @@ func (s TransactionStatus) String() string {
 }
 
 type TransactionReceipt struct {
-	TxHash          TransactionHash
-	ActualFee       Felt
+	TxHash          *felt.Felt
+	ActualFee       *felt.Felt
 	Status          TransactionStatus
 	StatusData      string
 	MessagesSent    []MessageL2ToL1

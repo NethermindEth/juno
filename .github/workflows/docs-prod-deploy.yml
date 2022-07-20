@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: '14.x'
+          node-version: 16.13.1
       - name: Test Build
         run: |
           cd docs
@@ -32,10 +32,10 @@ jobs:
       name: production
       url: http://gojuno.xyz
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: '14.x'
+          node-version: 16.13.1
       - uses: webfactory/ssh-agent@v0.5.0
         with:
           ssh-private-key: ${{ secrets.GH_PAGES_DEPLOY }}
@@ -44,7 +44,6 @@ jobs:
           USE_SSH: true
           GIT_USER: git
           CURRENT_BRANCH: ${{ secrets.CURRENT_BRANCH }}
-          DEPLOYMENT_BRANCH: ${{ secrets.DEPLOYMENT_BRANCH }}
           TARGET_URL: "http://gojuno.xyz/"
           BASE_URL: "/"
         run: |

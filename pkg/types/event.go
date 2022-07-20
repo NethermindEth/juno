@@ -1,7 +1,11 @@
 package types
 
+import (
+	"github.com/NethermindEth/juno/pkg/felt"
+)
+
 type Event struct {
-	FromAddress Address
-	Keys        []Felt
-	Data        []Felt
+	FromAddress *felt.Felt
+	Keys        []*felt.Felt
+	Data        []*felt.Felt
 }

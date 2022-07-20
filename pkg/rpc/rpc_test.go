@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -70,11 +69,17 @@ func TestRPCServer(t *testing.T) {
 }
 
 func TestServer(t *testing.T) {
-	server := NewServer(":8080", nil)
-	go func() {
-		_ = server.ListenAndServe()
-	}()
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
-	server.Close(ctx)
-	cancel()
+	server := NewServer(":8080", nil, nil, nil, nil, nil)
+	errCh := make(chan error)
+
+	server.ListenAndServe(errCh)
+
+	err := server.Close(5 * time.Millisecond)
+	if err != nil {
+		t.Fatalf("did not expect error when shutting down rest server, however got: %s", err.Error())
+	}
+
+	if err = <-errCh; err != nil {
+		t.Fatalf("did not expect error when starting rest server, however got: %s", err.Error())
+	}
 }

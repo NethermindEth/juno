@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"math/big"
 	"strings"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -15,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	feederAbi "github.com/NethermindEth/juno/pkg/feeder/abi"
+	"github.com/NethermindEth/juno/pkg/felt"
 	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -53,12 +53,12 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 
 // contractState define the function that calculates the values stored in the
 // leaf of the Merkle Patricia Tree that represent the State in StarkNet
-func contractState(contractHash, storageRoot *big.Int) *big.Int {
+func contractState(contractHash, storageRoot *felt.Felt) *felt.Felt {
 	// Is defined as:
 	// h(h(h(contract_hash, storage_root), 0), 0).
 	val := pedersen.Digest(contractHash, storageRoot)
-	val = pedersen.Digest(val, big.NewInt(0))
-	val = pedersen.Digest(val, big.NewInt(0))
+	val = pedersen.Digest(val, new(felt.Felt).SetZero())
+	val = pedersen.Digest(val, new(felt.Felt).SetZero())
 	return val
 }
 
@@ -168,7 +168,7 @@ func updateNumericValueFromDB(database db.DatabaseOperations, key string, value 
 // `update` StateDiff to the database transaction `txn`.
 func updateState(
 	txn db.DatabaseOperations,
-	contractHashMap map[string]*big.Int,
+	contractHashMap map[string]*felt.Felt,
 	update *starknetTypes.StateDiff,
 	stateRoot string,
 	sequenceNumber uint64,
@@ -179,19 +179,10 @@ func updateState(
 
 	Logger.With("Block Number", sequenceNumber).Info("Processing deployed contracts")
 	for _, deployedContract := range update.DeployedContracts {
-		contractHash, ok := new(big.Int).SetString(remove0x(deployedContract.ContractHash), 16)
-		if !ok {
-			// notest
-			Logger.Panic("Couldn't get contract hash")
-		}
+		contractHash := new(felt.Felt).SetHex(deployedContract.ContractHash)
 		storageTrie := newTrie(txn, remove0x(deployedContract.Address))
 		storageRoot := storageTrie.Commitment()
-		address, ok := new(big.Int).SetString(remove0x(deployedContract.Address), 16)
-		if !ok {
-			// notest
-			Logger.With("Address", deployedContract.Address).
-				Panic("Couldn't convert Address to Big.Int ")
-		}
+		address := new(felt.Felt).SetHex(deployedContract.Address)
 		contractStateValue := contractState(contractHash, storageRoot)
 		stateTrie.Put(address, contractStateValue)
 	}
@@ -201,28 +192,13 @@ func updateState(
 		formattedAddress := remove0x(k)
 		storageTrie := newTrie(txn, formattedAddress)
 		for _, storageSlots := range v {
-			key, ok := new(big.Int).SetString(remove0x(storageSlots.Key), 16)
-			if !ok {
-				// notest
-				Logger.With("Storage Slot Key", storageSlots.Key).
-					Panic("Couldn't get the ")
-			}
-			val, ok := new(big.Int).SetString(remove0x(storageSlots.Value), 16)
-			if !ok {
-				// notest
-				Logger.With("Storage Slot Value", storageSlots.Value).
-					Panic("Couldn't get the contract Hash")
-			}
+			key := new(felt.Felt).SetHex(storageSlots.Key)
+			val := new(felt.Felt).SetHex(storageSlots.Value)
 			storageTrie.Put(key, val)
 		}
 		storageRoot := storageTrie.Commitment()
 
-		address, ok := new(big.Int).SetString(formattedAddress, 16)
-		if !ok {
-			// notest
-			Logger.With("Address", formattedAddress).
-				Panic("Couldn't convert Address to Big.Int ")
-		}
+		address := new(felt.Felt).SetHex(formattedAddress)
 		contractHash := contractHashMap[formattedAddress]
 		contractStateValue := contractState(contractHash, storageRoot)
 
@@ -247,7 +223,7 @@ func byteCodeToStateCode(bytecode []string) *state.Code {
 	code := state.Code{}
 
 	for _, bCode := range bytecode {
-		code.Code = append(code.Code, types.HexToFelt(bCode).Bytes())
+		code.Code = append(code.Code, new(felt.Felt).SetHex(bCode).ByteSlice())
 	}
 
 	return &code
@@ -255,49 +231,49 @@ func byteCodeToStateCode(bytecode []string) *state.Code {
 
 // feederTransactionToDBTransaction convert the feeder TransactionInfo to the transaction stored in DB
 func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTransaction {
-	calldata := make([]types.Felt, 0)
+	calldata := make([]*felt.Felt, 0)
 	for _, data := range info.Transaction.Calldata {
-		calldata = append(calldata, types.HexToFelt(data))
+		calldata = append(calldata, new(felt.Felt).SetHex(data))
 	}
 
 	if info.Transaction.Type == "INVOKE" {
-		signature := make([]types.Felt, 0)
+		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
-			signature = append(signature, types.HexToFelt(data))
+			signature = append(signature, new(felt.Felt).SetHex(data))
 		}
 		return &types.TransactionInvoke{
-			Hash:               types.HexToTransactionHash(info.Transaction.TransactionHash),
-			ContractAddress:    types.HexToAddress(info.Transaction.ContractAddress),
-			EntryPointSelector: types.HexToFelt(info.Transaction.EntryPointSelector),
+			Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
 			CallData:           calldata,
 			Signature:          signature,
-			MaxFee:             types.Felt{},
+			MaxFee:             new(felt.Felt),
 		}
 	}
 
 	// Is a DEPLOY Transaction
 	return &types.TransactionDeploy{
-		Hash:                types.HexToTransactionHash(info.Transaction.TransactionHash),
-		ContractAddress:     types.HexToAddress(info.Transaction.ContractAddress),
+		Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+		ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
 		ConstructorCallData: calldata,
 	}
 }
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
 func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
-	txnsHash := make([]types.TransactionHash, 0)
+	txnsHash := make([]*felt.Felt, 0)
 	for _, data := range b.Transactions {
-		txnsHash = append(txnsHash, types.TransactionHash(types.HexToFelt(data.TransactionHash)))
+		txnsHash = append(txnsHash, new(felt.Felt).SetHex(data.TransactionHash))
 	}
-	status, _ := types.BlockStatusValue[b.Status]
+	status := types.BlockStatusValue[b.Status]
 	return &types.Block{
-		BlockHash:   types.HexToBlockHash(b.BlockHash),
+		BlockHash:   new(felt.Felt).SetHex(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),
-		ParentHash:  types.HexToBlockHash(b.ParentBlockHash),
+		ParentHash:  new(felt.Felt).SetHex(b.ParentBlockHash),
 		Status:      status,
-		Sequencer:   types.HexToAddress(b.SequencerAddress),
-		NewRoot:     types.HexToFelt(b.StateRoot),
-		OldRoot:     types.HexToFelt(b.OldStateRoot),
+		Sequencer:   new(felt.Felt).SetHex(b.SequencerAddress),
+		NewRoot:     new(felt.Felt).SetHex(b.StateRoot),
+		OldRoot:     new(felt.Felt).SetHex(b.OldStateRoot),
 		TimeStamp:   b.Timestamp,
 		TxCount:     uint64(len(b.Transactions)),
 		TxHashes:    txnsHash,

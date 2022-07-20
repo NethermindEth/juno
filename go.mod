@@ -4,9 +4,12 @@ go 1.18
 
 require (
 	github.com/bxcodec/faker v2.0.1+incompatible
+	github.com/consensys/gnark-crypto v0.7.0
 	github.com/ethereum/go-ethereum v1.10.18
 	github.com/goccy/go-json v0.9.7
+	github.com/google/go-cmp v0.5.8
 	github.com/iancoleman/strcase v0.2.0
+	github.com/leanovate/gopter v0.2.9
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.1
@@ -18,8 +21,10 @@ require (
 )
 
 require (
-	github.com/google/go-cmp v0.5.8 // indirect
+	github.com/consensys/bavard v0.1.10 // indirect
+	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 require (
@@ -46,7 +51,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
-	github.com/holiman/uint256 v1.2.0 // indirect
+	github.com/holiman/uint256 v1.2.0
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
@@ -82,7 +87,7 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

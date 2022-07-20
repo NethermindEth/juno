@@ -11,8 +11,8 @@ type Manager struct {
 	storageDatabase *db.BlockSpecificDatabase
 }
 
-// NewStateManager returns a new instance of Manager with the given database sources.
-func NewStateManager(codeDatabase db.Database, storageDatabase *db.BlockSpecificDatabase) *Manager {
+// NewManager returns a new instance of Manager with the given database sources.
+func NewManager(codeDatabase db.Database, storageDatabase *db.BlockSpecificDatabase) *Manager {
 	return &Manager{codeDatabase, storageDatabase}
 }
 

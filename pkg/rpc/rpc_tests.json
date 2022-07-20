@@ -29,7 +29,7 @@
   },
   {
     "request": "{\"jsonrpc\":\"2.0\",\"id\":\"26\",\"method\":\"starknet_getTransactionReceipt\",\"params\":[\"0x74ec6667e6057becd3faff77d9ab14aecf5dde46edb7c599ee771f70f9e80ba\"]}",
-    "response": "{\"jsonrpc\":\"2.0\",\"result\":{\"txn_hash\":\"0x0\"},\"id\":\"26\"}\n"
+    "response": "{\"jsonrpc\":\"2.0\",\"result\":{},\"id\":\"26\"}\n"
   },
   {
     "request": "[{\"jsonrpc\":\"2.0\",\"id\":\"28\",\"method\":\"starknet_getBlockTransactionCountByHash\",\"params\":[\"latest\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"29\",\"method\":\"starknet_getBlockTransactionCountByNumber\",\"params\":[\"latest\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"30\",\"method\":\"starknet_getBlockTransactionCountByHash\",\"params\":[\"pending\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"31\",\"method\":\"starknet_getBlockTransactionCountByNumber\",\"params\":[\"pending\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"32\",\"method\":\"starknet_getBlockTransactionCountByHash\",\"params\":[\"0x3871c8a0c3555687515a07f365f6f5b1d8c2ae953f7844575b8bde2b2efed27\"]},\n{\"jsonrpc\":\"2.0\",\"id\":\"33\",\"method\":\"starknet_getBlockTransactionCountByNumber\",\"params\":[21348]}]",
