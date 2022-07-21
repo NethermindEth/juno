@@ -144,6 +144,6 @@ func initClient() *feeder.Client {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		Logger.Fatal("Failed to execute Juno.")
+		Logger.Fatal("Failed to execute CLI.")
 	}
 }

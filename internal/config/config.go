@@ -85,7 +85,7 @@ func init() {
 	// notest
 	d, err := os.UserConfigDir()
 	if err != nil {
-		Logger.Fatal("Could not get retrieve Juno config directory.")
+		Logger.Fatal("Could not get config directory.")
 	}
 	Dir = filepath.Join(d, "juno")
 

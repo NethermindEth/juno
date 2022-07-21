@@ -208,7 +208,7 @@ func setupInterruptHandler() {
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	go func(sig chan os.Signal) {
 		<-sig
-		Logger.Info("Shutting down Juno...")
+		Logger.Info("Shutting down...")
 		shutdown()
 		os.Exit(0)
 	}(sig)
@@ -281,7 +281,7 @@ func initConfig() {
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
 		if err != nil {
-			Logger.Fatal("Failed to read Juno configuration file.")
+			Logger.Fatal("Failed to read in config file after generation.")
 		}
 	}
 
@@ -296,7 +296,7 @@ func initConfig() {
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
 	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
 	if err != nil {
-		Logger.Fatal("Failed to initialize Logger.")
+		Logger.Fatal("Failed to initialise global logger.")
 	}
 
 	Logger.With(
