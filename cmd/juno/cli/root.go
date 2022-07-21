@@ -18,10 +18,11 @@ import (
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/process"
+	"github.com/NethermindEth/juno/internal/rpc"
+	starknetRpc "github.com/NethermindEth/juno/internal/rpc/starknet"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
-	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -59,9 +60,15 @@ var (
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
-				s := rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient)
-				// Initialize the RPC Service.
-				processHandler.Add("RPC", true, s.ListenAndServe, s.Close)
+				httpRpc, err := rpc.NewHttpRpc(
+					":"+strconv.Itoa(config.Runtime.RPC.Port),
+					"/rpc", "starknet",
+					&starknetRpc.StarkNetRpc{},
+				)
+				if err != nil {
+					Logger.With("Error", err).Error("Failed to create HTTP RPC server.")
+				}
+				processHandler.Add("HTTP RPC", true, httpRpc.ListenAndServe, httpRpc.Close)
 			}
 
 			if config.Runtime.Metrics.Enabled {
