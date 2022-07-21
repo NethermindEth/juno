@@ -26,16 +26,19 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-courtey install-gofumpt ## install some project dependencies
 
-install-courtey:
+install-deps: | install-courtney install-gofumpt
+
+install-courtney:
 	# install courtney fork
-	git clone https://github.com/stdevMac/courtney
+	# if courtney directory does not exist, clone it
+	@if [ ! -d "courtney" ]; then\
+		git clone https://github.com/stdevMac/courtney ;\
+	fi
 	(cd courtney && go get  ./... && go build courtney.go)
 	go get ./...
 
 install-gofumpt:
-	# install gofumpt
 	go install mvdan.cc/gofumpt@latest
 
 codecov-test:

@@ -20,9 +20,3 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - run: make compile
-
-      - name: Install gofumpt
-        run: make install-gofumpt
-
-      - name: Run gofumpt
-        run: make format-check

@@ -14,18 +14,33 @@ jobs:
       matrix:
         go: [ '1.18' ]
     steps:
+      - name: Set up Clang (local only)
+        if: ${{ env.ACT }}
+        run: sudo apt update && sudo apt -y install clang 
       - uses: actions/checkout@v3
       - name: Set up go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - name: Install deps
+      - name: Download deps
         run: make install-deps
-      - name: Tests
-        run: make codecov-test
-      - name: Benchmark
+      - name: Benchmark Juno
         run: make benchmarks
-      - name: Upload coverage to Codecov
+      
+      # Install and run gofumpy
+      - name: Install gofumpt
+        run: make install-gofumpt
+      - name: Run gofumpt
+        run: make format-check
+
+      # Code coverage and upload
+      # If running locally, check Engineering guidelines
+      - name: Code Coverage  (remote only)
+        if: ${{ !env.ACT }}
+        run: make codecov-test
+      - name: Upload Coverage to Codecov (remote only)
+        # Only upload if on GH (Token is required)
+        if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v2
         with:
           fail_ci_if_error: true
