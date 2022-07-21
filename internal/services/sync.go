@@ -26,8 +26,22 @@ type syncService struct {
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
-	// latestBlockSynced is the last block that was synced.
-	latestBlockSynced int64
+
+	// startingBlockNumber is the block number of the first block that we will sync.
+	startingBlockNumber int64
+	// startingBlockHash is the hash of the first block that we will sync.
+	startingBlockHash *felt.Felt
+
+	// latestBlockNumberSynced is the last block that was synced.
+	latestBlockNumberSynced int64
+	// latestBlockHashSynced is the last block that was synced.
+	latestBlockHashSynced *felt.Felt
+
+	// highestBlockNumber is the highest block number that we have synced.
+	highestBlockNumber int64
+	// highestBlockHash is the highest block hash that we have synced.
+	highestBlockHash *felt.Felt
+
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
 	// stateManager represent the manager for the state
@@ -82,6 +96,8 @@ func (s *syncService) Run() error {
 	// run synchronizer of all the info that comes from the block.
 	go s.synchronizer.Run()
 
+	first := true
+
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -94,7 +110,7 @@ func (s *syncService) Run() error {
 			root := new(felt.Felt).SetHex(stateRoot)
 			s.logger.With("State Root from StateDiff", stateDiff.NewRoot,
 				"State Root after StateDiff", s.state.Root().Hex(),
-				"Block Number", s.latestBlockSynced).
+				"Block Number", s.latestBlockNumberSynced).
 				Error("Fail validation after apply StateDiff")
 			s.state = state.New(s.stateManager, root)
 			continue
@@ -105,10 +121,28 @@ func (s *syncService) Run() error {
 			Info("Synced block")
 		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
 		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
-		s.latestBlockSynced = stateDiff.BlockNumber
+		s.latestBlockNumberSynced = stateDiff.BlockNumber
+
+		// Used to keep a track of where the sync started
+		if first {
+			first = false
+			s.startingBlockNumber = stateDiff.BlockNumber
+			s.startingBlockHash = stateDiff.NewRoot
+		}
 
 	}
 	return nil
+}
+
+func (s *syncService) Status() *types.SyncStatus {
+	return &types.SyncStatus{
+		StartingBlockHash:   nil,
+		StartingBlockNumber: nil,
+		CurrentBlockHash:    nil,
+		CurrentBlockNumber:  new(felt.Felt).SetInt64(s.latestBlockNumberSynced),
+		HighestBlockHash:    nil,
+		HighestBlockNumber:  new(felt.Felt).SetInt64(s.manager.GetLatestBlockSync()),
+	}
 }
 
 func (s *syncService) updateState(stateDiff *types.StateDiff) error {

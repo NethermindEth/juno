@@ -9,16 +9,30 @@ import (
 )
 
 const (
-	LatestBlockSynced                        = "latestBlockSynced"
 	BlockOfStarknetDeploymentContractMainnet = 13617000
 	BlockOfStarknetDeploymentContractGoerli  = 6725000
-	MaxChunk                                 = 10000
 
 	MemoryPagesContractAddressMainnet = "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
 	MemoryPagesContractAddressGoerli  = "0x743789ff2ff82bfb907009c9911a7da636d34fa7"
 	GpsVerifierContractAddressMainnet = "0xa739b175325cca7b71fcb51c3032935ef7ac338f"
 	GpsVerifierContractAddressGoerli  = "0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"
 )
+
+// SyncStatus is an object describing the node synchronization status
+type SyncStatus struct {
+	// StartingBlockHash is the hash of the block that the node started syncing from
+	StartingBlockHash *felt.Felt `json:"starting_block_hash"`
+	// StartingBlockNumber is the number of the block that the node started syncing from
+	StartingBlockNumber *felt.Felt `json:"starting_block_number"`
+	// CurrentBlockHash is the hash of the block that the node is currently syncing to
+	CurrentBlockHash *felt.Felt `json:"current_block_hash"`
+	// CurrentBlockNumber is the number of the block that the node is currently syncing to
+	CurrentBlockNumber *felt.Felt `json:"current_block_number"`
+	// HighestBlockHash is the hash of the block that the node is currently syncing to
+	HighestBlockHash *felt.Felt `json:"highest_block_hash"`
+	// HighestBlockNumber is the number of the block that the node is currently syncing to
+	HighestBlockNumber *felt.Felt `json:"highest_block_number"`
+}
 
 // MemoryCell represents a memory cell in Cairo
 type MemoryCell struct {
