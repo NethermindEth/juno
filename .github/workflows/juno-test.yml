@@ -22,16 +22,19 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - name: Download deps
+      - name: Download dependencies
         run: make install-deps
-      - name: Benchmark Juno
-        run: make benchmarks
       
       # Install and run gofumpy
       - name: Install gofumpt
         run: make install-gofumpt
       - name: Run gofumpt
         run: make format-check
+
+      # Errors out in local
+      - name: Benchmark Juno (remote only)
+        if: ${{ !env.ACT }}
+        run: make benchmarks
 
       # Code coverage and upload
       # If running locally, check Engineering guidelines
