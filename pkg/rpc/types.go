@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/NethermindEth/juno/internal/services"
-
 	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -435,7 +433,7 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) (*BlockResponse,
 	case ScopeFullTxns:
 		txns := make([]*Txn, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
-			transaction, err := services.TransactionService.GetTransaction(txHash)
+			transaction, err := transactionManager.GetTransaction(txHash)
 			if err != nil {
 				return nil, err
 			}
@@ -447,7 +445,7 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) (*BlockResponse,
 		txns := make([]*TxnAndReceipt, len(block.TxHashes))
 		for i, txHash := range block.TxHashes {
 			txnAndReceipt := &TxnAndReceipt{}
-			transaction, err := services.TransactionService.GetTransaction(txHash)
+			transaction, err := transactionManager.GetTransaction(txHash)
 			if err != nil {
 				return nil, err
 			}
@@ -455,7 +453,7 @@ func NewBlockResponse(block *types.Block, scope RequestedScope) (*BlockResponse,
 				txn := NewTxn(transaction)
 				txnAndReceipt.Txn = *txn
 			}
-			receipt, err := services.TransactionService.GetReceipt(txHash)
+			receipt, err := transactionManager.GetReceipt(txHash)
 			if err != nil {
 				return nil, err
 			}

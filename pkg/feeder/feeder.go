@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 
 	. "github.com/NethermindEth/juno/internal/log"
@@ -76,6 +77,20 @@ func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
 	return map[string]string{"blockHash": blockHash}
 }
 
+// Return either empty list or list of param. Necessary for StarkNet.
+// notest
+func formatList(p string) []string {
+	// If no input, just return empty list
+	if p == "[]" {
+		return []string{}
+	}
+
+	// We use regexp to parse user input into separate numbers
+	re := regexp.MustCompile("[0-9]+|[a-zA-Z]+")
+	match := re.FindAllString(p, -1)
+	return match
+}
+
 func TxnIdentifier(txHash, txId string) map[string]string {
 	if len(txHash) == 0 && len(txId) == 0 {
 		// notest
@@ -90,7 +105,7 @@ func TxnIdentifier(txHash, txId string) map[string]string {
 
 // newRequest creates a new request based on params and returns an
 // error otherwise.
-func (c *Client) newRequest(method, path string, query map[string]string, body any) (*http.Request, error) {
+func (c *Client) newRequest(method string, path string, query map[string]string, body any) (*http.Request, error) {
 	rel := &url.URL{Path: c.BaseAPI + path}
 	u := c.BaseURL.ResolveReference(rel)
 	var buf io.ReadWriter
@@ -586,6 +601,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_transaction_id_by_hash.")
 		return nil, err
 	}
+	// Need to use interface as response due to response being integer or string.
 	var res interface{}
 	metr.IncreaseTxIDSent()
 	_, err = c.do(req, &res)
@@ -608,18 +624,26 @@ func (c Client) EstimateTransactionFee(contractAddress, entryPointSelector, call
 		// notest
 		blockIdentifier = map[string]string{}
 	}
+	callDataList := formatList(callData)
+	signatureList := formatList(signature)
 
-	callDataList := []string{callData}
-	signatureList := []string{signature}
+	reqBody := map[string]interface{}{
+		"contract_address":     contractAddress,
+		"entry_point_selector": entryPointSelector,
+		"calldata":             callDataList,
+		"signature":            signatureList,
+	}
+	res, err := c.CallEstimateFeeWithBody(blockIdentifier, reqBody)
+	return res, err
+}
 
+func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]string, reqBody map[string]interface{}) (*EstimateFeeResponse, error) {
 	req, err := c.newRequest(
-		"POST", "/estimate_fee", blockIdentifier,
-		map[string]interface{}{
-			"contract_address":     contractAddress,
-			"entry_point_selector": entryPointSelector,
-			"calldata":             callDataList,
-			"signature":            signatureList,
-		})
+		"POST", "/estimate_fee", blockIdentifier, reqBody)
+	if err != nil {
+		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for estimate_fee.")
+		return nil, err
+	}
 	var res EstimateFeeResponse
 	_, err = c.do(req, &res)
 	if err != nil {
