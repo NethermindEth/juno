@@ -34,7 +34,7 @@ type DeployedContract struct {
 	ConstructorCallData []*felt.Felt `json:"constructor_call_data"`
 }
 
-type StorageDiff map[*felt.Felt][]MemoryCell
+type StorageDiff map[string][]MemoryCell
 
 // StateDiff Represent the deployed contracts and the storage diffs for those and
 // for the one's already deployed

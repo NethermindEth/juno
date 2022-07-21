@@ -121,7 +121,7 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 
 	for contractAddress, memoryCells := range stateDiff.StorageDiff {
 		for _, cell := range memoryCells {
-			err := s.state.SetSlot(contractAddress, cell.Address, cell.Value)
+			err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value)
 			if err != nil {
 				return err
 			}

@@ -54,19 +54,3 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 	}
 	return contractAbi, nil
 }
-
-// removeOx remove the initial zeros and x at the beginning of the string
-func remove0x(s string) string {
-	answer := ""
-	found := false
-	for _, char := range s {
-		found = found || (char != '0' && char != 'x')
-		if found {
-			answer = answer + string(char)
-		}
-	}
-	if len(answer) == 0 {
-		return "0"
-	}
-	return answer
-}

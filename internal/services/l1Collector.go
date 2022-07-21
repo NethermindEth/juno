@@ -118,7 +118,6 @@ func (l *l1Collector) Run() error {
 			// fetch the memory pages and updated the state
 			pages, err := l.processPagesHashes(
 				pagesHashes.(types2.PagesHash).Bytes,
-				// contracts[common.HexToAddress(memoryPagesContractAddress)].Contract,
 				l.contractInfo[l.memoryPagesContractAddress].Contract)
 			if err != nil {
 				l.logger.With("Error", err).Debug("Error processing pages hashes")
@@ -174,7 +173,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 		return
 	}
 	for _, logFetched := range logs {
-		l.updateBlockOnChain(logFetched)
+		l.updateBlockOnChain(logFetched.Data)
 	}
 
 	subLogs := make(chan types.Log)
@@ -182,7 +181,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 	defer subscription.Unsubscribe()
 
 	for logFetched := range subLogs {
-		l.updateBlockOnChain(logFetched)
+		l.updateBlockOnChain(logFetched.Data)
 	}
 }
 
@@ -456,6 +455,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, tx
 		event := map[string]interface{}{}
 		err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
+			// notest
 			l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
 			continue
 		}
@@ -464,6 +464,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, tx
 			sequenceNumber := event["blockNumber"].(*big.Int).Uint64()
 			_, ok := l.facts.Get(strconv.FormatUint(sequenceNumber, 10))
 			if ok {
+				// notest
 				return nil, ErrorFactAlreadySaved
 			} else {
 				return &types2.Fact{
@@ -474,6 +475,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, tx
 			}
 		}
 	}
+	// notest
 	l.logger.Panic("Couldn't find a block number that match in the logs for given fact")
 	return nil, nil
 }
@@ -499,9 +501,9 @@ func (l *l1Collector) removeFactTree(fact *types2.Fact) {
 	l.facts.Remove(strconv.FormatUint(fact.SequenceNumber, 10))
 }
 
-func (l *l1Collector) updateBlockOnChain(logFetched types.Log) {
+func (l *l1Collector) updateBlockOnChain(logStateUpdateData []byte) {
 	event := map[string]interface{}{}
-	err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", logFetched.Data)
+	err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", logStateUpdateData)
 	if err != nil {
 		l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
 		return
@@ -586,7 +588,7 @@ func parsePages(pages [][]*big.Int) *types2.StateDiff {
 			})
 			pagesFlatter = pagesFlatter[2:]
 		}
-		storageDiff[address] = kvs
+		storageDiff[address.String()] = kvs
 	}
 
 	return &types2.StateDiff{

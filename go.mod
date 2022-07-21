@@ -26,7 +26,6 @@ require (
 	github.com/consensys/bavard v0.1.10 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
