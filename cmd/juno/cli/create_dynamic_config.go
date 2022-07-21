@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/gdamore/tcell/v2"
@@ -61,7 +62,7 @@ func main() {
 	// Find index of selected network inside the networkList
 	selectedNwIndex := -1
 	for i, nw := range networkList {
-		if nw == selectedNw {
+		if strings.EqualFold(nw, selectedNw) {
 			selectedNwIndex = i
 			break
 		}
@@ -71,7 +72,7 @@ func main() {
 	// Find index of selected verbosity level inside the verbosityList
 	selectedVerbIndex := -1
 	for i, verb := range verbosityList {
-		if verb == selectedVerb {
+		if strings.EqualFold(verb, selectedVerb) {
 			selectedVerbIndex = i
 			break
 		}
