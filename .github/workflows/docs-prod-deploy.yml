@@ -44,6 +44,7 @@ jobs:
           USE_SSH: true
           GIT_USER: git
           CURRENT_BRANCH: ${{ secrets.CURRENT_BRANCH }}
+          DEPLOYMENT_BRANCH: ${{ secrets.DEPLOYMENT_BRANCH }}
           TARGET_URL: "http://gojuno.xyz/"
           BASE_URL: "/"
         run: |
