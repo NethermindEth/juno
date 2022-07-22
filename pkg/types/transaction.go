@@ -31,6 +31,20 @@ func (tx *TransactionInvoke) GetHash() *felt.Felt {
 	return tx.Hash
 }
 
+type TransactionDeclare struct {
+	Hash          *felt.Felt
+	ClassHash     *felt.Felt
+	SenderAddress *felt.Felt
+	MaxFee        *felt.Felt
+	Signature     []*felt.Felt
+	Nonce         *felt.Felt
+	Version       *felt.Felt
+}
+
+func (tx *TransactionDeclare) GetHash() *felt.Felt {
+	return tx.Hash
+}
+
 type TransactionStatus int64
 
 const (
