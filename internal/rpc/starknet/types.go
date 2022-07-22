@@ -253,8 +253,60 @@ type Receipt interface {
 }
 
 func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
-	// TODO: manage the declare txn type
-	return nil, errors.New("invalid transaction type")
+	switch receipt := receipt.(type) {
+	case *types.TxnInvokeReceipt:
+		var messagesSent []*MsgToL1 = nil
+		if len(receipt.MessagesSent) > 0 {
+			messagesSent = make([]*MsgToL1, len(receipt.MessagesSent))
+			for i, msg := range receipt.MessagesSent {
+				messagesSent[i] = NewMsgToL1(msg)
+			}
+		}
+		var events []*Event = nil
+		if len(receipt.Events) > 0 {
+			events = make([]*Event, len(receipt.Events))
+			for i, event := range receipt.Events {
+				events[i] = NewEvent(event)
+			}
+		}
+		return &InvokeTxReceipt{
+			CommonReceiptProperties: CommonReceiptProperties{
+				TxnHash:     receipt.TxnHash,
+				ActualFee:   receipt.ActualFee,
+				Status:      receipt.Status.String(),
+				StatusData:  receipt.StatusData,
+				BlockHash:   receipt.BlockHash,
+				BlockNumber: receipt.BlockNumber,
+			},
+			MessagesSent:    messagesSent,
+			L1OriginMessage: NewMsgToL2(receipt.L1OriginMessage),
+			Events:          events,
+		}, nil
+	case *types.TxnDeployReceipt:
+		return &DeployTxReceipt{
+			CommonReceiptProperties: CommonReceiptProperties{
+				TxnHash:     receipt.TxnHash,
+				ActualFee:   receipt.ActualFee,
+				Status:      receipt.Status.String(),
+				StatusData:  receipt.StatusData,
+				BlockHash:   receipt.BlockHash,
+				BlockNumber: receipt.BlockNumber,
+			},
+		}, nil
+	case *types.TxnDeclareReceipt:
+		return &DeclareTxReceipt{
+			CommonReceiptProperties: CommonReceiptProperties{
+				TxnHash:     receipt.TxnHash,
+				ActualFee:   receipt.ActualFee,
+				Status:      receipt.Status.String(),
+				StatusData:  receipt.StatusData,
+				BlockHash:   receipt.BlockHash,
+				BlockNumber: receipt.BlockNumber,
+			},
+		}, nil
+	default:
+		return nil, errors.New("invalid receipt type")
+	}
 }
 
 type CommonReceiptProperties struct {
@@ -267,7 +319,7 @@ type CommonReceiptProperties struct {
 }
 
 type InvokeTxReceipt struct {
-	CommonTxnProperties
+	CommonReceiptProperties
 	MessagesSent    []*MsgToL1 `json:"messages_sent"`
 	L1OriginMessage *MsgToL2   `json:"l1_origin_message"`
 	Events          []*Event   `json:"events"`
@@ -288,20 +340,41 @@ type DeployTxReceipt struct {
 func (*DeployTxReceipt) isReceipt() {}
 
 type MsgToL1 struct {
-	ToAddress *felt.Felt   `json:"to_address"`
-	Payload   []*felt.Felt `json:"payload"`
+	ToAddress types.EthAddress `json:"to_address"`
+	Payload   []*felt.Felt     `json:"payload"`
+}
+
+func NewMsgToL1(msg *types.MsgToL1) *MsgToL1 {
+	return &MsgToL1{
+		ToAddress: msg.ToAddress,
+		Payload:   msg.Payload,
+	}
 }
 
 type MsgToL2 struct {
-	// XXX: Use go-ethereum type?
-	FromAddress string       `json:"from_address"`
-	Payload     []*felt.Felt `json:"payload"`
+	FromAddress types.EthAddress `json:"from_address"`
+	Payload     []*felt.Felt     `json:"payload"`
+}
+
+func NewMsgToL2(msg *types.MsgToL2) *MsgToL2 {
+	return &MsgToL2{
+		FromAddress: msg.FromAddress,
+		Payload:     msg.Payload,
+	}
 }
 
 type Event struct {
 	FromAddress *felt.Felt   `json:"from_address"`
 	Keys        []*felt.Felt `json:"keys"`
 	Data        []*felt.Felt `json:"data"`
+}
+
+func NewEvent(event *types.Event) *Event {
+	return &Event{
+		FromAddress: event.FromAddress,
+		Keys:        event.Keys,
+		Data:        event.Data,
+	}
 }
 
 type ContractClass struct {
