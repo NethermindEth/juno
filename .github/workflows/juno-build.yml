@@ -1,4 +1,4 @@
-name: Juno Static Checks
+name: Compilation Success
 on:
   push:
     branches:
@@ -12,12 +12,16 @@ concurrency:
 
 jobs:
   build:
+    name : Compile Juno
     runs-on: ubuntu-latest
     strategy:
       matrix:
         go: [ '1.18' ]
-    name: Juno with Go ${{ matrix.go }}
+    name: Go  v${{ matrix.go }}
     steps:
+      - name: Set up Clang (local only)
+        if: ${{ env.ACT }}
+        run: sudo apt update && sudo apt -y install clang 
       - uses: actions/checkout@v3
       - name: Build Juno
         uses: actions/setup-go@v3

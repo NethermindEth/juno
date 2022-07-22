@@ -41,7 +41,8 @@ jobs:
         run: make benchmarks
 
       # Code coverage and upload
-      # If running locally, check Engineering guidelines
+      # If running locally, check Engineering guidelines 
+      # And run through "make" instead
       - name: Code Coverage  (remote only)
         if: ${{ !env.ACT }}
         run: make codecov-test
