@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/internal/config"
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
@@ -96,8 +95,8 @@ func initConfig() error {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
+			Logger.Infof("Invalid data directory. The default data directory (%s) will be used.", dataDir)
 		}
 	}
 	if cfgFile != "" {
@@ -121,12 +120,16 @@ func initConfig() error {
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
-		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
+		if err != nil {
+			Logger.Fatal("Failed to read Juno configuration file.")
+		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
-	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
+	if err != nil {
+		Logger.Fatal("Failed to parse runtime configuration.")
+	}
 
 	// If config successfully loaded, return no error.
 	return nil
@@ -141,6 +144,6 @@ func initClient() *feeder.Client {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		Logger.With("Error", err).Error("Failed to execute CLI.")
+		Logger.Fatal("Failed to execute CLI.")
 	}
 }
