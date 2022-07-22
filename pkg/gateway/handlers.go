@@ -7,10 +7,8 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"github.com/NethermindEth/juno/internal/services"
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/felt"
 )
 
 const (
@@ -79,7 +77,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		block, err := services.BlockService.GetBlockByHash(types.HexToBlockHash(hash))
+		block, err := BlockByHash(hash)
 		if err != nil {
 			msg := fmt.Sprintf("Block hash %s does not exist.", hash)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -104,7 +102,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		block, err := services.BlockService.GetBlockByNumber(uint64(num))
+		block, err := BlockByNumber(uint64(num))
 		if err != nil {
 			msg := fmt.Sprintf("Block number %d was not found.", num)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -164,14 +162,14 @@ func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 		// This implementation will just return the hash of the block
 		// accepted on Ethereum queried by number.
 
-		block, err := services.BlockService.GetBlockByNumber(uint64(id))
+		hash, err := BlockHashByID(uint64(id))
 		if err != nil {
 			msg := fmt.Sprintf("Block id %d was not found.", id)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
-		fmt.Fprintf(w, "%q", block.BlockHash.Hex())
+		fmt.Fprintf(w, "%q", hash.Hex())
 		return
 	}
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
@@ -205,14 +203,14 @@ func getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		block, err := services.BlockService.GetBlockByHash(types.HexToBlockHash(hash))
+		id, err := BlockIDByHash(new(felt.Felt).SetHex(hash))
 		if err != nil {
 			msg := fmt.Sprintf("Block hash %s was not found.", hash)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
-		fmt.Fprintf(w, "%d", block.BlockNumber)
+		fmt.Fprintf(w, "%d", id)
 		return
 	}
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
@@ -554,8 +552,7 @@ func getTransaction(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 
-		trimmed := strings.TrimPrefix(hash, "0x")
-		tx, err := services.TransactionService.GetTransaction(types.HexToTransactionHash(trimmed))
+		tx, err := txMan.GetTransaction(new(felt.Felt).SetHex(hash))
 		if err != nil {
 			w.Write([]byte(`{ "status": "NOT_RECEIVED" }`))
 			return

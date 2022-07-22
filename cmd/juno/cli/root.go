@@ -52,7 +52,7 @@ var (
 
 	rpcServer     *rpc.Server
 	metricsServer *metric.Server
-	restServer    *rest.Server
+	restServer    *gateway.Server
 
 	feederGatewayClient *feeder.Client
 
@@ -152,8 +152,11 @@ func setupServers() {
 	}
 
 	if config.Runtime.REST.Enabled {
-		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
-			config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+		restServer = gateway.New(
+			":"+strconv.Itoa(config.Runtime.REST.Port),
+			blockManager,
+			transactionManager,
+		)
 	}
 }
 
