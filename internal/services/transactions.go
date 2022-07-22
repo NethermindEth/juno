@@ -99,7 +99,7 @@ func (s *transactionService) StoreTransaction(txHash *felt.Felt, tx types.IsTran
 // GetReceipt searches for the transaction receipt associated with the given
 // transaction hash. If the transaction does not exist on the database, then
 // returns nil.
-func (s *transactionService) GetReceipt(txHash *felt.Felt) (*types.TransactionReceipt, error) {
+func (s *transactionService) GetReceipt(txHash *felt.Felt) (types.TxnReceipt, error) {
 	s.AddProcess()
 	defer s.DoneProcess()
 	return s.manager.GetReceipt(txHash)
@@ -107,7 +107,7 @@ func (s *transactionService) GetReceipt(txHash *felt.Felt) (*types.TransactionRe
 
 // StoreReceipt stores the given transaction receipt into the database. If the
 // database already has a receipt with the same key, the value is overwritten.
-func (s *transactionService) StoreReceipt(txHash *felt.Felt, receipt *types.TransactionReceipt) error {
+func (s *transactionService) StoreReceipt(txHash *felt.Felt, receipt types.TxnReceipt) error {
 	s.AddProcess()
 	defer s.DoneProcess()
 	return s.manager.PutReceipt(txHash, receipt)

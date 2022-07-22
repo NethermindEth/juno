@@ -33,14 +33,36 @@ message Declare {
   bytes version = 6;
 }
 
-message TransactionReceipt {
-  bytes txHash = 1;
+message Receipt {
+  oneof receipt {
+    DeployReceipt deploy = 1;
+    InvokeReceipt invoke = 2;
+    DeclareReceipt declare = 3;
+  }
+}
+
+message ReceiptCommon {
+  bytes txnHash = 1;
   bytes actualFee = 2;
   Status status = 3;
   string statusData = 4;
-  repeated MessageToL1 messagesSent = 5;
-  MessageToL2 l1OriginMessage = 6;
-  repeated Event events = 7;
+  bytes blockHash = 5;
+  uint64 blockNumber = 6;
+}
+
+message InvokeReceipt {
+  ReceiptCommon common = 1;
+  repeated MsgToL1 messagesSent = 2;
+  MsgToL2 l1OriginMessage = 3;
+  repeated Event events = 4;
+}
+
+message DeployReceipt {
+  ReceiptCommon common = 1;
+}
+
+message DeclareReceipt {
+  ReceiptCommon common = 1;
 }
 
 enum Status {
@@ -52,12 +74,12 @@ enum Status {
   REJECTED = 5;
 }
 
-message MessageToL1 {
+message MsgToL1 {
   bytes toAddress = 1;
   repeated bytes payload = 2;
 }
 
-message MessageToL2 {
+message MsgToL2 {
   bytes fromAddress = 1;
   repeated bytes payload = 2;
 }

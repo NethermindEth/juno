@@ -103,7 +103,6 @@ func (a *apiCollector) updateLatestBlockOnChain() {
 
 // fetchLatestBlockOnChain fetch the latest block on chain
 func (a *apiCollector) fetchLatestBlockOnChain() {
-
 	pendingBlock, err := a.client.GetBlock("", "pending")
 	if err != nil {
 		return
@@ -119,7 +118,6 @@ func (a *apiCollector) fetchLatestBlockOnChain() {
 
 	a.latestBlock = parentBlock
 	a.pendingBlock = pendingBlock
-
 }
 
 func (a *apiCollector) LatestBlock() *feeder.StarknetBlock {

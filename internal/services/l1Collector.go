@@ -536,7 +536,6 @@ func (l *l1Collector) updatePendingBlock() {
 	l.fetchPendingBlock()
 	for {
 		time.Sleep(time.Minute)
-
 	}
 }
 

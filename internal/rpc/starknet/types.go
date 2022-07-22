@@ -252,7 +252,7 @@ type Receipt interface {
 	isReceipt()
 }
 
-func NewRecipt(receipt *types.TransactionReceipt) (Receipt, error) {
+func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
 	// TODO: manage the declare txn type
 	return nil, errors.New("invalid transaction type")
 }

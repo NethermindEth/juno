@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+
 	"github.com/NethermindEth/juno/pkg/feeder"
 
 	starknetTypes "github.com/NethermindEth/juno/pkg/types"

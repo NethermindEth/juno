@@ -53,7 +53,7 @@ func (m *Manager) GetTransaction(txHash *felt.Felt) (types.IsTransaction, error)
 // PutReceipt stores  new transactions receipts in the database. This method
 // does not check if the key already exists. In the case, that the key already
 // exists the value is overwritten.
-func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt *types.TransactionReceipt) error {
+func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt types.TxnReceipt) error {
 	rawData, err := marshalTransactionReceipt(txReceipt)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (m *Manager) PutReceipt(txHash *felt.Felt, txReceipt *types.TransactionRece
 
 // GetReceipt searches in the database for the transaction receipt associated
 // with the given key. If the key does not exist then returns nil.
-func (m *Manager) GetReceipt(txHash *felt.Felt) (*types.TransactionReceipt, error) {
+func (m *Manager) GetReceipt(txHash *felt.Felt) (types.TxnReceipt, error) {
 	rawData, err := m.receiptDb.Get(txHash.ByteSlice())
 	if err != nil {
 		return nil, err
@@ -148,58 +148,127 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	return nil, fmt.Errorf("unexpected transaction type")
 }
 
-func marshalTransactionReceipt(receipt *types.TransactionReceipt) ([]byte, error) {
-	protoReceipt := TransactionReceipt{
-		TxHash:          receipt.TxHash.ByteSlice(),
-		ActualFee:       receipt.ActualFee.ByteSlice(),
-		Status:          marshalTransactionStatus(receipt.Status),
-		StatusData:      receipt.StatusData,
-		L1OriginMessage: marshalMessageL1ToL2(receipt.L1OriginMessage),
-	}
-	if receipt.MessagesSent != nil {
-		protoReceipt.MessagesSent = make([]*MessageToL1, len(receipt.MessagesSent))
-		for i, message := range receipt.MessagesSent {
-			protoReceipt.MessagesSent[i] = marshalMessageL2ToL1(&message)
+func marshalTransactionReceipt(receipt types.TxnReceipt) ([]byte, error) {
+	var protoReceipt Receipt
+	switch r := receipt.(type) {
+	case *types.TxnInvokeReceipt:
+		messagesSent := make([]*MsgToL1, len(r.MessagesSent))
+		for i, msg := range r.MessagesSent {
+			messagesSent[i] = marshalMessageL2ToL1(msg)
 		}
-	}
-	if receipt.Events != nil {
-		protoReceipt.Events = make([]*Event, len(receipt.Events))
-		for i, event := range receipt.Events {
-			protoReceipt.Events[i] = marshalEvent(&event)
+		events := make([]*Event, len(r.Events))
+		for i, ev := range r.Events {
+			events[i] = marshalEvent(ev)
 		}
+		protoReceipt.Receipt = &Receipt_Invoke{
+			Invoke: &InvokeReceipt{
+				Common: &ReceiptCommon{
+					TxnHash:     r.TxnHash.ByteSlice(),
+					ActualFee:   r.ActualFee.ByteSlice(),
+					Status:      marshalTransactionStatus(r.Status),
+					StatusData:  r.StatusData,
+					BlockHash:   r.BlockHash.ByteSlice(),
+					BlockNumber: r.BlockNumber,
+				},
+				MessagesSent:    messagesSent,
+				L1OriginMessage: marshalMessageL1ToL2(r.L1OriginMessage),
+				Events:          events,
+			},
+		}
+	case *types.TxnDeclareReceipt:
+		protoReceipt.Receipt = &Receipt_Declare{
+			Declare: &DeclareReceipt{
+				Common: &ReceiptCommon{
+					TxnHash:     r.TxnHash.ByteSlice(),
+					ActualFee:   r.ActualFee.ByteSlice(),
+					Status:      marshalTransactionStatus(r.Status),
+					StatusData:  r.StatusData,
+					BlockHash:   r.BlockHash.ByteSlice(),
+					BlockNumber: r.BlockNumber,
+				},
+			},
+		}
+	case *types.TxnDeployReceipt:
+		protoReceipt.Receipt = &Receipt_Deploy{
+			Deploy: &DeployReceipt{
+				Common: &ReceiptCommon{
+					TxnHash:     r.TxnHash.ByteSlice(),
+					ActualFee:   r.ActualFee.ByteSlice(),
+					Status:      marshalTransactionStatus(r.Status),
+					StatusData:  r.StatusData,
+					BlockHash:   r.BlockHash.ByteSlice(),
+					BlockNumber: r.BlockNumber,
+				},
+			},
+		}
+	default:
+		panic("unexpected type")
 	}
 	return proto.Marshal(&protoReceipt)
 }
 
-func unmarshalTransactionReceipt(b []byte) (*types.TransactionReceipt, error) {
-	var protoReceipt TransactionReceipt
+func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
+	var protoReceipt Receipt
 	if err := proto.Unmarshal(b, &protoReceipt); err != nil {
 		return nil, err
 	}
-	receipt := &types.TransactionReceipt{
-		TxHash:          new(felt.Felt).SetBytes(protoReceipt.TxHash),
-		ActualFee:       new(felt.Felt).SetBytes(protoReceipt.ActualFee),
-		Status:          unmarshalTransactionStatus(protoReceipt.Status),
-		StatusData:      protoReceipt.StatusData,
-		L1OriginMessage: unmarshalMessageL1ToL2(protoReceipt.L1OriginMessage),
-		Events:          nil,
-	}
-	if protoReceipt.MessagesSent != nil {
-		receipt.MessagesSent = make([]types.MessageL2ToL1, len(protoReceipt.MessagesSent))
-		for i, message := range protoReceipt.MessagesSent {
-			receipt.MessagesSent[i] = unmarshalMessageL2ToL1(message)
+	if receipt := protoReceipt.GetInvoke(); receipt != nil {
+		var messagesSent []*types.MsgToL1 = nil
+		if len(receipt.MessagesSent) > 0 {
+			messagesSent = make([]*types.MsgToL1, len(receipt.MessagesSent))
+			for i, msg := range receipt.MessagesSent {
+				messagesSent[i] = unmarshalMessageL2ToL1(msg)
+			}
 		}
-	}
-	if protoReceipt.Events != nil {
-		receipt.Events = make([]types.Event, len(protoReceipt.Events))
-		for i, event := range protoReceipt.Events {
-			receipt.Events[i] = unmarshalEvent(event)
+		var events []*types.Event = nil
+		if len(receipt.Events) > 0 {
+			events = make([]*types.Event, len(receipt.Events))
+			for i, event := range receipt.Events {
+				events[i] = unmarshalEvent(event)
+			}
 		}
+		return &types.TxnInvokeReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetBytes(receipt.Common.TxnHash),
+				ActualFee:   new(felt.Felt).SetBytes(receipt.Common.ActualFee),
+				Status:      unmarshalTransactionStatus(receipt.Common.Status),
+				StatusData:  receipt.Common.StatusData,
+				BlockHash:   new(felt.Felt).SetBytes(receipt.Common.BlockHash),
+				BlockNumber: receipt.Common.BlockNumber,
+			},
+			MessagesSent:    messagesSent,
+			L1OriginMessage: unmarshalMessageL1ToL2(receipt.L1OriginMessage),
+			Events:          events,
+		}, nil
 	}
-	return receipt, nil
+	if receipt := protoReceipt.GetDeclare(); receipt != nil {
+		return &types.TxnDeclareReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetBytes(receipt.Common.TxnHash),
+				ActualFee:   new(felt.Felt).SetBytes(receipt.Common.ActualFee),
+				Status:      unmarshalTransactionStatus(receipt.Common.Status),
+				StatusData:  receipt.Common.StatusData,
+				BlockHash:   new(felt.Felt).SetBytes(receipt.Common.BlockHash),
+				BlockNumber: receipt.Common.BlockNumber,
+			},
+		}, nil
+	}
+	if receipt := protoReceipt.GetDeploy(); receipt != nil {
+		return &types.TxnDeployReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetBytes(receipt.Common.TxnHash),
+				ActualFee:   new(felt.Felt).SetBytes(receipt.Common.ActualFee),
+				Status:      unmarshalTransactionStatus(receipt.Common.Status),
+				StatusData:  receipt.Common.StatusData,
+				BlockHash:   new(felt.Felt).SetBytes(receipt.Common.BlockHash),
+				BlockNumber: receipt.Common.BlockNumber,
+			},
+		}, nil
+	}
+	panic("unexpected type")
 }
 
-func marshalTransactionStatus(status types.TransactionStatus) Status {
+func marshalTransactionStatus(status types.TxnStatus) Status {
 	// notest
 	switch status {
 	case types.TxStatusUnknown:
@@ -219,7 +288,7 @@ func marshalTransactionStatus(status types.TransactionStatus) Status {
 	}
 }
 
-func unmarshalTransactionStatus(status Status) types.TransactionStatus {
+func unmarshalTransactionStatus(status Status) types.TxnStatus {
 	// notest
 	switch status {
 	case Status_UNKNOWN:
@@ -239,36 +308,36 @@ func unmarshalTransactionStatus(status Status) types.TransactionStatus {
 	}
 }
 
-func marshalMessageL2ToL1(message *types.MessageL2ToL1) *MessageToL1 {
-	return &MessageToL1{
+func marshalMessageL2ToL1(message *types.MsgToL1) *MsgToL1 {
+	return &MsgToL1{
 		ToAddress: message.ToAddress.Bytes(),
 		Payload:   marshalFelts(message.Payload),
 	}
 }
 
-func unmarshalMessageL2ToL1(message *MessageToL1) types.MessageL2ToL1 {
-	return types.MessageL2ToL1{
+func unmarshalMessageL2ToL1(message *MsgToL1) *types.MsgToL1 {
+	return &types.MsgToL1{
 		ToAddress: types.BytesToEthAddress(message.ToAddress),
 		Payload:   unmarshalFelts(message.Payload),
 	}
 }
 
-func marshalMessageL1ToL2(message *types.MessageL1ToL2) *MessageToL2 {
+func marshalMessageL1ToL2(message *types.MsgToL2) *MsgToL2 {
 	if message == nil {
 		return nil
 	}
-	return &MessageToL2{
+	return &MsgToL2{
 		FromAddress: message.FromAddress.Bytes(),
 		Payload:     marshalFelts(message.Payload),
 	}
 }
 
-func unmarshalMessageL1ToL2(message *MessageToL2) *types.MessageL1ToL2 {
+func unmarshalMessageL1ToL2(message *MsgToL2) *types.MsgToL2 {
 	if message == nil {
 		// notest
 		return nil
 	}
-	return &types.MessageL1ToL2{
+	return &types.MsgToL2{
 		FromAddress: types.BytesToEthAddress(message.FromAddress),
 		Payload:     unmarshalFelts(message.Payload),
 	}
@@ -282,8 +351,8 @@ func marshalEvent(event *types.Event) *Event {
 	}
 }
 
-func unmarshalEvent(event *Event) types.Event {
-	return types.Event{
+func unmarshalEvent(event *Event) *types.Event {
+	return &types.Event{
 		FromAddress: new(felt.Felt).SetBytes(event.FromAddress),
 		Keys:        unmarshalFelts(event.Keys),
 		Data:        unmarshalFelts(event.Data),
