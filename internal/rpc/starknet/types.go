@@ -156,11 +156,12 @@ type Txn interface {
 
 func NewTxn(tx types.IsTransaction) (Txn, error) {
 	switch tx := tx.(type) {
-	// TODO: manage the declare txn type
 	case *types.TransactionInvoke:
 		return NewInvokeTxn(tx), nil
 	case *types.TransactionDeploy:
 		return NewDeployTxn(tx), nil
+	case *types.TransactionDeclare:
+		return NewDeclareTxn(tx), nil
 	default:
 		return nil, errors.New("invalid transaction type")
 	}
@@ -210,6 +211,21 @@ type DeclareTxn struct {
 	CommonTxnProperties
 	ClassHash     *felt.Felt `json:"class_hash"`
 	SenderAddress *felt.Felt `json:"sender_address"`
+}
+
+func NewDeclareTxn(txn *types.TransactionDeclare) *DeclareTxn {
+	return &DeclareTxn{
+		CommonTxnProperties: CommonTxnProperties{
+			TxnHash:   txn.Hash,
+			MaxFee:    txn.MaxFee,
+			Version:   "0x0", // XXX: hardcoded version for now
+			Signature: txn.Signature,
+			Nonce:     nil, // TODO: Manage transaction nonce
+			Type:      "DECLARE",
+		},
+		ClassHash:     txn.ClassHash,
+		SenderAddress: txn.SenderAddress,
+	}
 }
 
 func (*DeclareTxn) isTxn() {}
