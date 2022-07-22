@@ -31,9 +31,7 @@ install-deps: | install-courtney install-gofumpt
 install-courtney:
 	# install courtney fork
 	# if courtney directory does not exist, clone it
-	@if [ ! -d "courtney" ]; then\
-		git clone https://github.com/stdevMac/courtney ;\
-	fi
+	git clone https://github.com/stdevMac/courtney ;\
 	(cd courtney && go get  ./... && go build courtney.go)
 	go get ./...
 
