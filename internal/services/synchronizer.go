@@ -20,8 +20,6 @@ type Synchronizer struct {
 	feederClient *feeder.Client
 	// stateDiffCollector is the state diff collector instance.
 	stateDiffCollector StateDiffCollector
-	// latestBlockOnChain is the latest block on chain.
-	latestBlockOnChain int64
 }
 
 func NewSynchronizer(syncManager *sync.Manager, stateManager state.StateManager, feederClient *feeder.Client,
@@ -35,27 +33,10 @@ func NewSynchronizer(syncManager *sync.Manager, stateManager state.StateManager,
 	}
 }
 
-func (s *Synchronizer) Run() {
-	latestBlockInfoFetched := s.syncManager.GetLatestBlockInfoFetched()
-	go s.updateLatestBlockOnChain()
-	currentBlock := latestBlockInfoFetched
-	for {
-		if currentBlock == s.latestBlockOnChain {
-		}
-		err := s.updateBlock(currentBlock)
-		if err != nil {
-			return
-		}
-		s.syncManager.StoreLatestBlockInfoFetched(currentBlock)
-		currentBlock++
-
-	}
-}
-
-func (s *Synchronizer) updateBlock(blockNumber int64) error {
+func (s *Synchronizer) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
 	block, err := s.feederClient.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, txn := range block.Transactions {
@@ -68,12 +49,12 @@ func (s *Synchronizer) updateBlock(blockNumber int64) error {
 					break
 				}
 				if iterations > 20 {
-					return err
+					return nil, err
 				}
 				iterations++
 			}
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
@@ -81,9 +62,9 @@ func (s *Synchronizer) updateBlock(blockNumber int64) error {
 	blockHash := new(felt.Felt).SetHex(block.BlockHash)
 	err = BlockService.StoreBlock(blockHash, feederBlockToDBBlock(block))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return block, nil
 }
 
 func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
@@ -99,13 +80,6 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 		return err
 	}
 	return nil
-}
-
-func (s *Synchronizer) updateLatestBlockOnChain() {
-	for {
-		time.Sleep(time.Second * 1)
-		s.latestBlockOnChain = int64(s.stateDiffCollector.LatestBlock().BlockNumber)
-	}
 }
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database

@@ -96,11 +96,6 @@ func (s *syncService) Run() error {
 		return err
 	}
 
-	// run synchronizer of all the info that comes from the block.
-	go s.synchronizer.Run()
-
-	first := true
-
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -109,15 +104,15 @@ func (s *syncService) Run() error {
 		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
-			stateRoot := s.manager.GetLatestStateRoot()
-			root := new(felt.Felt).SetHex(stateRoot)
-			s.logger.With("State Root from StateDiff", stateDiff.NewRoot,
-				"State Root after StateDiff", s.state.Root().Hex(),
-				"Block Number", s.latestBlockNumberSynced).
-				Error("Fail validation after apply StateDiff")
-			s.state = state.New(s.stateManager, root)
+			s.setStateToLatestRoot()
 			continue
 		}
+
+		if err = s.updateBlock(stateDiff.BlockNumber); err != nil {
+			s.setStateToLatestRoot()
+			continue
+		}
+
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
 			"Timer", time.Since(start)).
@@ -127,10 +122,9 @@ func (s *syncService) Run() error {
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
-		if first {
-			first = false
-			s.startingBlockNumber = stateDiff.BlockNumber
-			s.startingBlockHash = stateDiff.NewRoot
+		if s.startingBlockHash == nil {
+			s.startingBlockNumber = s.latestBlockNumberSynced
+			s.startingBlockHash = s.latestBlockHashSynced
 		}
 
 	}
@@ -271,4 +265,13 @@ func (s *syncService) setChainId() {
 			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
 		}
 	}
+}
+
+func (s *syncService) updateBlock(number int64) error {
+	block, err := s.synchronizer.UpdateBlock(number)
+	if err != nil {
+		return err
+	}
+	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
+	return nil
 }
