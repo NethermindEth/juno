@@ -10,13 +10,13 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
+	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
-
 	gocmp "github.com/google/go-cmp/cmp"
 	"gotest.tools/assert"
 )
@@ -81,15 +81,12 @@ func TestStarknetGetStorageAt(t *testing.T) {
 		t.Error(err)
 	}
 	// setup
-	services.BlockService.Setup(blockDb)
-	if err := services.BlockService.Run(); err != nil {
-		t.Fatalf("unexpected error starting block service: %s", err)
-	}
-	defer services.BlockService.Close(context.Background())
+	blockManager = block.NewManager(blockDb)
+	defer blockManager.Close()
 
 	blockHash := *testFelt1
 	blockNumber := uint64(2175)
-	block := &types.Block{
+	b := &types.Block{
 		BlockHash:       &blockHash,
 		BlockNumber:     blockNumber,
 		ParentHash:      new(felt.Felt).SetHex("0xf8fe26de3ce9ee4d543b1152deb2ce549e589524d79598227761d6006b74a9"),
@@ -108,16 +105,10 @@ func TestStarknetGetStorageAt(t *testing.T) {
 			new(felt.Felt).SetHex("0x4ff16b7673da1f4c4b114d28e0e1a366bd61b702eca3e21882da6c8939e60a2"),
 		},
 	}
-	services.BlockService.StoreBlock(&blockHash, block)
+	blockManager.PutBlock(&blockHash, b)
 
-	services.StateService.Setup(
-		codeDb,
-		db.NewBlockSpecificDatabase(storageDb),
-	)
-	if err := services.StateService.Run(); err != nil {
-		t.Fatalf("unexpected error starting state service: %s", err)
-	}
-	defer services.StateService.Close(context.Background())
+	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	defer stateManager.Close()
 
 	address := testFelt2
 	key := testFelt3
@@ -127,10 +118,10 @@ func TestStarknetGetStorageAt(t *testing.T) {
 			key.Hex(): value.Hex(),
 		},
 	}
-	services.StateService.StoreStorage(address.Hex(), blockNumber, storage)
+	stateManager.PutStorage(address.Hex(), blockNumber, storage)
 
 	// Set up feeder client for PENDING block
-	body, err := json.Marshal(block)
+	body, err := json.Marshal(b)
 	if err != nil {
 		t.Fatal("unexpected marshal error", err)
 	}
@@ -158,7 +149,7 @@ func TestStarknetGetCode(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	abiDb, err := db.NewMDBXDatabase(env, "BLOCK")
+	abiDb, err := db.NewMDBXDatabase(env, "ABI")
 	if err != nil {
 		t.Error(err)
 	}
@@ -171,11 +162,8 @@ func TestStarknetGetCode(t *testing.T) {
 		t.Error(err)
 	}
 	// setup
-	services.AbiService.Setup(abiDb)
-	if err := services.AbiService.Run(); err != nil {
-		t.Fatalf("unexpected error starting abi service: %s", err)
-	}
-	defer services.AbiService.Close(context.Background())
+	abiManager = abi.NewManager(abiDb)
+	defer abiManager.Close()
 
 	address := *testFelt2
 	wantAbi := &abi.Abi{
@@ -259,17 +247,10 @@ func TestStarknetGetCode(t *testing.T) {
 		},
 	}
 
-	services.StateService.Setup(
-		codeDb,
-		db.NewBlockSpecificDatabase(storageDb),
-	)
-	if err := services.StateService.Run(); err != nil {
-		t.Fatalf("unexpected error starting state service: %s", err)
-	}
+	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	defer stateManager.Close()
 
-	services.AbiService.StoreAbi(address.Hex(), wantAbi)
-
-	defer services.StateService.Close(context.Background())
+	abiManager.PutABI(address.Hex(), wantAbi)
 
 	code := &state.Code{
 		Code: [][]byte{
@@ -279,7 +260,7 @@ func TestStarknetGetCode(t *testing.T) {
 			new(felt.Felt).SetHex("0x1114").ByteSlice(),
 		},
 	}
-	services.StateService.StoreCode(address.ByteSlice(), code)
+	stateManager.PutCode(address.ByteSlice(), code)
 
 	abiResponse, _ := json.Marshal(wantAbi)
 	codeResponse := make([]*felt.Felt, len(code.Code))
@@ -554,28 +535,23 @@ func TestGetBlock(t *testing.T) {
 		t.Error(err)
 	}
 	// Initialize transaction service
-	services.TransactionService.Setup(txDb, receiptDb)
-	if err := services.TransactionService.Run(); err != nil {
-		t.Fatalf("unexpected error starting the transaction service: %s", err)
-	}
-	defer services.TransactionService.Close(context.Background())
+	transactionManager = transaction.NewManager(txDb, receiptDb)
+	defer transactionManager.Close()
+
 	// Initialize block service
-	services.BlockService.Setup(blockDb)
-	if err := services.BlockService.Run(); err != nil {
-		t.Fatalf("unexpeceted error starting the block service: %s", err)
-	}
-	defer services.BlockService.Close(context.Background())
+	blockManager = block.NewManager(blockDb)
+	defer blockManager.Close()
 	// Store transactions
 	for _, txn := range txns {
-		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		transactionManager.PutTransaction(txn.GetHash(), txn)
 	}
 	// Store receipts
 	for _, receipt := range receipts {
-		services.TransactionService.StoreReceipt(receipt.TxHash, receipt)
+		transactionManager.PutReceipt(receipt.TxHash, receipt)
 	}
 	// Store blocks
-	for _, block := range blocks {
-		services.BlockService.StoreBlock(block.BlockHash, &block)
+	for _, b := range blocks {
+		blockManager.PutBlock(b.BlockHash, &b)
 	}
 
 	type testItem struct {
@@ -876,14 +852,12 @@ func TestGetTransactionByHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	services.TransactionService.Setup(txDb, receiptDb)
-	if err := services.TransactionService.Run(); err != nil {
-		t.Fatalf("unexpected error starting the transaction service: %s", err)
-	}
-	defer services.TransactionService.Close(context.Background())
+	transactionManager = transaction.NewManager(txDb, receiptDb)
+	defer transactionManager.Close()
+
 	responses := make(map[string]*Txn)
 	for _, txn := range txns {
-		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		transactionManager.PutTransaction(txn.GetHash(), txn)
 		responses[txn.GetHash().String()] = NewTxn(txn)
 	}
 	for _, txn := range txns {
@@ -960,24 +934,20 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 		t.Error(err)
 	}
 	// Initialize transaction service
-	services.TransactionService.Setup(txDb, receiptDb)
-	if err := services.TransactionService.Run(); err != nil {
-		t.Fatalf("unexpected error starting the transaction service: %s", err)
-	}
-	defer services.TransactionService.Close(context.Background())
+	transactionManager = transaction.NewManager(txDb, receiptDb)
+	defer transactionManager.Close()
+
 	// Initialize block service
-	services.BlockService.Setup(blockDb)
-	if err := services.BlockService.Run(); err != nil {
-		t.Fatalf("unexpeceted error starting the block service: %s", err)
-	}
-	defer services.BlockService.Close(context.Background())
+	blockManager = block.NewManager(blockDb)
+	defer blockManager.Close()
+
 	// Store transactions
 	for _, txn := range txns {
-		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		transactionManager.PutTransaction(txn.GetHash(), txn)
 	}
 	// Store blocks
-	for _, block := range blocks {
-		services.BlockService.StoreBlock(block.BlockHash, &block)
+	for _, b := range blocks {
+		blockManager.PutBlock(b.BlockHash, &b)
 	}
 	// Build test cases
 	tests := make([]rpcTest, 0)
@@ -1057,24 +1027,20 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 		t.Error(err)
 	}
 	// Initialize transaction service
-	services.TransactionService.Setup(txDb, receiptDb)
-	if err := services.TransactionService.Run(); err != nil {
-		t.Fatalf("unexpected error starting the transaction service: %s", err)
-	}
-	defer services.TransactionService.Close(context.Background())
+	transactionManager = transaction.NewManager(txDb, receiptDb)
+	defer transactionManager.Close()
+
 	// Initialize block service
-	services.BlockService.Setup(blockDb)
-	if err := services.BlockService.Run(); err != nil {
-		t.Fatalf("unexpeceted error starting the block service: %s", err)
-	}
-	defer services.BlockService.Close(context.Background())
+	blockManager = block.NewManager(blockDb)
+	defer blockManager.Close()
+
 	// Store transactions
 	for _, txn := range txns {
-		services.TransactionService.StoreTransaction(txn.GetHash(), txn)
+		transactionManager.PutTransaction(txn.GetHash(), txn)
 	}
 	// Store blocks
-	for _, block := range blocks {
-		services.BlockService.StoreBlock(block.BlockHash, &block)
+	for _, b := range blocks {
+		blockManager.PutBlock(b.BlockHash, &b)
 	}
 	// Build test cases
 	tests := make([]rpcTest, 0)
