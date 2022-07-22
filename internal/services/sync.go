@@ -122,7 +122,7 @@ func (s *syncService) Run() error {
 			stateDiff.OldRoot = new(felt.Felt).SetHex(s.manager.GetLatestStateRoot())
 		}
 		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
-		s.manager.StoreStateDiff(stateDiff)
+		s.manager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex())
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
