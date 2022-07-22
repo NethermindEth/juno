@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -26,6 +28,8 @@ type syncService struct {
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
+	// l1Client represent the ethereum client
+	l1Client L1Client
 
 	// startingBlockNumber is the block number of the first block that we will sync.
 	startingBlockNumber int64
@@ -50,6 +54,9 @@ type syncService struct {
 	state state.State
 	// synchronizer is the synchronizer that will be used to sync all the information around the blocks
 	synchronizer *Synchronizer
+
+	// chainId represent the Chain ID of the node
+	chainId *big.Int
 }
 
 func SetupSync(feederClient *feeder.Client, l1client L1Client) {
@@ -58,18 +65,14 @@ func SetupSync(feederClient *feeder.Client, l1client L1Client) {
 		return
 	}
 	SyncService.feeder = feederClient
-	bigChainId, err := l1client.ChainID(context.Background())
-	if err != nil {
-		// notest
-		Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
-	}
-	chainId := int(bigChainId.Int64())
+	SyncService.l1Client = l1client
+	SyncService.setChainId()
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		NewApiCollector(SyncService.manager, SyncService.feeder, chainId)
+		NewApiCollector(SyncService.manager, SyncService.feeder, int(SyncService.chainId.Int64()))
 		SyncService.stateDiffCollector = APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, chainId)
+		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
 		SyncService.stateDiffCollector = L1Collector
 	}
 	SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
@@ -93,11 +96,6 @@ func (s *syncService) Run() error {
 		return err
 	}
 
-	// run synchronizer of all the info that comes from the block.
-	go s.synchronizer.Run()
-
-	first := true
-
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -106,28 +104,31 @@ func (s *syncService) Run() error {
 		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
-			stateRoot := s.manager.GetLatestStateRoot()
-			root := new(felt.Felt).SetHex(stateRoot)
-			s.logger.With("State Root from StateDiff", stateDiff.NewRoot,
-				"State Root after StateDiff", s.state.Root().Hex(),
-				"Block Number", s.latestBlockNumberSynced).
-				Error("Fail validation after apply StateDiff")
-			s.state = state.New(s.stateManager, root)
+			s.setStateToLatestRoot()
 			continue
 		}
+
+		if err = s.updateBlock(stateDiff.BlockNumber); err != nil {
+			s.setStateToLatestRoot()
+			continue
+		}
+
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
 			"Timer", time.Since(start)).
 			Info("Synced block")
 		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
+		if stateDiff.OldRoot.Hex() == "" {
+			stateDiff.OldRoot = new(felt.Felt).SetHex(s.manager.GetLatestStateRoot())
+		}
 		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
+		s.manager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex())
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
-		if first {
-			first = false
-			s.startingBlockNumber = stateDiff.BlockNumber
-			s.startingBlockHash = stateDiff.NewRoot
+		if s.startingBlockHash == nil {
+			s.startingBlockNumber = s.latestBlockNumberSynced
+			s.startingBlockHash = s.latestBlockHashSynced
 		}
 
 	}
@@ -136,12 +137,12 @@ func (s *syncService) Run() error {
 
 func (s *syncService) Status() *types.SyncStatus {
 	return &types.SyncStatus{
-		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: new(felt.Felt).SetInt64(s.startingBlockNumber),
-		CurrentBlockHash:    s.latestBlockHashSynced,
-		CurrentBlockNumber:  new(felt.Felt).SetInt64(s.latestBlockNumberSynced),
-		HighestBlockHash:    s.highestBlockHash,
-		HighestBlockNumber:  new(felt.Felt).SetInt64(s.manager.GetLatestBlockSync()),
+		StartingBlockHash:   s.startingBlockHash.Hex(),
+		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
+		CurrentBlockHash:    s.latestBlockHashSynced.Hex(),
+		CurrentBlockNumber:  fmt.Sprintf("%x", s.latestBlockNumberSynced),
+		HighestBlockHash:    s.highestBlockHash.Hex(),
+		HighestBlockNumber:  fmt.Sprintf("%x", s.manager.GetLatestBlockSync()),
 	}
 }
 
@@ -194,8 +195,24 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 	return nil
 }
 
+func (s *syncService) GetStateDiff(blockNumber int64) *types.StateDiff {
+	return s.manager.GetStateDiff(blockNumber)
+}
+
+func (s *syncService) GetStateDiffFromHash(blockHash string) *types.StateDiff {
+	return s.manager.GetStateDiffFromHash(blockHash)
+}
+
+func (s *syncService) LatestBlockSynced() (int64, string) {
+	return s.latestBlockNumberSynced, s.latestBlockHashSynced.Hex()
+}
+
 func (s *syncService) GetLatestBlockOnChain() int64 {
 	return int64(s.stateDiffCollector.LatestBlock().BlockNumber)
+}
+
+func (s *syncService) ChainID() *big.Int {
+	return s.chainId
 }
 
 func (s *syncService) GetPendingBlock() *feeder.StarknetBlock {
@@ -242,4 +259,31 @@ func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.stateDiffCollector.Close(ctx)
 	s.manager.Close()
+}
+
+func (s *syncService) setChainId() {
+	if s.l1Client == nil {
+		// notest
+		if config.Runtime.Starknet.Network == "mainnet" {
+			s.chainId = new(big.Int).SetInt64(1)
+		} else {
+			s.chainId = new(big.Int).SetInt64(0)
+		}
+	} else {
+		var err error
+		s.chainId, err = s.l1Client.ChainID(context.Background())
+		if err != nil {
+			// notest
+			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
+		}
+	}
+}
+
+func (s *syncService) updateBlock(number int64) error {
+	block, err := s.synchronizer.UpdateBlock(number)
+	if err != nil {
+		return err
+	}
+	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
+	return nil
 }

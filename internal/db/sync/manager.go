@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/pkg/types"
+	"strconv"
 
 	"github.com/NethermindEth/juno/internal/db"
 )
@@ -15,7 +17,7 @@ var (
 	latestBlockSyncKey             = []byte("latestBlockSync")
 	blockOfLatestEventProcessedKey = []byte("blockOfLatestEventProcessed")
 	latestStateRoot                = []byte("latestStateRoot")
-	latestBlockInfoFetched         = []byte("latestBlockInfoFetched")
+	stateDiffPrefix                = []byte("stateDiffPrefix_")
 )
 
 // Manager is a Block database manager to save and search the blocks.
@@ -136,34 +138,72 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 	return *blockSync
 }
 
-// StoreLatestBlockInfoFetched stores the block number of the latest block used to fetch information
-func (m *Manager) StoreLatestBlockInfoFetched(blockNumber int64) {
-	value, err := json.Marshal(blockNumber)
+// StoreStateDiff stores the state diff for the given block.
+func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash string) {
+
+	// Get the key we will use to store the state diff
+	key := []byte(strconv.FormatInt(stateDiff.BlockNumber, 10))
+	// Marshal the state diff
+	value, err := json.Marshal(stateDiff)
 	if err != nil {
-		panic(any(fmt.Errorf("%w: %s", MarshalError, err)))
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
 
-	// Store the latest block sync
-	err = m.database.Put(latestBlockInfoFetched, value)
+	// Store the stateDiff key using a blockHash
+	key2 := append(stateDiffPrefix, []byte(blockHash)...)
+	err = m.database.Put(key2, key)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
+	}
+
+	// Store the state diff
+	err = m.database.Put(key, value)
 	if err != nil {
 		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
 }
 
-// GetLatestBlockInfoFetched returns the block number of the latest block used to fetch information
-func (m *Manager) GetLatestBlockInfoFetched() int64 {
+// GetStateDiff returns the state diff for the given block.
+func (m *Manager) GetStateDiff(blockNumber int64) *types.StateDiff {
+
+	// Get the key we will use to fetch the state diff
+	key := []byte(strconv.FormatInt(blockNumber, 10))
 	// Query to database
-	data, err := m.database.Get(latestBlockInfoFetched)
+	data, err := m.database.Get(key)
 	if err != nil {
 		if db.ErrNotFound == err {
-			return 0
+			return nil
 		}
 		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
 	if data == nil {
 		// notest
-		return 0
+		return nil
+	}
+	// Unmarshal the data from database
+	stateDiff := new(types.StateDiff)
+	if err := json.Unmarshal(data, stateDiff); err != nil {
+		// notest
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
+	}
+	return stateDiff
+}
+
+func (m *Manager) GetStateDiffFromHash(blockHash string) *types.StateDiff {
+	// Query to database
+	key := append(stateDiffPrefix, []byte(blockHash)...)
+	data, err := m.database.Get(key)
+	if err != nil {
+		if db.ErrNotFound == err {
+			return nil
+		}
+		// notest
+		panic(any(fmt.Errorf("%w: %s", DbError, err)))
+	}
+	if data == nil {
+		// notest
+		return nil
 	}
 	// Unmarshal the data from database
 	blockNumber := new(int64)
@@ -171,7 +211,7 @@ func (m *Manager) GetLatestBlockInfoFetched() int64 {
 		// notest
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
-	return *blockNumber
+	return m.GetStateDiff(*blockNumber)
 }
 
 // Close closes the Manager.

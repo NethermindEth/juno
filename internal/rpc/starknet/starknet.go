@@ -3,6 +3,7 @@ package starknet
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/services"
 
@@ -50,8 +51,17 @@ type GetStateUpdateP struct {
 }
 
 func (s *StarkNetRpc) GetStateUpdate(ctx context.Context, params *GetStateUpdateP) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	hash, ok := params.BlockId.hash()
+	if ok {
+		return services.SyncService.GetStateDiffFromHash(hash.Hex()), nil
+	}
+
+	number, ok := params.BlockId.number()
+	if ok {
+		return services.SyncService.GetStateDiff(int64(number)), nil
+	}
+
+	return nil, nil
 }
 
 type GetStorageAtP struct {
@@ -183,11 +193,11 @@ func (s *StarkNetRpc) GetClassHashAt(ctx context.Context, params *GetClassHashAt
 	return nil, errors.New("not implemented")
 }
 
-type GetBlockTrnasactionCountP struct {
+type GetBlockTransactionCountP struct {
 	BlockId *BlockId `json:"block_id"`
 }
 
-func (s *StarkNetRpc) GetBlockTransactionCount(ctx context.Context, params *GetBlockTrnasactionCountP) (any, error) {
+func (s *StarkNetRpc) GetBlockTransactionCount(ctx context.Context, params *GetBlockTransactionCountP) (any, error) {
 	block, err := getBlockById(params.BlockId)
 	if err != nil {
 		return nil, err
@@ -233,27 +243,31 @@ func (s *StarkNetRpc) EstimateFee(ctx context.Context, param *EstimateFeeP) (any
 }
 
 func (s *StarkNetRpc) BlockNumber(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	bNumber, _ := services.SyncService.LatestBlockSynced()
+	return bNumber, nil
 }
 
-func (s *StarkNetRpc) BlockHashAndNuber(ctx context.Context) (any, error) {
+func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 	type Response struct {
-		BlockHash   *felt.Felt `json:"block_hash"`
-		BlockNumber uint64     `json:"block_number"`
+		BlockHash   string `json:"block_hash"`
+		BlockNumber int64  `json:"block_number"`
 	}
-	// TODO: implement
-	return nil, errors.New("not implemented")
+
+	bNumber, bHash := services.SyncService.LatestBlockSynced()
+
+	return Response{
+		BlockHash:   bHash,
+		BlockNumber: bNumber,
+	}, nil
 }
 
-func (s *StarkNetRpc) ChainId(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+func (s *StarkNetRpc) ChainId(ctx context.Context) (string, error) {
+	chainId := services.SyncService.ChainID()
+	return fmt.Sprintf("%x", chainId), nil
 }
 
 func (s *StarkNetRpc) PendingTransactions(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	return services.SyncService.GetPendingBlock().Transactions, nil
 }
 
 func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
@@ -262,6 +276,8 @@ func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
 }
 
 func (s *StarkNetRpc) Syncing(ctx context.Context) (any, error) {
-	// TODO: implement
-	return 0, nil // errors.New("not implemented")
+	if services.SyncService.Running() {
+		return services.SyncService.Status(), nil
+	}
+	return false, nil
 }
