@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/pkg/feeder"
 
 	starknetTypes "github.com/NethermindEth/juno/pkg/types"
 )
@@ -14,8 +15,10 @@ type StateDiffCollector interface {
 	GetChannel() chan *starknetTypes.StateDiff
 	// Close closes the collection of StateDiff.
 	Close(ctx context.Context)
-	// GetLatestBlockOnChain returns the last block to be collected by the StateDiffCollector.
-	GetLatestBlockOnChain() int64
 	// IsSynced returns true if we are Synced
 	IsSynced() bool
+	// LatestBlock returns the last block of StarkNet
+	LatestBlock() *feeder.StarknetBlock
+	// PendingBlock returns the pending block of StarkNet
+	PendingBlock() *feeder.StarknetBlock
 }

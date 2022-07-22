@@ -25,9 +25,13 @@ type apiCollector struct {
 	chainID int
 	// buffer represent the channel of StateDiff collected
 	buffer chan *types.StateDiff
-	// latestBlockOnChain is the last block on chain that need to be collected
-	latestBlockOnChain int64
-	// Synced is the flag that indicate if the collector is synced
+
+	// latestBlock is the last block of StarkNet
+	latestBlock *feeder.StarknetBlock
+	// pendingBlock is the pending block of StarkNet
+	pendingBlock *feeder.StarknetBlock
+
+	// synced is the flag that indicate if the collector is synced
 	synced bool
 }
 
@@ -49,9 +53,14 @@ func (a *apiCollector) Run() error {
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
-		if latestStateDiffSynced >= a.latestBlockOnChain {
+		if a.latestBlock == nil {
+			time.Sleep(time.Second * 3)
+			continue
+		}
+		if latestStateDiffSynced >= int64(a.latestBlock.BlockNumber) {
 			a.synced = true
 			time.Sleep(time.Second * 3)
+			continue
 		}
 		var update *feeder.StateUpdateResponse
 		var err error
@@ -85,28 +94,40 @@ func (a *apiCollector) GetChannel() chan *types.StateDiff {
 
 // updateLatestBlockOnChain update the latest block on chain
 func (a *apiCollector) updateLatestBlockOnChain() {
-	a.latestBlockOnChain = a.fetchLatestBlockOnChain()
+	a.fetchLatestBlockOnChain()
 	for {
 		time.Sleep(time.Minute)
-		a.latestBlockOnChain = a.fetchLatestBlockOnChain()
+		a.fetchLatestBlockOnChain()
 	}
 }
 
 // fetchLatestBlockOnChain fetch the latest block on chain
-func (a *apiCollector) fetchLatestBlockOnChain() int64 {
+func (a *apiCollector) fetchLatestBlockOnChain() {
+
 	pendingBlock, err := a.client.GetBlock("", "pending")
 	if err != nil {
-		return 0
+		return
 	}
+	if a.pendingBlock != nil && pendingBlock.ParentBlockHash == a.pendingBlock.ParentBlockHash {
+		return
+	}
+
 	parentBlock, err := a.client.GetBlock(pendingBlock.ParentBlockHash, "")
 	if err != nil {
-		return 0
+		return
 	}
-	return int64(parentBlock.BlockNumber)
+
+	a.latestBlock = parentBlock
+	a.pendingBlock = pendingBlock
+
 }
 
-func (a *apiCollector) GetLatestBlockOnChain() int64 {
-	return a.latestBlockOnChain
+func (a *apiCollector) LatestBlock() *feeder.StarknetBlock {
+	return a.latestBlock
+}
+
+func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
+	return a.pendingBlock
 }
 
 func (a *apiCollector) IsSynced() bool {

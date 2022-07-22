@@ -116,7 +116,7 @@ func (s *syncService) Run() error {
 			continue
 		}
 		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Missing Blocks to fully Sync", s.stateDiffCollector.GetLatestBlockOnChain()-stateDiff.BlockNumber,
+			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
 			"Timer", time.Since(start)).
 			Info("Synced block")
 		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
@@ -136,11 +136,11 @@ func (s *syncService) Run() error {
 
 func (s *syncService) Status() *types.SyncStatus {
 	return &types.SyncStatus{
-		StartingBlockHash:   nil,
-		StartingBlockNumber: nil,
-		CurrentBlockHash:    nil,
+		StartingBlockHash:   s.startingBlockHash,
+		StartingBlockNumber: new(felt.Felt).SetInt64(s.startingBlockNumber),
+		CurrentBlockHash:    s.latestBlockHashSynced,
 		CurrentBlockNumber:  new(felt.Felt).SetInt64(s.latestBlockNumberSynced),
-		HighestBlockHash:    nil,
+		HighestBlockHash:    s.highestBlockHash,
 		HighestBlockNumber:  new(felt.Felt).SetInt64(s.manager.GetLatestBlockSync()),
 	}
 }
@@ -195,11 +195,11 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 }
 
 func (s *syncService) GetLatestBlockOnChain() int64 {
-	return s.stateDiffCollector.GetLatestBlockOnChain()
+	return int64(s.stateDiffCollector.LatestBlock().BlockNumber)
 }
 
 func (s *syncService) GetPendingBlock() *feeder.StarknetBlock {
-	return s.synchronizer.PendingBlock()
+	return s.stateDiffCollector.PendingBlock()
 }
 
 // setDefaults sets the default value for properties that are not set.

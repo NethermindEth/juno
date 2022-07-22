@@ -22,8 +22,6 @@ type Synchronizer struct {
 	stateDiffCollector StateDiffCollector
 	// latestBlockOnChain is the latest block on chain.
 	latestBlockOnChain int64
-
-	pendingBlock *feeder.StarknetBlock
 }
 
 func NewSynchronizer(syncManager *sync.Manager, stateManager state.StateManager, feederClient *feeder.Client,
@@ -52,10 +50,6 @@ func (s *Synchronizer) Run() {
 		currentBlock++
 
 	}
-}
-
-func (s *Synchronizer) PendingBlock() *feeder.StarknetBlock {
-	return s.pendingBlock
 }
 
 func (s *Synchronizer) updateBlock(blockNumber int64) error {
@@ -110,13 +104,7 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 func (s *Synchronizer) updateLatestBlockOnChain() {
 	for {
 		time.Sleep(time.Second * 1)
-		s.latestBlockOnChain = s.stateDiffCollector.GetLatestBlockOnChain()
-
-		pendingBlock, err := s.feederClient.GetBlock("", "pending")
-		if err != nil {
-			continue
-		}
-		s.pendingBlock = pendingBlock
+		s.latestBlockOnChain = int64(s.stateDiffCollector.LatestBlock().BlockNumber)
 	}
 }
 

@@ -45,8 +45,7 @@ type l1Collector struct {
 	latestBlockSynced int64
 	// buffer is the channel that will be used to collect the StateDiff.
 	buffer chan *types2.StateDiff
-	// latestBlockOnChain is the last block on chain that need to be collected
-	latestBlockOnChain int64
+
 	// starknetContractAddress is the address of the Starknet contract on Layer 1.
 	starknetContractAddress common.Address
 	// GpsVerifierContractAddress is the address of the GpsVerifier contract on Layer 1.
@@ -66,6 +65,11 @@ type l1Collector struct {
 	memoryPageHash *types2.Dictionary
 	gpsVerifier    *types2.Dictionary
 	facts          *types2.Dictionary
+
+	// latestBlock is the last block that was synced.
+	latestBlock *feeder.StarknetBlock
+	// pendingBlock is the block that is being synced.
+	pendingBlock *feeder.StarknetBlock
 }
 
 func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Client, chainID int) {
@@ -94,7 +98,11 @@ func (l *l1Collector) Run() error {
 
 	// start the buffer updater
 	for {
-		if l.latestBlockSynced >= l.latestBlockOnChain {
+		if l.latestBlock == nil {
+			time.Sleep(time.Second * 3)
+			continue
+		}
+		if l.latestBlockSynced >= int64(l.latestBlock.BlockNumber) {
 			time.Sleep(time.Second * 3)
 			continue
 		}
@@ -145,8 +153,12 @@ func (l *l1Collector) Close(context.Context) {
 	close(l.buffer)
 }
 
-func (l *l1Collector) GetLatestBlockOnChain() int64 {
-	return l.latestBlockOnChain
+func (l *l1Collector) LatestBlock() *feeder.StarknetBlock {
+	return l.latestBlock
+}
+
+func (l *l1Collector) PendingBlock() *feeder.StarknetBlock {
+	return l.pendingBlock
 }
 
 func (l *l1Collector) IsSynced() bool {
@@ -154,6 +166,7 @@ func (l *l1Collector) IsSynced() bool {
 }
 
 func (l *l1Collector) updateLatestBlockOnChain() {
+	go l.updatePendingBlock()
 	l.loadContractsAbi()
 	number, err := l.l1client.BlockNumber(context.Background())
 	if err != nil {
@@ -511,7 +524,32 @@ func (l *l1Collector) updateBlockOnChain(logStateUpdateData []byte) {
 	// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
 	sequenceNumber := event["blockNumber"].(*big.Int).Uint64()
 	// extract the block number from the log
-	l.latestBlockOnChain = int64(sequenceNumber)
+	latestBlockAcceptedOnL1, err := l.client.GetBlock("", strconv.FormatUint(sequenceNumber, 10))
+	if err != nil {
+		return
+	}
+
+	l.latestBlock = latestBlockAcceptedOnL1
+}
+
+func (l *l1Collector) updatePendingBlock() {
+	l.fetchPendingBlock()
+	for {
+		time.Sleep(time.Minute)
+
+	}
+}
+
+func (l *l1Collector) fetchPendingBlock() {
+	pendingBlock, err := l.client.GetBlock("", "pending")
+	if err != nil {
+		return
+	}
+	if l.pendingBlock != nil && pendingBlock.ParentBlockHash == l.pendingBlock.ParentBlockHash {
+		return
+	}
+
+	l.pendingBlock = pendingBlock
 }
 
 // parsePages converts an array of memory pages into a state diff that
