@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     if: github.event_name != 'push'
