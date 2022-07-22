@@ -26,7 +26,6 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-
 install-deps: | install-courtney install-gofumpt
 
 install-courtney:
@@ -52,6 +51,7 @@ tidy: ## add missing and remove unused modules
 
 format: ## run go formatter
 	gofumpt -l -w .
+	tidy
 
 format-check: ## check formatting
 	# assert `gofumpt -l` produces no output
