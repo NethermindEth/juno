@@ -1,58 +1,58 @@
 ---
-title: Welcome
+title: Quick Start
+slug: /
+hide_toc: false
 sidebar_position: 1
+pagination_next: null
 ---
 
-# Welcome to Juno
+This short guide shows you what Juno is and how to get started.
 
-Let's discover **Juno in less than 5 minutes**.
+## What do you get with Juno?
 
-## What You'll Need
+- `juno`: a StarkNet node.
+- `juno-cli`: commands to interact with the StarkNet network.
 
-- [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
-- _For Linux_: You will need to install `clang`:
+## Installation requirements
 
-```shell
-sudo apt -y install clang
-```
+- [Golang](https://go.dev/doc/install) version 1.18 to build and run the project will usually be everything you need.
 
-### Installing
+_Check [here](./download.mdx) for more information and OS specific instructions._
 
-After cloning the project,
+### Installing Juno from source
+
+Clone the project and install all dependencies:
 
 ```bash
 git clone https://github.com/NethermindEth/juno
+cd juno
+go get ./...
 ```
-
-You can install all the dependencies running the next command inside the project folder:
-
-```bash
-$ go get ./...
-```
-
 ## Running Juno
 
-### Compiling Directly
+_For more details on running the client, check [this page](./run/normal.mdx)._
 
-Compile Juno:
-
-```bash
-$ make compile
-```
-
-After compilation, you will have 2 commands inside the `build` folder of the project:
-
-- juno
-    - `juno` is the command that initialize the node
-- juno-cli
-    - `juno-cli` is the command that handle a set of different commands about the StarkNet ecosystem.
+To compile the tools (`juno` and `juno-cli`), simply run the `make compile` command within the project directory:
 
 ```bash
-$ make run
+make compile
 ```
 
-For more details on the configuration, check the [config description](./running/config.mdx). 
+You will then have 2 available commands, generated inside the `build` folder of the project:
+
+```bash
+./build/juno # To start the node
+./build/juno-cli # To explore the StarkNet network and its transactions
+```
 
 ### Using Docker
 
-If you prefer to use docker, you can follow [this](./running/docker.mdx) guide.
+To run the project inside a Docker container, read [here](./run/docker.mdx).
+
+## Example usage
+
+TODO: Would a user use make all to run Juno?
+
+<fontcolor:red>
+- How would a normal user want to use Juno? 
+- Somebody who just wanted to interact with the network?

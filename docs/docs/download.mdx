@@ -1,0 +1,41 @@
+---
+title: Download Juno
+sidebar_position: 2
+---
+💜
+Currently, we do not provide binaries for Juno, so you must use Golang to retrieve it.
+
+# Prerequisites
+
+- [Golang](https://go.dev/doc/install) version 1.18 for build and run the project.
+- If you are in Linux or Mac OS: You will need to install `clang`:
+
+## **Linux**
+```shell
+sudo apt -y install clang
+```
+
+## **Mac OS**
+```shell
+sudo apt -y install clang
+```
+
+## **Windows**
+```shell
+TODO windows deps?
+```
+
+# Installation
+
+The Juno package presents two different tools that are made available to users through Golang:
+
+```shell
+go install github.com/NethermindEth/juno/cmd/juno@latest
+```
+
+Install all dependencies running the following command:
+
+```shell
+$ go get ./...
+```
+
