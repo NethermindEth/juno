@@ -94,6 +94,15 @@ func init() {
 }
 
 func juno(_ *cobra.Command, _ []string) {
+	Logger.With(
+		"Database Path", config.Runtime.DbPath,
+		"Rpc Port", config.Runtime.RPC.Port,
+		"Rpc Enabled", config.Runtime.RPC.Enabled,
+		"Rest Port", config.Runtime.REST.Port,
+		"Rest Enabled", config.Runtime.REST.Enabled,
+		"Rest Prefix", config.Runtime.REST.Prefix,
+	).Info("Juno config values:")
+
 	setupInterruptHandler()
 	setupDatabaseManagers()
 	setupFeederGateway()
@@ -302,14 +311,5 @@ func initConfig() {
 	Logger.With(
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,
-	).Info("Logger values")
-
-	Logger.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
-	).Info("Config values.")
+	).Info("Logger settings:")
 }
