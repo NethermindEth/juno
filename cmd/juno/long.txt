@@ -1,0 +1,8 @@
+       _                    
+      | |                   
+      | |_   _ _ __   ___   
+  _   | | | | | '_ \ / _ \  
+ | |__| | |_| | | | | (_) | 
+  \____/ \__,_|_| |_|\___/  
+
+Juno is a Go implementation of a StarkNet full node client made with ❤️ by Nethermind.
