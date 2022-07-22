@@ -7,6 +7,7 @@ message Transaction {
   oneof tx {
     Deploy deploy = 2;
     InvokeFunction invoke = 3;
+    Declare declare = 4;
   }
 }
 
@@ -21,6 +22,15 @@ message InvokeFunction {
   repeated bytes callData = 4;
   repeated bytes signature = 5;
   bytes maxFee = 6;
+}
+
+message Declare {
+  bytes classHash = 1;
+  bytes senderAddress = 2;
+  bytes maxFee = 3;
+  repeated bytes signature = 4;
+  bytes nonce = 5;
+  bytes version = 6;
 }
 
 message TransactionReceipt {

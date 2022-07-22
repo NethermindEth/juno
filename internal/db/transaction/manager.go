@@ -132,6 +132,18 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 		}
 		return &out, nil
 	}
+	if tx := protoTx.GetDeclare(); tx != nil {
+		out := types.TransactionDeclare{
+			Hash:          new(felt.Felt).SetBytes(protoTx.Hash),
+			ClassHash:     new(felt.Felt).SetBytes(tx.ClassHash),
+			SenderAddress: new(felt.Felt).SetBytes(tx.SenderAddress),
+			MaxFee:        new(felt.Felt).SetBytes(tx.MaxFee),
+			Signature:     unmarshalFelts(tx.Signature),
+			Nonce:         new(felt.Felt).SetBytes(tx.Nonce),
+			Version:       new(felt.Felt).SetBytes(tx.Version),
+		}
+		return &out, nil
+	}
 	// notest
 	return nil, fmt.Errorf("unexpected transaction type")
 }
@@ -280,8 +292,8 @@ func unmarshalEvent(event *Event) types.Event {
 
 func marshalFelts(felts []*felt.Felt) [][]byte {
 	out := make([][]byte, len(felts))
-	for i, felt := range felts {
-		out[i] = felt.ByteSlice()
+	for i, f := range felts {
+		out[i] = f.ByteSlice()
 	}
 	return out
 }
