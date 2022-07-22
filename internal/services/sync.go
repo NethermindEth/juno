@@ -118,7 +118,11 @@ func (s *syncService) Run() error {
 			"Timer", time.Since(start)).
 			Info("Synced block")
 		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
+		if stateDiff.OldRoot.Hex() == "" {
+			stateDiff.OldRoot = new(felt.Felt).SetHex(s.manager.GetLatestStateRoot())
+		}
 		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
+		s.manager.StoreStateDiff(stateDiff)
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
@@ -189,6 +193,14 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 	}
 	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
 	return nil
+}
+
+func (s *syncService) GetStateDiff(blockNumber int64) *types.StateDiff {
+	return s.manager.GetStateDiff(blockNumber)
+}
+
+func (s *syncService) GetStateDiffFromHash(blockHash string) *types.StateDiff {
+	return s.manager.GetStateDiffFromHash(blockHash)
 }
 
 func (s *syncService) LatestBlockSynced() (int64, string) {

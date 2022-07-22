@@ -51,8 +51,17 @@ type GetStateUpdateP struct {
 }
 
 func (s *StarkNetRpc) GetStateUpdate(ctx context.Context, params *GetStateUpdateP) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	hash, ok := params.BlockId.hash()
+	if ok {
+		return services.SyncService.GetStateDiffFromHash(hash.Hex()), nil
+	}
+
+	number, ok := params.BlockId.number()
+	if ok {
+		return services.SyncService.GetStateDiff(int64(number)), nil
+	}
+
+	return nil, nil
 }
 
 type GetStorageAtP struct {
@@ -184,11 +193,11 @@ func (s *StarkNetRpc) GetClassHashAt(ctx context.Context, params *GetClassHashAt
 	return nil, errors.New("not implemented")
 }
 
-type GetBlockTrnasactionCountP struct {
+type GetBlockTransactionCountP struct {
 	BlockId *BlockId `json:"block_id"`
 }
 
-func (s *StarkNetRpc) GetBlockTransactionCount(ctx context.Context, params *GetBlockTrnasactionCountP) (any, error) {
+func (s *StarkNetRpc) GetBlockTransactionCount(ctx context.Context, params *GetBlockTransactionCountP) (any, error) {
 	block, err := getBlockById(params.BlockId)
 	if err != nil {
 		return nil, err
