@@ -1,4 +1,5 @@
 name: Compilation Success
+
 on:
   push:
     branches:
@@ -8,7 +9,6 @@ on:
 
 jobs:
   build:
-    name : Compile Juno
     runs-on: ubuntu-latest
     strategy:
       matrix:
