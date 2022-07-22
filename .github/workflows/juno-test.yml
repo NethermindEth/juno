@@ -23,10 +23,8 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - name: Download dependencies
-        run: make install-deps
-      
-      # Install and run gofumpy
-      - name: Install gofumpt
+        run: make install-courtney
+      -name : Download gofumpt
         run: make install-gofumpt
       - name: Run gofumpt
         run: make format-check
