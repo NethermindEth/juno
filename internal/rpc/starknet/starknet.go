@@ -271,8 +271,7 @@ func (s *StarkNetRpc) PendingTransactions(ctx context.Context) (any, error) {
 }
 
 func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	return "0", nil
 }
 
 func (s *StarkNetRpc) Syncing(ctx context.Context) (any, error) {
