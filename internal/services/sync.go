@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -26,6 +27,8 @@ type syncService struct {
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
+	// l1Client represent the ethereum client
+	l1Client L1Client
 
 	// startingBlockNumber is the block number of the first block that we will sync.
 	startingBlockNumber int64
@@ -50,6 +53,9 @@ type syncService struct {
 	state state.State
 	// synchronizer is the synchronizer that will be used to sync all the information around the blocks
 	synchronizer *Synchronizer
+
+	// chainId represent the Chain ID of the node
+	chainId *big.Int
 }
 
 func SetupSync(feederClient *feeder.Client, l1client L1Client) {
@@ -58,18 +64,14 @@ func SetupSync(feederClient *feeder.Client, l1client L1Client) {
 		return
 	}
 	SyncService.feeder = feederClient
-	bigChainId, err := l1client.ChainID(context.Background())
-	if err != nil {
-		// notest
-		Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
-	}
-	chainId := int(bigChainId.Int64())
+	SyncService.l1Client = l1client
+	SyncService.setChainId()
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		NewApiCollector(SyncService.manager, SyncService.feeder, chainId)
+		NewApiCollector(SyncService.manager, SyncService.feeder, int(SyncService.chainId.Int64()))
 		SyncService.stateDiffCollector = APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, chainId)
+		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
 		SyncService.stateDiffCollector = L1Collector
 	}
 	SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
@@ -198,6 +200,10 @@ func (s *syncService) GetLatestBlockOnChain() int64 {
 	return int64(s.stateDiffCollector.LatestBlock().BlockNumber)
 }
 
+func (s *syncService) ChainID() *big.Int {
+	return s.chainId
+}
+
 func (s *syncService) GetPendingBlock() *feeder.StarknetBlock {
 	return s.stateDiffCollector.PendingBlock()
 }
@@ -242,4 +248,22 @@ func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.stateDiffCollector.Close(ctx)
 	s.manager.Close()
+}
+
+func (s *syncService) setChainId() {
+	if s.l1Client == nil {
+		// notest
+		if config.Runtime.Starknet.Network == "mainnet" {
+			s.chainId = new(big.Int).SetInt64(1)
+		} else {
+			s.chainId = new(big.Int).SetInt64(0)
+		}
+	} else {
+		var err error
+		s.chainId, err = s.l1Client.ChainID(context.Background())
+		if err != nil {
+			// notest
+			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
+		}
+	}
 }

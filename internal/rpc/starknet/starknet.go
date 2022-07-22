@@ -3,6 +3,7 @@ package starknet
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/services"
 
@@ -237,7 +238,7 @@ func (s *StarkNetRpc) BlockNumber(ctx context.Context) (any, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *StarkNetRpc) BlockHashAndNuber(ctx context.Context) (any, error) {
+func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 	type Response struct {
 		BlockHash   *felt.Felt `json:"block_hash"`
 		BlockNumber uint64     `json:"block_number"`
@@ -246,9 +247,9 @@ func (s *StarkNetRpc) BlockHashAndNuber(ctx context.Context) (any, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *StarkNetRpc) ChainId(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+func (s *StarkNetRpc) ChainId(ctx context.Context) (string, error) {
+	chainId := services.SyncService.ChainID()
+	return fmt.Sprintf("%x", chainId), nil
 }
 
 func (s *StarkNetRpc) PendingTransactions(ctx context.Context) (any, error) {
