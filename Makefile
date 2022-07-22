@@ -46,12 +46,9 @@ codecov-test:
 	courtney/courtney -v -o coverage/coverage.out ./...
 	@cd internal/db && $(MAKE) rm-notest
 
-tidy: ## add missing and remove unused modules
-	 go mod tidy
-
 format: ## run go formatter
 	gofumpt -l -w .
-	tidy
+	go mod tidy
 
 format-check: ## check formatting
 	# assert `gofumpt -l` produces no output
