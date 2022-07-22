@@ -4,10 +4,6 @@ on:
   push:
     branches: [main]
     
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   # On PR, attempt to build the docs normally
   test-docs-build:
