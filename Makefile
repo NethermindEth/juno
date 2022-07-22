@@ -16,26 +16,25 @@ generate: ## generate
 	@cd pkg/felt && go generate ./...
 
 test: ## tests
-	go test ./...
+	@go test ./...
 
 benchmarks: ## benchmarking
-	go test ./... -bench=.
+	@go test ./... -bench=.
 
 test-cover: ## tests with coverage
-	mkdir -p coverage
-	go test -coverprofile=coverage/coverage.out -covermode=count ./...
-	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+	@mkdir -p coverage
+	@go test -coverprofile=coverage/coverage.out -covermode=count ./...
+	@go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-courtey install-gofumpt ## install some project dependencies
+install-deps: | install-courtney install-gofumpt
 
-install-courtey:
+install-courtney:
 	# install courtney fork
-	git clone https://github.com/stdevMac/courtney
-	(cd courtney && go get  ./... && go build courtney.go)
-	go get ./...
+	@git clone https://github.com/stdevMac/courtney
+	@(cd courtney && go get  ./... && go build courtney.go)
+	@go get ./...
 
 install-gofumpt:
-	# install gofumpt
 	go install mvdan.cc/gofumpt@latest
 
 codecov-test:
@@ -44,11 +43,9 @@ codecov-test:
 	courtney/courtney -v -o coverage/coverage.out ./...
 	@cd internal/db && $(MAKE) rm-notest
 
-tidy: ## add missing and remove unused modules
-	 go mod tidy
-
 format: ## run go formatter
 	gofumpt -l -w .
+	go mod tidy
 
 format-check: ## check formatting
 	# assert `gofumpt -l` produces no output

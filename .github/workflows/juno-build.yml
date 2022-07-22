@@ -1,4 +1,5 @@
-name: Juno Static Checks
+name: Compilation Success
+
 on:
   push:
     branches:
@@ -12,17 +13,14 @@ jobs:
     strategy:
       matrix:
         go: [ '1.18' ]
-    name: Juno with Go ${{ matrix.go }}
+    name: Go  v${{ matrix.go }}
     steps:
+      - name: Set up Clang (local only)
+        if: ${{ env.ACT }}
+        run: sudo apt update && sudo apt -y install clang 
       - uses: actions/checkout@v3
       - name: Build Juno
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
       - run: make compile
-
-      - name: Install gofumpt
-        run: make install-gofumpt
-
-      - name: Run gofumpt
-        run: make format-check
