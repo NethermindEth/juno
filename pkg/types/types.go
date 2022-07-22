@@ -21,17 +21,17 @@ const (
 // SyncStatus is an object describing the node synchronization status
 type SyncStatus struct {
 	// StartingBlockHash is the hash of the block that the node started syncing from
-	StartingBlockHash *felt.Felt `json:"starting_block_hash"`
+	StartingBlockHash string `json:"starting_block_hash"`
 	// StartingBlockNumber is the number of the block that the node started syncing from
-	StartingBlockNumber *felt.Felt `json:"starting_block_number"`
+	StartingBlockNumber string `json:"starting_block_number"`
 	// CurrentBlockHash is the hash of the block that the node is currently syncing to
-	CurrentBlockHash *felt.Felt `json:"current_block_hash"`
+	CurrentBlockHash string `json:"current_block_hash"`
 	// CurrentBlockNumber is the number of the block that the node is currently syncing to
-	CurrentBlockNumber *felt.Felt `json:"current_block_number"`
+	CurrentBlockNumber string `json:"current_block_number"`
 	// HighestBlockHash is the hash of the block that the node is currently syncing to
-	HighestBlockHash *felt.Felt `json:"highest_block_hash"`
+	HighestBlockHash string `json:"highest_block_hash"`
 	// HighestBlockNumber is the number of the block that the node is currently syncing to
-	HighestBlockNumber *felt.Felt `json:"highest_block_number"`
+	HighestBlockNumber string `json:"highest_block_number"`
 }
 
 // MemoryCell represents a memory cell in Cairo

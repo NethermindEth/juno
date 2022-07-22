@@ -263,6 +263,8 @@ func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
 }
 
 func (s *StarkNetRpc) Syncing(ctx context.Context) (any, error) {
-	// TODO: implement
-	return 0, nil // errors.New("not implemented")
+	if services.SyncService.Running() {
+		return services.SyncService.Status(), nil
+	}
+	return false, nil
 }

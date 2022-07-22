@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 	"time"
@@ -138,12 +139,12 @@ func (s *syncService) Run() error {
 
 func (s *syncService) Status() *types.SyncStatus {
 	return &types.SyncStatus{
-		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: new(felt.Felt).SetInt64(s.startingBlockNumber),
-		CurrentBlockHash:    s.latestBlockHashSynced,
-		CurrentBlockNumber:  new(felt.Felt).SetInt64(s.latestBlockNumberSynced),
-		HighestBlockHash:    s.highestBlockHash,
-		HighestBlockNumber:  new(felt.Felt).SetInt64(s.manager.GetLatestBlockSync()),
+		StartingBlockHash:   s.startingBlockHash.Hex(),
+		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
+		CurrentBlockHash:    s.latestBlockHashSynced.Hex(),
+		CurrentBlockNumber:  fmt.Sprintf("%x", s.latestBlockNumberSynced),
+		HighestBlockHash:    s.highestBlockHash.Hex(),
+		HighestBlockNumber:  fmt.Sprintf("%x", s.manager.GetLatestBlockSync()),
 	}
 }
 
