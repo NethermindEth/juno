@@ -234,17 +234,22 @@ func (s *StarkNetRpc) EstimateFee(ctx context.Context, param *EstimateFeeP) (any
 }
 
 func (s *StarkNetRpc) BlockNumber(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	bNumber, _ := services.SyncService.LatestBlockSynced()
+	return bNumber, nil
 }
 
 func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 	type Response struct {
-		BlockHash   *felt.Felt `json:"block_hash"`
-		BlockNumber uint64     `json:"block_number"`
+		BlockHash   string `json:"block_hash"`
+		BlockNumber int64  `json:"block_number"`
 	}
-	// TODO: implement
-	return nil, errors.New("not implemented")
+
+	bNumber, bHash := services.SyncService.LatestBlockSynced()
+
+	return Response{
+		BlockHash:   bHash,
+		BlockNumber: bNumber,
+	}, nil
 }
 
 func (s *StarkNetRpc) ChainId(ctx context.Context) (string, error) {
@@ -253,8 +258,7 @@ func (s *StarkNetRpc) ChainId(ctx context.Context) (string, error) {
 }
 
 func (s *StarkNetRpc) PendingTransactions(ctx context.Context) (any, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	return services.SyncService.GetPendingBlock().Transactions, nil
 }
 
 func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {

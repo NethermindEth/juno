@@ -197,6 +197,10 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 	return nil
 }
 
+func (s *syncService) LatestBlockSynced() (int64, string) {
+	return s.latestBlockNumberSynced, s.latestBlockHashSynced.Hex()
+}
+
 func (s *syncService) GetLatestBlockOnChain() int64 {
 	return int64(s.stateDiffCollector.LatestBlock().BlockNumber)
 }
