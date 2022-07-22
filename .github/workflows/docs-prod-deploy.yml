@@ -9,8 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    if: github.event_name != 'push'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -30,7 +29,7 @@ jobs:
           fi
           npm run build
   gh-release:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && {{ !env.ACT }}
     runs-on: ubuntu-latest
     environment: 
       name: production
