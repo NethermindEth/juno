@@ -51,17 +51,17 @@ type GetStateUpdateP struct {
 }
 
 func (s *StarkNetRpc) GetStateUpdate(ctx context.Context, params *GetStateUpdateP) (any, error) {
-	hash, ok := params.BlockId.hash()
-	if ok {
+	switch params.BlockId.idType {
+	case blockIdHash:
+		hash, _ := params.BlockId.hash()
 		return services.SyncService.GetStateDiffFromHash(hash.Hex()), nil
-	}
-
-	number, ok := params.BlockId.number()
-	if ok {
+	case blockIdNumber:
+		number, _ := params.BlockId.number()
 		return services.SyncService.GetStateDiff(int64(number)), nil
+	default:
+		// TODO: manage unexpected type
+		return nil, nil
 	}
-
-	return nil, nil
 }
 
 type GetStorageAtP struct {
