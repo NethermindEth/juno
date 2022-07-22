@@ -51,47 +51,29 @@ var (
 	}
 )
 
-// notest
-// notest
-// notest
 func (x Status) Enum() *Status {
 	p := new(Status)
 	*p = x
 	return p
 }
 
-// notest
-// notest
-// notest
 func (x Status) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-// notest
-// notest
-// notest
 func (Status) Descriptor() protoreflect.EnumDescriptor {
 	return file_transaction_proto_enumTypes[0].Descriptor()
 }
 
-// notest
-// notest
-// notest
 func (Status) Type() protoreflect.EnumType {
 	return &file_transaction_proto_enumTypes[0]
 }
 
-// notest
-// notest
-// notest
 func (x Status) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
 // Deprecated: Use Status.Descriptor instead.
-// notest
-// notest
-// notest
 func (Status) EnumDescriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{0}
 }
@@ -108,9 +90,6 @@ type Transaction struct {
 	Tx isTransaction_Tx `protobuf_oneof:"tx"`
 }
 
-// notest
-// notest
-// notest
 func (x *Transaction) Reset() {
 	*x = Transaction{}
 	if protoimpl.UnsafeEnabled {
@@ -120,21 +99,12 @@ func (x *Transaction) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *Transaction) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*Transaction) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *Transaction) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -148,16 +118,10 @@ func (x *Transaction) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Transaction.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*Transaction) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{0}
 }
 
-// notest
-// notest
-// notest
 func (x *Transaction) GetHash() []byte {
 	if x != nil {
 		return x.Hash
@@ -165,9 +129,6 @@ func (x *Transaction) GetHash() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (m *Transaction) GetTx() isTransaction_Tx {
 	if m != nil {
 		return m.Tx
@@ -175,9 +136,6 @@ func (m *Transaction) GetTx() isTransaction_Tx {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *Transaction) GetDeploy() *Deploy {
 	if x, ok := x.GetTx().(*Transaction_Deploy); ok {
 		return x.Deploy
@@ -185,9 +143,6 @@ func (x *Transaction) GetDeploy() *Deploy {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *Transaction) GetInvoke() *InvokeFunction {
 	if x, ok := x.GetTx().(*Transaction_Invoke); ok {
 		return x.Invoke
@@ -207,14 +162,8 @@ type Transaction_Invoke struct {
 	Invoke *InvokeFunction `protobuf:"bytes,3,opt,name=invoke,proto3,oneof"`
 }
 
-// notest
-// notest
-// notest
 func (*Transaction_Deploy) isTransaction_Tx() {}
 
-// notest
-// notest
-// notest
 func (*Transaction_Invoke) isTransaction_Tx() {}
 
 type Deploy struct {
@@ -226,9 +175,6 @@ type Deploy struct {
 	ConstructorCallData [][]byte `protobuf:"bytes,2,rep,name=constructorCallData,proto3" json:"constructorCallData,omitempty"`
 }
 
-// notest
-// notest
-// notest
 func (x *Deploy) Reset() {
 	*x = Deploy{}
 	if protoimpl.UnsafeEnabled {
@@ -238,21 +184,12 @@ func (x *Deploy) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *Deploy) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*Deploy) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *Deploy) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -266,16 +203,10 @@ func (x *Deploy) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Deploy.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*Deploy) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{1}
 }
 
-// notest
-// notest
-// notest
 func (x *Deploy) GetContractAddressSalt() []byte {
 	if x != nil {
 		return x.ContractAddressSalt
@@ -283,9 +214,6 @@ func (x *Deploy) GetContractAddressSalt() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *Deploy) GetConstructorCallData() [][]byte {
 	if x != nil {
 		return x.ConstructorCallData
@@ -305,9 +233,6 @@ type InvokeFunction struct {
 	MaxFee             []byte   `protobuf:"bytes,6,opt,name=maxFee,proto3" json:"maxFee,omitempty"`
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) Reset() {
 	*x = InvokeFunction{}
 	if protoimpl.UnsafeEnabled {
@@ -317,21 +242,12 @@ func (x *InvokeFunction) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*InvokeFunction) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -345,16 +261,10 @@ func (x *InvokeFunction) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use InvokeFunction.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*InvokeFunction) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{2}
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) GetContractAddress() []byte {
 	if x != nil {
 		return x.ContractAddress
@@ -362,9 +272,6 @@ func (x *InvokeFunction) GetContractAddress() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) GetEntryPointSelector() []byte {
 	if x != nil {
 		return x.EntryPointSelector
@@ -372,9 +279,6 @@ func (x *InvokeFunction) GetEntryPointSelector() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) GetCallData() [][]byte {
 	if x != nil {
 		return x.CallData
@@ -382,9 +286,6 @@ func (x *InvokeFunction) GetCallData() [][]byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) GetSignature() [][]byte {
 	if x != nil {
 		return x.Signature
@@ -392,9 +293,6 @@ func (x *InvokeFunction) GetSignature() [][]byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *InvokeFunction) GetMaxFee() []byte {
 	if x != nil {
 		return x.MaxFee
@@ -416,9 +314,6 @@ type TransactionReceipt struct {
 	Events          []*Event       `protobuf:"bytes,7,rep,name=events,proto3" json:"events,omitempty"`
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) Reset() {
 	*x = TransactionReceipt{}
 	if protoimpl.UnsafeEnabled {
@@ -428,21 +323,12 @@ func (x *TransactionReceipt) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*TransactionReceipt) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -456,16 +342,10 @@ func (x *TransactionReceipt) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use TransactionReceipt.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*TransactionReceipt) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{3}
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetTxHash() []byte {
 	if x != nil {
 		return x.TxHash
@@ -473,9 +353,6 @@ func (x *TransactionReceipt) GetTxHash() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetActualFee() []byte {
 	if x != nil {
 		return x.ActualFee
@@ -483,9 +360,6 @@ func (x *TransactionReceipt) GetActualFee() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetStatus() Status {
 	if x != nil {
 		return x.Status
@@ -493,9 +367,6 @@ func (x *TransactionReceipt) GetStatus() Status {
 	return Status_UNKNOWN
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetStatusData() string {
 	if x != nil {
 		return x.StatusData
@@ -503,9 +374,6 @@ func (x *TransactionReceipt) GetStatusData() string {
 	return ""
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetMessagesSent() []*MessageToL1 {
 	if x != nil {
 		return x.MessagesSent
@@ -513,9 +381,6 @@ func (x *TransactionReceipt) GetMessagesSent() []*MessageToL1 {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetL1OriginMessage() *MessageToL2 {
 	if x != nil {
 		return x.L1OriginMessage
@@ -523,9 +388,6 @@ func (x *TransactionReceipt) GetL1OriginMessage() *MessageToL2 {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *TransactionReceipt) GetEvents() []*Event {
 	if x != nil {
 		return x.Events
@@ -542,9 +404,6 @@ type MessageToL1 struct {
 	Payload   [][]byte `protobuf:"bytes,2,rep,name=payload,proto3" json:"payload,omitempty"`
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL1) Reset() {
 	*x = MessageToL1{}
 	if protoimpl.UnsafeEnabled {
@@ -554,21 +413,12 @@ func (x *MessageToL1) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL1) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*MessageToL1) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *MessageToL1) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -582,16 +432,10 @@ func (x *MessageToL1) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use MessageToL1.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*MessageToL1) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{4}
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL1) GetToAddress() []byte {
 	if x != nil {
 		return x.ToAddress
@@ -599,9 +443,6 @@ func (x *MessageToL1) GetToAddress() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL1) GetPayload() [][]byte {
 	if x != nil {
 		return x.Payload
@@ -618,9 +459,6 @@ type MessageToL2 struct {
 	Payload     [][]byte `protobuf:"bytes,2,rep,name=payload,proto3" json:"payload,omitempty"`
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL2) Reset() {
 	*x = MessageToL2{}
 	if protoimpl.UnsafeEnabled {
@@ -630,21 +468,12 @@ func (x *MessageToL2) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL2) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*MessageToL2) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *MessageToL2) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -658,16 +487,10 @@ func (x *MessageToL2) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use MessageToL2.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*MessageToL2) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{5}
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL2) GetFromAddress() []byte {
 	if x != nil {
 		return x.FromAddress
@@ -675,9 +498,6 @@ func (x *MessageToL2) GetFromAddress() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *MessageToL2) GetPayload() [][]byte {
 	if x != nil {
 		return x.Payload
@@ -695,9 +515,6 @@ type Event struct {
 	Data        [][]byte `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty"`
 }
 
-// notest
-// notest
-// notest
 func (x *Event) Reset() {
 	*x = Event{}
 	if protoimpl.UnsafeEnabled {
@@ -707,21 +524,12 @@ func (x *Event) Reset() {
 	}
 }
 
-// notest
-// notest
-// notest
 func (x *Event) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
-// notest
-// notest
 func (*Event) ProtoMessage() {}
 
-// notest
-// notest
-// notest
 func (x *Event) ProtoReflect() protoreflect.Message {
 	mi := &file_transaction_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -735,16 +543,10 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
-// notest
-// notest
-// notest
 func (*Event) Descriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{6}
 }
 
-// notest
-// notest
-// notest
 func (x *Event) GetFromAddress() []byte {
 	if x != nil {
 		return x.FromAddress
@@ -752,9 +554,6 @@ func (x *Event) GetFromAddress() []byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *Event) GetKeys() [][]byte {
 	if x != nil {
 		return x.Keys
@@ -762,9 +561,6 @@ func (x *Event) GetKeys() [][]byte {
 	return nil
 }
 
-// notest
-// notest
-// notest
 func (x *Event) GetData() [][]byte {
 	if x != nil {
 		return x.Data
@@ -852,13 +648,7 @@ var (
 	file_transaction_proto_rawDescData = file_transaction_proto_rawDesc
 )
 
-// notest
-// notest
-// notest
 func file_transaction_proto_rawDescGZIP() []byte {
-// notest
-// notest
-// notest
 	file_transaction_proto_rawDescOnce.Do(func() {
 		file_transaction_proto_rawDescData = protoimpl.X.CompressGZIP(file_transaction_proto_rawDescData)
 	})
@@ -891,21 +681,12 @@ var file_transaction_proto_depIdxs = []int32{
 	0, // [0:6] is the sub-list for field type_name
 }
 
-// notest
-// notest
-// notest
 func init() { file_transaction_proto_init() }
-// notest
-// notest
-// notest
 func file_transaction_proto_init() {
 	if File_transaction_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Transaction); i {
 			case 0:
@@ -918,9 +699,6 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Deploy); i {
 			case 0:
@@ -933,9 +711,6 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*InvokeFunction); i {
 			case 0:
@@ -948,9 +723,6 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TransactionReceipt); i {
 			case 0:
@@ -963,9 +735,6 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MessageToL1); i {
 			case 0:
@@ -978,9 +747,6 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MessageToL2); i {
 			case 0:
@@ -993,9 +759,6 @@ func file_transaction_proto_init() {
 				return nil
 			}
 		}
-// notest
-// notest
-// notest
 		file_transaction_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Event); i {
 			case 0:
