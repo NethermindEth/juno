@@ -23,11 +23,6 @@ type ErrResponse struct {
 // starkErr ErrResponse.Message == msg, otherwise a generic error is
 // returned.
 func clientErr(w http.ResponseWriter, code int, starkErr, msg string) {
-	// XXX: Client error currently defaults to a
-	// "StarkErrorCode.MALFORMED_REQUEST" error code but the feeder tends
-	// return more informative codes as well such as the indication of an
-	// out of bounds error so that could also serve as an input to this
-	// function.
 	var res *ErrResponse
 	switch {
 	case msg != "":
@@ -61,7 +56,12 @@ func notImplementedErr(w http.ResponseWriter) {
 // serverErr sets a 500 Internal Server Error header and then serves a
 // JSON formatted client error.
 func serverErr(w http.ResponseWriter, err error) {
-	Logger.Error(debug.Stack())
+	// XXX: The server will print a stack trace when a panic occurs but in
+	// an unstructured manner. I suspect this is because the the zap
+	// logger cannot be used as a http.Server.ErrorLog. An alternative
+	// could involve instantiating the logger with a log.Logger that
+	// outputs to io.Discard 🤔.
+	Logger.Errorf("%s", debug.Stack())
 
 	res := &ErrResponse{
 		Code:     strconv.Itoa(http.StatusInternalServerError),

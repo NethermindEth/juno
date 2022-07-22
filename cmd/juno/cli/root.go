@@ -53,7 +53,7 @@ var (
 
 	rpcServer     *rpc.Server
 	metricsServer *metric.Server
-	restServer    *rest.Server
+	restServer    *gateway.Server
 
 	feederGatewayClient *feeder.Client
 
@@ -144,8 +144,11 @@ func setupServers() {
 	}
 
 	if config.Runtime.REST.Enabled {
-		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
-			config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+		restServer = gateway.New(
+			":"+strconv.Itoa(config.Runtime.REST.Port),
+			blockManager,
+			transactionManager,
+		)
 	}
 }
 
@@ -300,11 +303,9 @@ func initConfig() {
 
 	Logger.With(
 		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		// TODO: Is this required?
-		// "Rest Prefix", config.Runtime.REST.Prefix,
+		"RPC Port", config.Runtime.RPC.Port,
+		"RPC Enabled", config.Runtime.RPC.Enabled,
+		"REST Port", config.Runtime.REST.Port,
+		"REST Enabled", config.Runtime.REST.Enabled,
 	).Info("Config values.")
 }
