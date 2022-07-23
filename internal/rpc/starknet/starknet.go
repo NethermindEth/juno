@@ -257,7 +257,7 @@ func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 	}, nil
 }
 
-func (s *StarkNetRpc) ChainId(ctx context.Context) (string, error) {
+func (s *StarkNetRpc) ChainId(ctx context.Context) (any, error) {
 	chainId := services.SyncService.ChainID()
 	return fmt.Sprintf("%x", chainId), nil
 }
