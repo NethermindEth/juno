@@ -34,7 +34,7 @@ type syncService struct {
 	// startingBlockNumber is the block number of the first block that we will sync.
 	startingBlockNumber int64
 	// startingBlockHash is the hash of the first block that we will sync.
-	startingBlockHash *felt.Felt
+	startingBlockHash string
 
 	// latestBlockNumberSynced is the last block that was synced.
 	latestBlockNumberSynced int64
@@ -122,13 +122,13 @@ func (s *syncService) Run() error {
 			stateDiff.OldRoot = new(felt.Felt).SetHex(s.manager.GetLatestStateRoot())
 		}
 		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
-		s.manager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex())
+		s.manager.StoreStateDiff(stateDiff, "0x"+s.latestBlockHashSynced.Hex())
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
-		if s.startingBlockHash == nil {
-			s.startingBlockNumber = s.latestBlockNumberSynced
-			s.startingBlockHash = s.latestBlockHashSynced
+		if s.startingBlockHash == "" {
+			s.startingBlockNumber = stateDiff.BlockNumber
+			s.startingBlockHash = "0x" + s.latestBlockHashSynced.Hex()
 		}
 
 	}
@@ -137,12 +137,12 @@ func (s *syncService) Run() error {
 
 func (s *syncService) Status() *types.SyncStatus {
 	return &types.SyncStatus{
-		StartingBlockHash:   s.startingBlockHash.Hex(),
+		StartingBlockHash:   s.startingBlockHash,
 		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
-		CurrentBlockHash:    s.latestBlockHashSynced.Hex(),
+		CurrentBlockHash:    "0x" + s.latestBlockHashSynced.Hex(),
 		CurrentBlockNumber:  fmt.Sprintf("%x", s.latestBlockNumberSynced),
-		HighestBlockHash:    s.highestBlockHash.Hex(),
-		HighestBlockNumber:  fmt.Sprintf("%x", s.manager.GetLatestBlockSync()),
+		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
+		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
 	}
 }
 
@@ -204,7 +204,7 @@ func (s *syncService) GetStateDiffFromHash(blockHash string) *types.StateDiff {
 }
 
 func (s *syncService) LatestBlockSynced() (int64, string) {
-	return s.latestBlockNumberSynced, s.latestBlockHashSynced.Hex()
+	return s.latestBlockNumberSynced, "0x" + s.latestBlockHashSynced.Hex()
 }
 
 func (s *syncService) GetLatestBlockOnChain() int64 {

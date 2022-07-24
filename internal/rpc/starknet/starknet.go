@@ -51,6 +51,9 @@ type GetStateUpdateP struct {
 }
 
 func (s *StarkNetRpc) GetStateUpdate(ctx context.Context, params *GetStateUpdateP) (any, error) {
+	if params.BlockId == nil {
+		return nil, nil
+	}
 	switch params.BlockId.idType {
 	case blockIdHash:
 		hash, _ := params.BlockId.hash()
