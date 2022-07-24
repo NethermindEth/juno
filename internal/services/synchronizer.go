@@ -110,7 +110,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 		calldata = append(calldata, new(felt.Felt).SetHex(data))
 	}
 
-	if info.Transaction.Type == "INVOKE" {
+	if info.Transaction.Type == "INVOKE_FUNCTION" {
 		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, new(felt.Felt).SetHex(data))
@@ -122,6 +122,23 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			CallData:           calldata,
 			Signature:          signature,
 			MaxFee:             new(felt.Felt),
+		}
+	}
+
+	if info.Transaction.Type == "DECLARE" {
+
+		signature := make([]*felt.Felt, 0)
+		for _, data := range info.Transaction.Signature {
+			signature = append(signature, new(felt.Felt).SetHex(data))
+		}
+		return &types.TransactionDeclare{
+			Hash:          new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ClassHash:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			SenderAddress: new(felt.Felt).SetHex(info.Transaction.SenderAddress),
+			MaxFee:        new(felt.Felt).SetHex(info.Transaction.MaxFee),
+			Signature:     signature,
+			Nonce:         new(felt.Felt).SetHex(info.Transaction.Nonce),
+			Version:       new(felt.Felt).SetHex(info.Transaction.Version),
 		}
 	}
 

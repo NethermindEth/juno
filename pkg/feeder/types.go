@@ -86,21 +86,13 @@ type InvokeFunction struct {
 	MaxFee string `json:"max_fee"`
 }
 
-// TransactionType returns the TxnType related to InvokeFunction
-func (i InvokeFunction) TransactionType() TxnType {
-	return Invoke
-}
-
-// XXX: Document.
-// CalculateHash returns the hash of the tra
-func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
-	// TODO: implement this
-	return Hash(config.ChainID)
-}
-
 // TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
 	ContractAddress    string   `json:"contract_address"`
+	ClassHash          string   `json:"class_hash"`
+	Nonce              string   `json:"nonce"`
+	SenderAddress      string   `json:"sender_address"`
+	Version            string   `json:"version"`
 	EntryPointSelector string   `json:"entry_point_selector"`
 	EntryPointType     string   `json:"entry_point_type"`
 	Calldata           []string `json:"calldata"`
