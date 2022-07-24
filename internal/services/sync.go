@@ -203,8 +203,8 @@ func (s *syncService) GetStateDiffFromHash(blockHash string) *types.StateDiff {
 	return s.manager.GetStateDiffFromHash(blockHash)
 }
 
-func (s *syncService) LatestBlockSynced() (int64, string) {
-	return s.latestBlockNumberSynced, "0x" + s.latestBlockHashSynced.Hex()
+func (s *syncService) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
+	return s.latestBlockNumberSynced, s.latestBlockHashSynced
 }
 
 func (s *syncService) GetLatestBlockOnChain() int64 {

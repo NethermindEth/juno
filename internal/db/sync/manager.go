@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/pkg/types"
 	"strconv"
+
+	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
 )
@@ -140,7 +141,6 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 
 // StoreStateDiff stores the state diff for the given block.
 func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash string) {
-
 	// Get the key we will use to store the state diff
 	key := []byte(strconv.FormatInt(stateDiff.BlockNumber, 10))
 	// Marshal the state diff
@@ -165,7 +165,6 @@ func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash string) {
 
 // GetStateDiff returns the state diff for the given block.
 func (m *Manager) GetStateDiff(blockNumber int64) *types.StateDiff {
-
 	// Get the key we will use to fetch the state diff
 	key := []byte(strconv.FormatInt(blockNumber, 10))
 	// Query to database

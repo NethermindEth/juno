@@ -174,8 +174,15 @@ func (s *StarkNetRpc) GetClass(ctx context.Context, params *GetClassP) (any, err
 		return nil, NewInvalidContractClassHash()
 	}
 	_ = new(felt.Felt).SetHex(params.ClassHash)
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	_, latestBlockHash := services.SyncService.LatestBlockSynced()
+	latestBlock, err := services.BlockService.GetBlockByHash(latestBlockHash)
+	if err != nil {
+		// TODO: manage unexpeceted error
+		return nil, errors.New("unexpected error")
+	}
+	_ = state.New(s.stateManager, latestBlock.NewRoot)
+	// TODO: implement class service
+	return nil, errors.New("unimplemented")
 }
 
 type GetClassHashAtP struct {
@@ -188,6 +195,12 @@ func (s *StarkNetRpc) GetClassHashAt(ctx context.Context, params *GetClassHashAt
 		return nil, NewContractNotFound()
 	}
 	_ = new(felt.Felt).SetHex(params.Address)
+	block, err := getBlockById(params.BlockId)
+	if err != nil {
+		return nil, err
+	}
+	_ = state.New(s.stateManager, block.NewRoot)
+	// TODO: add GetClassHash to the state
 	// TODO: implement
 	return nil, errors.New("not implemented")
 }
@@ -255,7 +268,7 @@ func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 	bNumber, bHash := services.SyncService.LatestBlockSynced()
 
 	return Response{
-		BlockHash:   bHash,
+		BlockHash:   bHash.Hex(),
 		BlockNumber: bNumber,
 	}, nil
 }
