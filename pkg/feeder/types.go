@@ -144,11 +144,11 @@ type TransactionExecution struct {
 	// L2-to-L1 messages.
 	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages"`
 	// L1-to-L2 messages.
-	L1ToL2Message `json:"l1_to_l2_consumed_message"`
+	L1ToL2Message L1ToL2Message `json:"l1_to_l2_consumed_message"`
 	// Events emitted during the execution of the transaction.
 	Events []Event `json:"events"`
 	// The resources needed by the transaction.
-	ExecutionResources `json:"execution_resources"`
+	ExecutionResources ExecutionResources `json:"execution_resources"`
 	// Fee paid for executing the transaction.
 	ActualFee string `json:"actual_fee"`
 }
