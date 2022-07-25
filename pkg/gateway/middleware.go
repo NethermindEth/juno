@@ -14,9 +14,8 @@ func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Prevent CWE-117 log injection attack. See the following for
 		// details https://cwe.mitre.org/data/definitions/117.html.
-		uri := fmt.Sprintf("%s", r.URL.RequestURI())
-		escURI := strings.Replace(strings.Replace(uri, "\n", "", -1), "\r", "", -1)
-		Logger.With("protocol", r.Proto, "method", r.Method, "uri", escURI).Info("API request")
+		escURI := strings.ReplaceAll(strings.ReplaceAll(r.URL.RequestURI(), "\n", ""), "\r", "")
+		Logger.With("protocol", r.Proto, "method", r.Method, "uri", escURI).Info("API request.")
 
 		next.ServeHTTP(w, r)
 	})
@@ -32,6 +31,7 @@ func recoverPanic(next http.Handler) http.Handler {
 				serverErr(w, fmt.Errorf("%s", err))
 			}
 		}()
+
 		next.ServeHTTP(w, r)
 	})
 }
