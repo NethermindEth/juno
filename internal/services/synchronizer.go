@@ -114,7 +114,7 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 	common := types.TxnReceiptCommon{
 		TxnHash:     new(felt.Felt).SetHex(receipt.TransactionHash),
 		ActualFee:   new(felt.Felt).SetHex(receipt.ActualFee),
-		Status:      types.TxStatusValue[receipt.TxStatus],
+		Status:      types.TxStatusValue[receipt.Status],
 		StatusData:  receipt.TxStatus,
 		BlockHash:   new(felt.Felt).SetHex(receipt.BlockHash),
 		BlockNumber: uint64(receipt.BlockNumber),
@@ -220,7 +220,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
 			CallData:           calldata,
 			Signature:          signature,
-			MaxFee:             new(felt.Felt),
+			MaxFee:             new(felt.Felt).SetHex(info.Transaction.MaxFee),
 		}
 	case "DECLARE":
 		signature := make([]*felt.Felt, 0)
