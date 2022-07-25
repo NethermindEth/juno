@@ -10,8 +10,8 @@ type Manager struct {
 	database db.Database
 }
 
-// NewABIManager creates a new Manager instance.
-func NewABIManager(database db.Database) *Manager {
+// NewManager creates a new Manager instance.
+func NewManager(database db.Database) *Manager {
 	return &Manager{database}
 }
 

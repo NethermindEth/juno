@@ -241,9 +241,14 @@ type StateUpdateResponse struct {
 	StateDiff StateDiff `json:"state_diff"`
 }
 
+// Fee represents the fee paid for executing a transaction on StarkNet.
+// NOTE: it includes Amount, which should stop working after StarkNet 0.9.1.
 type Fee struct {
-	Amount int    `json:"amount,omitempty"`
-	Unit   string `json:"unit,omitempty"`
+	Amount     int    `json:"amount"` // DEPRECATED
+	OverallFee int    `json:"overall_fee,omitempty"`
+	Unit       string `json:"unit,omitempty"`
+	GasPrice   int    `json:"gas_price,omitempty"`
+	GasUsage   int    `json:"gas_usage,omitempty"`
 }
 
 type EstimateFeeResponse struct {

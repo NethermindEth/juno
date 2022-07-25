@@ -36,7 +36,7 @@ func TestManager(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	database, err := db.NewMDBXDatabase(env, "ABI")
+	database, err := db.NewMDBXDatabase(env, "BLOCK")
 	if err != nil {
 		t.Error(err)
 	}

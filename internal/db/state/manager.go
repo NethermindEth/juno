@@ -11,8 +11,8 @@ type Manager struct {
 	contractDef   db.Database
 }
 
-// NewStateManager returns a new instance of Manager with the given database sources.
-func NewStateManager(stateDatabase, contractDef db.Database) *Manager {
+// NewManager returns a new instance of Manager with the given database sources.
+func NewManager(stateDatabase, contractDef db.Database) *Manager {
 	return &Manager{stateDatabase, contractDef}
 }
 
