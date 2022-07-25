@@ -14,7 +14,6 @@ import (
 	types2 "github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db/sync"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/ethereum/go-ethereum"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -22,8 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
-
-var L1Collector *l1Collector
 
 var (
 	ErrorMemoryPageNotFound = errors.New("memory page not found")
@@ -33,7 +30,6 @@ var (
 var windowSize = 5_000
 
 type l1Collector struct {
-	service
 	// manager is the Sync manager
 	manager *sync.Manager
 	// l1client is the client that will be used to fetch the data that comes from the Ethereum Node.
@@ -73,25 +69,26 @@ type l1Collector struct {
 	pendingBlock *feeder.StarknetBlock
 }
 
-func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Client, chainID int) {
-	L1Collector = &l1Collector{
+func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Client, chainID int) *l1Collector {
+	collector := &l1Collector{
 		client:   feeder,
 		manager:  manager,
 		chainID:  chainID,
 		l1client: l1client,
 	}
-	L1Collector.logger = Logger.Named("l1Collector")
-	L1Collector.buffer = make(chan *types2.StateDiff, 10)
-	L1Collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
-	L1Collector.memoryPageHash = types2.NewDictionary()
-	L1Collector.gpsVerifier = types2.NewDictionary()
-	L1Collector.facts = types2.NewDictionary()
-	L1Collector.Synced = false
-	go L1Collector.updateLatestBlockOnChain()
+	//collector.logger = Logger.Named("l1Collector")
+	collector.buffer = make(chan *types2.StateDiff, 10)
+	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
+	collector.memoryPageHash = types2.NewDictionary()
+	collector.gpsVerifier = types2.NewDictionary()
+	collector.facts = types2.NewDictionary()
+	collector.Synced = false
+	go collector.updateLatestBlockOnChain()
+	return collector
 }
 
 func (l *l1Collector) Run() error {
-	l.logger.Info("Service Started")
+	// l.logger.Info("Service Started")
 
 	l.latestBlockSynced = l.manager.GetLatestBlockSync()
 
@@ -119,7 +116,7 @@ func (l *l1Collector) Run() error {
 			// Get memory pages hashes using fact
 			pagesHashes, ok := l.gpsVerifier.Get(fact.Value)
 			if !ok {
-				l.logger.Debug("Fact has not been verified")
+				// l.logger.Debug("Fact has not been verified")
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -129,7 +126,7 @@ func (l *l1Collector) Run() error {
 				pagesHashes.(types2.PagesHash).Bytes,
 				l.contractInfo[l.memoryPagesContractAddress].Contract)
 			if err != nil {
-				l.logger.With("Error", err).Debug("Error processing pages hashes")
+				// l.logger.With("Error", err).Debug("Error processing pages hashes")
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -140,7 +137,7 @@ func (l *l1Collector) Run() error {
 			l.buffer <- stateDiff
 
 			l.removeFactTree(fact)
-			l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
+			// l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
 			l.latestBlockSynced += 1
 		}
 	}
@@ -150,8 +147,9 @@ func (l *l1Collector) GetChannel() chan *types2.StateDiff {
 	return l.buffer
 }
 
-func (l *l1Collector) Close(context.Context) {
+func (l *l1Collector) Close(duration time.Duration) error {
 	close(l.buffer)
+	return nil
 }
 
 func (l *l1Collector) LatestBlock() *feeder.StarknetBlock {
@@ -171,7 +169,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 	l.loadContractsAbi()
 	number, err := l.l1client.BlockNumber(context.Background())
 	if err != nil {
-		l.logger.Error("Error subscribing to logs", "err", err)
+		// l.logger.Error("Error subscribing to logs", "err", err)
 		return
 	}
 	// build query for the latest block
@@ -183,7 +181,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 	}
 	logs, err := l.l1client.FilterLogs(context.Background(), query)
 	if err != nil {
-		l.logger.Error("Error subscribing to logs", "err", err)
+		// l.logger.Error("Error subscribing to logs", "err", err)
 		return
 	}
 	for _, logFetched := range logs {
@@ -214,8 +212,8 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 		txHash := transactionHash.(types2.TxnHash).Hash
 		txn, _, err := l.l1client.TransactionByHash(context.Background(), txHash)
 		if err != nil {
-			l.logger.With("Error", err, "Transaction Hash", v).
-				Error("Couldn't retrieve transactions")
+			// l.logger.With("Error", err, "Transaction Hash", v).
+			//Error("Couldn't retrieve transactions")
 			return nil, err
 		}
 
@@ -224,7 +222,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 		inputs := make(map[string]interface{})
 		err = memoryContract.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, data)
 		if err != nil {
-			l.logger.With("Error", err).Info("Couldn't unpack into map")
+			// l.logger.With("Error", err).Info("Couldn't unpack into map")
 			return nil, err
 		}
 		// Append calldata to pages
@@ -238,7 +236,7 @@ func (l *l1Collector) loadContractsAbi() {
 
 	contractAddresses, err := l.client.GetContractAddresses()
 	if err != nil {
-		l.logger.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
+		// l.logger.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
 	}
 
 	// Add Starknet contract
@@ -246,8 +244,8 @@ func (l *l1Collector) loadContractsAbi() {
 		abi.StarknetAbi,
 		"LogStateTransitionFact", l.contractInfo)
 	if err != nil {
-		l.logger.With("Address", contractAddresses.Starknet).
-			Panic("Couldn't load contract from disk ")
+		// l.logger.With("Address", contractAddresses.Starknet).
+		//Panic("Couldn't load contract from disk ")
 	}
 	l.starknetContractAddress = common.HexToAddress(contractAddresses.Starknet)
 
@@ -257,8 +255,8 @@ func (l *l1Collector) loadContractsAbi() {
 		abi.GpsVerifierAbi,
 		"LogMemoryPagesHashes", l.contractInfo)
 	if err != nil {
-		l.logger.With("Address", gpsAddress).
-			Panic("Couldn't load contract from disk ")
+		// l.logger.With("Address", gpsAddress).
+		//Panic("Couldn't load contract from disk ")
 		return
 	}
 	l.gpsVerifierContractAddress = common.HexToAddress(gpsAddress)
@@ -269,8 +267,8 @@ func (l *l1Collector) loadContractsAbi() {
 		abi.MemoryPagesAbi,
 		"LogMemoryPageFactContinuous", l.contractInfo)
 	if err != nil {
-		l.logger.With("Address", memoryPagesContractAddress).
-			Panic("Couldn't load contract from disk ")
+		// l.logger.With("Address", memoryPagesContractAddress).
+		//Panic("Couldn't load contract from disk ")
 		return
 	}
 	l.memoryPagesContractAddress = common.HexToAddress(memoryPagesContractAddress)
@@ -284,7 +282,7 @@ func (l *l1Collector) handleEvents() {
 	initialBlock = int64(math.Max(float64(initialBlock), float64(initialBlockForStarknetContract(l.chainID))))
 	blockNumber, err := l.l1client.BlockNumber(context.Background())
 	if err != nil {
-		l.logger.Error("Error fetching latest block on Ethereum", "err", err)
+		// l.logger.Error("Error fetching latest block on Ethereum", "err", err)
 		return
 	}
 
@@ -292,20 +290,20 @@ func (l *l1Collector) handleEvents() {
 	go func() {
 		blockNumber, err = l.l1client.BlockNumber(context.Background())
 		if err != nil {
-			l.logger.Error("Error fetching latest block on Ethereum", "err", err)
+			// l.logger.Error("Error fetching latest block on Ethereum", "err", err)
 		}
 		time.Sleep(time.Second * 5)
 	}()
 	// Process blocks until latest
 	for initialBlock < int64(blockNumber) {
 		if len(l.buffer) > 8 {
-			l.logger.Info("Buffer contains some elements, waiting to get more events")
+			// l.logger.Info("Buffer contains some elements, waiting to get more events")
 			time.Sleep(time.Second)
 			continue
 		}
 		err = l.processBatchOfEvents(initialBlock, int64(windowSize))
 		if err != nil {
-			l.logger.Error("Error processing batch of events", "err", err)
+			// l.logger.Error("Error processing batch of events", "err", err)
 			return
 		}
 		initialBlock += int64(windowSize)
@@ -317,7 +315,7 @@ func (l *l1Collector) handleEvents() {
 	// Subscribe for new blocks
 	err = l.processSubscription(initialBlock)
 	if err != nil {
-		l.logger.With("Error", err).Error("Error subscribing to events")
+		// l.logger.With("Error", err).Error("Error subscribing to events")
 		return
 	}
 }
@@ -338,18 +336,18 @@ func (l *l1Collector) processSubscription(initialBlock int64) error {
 	hLog := make(chan types.Log)
 	sub, err := l.l1client.SubscribeFilterLogs(context.Background(), query, hLog)
 	if err != nil {
-		l.logger.Info("Couldn't subscribe for incoming blocks")
+		// l.logger.Info("Couldn't subscribe for incoming blocks")
 		return err
 	}
 	for {
 		select {
-		case err := <-sub.Err():
-			l.logger.With("Error", err).Debug("Error getting the latest logs")
+		case <-sub.Err():
+			// l.logger.With("Error", err).Debug("Error getting the latest logs")
 		case vLog := <-hLog:
 			event := map[string]interface{}{}
 			err = l.contractInfo[vLog.Address].Contract.UnpackIntoMap(event, l.contractInfo[vLog.Address].EventName, vLog.Data)
 			if err != nil {
-				l.logger.With("Error", err).Debug("Couldn't get event from log")
+				// l.logger.With("Error", err).Debug("Couldn't get event from log")
 				continue
 			}
 			eventChan := &types2.EventInfo{
@@ -376,7 +374,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 		topics = append(topics, crypto.Keccak256Hash([]byte(v.Contract.Events[v.EventName].Sig)))
 	}
 
-	l.logger.With("From Block", initialBlock, "To Block", initialBlock+window).Info("Fetching logs....")
+	// l.logger.With("From Block", initialBlock, "To Block", initialBlock+window).Info("Fetching logs....")
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(initialBlock),
 		ToBlock:   big.NewInt(initialBlock + window),
@@ -386,8 +384,8 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 
 	starknetLogs, err := l.l1client.FilterLogs(context.Background(), query)
 	if err != nil {
-		l.logger.With("Error", err, "Initial block", initialBlock, "End block", initialBlock+window, "Addresses", addresses).
-			Info("Couldn't get logs")
+		// l.logger.With("Error", err, "Initial block", initialBlock, "End block", initialBlock+window, "Addresses", addresses).
+		//Info("Couldn't get logs")
 		return err
 	}
 	for _, vLog := range starknetLogs {
@@ -395,7 +393,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 
 		err = l.contractInfo[vLog.Address].Contract.UnpackIntoMap(event, l.contractInfo[vLog.Address].EventName, vLog.Data)
 		if err != nil {
-			l.logger.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
+			// l.logger.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
 			continue
 		}
 		eventValue := &types2.EventInfo{
@@ -446,12 +444,12 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 
 		starknetLogs, err := l.l1client.FilterLogs(context.Background(), query)
 		if err != nil {
-			l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
-				Info("Couldn't get logs")
+			// l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
+			//Info("Couldn't get logs")
 		}
 		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b), event.TxnHash)
 		if err != nil {
-			l.logger.With("Error", err).Info("Couldn't get fact info")
+			// l.logger.With("Error", err).Info("Couldn't get fact info")
 			return
 		}
 
@@ -470,7 +468,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, tx
 		err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
 			// notest
-			l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+			// l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
 			continue
 		}
 		// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
@@ -490,7 +488,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, tx
 		}
 	}
 	// notest
-	l.logger.Panic("Couldn't find a block number that match in the logs for given fact")
+	// l.logger.Panic("Couldn't find a block number that match in the logs for given fact")
 	return nil, nil
 }
 
@@ -519,7 +517,7 @@ func (l *l1Collector) updateBlockOnChain(logStateUpdateData []byte) {
 	event := map[string]interface{}{}
 	err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", logStateUpdateData)
 	if err != nil {
-		l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+		// l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
 		return
 	}
 	// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)

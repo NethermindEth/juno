@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/db/contracthash"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
@@ -56,13 +55,12 @@ var (
 
 	feederGatewayClient *feeder.Client
 
-	Synchronizer *syncService.SyncService
+	synchronizer *syncService.Synchro
 
-	contractHashManager *contracthash.Manager
-	stateManager        *state.Manager
-	transactionManager  *transaction.Manager
-	blockManager        *block.Manager
-	syncManager         *sync.Manager
+	stateManager       *state.Manager
+	transactionManager *transaction.Manager
+	blockManager       *block.Manager
+	syncManager        *sync.Manager
 )
 
 var shutdownTimeout = 5 * time.Second
@@ -109,14 +107,11 @@ func juno(_ *cobra.Command, _ []string) {
 	setupServers()
 	setupStateSynchronizer()
 
-	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
+	errChs := []chan error{make(chan error), make(chan error), make(chan error), make(chan error)}
 	rpcServer.ListenAndServe(errChs[0])
 	metricsServer.ListenAndServe(errChs[1])
 	restServer.ListenAndServe(errChs[2])
-
-	if err := stateSynchronizer.UpdateState(); err != nil {
-		Logger.Fatal("Failed to start State Synchronizer: ", err.Error())
-	}
+	synchronizer.Run(errChs[3])
 
 	checkErrChs(errChs)
 }
@@ -127,13 +122,7 @@ func setupStateSynchronizer() {
 		if err != nil {
 			Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 		}
-		// Synchronizer for Starknet State
-		synchronizerDb, err := db.NewMDBXDatabase(mdbxEnv, "SYNCHRONIZER")
-		if err != nil {
-			Logger.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
-		}
-		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient,
-			contractHashManager, abiManager, stateManager, transactionManager, blockManager)
+		synchronizer = syncService.NewSynchronizer(feederGatewayClient, ethereumClient, syncManager, stateManager)
 	}
 }
 
@@ -176,10 +165,6 @@ func setupDatabaseManagers() {
 		}
 	}
 
-	dbName = "CONTRACT_HASH"
-	contractHashDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
-	logDBErr(dbName, err)
-
 	dbName = "SYNC"
 	syncDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
@@ -205,7 +190,6 @@ func setupDatabaseManagers() {
 	logDBErr(dbName, err)
 
 	syncManager = sync.NewManager(syncDb)
-	contractHashManager = contracthash.NewManager(contractHashDb)
 	stateManager = state.NewManager(stateDb, contractDefDb)
 	transactionManager = transaction.NewManager(txDb, receiptDb)
 	blockManager = block.NewManager(blockDb)
@@ -224,12 +208,11 @@ func setupInterruptHandler() {
 }
 
 func shutdown() {
-	contractHashManager.Close()
 	stateManager.Close()
 	transactionManager.Close()
 	blockManager.Close()
+	stateManager.Close()
 	syncManager.Close()
-	stateSynchronizer.Close()
 
 	if err := rpcServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown RPC server gracefully: ", err.Error())
@@ -240,6 +223,9 @@ func shutdown() {
 	}
 
 	if err := restServer.Close(shutdownTimeout); err != nil {
+		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
+	}
+	if err := synchronizer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
 	}
 }

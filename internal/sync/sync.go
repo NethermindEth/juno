@@ -3,15 +3,14 @@ package sync
 import (
 	"context"
 	"fmt"
+	blockDB "github.com/NethermindEth/juno/internal/db/block"
+	"github.com/NethermindEth/juno/internal/db/transaction"
+	"github.com/NethermindEth/juno/internal/services"
 	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/services"
-
 	"github.com/NethermindEth/juno/internal/config"
-	"github.com/NethermindEth/juno/internal/db"
-	dbState "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -20,12 +19,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
-// SyncService is the service that handle the synchronization of the node.
-var SyncService syncService
-
-type syncService struct {
-	// manager is the sync manager.
-	syncManager *sync.Manager
+type Synchro struct {
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
 	// l1Client represent the ethereum client
@@ -48,59 +42,61 @@ type syncService struct {
 
 	// stateDIffCollector
 	stateDiffCollector services.StateDiffCollector
-	// stateManager represent the manager for the state
-	stateManager state.StateManager
 	// state represent the state of the trie
 	state state.State
-	// synchronizer is the synchronizer that will be used to sync all the information around the blocks
-	synchronizer *services.Synchronizer
 
 	// chainId represent the Chain ID of the node
 	chainId *big.Int
+
+	// manager is the sync manager.
+	syncManager *sync.Manager
+	// blockManager represent the manager that store and serve the blocks
+	blockManager *blockDB.Manager
+	// transactionManager represent the manager that store and serve the transactions and receipts
+	transactionManager *transaction.Manager
+	// stateManager represent the manager for the state
+	stateManager state.StateManager
 }
 
-func NewSyncService(feeder *feeder.Client)
+func NewSynchronizer(feederClient *feeder.Client, l1client services.L1Client, syncManager *sync.Manager,
+	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager) *Synchro {
 
-func SetupSync(feederClient *feeder.Client, l1client services.L1Client) {
-	err := SyncService.setDefaults()
-	if err != nil {
-		return
-	}
-	SyncService.feeder = feederClient
-	SyncService.l1Client = l1client
-	SyncService.setChainId()
-	SyncService.logger = Logger.Named("Sync Service")
+	synchro := new(Synchro)
+	synchro.feeder = feederClient
+	synchro.l1Client = l1client
+
+	synchro.syncManager = syncManager
+	synchro.stateManager = stateManager
+	synchro.blockManager = blockManager
+	synchro.transactionManager = transactionManager
+
+	synchro.setChainId()
+	//synchro.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		services.NewApiCollector(SyncService.syncManager, SyncService.feeder, int(SyncService.chainId.Int64()))
-		SyncService.stateDiffCollector = services.APICollector
+		synchro.stateDiffCollector = services.NewApiCollector(synchro.syncManager, synchro.feeder, int(synchro.chainId.Int64()))
 	} else {
-		services.NewL1Collector(SyncService.syncManager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
-		SyncService.stateDiffCollector = services.L1Collector
+		synchro.stateDiffCollector = services.NewL1Collector(synchro.syncManager, synchro.feeder, l1client,
+			int(synchro.chainId.Int64()))
 	}
-	SyncService.synchronizer = services.NewSynchronizer(SyncService.syncManager, SyncService.stateManager,
-		SyncService.feeder, SyncService.stateDiffCollector)
 	go func() {
-		err = SyncService.stateDiffCollector.Run()
+		err := synchro.stateDiffCollector.Run()
 		if err != nil {
 			panic("API should initialize")
 		}
 	}()
+	return synchro
 }
 
 // Run starts the service.
-func (s *syncService) Run() error {
-	if s.logger == nil {
-		s.logger = Logger.Named("SyncService")
-	}
+func (s *Synchro) Run(errChan chan<- error) {
+	go s.sync(errChan)
 
-	if err := s.service.Run(); err != nil {
-		// notest
-		return err
-	}
+}
 
+func (s *Synchro) sync(errChan chan<- error) {
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
-		start := time.Now()
+		//start := time.Now()
 
 		err := s.updateState(stateDiff)
 		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
@@ -115,10 +111,10 @@ func (s *syncService) Run() error {
 			continue
 		}
 
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
-			"Timer", time.Since(start)).
-			Info("Synced block")
+		//// s.logger.With("Block Number", stateDiff.BlockNumber,
+		//	"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
+		//	"Timer", time.Since(start)).
+		//	Info("Synced block")
 		s.syncManager.StoreLatestBlockSync(stateDiff.BlockNumber)
 		if stateDiff.OldRoot.Hex() == "" {
 			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
@@ -134,10 +130,9 @@ func (s *syncService) Run() error {
 		}
 
 	}
-	return nil
 }
 
-func (s *syncService) Status() *types.SyncStatus {
+func (s *Synchro) Status() *types.SyncStatus {
 	return &types.SyncStatus{
 		StartingBlockHash:   s.startingBlockHash,
 		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
@@ -148,7 +143,7 @@ func (s *syncService) Status() *types.SyncStatus {
 	}
 }
 
-func (s *syncService) updateState(stateDiff *types.StateDiff) error {
+func (s *Synchro) updateState(stateDiff *types.StateDiff) error {
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		err := s.SetCode(stateDiff, deployedContract)
 		if err != nil {
@@ -164,106 +159,75 @@ func (s *syncService) updateState(stateDiff *types.StateDiff) error {
 			}
 		}
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
+	// s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
 	return nil
 }
 
-func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
+func (s *Synchro) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
 	// Get Full Contract
 	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex(), "", strconv.FormatInt(stateDiff.BlockNumber, 10))
 	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address.Hex()).
-			Error("Error getting full contract")
+		// s.logger.With("Block Number", stateDiff.BlockNumber,
+		//	"Contract Address", deployedContract.Address.Hex()).
+		//	Error("Error getting full contract")
 		return err
 	}
 
 	contract := new(types.Contract)
 	err = contract.UnmarshalRaw(contractFromApi)
 	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address.Hex()).
-			Error("Error unmarshalling contract")
+		// s.logger.With("Block Number", stateDiff.BlockNumber,
+		//	"Contract Address", deployedContract.Address.Hex()).
+		//	Error("Error unmarshalling contract")
 		return err
 	}
 	err = s.state.SetContract(deployedContract.Address, deployedContract.Hash, contract)
 	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
-			Error("Error setting code")
+		// s.logger.With("Block Number", stateDiff.BlockNumber,
+		//	"Contract Address", deployedContract.Address).
+		//	Error("Error setting code")
 		return err
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
+	// s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
 	return nil
 }
 
-func (s *syncService) GetStateDiff(blockNumber int64) *types.StateDiff {
+func (s *Synchro) GetStateDiff(blockNumber int64) *types.StateDiff {
 	return s.syncManager.GetStateDiff(blockNumber)
 }
 
-func (s *syncService) GetStateDiffFromHash(blockHash string) *types.StateDiff {
+func (s *Synchro) GetStateDiffFromHash(blockHash string) *types.StateDiff {
 	return s.syncManager.GetStateDiffFromHash(blockHash)
 }
 
-func (s *syncService) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
+func (s *Synchro) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
 	return s.latestBlockNumberSynced, s.latestBlockHashSynced
 }
 
-func (s *syncService) GetLatestBlockOnChain() int64 {
+func (s *Synchro) GetLatestBlockOnChain() int64 {
 	return int64(s.stateDiffCollector.LatestBlock().BlockNumber)
 }
 
-func (s *syncService) ChainID() *big.Int {
+func (s *Synchro) ChainID() *big.Int {
 	return s.chainId
 }
 
-func (s *syncService) GetPendingBlock() *feeder.StarknetBlock {
+func (s *Synchro) GetPendingBlock() *feeder.StarknetBlock {
 	return s.stateDiffCollector.PendingBlock()
 }
 
-// setDefaults sets the default value for properties that are not set.
-func (s *syncService) setDefaults() error {
-	if s.syncManager == nil {
-		// notest
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			return err
-		}
-		database, err := db.NewMDBXDatabase(env, "SYNC")
-		if err != nil {
-			return err
-		}
-		contractDef, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
-		if err != nil {
-			return err
-		}
-		stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
-		if err != nil {
-			return err
-		}
-		s.syncManager = syncDB.NewManager(database)
-
-		s.stateManager = dbState.NewStateManager(stateDatabase, contractDef)
-
-		s.setStateToLatestRoot()
-	}
-	return nil
-}
-
-func (s *syncService) setStateToLatestRoot() {
+func (s *Synchro) setStateToLatestRoot() {
 	stateRoot := s.syncManager.GetLatestStateRoot()
 	root := new(felt.Felt).SetHex(stateRoot)
 	s.state = state.New(s.stateManager, root)
 }
 
 // Close closes the service.
-func (s *syncService) Close(ctx context.Context) {
-	s.service.Close(ctx)
-	s.stateDiffCollector.Close(ctx)
-	s.syncManager.Close()
+func (s *Synchro) Close(timeout time.Duration) error {
+	return s.stateDiffCollector.Close(timeout)
 }
 
-func (s *syncService) setChainId() {
+func (s *Synchro) setChainId() {
 	if s.l1Client == nil {
 		// notest
 		if config.Runtime.Starknet.Network == "mainnet" {
@@ -281,11 +245,222 @@ func (s *syncService) setChainId() {
 	}
 }
 
-func (s *syncService) updateBlock(number int64) error {
-	block, err := s.synchronizer.UpdateBlock(number)
+func (s *Synchro) updateBlock(number int64) error {
+	block, err := s.UpdateBlock(number)
 	if err != nil {
 		return err
 	}
 	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
 	return nil
+}
+func (s *Synchro) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
+	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, txn := range block.Transactions {
+		err = s.updateTransactions(txn)
+		if err != nil {
+			iterations := 0
+			for {
+				time.Sleep(time.Second * 1)
+				if err = s.updateTransactions(txn); err == nil {
+					break
+				}
+				if iterations > 20 {
+					return nil, err
+				}
+				iterations++
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	for i, txnReceipt := range block.TransactionReceipts {
+		err = s.updateTransactionReceipts(txnReceipt, block.Transactions[i].Type)
+		if err != nil {
+			iterations := 0
+			for {
+				time.Sleep(time.Second * 1)
+				if err = s.updateTransactionReceipts(txnReceipt, block.Transactions[i].Type); err == nil {
+					break
+				}
+				if iterations > 20 {
+					return nil, err
+				}
+				iterations++
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	blockHash := new(felt.Felt).SetHex(block.BlockHash)
+	err = s.blockManager.PutBlock(blockHash, feederBlockToDBBlock(block))
+	if err != nil {
+		return nil, err
+	}
+	return block, nil
+}
+
+func (s *Synchro) updateTransactions(txn feeder.TxnSpecificInfo) error {
+	transactionInfo, err := s.feeder.GetTransaction(txn.TransactionHash, "")
+	if err != nil {
+		return err
+	}
+
+	transactionHash := new(felt.Felt).SetHex(transactionInfo.Transaction.TransactionHash)
+	// transactionHash := types.HexToTransactionHash(transactionInfo.Transaction.TransactionHash)
+	err = s.transactionManager.PutTransaction(transactionHash, feederTransactionToDBTransaction(transactionInfo))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Synchro) updateTransactionReceipts(receipt feeder.TransactionExecution, txnType string) error {
+	txnReceipt, err := s.feeder.GetTransactionReceipt(receipt.TransactionHash, "")
+	if err != nil {
+		return err
+	}
+	transactionHash := new(felt.Felt).SetHex(receipt.TransactionHash)
+	return s.transactionManager.PutReceipt(transactionHash, feederTransactionToDBReceipt(txnReceipt, txnType))
+}
+
+func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType string) types.TxnReceipt {
+	common := types.TxnReceiptCommon{
+		TxnHash:     new(felt.Felt).SetHex(receipt.TransactionHash),
+		ActualFee:   new(felt.Felt).SetHex(receipt.ActualFee),
+		Status:      types.TxStatusValue[receipt.TxStatus],
+		StatusData:  receipt.TxStatus,
+		BlockHash:   new(felt.Felt).SetHex(receipt.BlockHash),
+		BlockNumber: uint64(receipt.BlockNumber),
+	}
+	switch txnType {
+	case "INVOKE_FUNCTION":
+		l2ToL1 := make([]*types.MsgToL1, 0)
+		for _, msg := range receipt.L2ToL1Messages {
+
+			payload := make([]*felt.Felt, 0)
+			for _, p := range msg.Payload {
+				payload = append(payload, new(felt.Felt).SetHex(p))
+			}
+
+			l2ToL1 = append(l2ToL1, &types.MsgToL1{
+				ToAddress:   types.HexToEthAddress(msg.ToAddress),
+				FromAddress: new(felt.Felt).SetHex(msg.FromAddress),
+				Payload:     payload,
+			})
+		}
+		payloadFromL1ToL2 := make([]*felt.Felt, 0)
+		for _, p := range receipt.L1ToL2Message.Payload {
+			payloadFromL1ToL2 = append(payloadFromL1ToL2, new(felt.Felt).SetHex(p))
+		}
+
+		events := make([]*types.Event, 0)
+
+		for _, event := range receipt.Events {
+
+			keys := make([]*felt.Felt, 0)
+			for _, p := range event.Keys {
+				keys = append(keys, new(felt.Felt).SetHex(p))
+			}
+			data := make([]*felt.Felt, 0)
+			for _, p := range event.Data {
+				data = append(data, new(felt.Felt).SetHex(p))
+			}
+
+			events = append(events, &types.Event{
+				FromAddress: new(felt.Felt).SetHex(event.FromAddress),
+				Keys:        keys,
+				Data:        data,
+			})
+		}
+
+		return &types.TxnInvokeReceipt{
+			TxnReceiptCommon: common,
+			MessagesSent:     l2ToL1,
+			L1OriginMessage: &types.MsgToL2{
+				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.FromAddress),
+				Payload:     payloadFromL1ToL2,
+				ToAddress:   new(felt.Felt).SetHex(receipt.L1ToL2Message.ToAddress),
+			},
+			Events: events,
+		}
+	case "DECLARE":
+		return &types.TxnDeclareReceipt{TxnReceiptCommon: common}
+	case "DEPLOY":
+		return &types.TxnInvokeReceipt{TxnReceiptCommon: common}
+
+	default:
+		return &common
+	}
+}
+
+// feederBlockToDBBlock convert the feeder block to the block stored in the database
+func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
+	txnsHash := make([]*felt.Felt, 0)
+	for _, data := range b.Transactions {
+		txnsHash = append(txnsHash, new(felt.Felt).SetHex(data.TransactionHash))
+	}
+	status, _ := types.BlockStatusValue[b.Status]
+	return &types.Block{
+		BlockHash:   new(felt.Felt).SetHex(b.BlockHash),
+		BlockNumber: uint64(b.BlockNumber),
+		ParentHash:  new(felt.Felt).SetHex(b.ParentBlockHash),
+		Status:      status,
+		Sequencer:   new(felt.Felt).SetHex(b.SequencerAddress),
+		NewRoot:     new(felt.Felt).SetHex(b.StateRoot),
+		OldRoot:     new(felt.Felt).SetHex(b.OldStateRoot),
+		TimeStamp:   b.Timestamp,
+		TxCount:     uint64(len(b.Transactions)),
+		TxHashes:    txnsHash,
+	}
+}
+
+// feederTransactionToDBTransaction convert the feeder TransactionInfo to the transaction stored in DB
+func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTransaction {
+	calldata := make([]*felt.Felt, 0)
+	for _, data := range info.Transaction.Calldata {
+		calldata = append(calldata, new(felt.Felt).SetHex(data))
+	}
+
+	switch info.Transaction.Type {
+	case "INVOKE_FUNCTION":
+		signature := make([]*felt.Felt, 0)
+		for _, data := range info.Transaction.Signature {
+			signature = append(signature, new(felt.Felt).SetHex(data))
+		}
+		return &types.TransactionInvoke{
+			Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
+			CallData:           calldata,
+			Signature:          signature,
+			MaxFee:             new(felt.Felt),
+		}
+	case "DECLARE":
+		signature := make([]*felt.Felt, 0)
+		for _, data := range info.Transaction.Signature {
+			signature = append(signature, new(felt.Felt).SetHex(data))
+		}
+		return &types.TransactionDeclare{
+			Hash:          new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ClassHash:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			SenderAddress: new(felt.Felt).SetHex(info.Transaction.SenderAddress),
+			MaxFee:        new(felt.Felt).SetHex(info.Transaction.MaxFee),
+			Signature:     signature,
+			Nonce:         new(felt.Felt).SetHex(info.Transaction.Nonce),
+			Version:       new(felt.Felt).SetHex(info.Transaction.Version),
+		}
+	default:
+		return &types.TransactionDeploy{
+			Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			ConstructorCallData: calldata,
+		}
+	}
 }
