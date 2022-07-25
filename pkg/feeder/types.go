@@ -191,6 +191,7 @@ type TransactionStatus struct {
 type TransactionReceipt struct {
 	TransactionInBlockInfo
 	TransactionExecution
+	Transaction TxnSpecificInfo `json:"transaction"`
 }
 
 type TransactionTrace struct {

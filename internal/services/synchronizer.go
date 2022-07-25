@@ -58,6 +58,25 @@ func (s *Synchronizer) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 			}
 		}
 	}
+	for i, txnReceipt := range block.TransactionReceipts {
+		err = s.updateTransactionReceipts(txnReceipt, block.Transactions[i].Type)
+		if err != nil {
+			iterations := 0
+			for {
+				time.Sleep(time.Second * 1)
+				if err = s.updateTransactionReceipts(txnReceipt, block.Transactions[i].Type); err == nil {
+					break
+				}
+				if iterations > 20 {
+					return nil, err
+				}
+				iterations++
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	blockHash := new(felt.Felt).SetHex(block.BlockHash)
 	err = BlockService.StoreBlock(blockHash, feederBlockToDBBlock(block))
@@ -80,6 +99,85 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Synchronizer) updateTransactionReceipts(receipt feeder.TransactionExecution, txnType string) error {
+	txnReceipt, err := s.feederClient.GetTransactionReceipt(receipt.TransactionHash, "")
+	if err != nil {
+		return err
+	}
+	transactionHash := new(felt.Felt).SetHex(receipt.TransactionHash)
+	return TransactionService.StoreReceipt(transactionHash, feederTransactionToDBReceipt(txnReceipt, txnType))
+}
+
+func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType string) types.TxnReceipt {
+	common := types.TxnReceiptCommon{
+		TxnHash:     new(felt.Felt).SetHex(receipt.TransactionHash),
+		ActualFee:   new(felt.Felt).SetHex(receipt.ActualFee),
+		Status:      types.TxStatusValue[receipt.TxStatus],
+		StatusData:  receipt.TxStatus,
+		BlockHash:   new(felt.Felt).SetHex(receipt.BlockHash),
+		BlockNumber: uint64(receipt.BlockNumber),
+	}
+	switch txnType {
+	case "INVOKE_FUNCTION":
+		l2ToL1 := make([]*types.MsgToL1, 0)
+		for _, msg := range receipt.L2ToL1Messages {
+
+			payload := make([]*felt.Felt, 0)
+			for _, p := range msg.Payload {
+				payload = append(payload, new(felt.Felt).SetHex(p))
+			}
+
+			l2ToL1 = append(l2ToL1, &types.MsgToL1{
+				ToAddress:   types.HexToEthAddress(msg.ToAddress),
+				FromAddress: new(felt.Felt).SetHex(msg.FromAddress),
+				Payload:     payload,
+			})
+		}
+		payloadFromL1ToL2 := make([]*felt.Felt, 0)
+		for _, p := range receipt.L1ToL2Message.Payload {
+			payloadFromL1ToL2 = append(payloadFromL1ToL2, new(felt.Felt).SetHex(p))
+		}
+
+		events := make([]*types.Event, 0)
+
+		for _, event := range receipt.Events {
+
+			keys := make([]*felt.Felt, 0)
+			for _, p := range event.Keys {
+				keys = append(keys, new(felt.Felt).SetHex(p))
+			}
+			data := make([]*felt.Felt, 0)
+			for _, p := range event.Data {
+				data = append(data, new(felt.Felt).SetHex(p))
+			}
+
+			events = append(events, &types.Event{
+				FromAddress: new(felt.Felt).SetHex(event.FromAddress),
+				Keys:        keys,
+				Data:        data,
+			})
+		}
+
+		return &types.TxnInvokeReceipt{
+			TxnReceiptCommon: common,
+			MessagesSent:     l2ToL1,
+			L1OriginMessage: &types.MsgToL2{
+				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.FromAddress),
+				Payload:     payloadFromL1ToL2,
+				ToAddress:   new(felt.Felt).SetHex(receipt.L1ToL2Message.ToAddress),
+			},
+			Events: events,
+		}
+	case "DECLARE":
+		return &types.TxnDeclareReceipt{TxnReceiptCommon: common}
+	case "DEPLOY":
+		return &types.TxnInvokeReceipt{TxnReceiptCommon: common}
+
+	default:
+		return &common
+	}
 }
 
 // feederBlockToDBBlock convert the feeder block to the block stored in the database
@@ -110,7 +208,8 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 		calldata = append(calldata, new(felt.Felt).SetHex(data))
 	}
 
-	if info.Transaction.Type == "INVOKE_FUNCTION" {
+	switch info.Transaction.Type {
+	case "INVOKE_FUNCTION":
 		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, new(felt.Felt).SetHex(data))
@@ -123,10 +222,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			Signature:          signature,
 			MaxFee:             new(felt.Felt),
 		}
-	}
-
-	if info.Transaction.Type == "DECLARE" {
-
+	case "DECLARE":
 		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, new(felt.Felt).SetHex(data))
@@ -140,12 +236,11 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			Nonce:         new(felt.Felt).SetHex(info.Transaction.Nonce),
 			Version:       new(felt.Felt).SetHex(info.Transaction.Version),
 		}
-	}
-
-	// Is a DEPLOY Transaction
-	return &types.TransactionDeploy{
-		Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
-		ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
-		ConstructorCallData: calldata,
+	default:
+		return &types.TransactionDeploy{
+			Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			ConstructorCallData: calldata,
+		}
 	}
 }

@@ -96,6 +96,8 @@ type TxnReceiptCommon struct {
 	BlockNumber uint64
 }
 
+func (*TxnReceiptCommon) isReceipt() {}
+
 type TxnInvokeReceipt struct {
 	TxnReceiptCommon
 	MessagesSent    []*MsgToL1
@@ -103,16 +105,10 @@ type TxnInvokeReceipt struct {
 	Events          []*Event
 }
 
-func (*TxnInvokeReceipt) isReceipt() {}
-
 type TxnDeclareReceipt struct {
 	TxnReceiptCommon
 }
 
-func (*TxnDeclareReceipt) isReceipt() {}
-
 type TxnDeployReceipt struct {
 	TxnReceiptCommon
 }
-
-func (*TxnDeployReceipt) isReceipt() {}
