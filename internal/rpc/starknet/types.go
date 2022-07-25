@@ -262,7 +262,7 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 	}
 	return &DeployTxn{
 		TxnHash:             txn.Hash.Hex0x(),
-		ClassHash:           "", // TODO: manage the class hash
+		ClassHash:           txn.ClassHash.Hex0x(),
 		ContractAddress:     txn.ContractAddress.Hex0x(),
 		ConstructorCalldata: callData,
 	}

@@ -229,7 +229,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 		}
 		return &types.TransactionDeclare{
 			Hash:          new(felt.Felt).SetHex(info.Transaction.TransactionHash),
-			ClassHash:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			ClassHash:     new(felt.Felt).SetHex(info.Transaction.ClassHash),
 			SenderAddress: new(felt.Felt).SetHex(info.Transaction.SenderAddress),
 			MaxFee:        new(felt.Felt).SetHex(info.Transaction.MaxFee),
 			Signature:     signature,
@@ -239,6 +239,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 	default:
 		return &types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+			ClassHash:           new(felt.Felt).SetHex(info.Transaction.ClassHash),
 			ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
 			ConstructorCallData: calldata,
 		}
