@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/services/abi"
+	"github.com/NethermindEth/juno/internal/sync/abi"
+
 	"github.com/NethermindEth/juno/pkg/felt"
 	types2 "github.com/NethermindEth/juno/pkg/types"
 

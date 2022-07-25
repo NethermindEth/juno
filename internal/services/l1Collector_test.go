@@ -5,13 +5,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/contracthash"
+	"github.com/NethermindEth/juno/internal/sync/abi"
+
 	. "github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/internal/services/abi"
 	"github.com/NethermindEth/juno/pkg/felt"
-	"github.com/NethermindEth/juno/pkg/starknet/abi"
-	starknetTypes "github.com/NethermindEth/juno/pkg/starknet/types"
 	"github.com/NethermindEth/juno/pkg/types"
 	ethAbi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
