@@ -223,6 +223,25 @@ type CallP struct {
 }
 
 func (s *StarkNetRpc) Call(ctx context.Context, param *CallP) (any, error) {
+	var (
+		callData           = make([]*felt.Felt, len(param.Request.Calldata))
+		contractAddress    *felt.Felt
+		entryPointSelector *felt.Felt
+	)
+	for i, data := range param.Request.Calldata {
+		if !isFelt(data) {
+			return nil, NewInvalidCallData()
+		}
+		callData[i] = new(felt.Felt).SetHex(data)
+	}
+	if !isFelt(param.Request.ContractAddress) {
+		return nil, NewContractNotFound()
+	}
+	contractAddress = new(felt.Felt).SetHex(param.Request.ContractAddress)
+	if !isFelt(param.Request.EntryPointSelector) {
+		return nil, NewInvalidMessageSelector()
+	}
+	entryPointSelector = new(felt.Felt).SetHex(param.Request.EntryPointSelector)
 	block, err := getBlockById(param.BlockId)
 	if err != nil {
 		return nil, err
@@ -231,10 +250,10 @@ func (s *StarkNetRpc) Call(ctx context.Context, param *CallP) (any, error) {
 	out, err := services.VMService.Call(
 		context.Background(),
 		_state,
-		param.Request.Calldata,
+		callData,
 		new(felt.Felt),
-		param.Request.ContractAddress,
-		param.Request.EntryPointSelector,
+		contractAddress,
+		entryPointSelector,
 		block.Sequencer,
 	)
 	if err != nil {
