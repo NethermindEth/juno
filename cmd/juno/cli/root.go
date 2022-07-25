@@ -21,6 +21,7 @@ import (
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
+	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -55,7 +56,7 @@ var (
 
 	feederGatewayClient *feeder.Client
 
-	stateSynchronizer *starknet.Synchronizer
+	Synchronizer *syncService.SyncService
 
 	contractHashManager *contracthash.Manager
 	stateManager        *state.Manager

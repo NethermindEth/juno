@@ -59,6 +59,8 @@ type syncService struct {
 	chainId *big.Int
 }
 
+func NewSyncService(feeder *feeder.Client)
+
 func SetupSync(feederClient *feeder.Client, l1client services.L1Client) {
 	err := SyncService.setDefaults()
 	if err != nil {
