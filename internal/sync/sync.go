@@ -1,4 +1,4 @@
-package services
+package sync
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/internal/services"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -15,6 +15,7 @@ import (
 	syncDB "github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 )
@@ -23,13 +24,12 @@ import (
 var SyncService syncService
 
 type syncService struct {
-	service
 	// manager is the sync manager.
 	manager *syncDB.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
 	// l1Client represent the ethereum client
-	l1Client L1Client
+	l1Client services.L1Client
 
 	// startingBlockNumber is the block number of the first block that we will sync.
 	startingBlockNumber int64
@@ -47,19 +47,19 @@ type syncService struct {
 	highestBlockHash *felt.Felt
 
 	// stateDIffCollector
-	stateDiffCollector StateDiffCollector
+	stateDiffCollector services.StateDiffCollector
 	// stateManager represent the manager for the state
 	stateManager state.StateManager
 	// state represent the state of the trie
 	state state.State
 	// synchronizer is the synchronizer that will be used to sync all the information around the blocks
-	synchronizer *Synchronizer
+	synchronizer *services.Synchronizer
 
 	// chainId represent the Chain ID of the node
 	chainId *big.Int
 }
 
-func SetupSync(feederClient *feeder.Client, l1client L1Client) {
+func SetupSync(feederClient *feeder.Client, l1client services.L1Client) {
 	err := SyncService.setDefaults()
 	if err != nil {
 		return
@@ -69,13 +69,13 @@ func SetupSync(feederClient *feeder.Client, l1client L1Client) {
 	SyncService.setChainId()
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		NewApiCollector(SyncService.manager, SyncService.feeder, int(SyncService.chainId.Int64()))
-		SyncService.stateDiffCollector = APICollector
+		services.NewApiCollector(SyncService.manager, SyncService.feeder, int(SyncService.chainId.Int64()))
+		SyncService.stateDiffCollector = services.APICollector
 	} else {
-		NewL1Collector(SyncService.manager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
-		SyncService.stateDiffCollector = L1Collector
+		services.NewL1Collector(SyncService.manager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
+		SyncService.stateDiffCollector = services.L1Collector
 	}
-	SyncService.synchronizer = NewSynchronizer(SyncService.manager, SyncService.stateManager,
+	SyncService.synchronizer = services.NewSynchronizer(SyncService.manager, SyncService.stateManager,
 		SyncService.feeder, SyncService.stateDiffCollector)
 	go func() {
 		err = SyncService.stateDiffCollector.Run()

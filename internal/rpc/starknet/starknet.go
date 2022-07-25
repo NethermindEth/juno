@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	sync2 "github.com/NethermindEth/juno/internal/sync"
+
 	"github.com/NethermindEth/juno/internal/db/sync"
 
 	"github.com/NethermindEth/juno/internal/db/block"
@@ -69,10 +71,10 @@ func (s *StarkNetRpc) GetStateUpdate(ctx context.Context, params *GetStateUpdate
 	switch params.BlockId.idType {
 	case blockIdHash:
 		hash, _ := params.BlockId.hash()
-		return services.SyncService.GetStateDiffFromHash(hash.Hex()), nil
+		return sync2.SyncService.GetStateDiffFromHash(hash.Hex()), nil
 	case blockIdNumber:
 		number, _ := params.BlockId.number()
-		return services.SyncService.GetStateDiff(int64(number)), nil
+		return sync2.SyncService.GetStateDiff(int64(number)), nil
 	default:
 		// TODO: manage unexpected type
 		return nil, nil
@@ -186,7 +188,7 @@ func (s *StarkNetRpc) GetClass(ctx context.Context, params *GetClassP) (any, err
 		return nil, NewInvalidContractClassHash()
 	}
 	_ = new(felt.Felt).SetHex(params.ClassHash)
-	_, latestBlockHash := services.SyncService.LatestBlockSynced()
+	_, latestBlockHash := sync2.SyncService.LatestBlockSynced()
 	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
 		// TODO: manage unexpeceted error
@@ -294,7 +296,7 @@ func (s *StarkNetRpc) EstimateFee(ctx context.Context, param *EstimateFeeP) (any
 }
 
 func (s *StarkNetRpc) BlockNumber(ctx context.Context) (any, error) {
-	bNumber, _ := services.SyncService.LatestBlockSynced()
+	bNumber, _ := sync2.SyncService.LatestBlockSynced()
 	return bNumber, nil
 }
 
@@ -304,7 +306,7 @@ func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 		BlockNumber int64  `json:"block_number"`
 	}
 
-	bNumber, bHash := services.SyncService.LatestBlockSynced()
+	bNumber, bHash := sync2.SyncService.LatestBlockSynced()
 
 	return Response{
 		BlockHash:   bHash.Hex(),
@@ -313,12 +315,12 @@ func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 }
 
 func (s *StarkNetRpc) ChainId(ctx context.Context) (any, error) {
-	chainId := services.SyncService.ChainID()
+	chainId := sync2.SyncService.ChainID()
 	return fmt.Sprintf("%x", chainId), nil
 }
 
 func (s *StarkNetRpc) PendingTransactions(ctx context.Context) (any, error) {
-	return services.SyncService.GetPendingBlock().Transactions, nil
+	return sync2.SyncService.GetPendingBlock().Transactions, nil
 }
 
 func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
@@ -326,8 +328,8 @@ func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
 }
 
 func (s *StarkNetRpc) Syncing(ctx context.Context) (any, error) {
-	if services.SyncService.Running() {
-		return services.SyncService.Status(), nil
+	if sync2.SyncService.Running() {
+		return sync2.SyncService.Status(), nil
 	}
 	return false, nil
 }

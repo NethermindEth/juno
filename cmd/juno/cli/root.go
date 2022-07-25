@@ -122,13 +122,9 @@ func juno(_ *cobra.Command, _ []string) {
 
 func setupStateSynchronizer() {
 	if config.Runtime.Starknet.Enabled {
-		var ethereumClient *ethclient.Client
-		if !config.Runtime.Starknet.ApiSync {
-			var err error
-			ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
-			if err != nil {
-				Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
-			}
+		ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+		if err != nil {
+			Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 		}
 		// Synchronizer for Starknet State
 		synchronizerDb, err := db.NewMDBXDatabase(mdbxEnv, "SYNCHRONIZER")
