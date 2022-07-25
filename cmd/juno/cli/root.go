@@ -143,11 +143,10 @@ func setupStateSynchronizer() {
 func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
-		// TODO: pass the sync manager
 		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
-			starknet.New(stateManager, blockManager, transactionManager))
+			starknet.New(stateManager, blockManager, transactionManager, syncManager))
 		if err != nil {
-			Logger.Fatal("Failed to start RPC Server", err)
+			Logger.Fatal("Failed to initialise RPC Server", err)
 		}
 	}
 
@@ -229,10 +228,10 @@ func setupInterruptHandler() {
 
 func shutdown() {
 	contractHashManager.Close()
-	abiManager.Close()
 	stateManager.Close()
 	transactionManager.Close()
 	blockManager.Close()
+	syncManager.Close()
 	stateSynchronizer.Close()
 
 	if err := rpcServer.Close(shutdownTimeout); err != nil {

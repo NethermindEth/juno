@@ -23,10 +23,7 @@ type StarkNetRpc struct {
 	syncManager  *sync.Manager
 }
 
-func New(
-	stateManager state.StateManager,
-	blockManager *block.Manager,
-	txnManager *transaction.Manager,
+func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
 	syncManager *sync.Manager,
 ) *StarkNetRpc {
 	return &StarkNetRpc{
