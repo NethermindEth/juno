@@ -18,6 +18,7 @@ type State interface {
 	SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
 	SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) error
+	GetClassHash(address *felt.Felt) (*felt.Felt, error)
 }
 
 type StateManager interface {
@@ -102,4 +103,12 @@ func (st *state) SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) 
 		return err
 	}
 	return st.stateTrie.Put(address, contract.Hash())
+}
+
+func (st *state) GetClassHash(address *felt.Felt) (*felt.Felt, error) {
+	contract, err := st.GetContractState(address)
+	if err != nil {
+		return nil, err
+	}
+	return contract.ContractHash, nil
 }
