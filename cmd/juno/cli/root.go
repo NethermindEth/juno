@@ -1,6 +1,5 @@
 package cli
 
-// notest
 import (
 	_ "embed"
 	"fmt"
@@ -20,10 +19,10 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
+	"github.com/NethermindEth/juno/internal/rpc"
+	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
-	"github.com/NethermindEth/juno/pkg/rpc"
-	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -50,7 +49,7 @@ var (
 var (
 	mdbxEnv *mdbx.Env
 
-	rpcServer     *rpc.Server
+	rpcServer     *rpc.HttpRpc
 	metricsServer *metric.Server
 	restServer    *rest.Server
 
@@ -142,9 +141,13 @@ func setupStateSynchronizer() {
 }
 
 func setupServers() {
+	var err error
 	if config.Runtime.RPC.Enabled {
-		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient, abiManager,
-			stateManager, transactionManager, blockManager)
+		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
+			starknet.New(stateManager))
+		if err != nil {
+			Logger.Fatal("Failed to start RPC Server", err)
+		}
 	}
 
 	if config.Runtime.Metrics.Enabled {

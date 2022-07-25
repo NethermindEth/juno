@@ -5,12 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/internal/services"
-
 	"github.com/NethermindEth/juno/internal/db"
-
+	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/felt"
-
 	"github.com/NethermindEth/juno/pkg/state"
 )
 
