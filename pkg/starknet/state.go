@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	abiM "github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/block"
@@ -51,12 +50,12 @@ type Synchronizer struct {
 // NewSynchronizer creates a new Synchronizer
 func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, fClient *feeder.Client,
 	contractHashM *contracthash.Manager, abiM *abiM.Manager, stateM *state.Manager,
-	transactionM *transaction.Manager, blockM *block.Manager,
+	transactionM *transaction.Manager, blockM *block.Manager, network string,
 ) *Synchronizer {
 	var chainID *big.Int
 	if client == nil {
 		// notest
-		if config.Runtime.Starknet.Network == "mainnet" {
+		if network == "mainnet" {
 			chainID = new(big.Int).SetInt64(1)
 		} else {
 			chainID = new(big.Int).SetInt64(0)
@@ -88,9 +87,9 @@ func NewSynchronizer(txnDb db.DatabaseTransactional, client *ethclient.Client, f
 // UpdateState initiates network syncing. Syncing will occur against the
 // feeder gateway or Layer 1 depending on the configuration.
 // notest
-func (s *Synchronizer) UpdateState() error {
+func (s *Synchronizer) UpdateState(apiSync bool) error {
 	Logger.Info("Starting to update state")
-	if config.Runtime.Starknet.ApiSync {
+	if apiSync {
 		return s.apiSync()
 	}
 	return s.l1Sync()
