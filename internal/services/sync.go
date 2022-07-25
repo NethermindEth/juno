@@ -239,7 +239,7 @@ func (s *syncService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		s.manager = syncDB.NewSyncManager(database)
+		s.manager = syncDB.NewManager(database)
 
 		s.stateManager = dbState.NewStateManager(stateDatabase, contractDef)
 

@@ -26,8 +26,8 @@ type Manager struct {
 	database db.Database
 }
 
-// NewSyncManager returns a new Block manager using the given database.
-func NewSyncManager(database db.Database) *Manager {
+// NewManager returns a new Block manager using the given database.
+func NewManager(database db.Database) *Manager {
 	return &Manager{database: database}
 }
 

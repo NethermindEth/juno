@@ -208,7 +208,7 @@ func setupDatabaseManagers() {
 	blockDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	syncManager = sync.NewSyncManager(syncDb)
+	syncManager = sync.NewManager(syncDb)
 	contractHashManager = contracthash.NewManager(contractHashDb)
 	stateManager = state.NewManager(stateDb, contractDefDb)
 	transactionManager = transaction.NewManager(txDb, receiptDb)

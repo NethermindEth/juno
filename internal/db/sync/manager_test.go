@@ -15,7 +15,7 @@ func TestLatestBlockSync(t *testing.T) {
 	}
 	syncDatabase, err := db.NewMDBXDatabase(env, "SYNC")
 	// Create a new database manager.
-	manager := sync.NewSyncManager(syncDatabase)
+	manager := sync.NewManager(syncDatabase)
 
 	// Store the latest block sync.
 	manager.StoreLatestBlockSync(1)
@@ -34,7 +34,7 @@ func TestLatestEventProcessed(t *testing.T) {
 	}
 	syncDatabase, err := db.NewMDBXDatabase(env, "SYNC")
 	// Create a new database manager.
-	manager := sync.NewSyncManager(syncDatabase)
+	manager := sync.NewManager(syncDatabase)
 
 	// Store the latest block sync.
 	manager.StoreBlockOfProcessedEvent(1, 2)
