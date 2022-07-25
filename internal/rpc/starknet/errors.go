@@ -16,6 +16,20 @@ func NewContractNotFound() *StarkNetError {
 	}
 }
 
+func NewInvalidMessageSelector() *StarkNetError {
+	return &StarkNetError{
+		Code:    21,
+		Message: "Invalid message selector",
+	}
+}
+
+func NewInvalidCallData() *StarkNetError {
+	return &StarkNetError{
+		Code:    22,
+		Message: "Invalid call data",
+	}
+}
+
 func NewInvalidBlockId() *StarkNetError {
 	return &StarkNetError{
 		Code:    24,

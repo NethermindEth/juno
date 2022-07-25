@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"syscall"
 
+	dbState "github.com/NethermindEth/juno/internal/db/state"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/NethermindEth/juno/internal/config"
@@ -57,13 +59,30 @@ var (
 			}(sig)
 
 			feederGatewayClient := feeder.NewClient(config.Runtime.Starknet.FeederGateway, "/feeder_gateway", nil)
+
+			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
+				Logger.With("Error", err).Fatal("Error starting the database environment")
+			}
+
 			// Subscribe the RPC client to the main loop if it is enabled in
 			// the config.
 			if config.Runtime.RPC.Enabled {
+				env, err := db.GetMDBXEnv()
+				if err != nil {
+				}
+				contractDef, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
+				if err != nil {
+					Logger.With("Error:", err.Error()).Fatal("Unable to create the CONTRACT_DEF database")
+				}
+				stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
+				if err != nil {
+					Logger.With("Error:", err.Error()).Fatal("Unable to create the STATE database")
+				}
+				stateManager := dbState.NewStateManager(stateDatabase, contractDef)
 				httpRpc, err := rpc.NewHttpRpc(
 					":"+strconv.Itoa(config.Runtime.RPC.Port),
 					"/rpc", "starknet",
-					&starknetRpc.StarkNetRpc{},
+					starknetRpc.New(stateManager),
 				)
 				if err != nil {
 					Logger.With("Error", err).Error("Failed to create HTTP RPC server.")
@@ -75,10 +94,6 @@ var (
 				s := metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
 				// Initialize the Metrics Service.
 				processHandler.Add("Metrics", false, s.ListenAndServe, s.Close)
-			}
-
-			if err := db.InitializeMDBXEnv(config.Runtime.DbPath, 100, 0); err != nil {
-				Logger.With("Error", err).Fatal("Error starting the database environment")
 			}
 
 			// Initialize ABI Service

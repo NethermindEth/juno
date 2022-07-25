@@ -76,16 +76,16 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 }
 
 type BlockBodyWithTxHashes struct {
-	Transactions []*felt.Felt `json:"transactions"`
+	Transactions []string `json:"transactions"`
 }
 
 type BlockHeader struct {
-	BlockHash   *felt.Felt `json:"block_hash"`
-	ParentHash  *felt.Felt `json:"parent_hash"`
-	BlockNumber uint64     `json:"block_number"`
-	NewRoot     *felt.Felt `json:"new_root"`
-	Timestamp   int64      `json:"timestamp"`
-	Sequencer   *felt.Felt `json:"sequencer_address"`
+	BlockHash   string `json:"block_hash"`
+	ParentHash  string `json:"parent_hash"`
+	BlockNumber uint64 `json:"block_number"`
+	NewRoot     string `json:"new_root"`
+	Timestamp   int64  `json:"timestamp"`
+	Sequencer   string `json:"sequencer_address"`
 }
 
 type BlockWithTxHashes struct {
@@ -95,18 +95,22 @@ type BlockWithTxHashes struct {
 }
 
 func NewBlockWithTxHashes(block *types.Block) *BlockWithTxHashes {
+	txnHashes := make([]string, len(block.TxHashes))
+	for i, txnHash := range block.TxHashes {
+		txnHashes[i] = txnHash.Hex0x()
+	}
 	return &BlockWithTxHashes{
 		BlockStatus: block.Status.String(),
 		BlockHeader: BlockHeader{
-			BlockHash:   block.BlockHash,
-			ParentHash:  block.ParentHash,
+			BlockHash:   block.BlockHash.Hex0x(),
+			ParentHash:  block.ParentHash.Hex0x(),
 			BlockNumber: block.BlockNumber,
-			NewRoot:     block.NewRoot,
+			NewRoot:     block.NewRoot.Hex0x(),
 			Timestamp:   block.TimeStamp,
-			Sequencer:   block.Sequencer,
+			Sequencer:   block.Sequencer.Hex0x(),
 		},
 		BlockBodyWithTxHashes: BlockBodyWithTxHashes{
-			Transactions: block.TxHashes,
+			Transactions: txnHashes,
 		},
 	}
 }
@@ -137,12 +141,12 @@ func NewBlockWithTxs(block *types.Block) (*BlockWithTxs, error) {
 	return &BlockWithTxs{
 		Status: block.Status.String(),
 		BlockHeader: BlockHeader{
-			BlockHash:   block.BlockHash,
-			ParentHash:  block.ParentHash,
+			BlockHash:   block.BlockHash.Hex0x(),
+			ParentHash:  block.ParentHash.Hex0x(),
 			BlockNumber: block.BlockNumber,
-			NewRoot:     block.NewRoot,
+			NewRoot:     block.NewRoot.Hex0x(),
 			Timestamp:   block.TimeStamp,
-			Sequencer:   block.Sequencer,
+			Sequencer:   block.Sequencer.Hex0x(),
 		},
 		BlockBodyWithTxs: BlockBodyWithTxs{
 			Transactions: txns,
@@ -168,18 +172,18 @@ func NewTxn(tx types.IsTransaction) (Txn, error) {
 }
 
 type CommonTxnProperties struct {
-	TxnHash   *felt.Felt   `json:"txn_hash"`
-	MaxFee    *felt.Felt   `json:"max_fee"`
-	Version   string       `json:"version"`
-	Signature []*felt.Felt `json:"signature"`
-	Nonce     *felt.Felt   `json:"nonce"`
-	Type      string       `json:"type"`
+	TxnHash   string   `json:"txn_hash"`
+	MaxFee    string   `json:"max_fee"`
+	Version   string   `json:"version"`
+	Signature []string `json:"signature"`
+	Nonce     string   `json:"nonce"`
+	Type      string   `json:"type"`
 }
 
 type FunctionCall struct {
-	ContractAddress    *felt.Felt   `json:"contract_address"`
-	EntryPointSelector *felt.Felt   `json:"entry_point_selector"`
-	Calldata           []*felt.Felt `json:"calldata"`
+	ContractAddress    string   `json:"contract_address"`
+	EntryPointSelector string   `json:"entry_point_selector"`
+	Calldata           []string `json:"calldata"`
 }
 
 type InvokeTxn struct {
@@ -188,19 +192,27 @@ type InvokeTxn struct {
 }
 
 func NewInvokeTxn(txn *types.TransactionInvoke) *InvokeTxn {
+	signature := make([]string, len(txn.Signature))
+	for i, sig := range txn.Signature {
+		signature[i] = sig.Hex0x()
+	}
+	calldata := make([]string, len(txn.CallData))
+	for i, data := range txn.CallData {
+		calldata[i] = data.Hex0x()
+	}
 	return &InvokeTxn{
 		CommonTxnProperties: CommonTxnProperties{
-			TxnHash:   txn.Hash,
-			MaxFee:    txn.MaxFee,
+			TxnHash:   txn.Hash.Hex0x(),
+			MaxFee:    txn.MaxFee.Hex0x(),
 			Version:   "0x0", // XXX: hardcoded version for now
-			Signature: txn.Signature,
-			Nonce:     nil, // TODO: Manage transaction nonce
+			Signature: signature,
+			Nonce:     "", // TODO: Manage transaction nonce
 			Type:      "INVOKE",
 		},
 		FunctionCall: FunctionCall{
-			ContractAddress:    txn.ContractAddress,
-			EntryPointSelector: txn.EntryPointSelector,
-			Calldata:           txn.CallData,
+			ContractAddress:    txn.ContractAddress.Hex0x(),
+			EntryPointSelector: txn.EntryPointSelector.Hex0x(),
+			Calldata:           calldata,
 		},
 	}
 }
@@ -209,40 +221,48 @@ func (*InvokeTxn) isTxn() {}
 
 type DeclareTxn struct {
 	CommonTxnProperties
-	ClassHash     *felt.Felt `json:"class_hash"`
-	SenderAddress *felt.Felt `json:"sender_address"`
+	ClassHash     string `json:"class_hash"`
+	SenderAddress string `json:"sender_address"`
 }
 
 func NewDeclareTxn(txn *types.TransactionDeclare) *DeclareTxn {
+	signature := make([]string, len(txn.Signature))
+	for i, sig := range txn.Signature {
+		signature[i] = sig.Hex0x()
+	}
 	return &DeclareTxn{
 		CommonTxnProperties: CommonTxnProperties{
-			TxnHash:   txn.Hash,
-			MaxFee:    txn.MaxFee,
+			TxnHash:   txn.Hash.Hex0x(),
+			MaxFee:    txn.MaxFee.Hex0x(),
 			Version:   "0x0", // XXX: hardcoded version for now
-			Signature: txn.Signature,
-			Nonce:     nil, // TODO: Manage transaction nonce
+			Signature: signature,
+			Nonce:     "", // TODO: Manage transaction nonce
 			Type:      "DECLARE",
 		},
-		ClassHash:     txn.ClassHash,
-		SenderAddress: txn.SenderAddress,
+		ClassHash:     txn.ClassHash.Hex0x(),
+		SenderAddress: txn.SenderAddress.Hex0x(),
 	}
 }
 
 func (*DeclareTxn) isTxn() {}
 
 type DeployTxn struct {
-	TxnHash             *felt.Felt   `json:"txn_hash"`
-	ClassHash           *felt.Felt   `json:"class_hash"`
-	ContractAddress     *felt.Felt   `json:"contract_address"`
-	ConstructorCalldata []*felt.Felt `json:"constructor_calldata"`
+	TxnHash             string   `json:"txn_hash"`
+	ClassHash           string   `json:"class_hash"`
+	ContractAddress     string   `json:"contract_address"`
+	ConstructorCalldata []string `json:"constructor_calldata"`
 }
 
 func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
+	callData := make([]string, len(txn.ConstructorCallData))
+	for i, data := range txn.ConstructorCallData {
+		callData[i] = data.Hex0x()
+	}
 	return &DeployTxn{
-		TxnHash:             txn.Hash,
-		ClassHash:           nil, // TODO: manage the class hash
-		ContractAddress:     txn.ContractAddress,
-		ConstructorCalldata: txn.ConstructorCallData,
+		TxnHash:             txn.Hash.Hex0x(),
+		ClassHash:           "", // TODO: manage the class hash
+		ContractAddress:     txn.ContractAddress.Hex0x(),
+		ConstructorCalldata: callData,
 	}
 }
 
@@ -271,11 +291,11 @@ func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
 		}
 		return &InvokeTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash,
-				ActualFee:   receipt.ActualFee,
+				TxnHash:     receipt.TxnHash.Hex0x(),
+				ActualFee:   receipt.ActualFee.Hex0x(),
 				Status:      receipt.Status.String(),
 				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash,
+				BlockHash:   receipt.BlockHash.Hex0x(),
 				BlockNumber: receipt.BlockNumber,
 			},
 			MessagesSent:    messagesSent,
@@ -285,22 +305,22 @@ func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
 	case *types.TxnDeployReceipt:
 		return &DeployTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash,
-				ActualFee:   receipt.ActualFee,
+				TxnHash:     receipt.TxnHash.Hex0x(),
+				ActualFee:   receipt.ActualFee.Hex0x(),
 				Status:      receipt.Status.String(),
 				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash,
+				BlockHash:   receipt.BlockHash.Hex0x(),
 				BlockNumber: receipt.BlockNumber,
 			},
 		}, nil
 	case *types.TxnDeclareReceipt:
 		return &DeclareTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash,
-				ActualFee:   receipt.ActualFee,
+				TxnHash:     receipt.TxnHash.Hex0x(),
+				ActualFee:   receipt.ActualFee.Hex0x(),
 				Status:      receipt.Status.String(),
 				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash,
+				BlockHash:   receipt.BlockHash.Hex0x(),
 				BlockNumber: receipt.BlockNumber,
 			},
 		}, nil
@@ -310,12 +330,12 @@ func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
 }
 
 type CommonReceiptProperties struct {
-	TxnHash     *felt.Felt `json:"txn_hash"`
-	ActualFee   *felt.Felt `json:"actual_fee"`
-	Status      string     `json:"status"`
-	StatusData  string     `json:"status_data"`
-	BlockHash   *felt.Felt `json:"block_hash"`
-	BlockNumber uint64     `json:"block_number"`
+	TxnHash     string `json:"txn_hash"`
+	ActualFee   string `json:"actual_fee"`
+	Status      string `json:"status"`
+	StatusData  string `json:"status_data"`
+	BlockHash   string `json:"block_hash"`
+	BlockNumber uint64 `json:"block_number"`
 }
 
 type InvokeTxReceipt struct {
@@ -341,39 +361,55 @@ func (*DeployTxReceipt) isReceipt() {}
 
 type MsgToL1 struct {
 	ToAddress types.EthAddress `json:"to_address"`
-	Payload   []*felt.Felt     `json:"payload"`
+	Payload   []string         `json:"payload"`
 }
 
 func NewMsgToL1(msg *types.MsgToL1) *MsgToL1 {
+	payload := make([]string, len(msg.Payload))
+	for i, data := range msg.Payload {
+		payload[i] = data.Hex0x()
+	}
 	return &MsgToL1{
 		ToAddress: msg.ToAddress,
-		Payload:   msg.Payload,
+		Payload:   payload,
 	}
 }
 
 type MsgToL2 struct {
 	FromAddress types.EthAddress `json:"from_address"`
-	Payload     []*felt.Felt     `json:"payload"`
+	Payload     []string         `json:"payload"`
 }
 
 func NewMsgToL2(msg *types.MsgToL2) *MsgToL2 {
+	payload := make([]string, len(msg.Payload))
+	for i, data := range msg.Payload {
+		payload[i] = data.Hex0x()
+	}
 	return &MsgToL2{
 		FromAddress: msg.FromAddress,
-		Payload:     msg.Payload,
+		Payload:     payload,
 	}
 }
 
 type Event struct {
-	FromAddress *felt.Felt   `json:"from_address"`
-	Keys        []*felt.Felt `json:"keys"`
-	Data        []*felt.Felt `json:"data"`
+	FromAddress string   `json:"from_address"`
+	Keys        []string `json:"keys"`
+	Data        []string `json:"data"`
 }
 
 func NewEvent(event *types.Event) *Event {
+	keys := make([]string, len(event.Keys))
+	for i, key := range event.Keys {
+		keys[i] = key.Hex0x()
+	}
+	data := make([]string, len(event.Data))
+	for i, d := range event.Data {
+		data[i] = d.Hex0x()
+	}
 	return &Event{
-		FromAddress: event.FromAddress,
-		Keys:        event.Keys,
-		Data:        event.Data,
+		FromAddress: event.FromAddress.Hex0x(),
+		Keys:        keys,
+		Data:        data,
 	}
 }
 
@@ -387,8 +423,8 @@ type ContractClass struct {
 }
 
 type ContractEntryPoint struct {
-	Offset   string     `json:"offset"`
-	Selector *felt.Felt `json:"selector"`
+	Offset   string `json:"offset"`
+	Selector string `json:"selector"`
 }
 
 type FeeEstimate struct {
@@ -398,10 +434,10 @@ type FeeEstimate struct {
 }
 
 type SyncStatus struct {
-	StartingBlockHash   *felt.Felt `json:"starting_block_hash"`
-	StartingBlockNumber *felt.Felt `json:"starting_block_number"`
-	CurrentBlockHash    *felt.Felt `json:"current_block_hash"`
-	CurrentBlockNumber  *felt.Felt `json:"current_block_number"`
-	HighestBlockHash    *felt.Felt `json:"highest_block_hash"`
-	HighestBlockNumber  *felt.Felt `json:"highest_block_number"`
+	StartingBlockHash   string `json:"starting_block_hash"`
+	StartingBlockNumber string `json:"starting_block_number"`
+	CurrentBlockHash    string `json:"current_block_hash"`
+	CurrentBlockNumber  string `json:"current_block_number"`
+	HighestBlockHash    string `json:"highest_block_hash"`
+	HighestBlockNumber  string `json:"highest_block_number"`
 }

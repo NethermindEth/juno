@@ -194,15 +194,23 @@ func (s *StarkNetRpc) GetClassHashAt(ctx context.Context, params *GetClassHashAt
 	if !isFelt(params.Address) {
 		return nil, NewContractNotFound()
 	}
-	_ = new(felt.Felt).SetHex(params.Address)
+	address := new(felt.Felt).SetHex(params.Address)
 	block, err := getBlockById(params.BlockId)
 	if err != nil {
-		return nil, err
+		return nil, NewInvalidBlockId()
 	}
-	_ = state.New(s.stateManager, block.NewRoot)
-	// TODO: add GetClassHash to the state
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	_state := state.New(s.stateManager, block.NewRoot)
+	classHash, err := _state.GetClassHash(address)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, NewContractNotFound()
+		}
+		// TODO: manage unexpected error
+	}
+	if classHash.IsZero() {
+		return nil, NewContractNotFound()
+	}
+	return classHash.Hex0x(), nil
 }
 
 type GetBlockTransactionCountP struct {
@@ -223,6 +231,25 @@ type CallP struct {
 }
 
 func (s *StarkNetRpc) Call(ctx context.Context, param *CallP) (any, error) {
+	var (
+		callData           = make([]*felt.Felt, len(param.Request.Calldata))
+		contractAddress    *felt.Felt
+		entryPointSelector *felt.Felt
+	)
+	for i, data := range param.Request.Calldata {
+		if !isFelt(data) {
+			return nil, NewInvalidCallData()
+		}
+		callData[i] = new(felt.Felt).SetHex(data)
+	}
+	if !isFelt(param.Request.ContractAddress) {
+		return nil, NewContractNotFound()
+	}
+	contractAddress = new(felt.Felt).SetHex(param.Request.ContractAddress)
+	if !isFelt(param.Request.EntryPointSelector) {
+		return nil, NewInvalidMessageSelector()
+	}
+	entryPointSelector = new(felt.Felt).SetHex(param.Request.EntryPointSelector)
 	block, err := getBlockById(param.BlockId)
 	if err != nil {
 		return nil, err
@@ -231,10 +258,10 @@ func (s *StarkNetRpc) Call(ctx context.Context, param *CallP) (any, error) {
 	out, err := services.VMService.Call(
 		context.Background(),
 		_state,
-		param.Request.Calldata,
+		callData,
 		new(felt.Felt),
-		param.Request.ContractAddress,
-		param.Request.EntryPointSelector,
+		contractAddress,
+		entryPointSelector,
 		block.Sequencer,
 	)
 	if err != nil {
