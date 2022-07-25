@@ -172,12 +172,14 @@ func NewTxn(tx types.IsTransaction) (Txn, error) {
 }
 
 type CommonTxnProperties struct {
-	TxnHash   string   `json:"txn_hash"`
-	MaxFee    string   `json:"max_fee"`
-	Version   string   `json:"version"`
-	Signature []string `json:"signature"`
-	Nonce     string   `json:"nonce"`
-	Type      string   `json:"type"`
+	TxnHash          string   `json:"txn_hash"`
+	MaxFee           string   `json:"max_fee"`
+	Version          string   `json:"version"`
+	Signature        []string `json:"signature"`
+	Status           string   `json:"status"`
+	TransactionIndex string   `json:"transaction_index"`
+	Nonce            string   `json:"nonce"`
+	Type             string   `json:"type"`
 }
 
 type FunctionCall struct {
@@ -272,7 +274,7 @@ type Receipt interface {
 	isReceipt()
 }
 
-func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
+func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 	switch receipt := receipt.(type) {
 	case *types.TxnInvokeReceipt:
 		var messagesSent []*MsgToL1 = nil
@@ -330,12 +332,13 @@ func NewRecipt(receipt types.TxnReceipt) (Receipt, error) {
 }
 
 type CommonReceiptProperties struct {
-	TxnHash     string `json:"txn_hash"`
-	ActualFee   string `json:"actual_fee"`
-	Status      string `json:"status"`
-	StatusData  string `json:"status_data"`
-	BlockHash   string `json:"block_hash"`
-	BlockNumber uint64 `json:"block_number"`
+	TxnHash          string `json:"txn_hash"`
+	TransactionIndex uint64 `json:"transaction_index"`
+	ActualFee        string `json:"actual_fee"`
+	Status           string `json:"status"`
+	StatusData       string `json:"status_data"`
+	BlockHash        string `json:"block_hash"`
+	BlockNumber      uint64 `json:"block_number"`
 }
 
 type InvokeTxReceipt struct {
@@ -381,6 +384,9 @@ type MsgToL2 struct {
 }
 
 func NewMsgToL2(msg *types.MsgToL2) *MsgToL2 {
+	if msg == nil {
+		return &MsgToL2{}
+	}
 	payload := make([]string, len(msg.Payload))
 	for i, data := range msg.Payload {
 		payload[i] = data.Hex0x()

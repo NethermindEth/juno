@@ -161,7 +161,7 @@ func (s *StarkNetRpc) GetTransactionReceipt(ctx context.Context, params *GetTran
 		}
 		// TODO: manage unexpected error
 	}
-	return NewRecipt(_receipt)
+	return NewReceipt(_receipt)
 }
 
 type GetClassP struct {
