@@ -61,7 +61,7 @@ func serverErr(w http.ResponseWriter, err error) {
 	// logger cannot be used as a http.Server.ErrorLog. An alternative
 	// could involve instantiating the logger with a log.Logger that
 	// outputs to io.Discard 🤔.
-	Logger.Errorf("%s", debug.Stack())
+	Logger.Errorf("%s\n%s", err.Error(), debug.Stack())
 
 	res := &ErrResponse{
 		Code:     strconv.Itoa(http.StatusInternalServerError),

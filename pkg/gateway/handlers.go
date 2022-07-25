@@ -93,7 +93,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(res)
 	case r.URL.Query().Has("blockNumber"):
-		num, err := strconv.Atoi(r.URL.Query().Get("blockNumber"))
+		num, err := strconv.ParseUint(r.URL.Query().Get("blockNumber"), 10, 64)
 		if err != nil {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
@@ -102,7 +102,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		block, err := BlockByNumber(uint64(num))
+		block, err := BlockByNumber(num)
 		if err != nil {
 			msg := fmt.Sprintf("Block number %d was not found.", num)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -133,7 +133,7 @@ func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Has("blockId") {
-		id, err := strconv.Atoi(r.URL.Query().Get("blockId"))
+		id, err := strconv.ParseUint(r.URL.Query().Get("blockId"), 10, 64)
 		if err != nil {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
@@ -162,14 +162,14 @@ func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 		// This implementation will just return the hash of the block
 		// accepted on Ethereum queried by number.
 
-		hash, err := BlockHashByID(uint64(id))
+		hash, err := BlockHashByID(id)
 		if err != nil {
 			msg := fmt.Sprintf("Block id %d was not found.", id)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
-		fmt.Fprintf(w, "%q", hash.Hex())
+		fmt.Fprintf(w, `"0x%s"`, hash.Hex())
 		return
 	}
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
