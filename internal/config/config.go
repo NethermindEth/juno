@@ -10,59 +10,54 @@ import (
 	"runtime"
 )
 
-// logConfig represents the logger configuration
-type logConfig struct {
+// Log represents the logger configuration
+type Log struct {
 	Level string `yaml:"level" mapstructure:"level"`
 	Json  bool   `yaml:"json" mapstructure:"json"`
 }
 
-// rpcConfig represents the juno RPC configuration.
-type rpcConfig struct {
+// Rpc represents the juno RPC configuration.
+type Rpc struct {
 	Enable bool `yaml:"enable" mapstructure:"enable"`
 	Port   uint `yaml:"port" mapstructure:"port"`
 }
 
-// metricsConfig represents the Prometheus Metrics configuration.
-type metricsConfig struct {
+// Metrics represents the Prometheus Metrics configuration.
+type Metrics struct {
 	Enable bool `yaml:"enable" mapstructure:"enable"`
 	Port   uint `yaml:"port" mapstructure:"port"`
 }
 
-// ethConfig represents the juno Ethereum configuration.
-type ethereumConfig struct {
-	Node string `yaml:"node" mapstructure:"node"`
-}
-
-// restConfig represents the juno REST configuration.
-type restConfig struct {
+// Rest represents the juno REST configuration.
+type Rest struct {
 	Enable bool   `yaml:"enable" mapstructure:"enable"`
 	Port   uint   `yaml:"port" mapstructure:"port"`
 	Prefix string `yaml:"prefix" mapstructure:"prefix"`
 }
 
-// databaseConfig represents the juno database configuration.
-type databaseConfig struct {
+// Database represents the juno database configuration.
+type Database struct {
 	Name string `yaml:"name" mapstructure:"name"`
 	Path string `yaml:"path" mapstructure:"path"`
 }
 
-// starknetConfig represents the juno StarkNet configuration.
-type starknetConfig struct {
+// Starknet represents the juno StarkNet configuration.
+type Starknet struct {
 	Enable    bool   `yaml:"enable" mapstructure:"enable"`
 	Sequencer string `yaml:"sequencer" mapstructure:"sequencer"`
 	Network   string `yaml:"network" mapstructure:"network"`
-	ApiSync   bool   `yaml:"api_sync" mapstructure:"api_sync"`
+	ApiSync   bool   `yaml:"apisync" mapstructure:"apisync"`
+	EthNode   string `yaml:"ethnode" mapstructure:"ethnode"`
 }
 
-// Config is the top-level juno configuration.
-type Config struct {
-	Log      logConfig      `yaml:"log" mapstructure:"log"`
-	Ethereum ethereumConfig `yaml:"ethereum" mapstructure:"ethereum"`
-	RPC      rpcConfig      `yaml:"rpc" mapstructure:"rpc"`
-	Metrics  metricsConfig  `yaml:"metrics" mapstructure:"metrics"`
-	REST     restConfig     `yaml:"rest" mapstructure:"rest"`
-	Database databaseConfig `yaml:"database" mapstructure:"database"`
-	Starknet starknetConfig `yaml:"starknet" mapstructure:"starknet"`
+// Juno is the top-level juno configuration.
+type Juno struct {
+	Log      Log      `yaml:"log" mapstructure:"log"`
+	Rpc      Rpc      `yaml:"rpc" mapstructure:"rpc"`
+	Metrics  Metrics  `yaml:"metrics" mapstructure:"metrics"`
+	Rest     Rest     `yaml:"rest" mapstructure:"rest"`
+	Database Database `yaml:"database" mapstructure:"database"`
+	Starknet Starknet `yaml:"starknet" mapstructure:"starknet"`
 }
 
 // UserDataDir finds the user's default data directory, returning the
