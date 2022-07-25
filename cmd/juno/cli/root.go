@@ -12,10 +12,10 @@ import (
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/contracthash"
 	"github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
@@ -58,10 +58,10 @@ var (
 	stateSynchronizer *starknet.Synchronizer
 
 	contractHashManager *contracthash.Manager
-	abiManager          *abi.Manager
 	stateManager        *state.Manager
 	transactionManager  *transaction.Manager
 	blockManager        *block.Manager
+	syncManager         *sync.Manager
 )
 
 var shutdownTimeout = 5 * time.Second
@@ -184,16 +184,16 @@ func setupDatabaseManagers() {
 	contractHashDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	dbName = "ABI"
-	abiDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
+	dbName = "SYNC"
+	syncDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	dbName = "CODE"
-	codeDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
+	dbName = "CONTRACT_DEF"
+	contractDefDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	dbName = "STORAGE"
-	storageDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
+	dbName = "STATE"
+	stateDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
 	dbName = "TRANSACTION"
@@ -208,9 +208,9 @@ func setupDatabaseManagers() {
 	blockDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
+	syncManager = sync.NewSyncManager(syncDb)
 	contractHashManager = contracthash.NewManager(contractHashDb)
-	abiManager = abi.NewManager(abiDb)
-	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	stateManager = state.NewManager(stateDb, contractDefDb)
 	transactionManager = transaction.NewManager(txDb, receiptDb)
 	blockManager = block.NewManager(blockDb)
 }
