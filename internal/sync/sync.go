@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	dbState "github.com/NethermindEth/juno/internal/db/state"
-	syncDB "github.com/NethermindEth/juno/internal/db/sync"
+	"github.com/NethermindEth/juno/internal/db/sync"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/felt"
@@ -25,7 +25,7 @@ var SyncService syncService
 
 type syncService struct {
 	// manager is the sync manager.
-	manager *syncDB.Manager
+	syncManager *sync.Manager
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
 	// l1Client represent the ethereum client
@@ -69,13 +69,13 @@ func SetupSync(feederClient *feeder.Client, l1client services.L1Client) {
 	SyncService.setChainId()
 	SyncService.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		services.NewApiCollector(SyncService.manager, SyncService.feeder, int(SyncService.chainId.Int64()))
+		services.NewApiCollector(SyncService.syncManager, SyncService.feeder, int(SyncService.chainId.Int64()))
 		SyncService.stateDiffCollector = services.APICollector
 	} else {
-		services.NewL1Collector(SyncService.manager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
+		services.NewL1Collector(SyncService.syncManager, SyncService.feeder, l1client, int(SyncService.chainId.Int64()))
 		SyncService.stateDiffCollector = services.L1Collector
 	}
-	SyncService.synchronizer = services.NewSynchronizer(SyncService.manager, SyncService.stateManager,
+	SyncService.synchronizer = services.NewSynchronizer(SyncService.syncManager, SyncService.stateManager,
 		SyncService.feeder, SyncService.stateDiffCollector)
 	go func() {
 		err = SyncService.stateDiffCollector.Run()
@@ -117,12 +117,12 @@ func (s *syncService) Run() error {
 			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
 			"Timer", time.Since(start)).
 			Info("Synced block")
-		s.manager.StoreLatestBlockSync(stateDiff.BlockNumber)
+		s.syncManager.StoreLatestBlockSync(stateDiff.BlockNumber)
 		if stateDiff.OldRoot.Hex() == "" {
-			stateDiff.OldRoot = new(felt.Felt).SetHex(s.manager.GetLatestStateRoot())
+			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
-		s.manager.StoreLatestStateRoot(s.state.Root().Hex())
-		s.manager.StoreStateDiff(stateDiff, "0x"+s.latestBlockHashSynced.Hex())
+		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex())
+		s.syncManager.StoreStateDiff(stateDiff, "0x"+s.latestBlockHashSynced.Hex())
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
@@ -196,11 +196,11 @@ func (s *syncService) SetCode(stateDiff *types.StateDiff, deployedContract types
 }
 
 func (s *syncService) GetStateDiff(blockNumber int64) *types.StateDiff {
-	return s.manager.GetStateDiff(blockNumber)
+	return s.syncManager.GetStateDiff(blockNumber)
 }
 
 func (s *syncService) GetStateDiffFromHash(blockHash string) *types.StateDiff {
-	return s.manager.GetStateDiffFromHash(blockHash)
+	return s.syncManager.GetStateDiffFromHash(blockHash)
 }
 
 func (s *syncService) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
@@ -221,7 +221,7 @@ func (s *syncService) GetPendingBlock() *feeder.StarknetBlock {
 
 // setDefaults sets the default value for properties that are not set.
 func (s *syncService) setDefaults() error {
-	if s.manager == nil {
+	if s.syncManager == nil {
 		// notest
 		env, err := db.GetMDBXEnv()
 		if err != nil {
@@ -239,7 +239,7 @@ func (s *syncService) setDefaults() error {
 		if err != nil {
 			return err
 		}
-		s.manager = syncDB.NewManager(database)
+		s.syncManager = syncDB.NewManager(database)
 
 		s.stateManager = dbState.NewStateManager(stateDatabase, contractDef)
 
@@ -249,7 +249,7 @@ func (s *syncService) setDefaults() error {
 }
 
 func (s *syncService) setStateToLatestRoot() {
-	stateRoot := s.manager.GetLatestStateRoot()
+	stateRoot := s.syncManager.GetLatestStateRoot()
 	root := new(felt.Felt).SetHex(stateRoot)
 	s.state = state.New(s.stateManager, root)
 }
@@ -258,7 +258,7 @@ func (s *syncService) setStateToLatestRoot() {
 func (s *syncService) Close(ctx context.Context) {
 	s.service.Close(ctx)
 	s.stateDiffCollector.Close(ctx)
-	s.manager.Close()
+	s.syncManager.Close()
 }
 
 func (s *syncService) setChainId() {
