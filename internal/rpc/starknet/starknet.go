@@ -5,6 +5,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/internal/db/sync"
+
+	"github.com/NethermindEth/juno/internal/db/block"
+	"github.com/NethermindEth/juno/internal/db/transaction"
+
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/felt"
@@ -13,10 +18,23 @@ import (
 
 type StarkNetRpc struct {
 	stateManager state.StateManager
+	blockManager *block.Manager
+	txnManager   *transaction.Manager
+	syncManager  *sync.Manager
 }
 
-func New(stateManager state.StateManager) *StarkNetRpc {
-	return &StarkNetRpc{stateManager: stateManager}
+func New(
+	stateManager state.StateManager,
+	blockManager *block.Manager,
+	txnManager *transaction.Manager,
+	syncManager *sync.Manager,
+) *StarkNetRpc {
+	return &StarkNetRpc{
+		stateManager: stateManager,
+		blockManager: blockManager,
+		txnManager:   txnManager,
+		syncManager:  syncManager,
+	}
 }
 
 type GetBlockWithTxHashesP struct {
@@ -110,7 +128,7 @@ func (s *StarkNetRpc) GetTransactionByHash(ctx context.Context, params *GetTrans
 		return nil, NewInvalidTxnHash()
 	}
 	txHash := new(felt.Felt).SetHex(params.TransactionHash)
-	tx, err := services.TransactionService.GetTransaction(txHash)
+	tx, err := s.txnManager.GetTransaction(txHash)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewInvalidTxnHash()
@@ -134,7 +152,7 @@ func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(ctx context.Context, param
 		return nil, NewInvalidTxnIndex()
 	}
 	txHash := block.TxHashes[params.Index]
-	tx, err := services.TransactionService.GetTransaction(txHash)
+	tx, err := s.txnManager.GetTransaction(txHash)
 	if err != nil {
 		// TODO: manage unexpected error
 	}
@@ -151,7 +169,7 @@ func (s *StarkNetRpc) GetTransactionReceipt(ctx context.Context, params *GetTran
 		return nil, NewInvalidTxnHash()
 	}
 	txHash := new(felt.Felt).SetHex(params.TxnHash)
-	_receipt, err := services.TransactionService.GetReceipt(txHash)
+	_receipt, err := s.txnManager.GetReceipt(txHash)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewInvalidTxnHash()
@@ -172,7 +190,7 @@ func (s *StarkNetRpc) GetClass(ctx context.Context, params *GetClassP) (any, err
 	}
 	_ = new(felt.Felt).SetHex(params.ClassHash)
 	_, latestBlockHash := services.SyncService.LatestBlockSynced()
-	latestBlock, err := services.BlockService.GetBlockByHash(latestBlockHash)
+	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
 		// TODO: manage unexpeceted error
 		return nil, errors.New("unexpected error")

@@ -143,8 +143,9 @@ func setupStateSynchronizer() {
 func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
+		// TODO: pass the sync manager
 		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
-			starknet.New(stateManager))
+			starknet.New(stateManager, blockManager, transactionManager))
 		if err != nil {
 			Logger.Fatal("Failed to start RPC Server", err)
 		}
