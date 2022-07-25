@@ -1,6 +1,8 @@
 package felt
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/pkg/common"
 )
 
@@ -26,6 +28,10 @@ func (z *Felt) SetHex(s string) *Felt {
 // automatically convert to regular form.
 func (z *Felt) Hex() string {
 	return z.Text(16)
+}
+
+func (z *Felt) Hex0x() string {
+	return fmt.Sprintf("0x0%063s", z.Hex())
 }
 
 // SetBit sets bit i to j on z. Undefined behavior if
