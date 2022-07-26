@@ -1,5 +1,4 @@
 name: Juno Test
-
 on:
   push:
     branches:
@@ -9,40 +8,24 @@ on:
 
 jobs:
   test:
+    name: Run Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
         go: [ '1.18' ]
     steps:
-      - name: Set up Clang (local only)
-        if: ${{ env.ACT }}
-        run: sudo apt update && sudo apt -y install clang 
       - uses: actions/checkout@v3
       - name: Set up go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - name: Download dependencies
-        run: make install-courtney
-      -name : Download gofumpt
-        run: make install-gofumpt
-      - name: Run gofumpt
-        run: make format-check
-
-      # Errors out in local
-      - name: Benchmark Juno (remote only)
-        if: ${{ !env.ACT }}
-        run: make benchmarks
-
-      # Code coverage and upload
-      # If running locally, check Engineering guidelines 
-      # And run through "make" instead
-      - name: Code Coverage  (remote only)
-        if: ${{ !env.ACT }}
+      - name: Install deps
+        run: make install-deps
+      - name: Tests
         run: make codecov-test
-      - name: Upload Coverage to Codecov (remote only)
-        # Only upload if on GH (Token is required)
-        if: ${{ !env.ACT }}
+      - name: Benchmark
+        run: make benchmarks
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
         with:
           fail_ci_if_error: true

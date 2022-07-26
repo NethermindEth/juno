@@ -5,21 +5,15 @@ on:
     branches: [main]
     
 jobs:
-  # On PR, attempt to build the docs normally
-  test-docs-build:
-    if: github.event_name == 'pull_request'
+  checks:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v3
-      - uses: mskelton/setup-yarn@v1
-        with:
-          node-version-file: '.nvmrc' 
-          cache: 'yarn'
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
+          node-version-file: 'docs/.nvmrc'
       - name: Test Build
         run: |
           cd docs
@@ -31,18 +25,14 @@ jobs:
           npm i
           fi
           npm run build
-  
-  # When pushing to main, deploy docs to production (gh-pages)
   gh-release:
-    if: github.event_name == 'push' && {{ !env.ACT }}
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: 
       name: production
       url: http://gojuno.xyz
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup Node
       - uses: actions/setup-node@v3
         with:
           node-version-file: 'docs/.nvmrc'
