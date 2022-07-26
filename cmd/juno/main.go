@@ -199,7 +199,16 @@ func juno(cfg *config.Juno) {
 	setupRest(&cfg.Rest, feederClient, restErrChan)
 	setupStateSynchronizer(&cfg.Starknet, feederClient, mdbxEnv)
 
-	checkErrChs(rpcErrChan, metricsErrChan, restErrChan)
+	if !cfg.Starknet.Enable {
+		// Currently, Juno is only useful for storing StarkNet
+		// state locally. We can't do that if StarkNet syncing
+		// is disabled, so we exit with a heplful message
+		fmt.Println("StarkNet synchronization is disabled. To enable it, use the --starknet-enable flag.")
+		shutdown(cfg)
+	} else {
+		// Wait until error
+		checkErrChs(rpcErrChan, metricsErrChan, restErrChan)
+	}
 }
 
 func setupLogger(cfg *config.Log) {
@@ -212,7 +221,7 @@ func setupLogger(cfg *config.Log) {
 func setupMdbxEnv(cfg *config.Database) *mdbx.Env {
 	mdbxEnv, err := db.NewMDBXEnv(cfg.Path, 100, 0)
 	if err != nil {
-		Logger.Fatal("Failed to initialize database environment: ", err)
+		Logger.With("databasePath", cfg.Path, "error", err).Fatal("Failed to initialize database environment")
 	}
 	return mdbxEnv
 }
