@@ -15,9 +15,10 @@ This short guide shows you what Juno is and how to get started.
 
 ## Installation requirements
 
-- [Golang](https://go.dev/doc/install) version 1.18 to build and run the project will usually be everything you need.
+- [Golang](https://go.dev/doc/install) version 1.18.
+- [Clang](https://clang.llvm.org/get_started.html) latest version. 
 
-_Check [here](./download.mdx) for more information and OS specific instructions._
+_Check [here](./download.mdx) for more information on getting Juno and OS specific instructions._
 
 ### Installing Juno from source
 
