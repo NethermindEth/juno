@@ -31,8 +31,10 @@ import (
 )
 
 const (
-	mdbxOptMaxDb uint64 = 100
-	mdbxFlags    uint   = 0
+	mdbxOptMaxDb   uint64 = 100
+	mdbxFlags      uint   = 0
+	upperPortBound int    = 1024
+	lowerPortBound int    = 49151
 )
 
 // Cobra configuration.
@@ -110,18 +112,23 @@ func juno(_ *cobra.Command, _ []string) {
 	setupSynchronizer()
 	setupVirtualMachine()
 
-	errChs := make([]chan error, 0)
+	numOfErrCh := 3
+	errChs := make([]chan error, numOfErrCh)
+	for i := 0; i < numOfErrCh; i++ {
+		errChs[i] = make(chan error)
+	}
+
 	if config.Runtime.RPC.Enabled {
-		errChs = append(errChs, run(rpcServer.ListenAndServe))
+		rpcServer.ListenAndServe(errChs[0])
 	}
 	if config.Runtime.Metrics.Enabled {
-		errChs = append(errChs, run(metricsServer.ListenAndServe))
+		metricsServer.ListenAndServe(errChs[1])
 	}
 	if config.Runtime.REST.Enabled {
-		errChs = append(errChs, run(restServer.ListenAndServe))
+		metricsServer.ListenAndServe(errChs[2])
 	}
 	if config.Runtime.Starknet.Enabled {
-		errChs = append(errChs, run(synchronizer.Run))
+		synchronizer.Run()
 	}
 
 	checkErrChs(errChs)
