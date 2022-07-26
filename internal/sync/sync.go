@@ -95,10 +95,7 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 	}
 	synchro.setStateToLatestRoot()
 	go func() {
-		err := synchro.stateDiffCollector.Run()
-		if err != nil {
-			panic("API should initialize")
-		}
+		synchro.stateDiffCollector.Run()
 	}()
 	return synchro
 }

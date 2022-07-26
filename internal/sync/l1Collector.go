@@ -67,6 +67,8 @@ type l1Collector struct {
 	latestBlock *feeder.StarknetBlock
 	// pendingBlock is the block that is being synced.
 	pendingBlock *feeder.StarknetBlock
+
+	quit chan struct{}
 }
 
 func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Client, chainID int) *l1Collector {
@@ -75,6 +77,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		manager:  manager,
 		chainID:  chainID,
 		l1client: l1client,
+		quit:     make(chan struct{}),
 	}
 	// collector.logger = Logger.Named("l1Collector")
 	collector.buffer = make(chan *types2.StateDiff, 10)
@@ -87,7 +90,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 	return collector
 }
 
-func (l *l1Collector) Run() error {
+func (l *l1Collector) Run() {
 	// l.logger.Info("Service Started")
 
 	l.latestBlockSynced = l.manager.GetLatestBlockSync()
@@ -96,49 +99,56 @@ func (l *l1Collector) Run() error {
 
 	// start the buffer updater
 	for {
-		if l.latestBlock == nil {
-			time.Sleep(time.Second * 3)
-			continue
-		}
-		if l.latestBlockSynced >= int64(l.latestBlock.BlockNumber) {
-			time.Sleep(time.Second * 3)
-			continue
-		}
-
-		if !l.facts.Exist(strconv.FormatInt(l.latestBlockSynced, 10)) {
-			time.Sleep(time.Second * 3)
-			continue
-		}
-		f, _ := l.facts.Get(strconv.FormatInt(l.latestBlockSynced, 10))
-		fact := f.(*types2.Fact)
-
-		if l.gpsVerifier.Exist(fact.Value) {
-			// Get memory pages hashes using fact
-			pagesHashes, ok := l.gpsVerifier.Get(fact.Value)
-			if !ok {
-				// l.logger.Debug("Fact has not been verified")
+		select {
+		case <-l.quit:
+			close(l.buffer)
+			return
+		default:
+			if l.latestBlock == nil {
 				time.Sleep(time.Second * 3)
 				continue
 			}
-			// If already exist the information related to the fact,
-			// fetch the memory pages and updated the state
-			pages, err := l.processPagesHashes(
-				pagesHashes.(types2.PagesHash).Bytes,
-				l.contractInfo[l.memoryPagesContractAddress].Contract)
-			if err != nil {
-				// l.logger.With("Error", err).Debug("Error processing pages hashes")
+			if l.latestBlockSynced >= int64(l.latestBlock.BlockNumber) {
 				time.Sleep(time.Second * 3)
 				continue
 			}
 
-			stateDiff := parsePages(pages)
-			stateDiff.NewRoot = fact.StateRoot
-			stateDiff.BlockNumber = int64(fact.SequenceNumber)
-			l.buffer <- stateDiff
+			if !l.facts.Exist(strconv.FormatInt(l.latestBlockSynced, 10)) {
+				time.Sleep(time.Second * 3)
+				continue
+			}
+			f, _ := l.facts.Get(strconv.FormatInt(l.latestBlockSynced, 10))
+			fact := f.(*types2.Fact)
 
-			l.removeFactTree(fact)
-			// l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
-			l.latestBlockSynced += 1
+			if l.gpsVerifier.Exist(fact.Value) {
+				// Get memory pages hashes using fact
+				pagesHashes, ok := l.gpsVerifier.Get(fact.Value)
+				if !ok {
+					// l.logger.Debug("Fact has not been verified")
+					time.Sleep(time.Second * 3)
+					continue
+				}
+				// If already exist the information related to the fact,
+				// fetch the memory pages and updated the state
+				pages, err := l.processPagesHashes(
+					pagesHashes.(types2.PagesHash).Bytes,
+					l.contractInfo[l.memoryPagesContractAddress].Contract)
+				if err != nil {
+					// l.logger.With("Error", err).Debug("Error processing pages hashes")
+					time.Sleep(time.Second * 3)
+					continue
+				}
+
+				stateDiff := parsePages(pages)
+				stateDiff.NewRoot = fact.StateRoot
+				stateDiff.BlockNumber = int64(fact.SequenceNumber)
+				l.buffer <- stateDiff
+
+				l.removeFactTree(fact)
+				// l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
+				l.latestBlockSynced += 1
+			}
+
 		}
 	}
 }
@@ -148,7 +158,7 @@ func (l *l1Collector) GetChannel() chan *types2.StateDiff {
 }
 
 func (l *l1Collector) Close() {
-	close(l.buffer)
+	close(l.quit)
 }
 
 func (l *l1Collector) LatestBlock() *feeder.StarknetBlock {
