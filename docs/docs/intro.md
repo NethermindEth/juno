@@ -32,27 +32,20 @@ go get ./...
 
 _For more details on running the client, check [this page](./run/normal.mdx)._
 
-To compile the tools (`juno` and `juno-cli`), simply run the `make compile` command within the project directory:
+To run Juno in your machine with the default settings, simply:
 
-```bash
-make compile
-```
 
-You will then have 2 available commands, generated inside the `build` folder of the project:
-
-```bash
-./build/juno # To start the node
-./build/juno-cli # To explore the StarkNet network and its transactions
+``` bash
+make all
 ```
 
 ### Using Docker
 
 To run the project inside a Docker container, read [here](./run/docker.mdx).
 
-## Example usage
+<!-- ## Example usage -->
 
 TODO: Would a user use make all to run Juno?
 
-<fontcolor:red>
 - How would a normal user want to use Juno? 
 - Somebody who just wanted to interact with the network?
