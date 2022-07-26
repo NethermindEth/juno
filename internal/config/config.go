@@ -65,7 +65,7 @@ type Juno struct {
 // It is analagous to os.UserConfigDir.
 func UserDataDir() (string, error) {
 	// notest
-	junoDir := "juno"
+	const junoDir = "juno"
 
 	// notest
 	switch runtime.GOOS {
