@@ -50,7 +50,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 
 // Run start to store StateDiff locally
 func (a *apiCollector) Run() {
-	a.logger.Info("Service Started")
+	a.logger.Info("Collector Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
