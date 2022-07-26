@@ -112,7 +112,6 @@ func newRootCmd() *cobra.Command {
 	// Database
 	cfg.Database.Path, _ = config.UserDataDir() // Empty string is a suitable default if there is an error
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Database.Name, "database-name", "juno", "name of the database. Useful when maintaining databases from different networks.")
 
 	// StarkNet
 	rootCmd.PersistentFlags().BoolVar(&cfg.Starknet.Enable, "starknet-enable", false, "if set, the node will synchronize with the StarkNet chain.")

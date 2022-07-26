@@ -37,7 +37,6 @@ type Rest struct {
 
 // Database represents the juno database configuration.
 type Database struct {
-	Name string `yaml:"name" mapstructure:"name"`
 	Path string `yaml:"path" mapstructure:"path"`
 }
 
