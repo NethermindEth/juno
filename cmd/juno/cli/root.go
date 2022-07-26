@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
+	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncService "github.com/NethermindEth/juno/internal/sync"
@@ -49,9 +50,9 @@ var (
 var (
 	mdbxEnv *mdbx.Env
 
-	rpcServer *rpc.HttpRpc
-	//metricsServer *metric.Server
-	restServer *rest.Server
+	rpcServer     *rpc.HttpRpc
+	metricsServer *metric.Server
+	restServer    *rest.Server
 
 	feederGatewayClient *feeder.Client
 
@@ -109,13 +110,29 @@ func juno(_ *cobra.Command, _ []string) {
 	setupSynchronizer()
 	setupVirtualMachine()
 
-	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
-	rpcServer.ListenAndServe(errChs[0])
-	//metricsServer.ListenAndServe(errChs[1])
-	restServer.ListenAndServe(errChs[1])
-	synchronizer.Run(errChs[2])
+	errChs := make([]chan error, 0)
+	if config.Runtime.RPC.Enabled {
+		errChs = append(errChs, run(rpcServer.ListenAndServe))
+	}
+	if config.Runtime.Metrics.Enabled {
+		errChs = append(errChs, run(metricsServer.ListenAndServe))
+	}
+	if config.Runtime.REST.Enabled {
+		errChs = append(errChs, run(restServer.ListenAndServe))
+	}
+	if config.Runtime.Starknet.Enabled {
+		errChs = append(errChs, run(synchronizer.Run))
+	}
 
 	checkErrChs(errChs)
+}
+
+type fnServer func(chan<- error)
+
+func run(function fnServer) chan error {
+	errCh := make(chan error)
+	function(errCh)
+	return errCh
 }
 
 func setupVirtualMachine() {
@@ -142,10 +159,14 @@ func setupServers() {
 			Logger.Fatal("Failed to initialise RPC Server", err)
 		}
 	}
-	//
-	//if config.Runtime.Metrics.Enabled {
-	//	metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-	//}
+
+	if config.Runtime.Metrics.Enabled {
+		// Based on Linux ports reserved.
+		if 1024 > config.Runtime.Metrics.Port || config.Runtime.Metrics.Port > 49151 {
+			Logger.Fatal("Metrics port must be between 1024 and 49151")
+		}
+		metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+	}
 
 	if config.Runtime.REST.Enabled {
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
@@ -224,10 +245,10 @@ func shutdown() {
 	if err := rpcServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown RPC server gracefully: ", err.Error())
 	}
-	//
-	//if err := metricsServer.Close(shutdownTimeout); err != nil {
-	//	Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
-	//}
+
+	if err := metricsServer.Close(shutdownTimeout); err != nil {
+		Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
+	}
 
 	if err := restServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
