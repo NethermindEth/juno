@@ -76,7 +76,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		chainID:  chainID,
 		l1client: l1client,
 	}
-	//collector.logger = Logger.Named("l1Collector")
+	// collector.logger = Logger.Named("l1Collector")
 	collector.buffer = make(chan *types2.StateDiff, 10)
 	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	collector.memoryPageHash = types2.NewDictionary()
@@ -147,9 +147,8 @@ func (l *l1Collector) GetChannel() chan *types2.StateDiff {
 	return l.buffer
 }
 
-func (l *l1Collector) Close(duration time.Duration) error {
+func (l *l1Collector) Close() {
 	close(l.buffer)
-	return nil
 }
 
 func (l *l1Collector) LatestBlock() *feeder.StarknetBlock {
@@ -213,7 +212,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 		txn, _, err := l.l1client.TransactionByHash(context.Background(), txHash)
 		if err != nil {
 			// l.logger.With("Error", err, "Transaction Hash", v).
-			//Error("Couldn't retrieve transactions")
+			// Error("Couldn't retrieve transactions")
 			return nil, err
 		}
 
@@ -245,7 +244,7 @@ func (l *l1Collector) loadContractsAbi() {
 		"LogStateTransitionFact", l.contractInfo)
 	if err != nil {
 		// l.logger.With("Address", contractAddresses.Starknet).
-		//Panic("Couldn't load contract from disk ")
+		// Panic("Couldn't load contract from disk ")
 	}
 	l.starknetContractAddress = common.HexToAddress(contractAddresses.Starknet)
 
@@ -256,7 +255,7 @@ func (l *l1Collector) loadContractsAbi() {
 		"LogMemoryPagesHashes", l.contractInfo)
 	if err != nil {
 		// l.logger.With("Address", gpsAddress).
-		//Panic("Couldn't load contract from disk ")
+		// Panic("Couldn't load contract from disk ")
 		return
 	}
 	l.gpsVerifierContractAddress = common.HexToAddress(gpsAddress)
@@ -268,7 +267,7 @@ func (l *l1Collector) loadContractsAbi() {
 		"LogMemoryPageFactContinuous", l.contractInfo)
 	if err != nil {
 		// l.logger.With("Address", memoryPagesContractAddress).
-		//Panic("Couldn't load contract from disk ")
+		// Panic("Couldn't load contract from disk ")
 		return
 	}
 	l.memoryPagesContractAddress = common.HexToAddress(memoryPagesContractAddress)
@@ -385,7 +384,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	starknetLogs, err := l.l1client.FilterLogs(context.Background(), query)
 	if err != nil {
 		// l.logger.With("Error", err, "Initial block", initialBlock, "End block", initialBlock+window, "Addresses", addresses).
-		//Info("Couldn't get logs")
+		// Info("Couldn't get logs")
 		return err
 	}
 	for _, vLog := range starknetLogs {
@@ -445,7 +444,7 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 		starknetLogs, err := l.l1client.FilterLogs(context.Background(), query)
 		if err != nil {
 			// l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
-			//Info("Couldn't get logs")
+			// Info("Couldn't get logs")
 		}
 		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b), event.TxnHash)
 		if err != nil {

@@ -36,7 +36,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 		manager: manager,
 		chainID: chainID,
 	}
-	//collector.logger = Logger.Named("apiCollector")
+	// collector.logger = Logger.Named("apiCollector")
 	collector.buffer = make(chan *types.StateDiff, 10)
 	collector.synced = false
 	go collector.updateLatestBlockOnChain()
@@ -45,7 +45,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 
 // Run start to store StateDiff locally
 func (a *apiCollector) Run() error {
-	//a.logger.Info("Service Started")
+	// a.logger.Info("Service Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
@@ -63,25 +63,24 @@ func (a *apiCollector) Run() error {
 		if a.chainID == 1 { // mainnet
 			update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
-				//a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
+				// a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
 				continue
 			}
 		} else { // goerli
 			update, err = a.client.GetStateUpdateGoerli("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
-				//a.logger.With("Error", err).Info("Couldn't get state update")
+				// a.logger.With("Error", err).Info("Couldn't get state update")
 				continue
 			}
 		}
 		a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
-		//a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
+		// a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 		latestStateDiffSynced += 1
 	}
 }
 
-func (a *apiCollector) Close(duration time.Duration) error {
+func (a *apiCollector) Close() {
 	close(a.buffer)
-	return nil
 }
 
 // GetChannel returns the channel of StateDiffs

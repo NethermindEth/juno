@@ -3,20 +3,22 @@ package sync
 import (
 	"context"
 	"fmt"
-	blockDB "github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/db/transaction"
-	"go.uber.org/zap"
 	"math/big"
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
+
 	"github.com/NethermindEth/juno/internal/config"
+	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/sync"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
+	"go.uber.org/zap"
 )
 
 type Synchronizer struct {
@@ -63,12 +65,19 @@ type Synchronizer struct {
 	Running bool
 }
 
-func NewSynchronizer(feederClient *feeder.Client, l1client L1Client, syncManager *sync.Manager,
-	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager) *Synchronizer {
-
+func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
+	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
+) *Synchronizer {
 	synchro := new(Synchronizer)
+	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
-	synchro.l1Client = l1client
+	if !config.Runtime.Starknet.ApiSync {
+		ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+		if err != nil {
+			synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
+		}
+		synchro.l1Client = ethereumClient
+	}
 
 	synchro.syncManager = syncManager
 	synchro.stateManager = stateManager
@@ -78,11 +87,10 @@ func NewSynchronizer(feederClient *feeder.Client, l1client L1Client, syncManager
 	synchro.Running = false
 
 	synchro.setChainId()
-	synchro.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
 		synchro.stateDiffCollector = NewApiCollector(synchro.syncManager, synchro.feeder, int(synchro.chainId.Int64()))
 	} else {
-		synchro.stateDiffCollector = NewL1Collector(synchro.syncManager, synchro.feeder, l1client,
+		synchro.stateDiffCollector = NewL1Collector(synchro.syncManager, synchro.feeder, synchro.l1Client,
 			int(synchro.chainId.Int64()))
 	}
 	synchro.setStateToLatestRoot()
@@ -96,13 +104,12 @@ func NewSynchronizer(feederClient *feeder.Client, l1client L1Client, syncManager
 }
 
 // Run starts the service.
-func (s *Synchronizer) Run(errChan chan<- error) {
+func (s *Synchronizer) Run() {
 	s.Running = true
-	go s.sync(errChan)
-
+	go s.sync()
 }
 
-func (s *Synchronizer) sync(errChan chan<- error) {
+func (s *Synchronizer) sync() {
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -233,8 +240,8 @@ func (s *Synchronizer) setStateToLatestRoot() {
 }
 
 // Close closes the service.
-func (s *Synchronizer) Close(timeout time.Duration) error {
-	return s.stateDiffCollector.Close(timeout)
+func (s *Synchronizer) Close() {
+	s.stateDiffCollector.Close()
 }
 
 func (s *Synchronizer) setChainId() {
@@ -263,6 +270,7 @@ func (s *Synchronizer) updateBlock(number int64) error {
 	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
 	return nil
 }
+
 func (s *Synchronizer) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
 	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {

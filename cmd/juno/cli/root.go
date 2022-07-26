@@ -3,7 +3,6 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/services"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -18,12 +17,13 @@ import (
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
+	"github.com/NethermindEth/juno/internal/services"
 	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/torquem-ch/mdbx-go/mdbx"
@@ -49,9 +49,9 @@ var (
 var (
 	mdbxEnv *mdbx.Env
 
-	rpcServer *rpc.HttpRpc
-	//metricsServer *metric.Server
-	restServer *rest.Server
+	rpcServer     *rpc.HttpRpc
+	metricsServer *prometheus.Server
+	restServer    *rest.Server
 
 	feederGatewayClient *feeder.Client
 
@@ -109,11 +109,18 @@ func juno(_ *cobra.Command, _ []string) {
 	setupSynchronizer()
 	setupVirtualMachine()
 
-	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
+	synchronizer.Run()
+
+	var errChs []chan error
+	numOfErrCh := 3
+
+	for i := 0; i < numOfErrCh; i++ {
+		errChs = append(errChs, make(chan error))
+	}
+
 	rpcServer.ListenAndServe(errChs[0])
-	//metricsServer.ListenAndServe(errChs[1])
-	restServer.ListenAndServe(errChs[1])
-	synchronizer.Run(errChs[2])
+	metricsServer.ListenAndServe(errChs[1])
+	restServer.ListenAndServe(errChs[2])
 
 	checkErrChs(errChs)
 }
@@ -123,14 +130,8 @@ func setupVirtualMachine() {
 }
 
 func setupSynchronizer() {
-	if config.Runtime.Starknet.Enabled {
-		ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
-		if err != nil {
-			Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
-		}
-		synchronizer = syncService.NewSynchronizer(feederGatewayClient, ethereumClient, syncManager, stateManager,
-			blockManager, transactionManager)
-	}
+	synchronizer = syncService.NewSynchronizer(feederGatewayClient, syncManager, stateManager, blockManager,
+		transactionManager)
 }
 
 func setupServers() {
@@ -142,10 +143,10 @@ func setupServers() {
 			Logger.Fatal("Failed to initialise RPC Server", err)
 		}
 	}
-	//
-	//if config.Runtime.Metrics.Enabled {
-	//	metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-	//}
+
+	if config.Runtime.Metrics.Enabled {
+		metricsServer = prometheus.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+	}
 
 	if config.Runtime.REST.Enabled {
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
@@ -220,19 +221,17 @@ func shutdown() {
 	blockManager.Close()
 	stateManager.Close()
 	syncManager.Close()
+	synchronizer.Close()
 
 	if err := rpcServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown RPC server gracefully: ", err.Error())
 	}
-	//
-	//if err := metricsServer.Close(shutdownTimeout); err != nil {
-	//	Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
-	//}
+
+	if err := metricsServer.Close(shutdownTimeout); err != nil {
+		Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
+	}
 
 	if err := restServer.Close(shutdownTimeout); err != nil {
-		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
-	}
-	if err := synchronizer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
 	}
 }
