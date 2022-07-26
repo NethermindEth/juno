@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
 	"strconv"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 )
 
 type apiCollector struct {
+	logger *zap.SugaredLogger
 	// manager is the Sync manager
 	manager *sync.Manager
 	// feeder is the client that provides the Connection to the feeder gateway.
@@ -38,7 +41,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 		chainID: chainID,
 		quit:    make(chan struct{}),
 	}
-	// collector.logger = Logger.Named("apiCollector")
+	collector.logger = log.Logger.Named("apiCollector")
 	collector.buffer = make(chan *types.StateDiff, 10)
 	collector.synced = false
 	go collector.updateLatestBlockOnChain()
@@ -47,7 +50,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 
 // Run start to store StateDiff locally
 func (a *apiCollector) Run() {
-	// a.logger.Info("Service Started")
+	a.logger.Info("Service Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
@@ -67,21 +70,13 @@ func (a *apiCollector) Run() {
 			}
 			var update *feeder.StateUpdateResponse
 			var err error
-			if a.chainID == 1 { // mainnet
-				update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
-				if err != nil {
-					// a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
-					continue
-				}
-			} else { // goerli
-				update, err = a.client.GetStateUpdateGoerli("", strconv.FormatInt(latestStateDiffSynced, 10))
-				if err != nil {
-					// a.logger.With("Error", err).Info("Couldn't get state update")
-					continue
-				}
+			update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
+			if err != nil {
+				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
+				continue
 			}
 			a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
-			// a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
+			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 			latestStateDiffSynced += 1
 		}
 	}

@@ -205,23 +205,6 @@ type KV struct {
 	Value string `json:"value"`
 }
 
-type StateDiffGoerli struct {
-	DeployedContracts []struct {
-		Address      string `json:"address"`
-		ContractHash string `json:"class_hash"`
-	} `json:"deployed_contracts"`
-	StorageDiffs map[string][]KV `json:"storage_diffs"`
-}
-
-// StateUpdateResponseGoerli represents the response of a StarkNet state
-// update.
-type StateUpdateResponseGoerli struct {
-	BlockHash string          `json:"block_hash"`
-	NewRoot   string          `json:"new_root"`
-	OldRoot   string          `json:"old_root"`
-	StateDiff StateDiffGoerli `json:"state_diff"`
-}
-
 type DeployedContract struct {
 	Address      string `json:"address"`
 	ContractHash string `json:"class_hash"`

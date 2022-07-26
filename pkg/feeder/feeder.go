@@ -302,47 +302,6 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	return &res, err
 }
 
-// GetStateUpdateGoerli creates a new request to get the contract addresses
-// from the gateway.
-func (c Client) GetStateUpdateGoerli(blockHash, blockNumber string) (*StateUpdateResponse, error) {
-	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
-	if err != nil {
-		metr.IncreaseStateUpdateGoerliFailed()
-		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
-	}
-	var res StateUpdateResponseGoerli
-	metr.IncreaseStateUpdateGoerliSent()
-	_, err = c.do(req, &res)
-	if err != nil {
-		metr.IncreaseStateUpdateGoerliFailed()
-		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return nil, err
-	}
-	metr.IncreaseStateUpdateGoerliReceived()
-	return stateUpdateResponseToGoerli(res), err
-}
-
-func stateUpdateResponseToGoerli(res StateUpdateResponseGoerli) *StateUpdateResponse {
-	deployedContracts := make([]DeployedContract, 0)
-
-	for _, d := range res.StateDiff.DeployedContracts {
-		deployedContracts = append(deployedContracts, DeployedContract{
-			Address:      d.Address,
-			ContractHash: d.ContractHash,
-		})
-	}
-	return &StateUpdateResponse{
-		BlockHash: res.BlockHash,
-		NewRoot:   res.NewRoot,
-		OldRoot:   res.OldRoot,
-		StateDiff: StateDiff{
-			DeployedContracts: deployedContracts,
-			StorageDiffs:      res.StateDiff.StorageDiffs,
-		},
-	}
-}
-
 // GetStateUpdate creates a new request to get the state Update of a given block
 // from the gateway.
 func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
