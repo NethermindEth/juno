@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	feltRegexp = regexp.MustCompile(`^0x0[a-fA-F0-9]{1,63}$`)
-	blockkTags = map[string]any{
+	feltRegexp = regexp.MustCompile(`^0x[a-fA-F0-9]{1,63}$`)
+	blockTags  = map[string]any{
 		"latest":  nil,
 		"pending": nil,
 	}
@@ -22,7 +22,7 @@ func isFelt(s string) bool {
 }
 
 func isBlockTag(s string) bool {
-	_, ok := blockkTags[s]
+	_, ok := blockTags[s]
 	return ok
 }
 

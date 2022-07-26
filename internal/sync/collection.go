@@ -1,4 +1,4 @@
-package services
+package sync
 
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"

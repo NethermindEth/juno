@@ -18,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
-	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncService "github.com/NethermindEth/juno/internal/sync"
@@ -50,9 +49,9 @@ var (
 var (
 	mdbxEnv *mdbx.Env
 
-	rpcServer     *rpc.HttpRpc
-	metricsServer *metric.Server
-	restServer    *rest.Server
+	rpcServer *rpc.HttpRpc
+	//metricsServer *metric.Server
+	restServer *rest.Server
 
 	feederGatewayClient *feeder.Client
 
@@ -110,11 +109,11 @@ func juno(_ *cobra.Command, _ []string) {
 	setupSynchronizer()
 	setupVirtualMachine()
 
-	errChs := []chan error{make(chan error), make(chan error), make(chan error), make(chan error)}
+	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
 	rpcServer.ListenAndServe(errChs[0])
-	metricsServer.ListenAndServe(errChs[1])
-	restServer.ListenAndServe(errChs[2])
-	synchronizer.Run(errChs[3])
+	//metricsServer.ListenAndServe(errChs[1])
+	restServer.ListenAndServe(errChs[1])
+	synchronizer.Run(errChs[2])
 
 	checkErrChs(errChs)
 }
@@ -143,10 +142,10 @@ func setupServers() {
 			Logger.Fatal("Failed to initialise RPC Server", err)
 		}
 	}
-
-	if config.Runtime.Metrics.Enabled {
-		metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-	}
+	//
+	//if config.Runtime.Metrics.Enabled {
+	//	metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+	//}
 
 	if config.Runtime.REST.Enabled {
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
@@ -225,10 +224,10 @@ func shutdown() {
 	if err := rpcServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown RPC server gracefully: ", err.Error())
 	}
-
-	if err := metricsServer.Close(shutdownTimeout); err != nil {
-		Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
-	}
+	//
+	//if err := metricsServer.Close(shutdownTimeout); err != nil {
+	//	Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
+	//}
 
 	if err := restServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())

@@ -5,6 +5,7 @@ package feeder
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -165,6 +166,9 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 			return
 		}
 	}(res)
+	if res == nil {
+		return nil, errors.New("response nil")
+	}
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		metr.IncreaseRequestsFailed()

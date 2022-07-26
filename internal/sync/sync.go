@@ -5,7 +5,6 @@ import (
 	"fmt"
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	"github.com/NethermindEth/juno/internal/services"
 	"go.uber.org/zap"
 	"math/big"
 	"strconv"
@@ -24,7 +23,7 @@ type Synchronizer struct {
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
 	// l1Client represent the ethereum client
-	l1Client services.L1Client
+	l1Client L1Client
 
 	logger *zap.SugaredLogger
 
@@ -44,7 +43,7 @@ type Synchronizer struct {
 	highestBlockHash *felt.Felt
 
 	// stateDIffCollector
-	stateDiffCollector services.StateDiffCollector
+	stateDiffCollector StateDiffCollector
 	// state represent the state of the trie
 	state state.State
 
@@ -64,7 +63,7 @@ type Synchronizer struct {
 	Running bool
 }
 
-func NewSynchronizer(feederClient *feeder.Client, l1client services.L1Client, syncManager *sync.Manager,
+func NewSynchronizer(feederClient *feeder.Client, l1client L1Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager) *Synchronizer {
 
 	synchro := new(Synchronizer)
@@ -81,11 +80,12 @@ func NewSynchronizer(feederClient *feeder.Client, l1client services.L1Client, sy
 	synchro.setChainId()
 	synchro.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
-		synchro.stateDiffCollector = services.NewApiCollector(synchro.syncManager, synchro.feeder, int(synchro.chainId.Int64()))
+		synchro.stateDiffCollector = NewApiCollector(synchro.syncManager, synchro.feeder, int(synchro.chainId.Int64()))
 	} else {
-		synchro.stateDiffCollector = services.NewL1Collector(synchro.syncManager, synchro.feeder, l1client,
+		synchro.stateDiffCollector = NewL1Collector(synchro.syncManager, synchro.feeder, l1client,
 			int(synchro.chainId.Int64()))
 	}
+	synchro.setStateToLatestRoot()
 	go func() {
 		err := synchro.stateDiffCollector.Run()
 		if err != nil {
@@ -344,7 +344,7 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 	common := types.TxnReceiptCommon{
 		TxnHash:     new(felt.Felt).SetHex(receipt.TransactionHash),
 		ActualFee:   new(felt.Felt).SetHex(receipt.ActualFee),
-		Status:      types.TxStatusValue[receipt.TxStatus],
+		Status:      types.TxStatusValue[receipt.Status],
 		StatusData:  receipt.TxStatus,
 		BlockHash:   new(felt.Felt).SetHex(receipt.BlockHash),
 		BlockNumber: uint64(receipt.BlockNumber),
@@ -450,7 +450,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
 			CallData:           calldata,
 			Signature:          signature,
-			MaxFee:             new(felt.Felt),
+			MaxFee:             new(felt.Felt).SetHex(info.Transaction.MaxFee),
 		}
 	case "DECLARE":
 		signature := make([]*felt.Felt, 0)
