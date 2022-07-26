@@ -18,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db/contracthash"
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -95,6 +94,15 @@ func init() {
 }
 
 func juno(_ *cobra.Command, _ []string) {
+	Logger.With(
+		"Database Path", config.Runtime.DbPath,
+		"Rpc Port", config.Runtime.RPC.Port,
+		"Rpc Enabled", config.Runtime.RPC.Enabled,
+		"Rest Port", config.Runtime.REST.Port,
+		"Rest Enabled", config.Runtime.REST.Enabled,
+		"Rest Prefix", config.Runtime.REST.Prefix,
+	).Info("Juno config values:")
+
 	setupInterruptHandler()
 	setupDatabaseManagers()
 	setupFeederGateway()
@@ -209,7 +217,7 @@ func setupInterruptHandler() {
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	go func(sig chan os.Signal) {
 		<-sig
-		Logger.Info("Shutting down Juno...")
+		Logger.Info("Shutting down...")
 		shutdown()
 		os.Exit(0)
 	}(sig)
@@ -253,8 +261,8 @@ func initConfig() {
 	if dataDir != "" {
 		info, err := os.Stat(dataDir)
 		if err != nil || !info.IsDir() {
-			Logger.Info("Invalid data directory. The default data directory will be used")
 			dataDir = config.DataDir
+			Logger.Infof("Invalid data directory. The default data directory (%s) will be used.", dataDir)
 		}
 	}
 	if cfgFile != "" {
@@ -273,7 +281,7 @@ func initConfig() {
 
 	err := viper.ReadInConfig()
 	if err == nil {
-		Logger.With("File", viper.ConfigFileUsed()).Info("Using config file:")
+		Logger.Infof("Using config file: %s.", viper.ConfigFileUsed())
 	} else {
 		Logger.Info("Config file not found.")
 		if !config.Exists() {
@@ -281,29 +289,27 @@ func initConfig() {
 		}
 		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
 		err = viper.ReadInConfig()
-		errpkg.CheckFatal(err, "Failed to read in Config after generation.")
+		if err != nil {
+			Logger.Fatal("Failed to read in config file after generation.")
+		}
 	}
 
 	// Unmarshal and log runtime config instance.
 	err = viper.Unmarshal(&config.Runtime)
-	errpkg.CheckFatal(err, "Unable to unmarshal runtime config instance.")
+	if err != nil {
+		Logger.Fatal("Failed to parse runtime configuration.")
+	}
 
 	// Configure logger - we want the logger to be created right after the config has been set
 	enableJsonOutput := config.Runtime.Logger.EnableJsonOutput
 	verbosityLevel := config.Runtime.Logger.VerbosityLevel
 	err = ReplaceGlobalLogger(enableJsonOutput, verbosityLevel)
-	errpkg.CheckFatal(err, "Failed to initialise logger.")
+	if err != nil {
+		Logger.Fatal("Failed to initialise global logger.")
+	}
+
 	Logger.With(
 		"Verbosity Level", verbosityLevel,
 		"Json Output", enableJsonOutput,
-	).Info("Logger values")
-
-	Logger.With(
-		"Database Path", config.Runtime.DbPath,
-		"Rpc Port", config.Runtime.RPC.Port,
-		"Rpc Enabled", config.Runtime.RPC.Enabled,
-		"Rest Port", config.Runtime.REST.Port,
-		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
-	).Info("Config values.")
+	).Info("Logger settings:")
 }

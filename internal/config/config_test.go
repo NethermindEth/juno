@@ -20,6 +20,6 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !Exists() {
-		t.Fatal("default config file must be exists")
+		t.Fatal("default config file must exist.")
 	}
 }
