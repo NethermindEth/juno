@@ -85,6 +85,7 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 
 		res, err := json.MarshalIndent(&block, "", "  ")
 		if err != nil {
+			// notest
 			serverErr(w, err)
 			return
 		}
@@ -110,6 +111,7 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 
 		res, err := json.MarshalIndent(block, "", "  ")
 		if err != nil {
+			// notest
 			serverErr(w, err)
 			return
 		}

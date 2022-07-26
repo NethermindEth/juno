@@ -24,6 +24,7 @@ type Server struct {
 
 // New creates a new gateway application.
 func NewServer(addr string, bm *block.Manager, tm *transaction.Manager) *Server {
+	// notest
 	model := &models.Model{
 		BlockMan: bm,
 		TxMan:    tm,
@@ -40,6 +41,7 @@ func NewServer(addr string, bm *block.Manager, tm *transaction.Manager) *Server 
 }
 
 func (s *Server) start(errCh chan<- error) {
+	// notest
 	Logger.Info("Starting REST API.")
 
 	// Since ListenAndServe always returns an error we need to ensure that
@@ -56,11 +58,13 @@ func (s *Server) start(errCh chan<- error) {
 }
 
 func (s *Server) ListenAndServe(errCh chan<- error) {
+	// notest
 	go s.start(errCh)
 }
 
 // Close gracefully shuts down the server.
 func (s *Server) Close(timeout time.Duration) error {
+	// notest
 	Logger.Info("Shutting down REST API.")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return s.srv.Shutdown(ctx)

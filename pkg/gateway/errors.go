@@ -38,6 +38,7 @@ func clientErr(w http.ResponseWriter, code int, starkErr, msg string) {
 	// XXX: Might prefer json.Marshal instead to reduce the payload size.
 	raw, err := json.MarshalIndent(&res, "", "  ")
 	if err != nil {
+		// notest
 		Logger.Errorw("failed to marshal JSON", "error", err.Error())
 		serverErr(w, err)
 	}
@@ -56,6 +57,10 @@ func notImplementedErr(w http.ResponseWriter) {
 // serverErr sets a 500 Internal Server Error header and then serves a
 // JSON formatted client error.
 func serverErr(w http.ResponseWriter, err error) {
+	// XXX: Server errors should not occur. They also cannot be induced
+	// therefore exempt this entire method from coverage tests.
+	// notest
+
 	// XXX: The server will print a stack trace when a panic occurs but in
 	// an unstructured manner. I suspect this is because the the zap
 	// logger cannot be used as a http.Server.ErrorLog. An alternative

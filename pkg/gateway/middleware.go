@@ -27,6 +27,7 @@ func (gw *gateway) panicRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
+				// notest
 				w.Header().Set("Connection", "close")
 				serverErr(w, fmt.Errorf("%s", err))
 			}
