@@ -101,12 +101,12 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 }
 
 // Run starts the service.
-func (s *Synchronizer) Run() {
+func (s *Synchronizer) Run(errChan chan<- error) {
 	s.Running = true
-	go s.sync()
+	go s.sync(errChan)
 }
 
-func (s *Synchronizer) sync() {
+func (s *Synchronizer) sync(errChan chan<- error) {
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -143,6 +143,7 @@ func (s *Synchronizer) sync() {
 		}
 
 	}
+	close(errChan)
 }
 
 func (s *Synchronizer) Status() *types.SyncStatus {
