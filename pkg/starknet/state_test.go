@@ -179,7 +179,7 @@ func TestProcessPagesHashes(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	sync := NewSynchronizer(synchronizerDb, ec, nil, nil, nil, nil, nil, nil)
+	sync := NewSynchronizer(synchronizerDb, ec, nil, nil, nil, nil, nil, nil, "")
 	sync.memoryPageHash.Add(hash[2:], starknetTypes.TransactionHash{Hash: finalTx.Hash()})
 
 	pages := sync.processPagesHashes(pagesHashes, memoryContract)
