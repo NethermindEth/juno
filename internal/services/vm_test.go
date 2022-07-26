@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/felt"
 
 	"github.com/NethermindEth/juno/internal/db"
+	statedb "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -40,19 +41,19 @@ func TestVMCall(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	VMService.Setup(stateDb, contractDefDb)
+	vm := NewVM(statedb.NewManager(stateDb, contractDefDb))
 
-	if err := VMService.Run(); err != nil {
+	if err := vm.Run(); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)
 	}
-	defer VMService.Close(context.Background())
+	defer vm.Close(context.Background())
 
 	// XXX: Wait some time for the gRPC server to start. Note that this
 	// might not be enough time in some cases so this test might have to
 	// be restarted.
 	time.Sleep(time.Second * 3)
 
-	state := state.New(VMService.manager, trie.EmptyNode.Hash())
+	state := state.New(vm.manager, trie.EmptyNode.Hash())
 	b, _ := new(big.Int).SetString("2483955865838519930787573649413589905962103032695051953168137837593959392116", 10)
 	address := new(felt.Felt).SetBigInt(b)
 	hash := new(felt.Felt).SetHex("0x050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b")
@@ -65,7 +66,7 @@ func TestVMCall(t *testing.T) {
 	value := new(felt.Felt).SetHex("0x3")
 	state.SetSlot(address, slot, value)
 
-	ret, err := VMService.Call(
+	ret, err := vm.Call(
 		context.Background(),
 		// State
 		state,

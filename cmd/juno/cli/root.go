@@ -3,13 +3,14 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/services"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/services"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -50,7 +51,7 @@ var (
 	mdbxEnv *mdbx.Env
 
 	rpcServer *rpc.HttpRpc
-	//metricsServer *metric.Server
+	// metricsServer *metric.Server
 	restServer *rest.Server
 
 	feederGatewayClient *feeder.Client
@@ -111,7 +112,7 @@ func juno(_ *cobra.Command, _ []string) {
 
 	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
 	rpcServer.ListenAndServe(errChs[0])
-	//metricsServer.ListenAndServe(errChs[1])
+	// metricsServer.ListenAndServe(errChs[1])
 	restServer.ListenAndServe(errChs[1])
 	synchronizer.Run(errChs[2])
 

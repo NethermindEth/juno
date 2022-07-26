@@ -44,7 +44,7 @@ func newTestTrieManager(t *testing.T) trie.TrieManager {
 	if err != nil {
 		t.Fail()
 	}
-	return state.NewStateManager(stateDatabase, codeDatabase)
+	return state.NewManager(stateDatabase, codeDatabase)
 }
 
 func TestExample(t *testing.T) {

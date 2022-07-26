@@ -3,12 +3,13 @@ package sync
 import (
 	"context"
 	"fmt"
-	blockDB "github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/db/transaction"
-	"go.uber.org/zap"
 	"math/big"
 	"strconv"
 	"time"
+
+	blockDB "github.com/NethermindEth/juno/internal/db/block"
+	"github.com/NethermindEth/juno/internal/db/transaction"
+	"go.uber.org/zap"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db/sync"
@@ -64,8 +65,8 @@ type Synchronizer struct {
 }
 
 func NewSynchronizer(feederClient *feeder.Client, l1client L1Client, syncManager *sync.Manager,
-	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager) *Synchronizer {
-
+	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
+) *Synchronizer {
 	synchro := new(Synchronizer)
 	synchro.feeder = feederClient
 	synchro.l1Client = l1client
@@ -99,7 +100,6 @@ func NewSynchronizer(feederClient *feeder.Client, l1client L1Client, syncManager
 func (s *Synchronizer) Run(errChan chan<- error) {
 	s.Running = true
 	go s.sync(errChan)
-
 }
 
 func (s *Synchronizer) sync(errChan chan<- error) {
@@ -263,6 +263,7 @@ func (s *Synchronizer) updateBlock(number int64) error {
 	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
 	return nil
 }
+
 func (s *Synchronizer) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
 	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {

@@ -2,8 +2,9 @@ package starknet
 
 import (
 	"errors"
-	"github.com/NethermindEth/juno/internal/db/block"
 	"regexp"
+
+	"github.com/NethermindEth/juno/internal/db/block"
 
 	"github.com/NethermindEth/juno/pkg/types"
 )

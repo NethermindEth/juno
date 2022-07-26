@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/pkg/types"

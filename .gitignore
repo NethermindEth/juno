@@ -8,3 +8,6 @@ coverage/*
 courtney/
 .idea/
 __pycache__/
+
+# pyenv
+.python-version

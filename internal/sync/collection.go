@@ -1,8 +1,9 @@
 package sync
 
 import (
-	"github.com/NethermindEth/juno/pkg/feeder"
 	"time"
+
+	"github.com/NethermindEth/juno/pkg/feeder"
 
 	starknetTypes "github.com/NethermindEth/juno/pkg/types"
 )

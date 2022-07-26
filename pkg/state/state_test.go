@@ -16,9 +16,7 @@ func newTestStateManager(t *testing.T) state.StateManager {
 	if err := db.InitializeMDBXEnv(t.TempDir(), 3, 0); err != nil {
 		t.Error(err)
 	}
-	env, err := db.GetMDBXEnv()
-	if err != nil {
-	}
+	env, _ := db.GetMDBXEnv()
 	contractDef, err := db.NewMDBXDatabase(env, "CONTRACT")
 	if err != nil {
 		t.Fail()
@@ -27,7 +25,7 @@ func newTestStateManager(t *testing.T) state.StateManager {
 	if err != nil {
 		t.Fail()
 	}
-	return statedb.NewStateManager(stateDatabase, contractDef)
+	return statedb.NewManager(stateDatabase, contractDef)
 }
 
 func TestStateFromStateDiffs(t *testing.T) {
