@@ -19,12 +19,12 @@ import (
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
+	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/torquem-ch/mdbx-go/mdbx"
@@ -50,9 +50,9 @@ var (
 var (
 	mdbxEnv *mdbx.Env
 
-	rpcServer *rpc.HttpRpc
-	// metricsServer *metric.Server
-	restServer *rest.Server
+	rpcServer     *rpc.HttpRpc
+	metricsServer *metric.Server
+	restServer    *rest.Server
 
 	feederGatewayClient *feeder.Client
 
@@ -110,13 +110,29 @@ func juno(_ *cobra.Command, _ []string) {
 	setupSynchronizer()
 	setupVirtualMachine()
 
-	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
-	rpcServer.ListenAndServe(errChs[0])
-	// metricsServer.ListenAndServe(errChs[1])
-	restServer.ListenAndServe(errChs[1])
-	synchronizer.Run(errChs[2])
+	errChs := make([]chan error, 0)
+	if config.Runtime.RPC.Enabled {
+		errChs = append(errChs, run(rpcServer.ListenAndServe))
+	}
+	if config.Runtime.Metrics.Enabled {
+		errChs = append(errChs, run(metricsServer.ListenAndServe))
+	}
+	if config.Runtime.REST.Enabled {
+		errChs = append(errChs, run(restServer.ListenAndServe))
+	}
+	if config.Runtime.Starknet.Enabled {
+		errChs = append(errChs, run(synchronizer.Run))
+	}
 
 	checkErrChs(errChs)
+}
+
+type fnServer func(chan<- error)
+
+func run(function fnServer) chan error {
+	errCh := make(chan error)
+	function(errCh)
+	return errCh
 }
 
 func setupVirtualMachine() {
@@ -124,31 +140,37 @@ func setupVirtualMachine() {
 }
 
 func setupSynchronizer() {
-	if config.Runtime.Starknet.Enabled {
-		ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
-		if err != nil {
-			Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
-		}
-		synchronizer = syncService.NewSynchronizer(feederGatewayClient, ethereumClient, syncManager, stateManager,
-			blockManager, transactionManager)
-	}
+	synchronizer = syncService.NewSynchronizer(feederGatewayClient, syncManager, stateManager, blockManager,
+		transactionManager)
 }
 
 func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
+		// Based on Linux ports reserved.
+		if 1024 > config.Runtime.RPC.Port || config.Runtime.RPC.Port > 49151 {
+			Logger.Fatal("RPC port must be between 1024 and 49151")
+		}
 		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
 			starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine))
 		if err != nil {
 			Logger.Fatal("Failed to initialise RPC Server", err)
 		}
 	}
-	//
-	//if config.Runtime.Metrics.Enabled {
-	//	metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
-	//}
+
+	if config.Runtime.Metrics.Enabled {
+		// Based on Linux ports reserved.
+		if 1024 > config.Runtime.Metrics.Port || config.Runtime.Metrics.Port > 49151 {
+			Logger.Fatal("Metrics port must be between 1024 and 49151")
+		}
+		metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
+	}
 
 	if config.Runtime.REST.Enabled {
+		// Based on Linux ports reserved.
+		if 1024 > config.Runtime.REST.Port || config.Runtime.REST.Port > 49151 {
+			Logger.Fatal("API Rest port must be between 1024 and 49151")
+		}
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
 			config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 	}
@@ -221,19 +243,17 @@ func shutdown() {
 	blockManager.Close()
 	stateManager.Close()
 	syncManager.Close()
+	synchronizer.Close()
 
 	if err := rpcServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown RPC server gracefully: ", err.Error())
 	}
-	//
-	//if err := metricsServer.Close(shutdownTimeout); err != nil {
-	//	Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
-	//}
+
+	if err := metricsServer.Close(shutdownTimeout); err != nil {
+		Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err.Error())
+	}
 
 	if err := restServer.Close(shutdownTimeout); err != nil {
-		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
-	}
-	if err := synchronizer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown REST server gracefully: ", err.Error())
 	}
 }

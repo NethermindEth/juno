@@ -28,6 +28,7 @@ type apiCollector struct {
 
 	// synced is the flag that indicate if the collector is synced
 	synced bool
+	quit   chan struct{}
 }
 
 func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) *apiCollector {
@@ -35,6 +36,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 		client:  feeder,
 		manager: manager,
 		chainID: chainID,
+		quit:    make(chan struct{}),
 	}
 	// collector.logger = Logger.Named("apiCollector")
 	collector.buffer = make(chan *types.StateDiff, 10)
@@ -44,44 +46,49 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) 
 }
 
 // Run start to store StateDiff locally
-func (a *apiCollector) Run() error {
+func (a *apiCollector) Run() {
 	// a.logger.Info("Service Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
-		if a.latestBlock == nil {
-			time.Sleep(time.Second * 3)
-			continue
-		}
-		if latestStateDiffSynced >= int64(a.latestBlock.BlockNumber) {
-			a.synced = true
-			time.Sleep(time.Second * 3)
-			continue
-		}
-		var update *feeder.StateUpdateResponse
-		var err error
-		if a.chainID == 1 { // mainnet
-			update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
-			if err != nil {
-				// a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
+		select {
+		case <-a.quit:
+			close(a.buffer)
+			return
+		default:
+			if a.latestBlock == nil {
+				time.Sleep(time.Second * 3)
 				continue
 			}
-		} else { // goerli
-			update, err = a.client.GetStateUpdateGoerli("", strconv.FormatInt(latestStateDiffSynced, 10))
-			if err != nil {
-				// a.logger.With("Error", err).Info("Couldn't get state update")
+			if latestStateDiffSynced >= int64(a.latestBlock.BlockNumber) {
+				a.synced = true
+				time.Sleep(time.Second * 3)
 				continue
 			}
+			var update *feeder.StateUpdateResponse
+			var err error
+			if a.chainID == 1 { // mainnet
+				update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
+				if err != nil {
+					// a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
+					continue
+				}
+			} else { // goerli
+				update, err = a.client.GetStateUpdateGoerli("", strconv.FormatInt(latestStateDiffSynced, 10))
+				if err != nil {
+					// a.logger.With("Error", err).Info("Couldn't get state update")
+					continue
+				}
+			}
+			a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
+			// a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
+			latestStateDiffSynced += 1
 		}
-		a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
-		// a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
-		latestStateDiffSynced += 1
 	}
 }
 
-func (a *apiCollector) Close(duration time.Duration) error {
-	close(a.buffer)
-	return nil
+func (a *apiCollector) Close() {
+	close(a.quit)
 }
 
 // GetChannel returns the channel of StateDiffs
