@@ -3,6 +3,7 @@ package cli
 import (
 	_ "embed"
 	"fmt"
+	"github.com/NethermindEth/juno/internal/services"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -55,7 +56,8 @@ var (
 
 	feederGatewayClient *feeder.Client
 
-	synchronizer *syncService.Synchro
+	synchronizer   *syncService.Synchronizer
+	virtualMachine *services.VirtualMachine
 
 	stateManager       *state.Manager
 	transactionManager *transaction.Manager
@@ -105,7 +107,8 @@ func juno(_ *cobra.Command, _ []string) {
 	setupDatabaseManagers()
 	setupFeederGateway()
 	setupServers()
-	setupStateSynchronizer()
+	setupSynchronizer()
+	setupVirtualMachine()
 
 	errChs := []chan error{make(chan error), make(chan error), make(chan error), make(chan error)}
 	rpcServer.ListenAndServe(errChs[0])
@@ -116,13 +119,18 @@ func juno(_ *cobra.Command, _ []string) {
 	checkErrChs(errChs)
 }
 
-func setupStateSynchronizer() {
+func setupVirtualMachine() {
+	virtualMachine = services.NewVM(stateManager)
+}
+
+func setupSynchronizer() {
 	if config.Runtime.Starknet.Enabled {
 		ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
 		if err != nil {
 			Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
 		}
-		synchronizer = syncService.NewSynchronizer(feederGatewayClient, ethereumClient, syncManager, stateManager)
+		synchronizer = syncService.NewSynchronizer(feederGatewayClient, ethereumClient, syncManager, stateManager,
+			blockManager, transactionManager)
 	}
 }
 
@@ -130,7 +138,7 @@ func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
 		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
-			starknet.New(stateManager, blockManager, transactionManager, syncManager))
+			starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine))
 		if err != nil {
 			Logger.Fatal("Failed to initialise RPC Server", err)
 		}

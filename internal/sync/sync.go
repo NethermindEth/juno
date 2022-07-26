@@ -6,6 +6,7 @@ import (
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/services"
+	"go.uber.org/zap"
 	"math/big"
 	"strconv"
 	"time"
@@ -19,11 +20,13 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
-type Synchro struct {
+type Synchronizer struct {
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
 	// l1Client represent the ethereum client
 	l1Client services.L1Client
+
+	logger *zap.SugaredLogger
 
 	// startingBlockNumber is the block number of the first block that we will sync.
 	startingBlockNumber int64
@@ -56,12 +59,15 @@ type Synchro struct {
 	transactionManager *transaction.Manager
 	// stateManager represent the manager for the state
 	stateManager state.StateManager
+
+	// Running is true when the service is active and running
+	Running bool
 }
 
 func NewSynchronizer(feederClient *feeder.Client, l1client services.L1Client, syncManager *sync.Manager,
-	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager) *Synchro {
+	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager) *Synchronizer {
 
-	synchro := new(Synchro)
+	synchro := new(Synchronizer)
 	synchro.feeder = feederClient
 	synchro.l1Client = l1client
 
@@ -70,8 +76,10 @@ func NewSynchronizer(feederClient *feeder.Client, l1client services.L1Client, sy
 	synchro.blockManager = blockManager
 	synchro.transactionManager = transactionManager
 
+	synchro.Running = false
+
 	synchro.setChainId()
-	//synchro.logger = Logger.Named("Sync Service")
+	synchro.logger = Logger.Named("Sync Service")
 	if config.Runtime.Starknet.ApiSync {
 		synchro.stateDiffCollector = services.NewApiCollector(synchro.syncManager, synchro.feeder, int(synchro.chainId.Int64()))
 	} else {
@@ -88,15 +96,16 @@ func NewSynchronizer(feederClient *feeder.Client, l1client services.L1Client, sy
 }
 
 // Run starts the service.
-func (s *Synchro) Run(errChan chan<- error) {
+func (s *Synchronizer) Run(errChan chan<- error) {
+	s.Running = true
 	go s.sync(errChan)
 
 }
 
-func (s *Synchro) sync(errChan chan<- error) {
+func (s *Synchronizer) sync(errChan chan<- error) {
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
-		//start := time.Now()
+		start := time.Now()
 
 		err := s.updateState(stateDiff)
 		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
@@ -111,39 +120,39 @@ func (s *Synchro) sync(errChan chan<- error) {
 			continue
 		}
 
-		//// s.logger.With("Block Number", stateDiff.BlockNumber,
-		//	"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
-		//	"Timer", time.Since(start)).
-		//	Info("Synced block")
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
+			"Timer", time.Since(start)).
+			Info("Synced block")
 		s.syncManager.StoreLatestBlockSync(stateDiff.BlockNumber)
 		if stateDiff.OldRoot.Hex() == "" {
 			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
-		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex())
-		s.syncManager.StoreStateDiff(stateDiff, "0x"+s.latestBlockHashSynced.Hex())
+		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
+		s.syncManager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex0x())
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
 		if s.startingBlockHash == "" {
 			s.startingBlockNumber = stateDiff.BlockNumber
-			s.startingBlockHash = "0x" + s.latestBlockHashSynced.Hex()
+			s.startingBlockHash = s.latestBlockHashSynced.Hex0x()
 		}
 
 	}
 }
 
-func (s *Synchro) Status() *types.SyncStatus {
+func (s *Synchronizer) Status() *types.SyncStatus {
 	return &types.SyncStatus{
 		StartingBlockHash:   s.startingBlockHash,
 		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
-		CurrentBlockHash:    "0x" + s.latestBlockHashSynced.Hex(),
+		CurrentBlockHash:    s.latestBlockHashSynced.Hex0x(),
 		CurrentBlockNumber:  fmt.Sprintf("%x", s.latestBlockNumberSynced),
 		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
 		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
 	}
 }
 
-func (s *Synchro) updateState(stateDiff *types.StateDiff) error {
+func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		err := s.SetCode(stateDiff, deployedContract)
 		if err != nil {
@@ -159,75 +168,76 @@ func (s *Synchro) updateState(stateDiff *types.StateDiff) error {
 			}
 		}
 	}
-	// s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
+	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
 	return nil
 }
 
-func (s *Synchro) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
+func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
 	// Get Full Contract
-	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex(), "", strconv.FormatInt(stateDiff.BlockNumber, 10))
+	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
+		strconv.FormatInt(stateDiff.BlockNumber, 10))
 	if err != nil {
-		// s.logger.With("Block Number", stateDiff.BlockNumber,
-		//	"Contract Address", deployedContract.Address.Hex()).
-		//	Error("Error getting full contract")
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address.Hex0x()).
+			Error("Error getting full contract")
 		return err
 	}
 
 	contract := new(types.Contract)
 	err = contract.UnmarshalRaw(contractFromApi)
 	if err != nil {
-		// s.logger.With("Block Number", stateDiff.BlockNumber,
-		//	"Contract Address", deployedContract.Address.Hex()).
-		//	Error("Error unmarshalling contract")
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address.Hex0x()).
+			Error("Error unmarshalling contract")
 		return err
 	}
 	err = s.state.SetContract(deployedContract.Address, deployedContract.Hash, contract)
 	if err != nil {
-		// s.logger.With("Block Number", stateDiff.BlockNumber,
-		//	"Contract Address", deployedContract.Address).
-		//	Error("Error setting code")
+		s.logger.With("Block Number", stateDiff.BlockNumber,
+			"Contract Address", deployedContract.Address).
+			Error("Error setting code")
 		return err
 	}
-	// s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
+	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
 	return nil
 }
 
-func (s *Synchro) GetStateDiff(blockNumber int64) *types.StateDiff {
+func (s *Synchronizer) GetStateDiff(blockNumber int64) *types.StateDiff {
 	return s.syncManager.GetStateDiff(blockNumber)
 }
 
-func (s *Synchro) GetStateDiffFromHash(blockHash string) *types.StateDiff {
+func (s *Synchronizer) GetStateDiffFromHash(blockHash string) *types.StateDiff {
 	return s.syncManager.GetStateDiffFromHash(blockHash)
 }
 
-func (s *Synchro) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
+func (s *Synchronizer) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
 	return s.latestBlockNumberSynced, s.latestBlockHashSynced
 }
 
-func (s *Synchro) GetLatestBlockOnChain() int64 {
+func (s *Synchronizer) GetLatestBlockOnChain() int64 {
 	return int64(s.stateDiffCollector.LatestBlock().BlockNumber)
 }
 
-func (s *Synchro) ChainID() *big.Int {
+func (s *Synchronizer) ChainID() *big.Int {
 	return s.chainId
 }
 
-func (s *Synchro) GetPendingBlock() *feeder.StarknetBlock {
+func (s *Synchronizer) GetPendingBlock() *feeder.StarknetBlock {
 	return s.stateDiffCollector.PendingBlock()
 }
 
-func (s *Synchro) setStateToLatestRoot() {
+func (s *Synchronizer) setStateToLatestRoot() {
 	stateRoot := s.syncManager.GetLatestStateRoot()
 	root := new(felt.Felt).SetHex(stateRoot)
 	s.state = state.New(s.stateManager, root)
 }
 
 // Close closes the service.
-func (s *Synchro) Close(timeout time.Duration) error {
+func (s *Synchronizer) Close(timeout time.Duration) error {
 	return s.stateDiffCollector.Close(timeout)
 }
 
-func (s *Synchro) setChainId() {
+func (s *Synchronizer) setChainId() {
 	if s.l1Client == nil {
 		// notest
 		if config.Runtime.Starknet.Network == "mainnet" {
@@ -245,7 +255,7 @@ func (s *Synchro) setChainId() {
 	}
 }
 
-func (s *Synchro) updateBlock(number int64) error {
+func (s *Synchronizer) updateBlock(number int64) error {
 	block, err := s.UpdateBlock(number)
 	if err != nil {
 		return err
@@ -253,7 +263,7 @@ func (s *Synchro) updateBlock(number int64) error {
 	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
 	return nil
 }
-func (s *Synchro) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
+func (s *Synchronizer) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
 	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
 		return nil, err
@@ -306,7 +316,7 @@ func (s *Synchro) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) 
 	return block, nil
 }
 
-func (s *Synchro) updateTransactions(txn feeder.TxnSpecificInfo) error {
+func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 	transactionInfo, err := s.feeder.GetTransaction(txn.TransactionHash, "")
 	if err != nil {
 		return err
@@ -321,7 +331,7 @@ func (s *Synchro) updateTransactions(txn feeder.TxnSpecificInfo) error {
 	return nil
 }
 
-func (s *Synchro) updateTransactionReceipts(receipt feeder.TransactionExecution, txnType string) error {
+func (s *Synchronizer) updateTransactionReceipts(receipt feeder.TransactionExecution, txnType string) error {
 	txnReceipt, err := s.feeder.GetTransactionReceipt(receipt.TransactionHash, "")
 	if err != nil {
 		return err

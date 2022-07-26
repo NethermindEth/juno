@@ -7,8 +7,6 @@ import (
 
 	sync2 "github.com/NethermindEth/juno/internal/sync"
 
-	"github.com/NethermindEth/juno/internal/db/sync"
-
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
@@ -22,17 +20,19 @@ type StarkNetRpc struct {
 	stateManager state.StateManager
 	blockManager *block.Manager
 	txnManager   *transaction.Manager
-	syncManager  *sync.Manager
+	synchronizer *sync2.Synchronizer
+	vm           *services.VirtualMachine
 }
 
 func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
-	syncManager *sync.Manager,
+	synchronizer *sync2.Synchronizer, vm *services.VirtualMachine,
 ) *StarkNetRpc {
 	return &StarkNetRpc{
 		stateManager: stateManager,
 		blockManager: blockManager,
 		txnManager:   txnManager,
-		syncManager:  syncManager,
+		synchronizer: synchronizer,
+		vm:           vm,
 	}
 }
 
@@ -41,7 +41,7 @@ type GetBlockWithTxHashesP struct {
 }
 
 func (s *StarkNetRpc) GetBlockWithTxHashes(ctx context.Context, params *GetBlockWithTxHashesP) (any, error) {
-	block, err := getBlockById(params.BlockId)
+	block, err := getBlockById(params.BlockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +53,11 @@ type GetBlockWithTxsP struct {
 }
 
 func (s *StarkNetRpc) GetBlockWithTxs(ctx context.Context, params *GetBlockWithTxsP) (any, error) {
-	block, err := getBlockById(params.BlockId)
+	block, err := getBlockById(params.BlockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
-	return NewBlockWithTxs(block)
+	return NewBlockWithTxs(block, s.txnManager)
 }
 
 type GetStateUpdateP struct {
@@ -71,10 +71,10 @@ func (s *StarkNetRpc) GetStateUpdate(ctx context.Context, params *GetStateUpdate
 	switch params.BlockId.idType {
 	case blockIdHash:
 		hash, _ := params.BlockId.hash()
-		return sync2.SyncService.GetStateDiffFromHash(hash.Hex()), nil
+		return s.synchronizer.GetStateDiffFromHash(hash.Hex()), nil
 	case blockIdNumber:
 		number, _ := params.BlockId.number()
-		return sync2.SyncService.GetStateDiff(int64(number)), nil
+		return s.synchronizer.GetStateDiff(int64(number)), nil
 	default:
 		// TODO: manage unexpected type
 		return nil, nil
@@ -100,7 +100,7 @@ func (s *StarkNetRpc) GetStorageAt(ctx context.Context, params *GetStorageAtP) (
 	}
 	address := new(felt.Felt).SetHex(params.Address)
 	// Searching for the block in the database
-	block, err := getBlockById(params.BlockId)
+	block, err := getBlockById(params.BlockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ type GetTransactionByBlockIdAndIndexP struct {
 }
 
 func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(ctx context.Context, params *GetTransactionByBlockIdAndIndexP) (any, error) {
-	block, err := getBlockById(params.BlockId)
+	block, err := getBlockById(params.BlockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (s *StarkNetRpc) GetClass(ctx context.Context, params *GetClassP) (any, err
 		return nil, NewInvalidContractClassHash()
 	}
 	_ = new(felt.Felt).SetHex(params.ClassHash)
-	_, latestBlockHash := sync2.SyncService.LatestBlockSynced()
+	_, latestBlockHash := s.synchronizer.LatestBlockSynced()
 	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
 		// TODO: manage unexpeceted error
@@ -209,7 +209,7 @@ func (s *StarkNetRpc) GetClassHashAt(ctx context.Context, params *GetClassHashAt
 		return nil, NewContractNotFound()
 	}
 	address := new(felt.Felt).SetHex(params.Address)
-	block, err := getBlockById(params.BlockId)
+	block, err := getBlockById(params.BlockId, s.blockManager)
 	if err != nil {
 		return nil, NewInvalidBlockId()
 	}
@@ -232,7 +232,7 @@ type GetBlockTransactionCountP struct {
 }
 
 func (s *StarkNetRpc) GetBlockTransactionCount(ctx context.Context, params *GetBlockTransactionCountP) (any, error) {
-	block, err := getBlockById(params.BlockId)
+	block, err := getBlockById(params.BlockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
@@ -264,12 +264,12 @@ func (s *StarkNetRpc) Call(ctx context.Context, param *CallP) (any, error) {
 		return nil, NewInvalidMessageSelector()
 	}
 	entryPointSelector = new(felt.Felt).SetHex(param.Request.EntryPointSelector)
-	block, err := getBlockById(param.BlockId)
+	block, err := getBlockById(param.BlockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
 	_state := state.New(s.stateManager, block.NewRoot)
-	out, err := services.VMService.Call(
+	out, err := s.vm.Call(
 		context.Background(),
 		_state,
 		callData,
@@ -296,7 +296,7 @@ func (s *StarkNetRpc) EstimateFee(ctx context.Context, param *EstimateFeeP) (any
 }
 
 func (s *StarkNetRpc) BlockNumber(ctx context.Context) (any, error) {
-	bNumber, _ := sync2.SyncService.LatestBlockSynced()
+	bNumber, _ := s.synchronizer.LatestBlockSynced()
 	return bNumber, nil
 }
 
@@ -306,21 +306,21 @@ func (s *StarkNetRpc) BlockHashAndNumber(ctx context.Context) (any, error) {
 		BlockNumber int64  `json:"block_number"`
 	}
 
-	bNumber, bHash := sync2.SyncService.LatestBlockSynced()
+	bNumber, bHash := s.synchronizer.LatestBlockSynced()
 
 	return Response{
-		BlockHash:   bHash.Hex(),
+		BlockHash:   bHash.Hex0x(),
 		BlockNumber: bNumber,
 	}, nil
 }
 
 func (s *StarkNetRpc) ChainId(ctx context.Context) (any, error) {
-	chainId := sync2.SyncService.ChainID()
+	chainId := s.synchronizer.ChainID()
 	return fmt.Sprintf("%x", chainId), nil
 }
 
 func (s *StarkNetRpc) PendingTransactions(ctx context.Context) (any, error) {
-	return sync2.SyncService.GetPendingBlock().Transactions, nil
+	return s.synchronizer.GetPendingBlock().Transactions, nil
 }
 
 func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
@@ -328,8 +328,8 @@ func (s *StarkNetRpc) ProtocolVersion(ctx context.Context) (any, error) {
 }
 
 func (s *StarkNetRpc) Syncing(ctx context.Context) (any, error) {
-	if sync2.SyncService.Running() {
-		return sync2.SyncService.Status(), nil
+	if s.synchronizer.Running {
+		return s.synchronizer.Status(), nil
 	}
 	return false, nil
 }

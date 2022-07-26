@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	"github.com/NethermindEth/juno/internal/log"
 	"net"
 	"os"
 	"os/exec"
@@ -11,9 +12,7 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/internal/config"
-	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/services/vmrpc"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -33,9 +32,10 @@ func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
 	return len(p0), nil
 }
 
-type vmService struct {
-	service
+type VirtualMachine struct {
 	manager *statedb.Manager
+
+	logger *zap.SugaredLogger
 
 	vmDir string
 	vmCmd *exec.Cmd
@@ -57,34 +57,18 @@ var (
 
 var errPythonNotFound = errors.New("services: Python not found in $PATH")
 
-var VMService vmService
-
-func (s *vmService) setDefaults() error {
-	if s.manager == nil {
-		// notest
-		env, err := db.GetMDBXEnv()
-		if err != nil {
-			return err
-		}
-		contractDefDb, err := db.NewMDBXDatabase(env, "CODE")
-		if err != nil {
-			return err
-		}
-		stateDb, err := db.NewMDBXDatabase(env, "STATE")
-		if err != nil {
-			return err
-		}
-		s.manager = statedb.NewStateManager(stateDb, contractDefDb)
-	}
-
-	s.rpcNet = "tcp"
+func NewVM(stateManager *statedb.Manager) *VirtualMachine {
+	vm := VirtualMachine{}
+	vm.rpcNet = "tcp"
+	vm.manager = stateManager
 	ports, err := freePorts(2)
 	if err != nil {
-		return err
+		return nil
 	}
-	s.rpcVMAddr = "localhost:" + strconv.Itoa(ports[0])
-	s.rpcStorageAddr = "localhost:" + strconv.Itoa(ports[1])
-	return nil
+	vm.logger = log.Logger.Named("VM")
+	vm.rpcVMAddr = "localhost:" + strconv.Itoa(ports[0])
+	vm.rpcStorageAddr = "localhost:" + strconv.Itoa(ports[1])
+	return &vm
 }
 
 // freePorts returns a slice of length n of free TCP ports on localhost.
@@ -107,29 +91,7 @@ func freePorts(n int) ([]int, error) {
 	return ports, nil
 }
 
-// Setup sets the service configuration, service must be not running.
-func (s *vmService) Setup(stateDb, contractDefDb db.Database) {
-	if s.Running() {
-		// notest
-		s.logger.Panic("trying to Setup with service running")
-	}
-	s.manager = statedb.NewStateManager(stateDb, contractDefDb)
-}
-
-func (s *vmService) Run() error {
-	if s.logger == nil {
-		s.logger = Logger.Named("VMService")
-	}
-
-	if err := s.service.Run(); err != nil {
-		// notest
-		return err
-	}
-
-	if err := s.setDefaults(); err != nil {
-		return err
-	}
-
+func (s *VirtualMachine) Run() error {
 	s.rpcServer = grpc.NewServer()
 
 	// Generate the Python environment in the data dir.
@@ -147,11 +109,11 @@ func (s *vmService) Run() error {
 	for _, file := range files {
 		path := filepath.Join(s.vmDir, file.name)
 		if err := os.WriteFile(path, file.contents, 0o644); err != nil {
-			s.logger.Errorf("failed to write to %s: %v", path, err)
+			//s.logger.Errorf("failed to write to %s: %v", path, err)
 			return err
 		}
 	}
-	s.logger.Infof("vm dir: %s", s.vmDir)
+	//s.logger.Infof("vm dir: %s", s.vmDir)
 
 	// Start the cairo-lang gRPC server (serving contract calls).
 	s.vmCmd = exec.Command("python3", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
@@ -182,16 +144,14 @@ func (s *vmService) Run() error {
 	return nil
 }
 
-func (s *vmService) Close(ctx context.Context) {
-	s.service.Close(ctx)
-	s.manager.Close()
+func (s *VirtualMachine) Close(ctx context.Context) {
 	s.rpcServer.Stop()
 	// TODO: we should probably wait for the process to exit.
 	s.vmCmd.Process.Kill()
 	os.RemoveAll(s.vmDir)
 }
 
-func (s *vmService) Call(
+func (s *VirtualMachine) Call(
 	ctx context.Context,
 	state state.State,
 	calldata []*felt.Felt,
@@ -200,8 +160,6 @@ func (s *vmService) Call(
 	selector,
 	sequencer *felt.Felt,
 ) ([]*felt.Felt, error) {
-	s.AddProcess()
-	defer s.DoneProcess()
 
 	s.logger.Info("Call")
 

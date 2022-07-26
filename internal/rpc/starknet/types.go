@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-
-	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/pkg/types"
 
@@ -125,10 +124,10 @@ type BlockWithTxs struct {
 	BlockBodyWithTxs
 }
 
-func NewBlockWithTxs(block *types.Block) (*BlockWithTxs, error) {
+func NewBlockWithTxs(block *types.Block, txnManager *transaction.Manager) (*BlockWithTxs, error) {
 	txns := make([]Txn, block.TxCount)
 	for i, txHash := range block.TxHashes {
-		tx, err := services.TransactionService.GetTransaction(txHash)
+		tx, err := txnManager.GetTransaction(txHash)
 		if err != nil {
 			// XXX: should return an error or panic? In what case we can't get the transaction?
 			return nil, err

@@ -2,9 +2,9 @@ package starknet
 
 import (
 	"errors"
+	"github.com/NethermindEth/juno/internal/db/block"
 	"regexp"
 
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -30,14 +30,14 @@ func isStorageKey(s string) bool {
 	return storageKeyRegexp.MatchString(s)
 }
 
-func getBlockById(blockId *BlockId) (*types.Block, error) {
+func getBlockById(blockId *BlockId, blockManager *block.Manager) (*types.Block, error) {
 	switch blockId.idType {
 	case blockIdHash:
 		hash, _ := blockId.hash()
-		return services.BlockService.GetBlockByHash(hash)
+		return blockManager.GetBlockByHash(hash)
 	case blockIdNumber:
 		number, _ := blockId.number()
-		return services.BlockService.GetBlockByNumber(number)
+		return blockManager.GetBlockByNumber(number)
 	case blockIdTag:
 		return nil, errors.New("not implemented")
 	default:
