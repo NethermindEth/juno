@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
-
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
