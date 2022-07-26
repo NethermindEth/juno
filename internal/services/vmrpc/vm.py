@@ -59,7 +59,7 @@ async def call(
         caller_address=caller_address,
         max_fee=0,
     )
-    return result.retdata
+    return result[0].retdata
 
 
 class StorageRPCClient(Storage):

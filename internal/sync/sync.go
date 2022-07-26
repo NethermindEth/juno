@@ -104,7 +104,6 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 func (s *Synchronizer) Run(errChan chan<- error) {
 	s.Running = true
 	go s.sync(errChan)
-
 }
 
 func (s *Synchronizer) sync(errChan chan<- error) {

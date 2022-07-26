@@ -4,12 +4,13 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-	"github.com/NethermindEth/juno/internal/log"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+
+	"github.com/NethermindEth/juno/internal/log"
 
 	"github.com/NethermindEth/juno/internal/config"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
@@ -109,11 +110,11 @@ func (s *VirtualMachine) Run() error {
 	for _, file := range files {
 		path := filepath.Join(s.vmDir, file.name)
 		if err := os.WriteFile(path, file.contents, 0o644); err != nil {
-			//s.logger.Errorf("failed to write to %s: %v", path, err)
+			// s.logger.Errorf("failed to write to %s: %v", path, err)
 			return err
 		}
 	}
-	//s.logger.Infof("vm dir: %s", s.vmDir)
+	// s.logger.Infof("vm dir: %s", s.vmDir)
 
 	// Start the cairo-lang gRPC server (serving contract calls).
 	s.vmCmd = exec.Command("python3", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
@@ -160,7 +161,6 @@ func (s *VirtualMachine) Call(
 	selector,
 	sequencer *felt.Felt,
 ) ([]*felt.Felt, error) {
-
 	s.logger.Info("Call")
 
 	// XXX: Right now rpcVMAddr will probably only work if using TCP.

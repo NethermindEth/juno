@@ -3,11 +3,9 @@ package state
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/collections"
 	"github.com/NethermindEth/juno/pkg/felt"
-
-	"github.com/NethermindEth/juno/internal/db"
-
 	"github.com/NethermindEth/juno/pkg/trie"
 )
 
@@ -32,7 +30,7 @@ func TestManager_TrieNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager := NewStateManager(stateDb, nil)
+	manager := NewManager(stateDb, nil)
 
 	for _, n := range nodes {
 		if err := manager.StoreTrieNode(n); err != nil {

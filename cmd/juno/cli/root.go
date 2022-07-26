@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/internal/services"
+
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
@@ -17,11 +19,9 @@ import (
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
-	"github.com/NethermindEth/juno/internal/services"
 	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
@@ -51,7 +51,7 @@ var (
 	mdbxEnv *mdbx.Env
 
 	rpcServer     *rpc.HttpRpc
-	metricsServer *prometheus.Server
+	metricsServer *metric.Server
 	restServer    *rest.Server
 
 	feederGatewayClient *feeder.Client
