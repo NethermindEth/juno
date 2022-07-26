@@ -13,11 +13,11 @@ jobs:
     strategy:
       matrix:
         go: [ '1.18' ]
-    name: Go  v${{ matrix.go }}
+    name: Build in Go v${{ matrix.go }}
     steps:
-      - name: Set up Clang (local only)
-        if: ${{ env.ACT }}
-        run: sudo apt update && sudo apt -y install clang 
+      # - name: Set up Clang (local only)
+      #   if: ${{ env.ACT }}
+      #   run: sudo apt update && sudo apt -y install clang 
       - uses: actions/checkout@v3
       - name: Build Juno
         uses: actions/setup-go@v3
