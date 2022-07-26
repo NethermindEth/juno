@@ -147,6 +147,10 @@ func setupSynchronizer() {
 func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
+		// Based on Linux ports reserved.
+		if 1024 > config.Runtime.RPC.Port || config.Runtime.RPC.Port > 49151 {
+			Logger.Fatal("RPC port must be between 1024 and 49151")
+		}
 		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
 			starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine))
 		if err != nil {
@@ -163,6 +167,10 @@ func setupServers() {
 	}
 
 	if config.Runtime.REST.Enabled {
+		// Based on Linux ports reserved.
+		if 1024 > config.Runtime.REST.Port || config.Runtime.REST.Port > 49151 {
+			Logger.Fatal("API Rest port must be between 1024 and 49151")
+		}
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
 			config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
 	}
