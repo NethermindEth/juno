@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/internal/cairovm"
+
 	sync2 "github.com/NethermindEth/juno/internal/sync"
 
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/services"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 )
@@ -21,11 +22,11 @@ type StarkNetRpc struct {
 	blockManager *block.Manager
 	txnManager   *transaction.Manager
 	synchronizer *sync2.Synchronizer
-	vm           *services.VirtualMachine
+	vm           *cairovm.VirtualMachine
 }
 
 func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
-	synchronizer *sync2.Synchronizer, vm *services.VirtualMachine,
+	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine,
 ) *StarkNetRpc {
 	return &StarkNetRpc{
 		stateManager: stateManager,

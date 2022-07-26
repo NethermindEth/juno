@@ -1,4 +1,4 @@
-package services
+package cairovm
 
 import (
 	"context"
@@ -10,11 +10,12 @@ import (
 	"path/filepath"
 	"strconv"
 
+	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
+
 	"github.com/NethermindEth/juno/internal/log"
 
 	"github.com/NethermindEth/juno/internal/config"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
-	"github.com/NethermindEth/juno/internal/services/vmrpc"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"go.uber.org/zap"
@@ -131,8 +132,8 @@ func (s *VirtualMachine) Run() error {
 	if err != nil {
 		s.logger.Errorf("failed to listen: %v", err)
 	}
-	storageServer := vmrpc.NewStorageRPCServer(s.manager)
-	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
+	storageServer := vmrpc2.NewStorageRPCServer(s.manager)
+	vmrpc2.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
 	// Run the gRPC server.
 	go func() {
@@ -170,7 +171,7 @@ func (s *VirtualMachine) Call(
 		return nil, err
 	}
 	defer conn.Close()
-	c := vmrpc.NewVMClient(conn)
+	c := vmrpc2.NewVMClient(conn)
 
 	contractState, err := state.GetContractState(contractAddr)
 	if err != nil {
@@ -183,7 +184,7 @@ func (s *VirtualMachine) Call(
 	}
 
 	// Contact the server and print out its response.
-	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
+	r, err := c.Call(ctx, &vmrpc2.VMCallRequest{
 		Calldata:        calldataBytes,
 		CallerAddress:   callerAddr.ByteSlice(),
 		ContractAddress: contractAddr.ByteSlice(),

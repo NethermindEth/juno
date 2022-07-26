@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/services"
+	"github.com/NethermindEth/juno/internal/cairovm"
 
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -31,10 +31,10 @@ import (
 )
 
 const (
-	mdbxOptMaxDb   uint64 = 100
-	mdbxFlags      uint   = 0
-	upperPortBound int    = 1024
-	lowerPortBound int    = 49151
+	mdbxOptMaxDb uint64 = 100
+	mdbxFlags    uint   = 0
+	minPort      int    = 1024
+	macPort      int    = 49151
 )
 
 // Cobra configuration.
@@ -59,7 +59,7 @@ var (
 	feederGatewayClient *feeder.Client
 
 	synchronizer   *syncService.Synchronizer
-	virtualMachine *services.VirtualMachine
+	virtualMachine *cairovm.VirtualMachine
 
 	stateManager       *state.Manager
 	transactionManager *transaction.Manager
@@ -134,16 +134,8 @@ func juno(_ *cobra.Command, _ []string) {
 	checkErrChs(errChs)
 }
 
-type fnServer func(chan<- error)
-
-func run(function fnServer) chan error {
-	errCh := make(chan error)
-	function(errCh)
-	return errCh
-}
-
 func setupVirtualMachine() {
-	virtualMachine = services.NewVM(stateManager)
+	virtualMachine = cairovm.NewVM(stateManager)
 }
 
 func setupSynchronizer() {
@@ -154,10 +146,7 @@ func setupSynchronizer() {
 func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
-		// Based on Linux ports reserved.
-		if 1024 > config.Runtime.RPC.Port || config.Runtime.RPC.Port > 49151 {
-			Logger.Fatal("RPC port must be between 1024 and 49151")
-		}
+		checkPort("JSON-RPC", config.Runtime.RPC.Port)
 		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
 			starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine))
 		if err != nil {
@@ -166,20 +155,20 @@ func setupServers() {
 	}
 
 	if config.Runtime.Metrics.Enabled {
-		// Based on Linux ports reserved.
-		if 1024 > config.Runtime.Metrics.Port || config.Runtime.Metrics.Port > 49151 {
-			Logger.Fatal("Metrics port must be between 1024 and 49151")
-		}
+		checkPort("Metrics", config.Runtime.Metrics.Port)
 		metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
 	}
 
 	if config.Runtime.REST.Enabled {
-		// Based on Linux ports reserved.
-		if 1024 > config.Runtime.REST.Port || config.Runtime.REST.Port > 49151 {
-			Logger.Fatal("API Rest port must be between 1024 and 49151")
-		}
+		checkPort("API", config.Runtime.REST.Port)
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
 			config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+	}
+}
+
+func checkPort(server string, port int) {
+	if port < minPort || port > macPort {
+		Logger.Fatalf("%s port must be between %d and %d", server, minPort, macPort)
 	}
 }
 
