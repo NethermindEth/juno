@@ -152,7 +152,7 @@ func setupServers() {
 	}
 
 	if config.Runtime.REST.Enabled {
-		restServer = gateway.New(
+		restServer = gateway.NewServer(
 			":"+strconv.Itoa(config.Runtime.REST.Port),
 			blockManager,
 			transactionManager,

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"strconv"
 
@@ -19,7 +18,7 @@ const (
 	outOfRangeTransactionHash = "StarknetErrorCode.OUT_OF_RANGE_TRANSACTION_HASH"
 )
 
-func getBlock(w http.ResponseWriter, r *http.Request) {
+func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -77,7 +76,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		block, err := BlockByHash(hash)
+		block, err := gw.model.BlockByHash(hash)
 		if err != nil {
 			msg := fmt.Sprintf("Block hash %s does not exist.", hash)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -102,7 +101,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		block, err := BlockByNumber(num)
+		block, err := gw.model.BlockByNumber(num)
 		if err != nil {
 			msg := fmt.Sprintf("Block number %d was not found.", num)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -120,7 +119,7 @@ func getBlock(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
+func (gw *gateway) getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -162,7 +161,7 @@ func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 		// This implementation will just return the hash of the block
 		// accepted on Ethereum queried by number.
 
-		hash, err := BlockHashByID(id)
+		hash, err := gw.model.BlockHashByID(id)
 		if err != nil {
 			msg := fmt.Sprintf("Block id %d was not found.", id)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -175,7 +174,7 @@ func getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
 }
 
-func getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
+func (gw *gateway) getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		clientErr(w, http.StatusMethodNotAllowed, "", "")
@@ -203,7 +202,7 @@ func getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		id, err := BlockIDByHash(new(felt.Felt).SetHex(hash))
+		id, err := gw.model.BlockIDByHash(new(felt.Felt).SetHex(hash))
 		if err != nil {
 			msg := fmt.Sprintf("Block hash %s was not found.", hash)
 			clientErr(w, http.StatusNotFound, blockNotFound, msg)
@@ -215,6 +214,8 @@ func getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	}
 	clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
 }
+
+/*
 
 func getCode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -315,31 +316,29 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 	// an even amount of characters. In the test cases for
 	// services.StateService.GetCode is error is explicitly ignored so its
 	// not clear how to compose the query.
-	/*
-		addr := strings.TrimPrefix(r.URL.Query().Get("contractAddress"), "0x")
-		encoded, err := hex.DecodeString(addr)
-		if err != nil {
-			serverErr(w, err)
-			return
-		}
+	// addr := strings.TrimPrefix(r.URL.Query().Get("contractAddress"), "0x")
+	// encoded, err := hex.DecodeString(addr)
+	// if err != nil {
+	// 	serverErr(w, err)
+	// 	return
+	// }
 
-		w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Type", "application/json")
 
-		code, err := services.StateService.GetCode(encoded)
-		if err != nil {
-			// The feeder gateway returns an empty JSON struct instead of a
-			// not found error when the code does not lie in the database.
-			code = &state.Code{}
-		}
+	// code, err := services.StateService.GetCode(encoded)
+	// if err != nil {
+	// 	// The feeder gateway returns an empty JSON struct instead of a
+	// 	// not found error when the code does not lie in the database.
+	// 	code = &state.Code{}
+	// }
 
-		res, err := json.MarshalIndent(code, "", "  ")
-		if err != nil {
-			serverErr(w, err)
-			return
-		}
+	// res, err := json.MarshalIndent(code, "", "  ")
+	// if err != nil {
+	// 	serverErr(w, err)
+	// 	return
+	// }
 
-		w.Write(res)
-	*/
+	// w.Write(res)
 
 	// TODO: Fetch code from database relative to the latest block.
 	notImplementedErr(w)
@@ -486,19 +485,17 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 
 		// FIX: services.StateService.GetStorage does not seem to be
 		// returning anything at all. Not even an error.
-		/*
-			addr := r.URL.Query().Get("contractAddress")
-			storage, err := services.StateService.GetStorage(addr, uint64(num))
-			if err != nil {
-				// Implies empty storage slot.
-				w.Write([]byte("0x0"))
-				return
-			}
+		// addr := r.URL.Query().Get("contractAddress")
+		// storage, err := services.StateService.GetStorage(addr, uint64(num))
+		// if err != nil {
+		// 	// Implies empty storage slot.
+		// 	w.Write([]byte("0x0"))
+		// 	return
+		// }
 
-			raw := fmt.Sprintf("%v", storage)
-			w.Write([]byte(raw))
-			return
-		*/
+		// raw := fmt.Sprintf("%v", storage)
+		// w.Write([]byte(raw))
+		// return
 
 		// TODO: Fetch the value of the storage slot at the given key
 		// relative to the given block specified by block number.
@@ -659,6 +656,8 @@ func getTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 	panic("Reached code marked as unreachable.")
 }
 
-func notFound(w http.ResponseWriter, r *http.Request) {
+*/
+
+func (gw *gateway) notFound(w http.ResponseWriter, r *http.Request) {
 	clientErr(w, http.StatusNotFound, "", "")
 }

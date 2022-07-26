@@ -1,37 +1,56 @@
-package gateway
+package models
 
 import (
 	"errors"
 
+	"github.com/NethermindEth/juno/internal/db/block"
+	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
+// Modeler is the interface implemented by types that can retrieve the
+// data used in the gateway.
+type Modeler interface {
+	BlockByHash(hash string) (*Block, error)
+	BlockByNumber(num uint64) (*Block, error)
+	BlockHashByID(num uint64) (*felt.Felt, error)
+	BlockIDByHash(hash *felt.Felt) (uint64, error)
+}
+
+// Model has methods defined on it that abstract database queries.
+type Model struct {
+	BlockMan *block.Manager
+	TxMan    *transaction.Manager
+}
+
 // Block represents a block.
 type Block struct {
 	// Hash is the block hash which is computed over the header's fields.
-	Hash *felt.Felt `json:"block_hash"`
+	Hash string `json:"block_hash"`
 	// Parent is the block hash of the block's parent instance.
-	Parent *felt.Felt `json:"parent_hash"`
+	Parent string `json:"parent_hash"`
 	// Number is the height of the block.
 	Number uint64 `json:"block_number"`
 	// Root is the state commitment after this instance's block.
-	Root *felt.Felt `json:"state_root"`
+	Root string `json:"state_root"`
 	// Status carries the lifecycle information of the block such as
 	// whether it has been accepted by the verifier on Ethereum.
 	Status types.BlockStatus `json:"status"`
 	// Gas is the gas price.
-	Gas *felt.Felt `json:"gas_price"`
+	Gas string `json:"gas_price"`
 	// Timestamp is the time the sequencer created the block before
 	// executing its transactions.
 	Timestamp int64 `json:"timestamp"`
 	// Sequencer is the address of the sequencer that created the block.
-	Sequencer *felt.Felt `json:"sequencer_address,omitempty"`
+	Sequencer string `json:"sequencer_address,omitempty"`
 	// Transactions are the transactions in the block.
 	Transactions []any `json:"transactions"`
+
+	// TODO: Add receipts when they become supported.
 	// Receipts are the corresponding receipts of the transactions in the
 	// block.
-	Receipts []Receipt `json:"transaction_receipts"`
+	// Receipts []Receipt `json:"transaction_receipts"`
 }
 
 // Declare represents a transaction used to introduce new classes in
@@ -39,79 +58,81 @@ type Block struct {
 // of or simply use them in library calls.
 type Declare struct {
 	// TxHash is the transaction hash.
-	TxHash *felt.Felt `json:"transaction_hash"`
+	TxHash string `json:"transaction_hash"`
 
 	// ClassHash is a reference to a contract class.
-	ClassHash *felt.Felt `json:"class_hash"`
+	ClassHash string `json:"class_hash"`
 
 	/*
 		// Class is the class object.
 		Class any `json:"contract_class"`
 	*/
 	// Sender is the address of the account initiating the transaction.
-	Sender *felt.Felt `json:"sender_address"`
+	Sender string `json:"sender_address"`
 	// MaxFee is the maximum fee that the sender is willing to pay for the
 	// transaction.
-	MaxFee *felt.Felt `json:"max_fee"`
+	MaxFee string `json:"max_fee"`
 	// Sig is the signature of the transaction.
-	Sig []*felt.Felt `json:"signature"`
+	Sig string `json:"signature"`
 	// Nonce is the transaction nonce.
-	Nonce *felt.Felt
+	Nonce string `json:"nonce"`
 	// Ver is the transaction's version.
-	Ver *felt.Felt `json:"version"`
+	Ver string `json:"version,omitempty"`
 }
 
 // Deploy represents a transaction type used to deploy contracts to
 // StarkNet and set to be deprecated in future versions of the protocol.
 type Deploy struct {
 	// TxHash is the transaction hash.
-	TxHash *felt.Felt `json:"transaction_hash"`
+	TxHash string `json:"transaction_hash"`
 
 	// XXX: Could this be the caller address below?
-	Addr *felt.Felt `json:"contract_address"`
+	Addr string `json:"contract_address"`
 	// XXX: I am assuming this is to serve as a key to query the contract
 	// definition below.
-	Class *felt.Felt `json:"class_hash"`
+	ClassHash string `json:"class_hash"`
 
 	// Salt is a random number used to distinguish between different
 	// instances of the contract.
-	Salt *felt.Felt `json:"contract_address_salt"`
+	Salt string `json:"contract_address_salt"`
 	// ConstructorCalldata are the arguments passed into the constructor
 	// during contract deployment.
-	ConstructorCalldata []*felt.Felt `json:"constructor_calldata"`
-	/*
-		// Caller is the deploying account contract.
-		Caller *felt.Felt `json:"caller_address"`
-		// Definition defines the contract's functionality.
-		Definition any `json:"contract_definition"`
-	*/
+	ConstructorCalldata []string `json:"constructor_calldata"`
+
+	// TODO: Resolve.
+	// Caller is the deploying account contract.
+	// Caller *felt.Felt `json:"caller_address"`
+	// Definition defines the contract's functionality.
+	// Definition any `json:"contract_definition"`
+
 	// Ver is the transaction's version.
-	Ver *felt.Felt `json:"version"`
+	Ver string `json:"version,omitempty"`
 }
 
 // Invoke represents a transaction type used to invoke contract
 // functions in StarkNet.
 type Invoke struct {
 	// TxHash is the transaction hash.
-	TxHash *felt.Felt `json:"transaction_hash"`
+	TxHash string `json:"transaction_hash"`
 
 	EntryPointType string `json:"entry_point_type"`
 
 	// Addr is the address of the contract invoked by this transaction.
-	Addr *felt.Felt `json:"contract_address"`
+	Addr string `json:"contract_address"`
 	// Selector is the entry point in the contract.
-	Selector *felt.Felt `json:"entry_point_selector"`
+	Selector string `json:"entry_point_selector"`
 	// Calldata is the arguments passed to the invoked function.
-	Calldata []*felt.Felt `json:"calldata"`
+	Calldata []string `json:"calldata"`
 	// Sig is the signature of the transaction.
-	Sig []*felt.Felt `json:"signature"`
+	Sig []string `json:"signature"`
 	// MaxFee is the maximum fee that the sender is willing to pay for the
 	// transaction.
-	MaxFee *felt.Felt `json:"max_fee"`
+	MaxFee string `json:"max_fee"`
 	// Ver is the transaction's version.
-	Ver *felt.Felt `json:"version"`
+	Ver string `json:"version,omitempty"`
 }
 
+/*
 // Receipt represents a transaction receipt.
 type Receipt struct {
 	// TxIndex is the transaction index.
@@ -148,6 +169,16 @@ type Receipt struct {
 	ActualFee *felt.Felt `json:"actual_fee"`
 }
 
+// TransactionStatus holds information about the lifecycle of the
+// transaction along with the hash of the block it was made.
+type TransactionStatus struct {
+	// Status is the transaction status which is an enumeration of
+	// strings.
+	Status string `json:"tx_status"`
+	// BlockHash is the hash of the block the transaction was made.
+	BlockHash string `json:"block_hash"`
+}
+
 // Received represents an Ethereum to StarkNet message.
 type Received struct {
 	// From is the Ethereum address the message comes from.
@@ -171,30 +202,31 @@ type Sent struct {
 	// Payload is the payload data.
 	Payload []*felt.Felt
 
-	/*
-		// From is the StarkNet address the message is sent from.
-		From *felt.Felt
-		// Selector is the entry point in the contract.
-		Selector *felt.Felt
-		// Nonce is the transaction nonce.
-		Nonce *felt.Felt
-	*/
+	// From is the StarkNet address the message is sent from.
+	// From *felt.Felt
+	// Selector is the entry point in the contract.
+	// Selector *felt.Felt
+	// Nonce is the transaction nonce.
+	// Nonce *felt.Felt
 }
+*/
 
 // ErrNotFound indicates a record that was not found from the database.
 var ErrNotFound = errors.New("models: record not found")
 
 // newBlock creates a Block from the types.Block header.
-func newBlock(header *types.Block) (*Block, error) {
+func (m *Model) newBlock(header *types.Block) (*Block, error) {
+	const prefix = "0x"
+
 	// TODO: types.Block is missing a gas_price field.
 	block := &Block{
-		Hash:         header.BlockHash,
-		Parent:       header.ParentHash,
+		Hash:         prefix + header.BlockHash.Hex(),
+		Parent:       prefix + header.ParentHash.Hex(),
 		Number:       header.BlockNumber,
-		Root:         header.NewRoot,
+		Root:         prefix + header.NewRoot.Hex(),
 		Status:       header.Status,
 		Timestamp:    header.TimeStamp,
-		Sequencer:    header.Sequencer,
+		Sequencer:    prefix + header.Sequencer.Hex(),
 		Transactions: make([]any, 0, len(header.TxHashes)),
 
 		// TODO: Receipts are currently not stored at the moment. See
@@ -203,7 +235,7 @@ func newBlock(header *types.Block) (*Block, error) {
 	}
 
 	for _, hash := range header.TxHashes {
-		gen, err := txMan.GetTransaction(hash)
+		gen, err := m.TxMan.GetTransaction(hash)
 		if err != nil {
 			return nil, err
 		}
@@ -217,21 +249,21 @@ func newBlock(header *types.Block) (*Block, error) {
 			// 	- contract_address_salt.
 			// 	- version.
 			tx = &Deploy{
-				TxHash:              cast.Hash,
-				Addr:                cast.ContractAddress,
-				ConstructorCalldata: cast.ConstructorCallData,
+				TxHash:              prefix + cast.Hash.Hex(),
+				Addr:                prefix + cast.ContractAddress.Hex(),
+				ConstructorCalldata: Strings(cast.ConstructorCallData),
 			}
 		case *types.TransactionInvoke:
 			// TODO: The following fields are missing.
 			// 	- entry_point_type.
 			// 	- version.
 			tx = &Invoke{
-				TxHash:   cast.Hash,
-				Addr:     cast.ContractAddress,
-				Selector: cast.EntryPointSelector,
-				Calldata: cast.CallData,
-				Sig:      cast.Signature,
-				MaxFee:   cast.MaxFee,
+				TxHash:   prefix + cast.Hash.Hex(),
+				Addr:     prefix + cast.ContractAddress.Hex(),
+				Selector: prefix + cast.EntryPointSelector.Hex(),
+				Calldata: Strings(cast.CallData),
+				Sig:      Strings(cast.Signature),
+				MaxFee:   prefix + cast.MaxFee.Hex(),
 			}
 		}
 
@@ -286,27 +318,27 @@ func newBlock(header *types.Block) (*Block, error) {
 
 // BlockByHash returns a Block corresponding to the hash given. The
 // function is agnostic to whether the string has a "0x" prefix.
-func BlockByHash(hash string) (*Block, error) {
-	header, err := blockMan.GetBlockByHash(new(felt.Felt).SetHex(hash))
+func (m *Model) BlockByHash(hash string) (*Block, error) {
+	header, err := m.BlockMan.GetBlockByHash(new(felt.Felt).SetHex(hash))
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	return newBlock(header)
+	return m.newBlock(header)
 }
 
 // BlockByNumber returns a Block corresponding to the height num.
-func BlockByNumber(num uint64) (*Block, error) {
-	header, err := blockMan.GetBlockByNumber(num)
+func (m *Model) BlockByNumber(num uint64) (*Block, error) {
+	header, err := m.BlockMan.GetBlockByNumber(num)
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	return newBlock(header)
+	return m.newBlock(header)
 }
 
 // BlockHashByID returns the hash of the block corresponding to the
 // given block number.
-func BlockHashByID(num uint64) (*felt.Felt, error) {
-	block, err := blockMan.GetBlockByNumber(num)
+func (m *Model) BlockHashByID(num uint64) (*felt.Felt, error) {
+	block, err := m.BlockMan.GetBlockByNumber(num)
 	if err != nil {
 		return nil, ErrNotFound
 	}
@@ -315,13 +347,10 @@ func BlockHashByID(num uint64) (*felt.Felt, error) {
 
 // BlockIDByHash returns the block number of the block with the given
 // hash.
-func BlockIDByHash(hash *felt.Felt) (uint64, error) {
-	block, err := blockMan.GetBlockByHash(hash)
+func (m *Model) BlockIDByHash(hash *felt.Felt) (uint64, error) {
+	block, err := m.BlockMan.GetBlockByHash(hash)
 	if err != nil {
 		return 0, ErrNotFound
 	}
 	return block.BlockNumber, nil
 }
-
-// TODO: Implement the json.Marshaler interface because the new field
-// elements defaults to a base 10 representation.
