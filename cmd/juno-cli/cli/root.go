@@ -89,6 +89,6 @@ func initClient() *feeder.Client {
 // Execute handle flags for Cobra execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		Logger.With("Error", err).Error("Failed to execute CLI.")
+		Logger.Fatal("Failed to execute CLI.")
 	}
 }

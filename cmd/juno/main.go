@@ -69,7 +69,6 @@ func newRootCmd() *cobra.Command {
 	cfg := &config.Juno{}
 	var configFile string
 
-	// rootCmd is the root command of the application.
 	rootCmd := &cobra.Command{
 		Use:   "juno [options]",
 		Short: "StarkNet client implementation in Go.",
@@ -80,6 +79,11 @@ func newRootCmd() *cobra.Command {
 			juno(cfg)
 		},
 	}
+
+	// Commands
+	rootCmd.AddCommand(newConfigureCmd(cfg, &configFile))
+
+	// Flags
 
 	if configDir, err := os.UserConfigDir(); err != nil {
 		configFile = ""
