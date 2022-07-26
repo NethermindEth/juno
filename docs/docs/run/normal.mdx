@@ -4,4 +4,22 @@ sidebar_position: 1
 pagination_next: config
 ---
 
-TODO: What is the best description to run the client? Is it just `make all` from any of the systems?
+To compile and run juno directly, 
+
+To compile the tools (`juno` and `juno-cli`), simply run the `make compile` command within the project directory:
+
+```bash
+make compile
+```
+
+You will then have 2 available commands, generated inside the `build` folder of the project:
+
+```bash
+./build/juno # To start the node, or configure it.
+./build/juno-cli # For utilities related to the StarkNet network
+```
+
+To run Juno, then:
+
+```bash
+make run
