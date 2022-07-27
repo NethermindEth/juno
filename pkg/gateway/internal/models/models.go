@@ -24,12 +24,13 @@ type Model struct {
 	TxMan    *transaction.Manager
 }
 
-// Block represents a block.
-type Block struct {
+// TODO: The gas_price and sequencer_address fields are missing from
+// this structure but may warrant inclusion.
+
+// Header represents a block header.
+type Header struct {
 	// Hash is the block hash which is computed over the header's fields.
 	Hash string `json:"block_hash"`
-	// Parent is the block hash of the block's parent instance.
-	Parent string `json:"parent_hash"`
 	// Number is the height of the block.
 	Number uint64 `json:"block_number"`
 	// Root is the state commitment after this instance's block.
@@ -37,13 +38,32 @@ type Block struct {
 	// Status carries the lifecycle information of the block such as
 	// whether it has been accepted by the verifier on Ethereum.
 	Status types.BlockStatus `json:"status"`
-	// Gas is the gas price.
-	Gas string `json:"gas_price"`
 	// Timestamp is the time the sequencer created the block before
 	// executing its transactions.
 	Timestamp int64 `json:"timestamp"`
-	// Sequencer is the address of the sequencer that created the block.
-	Sequencer string `json:"sequencer_address,omitempty"`
+
+	// L1TxHash is the transaction hash of the batch submitted to the
+	// verifier on Ethereum.
+	L1TxHash string `json:"ethereum_tx_hash,omitempty"`
+	// EventLen is the number of events in the block.
+	EventLen uint64 `json:"event_count"`
+	// MsgLen is the number of messages in the block.
+	MsgLen uint64 `json:"message_count"`
+	// TxLen is the number of transactions in the block.
+	TxLen uint64 `json:"transaction_count"`
+}
+
+type some struct {
+	L1TxHash *felt.Felt
+	EventLen uint64
+	MsgLen   uint64
+	TxLen    uint64
+}
+
+// Block represents a block.
+type Block struct {
+	Header
+
 	// Transactions are the transactions in the block.
 	Transactions []any `json:"transactions"`
 
@@ -53,20 +73,27 @@ type Block struct {
 	// Receipts []Receipt `json:"transaction_receipts"`
 }
 
+// TODO: Add the index field when that becomes available.
+
+// Transaction represents a StarkNet transaction.
+type Transaction struct {
+	// TxHash is the transaction hash.
+	Hash string `json:"transaction_hash"`
+	// TxIndex is the transaction index.
+	Index uint64 `json:"transaction_index"`
+	// Type is the transaction type.
+	Type TxType `json:"type"`
+}
+
 // Declare represents a transaction used to introduce new classes in
 // StarkNet which are then used by other contracts to deploy instances
 // of or simply use them in library calls.
 type Declare struct {
-	// TxHash is the transaction hash.
-	TxHash string `json:"transaction_hash"`
+	Transaction
 
 	// ClassHash is a reference to a contract class.
 	ClassHash string `json:"class_hash"`
 
-	/*
-		// Class is the class object.
-		Class any `json:"contract_class"`
-	*/
 	// Sender is the address of the account initiating the transaction.
 	Sender string `json:"sender_address"`
 	// MaxFee is the maximum fee that the sender is willing to pay for the
@@ -83,13 +110,12 @@ type Declare struct {
 // Deploy represents a transaction type used to deploy contracts to
 // StarkNet and set to be deprecated in future versions of the protocol.
 type Deploy struct {
-	// TxHash is the transaction hash.
-	TxHash string `json:"transaction_hash"`
+	Transaction
 
-	// XXX: Could this be the caller address below?
-	Addr string `json:"contract_address"`
-	// XXX: I am assuming this is to serve as a key to query the contract
-	// definition below.
+	// Caller is the deploying account contract.
+	Caller string `json:"contract_address"`
+	// ClassHash is a reference to the contract definition that defines
+	// the contract's functionality.
 	ClassHash string `json:"class_hash"`
 
 	// Salt is a random number used to distinguish between different
@@ -98,13 +124,6 @@ type Deploy struct {
 	// ConstructorCalldata are the arguments passed into the constructor
 	// during contract deployment.
 	ConstructorCalldata []string `json:"constructor_calldata"`
-
-	// TODO: Resolve.
-	// Caller is the deploying account contract.
-	// Caller *felt.Felt `json:"caller_address"`
-	// Definition defines the contract's functionality.
-	// Definition any `json:"contract_definition"`
-
 	// Ver is the transaction's version.
 	Ver string `json:"version,omitempty"`
 }
@@ -112,9 +131,9 @@ type Deploy struct {
 // Invoke represents a transaction type used to invoke contract
 // functions in StarkNet.
 type Invoke struct {
-	// TxHash is the transaction hash.
-	TxHash string `json:"transaction_hash"`
+	Transaction
 
+	// EntryPointType is the entry point type in the contract.
 	EntryPointType string `json:"entry_point_type"`
 
 	// Addr is the address of the contract invoked by this transaction.
@@ -130,6 +149,28 @@ type Invoke struct {
 	MaxFee string `json:"max_fee"`
 	// Ver is the transaction's version.
 	Ver string `json:"version,omitempty"`
+}
+
+// TxType is the transaction type.
+type TxType int
+
+const (
+	DeclareTx = iota
+	DeployTx
+	InvokeTx
+)
+
+// MarshalJSON implements the json.Marshaler interface for TxType.
+func (t TxType) MarshalJSON() ([]byte, error) {
+	switch t {
+	case DeclareTx:
+		return []byte(`"DECLARE"`), nil
+	case DeployTx:
+		return []byte(`"DEPLOY"`), nil
+	case InvokeTx:
+		return []byte(`"INVOKE_FUNCTION"`), nil
+	}
+	return []byte(`"UNKNOWN"`), nil
 }
 
 /*
@@ -218,17 +259,20 @@ var ErrNotFound = errors.New("models: record not found")
 func (m *Model) newBlock(header *types.Block) (*Block, error) {
 	const prefix = "0x"
 
-	// TODO: types.Block is missing a gas_price field.
 	block := &Block{
-		Hash:         prefix + header.BlockHash.Hex(),
-		Parent:       prefix + header.ParentHash.Hex(),
-		Number:       header.BlockNumber,
-		Root:         prefix + header.NewRoot.Hex(),
-		Status:       header.Status,
-		Timestamp:    header.TimeStamp,
-		Sequencer:    prefix + header.Sequencer.Hex(),
-		Transactions: make([]any, 0, len(header.TxHashes)),
+		Header: Header{
+			Hash:      prefix + header.BlockHash.Hex(),
+			Number:    header.BlockNumber,
+			Root:      prefix + header.NewRoot.Hex(),
+			Status:    header.Status,
+			Timestamp: header.TimeStamp,
+			L1TxHash:  prefix + header.TxCommitment.Hex(),
+			EventLen:  header.EventCount,
+			MsgLen:    header.EventCount,
+			TxLen:     header.TxCount,
+		},
 
+		Transactions: make([]any, 0, len(header.TxHashes)),
 		// TODO: Receipts are currently not stored at the moment. See
 		// comment below.
 		// Receipts: make([]any, 0, len(header.TxHashes)),
@@ -249,8 +293,11 @@ func (m *Model) newBlock(header *types.Block) (*Block, error) {
 			// 	- contract_address_salt.
 			// 	- version.
 			tx = &Deploy{
-				TxHash:              prefix + cast.Hash.Hex(),
-				Addr:                prefix + cast.ContractAddress.Hex(),
+				Transaction: Transaction{
+					Hash: prefix + cast.Hash.Hex(),
+					Type: DeployTx,
+				},
+				Caller:              prefix + cast.ContractAddress.Hex(),
 				ConstructorCalldata: Strings(cast.ConstructorCallData),
 			}
 		case *types.TransactionInvoke:
@@ -258,7 +305,10 @@ func (m *Model) newBlock(header *types.Block) (*Block, error) {
 			// 	- entry_point_type.
 			// 	- version.
 			tx = &Invoke{
-				TxHash:   prefix + cast.Hash.Hex(),
+				Transaction: Transaction{
+					Hash: prefix + cast.Hash.Hex(),
+					Type: InvokeTx,
+				},
 				Addr:     prefix + cast.ContractAddress.Hex(),
 				Selector: prefix + cast.EntryPointSelector.Hex(),
 				Calldata: Strings(cast.CallData),

@@ -14,17 +14,24 @@ type Stub struct{}
 // block is a mock block that carries some values that appear in the
 // first block.
 var block = models.Block{
-	Hash:   "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
-	Parent: "0x0",
-	Number: 0,
-	// XXX: Feeder response is also not prefixed with "0x".
-	Root:   "021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6",
-	Status: types.BlockStatusAcceptedOnL1,
-	Gas:    "0x0",
+	Header: models.Header{
+		Hash:   "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+		Number: 0,
+		// XXX: Feeder response is also not prefixed with "0x".
+		Root:   "021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6",
+		Status: types.BlockStatusAcceptedOnL1,
+
+		// TODO: Include the gas price.
+		// Gas:    "0x0",
+	},
+
 	Transactions: []any{
 		models.Deploy{
-			TxHash:    "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
-			Addr:      "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+			Transaction: models.Transaction{
+				Hash: "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
+				Type: models.DeployTx,
+			},
+			Caller:    "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 			ClassHash: "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
 			Salt:      "0x546c86dc6e40a5e5492b782d8964e9a4274ff6ecb16d31eb09cee45a3564015",
 			ConstructorCalldata: []string{
