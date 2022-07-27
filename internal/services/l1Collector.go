@@ -86,6 +86,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 	L1Collector.gpsVerifier = types2.NewDictionary()
 	L1Collector.facts = types2.NewDictionary()
 	L1Collector.Synced = false
+	L1Collector.loadContractsAbi()
 	go L1Collector.updateLatestBlockOnChain()
 }
 
@@ -167,7 +168,6 @@ func (l *l1Collector) IsSynced() bool {
 
 func (l *l1Collector) updateLatestBlockOnChain() {
 	go l.updatePendingBlock()
-	l.loadContractsAbi()
 	number, err := l.l1client.BlockNumber(context.Background())
 	if err != nil {
 		l.logger.Error("Error subscribing to logs", "err", err)
@@ -391,6 +391,9 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	}
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
+		//l.logger.With("Event Name", l.contractInfo[vLog.Address].EventName,
+		//	"Contract Address", vLog.Address.Hex(), "Topics", vLog.Topics,
+		//	"Address", addresses).Info("Unpacking event")
 
 		err = l.contractInfo[vLog.Address].Contract.UnpackIntoMap(event, l.contractInfo[vLog.Address].EventName, vLog.Data)
 		if err != nil {
