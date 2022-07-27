@@ -1,0 +1,6 @@
+ecdsa
+sympy
+fastecdsa
+cairo-lang==0.9.1
+grpcio
+grpcio-tools
