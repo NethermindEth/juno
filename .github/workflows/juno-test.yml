@@ -14,8 +14,8 @@ jobs:
       matrix:
         go: [ '1.18' ]
     steps:
-      - uses: actions/setup-python@v4
       - name: Install python dependencies
+        uses: actions/setup-python@v4
         with:
           python-version: '3.7.13'
           cache: 'pip'
