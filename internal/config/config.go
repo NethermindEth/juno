@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/NethermindEth/juno/internal/errpkg"
 	. "github.com/NethermindEth/juno/internal/log"
 	"gopkg.in/yaml.v2"
 )
@@ -83,11 +82,15 @@ var Runtime *Config
 
 func init() {
 	// Set user config directory.
+	// notest
 	d, err := os.UserConfigDir()
-	errpkg.CheckFatal(err, "Unable to get the user config directory.")
+	if err != nil {
+		Logger.Fatal("Could not get config directory.")
+	}
 	Dir = filepath.Join(d, "juno")
 
 	// Set user data directory.
+	// notest
 	DataDir, err = func() (string, error) {
 		// notest
 		switch runtime.GOOS {
@@ -109,7 +112,9 @@ func init() {
 				// Create Juno data directory if it does not exist
 				if _, err := os.Stat(result); errors.Is(err, os.ErrNotExist) {
 					err = os.MkdirAll(result, 0o744)
-					errpkg.CheckFatal(err, "Unable to create user data directory.")
+					if err != nil {
+						Logger.Fatal("Could not create user data directory.")
+					}
 				}
 				return result, nil
 			}
@@ -118,7 +123,10 @@ func init() {
 			return "", errors.New("user data directory not found")
 		}
 	}()
-	errpkg.CheckFatal(err, "Unable to get user data directory.")
+	// If there is an error
+	if err != nil {
+		Logger.Fatal("Could not get user data directory.")
+	}
 }
 
 // New creates a new configuration file with default values.
@@ -129,8 +137,11 @@ func New() {
 	if _, err := os.Stat(Dir); os.IsNotExist(err) {
 		// notest
 		err := os.MkdirAll(Dir, 0o755)
-		errpkg.CheckFatal(err, "Failed to create Config directory.")
+		if err != nil {
+			Logger.Fatal("Could not create config directory.")
+		}
 	}
+	// notest
 	data, err := yaml.Marshal(&Config{
 		Logger: loggerConfig{
 			VerbosityLevel:   "debug",
@@ -146,12 +157,16 @@ func New() {
 			Network: "mainnet",
 		},
 	})
-	errpkg.CheckFatal(err, "Failed to marshal Config instance to byte data.")
+	if err != nil {
+		Logger.Fatal("Could not marshal default config.")
+	}
 	// Create default Juno configuration file if it does not exist
 	if _, err := os.Stat(f); errors.Is(err, os.ErrNotExist) {
 		// notest
 		err = os.WriteFile(f, data, 0o644)
-		errpkg.CheckFatal(err, "Failed to write config file.")
+		if err != nil {
+			Logger.Fatal("Could not create default config file.")
+		}
 	}
 }
 
