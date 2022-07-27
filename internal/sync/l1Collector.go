@@ -3,12 +3,13 @@ package sync
 import (
 	"context"
 	"errors"
-	"github.com/NethermindEth/juno/internal/log"
-	"go.uber.org/zap"
 	"math"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
 
 	"github.com/NethermindEth/juno/internal/sync/abi"
 
@@ -401,7 +402,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	}
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
-		//l.logger.With("Event Name", l.contractInfo[vLog.Address].EventName,
+		// l.logger.With("Event Name", l.contractInfo[vLog.Address].EventName,
 		//	"Contract Address", vLog.Address.Hex(), "Topics", vLog.Topics,
 		//	"Address", addresses).Info("Unpacking event")
 

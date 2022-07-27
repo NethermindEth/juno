@@ -1,10 +1,11 @@
 package sync
 
 import (
-	"github.com/NethermindEth/juno/internal/log"
-	"go.uber.org/zap"
 	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
