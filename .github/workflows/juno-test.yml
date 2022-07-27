@@ -14,18 +14,16 @@ jobs:
       matrix:
         go: [ '1.18' ]
     steps:
-      - name: Install python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.7.13'
-          cache: 'pip'
-      - name: Install python requirements
-        run: pip install -r requirements.txt
       - uses: actions/checkout@v3
       - name: Set up go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - name: Install python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.7.13'
+          cache: 'pip'
       - name: Install deps
         run: make install-deps
       - name: Tests
