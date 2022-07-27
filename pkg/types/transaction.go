@@ -10,6 +10,7 @@ type IsTransaction interface {
 
 type TransactionDeploy struct {
 	Hash                *felt.Felt
+	ClassHash           *felt.Felt
 	ContractAddress     *felt.Felt
 	ConstructorCallData []*felt.Felt
 }

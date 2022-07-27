@@ -91,6 +91,8 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 	switch tx := transaction.(type) {
 	case *types.TransactionDeploy:
 		deploy := Deploy{
+			ClassHash:           tx.ClassHash.ByteSlice(),
+			ContractAddress:     tx.ContractAddress.ByteSlice(),
 			ContractAddressSalt: tx.ContractAddress.ByteSlice(),
 			ConstructorCallData: marshalFelts(tx.ConstructorCallData),
 		}
@@ -104,6 +106,15 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 			MaxFee:             tx.MaxFee.ByteSlice(),
 		}
 		protoTx.Tx = &Transaction_Invoke{&invoke}
+	case *types.TransactionDeclare:
+		declare := Declare{
+			ClassHash:     tx.ClassHash.ByteSlice(),
+			SenderAddress: tx.SenderAddress.ByteSlice(),
+			MaxFee:        tx.MaxFee.ByteSlice(),
+			Signature:     marshalFelts(tx.Signature),
+			Nonce:         tx.Nonce.ByteSlice(),
+		}
+		protoTx.Tx = &Transaction_Declare{&declare}
 	}
 	return proto.Marshal(&protoTx)
 }
@@ -127,6 +138,7 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 	if tx := protoTx.GetDeploy(); tx != nil {
 		out := types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetBytes(protoTx.Hash),
+			ClassHash:           new(felt.Felt).SetBytes(tx.ClassHash),
 			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddressSalt),
 			ConstructorCallData: unmarshalFelts(tx.ConstructorCallData),
 		}
