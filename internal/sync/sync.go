@@ -119,10 +119,10 @@ func (s *Synchronizer) sync() {
 			continue
 		}
 
-		if err = s.updateBlock(stateDiff.BlockNumber); err != nil {
-			s.setStateToLatestRoot()
-			continue
-		}
+		//if err = s.updateBlock(stateDiff.BlockNumber); err != nil {
+		//	s.setStateToLatestRoot()
+		//	continue
+		//}
 
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
