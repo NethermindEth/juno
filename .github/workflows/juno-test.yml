@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.7.13'
           cache: 'pip'
-      - run: pip install -r requirements.txt
+        run: pip install -r requirements.txt
       - uses: actions/checkout@v3
       - name: Set up go
         uses: actions/setup-go@v3
