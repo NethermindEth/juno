@@ -40,5 +40,5 @@ func (ts *testServer) get(t *testing.T, route string) (int, string) {
 // newTestGateway creates a new gateway that uses stubs instead of the
 // database.
 func newTestGateway(t *testing.T) *gateway {
-	return &gateway{model: &stubs.Stub{}}
+	return &gateway{logger: NewNoOpLogger(), model: &stubs.Stub{}}
 }

@@ -21,14 +21,14 @@ const (
 func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	// If not parameters are given, default to the latest block.
 	if len(r.URL.Query()) == 0 {
 		// TODO: Return the latest block.
-		notImplementedErr(w)
+		gw.notImplementedErr(w)
 		return
 	}
 
@@ -43,7 +43,7 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 				`Query fields should be a subset of {'blockHash', 'blockNumber'}; `+
 					`got: {%q}.`,
 				param)
-			clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 			return
 		}
 	}
@@ -55,7 +55,7 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 				`specified; got: blockNumber=%s, blockHash=%s.`,
 			r.URL.Query().Get("blockNumber"),
 			r.URL.Query().Get("blockHash"))
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -67,26 +67,26 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 				msg := fmt.Sprintf(
 					"Block hash should be a hexadecimal string starting with 0x, or "+
 						"'null'; got: %s.", hash)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Block hash %s is out of range", hash)
-			clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
 			return
 		}
 
 		block, err := gw.model.BlockByHash(hash)
 		if err != nil {
 			msg := fmt.Sprintf("Block hash %s does not exist.", hash)
-			clientErr(w, http.StatusNotFound, blockNotFound, msg)
+			gw.clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
 		res, err := json.MarshalIndent(&block, "", "  ")
 		if err != nil {
 			// notest
-			serverErr(w, err)
+			gw.serverErr(w, err)
 			return
 		}
 
@@ -98,21 +98,21 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
 			// interpret string characters as integers.
-			clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
 			return
 		}
 
 		block, err := gw.model.BlockByNumber(num)
 		if err != nil {
 			msg := fmt.Sprintf("Block number %d was not found.", num)
-			clientErr(w, http.StatusNotFound, blockNotFound, msg)
+			gw.clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
 		res, err := json.MarshalIndent(block, "", "  ")
 		if err != nil {
 			// notest
-			serverErr(w, err)
+			gw.serverErr(w, err)
 			return
 		}
 
@@ -124,12 +124,12 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 func (gw *gateway) getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	if len(r.URL.Query()) == 0 {
-		clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
 		return
 	}
 
@@ -139,7 +139,7 @@ func (gw *gateway) getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
 			// interpret string characters as integers.
-			clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
 			return
 		}
 
@@ -166,25 +166,25 @@ func (gw *gateway) getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 		hash, err := gw.model.BlockHashByID(id)
 		if err != nil {
 			msg := fmt.Sprintf("Block id %d was not found.", id)
-			clientErr(w, http.StatusNotFound, blockNotFound, msg)
+			gw.clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
 		fmt.Fprintf(w, `"0x%s"`, hash.Hex())
 		return
 	}
-	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
+	gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'blockId'")
 }
 
 func (gw *gateway) getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	if len(r.URL.Query()) == 0 {
-		clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
 		return
 	}
 
@@ -195,26 +195,26 @@ func (gw *gateway) getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 				msg := fmt.Sprintf(
 					"Block hash should be a hexadecimal string starting with 0x, or "+
 						"'null'; got: %s.", hash)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Block hash %s is out of range", hash)
-			clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
 			return
 		}
 
 		id, err := gw.model.BlockIDByHash(new(felt.Felt).SetHex(hash))
 		if err != nil {
 			msg := fmt.Sprintf("Block hash %s was not found.", hash)
-			clientErr(w, http.StatusNotFound, blockNotFound, msg)
+			gw.clientErr(w, http.StatusNotFound, blockNotFound, msg)
 			return
 		}
 
 		fmt.Fprintf(w, "%d", id)
 		return
 	}
-	clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
+	gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Block hash must be given.")
 }
 
 /*
@@ -222,7 +222,7 @@ func (gw *gateway) getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 func getCode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
@@ -239,7 +239,7 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 				`Query fields should be a subset of {'blockHash', 'blockNumber', `+
 					`'contractAddress'}; got: {%q}.`,
 				param)
-			clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 			return
 		}
 	}
@@ -251,7 +251,7 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 				`specified; got: blockNumber=%s, blockHash=%s.`,
 			r.URL.Query().Get("blockNumber"),
 			r.URL.Query().Get("blockHash"))
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -266,17 +266,17 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 				msg := fmt.Sprintf(
 					"Contract address should be a hexadecimal string starting with 0x, "+
 						"or 'null'; got: %s.", addr)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Invalid contract address: %s is out of range.", addr)
-			clientErr(w, http.StatusBadRequest, outOfRangeContractAddr, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeContractAddr, msg)
 			return
 		}
 	} else {
 		const msg = "Key not found: 'contractAddress'"
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -288,12 +288,12 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 				msg := fmt.Sprintf(
 					"Block hash should be a hexadecimal string starting with 0x, or "+
 						"'null'; got: %s.", hash)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Block hash %s is out of range", hash)
-			clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
 			return
 		}
 
@@ -305,7 +305,7 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
 			// interpret string characters as integers.
-			clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
 			return
 		}
 
@@ -349,7 +349,7 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 func getContractAddresses(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
@@ -361,16 +361,16 @@ func getContractAddresses(w http.ResponseWriter, r *http.Request) {
 func getStorageAt(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	switch query := r.URL.Query(); {
 	case len(query) == 0, !query.Has("key"):
-		clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'key'")
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'key'")
 		return
 	case !query.Has("contractAddress"):
-		clientErr(
+		gw.clientErr(
 			w,
 			http.StatusBadRequest,
 			malformedRequest,
@@ -395,7 +395,7 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 				`Query fields should be a subset of {'blockHash', 'blockNumber', `+
 					`'contractAddress', 'key'}; got: {%q}.`,
 				param)
-			clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 			return
 		}
 	}
@@ -407,7 +407,7 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 				`specified; got: blockNumber=%s, blockHash=%s.`,
 			r.URL.Query().Get("blockNumber"),
 			r.URL.Query().Get("blockHash"))
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -423,17 +423,17 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 					"Contract address should be a hexadecimal string starting with 0x, "+
 						"or 'null'; got: %s.",
 					addr)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Invalid contract address: %s is out of range.", addr)
-			clientErr(w, http.StatusBadRequest, outOfRangeContractAddr, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeContractAddr, msg)
 			return
 		}
 	} else {
 		msg := "Key not found: 'contractAddress'"
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -442,12 +442,12 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 		_, ok := new(big.Int).SetString(key, 10)
 		if !ok {
 			msg := fmt.Sprintf("invalid literal for int() with base 10 : '%s'", key)
-			clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 			return
 		}
 	} else {
 		msg := "Key not found: 'key'"
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -460,12 +460,12 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 					"Block hash should be a hexadecimal string starting with 0x, or "+
 						"'null'; got: %s.",
 					hash)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Block hash %s is out of range", hash)
-			clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeBlockHash, msg)
 			return
 		}
 
@@ -481,7 +481,7 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
 			// interpret string characters as integers.
-			clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
 			return
 		}
 
@@ -510,14 +510,14 @@ func getStorageAt(w http.ResponseWriter, r *http.Request) {
 func getTransaction(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	if len(r.URL.Query()) == 0 {
 		const msg = "Transaction hash should be a hexadecimal string starting " +
 			"with 0x; got None."
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -530,7 +530,7 @@ func getTransaction(w http.ResponseWriter, r *http.Request) {
 			msg := fmt.Sprintf(
 				`Query fields should be a subset of {'transactionHash'}; got: {%q}.`,
 				param)
-			clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 			return
 		}
 	}
@@ -543,12 +543,12 @@ func getTransaction(w http.ResponseWriter, r *http.Request) {
 					"Transaction hash should be a hexadecimal string starting with 0x, "+
 						"or 'null'; got: %s.",
 					hash)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Transaction hash %s is out of range", hash)
-			clientErr(w, http.StatusBadRequest, outOfRangeTransactionHash, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeTransactionHash, msg)
 			return
 		}
 
@@ -576,12 +576,12 @@ func getTransaction(w http.ResponseWriter, r *http.Request) {
 func getTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	if len(r.URL.Query()) == 0 {
-		clientErr(
+		gw.clientErr(
 			w, http.StatusBadRequest, malformedRequest, "Key not found: 'transactionId'")
 		return
 	}
@@ -592,7 +592,7 @@ func getTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 			// Another departure from the feeder gateway in terms of the error
 			// message which seems to be the result of Python's failure to
 			// interpret string characters as integers.
-			clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Unexpected input")
 			return
 		}
 
@@ -601,20 +601,20 @@ func getTransactionHashByID(w http.ResponseWriter, r *http.Request) {
 		notImplementedErr(w)
 		return
 	}
-	clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'transactionId'")
+	gw.clientErr(w, http.StatusBadRequest, malformedRequest, "Key not found: 'transactionId'")
 }
 
 func getTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
-		clientErr(w, http.StatusMethodNotAllowed, "", "")
+		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
 	}
 
 	if len(r.URL.Query()) == 0 {
 		const msg = "Transaction hash should be a hexadecimal string starting " +
 			"with 0x; got None."
-		clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+		gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 		return
 	}
 
@@ -627,7 +627,7 @@ func getTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 			msg := fmt.Sprintf(
 				"Query fields should be a subset of {'transactionHash'}; got: {%q}.",
 				param)
-			clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+			gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 			return
 		}
 	}
@@ -640,12 +640,12 @@ func getTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 					"Transaction hash should be a hexadecimal string starting with 0x, "+
 						"or 'null'; got: %s.",
 					hash)
-				clientErr(w, http.StatusBadRequest, malformedRequest, msg)
+				gw.clientErr(w, http.StatusBadRequest, malformedRequest, msg)
 				return
 			}
 			// Only other error returned by isValid is an out of range felt.
 			msg := fmt.Sprintf("Transaction hash %s is out of range", hash)
-			clientErr(w, http.StatusBadRequest, outOfRangeTransactionHash, msg)
+			gw.clientErr(w, http.StatusBadRequest, outOfRangeTransactionHash, msg)
 			return
 		}
 
@@ -661,5 +661,5 @@ func getTransactionIDByHash(w http.ResponseWriter, r *http.Request) {
 */
 
 func (gw *gateway) notFound(w http.ResponseWriter, r *http.Request) {
-	clientErr(w, http.StatusNotFound, "", "")
+	gw.clientErr(w, http.StatusNotFound, "", "")
 }

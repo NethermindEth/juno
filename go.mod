@@ -6,10 +6,12 @@ require (
 	github.com/bxcodec/faker v2.0.1+incompatible
 	github.com/consensys/gnark-crypto v0.7.0
 	github.com/ethereum/go-ethereum v1.10.18
+	github.com/gdamore/tcell/v2 v2.4.1-0.20210905002822-f057f0a857a1
 	github.com/goccy/go-json v0.9.7
 	github.com/google/go-cmp v0.5.8
 	github.com/iancoleman/strcase v0.2.0
 	github.com/leanovate/gopter v0.2.9
+	github.com/rivo/tview v0.0.0-20220703182358-a13d901d3386
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.1
@@ -21,17 +23,13 @@ require (
 )
 
 require (
-	github.com/gdamore/encoding v1.0.0 // indirect
-	github.com/gdamore/tcell/v2 v2.4.1-0.20210905002822-f057f0a857a1 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
-	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rivo/tview v0.0.0-20220703182358-a13d901d3386 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	github.com/consensys/bavard v0.1.10 // indirect
+	github.com/gdamore/encoding v1.0.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
+	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-
-	. "github.com/NethermindEth/juno/internal/log"
 )
 
 // logRequest records the IP address, HTTP method, and URL accessed by
@@ -15,7 +13,7 @@ func (gw *gateway) logRequest(next http.Handler) http.Handler {
 		// Prevent CWE-117 log injection attack. See the following for
 		// details https://cwe.mitre.org/data/definitions/117.html.
 		escURI := strings.ReplaceAll(strings.ReplaceAll(r.URL.RequestURI(), "\n", ""), "\r", "")
-		Logger.With("protocol", r.Proto, "method", r.Method, "uri", escURI).Info("API request.")
+		gw.logger.With("protocol", r.Proto, "method", r.Method, "uri", escURI).Info("API request.")
 
 		next.ServeHTTP(w, r)
 	})
@@ -29,7 +27,7 @@ func (gw *gateway) panicRecovery(next http.Handler) http.Handler {
 			if err := recover(); err != nil {
 				// notest
 				w.Header().Set("Connection", "close")
-				serverErr(w, fmt.Errorf("%s", err))
+				gw.serverErr(w, fmt.Errorf("%s", err))
 			}
 		}()
 

@@ -8,18 +8,20 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/gateway/internal/models"
+	"go.uber.org/zap"
 )
 
 // gateway represents the gateway REST API.
 type gateway struct {
-	model models.Modeler
+	logger *zap.SugaredLogger
+	model  models.Modeler
 }
 
 // Server holds the server that fulfils requests to the gateway API.
 type Server struct {
-	srv *http.Server
+	logger *zap.SugaredLogger
+	srv    *http.Server
 }
 
 // New creates a new gateway application.
@@ -30,19 +32,27 @@ func NewServer(addr string, bm *block.Manager, tm *transaction.Manager) *Server 
 		TxMan:    tm,
 	}
 
-	gw := &gateway{model: model}
+	logger := NewLogger()
+
+	gw := &gateway{
+		logger: logger,
+		model:  model,
+	}
 
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: gw.routes(),
+		// TODO: The function that recovers from panics should handle this
+		// capability.
+		// ErrorLog: nil,
 	}
 
-	return &Server{srv}
+	return &Server{logger: logger, srv: srv}
 }
 
 func (s *Server) start(errCh chan<- error) {
 	// notest
-	Logger.Info("Starting REST API.")
+	s.logger.Info("Starting REST API.")
 
 	// Since ListenAndServe always returns an error we need to ensure that
 	// there is no write to a closed channel. Therefore, we check for
@@ -65,7 +75,7 @@ func (s *Server) ListenAndServe(errCh chan<- error) {
 // Close gracefully shuts down the server.
 func (s *Server) Close(timeout time.Duration) error {
 	// notest
-	Logger.Info("Shutting down REST API.")
+	s.logger.Info("Shutting down REST API.")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return s.srv.Shutdown(ctx)
 }
