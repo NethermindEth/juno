@@ -71,3 +71,29 @@ func TestBitSet_Equals(t *testing.T) {
 		})
 	}
 }
+
+func TestBitSet_String(t *testing.T) {
+	tests := []struct {
+		name string
+		bs   *BitSet
+		want string
+	}{
+		{
+			name: "test 1",
+			bs:   NewBitSet(5, []byte{0x11}),
+			want: "10001",
+		},
+		{
+			name: "test 2",
+			bs:   NewBitSet(5, []byte{0x12}),
+			want: "10010",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.bs.String(); got != tt.want {
+				t.Errorf("BitSet.String() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
