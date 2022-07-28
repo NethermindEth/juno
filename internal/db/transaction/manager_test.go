@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 
@@ -72,6 +74,19 @@ var txs = []types.IsTransaction{
 		},
 		ClassHash: new(felt.Felt).SetHex("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
 	},
+	&types.TransactionDeclare{
+		Hash:          new(felt.Felt).SetHex("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e2"),
+		ClassHash:     new(felt.Felt).SetHex("0x12afa0f342ece0468ca9810f0ea59f9c7204af32d1b8b0d318c4f2fe1f384e"),
+		SenderAddress: new(felt.Felt).SetHex("0x02F9a7E7A5Db12B6f2996B2DfD2b598E5Bd4baD4D8FBF2e6437F59e7dA718835"),
+		MaxFee:        new(felt.Felt).SetHex("0x0"),
+		Signature: []*felt.Felt{
+			new(felt.Felt).SetHex("0x1"),
+			new(felt.Felt).SetHex("0x2"),
+			new(felt.Felt).SetHex("0x3"),
+		},
+		Nonce:   new(felt.Felt).SetHex("0x1"),
+		Version: new(felt.Felt).SetHex("0x0"),
+	},
 }
 
 func initManager(t *testing.T) *Manager {
@@ -137,9 +152,20 @@ var receipts = []struct {
 				BlockHash:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
 				BlockNumber: 2482,
 			},
-			MessagesSent: nil,
+			MessagesSent: []*types.MsgToL1{
+				{
+					FromAddress: new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+					ToAddress:   types.EthAddress(common.HexToAddress("0x8C8D7C46219D9205f056f28fee5950aD564d7465")),
+					Payload: []*felt.Felt{
+						new(felt.Felt).SetHex("0x1"),
+						new(felt.Felt).SetHex("0x2"),
+						new(felt.Felt).SetHex("0x3"),
+					},
+				},
+			},
 			L1OriginMessage: &types.MsgToL2{
 				FromAddress: types.HexToEthAddress("0x659a00c33263d9254Fed382dE81349426C795BB6"),
+				ToAddress:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
 				Payload: []*felt.Felt{
 					new(felt.Felt).SetHex("0x68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
 					new(felt.Felt).SetHex("0x2616da7c393d14000"),
@@ -171,6 +197,32 @@ var receipts = []struct {
 						new(felt.Felt).SetHex("0x0"),
 					},
 				},
+			},
+		},
+	},
+	{
+		ReceiptHash: new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78b00"),
+		Receipt: &types.TxnDeployReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+				ActualFee:   new(felt.Felt).SetHex("0x0"),
+				Status:      types.TxStatusAcceptedOnL2,
+				StatusData:  "",
+				BlockHash:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+				BlockNumber: 2483,
+			},
+		},
+	},
+	{
+		ReceiptHash: new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78b01"),
+		Receipt: &types.TxnDeclareReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+				ActualFee:   new(felt.Felt).SetHex("0x0"),
+				Status:      types.TxStatusAcceptedOnL2,
+				StatusData:  "",
+				BlockHash:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+				BlockNumber: 2484,
 			},
 		},
 	},
