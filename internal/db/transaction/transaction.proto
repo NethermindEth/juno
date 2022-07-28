@@ -77,13 +77,15 @@ enum Status {
 }
 
 message MsgToL1 {
-  bytes toAddress = 1;
-  repeated bytes payload = 2;
+  bytes fromAddress = 1;
+  bytes toAddress = 2;
+  repeated bytes payload = 3;
 }
 
 message MsgToL2 {
   bytes fromAddress = 1;
-  repeated bytes payload = 2;
+  bytes toAddress = 2;
+  repeated bytes payload = 3;
 }
 
 message Event {

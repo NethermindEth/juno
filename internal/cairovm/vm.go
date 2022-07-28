@@ -3,7 +3,6 @@ package cairovm
 import (
 	"context"
 	_ "embed"
-	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -30,6 +29,7 @@ type pySubProcessLogger struct {
 }
 
 func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
+	// notest
 	p.logger.Warnf("Python VM Subprocess: \n%s\n", p0)
 	return len(p0), nil
 }
@@ -57,14 +57,13 @@ var (
 	pyPbGRpc []byte
 )
 
-var errPythonNotFound = errors.New("services: Python not found in $PATH")
-
 func NewVM(stateManager *statedb.Manager) *VirtualMachine {
 	vm := VirtualMachine{}
 	vm.rpcNet = "tcp"
 	vm.manager = stateManager
 	ports, err := freePorts(2)
 	if err != nil {
+		// notest
 		return nil
 	}
 	vm.logger = log.Logger.Named("VM")
@@ -130,6 +129,7 @@ func (s *VirtualMachine) Run() error {
 	// Start the Go gRPC server (serving storage).
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
 	if err != nil {
+		// notest
 		s.logger.Errorf("failed to listen: %v", err)
 	}
 	storageServer := vmrpc2.NewStorageRPCServer(s.manager)
@@ -139,6 +139,7 @@ func (s *VirtualMachine) Run() error {
 	go func() {
 		s.logger.Infof("gRPC server listening at %v", lis.Addr())
 		if err := s.rpcServer.Serve(lis); err != nil {
+			// notest
 			s.logger.Errorf("failed to serve: %v", err)
 		}
 	}()
@@ -146,7 +147,7 @@ func (s *VirtualMachine) Run() error {
 	return nil
 }
 
-func (s *VirtualMachine) Close(ctx context.Context) {
+func (s *VirtualMachine) Close(_ context.Context) {
 	s.rpcServer.Stop()
 	// TODO: we should probably wait for the process to exit.
 	s.vmCmd.Process.Kill()
@@ -179,8 +180,8 @@ func (s *VirtualMachine) Call(
 	}
 
 	calldataBytes := make([][]byte, len(calldata))
-	for i, felt := range calldata {
-		calldataBytes[i] = felt.ByteSlice()
+	for i, d := range calldata {
+		calldataBytes[i] = d.ByteSlice()
 	}
 
 	// Contact the server and print out its response.

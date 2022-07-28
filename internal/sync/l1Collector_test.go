@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/google/go-cmp/cmp"
+	gocmp "github.com/google/go-cmp/cmp"
 	"gotest.tools/assert"
 )
 
@@ -233,7 +233,7 @@ func TestProcessPagesHashes(t *testing.T) {
 		}
 	}
 
-	assert.DeepEqual(t, pages, wantPages, cmp.Comparer(func(x, y *big.Int) bool { return x.Cmp(y) == 0 }))
+	assert.DeepEqual(t, pages, wantPages, gocmp.Comparer(func(x, y *big.Int) bool { return x.Cmp(y) == 0 }))
 }
 
 func TestParsePages(t *testing.T) {
@@ -286,7 +286,7 @@ func TestParsePages(t *testing.T) {
 
 	stateDiff := parsePages(data)
 
-	assert.DeepEqual(t, stateDiff, wantDiff, cmp.Comparer(func(x *felt.Felt, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
+	assert.DeepEqual(t, stateDiff, wantDiff, gocmp.Comparer(func(x *felt.Felt, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 }
 
 func TestUpdateBlockOnChain(t *testing.T) {

@@ -322,24 +322,24 @@ func unmarshalTransactionStatus(status Status) types.TxnStatus {
 
 func marshalMessageL2ToL1(message *types.MsgToL1) *MsgToL1 {
 	return &MsgToL1{
-		ToAddress: message.ToAddress.Bytes(),
-		Payload:   marshalFelts(message.Payload),
+		FromAddress: message.FromAddress.ByteSlice(),
+		ToAddress:   message.ToAddress.Bytes(),
+		Payload:     marshalFelts(message.Payload),
 	}
 }
 
 func unmarshalMessageL2ToL1(message *MsgToL1) *types.MsgToL1 {
 	return &types.MsgToL1{
-		ToAddress: types.BytesToEthAddress(message.ToAddress),
-		Payload:   unmarshalFelts(message.Payload),
+		FromAddress: new(felt.Felt).SetBytes(message.FromAddress),
+		ToAddress:   types.BytesToEthAddress(message.ToAddress),
+		Payload:     unmarshalFelts(message.Payload),
 	}
 }
 
 func marshalMessageL1ToL2(message *types.MsgToL2) *MsgToL2 {
-	if message == nil {
-		return nil
-	}
 	return &MsgToL2{
 		FromAddress: message.FromAddress.Bytes(),
+		ToAddress:   message.ToAddress.ByteSlice(),
 		Payload:     marshalFelts(message.Payload),
 	}
 }
@@ -351,6 +351,7 @@ func unmarshalMessageL1ToL2(message *MsgToL2) *types.MsgToL2 {
 	}
 	return &types.MsgToL2{
 		FromAddress: types.BytesToEthAddress(message.FromAddress),
+		ToAddress:   new(felt.Felt).SetBytes(message.ToAddress),
 		Payload:     unmarshalFelts(message.Payload),
 	}
 }

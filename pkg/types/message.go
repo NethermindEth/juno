@@ -5,8 +5,8 @@ import (
 )
 
 type MsgToL1 struct {
-	ToAddress   EthAddress
 	FromAddress *felt.Felt
+	ToAddress   EthAddress
 	Payload     []*felt.Felt
 }
 
