@@ -51,15 +51,11 @@ func (m *Manager) GetLatestBlockSync() int64 {
 	// Query to database
 	data, err := m.database.Get(latestBlockSyncKey)
 	if err != nil {
-		if db.ErrNotFound == err {
+		// notest
+		if errors.Is(err, db.ErrNotFound) {
 			return 0
 		}
-		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	if data == nil {
-		// notest
-		return 0
 	}
 	// Unmarshal the data from database
 	latestBlockSync := new(int64)
@@ -84,15 +80,11 @@ func (m *Manager) GetLatestStateRoot() string {
 	// Query to database
 	data, err := m.database.Get(latestStateRoot)
 	if err != nil {
-		if db.ErrNotFound == err {
+		// notest
+		if errors.Is(err, db.ErrNotFound) {
 			return ""
 		}
-		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	if data == nil {
-		// notest
-		return ""
 	}
 	// Unmarshal the data from database
 	return string(data)
@@ -120,15 +112,11 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 	key := []byte(fmt.Sprintf("%s%d", blockOfLatestEventProcessedKey, starknetFact))
 	data, err := m.database.Get(key)
 	if err != nil {
-		if db.ErrNotFound == err {
+		// notest
+		if errors.Is(err, db.ErrNotFound) {
 			return 0
 		}
-		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	if data == nil {
-		// notest
-		return 0
 	}
 	// Unmarshal the data from database
 	blockSync := new(int64)
@@ -170,15 +158,11 @@ func (m *Manager) GetStateDiff(blockNumber int64) *types.StateDiff {
 	// Query to database
 	data, err := m.database.Get(key)
 	if err != nil {
-		if db.ErrNotFound == err {
+		// notest
+		if errors.Is(err, db.ErrNotFound) {
 			return nil
 		}
-		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	if data == nil {
-		// notest
-		return nil
 	}
 	// Unmarshal the data from database
 	stateDiff := new(types.StateDiff)
@@ -194,15 +178,11 @@ func (m *Manager) GetStateDiffFromHash(blockHash string) *types.StateDiff {
 	key := append(stateDiffPrefix, []byte(blockHash)...)
 	data, err := m.database.Get(key)
 	if err != nil {
-		if db.ErrNotFound == err {
+		// notest
+		if errors.Is(err, db.ErrNotFound) {
 			return nil
 		}
-		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	if data == nil {
-		// notest
-		return nil
 	}
 	// Unmarshal the data from database
 	blockNumber := new(int64)
