@@ -2,13 +2,15 @@ package transaction
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
+
+	gocmp "github.com/google/go-cmp/cmp"
+	"gotest.tools/assert"
 )
 
 var txs = []types.IsTransaction{
@@ -59,6 +61,7 @@ var txs = []types.IsTransaction{
 			new(felt.Felt).SetHex("06cf6c2f36d36b08e591e4489e92ca882bb67b9c39a3afccf011972a8de467f0"),
 			new(felt.Felt).SetHex("7ab344d88124307c07b56f6c59c12f4543e9c96398727854a322dea82c73240"),
 		},
+		ClassHash: new(felt.Felt).SetHex("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
 	},
 	&types.TransactionDeploy{
 		Hash:            new(felt.Felt).SetHex("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
@@ -67,6 +70,7 @@ var txs = []types.IsTransaction{
 			new(felt.Felt).SetHex("0xcfc2e2866fd08bfb4ac73b70e0c136e326ae18fc797a2c090c8811c695577e"),
 			new(felt.Felt).SetHex("0x5f1dd5a5aef88e0498eeca4e7b2ea0fa7110608c11531278742f0b5499af4b3"),
 		},
+		ClassHash: new(felt.Felt).SetHex("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
 	},
 }
 
@@ -113,9 +117,7 @@ func TestManager_GetTransaction(t *testing.T) {
 			}
 			t.Error(err)
 		}
-		if !reflect.DeepEqual(tx, outTx) {
-			t.Errorf("transaction not equal after Put/Get operations")
-		}
+		assert.DeepEqual(t, tx, outTx, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }
@@ -200,9 +202,7 @@ func TestManager_GetReceipt(t *testing.T) {
 			t.Error(err)
 		}
 
-		if !reflect.DeepEqual(r.Receipt, outReceipt) {
-			t.Errorf("receipt not equal after Put/Get operations")
-		}
+		assert.DeepEqual(t, r.Receipt, outReceipt, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }
