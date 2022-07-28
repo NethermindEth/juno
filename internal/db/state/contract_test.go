@@ -20,6 +20,7 @@ var contractStates = []*state.ContractState{
 
 func TestManager_PutContractState(t *testing.T) {
 	manager := newTestManager(t)
+	defer manager.Close()
 	for i, contractState := range contractStates {
 		t.Run(fmt.Sprintf("test %d", i), func(t *testing.T) {
 			if err := manager.PutContractState(contractState); err != nil {
@@ -32,6 +33,7 @@ func TestManager_PutContractState(t *testing.T) {
 
 func TestManager_GetContractState(t *testing.T) {
 	manager := newTestManager(t)
+	defer manager.Close()
 	var tests []struct {
 		name string
 		hash *felt.Felt

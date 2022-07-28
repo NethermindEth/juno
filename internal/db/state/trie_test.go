@@ -30,7 +30,12 @@ func TestManager_TrieNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager := NewManager(stateDb, nil)
+	contractDefDb, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(stateDb, contractDefDb)
+	defer manager.Close()
 
 	for _, n := range nodes {
 		if err := manager.StoreTrieNode(n); err != nil {
