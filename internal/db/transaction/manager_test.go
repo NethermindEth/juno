@@ -2,13 +2,15 @@ package transaction
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
+
+	gocmp "github.com/google/go-cmp/cmp"
+	"gotest.tools/assert"
 )
 
 var txs = []types.IsTransaction{
@@ -113,9 +115,7 @@ func TestManager_GetTransaction(t *testing.T) {
 			}
 			t.Error(err)
 		}
-		if !reflect.DeepEqual(tx, outTx) {
-			t.Errorf("transaction not equal after Put/Get operations")
-		}
+		assert.DeepEqual(t, tx, outTx, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }
@@ -200,9 +200,7 @@ func TestManager_GetReceipt(t *testing.T) {
 			t.Error(err)
 		}
 
-		if !reflect.DeepEqual(r.Receipt, outReceipt) {
-			t.Errorf("receipt not equal after Put/Get operations")
-		}
+		assert.DeepEqual(t, r.Receipt, outReceipt, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }
