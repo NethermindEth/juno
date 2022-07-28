@@ -10,7 +10,7 @@ import (
 
 const (
 	BlockOfStarknetDeploymentContractMainnet = 13617000
-	BlockOfStarknetDeploymentContractGoerli  = 6725000
+	BlockOfStarknetDeploymentContractGoerli  = 5840000
 
 	MemoryPagesContractAddressMainnet = "0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"
 	MemoryPagesContractAddressGoerli  = "0x743789ff2ff82bfb907009c9911a7da636d34fa7"

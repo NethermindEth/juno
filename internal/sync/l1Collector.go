@@ -3,12 +3,13 @@ package sync
 import (
 	"context"
 	"errors"
-	"github.com/NethermindEth/juno/internal/log"
-	"go.uber.org/zap"
 	"math"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
 
 	"github.com/NethermindEth/juno/internal/sync/abi"
 
@@ -89,6 +90,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 	collector.gpsVerifier = types2.NewDictionary()
 	collector.facts = types2.NewDictionary()
 	collector.Synced = false
+	collector.loadContractsAbi()
 	go collector.updateLatestBlockOnChain()
 	return collector
 }
@@ -178,7 +180,6 @@ func (l *l1Collector) IsSynced() bool {
 
 func (l *l1Collector) updateLatestBlockOnChain() {
 	go l.updatePendingBlock()
-	l.loadContractsAbi()
 	number, err := l.l1client.BlockNumber(context.Background())
 	if err != nil {
 		l.logger.Error("Error subscribing to logs", "err", err)
@@ -401,6 +402,9 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	}
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
+		// l.logger.With("Event Name", l.contractInfo[vLog.Address].EventName,
+		//	"Contract Address", vLog.Address.Hex(), "Topics", vLog.Topics,
+		//	"Address", addresses).Info("Unpacking event")
 
 		err = l.contractInfo[vLog.Address].Contract.UnpackIntoMap(event, l.contractInfo[vLog.Address].EventName, vLog.Data)
 		if err != nil {

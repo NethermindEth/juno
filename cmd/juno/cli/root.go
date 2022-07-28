@@ -124,7 +124,7 @@ func juno(_ *cobra.Command, _ []string) {
 		metricsServer.ListenAndServe(errChs[1])
 	}
 	if config.Runtime.REST.Enabled {
-		metricsServer.ListenAndServe(errChs[2])
+		restServer.ListenAndServe(errChs[2])
 	}
 	if config.Runtime.Starknet.Enabled {
 		synchronizer.Run()

@@ -12,8 +12,10 @@ message Transaction {
 }
 
 message Deploy {
-  bytes contractAddressSalt = 1;
-  repeated bytes constructorCallData = 2;
+  bytes classHash = 1;
+  bytes contractAddress = 2;
+  bytes contractAddressSalt = 3;
+  repeated bytes constructorCallData = 4;
 }
 
 message InvokeFunction {
