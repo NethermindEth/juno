@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/internal/db"
+
 	"github.com/NethermindEth/juno/pkg/collections"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/trie"
@@ -14,11 +16,12 @@ func (m *Manager) GetTrieNode(hash *felt.Felt) (trie.TrieNode, error) {
 	// Search on the database
 	rawNode, err := m.stateDatabase.Get(hash.ByteSlice())
 	if err != nil {
-		panic(err)
-	}
-	if rawNode == nil {
+		// notest
 		// Return nil if not found
-		return nil, nil
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, nil
+		}
+		panic(err)
 	}
 	// Unmarshal to protobuf struct
 	var node TrieNode
@@ -41,6 +44,7 @@ func (m *Manager) GetTrieNode(hash *felt.Felt) (trie.TrieNode, error) {
 		), nil
 	}
 	// Return error if unknown node type
+	// notest
 	return nil, errors.New("unknown node type")
 }
 
