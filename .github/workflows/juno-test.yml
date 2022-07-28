@@ -24,6 +24,8 @@ jobs:
         with:
           python-version: '3.7.13'
           cache: 'pip'
+      - name: Install Python deps
+        run: pip install -r requirements.txt
       - name: Install deps
         run: make install-deps
       - name: Tests
