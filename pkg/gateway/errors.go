@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"strconv"
 )
 
@@ -55,12 +54,7 @@ func (gw *gateway) notImplementedErr(w http.ResponseWriter) {
 // serverErr sets a 500 Internal Server Error header and then serves a
 // JSON formatted client error.
 func (gw *gateway) serverErr(w http.ResponseWriter, err error) {
-	// XXX: Server errors should not occur. They also cannot be induced
-	// therefore exempt this entire method from coverage tests.
 	// notest
-
-	gw.logger.Errorf("%s\n%s", err.Error(), debug.Stack())
-
 	res := &ErrResponse{
 		Code:     strconv.Itoa(http.StatusInternalServerError),
 		Message:  http.StatusText(http.StatusInternalServerError),

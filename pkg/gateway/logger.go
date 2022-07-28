@@ -1,20 +1,17 @@
 package gateway
 
-import "go.uber.org/zap"
+import (
+	. "github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
+)
 
+// NewLogger returns the global logger in internal/log.
 func NewLogger() *zap.SugaredLogger {
-	// TODO: Use consistent output format.
-	logger, err := zap.NewProduction()
-	if err != nil {
-		panic("gateway: failed to initialise logger")
-	}
-	// TODO: This should probably be defined in the method that shuts down
-	// this server.
-	// defer logger.Sync()
-
-	return logger.Sugar()
+	return Logger
 }
 
+// NewNoOpLogger returns a *zap.SugaredLogger that discards any output
+// it is asked to log.
 func NewNoOpLogger() *zap.SugaredLogger {
 	return zap.NewNop().Sugar()
 }

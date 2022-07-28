@@ -42,9 +42,6 @@ func NewServer(addr string, bm *block.Manager, tm *transaction.Manager) *Server 
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: gw.routes(),
-		// TODO: The function that recovers from panics should handle this
-		// capability.
-		// ErrorLog: nil,
 	}
 
 	return &Server{logger: logger, srv: srv}
