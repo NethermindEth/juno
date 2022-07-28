@@ -15,10 +15,6 @@ func (m *Manager) GetContractState(hash *felt.Felt) (*state.ContractState, error
 		// Database error
 		return nil, err
 	}
-	if raw == nil {
-		// Not found
-		return nil, nil
-	}
 	// Unmarshal to protobuf struct
 	contractStatePB := &ContractState{}
 	err = proto.Unmarshal(raw, contractStatePB)
@@ -54,9 +50,6 @@ func (m *Manager) GetContract(contractHash *felt.Felt) (*types.Contract, error) 
 	rawData, err := m.contractDef.Get(contractHash.ByteSlice())
 	if err != nil {
 		return nil, err
-	}
-	if rawData == nil {
-		return nil, nil
 	}
 	var codeDefinition CodeDefinition
 	if err := proto.Unmarshal(rawData, &codeDefinition); err != nil {
