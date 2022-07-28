@@ -15,6 +15,7 @@ var (
 	DbError                        = errors.New("database error")
 	UnmarshalError                 = errors.New("unmarshal error")
 	MarshalError                   = errors.New("marshal error")
+	latestBlockSavedKey            = []byte("latestBlockSaved")
 	latestBlockSyncKey             = []byte("latestBlockSync")
 	blockOfLatestEventProcessedKey = []byte("blockOfLatestEventProcessed")
 	latestStateRoot                = []byte("latestStateRoot")
@@ -29,6 +30,45 @@ type Manager struct {
 // NewManager returns a new Block manager using the given database.
 func NewManager(database db.Database) *Manager {
 	return &Manager{database: database}
+}
+
+// StoreLatestBlockSaved stores the latest block sync.
+func (m *Manager) StoreLatestBlockSaved(latestBlockSaved int64) {
+	// Marshal the latest block sync
+	value, err := json.Marshal(latestBlockSaved)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", MarshalError, err)))
+	}
+
+	// Store the latest block sync
+	err = m.database.Put(latestBlockSavedKey, value)
+	if err != nil {
+		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
+	}
+}
+
+// GetLatestBlockSaved returns the latest block sync.
+func (m *Manager) GetLatestBlockSaved() int64 {
+	// Query to database
+	data, err := m.database.Get(latestBlockSavedKey)
+	if err != nil {
+		if db.ErrNotFound == err {
+			return 0
+		}
+		// notest
+		panic(any(fmt.Errorf("%w: %s", DbError, err)))
+	}
+	if data == nil {
+		// notest
+		return 0
+	}
+	// Unmarshal the data from database
+	latestBlockSaved := new(int64)
+	if err := json.Unmarshal(data, latestBlockSaved); err != nil {
+		// notest
+		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
+	}
+	return *latestBlockSaved
 }
 
 // StoreLatestBlockSync stores the latest block sync.

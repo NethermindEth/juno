@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"time"
@@ -103,6 +104,7 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 // Run starts the service.
 func (s *Synchronizer) Run() {
 	s.Running = true
+	go s.updateBlocksInfo()
 	go s.sync()
 }
 
@@ -146,11 +148,18 @@ func (s *Synchronizer) sync() {
 }
 
 func (s *Synchronizer) Status() *types.SyncStatus {
+	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), float64(s.syncManager.GetLatestBlockSaved())))
+
+	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
+	if err != nil {
+		return nil
+	}
+
 	return &types.SyncStatus{
 		StartingBlockHash:   s.startingBlockHash,
 		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
-		CurrentBlockHash:    s.latestBlockHashSynced.Hex0x(),
-		CurrentBlockNumber:  fmt.Sprintf("%x", s.latestBlockNumberSynced),
+		CurrentBlockHash:    block.BlockHash.Hex0x(),
+		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
 		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
 		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
 	}
@@ -260,6 +269,7 @@ func (s *Synchronizer) setChainId() {
 }
 
 func (s *Synchronizer) updateBlock(number int64) error {
+
 	block, err := s.UpdateBlock(number)
 	if err != nil {
 		return err
@@ -343,6 +353,23 @@ func (s *Synchronizer) updateTransactionReceipts(receipt feeder.TransactionExecu
 	}
 	transactionHash := new(felt.Felt).SetHex(receipt.TransactionHash)
 	return s.transactionManager.PutReceipt(transactionHash, feederTransactionToDBReceipt(txnReceipt, txnType))
+}
+
+func (s *Synchronizer) updateBlocksInfo() {
+	latestBlockInfoFetched := s.syncManager.GetLatestBlockSaved()
+	currentBlock := latestBlockInfoFetched
+	for {
+		if currentBlock == s.highestBlockNumber {
+			time.Sleep(time.Minute)
+		}
+		err := s.updateBlock(currentBlock)
+		if err != nil {
+			return
+		}
+		s.syncManager.StoreLatestBlockSaved(currentBlock)
+		currentBlock++
+
+	}
 }
 
 func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType string) types.TxnReceipt {

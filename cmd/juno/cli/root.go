@@ -107,9 +107,9 @@ func juno(_ *cobra.Command, _ []string) {
 	setupInterruptHandler()
 	setupDatabaseManagers()
 	setupFeederGateway()
-	setupServers()
 	setupSynchronizer()
 	setupVirtualMachine()
+	setupServers()
 
 	numOfErrCh := 3
 	errChs := make([]chan error, numOfErrCh)
