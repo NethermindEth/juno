@@ -24,8 +24,6 @@ jobs:
         with:
           python-version: '3.7.13'
           cache: 'pip'
-      - name: Echo python location
-        run: echo ${{ which python }}
       - name: Echo python version
         run: echo ${{ python -V }}
       - name: Install python deps
