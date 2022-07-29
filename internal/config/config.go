@@ -89,7 +89,7 @@ func UserDataDir() (string, error) {
 			result := filepath.Join(home, ".local", "share", junoDir)
 			// Create Juno data directory if it does not exist
 			if _, err := os.Stat(result); err != nil {
-				if err := os.Mkdir(result, os.ModeDir); err != nil {
+				if err := os.Mkdir(result, os.ModePerm); err != nil {
 					return "", fmt.Errorf("could not create data directory %s: %w", result, err)
 				}
 			}

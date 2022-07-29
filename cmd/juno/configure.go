@@ -164,5 +164,5 @@ func updateConfig(cfg *config.Juno, configFile string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configFile, data, 0o644)
+	return os.WriteFile(configFile, data, os.ModePerm)
 }
