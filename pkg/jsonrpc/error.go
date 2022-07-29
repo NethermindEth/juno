@@ -17,7 +17,6 @@ var (
 	errMethodNotFound = errors.New("method not found")
 	errInvalidParams  = errors.New("invalid params")
 	errInternalError  = errors.New("internal error")
-	errServerError    = errors.New("server error")
 )
 
 // RpcError represents an error that occurred during JSON-RPC processing.
@@ -68,14 +67,6 @@ func newErrInternalError(data any) *RpcError {
 	return &RpcError{
 		Code:    internalErrorCode,
 		Message: "Internal error",
-		Data:    data,
-	}
-}
-
-func newErrServerError(data any) *RpcError {
-	return &RpcError{
-		Code:    serverErrorCode,
-		Message: "Server error",
 		Data:    data,
 	}
 }
