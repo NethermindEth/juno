@@ -84,7 +84,6 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newConfigureCmd(cfg, &configFile))
 
 	// Flags
-
 	if configDir, err := os.UserConfigDir(); err != nil {
 		configFile = ""
 	} else {
