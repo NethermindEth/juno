@@ -150,7 +150,12 @@ func (m *rpcMethod) Call(params json.RawMessage) (any, error) {
 	}
 }
 
-func (m *rpcMethod) call(paramObject reflect.Value) (any, error) {
+func (m *rpcMethod) call(paramObject reflect.Value) (out any, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = newErrInternalError(nil)
+		}
+	}()
 	// Call method
 	// TODO: pass the correct Context. Maybe the context should com from the request?
 	var result []reflect.Value
