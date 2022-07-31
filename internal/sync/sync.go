@@ -265,7 +265,6 @@ func (s *Synchronizer) setChainId() {
 }
 
 func (s *Synchronizer) updateBlocks(number int64) error {
-
 	block, err := s.updateBlock(number)
 	if err != nil {
 		return err
