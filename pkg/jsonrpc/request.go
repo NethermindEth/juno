@@ -38,7 +38,7 @@ func (r *rpcRequest) UnmarshalJSON(data []byte) error {
 		case json.Number:
 			intId, err := id.Int64()
 			if err != nil {
-				return err
+				return errInvalidRequest
 			}
 			r.Id = intId
 		default:
