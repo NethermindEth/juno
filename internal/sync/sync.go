@@ -40,11 +40,6 @@ type Synchronizer struct {
 	// latestBlockHashSynced is the last block that was synced.
 	latestBlockHashSynced *felt.Felt
 
-	// highestBlockNumber is the highest block number that we have synced.
-	highestBlockNumber int64
-	// highestBlockHash is the highest block hash that we have synced.
-	highestBlockHash *felt.Felt
-
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
 	// state represent the state of the trie
@@ -89,7 +84,7 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 
 	synchro.setChainId()
 	if config.Runtime.Starknet.ApiSync {
-		synchro.stateDiffCollector = NewApiCollector(synchro.syncManager, synchro.feeder, int(synchro.chainId.Int64()))
+		synchro.stateDiffCollector = NewApiCollector(synchro.syncManager, synchro.feeder)
 	} else {
 		synchro.stateDiffCollector = NewL1Collector(synchro.syncManager, synchro.feeder, synchro.l1Client,
 			int(synchro.chainId.Int64()))
@@ -120,11 +115,6 @@ func (s *Synchronizer) sync() {
 			s.setStateToLatestRoot()
 			continue
 		}
-
-		//if err = s.updateBlock(stateDiff.BlockNumber); err != nil {
-		//	s.setStateToLatestRoot()
-		//	continue
-		//}
 
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
@@ -224,7 +214,13 @@ func (s *Synchronizer) GetStateDiffFromHash(blockHash string) *types.StateDiff {
 }
 
 func (s *Synchronizer) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
-	return s.latestBlockNumberSynced, s.latestBlockHashSynced
+	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), float64(s.syncManager.GetLatestBlockSaved())))
+
+	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
+	if err != nil {
+		return 0, nil
+	}
+	return int64(block.BlockNumber), block.BlockHash
 }
 
 func (s *Synchronizer) GetLatestBlockOnChain() int64 {
@@ -268,9 +264,9 @@ func (s *Synchronizer) setChainId() {
 	}
 }
 
-func (s *Synchronizer) updateBlock(number int64) error {
+func (s *Synchronizer) updateBlocks(number int64) error {
 
-	block, err := s.UpdateBlock(number)
+	block, err := s.updateBlock(number)
 	if err != nil {
 		return err
 	}
@@ -278,7 +274,7 @@ func (s *Synchronizer) updateBlock(number int64) error {
 	return nil
 }
 
-func (s *Synchronizer) UpdateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
+func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
 	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
 		return nil, err
@@ -359,12 +355,12 @@ func (s *Synchronizer) updateBlocksInfo() {
 	latestBlockInfoFetched := s.syncManager.GetLatestBlockSaved()
 	currentBlock := latestBlockInfoFetched
 	for {
-		if currentBlock == s.highestBlockNumber {
+		if currentBlock == int64(s.stateDiffCollector.LatestBlock().BlockNumber) {
 			time.Sleep(time.Minute)
 		}
-		err := s.updateBlock(currentBlock)
+		err := s.updateBlocks(currentBlock)
 		if err != nil {
-			return
+			continue
 		}
 		s.syncManager.StoreLatestBlockSaved(currentBlock)
 		currentBlock++

@@ -20,8 +20,6 @@ type apiCollector struct {
 	manager *sync.Manager
 	// feeder is the client that provides the Connection to the feeder gateway.
 	client *feeder.Client
-	// close is the channel that will be used to close the collector.
-	chainID int
 	// buffer represent the channel of StateDiff collected
 	buffer chan *types.StateDiff
 
@@ -30,21 +28,17 @@ type apiCollector struct {
 	// pendingBlock is the pending block of StarkNet
 	pendingBlock *feeder.StarknetBlock
 
-	// synced is the flag that indicate if the collector is synced
-	synced bool
-	quit   chan struct{}
+	quit chan struct{}
 }
 
-func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, chainID int) *apiCollector {
+func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector {
 	collector := &apiCollector{
 		client:  feeder,
 		manager: manager,
-		chainID: chainID,
 		quit:    make(chan struct{}),
 	}
 	collector.logger = log.Logger.Named("apiCollector")
 	collector.buffer = make(chan *types.StateDiff, 10)
-	collector.synced = false
 	go collector.updateLatestBlockOnChain()
 	return collector
 }
@@ -65,7 +59,6 @@ func (a *apiCollector) Run() {
 				continue
 			}
 			if latestStateDiffSynced >= int64(a.latestBlock.BlockNumber) {
-				a.synced = true
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -126,10 +119,6 @@ func (a *apiCollector) LatestBlock() *feeder.StarknetBlock {
 
 func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
 	return a.pendingBlock
-}
-
-func (a *apiCollector) IsSynced() bool {
-	return a.synced
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff

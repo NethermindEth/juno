@@ -13,8 +13,6 @@ type StateDiffCollector interface {
 	GetChannel() chan *starknetTypes.StateDiff
 	// Close closes the collection of StateDiff.
 	Close()
-	// IsSynced returns true if we are Synced
-	IsSynced() bool
 	// LatestBlock returns the last block of StarkNet
 	LatestBlock() *feeder.StarknetBlock
 	// PendingBlock returns the pending block of StarkNet

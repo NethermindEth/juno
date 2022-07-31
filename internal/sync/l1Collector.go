@@ -36,8 +36,8 @@ type l1Collector struct {
 	logger *zap.SugaredLogger
 	// manager is the Sync manager
 	manager *sync.Manager
-	// l1client is the client that will be used to fetch the data that comes from the Ethereum Node.
-	l1client L1Client
+	// l1Client is the client that will be used to fetch the data that comes from the Ethereum Node.
+	l1Client L1Client
 	// client is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	client *feeder.Client
 	// chainID represent the chain id of the node.
@@ -55,9 +55,6 @@ type l1Collector struct {
 	memoryPagesContractAddress common.Address
 	// StarkNetABI is the ABI of the Starknet contract on Layer 1.
 	starknetABI ethAbi.ABI
-
-	// Synced represent if the node has reach the synced status
-	Synced bool
 
 	// contractInfo is the information of the contracts on Layer 1.
 	contractInfo map[common.Address]types2.ContractInfo
@@ -80,7 +77,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		client:   feeder,
 		manager:  manager,
 		chainID:  chainID,
-		l1client: l1client,
+		l1Client: l1client,
 		quit:     make(chan struct{}),
 	}
 	collector.logger = log.Logger.Named("l1Collector")
@@ -89,7 +86,6 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 	collector.memoryPageHash = types2.NewDictionary()
 	collector.gpsVerifier = types2.NewDictionary()
 	collector.facts = types2.NewDictionary()
-	collector.Synced = false
 	collector.loadContractsAbi()
 	go collector.updateLatestBlockOnChain()
 	return collector
@@ -174,13 +170,9 @@ func (l *l1Collector) PendingBlock() *feeder.StarknetBlock {
 	return l.pendingBlock
 }
 
-func (l *l1Collector) IsSynced() bool {
-	return l.Synced
-}
-
 func (l *l1Collector) updateLatestBlockOnChain() {
 	go l.updatePendingBlock()
-	number, err := l.l1client.BlockNumber(context.Background())
+	number, err := l.l1Client.BlockNumber(context.Background())
 	if err != nil {
 		l.logger.Error("Error subscribing to logs", "err", err)
 		return
@@ -191,7 +183,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 		Addresses: []common.Address{l.starknetContractAddress},
 		Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(l.starknetABI.Events["LogStateUpdate"].Sig))}},
 	}
-	logs, err := l.l1client.FilterLogs(context.Background(), query)
+	logs, err := l.l1Client.FilterLogs(context.Background(), query)
 	if err != nil {
 		l.logger.Error("Error subscribing to logs", "err", err)
 		return
@@ -201,7 +193,7 @@ func (l *l1Collector) updateLatestBlockOnChain() {
 	}
 
 	subLogs := make(chan types.Log)
-	subscription, err := l.l1client.SubscribeFilterLogs(context.Background(), query, subLogs)
+	subscription, err := l.l1Client.SubscribeFilterLogs(context.Background(), query, subLogs)
 	defer subscription.Unsubscribe()
 
 	for logFetched := range subLogs {
@@ -222,7 +214,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 			return nil, ErrorMemoryPageNotFound
 		}
 		txHash := transactionHash.(types2.TxnHash).Hash
-		txn, _, err := l.l1client.TransactionByHash(context.Background(), txHash)
+		txn, _, err := l.l1Client.TransactionByHash(context.Background(), txHash)
 		if err != nil {
 			l.logger.With("Error", err, "Transaction Hash", v).
 				Error("Couldn't retrieve transactions")
@@ -292,7 +284,7 @@ func (l *l1Collector) handleEvents() {
 	initialBlock := l.manager.GetBlockOfProcessedEvent(l.latestBlockSynced) - int64(windowSize)
 
 	initialBlock = int64(math.Max(float64(initialBlock), float64(initialBlockForStarknetContract(l.chainID))))
-	blockNumber, err := l.l1client.BlockNumber(context.Background())
+	blockNumber, err := l.l1Client.BlockNumber(context.Background())
 	if err != nil {
 		l.logger.Error("Error fetching latest block on Ethereum", "err", err)
 		return
@@ -300,7 +292,7 @@ func (l *l1Collector) handleEvents() {
 
 	// Keep updated the blockNumber of the latest block on L1
 	go func() {
-		blockNumber, err = l.l1client.BlockNumber(context.Background())
+		blockNumber, err = l.l1Client.BlockNumber(context.Background())
 		if err != nil {
 			l.logger.Error("Error fetching latest block on Ethereum", "err", err)
 		}
@@ -320,9 +312,6 @@ func (l *l1Collector) handleEvents() {
 		}
 		initialBlock += int64(windowSize)
 	}
-
-	// If we are going to subscribe to the logs, that means we are currently synced with the latest block
-	l.Synced = true
 
 	// Subscribe for new blocks
 	err = l.processSubscription(initialBlock)
@@ -346,7 +335,7 @@ func (l *l1Collector) processSubscription(initialBlock int64) error {
 		Addresses: addresses,
 	}
 	hLog := make(chan types.Log)
-	sub, err := l.l1client.SubscribeFilterLogs(context.Background(), query, hLog)
+	sub, err := l.l1Client.SubscribeFilterLogs(context.Background(), query, hLog)
 	if err != nil {
 		l.logger.Info("Couldn't subscribe for incoming blocks")
 		return err
@@ -394,7 +383,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 		Topics:    [][]common.Hash{topics},
 	}
 
-	starknetLogs, err := l.l1client.FilterLogs(context.Background(), query)
+	starknetLogs, err := l.l1Client.FilterLogs(context.Background(), query)
 	if err != nil {
 		l.logger.With("Error", err, "Initial block", initialBlock, "End block", initialBlock+window, "Addresses", addresses).
 			Info("Couldn't get logs")
@@ -457,7 +446,7 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 			Topics:    [][]common.Hash{{crypto.Keccak256Hash([]byte(l.starknetABI.Events["LogStateUpdate"].Sig))}},
 		}
 
-		starknetLogs, err := l.l1client.FilterLogs(context.Background(), query)
+		starknetLogs, err := l.l1Client.FilterLogs(context.Background(), query)
 		if err != nil {
 			l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
 				Info("Couldn't get logs")

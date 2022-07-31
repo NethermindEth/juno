@@ -187,7 +187,7 @@ func TestProcessPagesHashes(t *testing.T) {
 	defer rpcClose()
 
 	l := &l1Collector{
-		l1client:       ec,
+		l1Client:       ec,
 		memoryPageHash: types.NewDictionary(),
 	}
 	l.memoryPageHash.Add(hash, types.TxnHash{Hash: finalTx.Hash()})
