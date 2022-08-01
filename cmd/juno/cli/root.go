@@ -33,7 +33,7 @@ const (
 	mdbxOptMaxDb uint64 = 100
 	mdbxFlags    uint   = 0
 	minPort      int    = 1024
-	macPort      int    = 49151
+	maxPort      int    = 49151
 )
 
 // Cobra configuration.
@@ -166,8 +166,8 @@ func setupServers() {
 }
 
 func checkPort(server string, port int) {
-	if port < minPort || port > macPort {
-		Logger.Fatalf("%s port must be between %d and %d", server, minPort, macPort)
+	if port < minPort || port > maxPort {
+		Logger.Fatalf("%s port must be between %d and %d", server, minPort, maxPort)
 	}
 }
 
