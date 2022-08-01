@@ -114,7 +114,6 @@ func (s *VirtualMachine) Run() error {
 			return err
 		}
 	}
-	// s.logger.Infof("vm dir: %s", s.vmDir)
 
 	// Start the cairo-lang gRPC server (serving contract calls).
 	s.vmCmd = exec.Command("python3", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
@@ -163,7 +162,7 @@ func (s *VirtualMachine) Call(
 	selector,
 	sequencer *felt.Felt,
 ) ([]*felt.Felt, error) {
-	s.logger.Info("Call")
+	s.logger.Info("Running Call to VM")
 
 	// XXX: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
