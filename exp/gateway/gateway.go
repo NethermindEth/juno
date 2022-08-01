@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NethermindEth/juno/exp/gateway/internal/models"
 	"github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	"github.com/NethermindEth/juno/pkg/gateway/internal/models"
 	"go.uber.org/zap"
 )
 

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/NethermindEth/juno/pkg/gateway/internal/models/stubs"
+	"github.com/NethermindEth/juno/exp/gateway/internal/models/stubs"
 )
 
 // testServer is a test server.

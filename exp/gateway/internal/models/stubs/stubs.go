@@ -3,8 +3,8 @@
 package stubs
 
 import (
+	"github.com/NethermindEth/juno/exp/gateway/internal/models"
 	"github.com/NethermindEth/juno/pkg/felt"
-	"github.com/NethermindEth/juno/pkg/gateway/internal/models"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 

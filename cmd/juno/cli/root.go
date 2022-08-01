@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/exp/gateway"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/abi"
@@ -21,7 +22,6 @@ import (
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/gateway"
 	"github.com/NethermindEth/juno/pkg/rpc"
 	"github.com/NethermindEth/juno/pkg/starknet"
 	"github.com/ethereum/go-ethereum/ethclient"
