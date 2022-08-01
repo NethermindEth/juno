@@ -5,7 +5,7 @@ import styles from './styles.module.css';
 const FeatureList = [
     {
         title: 'StarkNet in your hands',
-        Svg: require('@site/static/img/abi.svg').default,
+        Svg: require('@site/static/img/starknet.svg').default,
         description: (
             <>
                 Get StarkNet data directly from Juno.
