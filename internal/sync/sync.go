@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -147,11 +146,11 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 
 	return &types.SyncStatus{
 		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
+		StartingBlockNumber: string(rune(s.startingBlockNumber)),
 		CurrentBlockHash:    block.BlockHash.Hex0x(),
-		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
+		CurrentBlockNumber:  string(rune(block.BlockNumber)),
 		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
-		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
+		HighestBlockNumber:  string(rune(s.stateDiffCollector.LatestBlock().BlockNumber)),
 	}
 }
 
@@ -443,7 +442,7 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 	for _, data := range b.Transactions {
 		txnsHash = append(txnsHash, new(felt.Felt).SetHex(data.TransactionHash))
 	}
-	status, _ := types.BlockStatusValue[b.Status]
+	status := types.BlockStatusValue[b.Status]
 	return &types.Block{
 		BlockHash:   new(felt.Felt).SetHex(b.BlockHash),
 		BlockNumber: uint64(b.BlockNumber),
