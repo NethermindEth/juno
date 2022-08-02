@@ -28,6 +28,7 @@ type Code struct {
 	Code [][]byte `protobuf:"bytes,1,rep,name=code,proto3" json:"code,omitempty"`
 }
 
+// notest
 func (x *Code) Reset() {
 	*x = Code{}
 	if protoimpl.UnsafeEnabled {
@@ -37,12 +38,15 @@ func (x *Code) Reset() {
 	}
 }
 
+// notest
 func (x *Code) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*Code) ProtoMessage() {}
 
+// notest
 func (x *Code) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -56,10 +60,12 @@ func (x *Code) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Code.ProtoReflect.Descriptor instead.
+// notest
 func (*Code) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{0}
 }
 
+// notest
 func (x *Code) GetCode() [][]byte {
 	if x != nil {
 		return x.Code
@@ -75,6 +81,7 @@ type CodeDefinition struct {
 	Definition string `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
 }
 
+// notest
 func (x *CodeDefinition) Reset() {
 	*x = CodeDefinition{}
 	if protoimpl.UnsafeEnabled {
@@ -84,12 +91,15 @@ func (x *CodeDefinition) Reset() {
 	}
 }
 
+// notest
 func (x *CodeDefinition) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*CodeDefinition) ProtoMessage() {}
 
+// notest
 func (x *CodeDefinition) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -103,10 +113,12 @@ func (x *CodeDefinition) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use CodeDefinition.ProtoReflect.Descriptor instead.
+// notest
 func (*CodeDefinition) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{1}
 }
 
+// notest
 func (x *CodeDefinition) GetDefinition() string {
 	if x != nil {
 		return x.Definition
@@ -123,6 +135,7 @@ type ContractState struct {
 	StorageRoot  []byte `protobuf:"bytes,2,opt,name=storageRoot,proto3" json:"storageRoot,omitempty"`
 }
 
+// notest
 func (x *ContractState) Reset() {
 	*x = ContractState{}
 	if protoimpl.UnsafeEnabled {
@@ -132,12 +145,15 @@ func (x *ContractState) Reset() {
 	}
 }
 
+// notest
 func (x *ContractState) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*ContractState) ProtoMessage() {}
 
+// notest
 func (x *ContractState) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -151,10 +167,12 @@ func (x *ContractState) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use ContractState.ProtoReflect.Descriptor instead.
+// notest
 func (*ContractState) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{2}
 }
 
+// notest
 func (x *ContractState) GetContractHash() []byte {
 	if x != nil {
 		return x.ContractHash
@@ -162,6 +180,7 @@ func (x *ContractState) GetContractHash() []byte {
 	return nil
 }
 
+// notest
 func (x *ContractState) GetStorageRoot() []byte {
 	if x != nil {
 		return x.StorageRoot
@@ -180,6 +199,7 @@ type TrieNode struct {
 	Node isTrieNode_Node `protobuf_oneof:"node"`
 }
 
+// notest
 func (x *TrieNode) Reset() {
 	*x = TrieNode{}
 	if protoimpl.UnsafeEnabled {
@@ -189,12 +209,15 @@ func (x *TrieNode) Reset() {
 	}
 }
 
+// notest
 func (x *TrieNode) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*TrieNode) ProtoMessage() {}
 
+// notest
 func (x *TrieNode) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -208,10 +231,12 @@ func (x *TrieNode) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use TrieNode.ProtoReflect.Descriptor instead.
+// notest
 func (*TrieNode) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{3}
 }
 
+// notest
 func (m *TrieNode) GetNode() isTrieNode_Node {
 	if m != nil {
 		return m.Node
@@ -219,6 +244,7 @@ func (m *TrieNode) GetNode() isTrieNode_Node {
 	return nil
 }
 
+// notest
 func (x *TrieNode) GetBinaryNode() *BinaryNode {
 	if x, ok := x.GetNode().(*TrieNode_BinaryNode); ok {
 		return x.BinaryNode
@@ -226,6 +252,7 @@ func (x *TrieNode) GetBinaryNode() *BinaryNode {
 	return nil
 }
 
+// notest
 func (x *TrieNode) GetEdgeNode() *EdgeNode {
 	if x, ok := x.GetNode().(*TrieNode_EdgeNode); ok {
 		return x.EdgeNode
@@ -245,8 +272,10 @@ type TrieNode_EdgeNode struct {
 	EdgeNode *EdgeNode `protobuf:"bytes,2,opt,name=edge_node,json=edgeNode,proto3,oneof"`
 }
 
+// notest
 func (*TrieNode_BinaryNode) isTrieNode_Node() {}
 
+// notest
 func (*TrieNode_EdgeNode) isTrieNode_Node() {}
 
 type BinaryNode struct {
@@ -258,6 +287,7 @@ type BinaryNode struct {
 	RightH []byte `protobuf:"bytes,2,opt,name=rightH,proto3" json:"rightH,omitempty"`
 }
 
+// notest
 func (x *BinaryNode) Reset() {
 	*x = BinaryNode{}
 	if protoimpl.UnsafeEnabled {
@@ -267,12 +297,15 @@ func (x *BinaryNode) Reset() {
 	}
 }
 
+// notest
 func (x *BinaryNode) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*BinaryNode) ProtoMessage() {}
 
+// notest
 func (x *BinaryNode) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -286,10 +319,12 @@ func (x *BinaryNode) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use BinaryNode.ProtoReflect.Descriptor instead.
+// notest
 func (*BinaryNode) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{4}
 }
 
+// notest
 func (x *BinaryNode) GetLeftH() []byte {
 	if x != nil {
 		return x.LeftH
@@ -297,6 +332,7 @@ func (x *BinaryNode) GetLeftH() []byte {
 	return nil
 }
 
+// notest
 func (x *BinaryNode) GetRightH() []byte {
 	if x != nil {
 		return x.RightH
@@ -314,6 +350,7 @@ type EdgeNode struct {
 	Bottom []byte `protobuf:"bytes,3,opt,name=bottom,proto3" json:"bottom,omitempty"`
 }
 
+// notest
 func (x *EdgeNode) Reset() {
 	*x = EdgeNode{}
 	if protoimpl.UnsafeEnabled {
@@ -323,12 +360,15 @@ func (x *EdgeNode) Reset() {
 	}
 }
 
+// notest
 func (x *EdgeNode) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*EdgeNode) ProtoMessage() {}
 
+// notest
 func (x *EdgeNode) ProtoReflect() protoreflect.Message {
 	mi := &file_state_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -342,10 +382,12 @@ func (x *EdgeNode) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use EdgeNode.ProtoReflect.Descriptor instead.
+// notest
 func (*EdgeNode) Descriptor() ([]byte, []int) {
 	return file_state_proto_rawDescGZIP(), []int{5}
 }
 
+// notest
 func (x *EdgeNode) GetLength() uint32 {
 	if x != nil {
 		return x.Length
@@ -353,6 +395,7 @@ func (x *EdgeNode) GetLength() uint32 {
 	return 0
 }
 
+// notest
 func (x *EdgeNode) GetPath() []byte {
 	if x != nil {
 		return x.Path
@@ -360,6 +403,7 @@ func (x *EdgeNode) GetPath() []byte {
 	return nil
 }
 
+// notest
 func (x *EdgeNode) GetBottom() []byte {
 	if x != nil {
 		return x.Bottom
@@ -408,7 +452,9 @@ var (
 	file_state_proto_rawDescData = file_state_proto_rawDesc
 )
 
+// notest
 func file_state_proto_rawDescGZIP() []byte {
+// notest
 	file_state_proto_rawDescOnce.Do(func() {
 		file_state_proto_rawDescData = protoimpl.X.CompressGZIP(file_state_proto_rawDescData)
 	})
@@ -434,12 +480,15 @@ var file_state_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
+// notest
 func init() { file_state_proto_init() }
+// notest
 func file_state_proto_init() {
 	if File_state_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
+// notest
 		file_state_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Code); i {
 			case 0:
@@ -452,6 +501,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
+// notest
 		file_state_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CodeDefinition); i {
 			case 0:
@@ -464,6 +514,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
+// notest
 		file_state_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContractState); i {
 			case 0:
@@ -476,6 +527,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
+// notest
 		file_state_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TrieNode); i {
 			case 0:
@@ -488,6 +540,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
+// notest
 		file_state_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BinaryNode); i {
 			case 0:
@@ -500,6 +553,7 @@ func file_state_proto_init() {
 				return nil
 			}
 		}
+// notest
 		file_state_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*EdgeNode); i {
 			case 0:

@@ -41,6 +41,7 @@ type Block struct {
 	TxHashes         [][]byte `protobuf:"bytes,14,rep,name=TxHashes,proto3" json:"TxHashes,omitempty"`
 }
 
+// notest
 func (x *Block) Reset() {
 	*x = Block{}
 	if protoimpl.UnsafeEnabled {
@@ -50,12 +51,15 @@ func (x *Block) Reset() {
 	}
 }
 
+// notest
 func (x *Block) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// notest
 func (*Block) ProtoMessage() {}
 
+// notest
 func (x *Block) ProtoReflect() protoreflect.Message {
 	mi := &file_block_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -69,10 +73,12 @@ func (x *Block) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Block.ProtoReflect.Descriptor instead.
+// notest
 func (*Block) Descriptor() ([]byte, []int) {
 	return file_block_proto_rawDescGZIP(), []int{0}
 }
 
+// notest
 func (x *Block) GetHash() []byte {
 	if x != nil {
 		return x.Hash
@@ -80,6 +86,7 @@ func (x *Block) GetHash() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetBlockNumber() uint64 {
 	if x != nil {
 		return x.BlockNumber
@@ -87,6 +94,7 @@ func (x *Block) GetBlockNumber() uint64 {
 	return 0
 }
 
+// notest
 func (x *Block) GetParentBlockHash() []byte {
 	if x != nil {
 		return x.ParentBlockHash
@@ -94,6 +102,7 @@ func (x *Block) GetParentBlockHash() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetStatus() string {
 	if x != nil {
 		return x.Status
@@ -101,6 +110,7 @@ func (x *Block) GetStatus() string {
 	return ""
 }
 
+// notest
 func (x *Block) GetSequencerAddress() []byte {
 	if x != nil {
 		return x.SequencerAddress
@@ -108,6 +118,7 @@ func (x *Block) GetSequencerAddress() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetGlobalStateRoot() []byte {
 	if x != nil {
 		return x.GlobalStateRoot
@@ -115,6 +126,7 @@ func (x *Block) GetGlobalStateRoot() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetOldRoot() []byte {
 	if x != nil {
 		return x.OldRoot
@@ -122,6 +134,7 @@ func (x *Block) GetOldRoot() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetAcceptedTime() int64 {
 	if x != nil {
 		return x.AcceptedTime
@@ -129,6 +142,7 @@ func (x *Block) GetAcceptedTime() int64 {
 	return 0
 }
 
+// notest
 func (x *Block) GetTimeStamp() int64 {
 	if x != nil {
 		return x.TimeStamp
@@ -136,6 +150,7 @@ func (x *Block) GetTimeStamp() int64 {
 	return 0
 }
 
+// notest
 func (x *Block) GetTxCount() uint64 {
 	if x != nil {
 		return x.TxCount
@@ -143,6 +158,7 @@ func (x *Block) GetTxCount() uint64 {
 	return 0
 }
 
+// notest
 func (x *Block) GetTxCommitment() []byte {
 	if x != nil {
 		return x.TxCommitment
@@ -150,6 +166,7 @@ func (x *Block) GetTxCommitment() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetEventCount() uint64 {
 	if x != nil {
 		return x.EventCount
@@ -157,6 +174,7 @@ func (x *Block) GetEventCount() uint64 {
 	return 0
 }
 
+// notest
 func (x *Block) GetEventCommitment() []byte {
 	if x != nil {
 		return x.EventCommitment
@@ -164,6 +182,7 @@ func (x *Block) GetEventCommitment() []byte {
 	return nil
 }
 
+// notest
 func (x *Block) GetTxHashes() [][]byte {
 	if x != nil {
 		return x.TxHashes
@@ -215,7 +234,9 @@ var (
 	file_block_proto_rawDescData = file_block_proto_rawDesc
 )
 
+// notest
 func file_block_proto_rawDescGZIP() []byte {
+// notest
 	file_block_proto_rawDescOnce.Do(func() {
 		file_block_proto_rawDescData = protoimpl.X.CompressGZIP(file_block_proto_rawDescData)
 	})
@@ -234,12 +255,15 @@ var file_block_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
+// notest
 func init() { file_block_proto_init() }
+// notest
 func file_block_proto_init() {
 	if File_block_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
+// notest
 		file_block_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Block); i {
 			case 0:
