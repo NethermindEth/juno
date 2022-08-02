@@ -1,10 +1,11 @@
 package sync_test
 
 import (
-	"github.com/NethermindEth/juno/pkg/felt"
-	"github.com/NethermindEth/juno/pkg/types"
 	"reflect"
 	"testing"
+
+	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/sync"
