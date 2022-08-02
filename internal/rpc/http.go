@@ -12,22 +12,13 @@ import (
 )
 
 type HttpRpc struct {
-	jsonRpc  *jsonrpc.Server
 	server   *http.Server
 	provider *HttpProvider
 }
 
-func NewHttpRpc(addr, pattern string, serviceName string, service interface{}) (*HttpRpc, error) {
+func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc) (*HttpRpc, error) {
 	httpRpc := new(HttpRpc)
-	// Create JSON-RPC 2.0 server
-	httpRpc.jsonRpc = jsonrpc.NewServer()
-	// Register the service
-	if err := httpRpc.jsonRpc.RegisterService(serviceName, service); err != nil {
-		return nil, err
-	}
-	// Create HTTP provider
-	httpRpc.provider = NewHttpProvider(httpRpc.jsonRpc)
-	// Create HTTP server
+	httpRpc.provider = NewHttpProvider(rpc)
 	mux := http.NewServeMux()
 	mux.Handle(pattern, httpRpc.provider)
 	httpRpc.server = &http.Server{Addr: addr, Handler: mux}

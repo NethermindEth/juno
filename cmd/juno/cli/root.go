@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/pkg/jsonrpc"
+
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
@@ -146,8 +148,38 @@ func setupServers() {
 	var err error
 	if config.Runtime.RPC.Enabled {
 		checkPort("JSON-RPC", config.Runtime.RPC.Port)
-		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", "starknet",
-			starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine))
+		starknetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine)
+		jsonRpc := jsonrpc.NewJsonRpc()
+		handlers := []struct {
+			name       string
+			function   any
+			paramNames []string
+		}{
+			{"starknet_getBlockWithTxHashes", starknetApi.GetBlockWithTxHashes, []string{"block_id"}},
+			{"starknet_getBlockWithTxs", starknetApi.GetBlockWithTxs, []string{"block_id"}},
+			{"starknet_getStateUpdate", starknetApi.GetStateUpdate, []string{"block_id"}},
+			{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"block_id", "address", "key"}},
+			{"starknet_getTransactionByHash", starknetApi.GetTransactionByHash, []string{"transaction_hash"}},
+			{"starknet_getTransactionByBlockIdAndIndex", starknetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
+			{"starknet_getTransactionReceipt", starknetApi.GetTransactionReceipt, []string{"transaction_hash"}},
+			{"starknet_getClass", starknetApi.GetClass, []string{"class_hash"}},
+			{"starknet_getClassHashAt", starknetApi.GetClassHashAt, []string{"block_id", "address"}},
+			{"starknet_getBlockTransactionCount", starknetApi.GetBlockTransactionCount, []string{"block_id"}},
+			{"starknet_call", starknetApi.Call, []string{"block_id", "request"}},
+			{"starknet_estimateFee", starknetApi.EstimateFee, []string{"block_id", "request"}},
+			{"starknet_blockNumber", starknetApi.BlockNumber, nil},
+			{"starknet_blockHashAndNumber", starknetApi.BlockHashAndNumber, nil},
+			{"starknet_chainId", starknetApi.ChainId, nil},
+			{"starkent_pendingTrnasactions", starknetApi.PendingTransactions, nil},
+			{"starknet_protocolVersion", starknetApi.ProtocolVersion, nil},
+			{"starknet_syncing", starknetApi.Syncing, nil},
+		}
+		for _, handler := range handlers {
+			if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
+				Logger.With("Error", err).Error("Failed to register RPC handler.")
+			}
+		}
+		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", jsonRpc)
 		if err != nil {
 			Logger.Fatal("Failed to initialise RPC Server", err)
 		}
