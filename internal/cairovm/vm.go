@@ -3,6 +3,7 @@ package cairovm
 import (
 	"context"
 	_ "embed"
+	"github.com/NethermindEth/juno/internal/log"
 	"net"
 	"os"
 	"os/exec"
@@ -64,6 +65,7 @@ func New(stateManager *statedb.Manager) *VirtualMachine {
 
 	return &VirtualMachine{
 		rpcNet:         "tcp",
+		logger:         log.Logger.Named("VM"),
 		manager:        stateManager,
 		rpcVMAddr:      "localhost:" + strconv.Itoa(ports[0]),
 		rpcStorageAddr: "localhost:" + strconv.Itoa(ports[1]),

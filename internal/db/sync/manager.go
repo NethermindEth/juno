@@ -52,10 +52,10 @@ func (m *Manager) GetLatestBlockSaved() int64 {
 	// Query to database
 	data, err := m.database.Get(latestBlockSavedKey)
 	if err != nil {
+		// notest
 		if db.ErrNotFound == err {
 			return 0
 		}
-		// notest
 		panic(any(fmt.Errorf("%w: %s", DbError, err)))
 	}
 	if data == nil {
