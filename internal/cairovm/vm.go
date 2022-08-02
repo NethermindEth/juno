@@ -11,8 +11,6 @@ import (
 
 	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 
-	"github.com/NethermindEth/juno/internal/log"
-
 	"github.com/NethermindEth/juno/internal/config"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/pkg/felt"
@@ -57,19 +55,19 @@ var (
 	pyPbGRpc []byte
 )
 
-func NewVM(stateManager *statedb.Manager) *VirtualMachine {
-	vm := VirtualMachine{}
-	vm.rpcNet = "tcp"
-	vm.manager = stateManager
+func New(stateManager *statedb.Manager) *VirtualMachine {
 	ports, err := freePorts(2)
 	if err != nil {
 		// notest
 		return nil
 	}
-	vm.logger = log.Logger.Named("VM")
-	vm.rpcVMAddr = "localhost:" + strconv.Itoa(ports[0])
-	vm.rpcStorageAddr = "localhost:" + strconv.Itoa(ports[1])
-	return &vm
+
+	return &VirtualMachine{
+		rpcNet:         "tcp",
+		manager:        stateManager,
+		rpcVMAddr:      "localhost:" + strconv.Itoa(ports[0]),
+		rpcStorageAddr: "localhost:" + strconv.Itoa(ports[1]),
+	}
 }
 
 // freePorts returns a slice of length n of free TCP ports on localhost.
@@ -110,7 +108,6 @@ func (s *VirtualMachine) Run() error {
 	for _, file := range files {
 		path := filepath.Join(s.vmDir, file.name)
 		if err := os.WriteFile(path, file.contents, 0o644); err != nil {
-			// s.logger.Errorf("failed to write to %s: %v", path, err)
 			return err
 		}
 	}
@@ -148,7 +145,6 @@ func (s *VirtualMachine) Run() error {
 
 func (s *VirtualMachine) Close(_ context.Context) {
 	s.rpcServer.Stop()
-	// TODO: we should probably wait for the process to exit.
 	s.vmCmd.Process.Kill()
 	os.RemoveAll(s.vmDir)
 }
@@ -162,7 +158,7 @@ func (s *VirtualMachine) Call(
 	selector,
 	sequencer *felt.Felt,
 ) ([]*felt.Felt, error) {
-	s.logger.Info("Running Call to VM")
+	s.logger.Info("Executing contract call.")
 
 	// XXX: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
