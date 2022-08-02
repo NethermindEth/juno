@@ -32,8 +32,8 @@ import (
 const (
 	mdbxOptMaxDb uint64 = 100
 	mdbxFlags    uint   = 0
-	minPort      int    = 1024
-	macPort      int    = 49151
+	minPort      int    = 1_024
+	maxPort      int    = 49_151
 )
 
 // Cobra configuration.
@@ -66,7 +66,7 @@ var (
 	syncManager        *sync.Manager
 )
 
-var shutdownTimeout = 5 * time.Second
+const shutdownTimeout = 5 * time.Second
 
 // rootCmd is the root command of the application.
 var rootCmd = &cobra.Command{
@@ -111,7 +111,7 @@ func juno(_ *cobra.Command, _ []string) {
 	setupVirtualMachine()
 	setupServers()
 
-	numOfErrCh := 3
+	const numOfErrCh = 3
 	errChs := make([]chan error, numOfErrCh)
 	for i := 0; i < numOfErrCh; i++ {
 		errChs[i] = make(chan error)
@@ -134,7 +134,7 @@ func juno(_ *cobra.Command, _ []string) {
 }
 
 func setupVirtualMachine() {
-	virtualMachine = cairovm.NewVM(stateManager)
+	virtualMachine = cairovm.New(stateManager)
 }
 
 func setupSynchronizer() {
@@ -166,8 +166,8 @@ func setupServers() {
 }
 
 func checkPort(server string, port int) {
-	if port < minPort || port > macPort {
-		Logger.Fatalf("%s port must be between %d and %d", server, minPort, macPort)
+	if port < minPort || port > maxPort {
+		Logger.Fatalf("%s port must be between %d and %d", server, minPort, maxPort)
 	}
 }
 
