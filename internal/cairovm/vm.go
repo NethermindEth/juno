@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/NethermindEth/juno/internal/log"
+
 	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 
 	"github.com/NethermindEth/juno/internal/config"
@@ -67,6 +69,7 @@ func New(stateManager *statedb.Manager) *VirtualMachine {
 		manager:        stateManager,
 		rpcVMAddr:      "localhost:" + strconv.Itoa(ports[0]),
 		rpcStorageAddr: "localhost:" + strconv.Itoa(ports[1]),
+		logger:         log.Logger.Named("VM"),
 	}
 }
 
