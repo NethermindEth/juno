@@ -21,12 +21,9 @@ func (r *rpcRequest) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	if err := decoder.Decode(&rawRequest); err != nil {
-		if _, ok := err.(*json.UnmarshalTypeError); ok {
-			return errInvalidRequest
-		}
-		return errParseError
+		return err
 	}
-	if rawRequest.Jsonrpc != jsonrpc {
+	if rawRequest.Jsonrpc != jsonrpcVersion {
 		return errInvalidRequest
 	}
 	r.Method = rawRequest.Method
