@@ -60,6 +60,8 @@ type Synchronizer struct {
 	Running bool
 }
 
+// NewSynchronizer creates a new Synchronizer.
+// notest
 func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
 ) *Synchronizer {

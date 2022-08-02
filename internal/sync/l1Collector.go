@@ -72,6 +72,8 @@ type l1Collector struct {
 	quit chan struct{}
 }
 
+// NewL1Collector creates a new Ethereum Collector.
+// notest
 func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Client, chainID int) *l1Collector {
 	collector := &l1Collector{
 		client:   feeder,

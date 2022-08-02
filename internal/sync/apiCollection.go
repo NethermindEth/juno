@@ -31,6 +31,8 @@ type apiCollector struct {
 	quit chan struct{}
 }
 
+// NewApiCollector create a new api Collector
+// notest
 func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector {
 	collector := &apiCollector{
 		client:  feeder,
