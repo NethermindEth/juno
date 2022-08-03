@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -152,11 +153,11 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 
 	return &types.SyncStatus{
 		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: string(rune(s.startingBlockNumber)),
+		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
 		CurrentBlockHash:    block.BlockHash.Hex0x(),
-		CurrentBlockNumber:  string(rune(block.BlockNumber)),
+		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
 		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
-		HighestBlockNumber:  string(rune(s.stateDiffCollector.LatestBlock().BlockNumber)),
+		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
 	}
 }
 
