@@ -88,7 +88,14 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 	collector.memoryPageHash = types2.NewDictionary()
 	collector.gpsVerifier = types2.NewDictionary()
 	collector.facts = types2.NewDictionary()
-	collector.loadContractsAbi()
+	// load the contract info and retry if error up to 10 times.
+	for i := 0; i < 10; i++ {
+		err := collector.loadContractsAbi()
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second * 10)
+	}
 	go collector.updateLatestBlockOnChain()
 	return collector
 }
@@ -237,12 +244,13 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 	return pages, nil
 }
 
-func (l *l1Collector) loadContractsAbi() {
+func (l *l1Collector) loadContractsAbi() error {
 	l.contractInfo = make(map[common.Address]types2.ContractInfo)
 
 	contractAddresses, err := l.client.GetContractAddresses()
 	if err != nil {
-		l.logger.With("Error", err).Panic("Couldn't get ContractInfo Address from Feeder Gateway")
+		l.logger.With("Error", err).Debug("Couldn't get ContractInfo Address from Feeder Gateway")
+		return err
 	}
 
 	// Add Starknet contract
@@ -251,7 +259,8 @@ func (l *l1Collector) loadContractsAbi() {
 		"LogStateTransitionFact", l.contractInfo)
 	if err != nil {
 		l.logger.With("Address", contractAddresses.Starknet).
-			Panic("Couldn't load contract from disk ")
+			Debug("Couldn't load contract from disk ")
+		return err
 	}
 	l.starknetContractAddress = common.HexToAddress(contractAddresses.Starknet)
 
@@ -262,8 +271,8 @@ func (l *l1Collector) loadContractsAbi() {
 		"LogMemoryPagesHashes", l.contractInfo)
 	if err != nil {
 		l.logger.With("Address", gpsAddress).
-			Panic("Couldn't load contract from disk ")
-		return
+			Debug("Couldn't load contract from disk ")
+		return err
 	}
 	l.gpsVerifierContractAddress = common.HexToAddress(gpsAddress)
 
@@ -274,10 +283,11 @@ func (l *l1Collector) loadContractsAbi() {
 		"LogMemoryPageFactContinuous", l.contractInfo)
 	if err != nil {
 		l.logger.With("Address", memoryPagesContractAddress).
-			Panic("Couldn't load contract from disk ")
-		return
+			Debug("Couldn't load contract from disk ")
+		return err
 	}
 	l.memoryPagesContractAddress = common.HexToAddress(memoryPagesContractAddress)
+	return nil
 }
 
 func (l *l1Collector) handleEvents() {
