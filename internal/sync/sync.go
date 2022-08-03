@@ -358,7 +358,12 @@ func (s *Synchronizer) updateBlocksInfo() {
 	latestBlockInfoFetched := s.syncManager.GetLatestBlockSaved()
 	currentBlock := latestBlockInfoFetched
 	for {
-		if currentBlock == int64(s.stateDiffCollector.LatestBlock().BlockNumber) {
+		latestBlock := s.stateDiffCollector.LatestBlock()
+		if latestBlock == nil {
+			time.Sleep(time.Second * 1)
+			continue
+		}
+		if currentBlock == int64(latestBlock.BlockNumber) {
 			time.Sleep(time.Minute)
 		}
 		err := s.updateBlocks(currentBlock)
