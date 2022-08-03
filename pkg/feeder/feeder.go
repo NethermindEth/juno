@@ -54,7 +54,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error) {
 		var res *http.Response
 		for i := 0; err != nil && i < 2; i++ {
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 10)
 			res, err = httpClient.Do(req)
 		}
 		return res, err

@@ -87,27 +87,43 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 	synchro.Running = false
 
 	synchro.setChainId()
-	if config.Runtime.Starknet.ApiSync {
-		synchro.stateDiffCollector = NewApiCollector(synchro.syncManager, synchro.feeder)
-	} else {
-		synchro.stateDiffCollector = NewL1Collector(synchro.syncManager, synchro.feeder, synchro.l1Client,
-			int(synchro.chainId.Int64()))
-	}
 	synchro.setStateToLatestRoot()
-	go func() {
-		synchro.stateDiffCollector.Run()
-	}()
+	synchro.setStateDiffCollector()
 	return synchro
+}
+
+// setStateDiffCollector sets the stateDiffCollector.
+func (s *Synchronizer) setStateDiffCollector() {
+
+	if config.Runtime.Starknet.ApiSync {
+		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder)
+	} else {
+		s.stateDiffCollector = NewL1Collector(s.syncManager, s.feeder, s.l1Client,
+			int(s.chainId.Int64()))
+	}
 }
 
 // Run starts the service.
 func (s *Synchronizer) Run() {
 	s.Running = true
 	go s.updateBlocksInfo()
-	go s.sync()
+	go s.handleSync()
 }
 
-func (s *Synchronizer) sync() {
+func (s *Synchronizer) handleSync() {
+	for {
+		err := s.sync()
+		if err == nil {
+			return
+		}
+		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
+		time.Sleep(10 * time.Second)
+		s.setStateDiffCollector()
+	}
+}
+
+func (s *Synchronizer) sync() error {
+	go s.stateDiffCollector.Run()
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -118,7 +134,7 @@ func (s *Synchronizer) sync() {
 			// the root we receive from the StateDiff, we have to revert the trie
 			prometheus.IncreaseCountStarknetStateFailed()
 			s.setStateToLatestRoot()
-			continue
+			return err
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
@@ -139,8 +155,8 @@ func (s *Synchronizer) sync() {
 			s.startingBlockNumber = stateDiff.BlockNumber
 			s.startingBlockHash = s.latestBlockHashSynced.Hex0x()
 		}
-
 	}
+	return nil
 }
 
 func (s *Synchronizer) Status() *types.SyncStatus {
