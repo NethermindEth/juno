@@ -117,6 +117,7 @@ func (s *Synchronizer) handleSync() {
 		}
 		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 		time.Sleep(10 * time.Second)
+		s.stateDiffCollector.Close()
 		s.setStateDiffCollector()
 	}
 }
