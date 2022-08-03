@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -70,11 +71,11 @@ func TestStatus(t *testing.T) {
 
 	want := &types.SyncStatus{
 		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: string(rune(s.startingBlockNumber)),
+		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
 		CurrentBlockHash:    block.BlockHash.Hex0x(),
-		CurrentBlockNumber:  string(rune(block.BlockNumber)),
+		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
 		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
-		HighestBlockNumber:  string(rune(s.stateDiffCollector.LatestBlock().BlockNumber)),
+		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
 	}
 
 	assert.DeepEqual(t, got, want, gocmp.Comparer(func(x *felt.Felt, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
