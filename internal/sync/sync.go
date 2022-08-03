@@ -207,7 +207,8 @@ func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract type
 			Error("Error setting code")
 		return err
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated for Contract")
+	s.logger.With("Block Number", stateDiff.BlockNumber, "Address", deployedContract.Address).
+		Debug("State updated for Contract")
 	return nil
 }
 
