@@ -26,7 +26,7 @@ test-cover: ## tests with coverage
 	go test -coverprofile=coverage/coverage.out -covermode=count ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-courtey install-gofumpt install-mockery ## install some project dependencies
+install-deps: | install-courtey install-gofumpt ## install some project dependencies
 
 install-courtey:
 	# install courtney fork
@@ -37,9 +37,6 @@ install-courtey:
 install-gofumpt:
 	# install gofumpt
 	go install mvdan.cc/gofumpt@latest
-
-install-mockery:
-	go install github.com/vektra/mockery/v2@latest
 
 codecov-test:
 	mkdir -p coverage
