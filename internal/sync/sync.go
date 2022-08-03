@@ -94,7 +94,6 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 
 // setStateDiffCollector sets the stateDiffCollector.
 func (s *Synchronizer) setStateDiffCollector() {
-
 	if config.Runtime.Starknet.ApiSync {
 		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder)
 	} else {
