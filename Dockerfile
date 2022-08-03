@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install Alpine Dependencies
 RUN apk update && apk upgrade && apk add --update alpine-sdk && \
-    apk add --no-cache bash git openssh make cmake
+    apk add --no-cache bash git openssh make cmake clang
 
 # Copy all source code
 COPY . .
@@ -12,7 +12,7 @@ RUN go mod download
 
 RUN make compile
 
-FROM alpine:3.15
+FROM python:3.7.13-alpine
 
 WORKDIR /app
 
