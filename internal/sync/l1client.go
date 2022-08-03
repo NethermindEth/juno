@@ -9,7 +9,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
-//go:generate mockery --name=L1Client
 type L1Client interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	BlockNumber(ctx context.Context) (uint64, error)
