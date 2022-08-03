@@ -17,6 +17,10 @@ func TestCmpCompat(t *testing.T) {
 			want:   0,
 		},
 		{
+			inputs: [2]*Felt{nil, new(Felt)},
+			want:   1,
+		},
+		{
 			inputs: [2]*Felt{{12088959491439601242, 44, 0, 0}, {12088959491439601242, 44, 0, 0}},
 			want:   0,
 		},

@@ -2,13 +2,17 @@ package transaction
 
 import (
 	"errors"
-	"reflect"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
+
+	gocmp "github.com/google/go-cmp/cmp"
+	"gotest.tools/assert"
 )
 
 var txs = []types.IsTransaction{
@@ -59,6 +63,7 @@ var txs = []types.IsTransaction{
 			new(felt.Felt).SetHex("06cf6c2f36d36b08e591e4489e92ca882bb67b9c39a3afccf011972a8de467f0"),
 			new(felt.Felt).SetHex("7ab344d88124307c07b56f6c59c12f4543e9c96398727854a322dea82c73240"),
 		},
+		ClassHash: new(felt.Felt).SetHex("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
 	},
 	&types.TransactionDeploy{
 		Hash:            new(felt.Felt).SetHex("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1"),
@@ -67,6 +72,20 @@ var txs = []types.IsTransaction{
 			new(felt.Felt).SetHex("0xcfc2e2866fd08bfb4ac73b70e0c136e326ae18fc797a2c090c8811c695577e"),
 			new(felt.Felt).SetHex("0x5f1dd5a5aef88e0498eeca4e7b2ea0fa7110608c11531278742f0b5499af4b3"),
 		},
+		ClassHash: new(felt.Felt).SetHex("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+	},
+	&types.TransactionDeclare{
+		Hash:          new(felt.Felt).SetHex("0x12c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e2"),
+		ClassHash:     new(felt.Felt).SetHex("0x12afa0f342ece0468ca9810f0ea59f9c7204af32d1b8b0d318c4f2fe1f384e"),
+		SenderAddress: new(felt.Felt).SetHex("0x02F9a7E7A5Db12B6f2996B2DfD2b598E5Bd4baD4D8FBF2e6437F59e7dA718835"),
+		MaxFee:        new(felt.Felt).SetHex("0x0"),
+		Signature: []*felt.Felt{
+			new(felt.Felt).SetHex("0x1"),
+			new(felt.Felt).SetHex("0x2"),
+			new(felt.Felt).SetHex("0x3"),
+		},
+		Nonce:   new(felt.Felt).SetHex("0x1"),
+		Version: new(felt.Felt).SetHex("0x0"),
 	},
 }
 
@@ -113,60 +132,97 @@ func TestManager_GetTransaction(t *testing.T) {
 			}
 			t.Error(err)
 		}
-		if !reflect.DeepEqual(tx, outTx) {
-			t.Errorf("transaction not equal after Put/Get operations")
-		}
+		assert.DeepEqual(t, tx, outTx, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }
 
-var receipts = []*types.TransactionReceipt{
+var receipts = []struct {
+	ReceiptHash *felt.Felt
+	Receipt     types.TxnReceipt
+}{
 	{
-		TxHash:     new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
-		ActualFee:  new(felt.Felt).SetHex("0x0"),
-		Status:     types.TxStatusAcceptedOnL2,
-		StatusData: "",
-		MessagesSent: []types.MessageL2ToL1{
-			{
-				ToAddress: types.HexToEthAddress("0x8fccde9ae0ca4da714b8f27d4aaf6edfa8ce92a4"),
+		ReceiptHash: new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+		Receipt: &types.TxnInvokeReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+				ActualFee:   new(felt.Felt).SetHex("0x0"),
+				Status:      types.TxStatusAcceptedOnL2,
+				StatusData:  "",
+				BlockHash:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+				BlockNumber: 2482,
+			},
+			MessagesSent: []*types.MsgToL1{
+				{
+					FromAddress: new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+					ToAddress:   types.EthAddress(common.HexToAddress("0x8C8D7C46219D9205f056f28fee5950aD564d7465")),
+					Payload: []*felt.Felt{
+						new(felt.Felt).SetHex("0x1"),
+						new(felt.Felt).SetHex("0x2"),
+						new(felt.Felt).SetHex("0x3"),
+					},
+				},
+			},
+			L1OriginMessage: &types.MsgToL2{
+				FromAddress: types.HexToEthAddress("0x659a00c33263d9254Fed382dE81349426C795BB6"),
+				ToAddress:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
 				Payload: []*felt.Felt{
-					new(felt.Felt).SetHex("0xc"),
-					new(felt.Felt).SetHex("0x22"),
-				},
-			},
-		},
-		L1OriginMessage: &types.MessageL1ToL2{
-			FromAddress: types.HexToEthAddress("0x659a00c33263d9254Fed382dE81349426C795BB6"),
-			Payload: []*felt.Felt{
-				new(felt.Felt).SetHex("0x68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
-				new(felt.Felt).SetHex("0x2616da7c393d14000"),
-				new(felt.Felt).SetHex("0x0"),
-				new(felt.Felt).SetHex("0xb9d83d298d46c4dd73618f19a2a40084ce36476a"),
-			},
-		},
-		Events: []types.Event{
-			{
-				FromAddress: new(felt.Felt).SetHex("0xda114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3"),
-				Keys: []*felt.Felt{
-					new(felt.Felt).SetHex("99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
-				},
-				Data: []*felt.Felt{
-					new(felt.Felt).SetHex("0"),
-					new(felt.Felt).SetHex("68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
-					new(felt.Felt).SetHex("2616da7c393d14000"),
-					new(felt.Felt).SetHex("0"),
-				},
-			},
-			{
-				FromAddress: new(felt.Felt).SetHex("0x1108cdbe5d82737b9057590adaf97d34e74b5452f0628161d237746b6fe69e"),
-				Keys: []*felt.Felt{
-					new(felt.Felt).SetHex("0x221e5a5008f7a28564f0eaa32cdeb0848d10657c449aed3e15d12150a7c2db3"),
-				},
-				Data: []*felt.Felt{
 					new(felt.Felt).SetHex("0x68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
 					new(felt.Felt).SetHex("0x2616da7c393d14000"),
 					new(felt.Felt).SetHex("0x0"),
+					new(felt.Felt).SetHex("0xb9d83d298d46c4dd73618f19a2a40084ce36476a"),
 				},
+			},
+			Events: []*types.Event{
+				{
+					FromAddress: new(felt.Felt).SetHex("0xda114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3"),
+					Keys: []*felt.Felt{
+						new(felt.Felt).SetHex("99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+					},
+					Data: []*felt.Felt{
+						new(felt.Felt).SetHex("0"),
+						new(felt.Felt).SetHex("68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
+						new(felt.Felt).SetHex("2616da7c393d14000"),
+						new(felt.Felt).SetHex("0"),
+					},
+				},
+				{
+					FromAddress: new(felt.Felt).SetHex("0x1108cdbe5d82737b9057590adaf97d34e74b5452f0628161d237746b6fe69e"),
+					Keys: []*felt.Felt{
+						new(felt.Felt).SetHex("0x221e5a5008f7a28564f0eaa32cdeb0848d10657c449aed3e15d12150a7c2db3"),
+					},
+					Data: []*felt.Felt{
+						new(felt.Felt).SetHex("0x68a443797ed3eb691347e1d69e6480d1c3ad37acb0d6b1d17c311600002f3d6"),
+						new(felt.Felt).SetHex("0x2616da7c393d14000"),
+						new(felt.Felt).SetHex("0x0"),
+					},
+				},
+			},
+		},
+	},
+	{
+		ReceiptHash: new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78b00"),
+		Receipt: &types.TxnDeployReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+				ActualFee:   new(felt.Felt).SetHex("0x0"),
+				Status:      types.TxStatusAcceptedOnL2,
+				StatusData:  "",
+				BlockHash:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+				BlockNumber: 2483,
+			},
+		},
+	},
+	{
+		ReceiptHash: new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78b01"),
+		Receipt: &types.TxnDeclareReceipt{
+			TxnReceiptCommon: types.TxnReceiptCommon{
+				TxnHash:     new(felt.Felt).SetHex("0x7932de7ec535bfd45e2951a35c06e13d22188cb7eb7b7cc43454ee63df78aff"),
+				ActualFee:   new(felt.Felt).SetHex("0x0"),
+				Status:      types.TxStatusAcceptedOnL2,
+				StatusData:  "",
+				BlockHash:   new(felt.Felt).SetHex("0x687247e27d0355246469199f17efe94fb203d40df416c935b60e02083440149"),
+				BlockNumber: 2484,
 			},
 		},
 	},
@@ -174,8 +230,8 @@ var receipts = []*types.TransactionReceipt{
 
 func TestManager_PutReceipt(t *testing.T) {
 	manager := initManager(t)
-	for _, receipt := range receipts {
-		if err := manager.PutReceipt(receipt.TxHash, receipt); err != nil {
+	for _, r := range receipts {
+		if err := manager.PutReceipt(r.ReceiptHash, r.Receipt); err != nil {
 			t.Error(err)
 		}
 	}
@@ -184,23 +240,21 @@ func TestManager_PutReceipt(t *testing.T) {
 
 func TestManager_GetReceipt(t *testing.T) {
 	manager := initManager(t)
-	for _, receipt := range receipts {
-		if err := manager.PutReceipt(receipt.TxHash, receipt); err != nil {
+	for _, r := range receipts {
+		if err := manager.PutReceipt(r.ReceiptHash, r.Receipt); err != nil {
 			t.Error(err)
 		}
 	}
-	for _, receipt := range receipts {
-		outReceipt, err := manager.GetReceipt(receipt.TxHash)
+	for _, r := range receipts {
+		outReceipt, err := manager.GetReceipt(r.ReceiptHash)
 		if err != nil {
 			if errors.Is(err, db.ErrNotFound) {
-				t.Errorf("Receipt %s not found", receipt.TxHash)
+				t.Errorf("Receipt %s not found", r.ReceiptHash)
 			}
 			t.Error(err)
 		}
 
-		if !reflect.DeepEqual(receipt, outReceipt) {
-			t.Errorf("receipt not equal after Put/Get operations")
-		}
+		assert.DeepEqual(t, r.Receipt, outReceipt, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }

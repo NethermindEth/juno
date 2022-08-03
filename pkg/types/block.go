@@ -49,6 +49,7 @@ func (b BlockStatus) String() string {
 	return BlockStatusName[b]
 }
 
+// notest
 func (b BlockStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(b.String())
 }
