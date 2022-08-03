@@ -321,11 +321,13 @@ func IncreaseCountStarknetStateFailed() {
 }
 
 // This increases when the StateUpdateAndCommit method in state.go updates the state successfully
+// notest
 func IncreaseCountStarknetStateSuccess() {
 	countStarknetSync.WithLabelValues("Success").Inc()
 }
 
 // Changes the total and average amount of time needed for updating and committing a block
+// notest
 func UpdateStarknetSyncTime(t float64) {
 	timeStarknetSync.WithLabelValues("Total").Add(t)
 	val1 := &dto.Metric{}

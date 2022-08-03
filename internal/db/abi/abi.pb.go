@@ -25,7 +25,6 @@ type Abi struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-// notest
 	Functions   []*Function `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
 	Events      []*AbiEvent `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 	Structs     []*Struct   `protobuf:"bytes,3,rep,name=structs,proto3" json:"structs,omitempty"`
@@ -33,7 +32,6 @@ type Abi struct {
 	Constructor *Function   `protobuf:"bytes,5,opt,name=constructor,proto3" json:"constructor,omitempty"`
 }
 
-// notest
 func (x *Abi) Reset() {
 	*x = Abi{}
 	if protoimpl.UnsafeEnabled {
@@ -43,15 +41,12 @@ func (x *Abi) Reset() {
 	}
 }
 
-// notest
 func (x *Abi) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*Abi) ProtoMessage() {}
 
-// notest
 func (x *Abi) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -65,12 +60,10 @@ func (x *Abi) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Abi.ProtoReflect.Descriptor instead.
-// notest
 func (*Abi) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{0}
 }
 
-// notest
 func (x *Abi) GetFunctions() []*Function {
 	if x != nil {
 		return x.Functions
@@ -78,7 +71,6 @@ func (x *Abi) GetFunctions() []*Function {
 	return nil
 }
 
-// notest
 func (x *Abi) GetEvents() []*AbiEvent {
 	if x != nil {
 		return x.Events
@@ -86,7 +78,6 @@ func (x *Abi) GetEvents() []*AbiEvent {
 	return nil
 }
 
-// notest
 func (x *Abi) GetStructs() []*Struct {
 	if x != nil {
 		return x.Structs
@@ -94,7 +85,6 @@ func (x *Abi) GetStructs() []*Struct {
 	return nil
 }
 
-// notest
 func (x *Abi) GetL1Handlers() []*Function {
 	if x != nil {
 		return x.L1Handlers
@@ -102,7 +92,6 @@ func (x *Abi) GetL1Handlers() []*Function {
 	return nil
 }
 
-// notest
 func (x *Abi) GetConstructor() *Function {
 	if x != nil {
 		return x.Constructor
@@ -120,7 +109,6 @@ type Function struct {
 	Outputs []*Function_Output `protobuf:"bytes,3,rep,name=outputs,proto3" json:"outputs,omitempty"`
 }
 
-// notest
 func (x *Function) Reset() {
 	*x = Function{}
 	if protoimpl.UnsafeEnabled {
@@ -130,15 +118,12 @@ func (x *Function) Reset() {
 	}
 }
 
-// notest
 func (x *Function) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*Function) ProtoMessage() {}
 
-// notest
 func (x *Function) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -152,12 +137,10 @@ func (x *Function) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Function.ProtoReflect.Descriptor instead.
-// notest
 func (*Function) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{1}
 }
 
-// notest
 func (x *Function) GetName() string {
 	if x != nil {
 		return x.Name
@@ -165,7 +148,6 @@ func (x *Function) GetName() string {
 	return ""
 }
 
-// notest
 func (x *Function) GetInputs() []*Function_Input {
 	if x != nil {
 		return x.Inputs
@@ -173,7 +155,6 @@ func (x *Function) GetInputs() []*Function_Input {
 	return nil
 }
 
-// notest
 func (x *Function) GetOutputs() []*Function_Output {
 	if x != nil {
 		return x.Outputs
@@ -191,7 +172,6 @@ type AbiEvent struct {
 	Keys []string         `protobuf:"bytes,3,rep,name=keys,proto3" json:"keys,omitempty"`
 }
 
-// notest
 func (x *AbiEvent) Reset() {
 	*x = AbiEvent{}
 	if protoimpl.UnsafeEnabled {
@@ -201,15 +181,12 @@ func (x *AbiEvent) Reset() {
 	}
 }
 
-// notest
 func (x *AbiEvent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*AbiEvent) ProtoMessage() {}
 
-// notest
 func (x *AbiEvent) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -223,12 +200,10 @@ func (x *AbiEvent) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use AbiEvent.ProtoReflect.Descriptor instead.
-// notest
 func (*AbiEvent) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{2}
 }
 
-// notest
 func (x *AbiEvent) GetName() string {
 	if x != nil {
 		return x.Name
@@ -236,7 +211,6 @@ func (x *AbiEvent) GetName() string {
 	return ""
 }
 
-// notest
 func (x *AbiEvent) GetData() []*AbiEvent_Data {
 	if x != nil {
 		return x.Data
@@ -244,7 +218,6 @@ func (x *AbiEvent) GetData() []*AbiEvent_Data {
 	return nil
 }
 
-// notest
 func (x *AbiEvent) GetKeys() []string {
 	if x != nil {
 		return x.Keys
@@ -262,7 +235,6 @@ type Struct struct {
 	Size   uint64          `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
 }
 
-// notest
 func (x *Struct) Reset() {
 	*x = Struct{}
 	if protoimpl.UnsafeEnabled {
@@ -272,15 +244,12 @@ func (x *Struct) Reset() {
 	}
 }
 
-// notest
 func (x *Struct) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*Struct) ProtoMessage() {}
 
-// notest
 func (x *Struct) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -294,12 +263,10 @@ func (x *Struct) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Struct.ProtoReflect.Descriptor instead.
-// notest
 func (*Struct) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{3}
 }
 
-// notest
 func (x *Struct) GetFields() []*Struct_Field {
 	if x != nil {
 		return x.Fields
@@ -307,7 +274,6 @@ func (x *Struct) GetFields() []*Struct_Field {
 	return nil
 }
 
-// notest
 func (x *Struct) GetName() string {
 	if x != nil {
 		return x.Name
@@ -315,7 +281,6 @@ func (x *Struct) GetName() string {
 	return ""
 }
 
-// notest
 func (x *Struct) GetSize() uint64 {
 	if x != nil {
 		return x.Size
@@ -332,7 +297,6 @@ type Function_Input struct {
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 }
 
-// notest
 func (x *Function_Input) Reset() {
 	*x = Function_Input{}
 	if protoimpl.UnsafeEnabled {
@@ -342,15 +306,12 @@ func (x *Function_Input) Reset() {
 	}
 }
 
-// notest
 func (x *Function_Input) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*Function_Input) ProtoMessage() {}
 
-// notest
 func (x *Function_Input) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -364,12 +325,10 @@ func (x *Function_Input) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Function_Input.ProtoReflect.Descriptor instead.
-// notest
 func (*Function_Input) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{1, 0}
 }
 
-// notest
 func (x *Function_Input) GetName() string {
 	if x != nil {
 		return x.Name
@@ -377,7 +336,6 @@ func (x *Function_Input) GetName() string {
 	return ""
 }
 
-// notest
 func (x *Function_Input) GetType() string {
 	if x != nil {
 		return x.Type
@@ -394,7 +352,6 @@ type Function_Output struct {
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 }
 
-// notest
 func (x *Function_Output) Reset() {
 	*x = Function_Output{}
 	if protoimpl.UnsafeEnabled {
@@ -404,15 +361,12 @@ func (x *Function_Output) Reset() {
 	}
 }
 
-// notest
 func (x *Function_Output) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*Function_Output) ProtoMessage() {}
 
-// notest
 func (x *Function_Output) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -426,12 +380,10 @@ func (x *Function_Output) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Function_Output.ProtoReflect.Descriptor instead.
-// notest
 func (*Function_Output) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{1, 1}
 }
 
-// notest
 func (x *Function_Output) GetName() string {
 	if x != nil {
 		return x.Name
@@ -439,7 +391,6 @@ func (x *Function_Output) GetName() string {
 	return ""
 }
 
-// notest
 func (x *Function_Output) GetType() string {
 	if x != nil {
 		return x.Type
@@ -456,7 +407,6 @@ type AbiEvent_Data struct {
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 }
 
-// notest
 func (x *AbiEvent_Data) Reset() {
 	*x = AbiEvent_Data{}
 	if protoimpl.UnsafeEnabled {
@@ -466,15 +416,12 @@ func (x *AbiEvent_Data) Reset() {
 	}
 }
 
-// notest
 func (x *AbiEvent_Data) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*AbiEvent_Data) ProtoMessage() {}
 
-// notest
 func (x *AbiEvent_Data) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -488,12 +435,10 @@ func (x *AbiEvent_Data) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use AbiEvent_Data.ProtoReflect.Descriptor instead.
-// notest
 func (*AbiEvent_Data) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{2, 0}
 }
 
-// notest
 func (x *AbiEvent_Data) GetName() string {
 	if x != nil {
 		return x.Name
@@ -501,7 +446,6 @@ func (x *AbiEvent_Data) GetName() string {
 	return ""
 }
 
-// notest
 func (x *AbiEvent_Data) GetType() string {
 	if x != nil {
 		return x.Type
@@ -519,7 +463,6 @@ type Struct_Field struct {
 	Offset uint32 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
 }
 
-// notest
 func (x *Struct_Field) Reset() {
 	*x = Struct_Field{}
 	if protoimpl.UnsafeEnabled {
@@ -529,15 +472,12 @@ func (x *Struct_Field) Reset() {
 	}
 }
 
-// notest
 func (x *Struct_Field) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*Struct_Field) ProtoMessage() {}
 
-// notest
 func (x *Struct_Field) ProtoReflect() protoreflect.Message {
 	mi := &file_abi_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -551,12 +491,10 @@ func (x *Struct_Field) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Struct_Field.ProtoReflect.Descriptor instead.
-// notest
 func (*Struct_Field) Descriptor() ([]byte, []int) {
 	return file_abi_proto_rawDescGZIP(), []int{3, 0}
 }
 
-// notest
 func (x *Struct_Field) GetName() string {
 	if x != nil {
 		return x.Name
@@ -564,7 +502,6 @@ func (x *Struct_Field) GetName() string {
 	return ""
 }
 
-// notest
 func (x *Struct_Field) GetType() string {
 	if x != nil {
 		return x.Type
@@ -572,7 +509,6 @@ func (x *Struct_Field) GetType() string {
 	return ""
 }
 
-// notest
 func (x *Struct_Field) GetOffset() uint32 {
 	if x != nil {
 		return x.Offset
@@ -640,9 +576,7 @@ var (
 	file_abi_proto_rawDescData = file_abi_proto_rawDesc
 )
 
-// notest
 func file_abi_proto_rawDescGZIP() []byte {
-// notest
 	file_abi_proto_rawDescOnce.Do(func() {
 		file_abi_proto_rawDescData = protoimpl.X.CompressGZIP(file_abi_proto_rawDescData)
 	})
@@ -661,7 +595,6 @@ var file_abi_proto_goTypes = []interface{}{
 	(*Struct_Field)(nil),    // 7: Struct.Field
 }
 var file_abi_proto_depIdxs = []int32{
-// notest
 	1, // 0: Abi.functions:type_name -> Function
 	2, // 1: Abi.events:type_name -> AbiEvent
 	3, // 2: Abi.structs:type_name -> Struct
@@ -678,15 +611,12 @@ var file_abi_proto_depIdxs = []int32{
 	0, // [0:9] is the sub-list for field type_name
 }
 
-// notest
 func init() { file_abi_proto_init() }
-// notest
 func file_abi_proto_init() {
 	if File_abi_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-// notest
 		file_abi_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Abi); i {
 			case 0:
@@ -699,7 +629,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Function); i {
 			case 0:
@@ -712,7 +641,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AbiEvent); i {
 			case 0:
@@ -725,7 +653,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Struct); i {
 			case 0:
@@ -738,7 +665,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Function_Input); i {
 			case 0:
@@ -751,7 +677,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Function_Output); i {
 			case 0:
@@ -764,7 +689,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AbiEvent_Data); i {
 			case 0:
@@ -777,7 +701,6 @@ func file_abi_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_abi_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Struct_Field); i {
 			case 0:

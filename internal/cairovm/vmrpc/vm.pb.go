@@ -28,7 +28,6 @@ type GetValueRequest struct {
 	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 }
 
-// notest
 func (x *GetValueRequest) Reset() {
 	*x = GetValueRequest{}
 	if protoimpl.UnsafeEnabled {
@@ -38,15 +37,12 @@ func (x *GetValueRequest) Reset() {
 	}
 }
 
-// notest
 func (x *GetValueRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*GetValueRequest) ProtoMessage() {}
 
-// notest
 func (x *GetValueRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_vm_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -60,12 +56,10 @@ func (x *GetValueRequest) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use GetValueRequest.ProtoReflect.Descriptor instead.
-// notest
 func (*GetValueRequest) Descriptor() ([]byte, []int) {
 	return file_vm_proto_rawDescGZIP(), []int{0}
 }
 
-// notest
 func (x *GetValueRequest) GetKey() []byte {
 	if x != nil {
 		return x.Key
@@ -83,7 +77,6 @@ type VMTrieNode struct {
 	Path   []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
 }
 
-// notest
 func (x *VMTrieNode) Reset() {
 	*x = VMTrieNode{}
 	if protoimpl.UnsafeEnabled {
@@ -93,15 +86,12 @@ func (x *VMTrieNode) Reset() {
 	}
 }
 
-// notest
 func (x *VMTrieNode) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*VMTrieNode) ProtoMessage() {}
 
-// notest
 func (x *VMTrieNode) ProtoReflect() protoreflect.Message {
 	mi := &file_vm_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -115,12 +105,10 @@ func (x *VMTrieNode) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use VMTrieNode.ProtoReflect.Descriptor instead.
-// notest
 func (*VMTrieNode) Descriptor() ([]byte, []int) {
 	return file_vm_proto_rawDescGZIP(), []int{1}
 }
 
-// notest
 func (x *VMTrieNode) GetLen() uint32 {
 	if x != nil {
 		return x.Len
@@ -128,7 +116,6 @@ func (x *VMTrieNode) GetLen() uint32 {
 	return 0
 }
 
-// notest
 func (x *VMTrieNode) GetBottom() []byte {
 	if x != nil {
 		return x.Bottom
@@ -136,7 +123,6 @@ func (x *VMTrieNode) GetBottom() []byte {
 	return nil
 }
 
-// notest
 func (x *VMTrieNode) GetPath() []byte {
 	if x != nil {
 		return x.Path
@@ -154,7 +140,6 @@ type VMContractState struct {
 	Height       uint32 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
 }
 
-// notest
 func (x *VMContractState) Reset() {
 	*x = VMContractState{}
 	if protoimpl.UnsafeEnabled {
@@ -164,15 +149,12 @@ func (x *VMContractState) Reset() {
 	}
 }
 
-// notest
 func (x *VMContractState) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*VMContractState) ProtoMessage() {}
 
-// notest
 func (x *VMContractState) ProtoReflect() protoreflect.Message {
 	mi := &file_vm_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -186,12 +168,10 @@ func (x *VMContractState) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use VMContractState.ProtoReflect.Descriptor instead.
-// notest
 func (*VMContractState) Descriptor() ([]byte, []int) {
 	return file_vm_proto_rawDescGZIP(), []int{2}
 }
 
-// notest
 func (x *VMContractState) GetContractHash() []byte {
 	if x != nil {
 		return x.ContractHash
@@ -199,7 +179,6 @@ func (x *VMContractState) GetContractHash() []byte {
 	return nil
 }
 
-// notest
 func (x *VMContractState) GetStorageRoot() []byte {
 	if x != nil {
 		return x.StorageRoot
@@ -207,7 +186,6 @@ func (x *VMContractState) GetStorageRoot() []byte {
 	return nil
 }
 
-// notest
 func (x *VMContractState) GetHeight() uint32 {
 	if x != nil {
 		return x.Height
@@ -223,7 +201,6 @@ type VMContractDefinition struct {
 	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-// notest
 func (x *VMContractDefinition) Reset() {
 	*x = VMContractDefinition{}
 	if protoimpl.UnsafeEnabled {
@@ -233,15 +210,12 @@ func (x *VMContractDefinition) Reset() {
 	}
 }
 
-// notest
 func (x *VMContractDefinition) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*VMContractDefinition) ProtoMessage() {}
 
-// notest
 func (x *VMContractDefinition) ProtoReflect() protoreflect.Message {
 	mi := &file_vm_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -255,12 +229,10 @@ func (x *VMContractDefinition) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use VMContractDefinition.ProtoReflect.Descriptor instead.
-// notest
 func (*VMContractDefinition) Descriptor() ([]byte, []int) {
 	return file_vm_proto_rawDescGZIP(), []int{3}
 }
 
-// notest
 func (x *VMContractDefinition) GetValue() []byte {
 	if x != nil {
 		return x.Value
@@ -282,7 +254,6 @@ type VMCallRequest struct {
 	Sequencer       []byte   `protobuf:"bytes,7,opt,name=sequencer,proto3" json:"sequencer,omitempty"`
 }
 
-// notest
 func (x *VMCallRequest) Reset() {
 	*x = VMCallRequest{}
 	if protoimpl.UnsafeEnabled {
@@ -292,15 +263,12 @@ func (x *VMCallRequest) Reset() {
 	}
 }
 
-// notest
 func (x *VMCallRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*VMCallRequest) ProtoMessage() {}
 
-// notest
 func (x *VMCallRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_vm_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -314,12 +282,10 @@ func (x *VMCallRequest) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use VMCallRequest.ProtoReflect.Descriptor instead.
-// notest
 func (*VMCallRequest) Descriptor() ([]byte, []int) {
 	return file_vm_proto_rawDescGZIP(), []int{4}
 }
 
-// notest
 func (x *VMCallRequest) GetCalldata() [][]byte {
 	if x != nil {
 		return x.Calldata
@@ -327,7 +293,6 @@ func (x *VMCallRequest) GetCalldata() [][]byte {
 	return nil
 }
 
-// notest
 func (x *VMCallRequest) GetCallerAddress() []byte {
 	if x != nil {
 		return x.CallerAddress
@@ -335,7 +300,6 @@ func (x *VMCallRequest) GetCallerAddress() []byte {
 	return nil
 }
 
-// notest
 func (x *VMCallRequest) GetContractAddress() []byte {
 	if x != nil {
 		return x.ContractAddress
@@ -343,7 +307,6 @@ func (x *VMCallRequest) GetContractAddress() []byte {
 	return nil
 }
 
-// notest
 func (x *VMCallRequest) GetClassHash() []byte {
 	if x != nil {
 		return x.ClassHash
@@ -351,7 +314,6 @@ func (x *VMCallRequest) GetClassHash() []byte {
 	return nil
 }
 
-// notest
 func (x *VMCallRequest) GetRoot() []byte {
 	if x != nil {
 		return x.Root
@@ -359,7 +321,6 @@ func (x *VMCallRequest) GetRoot() []byte {
 	return nil
 }
 
-// notest
 func (x *VMCallRequest) GetSelector() []byte {
 	if x != nil {
 		return x.Selector
@@ -367,7 +328,6 @@ func (x *VMCallRequest) GetSelector() []byte {
 	return nil
 }
 
-// notest
 func (x *VMCallRequest) GetSequencer() []byte {
 	if x != nil {
 		return x.Sequencer
@@ -383,7 +343,6 @@ type VMCallResponse struct {
 	Retdata [][]byte `protobuf:"bytes,1,rep,name=retdata,proto3" json:"retdata,omitempty"`
 }
 
-// notest
 func (x *VMCallResponse) Reset() {
 	*x = VMCallResponse{}
 	if protoimpl.UnsafeEnabled {
@@ -393,15 +352,12 @@ func (x *VMCallResponse) Reset() {
 	}
 }
 
-// notest
 func (x *VMCallResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// notest
 func (*VMCallResponse) ProtoMessage() {}
 
-// notest
 func (x *VMCallResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_vm_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -415,12 +371,10 @@ func (x *VMCallResponse) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use VMCallResponse.ProtoReflect.Descriptor instead.
-// notest
 func (*VMCallResponse) Descriptor() ([]byte, []int) {
 	return file_vm_proto_rawDescGZIP(), []int{5}
 }
 
-// notest
 func (x *VMCallResponse) GetRetdata() [][]byte {
 	if x != nil {
 		return x.Retdata
@@ -493,9 +447,7 @@ var (
 	file_vm_proto_rawDescData = file_vm_proto_rawDesc
 )
 
-// notest
 func file_vm_proto_rawDescGZIP() []byte {
-// notest
 	file_vm_proto_rawDescOnce.Do(func() {
 		file_vm_proto_rawDescData = protoimpl.X.CompressGZIP(file_vm_proto_rawDescData)
 	})
@@ -527,15 +479,12 @@ var file_vm_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-// notest
 func init() { file_vm_proto_init() }
-// notest
 func file_vm_proto_init() {
 	if File_vm_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-// notest
 		file_vm_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetValueRequest); i {
 			case 0:
@@ -548,7 +497,6 @@ func file_vm_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_vm_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*VMTrieNode); i {
 			case 0:
@@ -561,7 +509,6 @@ func file_vm_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_vm_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*VMContractState); i {
 			case 0:
@@ -574,7 +521,6 @@ func file_vm_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_vm_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*VMContractDefinition); i {
 			case 0:
@@ -587,7 +533,6 @@ func file_vm_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_vm_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*VMCallRequest); i {
 			case 0:
@@ -600,7 +545,6 @@ func file_vm_proto_init() {
 				return nil
 			}
 		}
-// notest
 		file_vm_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*VMCallResponse); i {
 			case 0:

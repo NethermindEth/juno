@@ -31,12 +31,10 @@ type storageAdapterClient struct {
 	cc grpc.ClientConnInterface
 }
 
-// notest
 func NewStorageAdapterClient(cc grpc.ClientConnInterface) StorageAdapterClient {
 	return &storageAdapterClient{cc}
 }
 
-// notest
 func (c *storageAdapterClient) GetPatriciaNode(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMTrieNode, error) {
 	out := new(VMTrieNode)
 	err := c.cc.Invoke(ctx, "/StorageAdapter/GetPatriciaNode", in, out, opts...)
@@ -46,7 +44,6 @@ func (c *storageAdapterClient) GetPatriciaNode(ctx context.Context, in *GetValue
 	return out, nil
 }
 
-// notest
 func (c *storageAdapterClient) GetContractState(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMContractState, error) {
 	out := new(VMContractState)
 	err := c.cc.Invoke(ctx, "/StorageAdapter/GetContractState", in, out, opts...)
@@ -56,7 +53,6 @@ func (c *storageAdapterClient) GetContractState(ctx context.Context, in *GetValu
 	return out, nil
 }
 
-// notest
 func (c *storageAdapterClient) GetContractDefinition(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*VMContractDefinition, error) {
 	out := new(VMContractDefinition)
 	err := c.cc.Invoke(ctx, "/StorageAdapter/GetContractDefinition", in, out, opts...)
@@ -80,19 +76,15 @@ type StorageAdapterServer interface {
 type UnimplementedStorageAdapterServer struct {
 }
 
-// notest
 func (UnimplementedStorageAdapterServer) GetPatriciaNode(context.Context, *GetValueRequest) (*VMTrieNode, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPatriciaNode not implemented")
 }
-// notest
 func (UnimplementedStorageAdapterServer) GetContractState(context.Context, *GetValueRequest) (*VMContractState, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetContractState not implemented")
 }
-// notest
 func (UnimplementedStorageAdapterServer) GetContractDefinition(context.Context, *GetValueRequest) (*VMContractDefinition, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetContractDefinition not implemented")
 }
-// notest
 func (UnimplementedStorageAdapterServer) mustEmbedUnimplementedStorageAdapterServer() {}
 
 // UnsafeStorageAdapterServer may be embedded to opt out of forward compatibility for this service.
@@ -102,12 +94,10 @@ type UnsafeStorageAdapterServer interface {
 	mustEmbedUnimplementedStorageAdapterServer()
 }
 
-// notest
 func RegisterStorageAdapterServer(s grpc.ServiceRegistrar, srv StorageAdapterServer) {
 	s.RegisterService(&StorageAdapter_ServiceDesc, srv)
 }
 
-// notest
 func _StorageAdapter_GetPatriciaNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetValueRequest)
 	if err := dec(in); err != nil {
@@ -120,14 +110,12 @@ func _StorageAdapter_GetPatriciaNode_Handler(srv interface{}, ctx context.Contex
 		Server:     srv,
 		FullMethod: "/StorageAdapter/GetPatriciaNode",
 	}
-// notest
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(StorageAdapterServer).GetPatriciaNode(ctx, req.(*GetValueRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// notest
 func _StorageAdapter_GetContractState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetValueRequest)
 	if err := dec(in); err != nil {
@@ -140,14 +128,12 @@ func _StorageAdapter_GetContractState_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: "/StorageAdapter/GetContractState",
 	}
-// notest
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(StorageAdapterServer).GetContractState(ctx, req.(*GetValueRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// notest
 func _StorageAdapter_GetContractDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetValueRequest)
 	if err := dec(in); err != nil {
@@ -160,7 +146,6 @@ func _StorageAdapter_GetContractDefinition_Handler(srv interface{}, ctx context.
 		Server:     srv,
 		FullMethod: "/StorageAdapter/GetContractDefinition",
 	}
-// notest
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(StorageAdapterServer).GetContractDefinition(ctx, req.(*GetValueRequest))
 	}
@@ -202,12 +187,10 @@ type vMClient struct {
 	cc grpc.ClientConnInterface
 }
 
-// notest
 func NewVMClient(cc grpc.ClientConnInterface) VMClient {
 	return &vMClient{cc}
 }
 
-// notest
 func (c *vMClient) Call(ctx context.Context, in *VMCallRequest, opts ...grpc.CallOption) (*VMCallResponse, error) {
 	out := new(VMCallResponse)
 	err := c.cc.Invoke(ctx, "/VM/Call", in, out, opts...)
@@ -229,11 +212,9 @@ type VMServer interface {
 type UnimplementedVMServer struct {
 }
 
-// notest
 func (UnimplementedVMServer) Call(context.Context, *VMCallRequest) (*VMCallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Call not implemented")
 }
-// notest
 func (UnimplementedVMServer) mustEmbedUnimplementedVMServer() {}
 
 // UnsafeVMServer may be embedded to opt out of forward compatibility for this service.
@@ -243,12 +224,10 @@ type UnsafeVMServer interface {
 	mustEmbedUnimplementedVMServer()
 }
 
-// notest
 func RegisterVMServer(s grpc.ServiceRegistrar, srv VMServer) {
 	s.RegisterService(&VM_ServiceDesc, srv)
 }
 
-// notest
 func _VM_Call_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VMCallRequest)
 	if err := dec(in); err != nil {
@@ -261,7 +240,6 @@ func _VM_Call_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 		Server:     srv,
 		FullMethod: "/VM/Call",
 	}
-// notest
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VMServer).Call(ctx, req.(*VMCallRequest))
 	}
