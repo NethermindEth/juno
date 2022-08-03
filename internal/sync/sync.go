@@ -307,7 +307,7 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 		if err != nil {
 			iterations := 0
 			for {
-				time.Sleep(time.Second * 1)
+				time.Sleep(time.Second * 20)
 				if err = s.updateTransactions(txn); err == nil {
 					break
 				}
@@ -326,7 +326,7 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 		if err != nil {
 			iterations := 0
 			for {
-				time.Sleep(time.Second * 1)
+				time.Sleep(time.Second * 20)
 				if err = s.updateTransactionReceipts(txnReceipt, block.Transactions[i].Type); err == nil {
 					break
 				}
@@ -387,6 +387,7 @@ func (s *Synchronizer) updateBlocksInfo() {
 		}
 		err := s.updateBlocks(currentBlock)
 		if err != nil {
+			time.Sleep(time.Minute)
 			continue
 		}
 		s.syncManager.StoreLatestBlockSaved(currentBlock)
