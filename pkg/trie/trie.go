@@ -96,12 +96,14 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*felt.Felt, []T
 						edgePath := node.Path().Slice(lcp+1, node.Path().Len())
 						siblings[walked+lcp] = &EdgeNode{nil, edgePath, node.Bottom()}
 					} else if lcp+1 < path.Len()-walked {
+						// notest
 						// sibling is a binary node, we need to retrieve it from the store
 						sibling, err := t.manager.GetTrieNode(node.Bottom())
 						if err != nil {
 							return nil, nil, err
 						}
 						// add sibling to the list of siblings
+						// notest
 						siblings[walked+lcp] = sibling
 					} else {
 						// sibling is a leaf node

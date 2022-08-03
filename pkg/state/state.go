@@ -56,6 +56,7 @@ func (st *state) GetContractState(address *felt.Felt) (*ContractState, error) {
 	return st.manager.GetContractState(leaf)
 }
 
+// notest
 func (st *state) GetContract(address *felt.Felt) (*types.Contract, error) {
 	contractState, err := st.GetContractState(address)
 	if err != nil {
@@ -79,6 +80,7 @@ func (st *state) SetContract(address *felt.Felt, hash *felt.Felt, code *types.Co
 	return st.stateTrie.Put(address, contract.Hash())
 }
 
+// notest
 func (st *state) GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error) {
 	contract, err := st.GetContractState(address)
 	if err != nil {
@@ -105,6 +107,7 @@ func (st *state) SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) 
 	return st.stateTrie.Put(address, contract.Hash())
 }
 
+// notest
 func (st *state) GetClassHash(address *felt.Felt) (*felt.Felt, error) {
 	contract, err := st.GetContractState(address)
 	if err != nil {

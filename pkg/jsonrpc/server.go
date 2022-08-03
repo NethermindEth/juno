@@ -84,6 +84,7 @@ func (s *JsonRpc) Call(request []byte) json.RawMessage {
 			}
 		}
 		if len(responses) == 0 {
+			// notest
 			return nil
 		}
 		response, _ := json.Marshal(responses)
@@ -180,6 +181,7 @@ func newRpcResponse(id any, result any, err error) json.RawMessage {
 	}
 	rawResponse, err := json.Marshal(&response)
 	if err != nil {
+		// notest
 		rawResponse, _ = json.Marshal(&rpcResponse{
 			Jsonrpc: jsonrpcVersion,
 			Id:      id,
@@ -194,10 +196,12 @@ func isJsonList(request json.RawMessage) bool {
 	for _, c := range request {
 		// skip insignificant whitespace (http://www.ietf.org/rfc/rfc4627.txt)
 		if c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d {
+			// notest
 			continue
 		}
 		return c == '['
 	}
+	// notest
 	return false
 }
 

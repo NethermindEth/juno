@@ -39,6 +39,7 @@ type RpcError struct {
 }
 
 // Error implements the error interface.
+// notest
 func (err *RpcError) Error() string {
 	return err.Message
 }

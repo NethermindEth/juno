@@ -332,6 +332,7 @@ func (z *Felt) SetRandom() (*Felt, error) {
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
+		// notest
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 1, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -539,6 +540,7 @@ func _mulWGeneric(z, x *Felt, y uint64) {
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
+		// notest
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 1, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -590,6 +592,7 @@ func _fromMontGeneric(z *Felt) {
 	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
+		// notest
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 1, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -914,6 +917,7 @@ func (z *Felt) setBigInt(v *big.Int) *Felt {
 			z[i] = uint64(vBits[i])
 		}
 	} else {
+		// notest
 		for i := 0; i < len(vBits); i++ {
 			if i%2 == 0 {
 				z[i/2] = uint64(vBits[i])
@@ -962,6 +966,7 @@ func (z *Felt) SetString(number string) *Felt {
 // If z == nil, returns null
 func (z *Felt) MarshalJSON() ([]byte, error) {
 	if z == nil {
+		// notest
 		return []byte("null"), nil
 	}
 	const maxSafeBound = 15 // we encode it as number if it's small
@@ -969,6 +974,7 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 	if len(s) <= maxSafeBound {
 		return []byte(s), nil
 	}
+	// notest
 	var sbb strings.Builder
 	sbb.WriteByte('"')
 	sbb.WriteString(s)
@@ -981,6 +987,7 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 func (z *Felt) UnmarshalJSON(data []byte) error {
 	s := string(data)
 	if len(s) > Bits*3 {
+		// notest
 		return errors.New("value too large (max = Felt.Bits * 3)")
 	}
 
@@ -996,6 +1003,7 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	vv := bigIntPool.Get().(*big.Int)
 
 	if _, ok := vv.SetString(s, 0); !ok {
+		// notest
 		return errors.New("can't parse into a big.Int: " + s)
 	}
 
@@ -1229,6 +1237,7 @@ func (z *Felt) Inverse(x *Felt) *Felt {
 		f1, c1 = updateFactorsDecompose(c1)
 		bHi := b.linearCombNonModular(&s, f1, &b, c1)
 		if bHi&signBitSelector != 0 {
+			// notest
 			// if bHi < 0
 			f1, c1 = -f1, -c1
 			bHi = b.neg(&b, bHi)
@@ -1285,6 +1294,7 @@ func (z *Felt) Inverse(x *Felt) *Felt {
 	// correctness check
 	v.Mul(&u, z)
 	if !v.IsOne() && !u.IsZero() {
+		// notest
 		return z.inverseExp(&u)
 	}
 
@@ -1448,6 +1458,7 @@ func (z *Felt) montReduceSignedSimpleButSlow(x *Felt, xHi uint64) {
 		// if z > q → z -= q
 		// note: this is NOT constant time
 		if !(z[3] < 576460752303423505 || (z[3] == 576460752303423505 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 1))))))) {
+			// notest
 			var b uint64
 			z[0], b = bits.Sub64(z[0], 1, 0)
 			z[1], b = bits.Sub64(z[1], 0, b)

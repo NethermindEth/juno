@@ -76,6 +76,8 @@ type EventInfo struct {
 	InitialBlockLogged int64
 }
 
+// Fact represent to the struct that save the Facts that comes from L1
+// notest
 type Fact struct {
 	StateRoot          *felt.Felt  `json:"state_root"`
 	SequenceNumber     uint64      `json:"block_number"`

@@ -24,6 +24,7 @@ type Contract struct {
 }
 
 // UnmarshalRaw unmarshal the raw message data into the contract.
+// notest
 func (c *Contract) UnmarshalRaw(raw *json.RawMessage) error {
 	data, err := raw.MarshalJSON()
 	if err != nil {
@@ -70,6 +71,7 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON marshals the contract into JSON-encoded data.
+// notest
 func (c *Contract) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c.FullDef)
 }

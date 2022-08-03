@@ -92,6 +92,7 @@ func (n *leafNode) Hash() *felt.Felt {
 	return n.value
 }
 
+// notest
 func (n *leafNode) Data() []byte {
 	return n.value.ByteSlice()
 }
