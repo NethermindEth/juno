@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"math"
 	"math/big"
 	"strconv"
@@ -113,10 +114,12 @@ func (s *Synchronizer) sync() {
 		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
+			prometheus.IncreaseCountStarknetStateFailed()
 			s.setStateToLatestRoot()
 			continue
 		}
-
+		prometheus.IncreaseCountStarknetStateSuccess()
+		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
 			"Timer", time.Since(start)).
