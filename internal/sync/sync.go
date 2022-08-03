@@ -2,11 +2,12 @@ package sync
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"math"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 
