@@ -97,6 +97,7 @@ type TxnReceiptCommon struct {
 	BlockNumber uint64
 }
 
+// notest
 func (*TxnReceiptCommon) isReceipt() {}
 
 type TxnInvokeReceipt struct {
