@@ -13,8 +13,8 @@ var (
 	ErrInternal = errors.New("internal error")
 	// ErrNotFound is used when a key is not found in the database.
 	ErrNotFound = errors.New("not found error")
-	// ErrTx is returned when a transaction fails for some reason.
-	ErrTx = errors.New("transaction error")
+	// ErrTxn is returned when a transaction fails for some reason.
+	ErrTxn = errors.New("transaction error")
 )
 
 // MDBXDatabase is a named database (isolated collection stored on the same file) of a certain
@@ -155,12 +155,12 @@ func (x *MDBXDatabase) RunTxn(op DatabaseTxOp) error {
 	if err != nil {
 		// Abort if error
 		mdbxTxn.Abort()
-		return newDbError(ErrTx, err)
+		return err
 	}
 	// Commit
 	_, err = mdbxTxn.Commit()
 	if err != nil {
-		return newDbError(ErrTx, err)
+		return newDbError(ErrTxn, err)
 	}
 	return nil
 }

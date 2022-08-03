@@ -492,7 +492,7 @@ func TestGetStateUpdateHandler(t *testing.T) {
 		t.Fatal()
 	}
 
-	// Get State Update from rest API
+	// Get state Update from rest API
 	restHandler.GetStateUpdate(rr, req)
 
 	// Check if errors were returned
@@ -918,7 +918,7 @@ func TestGetStateUpdateWithoutBlockIdentifier(t *testing.T) {
 	// Build Response Object
 	rr := httptest.NewRecorder()
 
-	// Get State Update from rest API
+	// Get state Update from rest API
 	restHandler.GetStateUpdate(rr, req)
 
 	// Assert Error query args were not correct

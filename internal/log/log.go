@@ -13,7 +13,9 @@ import (
 var Logger *zap.SugaredLogger
 
 func init() {
-	logger, err := zap.NewDevelopment()
+	config := zap.NewDevelopmentConfig()
+	config.DisableStacktrace = true
+	logger, err := config.Build()
 	if err != nil {
 		// notest
 		log.Fatalln("failed to initialise logger")

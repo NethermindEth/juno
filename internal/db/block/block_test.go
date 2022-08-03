@@ -2,12 +2,13 @@ package block
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
+	gocmp "github.com/google/go-cmp/cmp"
+	"gotest.tools/assert"
 )
 
 func TestManager(t *testing.T) {
@@ -54,9 +55,8 @@ func TestManager(t *testing.T) {
 			}
 			t.Error(err)
 		}
-		if !reflect.DeepEqual(block, returnedBlock) {
-			t.Errorf("block")
-		}
+		assert.DeepEqual(t, block, returnedBlock, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
+
 		// Get block by number
 		returnedBlock, err = manager.GetBlockByNumber(block.BlockNumber)
 		if err != nil {
@@ -65,9 +65,7 @@ func TestManager(t *testing.T) {
 			}
 			t.Error(err)
 		}
-		if !reflect.DeepEqual(block, returnedBlock) {
-			t.Errorf("block")
-		}
+		assert.DeepEqual(t, block, returnedBlock, gocmp.Comparer(func(x, y *felt.Felt) bool { return x.CmpCompat(y) == 0 }))
 	}
 	manager.Close()
 }
