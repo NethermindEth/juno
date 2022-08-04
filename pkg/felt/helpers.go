@@ -1,11 +1,13 @@
 package felt
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/pkg/common"
 )
 
 // ByteSlice() is exactly the same as Marshal() except that it returns
-// null when z is null. This mimics the behavior of big.Int.
+// nil when z is nil. This mimics the behavior of big.Int.Bytes.
 func (z *Felt) ByteSlice() []byte {
 	if z == nil {
 		// notest
@@ -26,6 +28,10 @@ func (z *Felt) SetHex(s string) *Felt {
 // automatically convert to regular form.
 func (z *Felt) Hex() string {
 	return z.Text(16)
+}
+
+func (z *Felt) Hex0x() string {
+	return fmt.Sprintf("0x0%063s", z.Hex())
 }
 
 // SetBit sets bit i to j on z. Undefined behavior if
@@ -59,8 +65,11 @@ func (z *Felt) ToggleBit(i uint64) *Felt {
 // CmpCompat is exactly the same as Cmp except that it returns zero if
 // both z and x are nil.
 func (z *Felt) CmpCompat(x *Felt) int {
-	if z == x { // Handles nils similar to big.Int.Cmp
+	// Handles nils similar to big.Int.Cmp
+	if z == nil && x == nil {
 		return 0
+	} else if z == nil || x == nil {
+		return 1
 	}
 	return z.Cmp(x)
 }
