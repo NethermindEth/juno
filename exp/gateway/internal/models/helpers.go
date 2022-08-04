@@ -7,6 +7,8 @@ import "github.com/NethermindEth/juno/pkg/felt"
 // field element with a "0x" prefix. This is useful for formatting the
 // JSON output for a slice of *felt.Felt.
 func Strings(fs []*felt.Felt) []string {
+	// TODO: Test this function.
+	// notest
 	const prefix = "0x"
 	s := make([]string, 0, len(fs))
 	for _, f := range fs {

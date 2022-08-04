@@ -164,12 +164,17 @@ const (
 func (t TxType) MarshalJSON() ([]byte, error) {
 	switch t {
 	case DeclareTx:
+		// TODO: Create tests.
+		// notest
 		return []byte(`"DECLARE"`), nil
 	case DeployTx:
 		return []byte(`"DEPLOY"`), nil
 	case InvokeTx:
+		// TODO: Create tests.
+		// notest
 		return []byte(`"INVOKE_FUNCTION"`), nil
 	}
+	// notest
 	return []byte(`"UNKNOWN"`), nil
 }
 
@@ -254,6 +259,12 @@ type Sent struct {
 
 // ErrNotFound indicates a record that was not found from the database.
 var ErrNotFound = errors.New("models: record not found")
+
+// XXX: The following functions cannot be tested easily because they
+// make calls to the database in production. They are however mocked in
+// the stubs package in the same directory to facilitate tests in other
+// areas.
+// notest
 
 // newBlock creates a Block from the types.Block header.
 func (m *Model) newBlock(header *types.Block) (*Block, error) {

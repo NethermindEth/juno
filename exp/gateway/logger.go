@@ -7,6 +7,7 @@ import (
 
 // NewLogger returns the global logger in internal/log.
 func NewLogger() *zap.SugaredLogger {
+	// notest
 	return Logger
 }
 

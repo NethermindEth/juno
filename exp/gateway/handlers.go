@@ -20,6 +20,8 @@ const (
 
 func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		// TODO: Test this path.
+		// notest
 		w.Header().Set("Allow", "GET")
 		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
@@ -123,6 +125,8 @@ func (gw *gateway) getBlock(w http.ResponseWriter, r *http.Request) {
 
 func (gw *gateway) getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		// TODO: Test this path.
+		// notest
 		w.Header().Set("Allow", "GET")
 		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
@@ -178,6 +182,8 @@ func (gw *gateway) getBlockHashByID(w http.ResponseWriter, r *http.Request) {
 
 func (gw *gateway) getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		// TODO: Test this path.
+		// notest
 		w.Header().Set("Allow", "GET")
 		gw.clientErr(w, http.StatusMethodNotAllowed, "", "")
 		return
@@ -192,6 +198,8 @@ func (gw *gateway) getBlockIDByHash(w http.ResponseWriter, r *http.Request) {
 		hash := r.URL.Query().Get("blockHash")
 		if err := isValid(hash); err != nil {
 			if errors.Is(err, errInvalidHex) {
+				// TODO: Test this path.
+				// notest
 				msg := fmt.Sprintf(
 					"Block hash should be a hexadecimal string starting with 0x, or "+
 						"'null'; got: %s.", hash)
