@@ -21,10 +21,3 @@ yarn-error.log*
 node_modules
 
 .env
-
-.yarn/*
-!.yarn/releases
-!.yarn/patches
-!.yarn/plugins
-!.yarn/sdks
-!.yarn/versions
