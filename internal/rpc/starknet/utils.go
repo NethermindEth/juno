@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	feltRegexp = regexp.MustCompile(`^0x[a-fA-F0-9]{1,63}$`)
+	feltRegexp = regexp.MustCompile(`^0x0[a-fA-F0-9]{1,63}$`)
 	blockTags  = map[string]any{
 		"latest":  nil,
 		"pending": nil,
