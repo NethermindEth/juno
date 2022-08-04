@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - run: make compile
+      - run: make all
 
       - name: Install gofumpt
         run: make install-gofumpt
