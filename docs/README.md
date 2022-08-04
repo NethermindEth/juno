@@ -5,18 +5,23 @@ This website template is also copied from [Flashbots Docs](https://github.com/fl
 
 ## Prerequisites
 
-Before working on the documentation, follow the links below to install the developer dependencies.
+To ensure you're using the correct node version, install the node version manager `nvm` by following the instructions [here](https://github.com/nvm-sh/nvm#install--update-script).
 
-* [yarn](https://yarnpkg.com/getting-started/install)
-* [nvm](https://github.com/nvm-sh/nvm#install--update-script)
-
-Once you have installed the above, ensure you're using the proper node version:
+Then go to Juno's `docs` directory and run the command below:
 
 ```shell
 nvm use
 ```
 
-Then, install the project dependencies:
+This will inspect the `docs/.nvmrc` file and switch to the correct node version (and install it if necessary).
+
+Now install [yarn](https://yarnpkg.com/getting-started/install):
+
+```shell
+corepack enable
+```
+
+...and the project dependencies:
 
 ```shell
 yarn install
