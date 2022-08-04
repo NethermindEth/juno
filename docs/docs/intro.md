@@ -37,7 +37,7 @@ $ go get ./...
 Compile Juno:
 
 ```bash
-$ make compile
+$ make all
 ```
 
 After compilation, you will have two executables inside the `build` folder:
