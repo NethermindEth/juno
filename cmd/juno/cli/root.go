@@ -1,6 +1,5 @@
 package cli
 
-// notest
 import (
 	_ "embed"
 	"fmt"
@@ -11,20 +10,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/pkg/jsonrpc"
+
+	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/config"
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/internal/db/abi"
 	"github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/db/contracthash"
 	"github.com/NethermindEth/juno/internal/db/state"
+	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
+	"github.com/NethermindEth/juno/internal/rpc"
+	"github.com/NethermindEth/juno/internal/rpc/starknet"
+	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
-	"github.com/NethermindEth/juno/pkg/rpc"
-	"github.com/NethermindEth/juno/pkg/starknet"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/torquem-ch/mdbx-go/mdbx"
@@ -33,6 +34,8 @@ import (
 const (
 	mdbxOptMaxDb uint64 = 100
 	mdbxFlags    uint   = 0
+	minPort      int    = 1_024
+	maxPort      int    = 49_151
 )
 
 // Cobra configuration.
@@ -50,22 +53,22 @@ var (
 var (
 	mdbxEnv *mdbx.Env
 
-	rpcServer     *rpc.Server
+	rpcServer     *rpc.HttpRpc
 	metricsServer *metric.Server
 	restServer    *rest.Server
 
 	feederGatewayClient *feeder.Client
 
-	stateSynchronizer *starknet.Synchronizer
+	synchronizer   *syncService.Synchronizer
+	virtualMachine *cairovm.VirtualMachine
 
-	contractHashManager *contracthash.Manager
-	abiManager          *abi.Manager
-	stateManager        *state.Manager
-	transactionManager  *transaction.Manager
-	blockManager        *block.Manager
+	stateManager       *state.Manager
+	transactionManager *transaction.Manager
+	blockManager       *block.Manager
+	syncManager        *sync.Manager
 )
 
-var shutdownTimeout = 5 * time.Second
+const shutdownTimeout = 5 * time.Second
 
 // rootCmd is the root command of the application.
 var rootCmd = &cobra.Command{
@@ -106,54 +109,97 @@ func juno(_ *cobra.Command, _ []string) {
 	setupInterruptHandler()
 	setupDatabaseManagers()
 	setupFeederGateway()
+	setupSynchronizer()
+	setupVirtualMachine()
 	setupServers()
-	setupStateSynchronizer()
 
-	errChs := []chan error{make(chan error), make(chan error), make(chan error)}
-	rpcServer.ListenAndServe(errChs[0])
-	metricsServer.ListenAndServe(errChs[1])
-	restServer.ListenAndServe(errChs[2])
+	const numOfErrCh = 3
+	errChs := make([]chan error, numOfErrCh)
+	for i := 0; i < numOfErrCh; i++ {
+		errChs[i] = make(chan error)
+	}
 
-	if err := stateSynchronizer.UpdateState(); err != nil {
-		Logger.Fatal("Failed to start State Synchronizer: ", err.Error())
+	if config.Runtime.RPC.Enabled {
+		rpcServer.ListenAndServe(errChs[0])
+	}
+	if config.Runtime.Metrics.Enabled {
+		metricsServer.ListenAndServe(errChs[1])
+	}
+	if config.Runtime.REST.Enabled {
+		restServer.ListenAndServe(errChs[2])
+	}
+	if config.Runtime.Starknet.Enabled {
+		synchronizer.Run()
 	}
 
 	checkErrChs(errChs)
 }
 
-func setupStateSynchronizer() {
-	if config.Runtime.Starknet.Enabled {
-		var ethereumClient *ethclient.Client
-		if !config.Runtime.Starknet.ApiSync {
-			var err error
-			ethereumClient, err = ethclient.Dial(config.Runtime.Ethereum.Node)
-			if err != nil {
-				Logger.With("Error", err).Fatal("Unable to connect to Ethereum Client")
-			}
-		}
-		// Synchronizer for Starknet State
-		synchronizerDb, err := db.NewMDBXDatabase(mdbxEnv, "SYNCHRONIZER")
-		if err != nil {
-			Logger.With("Error", err).Fatal("Error starting the SYNCHRONIZER database")
-		}
-		stateSynchronizer = starknet.NewSynchronizer(synchronizerDb, ethereumClient, feederGatewayClient,
-			contractHashManager, abiManager, stateManager, transactionManager, blockManager)
-	}
+func setupVirtualMachine() {
+	virtualMachine = cairovm.New(stateManager)
+}
+
+func setupSynchronizer() {
+	synchronizer = syncService.NewSynchronizer(feederGatewayClient, syncManager, stateManager, blockManager,
+		transactionManager)
 }
 
 func setupServers() {
+	var err error
 	if config.Runtime.RPC.Enabled {
-		rpcServer = rpc.NewServer(":"+strconv.Itoa(config.Runtime.RPC.Port), feederGatewayClient, abiManager,
-			stateManager, transactionManager, blockManager)
+		checkPort("JSON-RPC", config.Runtime.RPC.Port)
+		starknetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine)
+		jsonRpc := jsonrpc.NewJsonRpc()
+		handlers := []struct {
+			name       string
+			function   any
+			paramNames []string
+		}{
+			{"starknet_getBlockWithTxHashes", starknetApi.GetBlockWithTxHashes, []string{"block_id"}},
+			{"starknet_getBlockWithTxs", starknetApi.GetBlockWithTxs, []string{"block_id"}},
+			{"starknet_getStateUpdate", starknetApi.GetStateUpdate, []string{"block_id"}},
+			{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"block_id", "address", "key"}},
+			{"starknet_getTransactionByHash", starknetApi.GetTransactionByHash, []string{"transaction_hash"}},
+			{"starknet_getTransactionByBlockIdAndIndex", starknetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
+			{"starknet_getTransactionReceipt", starknetApi.GetTransactionReceipt, []string{"transaction_hash"}},
+			{"starknet_getClass", starknetApi.GetClass, []string{"class_hash"}},
+			{"starknet_getClassHashAt", starknetApi.GetClassHashAt, []string{"block_id", "address"}},
+			{"starknet_getBlockTransactionCount", starknetApi.GetBlockTransactionCount, []string{"block_id"}},
+			{"starknet_call", starknetApi.Call, []string{"block_id", "request"}},
+			{"starknet_estimateFee", starknetApi.EstimateFee, []string{"block_id", "request"}},
+			{"starknet_blockNumber", starknetApi.BlockNumber, nil},
+			{"starknet_blockHashAndNumber", starknetApi.BlockHashAndNumber, nil},
+			{"starknet_chainId", starknetApi.ChainId, nil},
+			{"starkent_pendingTrnasactions", starknetApi.PendingTransactions, nil},
+			{"starknet_protocolVersion", starknetApi.ProtocolVersion, nil},
+			{"starknet_syncing", starknetApi.Syncing, nil},
+		}
+		for _, handler := range handlers {
+			if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
+				Logger.With("Error", err).Error("Failed to register RPC handler.")
+			}
+		}
+		rpcServer, err = rpc.NewHttpRpc(":"+strconv.Itoa(config.Runtime.RPC.Port), "/rpc", jsonRpc)
+		if err != nil {
+			Logger.Fatal("Failed to initialise RPC Server", err)
+		}
 	}
 
 	if config.Runtime.Metrics.Enabled {
+		checkPort("Metrics", config.Runtime.Metrics.Port)
 		metricsServer = metric.SetupMetric(":" + strconv.Itoa(config.Runtime.Metrics.Port))
 	}
 
 	if config.Runtime.REST.Enabled {
+		checkPort("API", config.Runtime.REST.Port)
 		restServer = rest.NewServer(":"+strconv.Itoa(config.Runtime.REST.Port),
 			config.Runtime.Starknet.FeederGateway, config.Runtime.REST.Prefix)
+	}
+}
+
+func checkPort(server string, port int) {
+	if port < minPort || port > maxPort {
+		Logger.Fatalf("%s port must be between %d and %d", server, minPort, maxPort)
 	}
 }
 
@@ -176,20 +222,16 @@ func setupDatabaseManagers() {
 		}
 	}
 
-	dbName = "CONTRACT_HASH"
-	contractHashDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
+	dbName = "SYNC"
+	syncDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	dbName = "ABI"
-	abiDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
+	dbName = "CONTRACT_DEF"
+	contractDefDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	dbName = "CODE"
-	codeDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
-	logDBErr(dbName, err)
-
-	dbName = "STORAGE"
-	storageDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
+	dbName = "STATE"
+	stateDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
 	dbName = "TRANSACTION"
@@ -204,9 +246,8 @@ func setupDatabaseManagers() {
 	blockDb, err := db.NewMDBXDatabase(mdbxEnv, dbName)
 	logDBErr(dbName, err)
 
-	contractHashManager = contracthash.NewManager(contractHashDb)
-	abiManager = abi.NewManager(abiDb)
-	stateManager = state.NewManager(codeDb, db.NewBlockSpecificDatabase(storageDb))
+	syncManager = sync.NewManager(syncDb)
+	stateManager = state.NewManager(stateDb, contractDefDb)
 	transactionManager = transaction.NewManager(txDb, receiptDb)
 	blockManager = block.NewManager(blockDb)
 }
@@ -224,12 +265,12 @@ func setupInterruptHandler() {
 }
 
 func shutdown() {
-	contractHashManager.Close()
-	abiManager.Close()
 	stateManager.Close()
 	transactionManager.Close()
 	blockManager.Close()
-	stateSynchronizer.Close()
+	stateManager.Close()
+	syncManager.Close()
+	synchronizer.Close()
 
 	if err := rpcServer.Close(shutdownTimeout); err != nil {
 		Logger.Fatal("Failed to shutdown RPC server gracefully: ", err.Error())

@@ -6,6 +6,31 @@ message Code {
   repeated bytes code = 1;
 }
 
-message Storage {
-  map<string, string> storage = 1;
+message CodeDefinition {
+  string definition = 1;
 }
+
+message ContractState {
+    bytes contractHash = 1;
+    bytes storageRoot = 2;
+}
+
+message TrieNode {
+    oneof node {
+        BinaryNode binary_node = 1;
+        EdgeNode edge_node = 2;
+    }
+}
+
+message BinaryNode {
+    bytes leftH = 1;
+    bytes rightH = 2;
+}
+
+
+message EdgeNode {
+    uint32 length = 1;
+    bytes path = 2;
+    bytes bottom = 3;
+}
+

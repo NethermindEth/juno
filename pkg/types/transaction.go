@@ -10,6 +10,7 @@ type IsTransaction interface {
 
 type TransactionDeploy struct {
 	Hash                *felt.Felt
+	ClassHash           *felt.Felt
 	ContractAddress     *felt.Felt
 	ConstructorCallData []*felt.Felt
 }
@@ -31,10 +32,24 @@ func (tx *TransactionInvoke) GetHash() *felt.Felt {
 	return tx.Hash
 }
 
-type TransactionStatus int64
+type TransactionDeclare struct {
+	Hash          *felt.Felt
+	ClassHash     *felt.Felt
+	SenderAddress *felt.Felt
+	MaxFee        *felt.Felt
+	Signature     []*felt.Felt
+	Nonce         *felt.Felt
+	Version       *felt.Felt
+}
+
+func (tx *TransactionDeclare) GetHash() *felt.Felt {
+	return tx.Hash
+}
+
+type TxnStatus int64
 
 const (
-	TxStatusUnknown TransactionStatus = iota
+	TxStatusUnknown TxnStatus = iota
 	TxStatusNotReceived
 	TxStatusReceived
 	TxStatusPending
@@ -44,7 +59,7 @@ const (
 )
 
 var (
-	TxStatusName = map[TransactionStatus]string{
+	TxStatusName = map[TxnStatus]string{
 		TxStatusUnknown:      "UNKNOWN",
 		TxStatusNotReceived:  "NOT_RECEIVED",
 		TxStatusReceived:     "RECEIVED",
@@ -53,7 +68,7 @@ var (
 		TxStatusAcceptedOnL2: "ACCEPTED_ON_L2",
 		TxStatusAcceptedOnL1: "ACCEPTED_ON_L1",
 	}
-	TxStatusValue = map[string]TransactionStatus{
+	TxStatusValue = map[string]TxnStatus{
 		"UNKNOWN":        TxStatusUnknown,
 		"NOT_RECEIVED":   TxStatusNotReceived,
 		"RECEIVED":       TxStatusReceived,
@@ -64,22 +79,38 @@ var (
 	}
 )
 
-func (s TransactionStatus) String() string {
+func (s TxnStatus) String() string {
 	// notest
 	return TxStatusName[s]
 }
 
-type TransactionReceipt struct {
-	TxHash          *felt.Felt
-	ActualFee       *felt.Felt
-	Status          TransactionStatus
-	StatusData      string
-	MessagesSent    []MessageL2ToL1
-	L1OriginMessage *MessageL1ToL2
-	Events          []Event
+type TxnReceipt interface {
+	isReceipt()
 }
 
-type TransactionWithReceipt struct {
-	IsTransaction
-	TransactionReceipt
+type TxnReceiptCommon struct {
+	TxnHash     *felt.Felt
+	ActualFee   *felt.Felt
+	Status      TxnStatus
+	StatusData  string
+	BlockHash   *felt.Felt
+	BlockNumber uint64
+}
+
+// notest
+func (*TxnReceiptCommon) isReceipt() {}
+
+type TxnInvokeReceipt struct {
+	TxnReceiptCommon
+	MessagesSent    []*MsgToL1
+	L1OriginMessage *MsgToL2
+	Events          []*Event
+}
+
+type TxnDeclareReceipt struct {
+	TxnReceiptCommon
+}
+
+type TxnDeployReceipt struct {
+	TxnReceiptCommon
 }

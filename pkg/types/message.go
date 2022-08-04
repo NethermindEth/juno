@@ -4,12 +4,14 @@ import (
 	"github.com/NethermindEth/juno/pkg/felt"
 )
 
-type MessageL2ToL1 struct {
-	ToAddress EthAddress
-	Payload   []*felt.Felt
+type MsgToL1 struct {
+	FromAddress *felt.Felt
+	ToAddress   EthAddress
+	Payload     []*felt.Felt
 }
 
-type MessageL1ToL2 struct {
+type MsgToL2 struct {
 	FromAddress EthAddress
+	ToAddress   *felt.Felt
 	Payload     []*felt.Felt
 }
