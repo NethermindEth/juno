@@ -60,7 +60,8 @@ type Juno struct {
 }
 
 // UserDataDir finds the user's default data directory, returning the
-// empty string and error otherwise.
+// empty string and an error otherwise.
+//
 // It is analagous to os.UserConfigDir.
 func UserDataDir() (string, error) {
 	// notest

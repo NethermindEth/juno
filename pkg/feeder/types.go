@@ -3,30 +3,6 @@ package feeder
 // notest
 import (
 	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
-	"github.com/NethermindEth/juno/pkg/feeder/types"
-)
-
-type (
-	// TxnType represents the type of each transaction.
-	TxnType int
-	// ChainID represent the chain identifier.
-	ChainID string
-	// XXX: Document.
-	// TODO: replace with real hash representation.
-	Hash string
-)
-
-// Represent the types of transactions
-const (
-	Deploy TxnType = iota
-	InitializeBlockInfo
-	Invoke
-)
-
-// Represent the identifiers of the
-const (
-	Mainnet ChainID = "MAINNET"
-	Testnet ChainID = "Goerli"
 )
 
 // ContractAddresses represent the response for Starknet contract
@@ -38,10 +14,10 @@ type ContractAddresses struct {
 
 // StarknetGeneralConfig represent StarkNet general configuration.
 type StarknetGeneralConfig struct {
-	ChainID                             ChainID `json:"chain_id"`
-	ContractStorageCommitmentTreeHeight int64   `json:"contract_storage_commitment_tree_height"`
-	GlobalStateCommitmentTreeHeight     int64   `json:"global_state_commitment_tree_height"`
-	InvokeTxMaxNSteps                   int64   `json:"invoke_tx_max_n_steps"`
+	ChainID                             string `json:"chain_id"`
+	ContractStorageCommitmentTreeHeight int64  `json:"contract_storage_commitment_tree_height"`
+	GlobalStateCommitmentTreeHeight     int64  `json:"global_state_commitment_tree_height"`
+	InvokeTxMaxNSteps                   int64  `json:"invoke_tx_max_n_steps"`
 	// StarkNet sequencer address.
 	SequencerAddress int64 `json:"sequencer_address"`
 	// Height of Patricia tree of the transaction commitment in a block.
@@ -51,12 +27,6 @@ type StarknetGeneralConfig struct {
 	// A mapping from a Cairo usage resource to its coefficient in this
 	// transaction fee calculation.
 	CairoUsageResourceFeeWeights map[string]float64 `json:"cairo_usage_resource_fee_weights"`
-}
-
-// Transaction StarkNet transaction base interface
-type Transaction interface {
-	TransactionType() TxnType
-	CalculateHash(config StarknetGeneralConfig) Hash
 }
 
 // InvokeFunction represents a transaction in the StarkNet network that
@@ -78,30 +48,22 @@ type InvokeFunction struct {
 	ExecutionResources `json:"execution_resources"`
 	// The transaction is not valid if its version is lower than the current version,
 	// defined by the SN OS.
-	Version        int      `json:"version"`
-	Signature      []int    `json:"signature"`
-	InternallCalls []string `json:"internall_calls"`
-	Events         []Event  `json:"events"`
-	Messages       []string `json:"messages"`
+	Version       int      `json:"version"`
+	Signature     []int    `json:"signature"`
+	InternalCalls []string `json:"internal_calls"`
+	Events        []Event  `json:"events"`
+	Messages      []string `json:"messages"`
 	// The maximal fee to be paid in Wei for executing invoked function.
 	MaxFee string `json:"max_fee"`
-}
-
-// TransactionType returns the TxnType related to InvokeFunction
-func (i InvokeFunction) TransactionType() TxnType {
-	return Invoke
-}
-
-// XXX: Document.
-// CalculateHash returns the hash of the tra
-func (i InvokeFunction) CalculateHash(config StarknetGeneralConfig) Hash {
-	// TODO: implement this
-	return Hash(config.ChainID)
 }
 
 // TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
 	ContractAddress    string   `json:"contract_address"`
+	ClassHash          string   `json:"class_hash"`
+	Nonce              string   `json:"nonce"`
+	SenderAddress      string   `json:"sender_address"`
+	Version            string   `json:"version"`
 	EntryPointSelector string   `json:"entry_point_selector"`
 	EntryPointType     string   `json:"entry_point_type"`
 	Calldata           []string `json:"calldata"`
@@ -153,11 +115,11 @@ type TransactionExecution struct {
 	// L2-to-L1 messages.
 	L2ToL1Messages []L2ToL1Message `json:"l2_to_l1_messages"`
 	// L1-to-L2 messages.
-	L1ToL2Message `json:"l1_to_l2_consumed_message"`
+	L1ToL2Message L1ToL2Message `json:"l1_to_l2_consumed_message"`
 	// Events emitted during the execution of the transaction.
 	Events []Event `json:"events"`
 	// The resources needed by the transaction.
-	ExecutionResources `json:"execution_resources"`
+	ExecutionResources ExecutionResources `json:"execution_resources"`
 	// Fee paid for executing the transaction.
 	ActualFee string `json:"actual_fee"`
 }
@@ -166,7 +128,7 @@ type TransactionExecution struct {
 type StarknetBlock struct {
 	BlockHash           string                 `json:"block_hash"`
 	ParentBlockHash     string                 `json:"parent_block_hash"`
-	BlockNumber         types.BlockNumber      `json:"block_number"`
+	BlockNumber         BlockNumber            `json:"block_number"`
 	GasPrice            string                 `json:"gas_price"`
 	SequencerAddress    string                 `json:"sequencer_address"`
 	StateRoot           string                 `json:"state_root"`
@@ -177,10 +139,10 @@ type StarknetBlock struct {
 	TransactionReceipts []TransactionExecution `json:"transaction_receipts"`
 }
 
-// struct to store Storage info
+// StorageInfo struct to store Storage info
 type StorageInfo string
 
-// struct for code type
+// CodeInfo struct for code type
 type CodeInfo struct {
 	Bytecode []string   `json:"bytecode"`
 	Abi      feeder.Abi `json:"abi"`
@@ -193,11 +155,9 @@ type TransactionFailureReason struct {
 	ErrorMsg string `json:"message,omitempty"`
 }
 
-// type TxnStatus string
-
 // TransactionInfo store all the transaction Information
 type TransactionInfo struct {
-	// // Block information that Transaction occured in
+	// // Block information that Transaction occurred in
 	TransactionInBlockInfo // fix: Was not fetching values correctly prior
 	// Transaction Specific Information
 	Transaction TxnSpecificInfo `json:"transaction"`
@@ -231,6 +191,7 @@ type TransactionStatus struct {
 type TransactionReceipt struct {
 	TransactionInBlockInfo
 	TransactionExecution
+	Transaction TxnSpecificInfo `json:"transaction"`
 }
 
 type TransactionTrace struct {
@@ -242,23 +203,6 @@ type TransactionTrace struct {
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
-}
-
-type StateDiffGoerli struct {
-	DeployedContracts []struct {
-		Address      string `json:"address"`
-		ContractHash string `json:"class_hash"`
-	} `json:"deployed_contracts"`
-	StorageDiffs map[string][]KV `json:"storage_diffs"`
-}
-
-// StateUpdateResponseGoerli represents the response of a StarkNet state
-// update.
-type StateUpdateResponseGoerli struct {
-	BlockHash string          `json:"block_hash"`
-	NewRoot   string          `json:"new_root"`
-	OldRoot   string          `json:"old_root"`
-	StateDiff StateDiffGoerli `json:"state_diff"`
 }
 
 type DeployedContract struct {

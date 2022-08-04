@@ -1,15 +1,15 @@
 export CC = clang
-.DEFAULT_GOAL 	:= help
+.DEFAULT_GOAL := help
 
-compile: ## compile
+juno: ## compile
 	@mkdir -p build
-	@go build -o build/juno-cli cmd/juno-cli/main.go
 	@go build -o build/juno cmd/juno/*.go
 
-run: ## run
-	@./build/juno
+juno-cli:
+	@mkdir -p build
+	@go build -o build/juno-cli cmd/juno-cli/main.go
 
-all: compile run ## build and run
+all: juno juno-cli
 
 generate: ## generate
 	@cd internal/db && $(MAKE) generate
@@ -41,7 +41,9 @@ install-gofumpt:
 codecov-test:
 	mkdir -p coverage
 	@cd internal/db && $(MAKE) add-notest
+	@find ./internal/cairovm/vmrpc/ -name '*.pb.go' -exec sh -c "awk '/func/ { print \"// notest\"; }; 1;' {} > tmp_file && mv tmp_file {}" \;
 	courtney/courtney -v -o coverage/coverage.out ./...
+	@find ./internal/cairovm/vmrpc/ -name '*.pb.go' -exec sh -c "awk '!/\/\/ notest/' {} > tmp_file && mv tmp_file {}" \;
 	@cd internal/db && $(MAKE) rm-notest
 
 tidy: ## add missing and remove unused modules
