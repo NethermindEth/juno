@@ -12,6 +12,12 @@ import (
 
 var curve = Stark()
 
+// isInfinity returns true if the x and y coordinates of a point
+// represent the point at infinity.
+func isInfinity(x, y *big.Int) bool {
+	return x.Sign() == 0 && y.Sign() == 0
+}
+
 // BenchmarkMarshalUnmarshalCompressed runs benchmarks on marshalling
 // and un-marshalling compressed points.
 func BenchmarkMarshalUnmarshalCompressed(b *testing.B) {
@@ -91,42 +97,59 @@ func TestOffCurve(t *testing.T) {
 // TestInfinity checks whether the methods on a curve return valid
 // values when some input value is ∞.
 func TestInfinity(t *testing.T) {
-	_, x, y, _ := GenerateKey(curve, rand.Reader)
-	x, y = curve.ScalarMult(x, y, curve.Params().N.Bytes())
-	if x.Sign() != 0 || y.Sign() != 0 {
-		t.Error("x^q != ∞")
+	x0, y0 := new(big.Int), new(big.Int)
+	xG, yG := curve.Params().Gx, curve.Params().Gy
+
+	if !isInfinity(curve.ScalarMult(xG, yG, curve.Params().N.Bytes())) {
+		t.Errorf("x^q != ∞")
 	}
 
-	x, y = curve.ScalarBaseMult([]byte{0})
-	if x.Sign() != 0 || y.Sign() != 0 {
-		t.Error("b^0 != ∞")
-		x.SetInt64(0)
-		y.SetInt64(0)
+	if !isInfinity(curve.ScalarMult(xG, yG, []byte{0})) {
+		t.Errorf("x^0 != ∞")
 	}
 
-	x2, y2 := curve.Double(x, y)
-	if x2.Sign() != 0 || y2.Sign() != 0 {
-		t.Error("2∞ != ∞")
+	if !isInfinity(curve.ScalarMult(x0, y0, []byte{1, 2, 3})) {
+		t.Errorf("∞^k != ∞")
 	}
 
-	baseX := curve.Params().Gx
-	baseY := curve.Params().Gy
+	if !isInfinity(curve.ScalarMult(x0, y0, []byte{0})) {
+		t.Errorf("∞^0 != ∞")
+	}
 
-	x3, y3 := curve.Add(baseX, baseY, x, y)
-	if x3.Cmp(baseX) != 0 || y3.Cmp(baseY) != 0 {
+	if !isInfinity(curve.ScalarBaseMult(curve.Params().N.Bytes())) {
+		t.Errorf("b^q != ∞")
+	}
+
+	if !isInfinity(curve.ScalarBaseMult([]byte{0})) {
+		t.Errorf("b^0 != ∞")
+	}
+
+	if !isInfinity(curve.Double(x0, y0)) {
+		t.Errorf("2∞ != ∞")
+	}
+
+	nMinusOne := new(big.Int).Sub(curve.Params().N, big.NewInt(1))
+	x, y := curve.ScalarMult(xG, yG, nMinusOne.Bytes())
+	x, y = curve.Add(x, y, xG, yG)
+	if !isInfinity(x, y) {
+		t.Errorf("x^(q-1) + x != ∞")
+	}
+	
+	x, y = curve.Add(xG, yG, x0, y0)
+	if x.Cmp(xG) != 0 || y.Cmp(yG) != 0 {
 		t.Error("x+∞ != x")
 	}
 
-	x4, y4 := curve.Add(x, y, baseX, baseY)
-	if x4.Cmp(baseX) != 0 || y4.Cmp(baseY) != 0 {
+	x, y = curve.Add(x0, y0, xG, yG)
+	if x.Cmp(xG) != 0 || y.Cmp(yG) != 0 {
 		t.Error("∞+x != x")
 	}
 
-	if curve.IsOnCurve(x, y) {
+	if curve.IsOnCurve(x0, y0) {
 		t.Error("IsOnCurve(∞) == true")
 	}
 
-	xx, yy := Unmarshal(curve, Marshal(curve, x, y))
+	xx, yy := Unmarshal(curve, Marshal(curve, x0, y0))
 	if xx != nil || yy != nil {
 		t.Error("Unmarshal(Marshal(∞)) did not return an error")
 	}
@@ -136,6 +159,12 @@ func TestInfinity(t *testing.T) {
 	xx, yy = Unmarshal(curve, []byte{0x00})
 	if xx != nil || yy != nil {
 		t.Error("Unmarshal(∞) did not return an error")
+	}
+	byteLen := (curve.Params().BitSize + 7) / 8
+	buf := make([]byte, byteLen*2+1)
+	buf[0] = 4 // Uncompressed format.
+	if xx, yy := Unmarshal(curve, buf); xx != nil || yy != nil {
+		t.Errorf("Unmarshal((0,0)) did not return an error")
 	}
 }
 
