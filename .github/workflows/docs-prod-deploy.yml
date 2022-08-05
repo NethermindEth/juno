@@ -17,7 +17,7 @@ jobs:
       - name: Test Build
         run: |
           cd docs
-          corepack enable
+          corepack enable yarn
           yarn install --immutable
           yarn build
   gh-release:
@@ -47,6 +47,6 @@ jobs:
           git config --global user.name "gh-actions"
           cd docs
           cp .env.template .env 
-          corepack enable
+          corepack enable yarn
           yarn install --immutable
           yarn deploy
