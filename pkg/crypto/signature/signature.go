@@ -162,9 +162,9 @@ func GenerateKey(c weierstrass.Curve, rand io.Reader) (*PrivateKey, error) {
 	}
 
 	pvt := new(PrivateKey)
-	pvt.PublicKey.Curve = c
+	pvt.Curve = c
 	pvt.D = k
-	pvt.PublicKey.X, pvt.PublicKey.Y = c.ScalarBaseMult(k.Bytes())
+	pvt.X, pvt.Y = c.ScalarBaseMult(k.Bytes())
 	return pvt, nil
 }
 
@@ -247,13 +247,13 @@ func Sign(
 
 	// Create a CSPRNG that xors a stream of zeros with the output of the
 	// AES-CTR instance.
-	csprng := cipher.StreamReader{
+	csprng := &cipher.StreamReader{
 		R: zeroReader,
 		S: cipher.NewCTR(block, []byte(aesIV)),
 	}
 
 	c := pvt.PublicKey.Curve
-	return sign(pvt, &csprng, c, hash)
+	return sign(pvt, csprng, c, hash)
 }
 
 func sign(
@@ -393,14 +393,15 @@ func VerifyASN1(pub *PublicKey, hash, sig []byte) bool {
 	return Verify(pub, hash, r, s)
 }
 
-type zr struct{ io.Reader }
+type zr struct{}
 
-// Read replaces the contents of dst with zeros.
-func (z *zr) Read(dst []byte) (n int, err error) {
+// Read replaces the contents of dst with zeros. It is safe for
+// concurrent use.
+func (z zr) Read(dst []byte) (n int, err error) {
 	for i := range dst {
 		dst[i] = 0
 	}
 	return len(dst), nil
 }
 
-var zeroReader = &zr{}
+var zeroReader = zr{}
