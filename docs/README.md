@@ -13,12 +13,12 @@ Then go to Juno's `docs` directory and run the command below:
 nvm use
 ```
 
-This will inspect the `docs/.nvmrc` file and switch to the correct node version (and install it if necessary).
+This will inspect the `docs/.nvmrc` file and switch to the correct node version (you may need to install it with `nvm install <version>`).
 
 Now install [yarn](https://yarnpkg.com/getting-started/install):
 
 ```shell
-corepack enable
+corepack enable yarn
 ```
 
 ...and the project dependencies:
