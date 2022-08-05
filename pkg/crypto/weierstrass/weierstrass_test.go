@@ -212,9 +212,9 @@ func TestUnmarshalToLargeCoordinates(t *testing.T) {
 	}
 }
 
-// TestInvalidCoordinates tests big.Int values that are not valid field
-// elements (negative or bigger than P). They are expected to return
-// false from IsOnCurve, all other behaviour is undefined.
+// TestInvalidCoordinates tests [big.Int] values that are not valid
+// field elements i.e. negative or larger than P. They are expected to
+// return false from IsOnCurve, all other behaviour is undefined.
 func TestInvalidCoordinates(t *testing.T) {
 	curve := Stark()
 	checkIsOnCurveFalse := func(name string, x, y *big.Int) {
@@ -266,7 +266,7 @@ func TestInvalidCoordinates(t *testing.T) {
 }
 
 // TestMarshallCompressed checks whether points can be compressed and
-// deserialised successfully.
+// deserialised.
 func TestMarshallCompressed(t *testing.T) {
 	curve := Stark()
 	_, x, y, err := GenerateKey(curve, rand.Reader)

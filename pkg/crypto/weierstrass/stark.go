@@ -2,8 +2,9 @@ package weierstrass
 
 import "math/big"
 
-// Stark returns a Curve which implements the STARK curve as described
-// in https://docs.starkware.co/starkex-v4/crypto/stark-curve.
+// Stark returns a Curve which represents the [STARK elliptic curve].
+//
+// [STARK elliptic curve]: https://docs.starknet.io/docs/Hashing/hash-functions#stark-curve
 func Stark() Curve {
 	stark := CurveParams{Name: "STARK", BitSize: 252, A: big.NewInt(1)}
 	stark.B, _ = new(big.Int).SetString("6f21413efbe40de150e596d72f7a8c5609ad26c15c915c1f4cdfcb99cee9e89", 16)

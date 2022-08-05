@@ -10,7 +10,9 @@
 // a uniform interface for a broader set of curves than just standard
 // NIST curves with a = -3.
 //
-// It is based on the following https://github.com/golang/go/pull/26873.
+// It is based on the following [pull request].
+//
+// - [pull request]: https://github.com/golang/go/pull/26873
 package weierstrass
 
 import (
@@ -20,13 +22,13 @@ import (
 
 // Curve represents a short-form Weierstrass curve.
 //
-// The behaviour of Add, Double, and ScalarMult when the input is not a
-// point on the curve is undefined.
+// The behaviour of [Add], [Double], and [ScalarMult] when the input is
+// not a point on the curve is undefined.
 //
 // Note that the conventional point at infinity (0, 0) is not considered
-// on the curve, although it can be returned by Add, Double, ScalarMult,
-// or ScalarBaseMult (but not the Unmarshal or UnmarshalCompressed
-// functions).
+// on the curve, although it can be returned by [Add], [Double],
+// [ScalarMult], or [ScalarBaseMult] (but not the [Unmarshal] or
+// [UnmarshalCompressed] functions).
 type Curve interface {
 	// Params returns the parameters for the curve.
 	Params() *CurveParams
@@ -57,13 +59,13 @@ type CurveParams struct {
 
 // Params returns the CurveParams of the curve.
 //
-// CurveParams operates, internally, on Jacobian coordinates. For a
+// [CurveParams] operates, internally, on Jacobian coordinates. For a
 // given (x, y) position on the curve, the Jacobian coordinates are
-// (x1, y1, z1) where x = x1/z1² and y = y1/z1³. The greatest speedups
+// (x1, y1, z1) where x = x1/z1² and y = y1/z1³. The greatest speed-ups
 // come when the whole calculation can be performed within the transform
-// (as in ScalarMult and ScalarBaseMult). But even for Add and Double,
-// it's faster to apply and reverse the transform than to operate in
-// affine coordinates.
+// (as in [ScalarMult] and [ScalarBaseMult]). But even for [Add] and
+// [Double], it's faster to apply and reverse the transform than to
+// operate in affine coordinates.
 func (curve *CurveParams) Params() *CurveParams { return curve }
 
 // short returns the short Weierstrass form of a curve,
@@ -443,8 +445,8 @@ func Unmarshal(curve Curve, data []byte) (x, y *big.Int) {
 }
 
 // UnmarshalCompressed converts a point, serialized by
-// MarshalCompressed, into an x, y pair. It is an error if the point is
-// not in compressed form, is not on the curve, or is the point at
+// [MarshalCompressed], into an x, y pair. It is an error if the point
+// is not in compressed form, is not on the curve, or is the point at
 // infinity. On error, x = nil.
 func UnmarshalCompressed(curve Curve, data []byte) (x, y *big.Int) {
 	byteLen := (curve.Params().BitSize + 7) / 8
