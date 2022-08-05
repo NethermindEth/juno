@@ -40,12 +40,12 @@ type Database struct {
 	Path string `yaml:"path" mapstructure:"path"`
 }
 
-// Starknet represents the juno StarkNet configuration.
-type Starknet struct {
+// Sync represents the juno StarkNet configuration.
+type Sync struct {
 	Enable    bool   `yaml:"enable" mapstructure:"enable"`
 	Sequencer string `yaml:"sequencer" mapstructure:"sequencer"`
 	Network   string `yaml:"network" mapstructure:"network"`
-	ApiSync   bool   `yaml:"apisync" mapstructure:"apisync"`
+	Trusted   bool   `yaml:"trusted" mapstructure:"trusted"`
 	EthNode   string `yaml:"ethnode" mapstructure:"ethnode"`
 }
 
@@ -56,7 +56,7 @@ type Juno struct {
 	Metrics  Metrics  `yaml:"metrics" mapstructure:"metrics"`
 	Rest     Rest     `yaml:"rest" mapstructure:"rest"`
 	Database Database `yaml:"database" mapstructure:"database"`
-	Starknet Starknet `yaml:"starknet" mapstructure:"starknet"`
+	Sync     Sync     `yaml:"sync" mapstructure:"sync"`
 }
 
 // UserDataDir finds the user's default data directory, returning the

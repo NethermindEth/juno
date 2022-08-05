@@ -118,11 +118,11 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
 
 	// StarkNet
-	rootCmd.PersistentFlags().BoolVar(&cfg.Starknet.Enable, "starknet-enable", false, "if set, the node will synchronize with the StarkNet chain.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Starknet.Sequencer, "starknet-sequencer", "https://alpha-mainnet.starknet.io", "the sequencer endpoint. Useful for those wishing to cache feeder gateway responses in a proxy.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Starknet.Network, "starknet-network", "mainnet", "the StarkNet network with which to sync. Options: mainnet, goerli")
-	rootCmd.PersistentFlags().BoolVar(&cfg.Starknet.ApiSync, "starknet-apisync", false, "sync with the feeder gateway, not against L1. Only set if an Ethereum node is not available. The node provides no guarantees about the integrity of the state when syncing with the feeder gateway.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Starknet.EthNode, "starknet-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way.")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "starknet-enable", false, "if set, the node will synchronize with the StarkNet chain.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Sequencer, "starknet-sequencer", "https://alpha-mainnet.starknet.io", "the sequencer endpoint. Useful for those wishing to cache feeder gateway responses in a proxy.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Network, "starknet-network", "mainnet", "the StarkNet network with which to sync. Options: mainnet, goerli")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Trusted, "starknet-trusted", false, "sync with the feeder gateway, not against L1. Only set if an Ethereum node is not available. The node provides no guarantees about the integrity of the state when syncing with the feeder gateway.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "starknet-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way.")
 
 	return rootCmd
 }
@@ -193,14 +193,14 @@ func juno(cfg *config.Juno) {
 	setupLogger(&cfg.Log)
 	setupInterruptHandler(cfg)
 	setupDatabase(&cfg.Database)
-	feederClient := setupFeederGateway(&cfg.Starknet)
+	feederClient := setupFeederGateway(&cfg.Sync)
 	virtualMachine = cairovm.New(stateManager)
 
 	errChs := make([]chan error, 0)
 
-	if cfg.Starknet.Enable {
+	if cfg.Sync.Enable {
 		errChs = append(errChs, make(chan error))
-		setupSynchronizer(&cfg.Starknet, feederClient, errChs[len(errChs)-1])
+		setupSynchronizer(&cfg.Sync, feederClient, errChs[len(errChs)-1])
 	} else {
 		// Currently, Juno is only useful for storing StarkNet
 		// state locally. We notify the user of this. We don't
@@ -235,8 +235,8 @@ func setupLogger(cfg *config.Log) {
 	}
 }
 
-func setupSynchronizer(cfg *config.Starknet, feederClient *feeder.Client, errChan chan error) {
-	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(cfg.ApiSync, errChan)
+func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
+	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(cfg.Trusted, errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
@@ -298,7 +298,7 @@ func checkPort(server string, port uint) {
 	}
 }
 
-func setupFeederGateway(cfg *config.Starknet) *feeder.Client {
+func setupFeederGateway(cfg *config.Sync) *feeder.Client {
 	return feeder.NewClient(cfg.Sequencer, "/feeder_gateway", nil)
 }
 
@@ -365,7 +365,7 @@ func shutdown(cfg *config.Juno) {
 	blockManager.Close()
 	stateManager.Close()
 	syncManager.Close()
-	if cfg.Starknet.Enable {
+	if cfg.Sync.Enable {
 		synchronizer.Close()
 	}
 

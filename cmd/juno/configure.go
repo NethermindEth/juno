@@ -32,7 +32,7 @@ func configure(cfg *config.Juno, configFile string) {
 	app := tview.NewApplication()
 
 	networkList := []string{"mainnet", "goerli"}
-	network := cfg.Starknet.Network
+	network := cfg.Sync.Network
 	// Find index of selected network inside the networkList
 	selectedNwIndex := -1
 	for i, nw := range networkList {
@@ -67,22 +67,22 @@ func configure(cfg *config.Juno, configFile string) {
 		AddCheckbox("REST API Enabled", cfg.Rest.Enable, func(checked bool) {
 			cfg.Rest.Enable = checked
 		}).
-		AddInputField("Ethereum Node URL", cfg.Starknet.EthNode, 20, nil, func(nodeURL string) {
-			cfg.Starknet.EthNode = nodeURL
+		AddInputField("Ethereum Node URL", cfg.Sync.EthNode, 20, nil, func(nodeURL string) {
+			cfg.Sync.EthNode = nodeURL
 		}).
 		AddDropDown("Network", networkList, selectedNwIndex, func(option string, _ int) {
 			// Set both the network and feeder gateway URL
 			switch option {
 			case "mainnet":
-				cfg.Starknet.Sequencer = "https://alpha-mainnet.starknet.io"
-				cfg.Starknet.Network = "mainnet"
+				cfg.Sync.Sequencer = "https://alpha-mainnet.starknet.io"
+				cfg.Sync.Network = "mainnet"
 			case "goerli":
-				cfg.Starknet.Sequencer = "https://alpha4.starknet.io"
-				cfg.Starknet.Network = "goerli"
+				cfg.Sync.Sequencer = "https://alpha4.starknet.io"
+				cfg.Sync.Network = "goerli"
 			}
 		}).
-		AddCheckbox("API Sync Enabled", cfg.Starknet.ApiSync, func(checked bool) {
-			cfg.Starknet.ApiSync = checked
+		AddCheckbox("API Sync Enabled", cfg.Sync.Trusted, func(checked bool) {
+			cfg.Sync.Trusted = checked
 		}).
 		AddButton("Save (CTRL + S)", func() {
 			// Close the application

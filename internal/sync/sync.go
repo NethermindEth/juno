@@ -65,13 +65,13 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer.
 // notest
-func NewSynchronizer(cfg *config.Starknet, feederClient *feeder.Client, syncManager *sync.Manager,
+func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
 ) *Synchronizer {
 	synchro := new(Synchronizer)
 	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
-	if !cfg.ApiSync {
+	if !cfg.Trusted {
 		ethereumClient, err := ethclient.Dial(cfg.EthNode)
 		if err != nil {
 			synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
@@ -88,7 +88,7 @@ func NewSynchronizer(cfg *config.Starknet, feederClient *feeder.Client, syncMana
 
 	synchro.setChainId(cfg.Network)
 	synchro.setStateToLatestRoot()
-	synchro.setStateDiffCollector(cfg.ApiSync)
+	synchro.setStateDiffCollector(cfg.Trusted)
 	return synchro
 }
 
