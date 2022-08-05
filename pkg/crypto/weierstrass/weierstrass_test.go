@@ -12,6 +12,20 @@ import (
 
 var curve = Stark()
 
+// BenchmarkMarshalUnmarshalCompressed runs benchmarks on marshalling
+// and un-marshalling compressed points.
+func BenchmarkMarshalUnmarshalCompressed(b *testing.B) {
+	_, x, y, _ := GenerateKey(curve, rand.Reader)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		buf := MarshalCompressed(curve, x, y)
+		xx, yy := UnmarshalCompressed(curve, buf)
+		if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
+			b.Error("Unmarshal output different from Marshal input")
+		}
+	}
+}
+
 // BenchmarkMarshalUnmarshal runs benchmarks on marshalling and
 // un-marshalling points.
 func BenchmarkMarshalUnmarshal(b *testing.B) {
