@@ -141,7 +141,7 @@ func randFieldElement(
 	// Note that for P-521 this will actually be 63 bits more than the
 	// order, as division rounds down, but the extra bit is
 	// inconsequential.
-	b := make([]byte, params.BitSize/8+8) // TODO: use params.N.BitLen()
+	b := make([]byte, params.N.BitLen()/8+8)
 	_, err = io.ReadFull(rand, b)
 	if err != nil {
 		return
