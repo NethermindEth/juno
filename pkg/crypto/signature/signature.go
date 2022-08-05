@@ -114,9 +114,7 @@ func (pvt *PrivateKey) Equal(x crypto.PrivateKey) bool {
 // support keys where the private part is kept in, for example, a
 // hardware module. Common uses can use the SignASN1 function in this
 // package directly.
-func (pvt *PrivateKey) Sign(
-	rand io.Reader, digest []byte, opts crypto.SignerOpts,
-) ([]byte, error) {
+func (pvt *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	r, s, err := Sign(rand, pvt, digest)
 	if err != nil {
 		return nil, err
@@ -134,9 +132,7 @@ var one = new(big.Int).SetInt64(1)
 
 // randFieldElement returns a random element of the order of the given
 // curve using the procedure given in FIPS 186-4, Appendix B.5.1.
-func randFieldElement(
-	c weierstrass.Curve, rand io.Reader,
-) (k *big.Int, err error) {
+func randFieldElement(c weierstrass.Curve, rand io.Reader) (k *big.Int, err error) {
 	params := c.Params()
 	// Note that for P-521 this will actually be 63 bits more than the
 	// order, as division rounds down, but the extra bit is
@@ -206,9 +202,7 @@ var errZeroParam = errors.New("zero parameter")
 // truncated to that length. It returns the signature as a pair of
 // integers. Most applications should use SignASN1 instead of dealing
 // directly with r, s.
-func Sign(
-	rand io.Reader, pvt *PrivateKey, hash []byte,
-) (r, s *big.Int, err error) {
+func Sign(rand io.Reader, pvt *PrivateKey, hash []byte) (r, s *big.Int, err error) {
 	randutil.MaybeReadByte(rand)
 
 	// This implementation derives the nonce from an AES-CTR CSPRNG keyed
@@ -256,11 +250,7 @@ func Sign(
 	return sign(pvt, csprng, c, hash)
 }
 
-func sign(
-	pvt *PrivateKey,
-	csprng *cipher.StreamReader,
-	c weierstrass.Curve, hash []byte,
-) (r, s *big.Int, err error) {
+func sign(pvt *PrivateKey, csprng *cipher.StreamReader, c weierstrass.Curve, hash []byte) (r, s *big.Int, err error) {
 	// SEC 1, Version 2.0, Section 4.1.3
 	N := c.Params().N
 	if N.Sign() == 0 {
@@ -331,9 +321,7 @@ func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
 	return verify(pub, c, hash, r, s)
 }
 
-func verify(
-	pub *PublicKey, c weierstrass.Curve, hash []byte, r, s *big.Int,
-) bool {
+func verify(pub *PublicKey, c weierstrass.Curve, hash []byte, r, s *big.Int) bool {
 	// SEC 1, Version 2.0, Section 4.1.4
 	e := hashToInt(hash, c)
 	var w *big.Int

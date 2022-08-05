@@ -109,9 +109,7 @@ func zForAffine(x, y *big.Int) *big.Int {
 
 // affineFromJacobian reverses the Jacobian transform. See the comment
 // at the top of the file. If the point is ∞ it returns 0, 0.
-func (curve *CurveParams) affineFromJacobian(
-	x, y, z *big.Int,
-) (affX, affY *big.Int) {
+func (curve *CurveParams) affineFromJacobian(x, y, z *big.Int) (affX, affY *big.Int) {
 	if z.Sign() == 0 {
 		return new(big.Int), new(big.Int)
 	}
@@ -130,9 +128,7 @@ func (curve *CurveParams) affineFromJacobian(
 }
 
 // Add returns the sum of (x1, y1) and (x2, y2).
-func (curve *CurveParams) Add(
-	x1, y1, x2, y2 *big.Int,
-) (*big.Int, *big.Int) {
+func (curve *CurveParams) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	z1 := zForAffine(x1, y1)
 	z2 := zForAffine(x2, y2)
 	return curve.affineFromJacobian(curve.addJacobian(x1, y1, z1, x2, y2, z2))
@@ -140,9 +136,7 @@ func (curve *CurveParams) Add(
 
 // addJacobian takes two points in Jacobian coordinates, (x1, y1, z1)
 // and (x2, y2, z2) and returns their sum, also in Jacobian form.
-func (curve *CurveParams) addJacobian(
-	x1, y1, z1, x2, y2, z2 *big.Int,
-) (*big.Int, *big.Int, *big.Int) {
+func (curve *CurveParams) addJacobian(x1, y1, z1, x2, y2, z2 *big.Int) (*big.Int, *big.Int, *big.Int) {
 	// See: https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-2007-bl.
 	x3, y3, z3 := new(big.Int), new(big.Int), new(big.Int)
 	if z1.Sign() == 0 {
@@ -251,9 +245,7 @@ func (curve *CurveParams) Double(x1, y1 *big.Int) (*big.Int, *big.Int) {
 
 // doubleJacobian takes a point in Jacobian coordinates, (x, y, z), and
 // returns its double, also in Jacobian form.
-func (curve *CurveParams) doubleJacobian(
-	x, y, z *big.Int,
-) (*big.Int, *big.Int, *big.Int) {
+func (curve *CurveParams) doubleJacobian(x, y, z *big.Int) (*big.Int, *big.Int, *big.Int) {
 	// See: https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-2007-bl.
 	// xx = x1².
 	xx := new(big.Int).Mul(x, x)
@@ -339,9 +331,7 @@ func (curve *CurveParams) doubleJacobian(
 }
 
 // ScalarMult returns k * (Bx, By) where k is a number in big-endian.
-func (curve *CurveParams) ScalarMult(
-	Bx, By *big.Int, k []byte,
-) (*big.Int, *big.Int) {
+func (curve *CurveParams) ScalarMult(Bx, By *big.Int, k []byte) (*big.Int, *big.Int) {
 	Bz := new(big.Int).SetInt64(1)
 	x, y, z := new(big.Int), new(big.Int), new(big.Int)
 
@@ -368,9 +358,7 @@ var mask = []byte{0xff, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f}
 
 // GenerateKey returns a public/private key pair. The private key is
 // generated using the given reader, which must return random data.
-func GenerateKey(
-	curve Curve, rand io.Reader,
-) (pvt []byte, x, y *big.Int, err error) {
+func GenerateKey(curve Curve, rand io.Reader) (pvt []byte, x, y *big.Int, err error) {
 	N := curve.Params().N
 	bitSize := N.BitLen()
 	byteLen := (bitSize + 7) / 8
