@@ -11,20 +11,15 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: '14.x'
+          node-version-file: 'docs/.nvmrc'
       - name: Test Build
         run: |
           cd docs
-          if [ -e yarn.lock ]; then
-          yarn install --frozen-lockfile
-          elif [ -e package-lock.json ]; then
-          npm ci
-          else
-          npm i
-          fi
-          npm run build
+          corepack enable yarn
+          yarn install --immutable
+          yarn build
   gh-release:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -33,9 +28,9 @@ jobs:
       url: http://gojuno.xyz
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: '14.x'
+          node-version-file: 'docs/.nvmrc'
       - uses: webfactory/ssh-agent@v0.5.0
         with:
           ssh-private-key: ${{ secrets.GH_PAGES_DEPLOY }}
@@ -52,11 +47,6 @@ jobs:
           git config --global user.name "gh-actions"
           cd docs
           cp .env.template .env 
-          if [ -e yarn.lock ]; then
-          yarn install --frozen-lockfile
-          elif [ -e package-lock.json ]; then
-          npm ci
-          else
-          npm i
-          fi
-          npm run deploy
+          corepack enable yarn
+          yarn install --immutable
+          yarn deploy

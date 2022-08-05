@@ -527,6 +527,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 		return &types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
 			ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+			ClassHash:           new(felt.Felt).SetHex(info.Transaction.ClassHash),
 			ConstructorCallData: calldata,
 		}
 	}
