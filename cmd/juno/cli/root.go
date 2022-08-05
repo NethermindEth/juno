@@ -100,7 +100,6 @@ func juno(_ *cobra.Command, _ []string) {
 		"Rpc Enabled", config.Runtime.RPC.Enabled,
 		"Rest Port", config.Runtime.REST.Port,
 		"Rest Enabled", config.Runtime.REST.Enabled,
-		"Rest Prefix", config.Runtime.REST.Prefix,
 	).Info("Juno config values:")
 
 	setupInterruptHandler()
