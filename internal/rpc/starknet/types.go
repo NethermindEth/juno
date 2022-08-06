@@ -176,8 +176,6 @@ type CommonTxnProperties struct {
 	MaxFee           string   `json:"max_fee"`
 	Version          string   `json:"version"`
 	Signature        []string `json:"signature"`
-	Status           string   `json:"status"`
-	TransactionIndex string   `json:"transaction_index"`
 	Nonce            string   `json:"nonce"`
 	Type             string   `json:"type"`
 }
