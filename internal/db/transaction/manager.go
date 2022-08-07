@@ -139,7 +139,7 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 		out := types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetBytes(protoTx.Hash),
 			ClassHash:           new(felt.Felt).SetBytes(tx.ClassHash),
-			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddressSalt),
+			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddress),
 			ConstructorCallData: unmarshalFelts(tx.ConstructorCallData),
 		}
 		return &out, nil
