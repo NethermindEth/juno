@@ -5,55 +5,47 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 
-	"github.com/NethermindEth/juno/internal/config"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+type Config struct {
+	Network   string
+	FeederUrl string
+}
+
 // Cobra configuration.
 var (
-	// cfgFile is the path of the juno configuration file.
-	cfgFile string
-	// dataDir is the path of the directory to read and save user-specific
-	// application data
-	dataDir string
+	cfg = &Config{}
 	// longMsg is the long message shown in the "juno --help" output.
 	//go:embed long.txt
 	longMsg string
-	// selectedNetwork is the network selected by the config or user.
-	selectedNetwork string
 
 	// rootCmd is the root command of the application.
 	rootCmd = &cobra.Command{
 		Use:   "juno-cli [command] [flags]",
 		Short: "Starknet client implementation in Go.",
 		Long:  longMsg,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			if network, _ := cmd.Flags().GetString("network"); network != "" {
 				handleNetwork(network)
 			}
-			return initConfig()
 		},
 	}
 )
 
 // Define flags and load config.
 func init() {
-	// Set flags shared accross commands as persistent flags.
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", fmt.Sprintf(
-		"config file (default is %s).", filepath.Join(config.Dir, "juno.yaml")))
-
 	// Pretty print flag.
 	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "Pretty print the response.")
 
 	// Network flag.
-	rootCmd.PersistentFlags().StringVarP(&selectedNetwork, "network", "n", "", "Use a network different to config. Available: 'mainnet', 'goerli'.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.Network, "network", "n", "", "the StarkNet network. Options: 'mainnet', 'goerli'.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.FeederUrl, "feeder", "f", "", "the URL of the feeder gateway.")
 }
 
 // handle networks by changing active value during call only
@@ -90,55 +82,8 @@ func isInteger(input string) bool {
 	return err == nil
 }
 
-// initConfig reads in Config file or environment variables if set.
-func initConfig() error {
-	if dataDir != "" {
-		info, err := os.Stat(dataDir)
-		if err != nil || !info.IsDir() {
-			dataDir = config.DataDir
-			Logger.Infof("Invalid data directory. The default data directory (%s) will be used.", dataDir)
-		}
-	}
-	if cfgFile != "" {
-		// If a specific config file is given, read it in.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Use the default path for user configuration.
-		viper.AddConfigPath(config.Dir)
-		viper.SetConfigName("juno")
-		viper.SetConfigType("yaml")
-	}
-
-	// Fetch other configs from the environment.
-	viper.AutomaticEnv()
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		Logger.Info("Config file not found.")
-		if !config.Exists() {
-			config.New()
-		}
-		viper.SetConfigFile(filepath.Join(config.Dir, "juno.yaml"))
-		err = viper.ReadInConfig()
-		if err != nil {
-			Logger.Fatal("Failed to read Juno configuration file.")
-		}
-	}
-
-	// Unmarshal and log runtime config instance.
-	err = viper.Unmarshal(&config.Runtime)
-	if err != nil {
-		Logger.Fatal("Failed to parse runtime configuration.")
-	}
-
-	// If config successfully loaded, return no error.
-	return nil
-}
-
 func initClient() *feeder.Client {
-	feederUrl := config.Runtime.Starknet.FeederGateway
-	client := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
-	return client
+	return feeder.NewClient(cfg.FeederUrl, "/feeder_gateway", nil)
 }
 
 // Execute handle flags for Cobra execution.

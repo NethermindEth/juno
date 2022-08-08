@@ -13,7 +13,6 @@ import (
 
 	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 
-	"github.com/NethermindEth/juno/internal/config"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -93,11 +92,11 @@ func freePorts(n int) ([]int, error) {
 	return ports, nil
 }
 
-func (s *VirtualMachine) Run() error {
+func (s *VirtualMachine) Run(dataDir string) error {
 	s.rpcServer = grpc.NewServer()
 
 	// Generate the Python environment in the data dir.
-	s.vmDir = config.DataDir
+	s.vmDir = dataDir
 
 	files := [...]struct {
 		name     string
