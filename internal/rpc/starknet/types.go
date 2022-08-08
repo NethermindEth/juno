@@ -172,12 +172,12 @@ func NewTxn(tx types.IsTransaction) (Txn, error) {
 }
 
 type CommonTxnProperties struct {
-	TxnHash          string   `json:"txn_hash"`
-	MaxFee           string   `json:"max_fee"`
-	Version          string   `json:"version"`
-	Signature        []string `json:"signature"`
-	Nonce            string   `json:"nonce"`
-	Type             string   `json:"type"`
+	TxnHash   string   `json:"txn_hash"`
+	MaxFee    string   `json:"max_fee"`
+	Version   string   `json:"version"`
+	Signature []string `json:"signature"`
+	Nonce     string   `json:"nonce"`
+	Type      string   `json:"type"`
 }
 
 type FunctionCall struct {
@@ -252,6 +252,7 @@ type DeployTxn struct {
 	Version             string   `json:"version"`
 	Type                string   `json:"type"`
 	ContractAddress     string   `json:"contract_address"`
+	ContractAddressSalt string   `json:"contract_address_salt"`
 	ConstructorCalldata []string `json:"constructor_calldata"`
 }
 
@@ -266,6 +267,7 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 		Version:             "0x0", // XXX: hardcoded version for now
 		Type:                "DEPLOY",
 		ContractAddress:     txn.ContractAddress.Hex0x(),
+		ContractAddressSalt: txn.ContractAddressSalt.Hex0x(),
 		ConstructorCalldata: callData,
 	}
 }
