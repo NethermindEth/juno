@@ -249,6 +249,8 @@ func (*DeclareTxn) isTxn() {}
 type DeployTxn struct {
 	TxnHash             string   `json:"txn_hash"`
 	ClassHash           string   `json:"class_hash"`
+	Version             string   `json:"version"`
+	Type                string   `json:"type"`
 	ContractAddress     string   `json:"contract_address"`
 	ConstructorCalldata []string `json:"constructor_calldata"`
 }
@@ -261,6 +263,8 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 	return &DeployTxn{
 		TxnHash:             txn.Hash.Hex0x(),
 		ClassHash:           txn.ClassHash.Hex0x(),
+		Version:             "0x0", // XXX: hardcoded version for now
+		Type:                "DEPLOY",
 		ContractAddress:     txn.ContractAddress.Hex0x(),
 		ConstructorCalldata: callData,
 	}
