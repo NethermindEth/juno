@@ -1,15 +1,15 @@
 export CC = clang
-.DEFAULT_GOAL 	:= help
+.DEFAULT_GOAL := help
 
-compile: ## compile
+juno: ## compile
+	@mkdir -p build
+	@go build -o build/juno cmd/juno/*.go
+
+juno-cli:
 	@mkdir -p build
 	@go build -o build/juno-cli cmd/juno-cli/main.go
-	@go build -o build/juno cmd/juno/main.go
 
-run: ## run
-	@./build/juno
-
-all: compile run ## build and run
+all: juno juno-cli
 
 generate: ## generate
 	@cd internal/db && $(MAKE) generate

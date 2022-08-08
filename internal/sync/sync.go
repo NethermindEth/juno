@@ -65,14 +65,14 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer.
 // notest
-func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
+func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
 ) *Synchronizer {
 	synchro := new(Synchronizer)
 	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
-	if !config.Runtime.Starknet.ApiSync {
-		ethereumClient, err := ethclient.Dial(config.Runtime.Ethereum.Node)
+	if !cfg.Trusted {
+		ethereumClient, err := ethclient.Dial(cfg.EthNode)
 		if err != nil {
 			synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
 		}
@@ -86,15 +86,15 @@ func NewSynchronizer(feederClient *feeder.Client, syncManager *sync.Manager,
 
 	synchro.Running = false
 
-	synchro.setChainId()
+	synchro.setChainId(cfg.Network)
 	synchro.setStateToLatestRoot()
-	synchro.setStateDiffCollector()
+	synchro.setStateDiffCollector(cfg.Trusted)
 	return synchro
 }
 
 // setStateDiffCollector sets the stateDiffCollector.
-func (s *Synchronizer) setStateDiffCollector() {
-	if config.Runtime.Starknet.ApiSync {
+func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
+	if apiSync {
 		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder)
 	} else {
 		s.stateDiffCollector = NewL1Collector(s.syncManager, s.feeder, s.l1Client,
@@ -103,22 +103,23 @@ func (s *Synchronizer) setStateDiffCollector() {
 }
 
 // Run starts the service.
-func (s *Synchronizer) Run() {
+func (s *Synchronizer) Run(apiSync bool, errChan chan error) {
 	s.Running = true
 	go s.updateBlocksInfo()
-	go s.handleSync()
+	go s.handleSync(apiSync, errChan)
 }
 
-func (s *Synchronizer) handleSync() {
+func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
 	for {
 		err := s.sync()
 		if err == nil {
+			errChan <- err
 			return
 		}
 		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 		time.Sleep(10 * time.Second)
 		s.stateDiffCollector.Close()
-		s.setStateDiffCollector()
+		s.setStateDiffCollector(apiSync)
 	}
 }
 
@@ -269,10 +270,10 @@ func (s *Synchronizer) Close() {
 	s.stateDiffCollector.Close()
 }
 
-func (s *Synchronizer) setChainId() {
+func (s *Synchronizer) setChainId(network string) {
 	if s.l1Client == nil {
 		// notest
-		if config.Runtime.Starknet.Network == "mainnet" {
+		if network == "mainnet" {
 			s.chainId = new(big.Int).SetInt64(1)
 		} else {
 			s.chainId = new(big.Int).SetInt64(0)
