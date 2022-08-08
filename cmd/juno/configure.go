@@ -108,7 +108,7 @@ func configure(cfg *config.Juno, configFile string) {
 		AddInputField("Metrics Port", formatPortNumber(cfg.Metrics.Port), 5, isPortNumber, func(metricsPort string) {
 			cfg.Metrics.Port, _ = parsePortNumber(metricsPort)
 		}).
-		AddInputField("REST Port", formatPortNumber(cfg.Metrics.Port), 5, isPortNumber, func(restPort string) {
+		AddInputField("REST Port", formatPortNumber(cfg.Rest.Port), 5, isPortNumber, func(restPort string) {
 			cfg.Rest.Port, _ = parsePortNumber(restPort)
 		}).
 		AddInputField("Database Path", cfg.Database.Path, 50, nil, func(dbPath string) {
