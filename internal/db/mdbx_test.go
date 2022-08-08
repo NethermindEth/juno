@@ -134,6 +134,40 @@ func TestMDBXDatabase_NumberOfItems(t *testing.T) {
 	assertNumberOfItems(t, db, 5)
 }
 
+func TestMDBXTransaction_Get(t *testing.T) {
+	dbs := initDatabases(t, 1)
+	defer closeDatabases(dbs)
+	db := dbs[0]
+	assertNumberOfItems(t, db, 0)
+	var value []byte
+	// Test not found case
+	err := db.RunTxn(func(txn DatabaseOperations) (err error) {
+		value, err = txn.Get([]byte("key"))
+		return
+	})
+	if err == nil || !errors.Is(err, ErrNotFound) {
+		t.Errorf("error must be an ErrNotFound")
+	}
+	if value != nil {
+		t.Errorf("if ErrNotFound is returned, then the value must be nil")
+	}
+	// Insert a value
+	if err := db.Put([]byte("key"), []byte("value")); err != nil {
+		t.Error(err)
+	}
+	// Test found case
+	err = db.RunTxn(func(txn DatabaseOperations) (err error) {
+		value, err = txn.Get([]byte("key"))
+		return
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(value, []byte("value")) {
+		t.Errorf("value must be equal")
+	}
+}
+
 func TestMDBXDatabase_RunTxn(t *testing.T) {
 	dbs := initDatabases(t, 1)
 	defer closeDatabases(dbs)

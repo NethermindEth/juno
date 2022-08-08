@@ -1,38 +1,98 @@
 package trie
 
 import (
-	"encoding/json"
-
+	"github.com/NethermindEth/juno/pkg/collections"
 	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/NethermindEth/juno/pkg/felt"
 )
 
-// Encoding represents the Encoding of a node in a binary tree
-// represented by the triplet (length, path, bottom).
-type Encoding struct {
-	Length uint8      `json:"length"`
-	Path   *felt.Felt `json:"path"`
-	Bottom *felt.Felt `json:"bottom"`
+var EmptyNode = &leafNode{&felt.Felt{}}
+
+type TrieNode interface {
+	Path() *collections.BitSet
+	Bottom() *felt.Felt
+	Hash() *felt.Felt
 }
 
-// Node represents a Node in a binary tree.
-type Node struct {
-	Encoding
-	Hash *felt.Felt `json:"hash"`
+type BinaryNode struct {
+	bottom *felt.Felt
+
+	LeftH  *felt.Felt
+	RightH *felt.Felt
 }
 
-// bytes returns a JSON byte representation of a node.
-func (n *Node) bytes() []byte {
-	b, _ := json.Marshal(n)
-	return b
+func (n *BinaryNode) Path() *collections.BitSet {
+	return collections.EmptyBitSet
 }
 
-// hash updates the node hash.
-func (n *Node) hash() {
-	if n.Length == 0 {
-		n.Hash = n.Bottom
-		return
+func (n *BinaryNode) Bottom() *felt.Felt {
+	if n.bottom != nil {
+		return n.bottom
 	}
-	h := pedersen.Digest(n.Bottom, n.Path)
-	n.Hash = h.Add(h, new(felt.Felt).SetUint64(uint64(n.Length)))
+
+	bottom := pedersen.Digest(n.LeftH, n.RightH)
+	n.bottom = bottom
+	return n.bottom
+}
+
+func (n *BinaryNode) Hash() *felt.Felt {
+	return n.Bottom()
+}
+
+type EdgeNode struct {
+	hash *felt.Felt
+
+	path   *collections.BitSet
+	bottom *felt.Felt
+}
+
+func NewEdgeNode(path *collections.BitSet, bottom *felt.Felt) *EdgeNode {
+	// TODO: we can remove this constructor if we change parh and bottom to
+	// be public fields in EdgeNode, but now we can't because colide with
+	// Path() and Bottom() methods
+	return &EdgeNode{
+		path:   path,
+		bottom: bottom,
+	}
+}
+
+func (n *EdgeNode) Path() *collections.BitSet {
+	return n.path
+}
+
+func (n *EdgeNode) Bottom() *felt.Felt {
+	return n.bottom
+}
+
+func (n *EdgeNode) Hash() *felt.Felt {
+	if n.hash != nil {
+		return n.hash
+	}
+
+	path := new(felt.Felt).SetBytes(n.path.Bytes())
+	pedersen := pedersen.Digest(n.bottom, path)
+	lenFelt := new(felt.Felt).SetInt64(int64(n.path.Len()))
+	n.hash = new(felt.Felt).Add(pedersen, lenFelt)
+	return n.hash
+}
+
+type leafNode struct {
+	value *felt.Felt
+}
+
+func (n *leafNode) Path() *collections.BitSet {
+	return collections.EmptyBitSet
+}
+
+func (n *leafNode) Bottom() *felt.Felt {
+	return n.value
+}
+
+func (n *leafNode) Hash() *felt.Felt {
+	return n.value
+}
+
+// notest
+func (n *leafNode) Data() []byte {
+	return n.value.ByteSlice()
 }

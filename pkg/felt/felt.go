@@ -321,7 +321,6 @@ func (z *Felt) LexicographicallyLargest() bool {
 func (z *Felt) SetRandom() (*Felt, error) {
 	var bytes [32]byte
 	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
-		// notest
 		return nil, err
 	}
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
@@ -966,8 +965,8 @@ func (z *Felt) SetString(number string) *Felt {
 // MarshalJSON returns json encoding of z (z.Text(10))
 // If z == nil, returns null
 func (z *Felt) MarshalJSON() ([]byte, error) {
-	// notest
 	if z == nil {
+		// notest
 		return []byte("null"), nil
 	}
 	const maxSafeBound = 15 // we encode it as number if it's small
@@ -986,7 +985,6 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON accepts numbers and strings as input
 // See Felt.SetString for valid prefixes (0x, 0b, ...)
 func (z *Felt) UnmarshalJSON(data []byte) error {
-	// notest
 	s := string(data)
 	if len(s) > Bits*3 {
 		// notest
@@ -1307,7 +1305,6 @@ var qMinusTwo *big.Int // test routines can set this to an incorrect value to fa
 
 // inverseExp is a fallback in case the inversion algorithm failed
 func (z *Felt) inverseExp(x *Felt) *Felt {
-	// notest
 	if qMinusTwo == nil {
 		qMinusTwo = Modulus()
 		qMinusTwo.Sub(qMinusTwo, big.NewInt(2))

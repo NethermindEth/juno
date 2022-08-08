@@ -5,16 +5,20 @@ package feeder
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 	"time"
 
 	. "github.com/NethermindEth/juno/internal/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
+
+var ErrorBlockNotFound = fmt.Errorf("block not found")
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient
 type HttpClient interface {
@@ -50,7 +54,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error) {
 		var res *http.Response
 		for i := 0; err != nil && i < 2; i++ {
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 10)
 			res, err = httpClient.Do(req)
 		}
 		return res, err
@@ -149,7 +153,11 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 		metr.IncreaseRequestsFailed()
 		return nil, err
 	}
-	defer func(Body io.ReadCloser) {
+	defer func(res *http.Response) {
+		if res == nil {
+			return
+		}
+		Body := res.Body
 		err := Body.Close()
 		if err != nil {
 			// notest
@@ -157,7 +165,10 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 			Logger.With("Error", err).Error("Error closing body of response.")
 			return
 		}
-	}(res.Body)
+	}(res)
+	if res == nil {
+		return nil, errors.New("response nil")
+	}
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		metr.IncreaseRequestsFailed()
@@ -264,6 +275,9 @@ func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber s
 }
 
 // GetBlock creates a new request to get a block from the gateway.
+// The block number can be either a number or a hash.
+// Response is a Block object. If there is any error, the response is nil.
+// If the block fetched is not found, the response is nil and the error is of type ErrorBlockNotFound.
 func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) {
 	req, err := c.newRequest("GET", "/get_block", formattedBlockIdentifier(blockHash, blockNumber), nil)
 	if err != nil {
@@ -272,61 +286,23 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
 		return nil, err
 	}
-	var res StarknetBlock
 	metr.IncreaseBlockSent()
 
+	var res StarknetBlock
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseBlockFailed()
 		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
 		return nil, err
+	} else if reflect.DeepEqual(res, StarknetBlock{}) {
+		return nil, fmt.Errorf("block not found")
 	}
 	metr.IncreaseBlockReceived()
+
 	return &res, err
 }
 
-// GetStateUpdateGoerli creates a new request to get the contract addresses
-// from the gateway.
-func (c Client) GetStateUpdateGoerli(blockHash, blockNumber string) (*StateUpdateResponse, error) {
-	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
-	if err != nil {
-		metr.IncreaseStateUpdateGoerliFailed()
-		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_contract_addresses.")
-		return nil, err
-	}
-	var res StateUpdateResponseGoerli
-	metr.IncreaseStateUpdateGoerliSent()
-	_, err = c.do(req, &res)
-	if err != nil {
-		metr.IncreaseStateUpdateGoerliFailed()
-		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
-		return nil, err
-	}
-	metr.IncreaseStateUpdateGoerliReceived()
-	return stateUpdateResponseToGoerli(res), err
-}
-
-func stateUpdateResponseToGoerli(res StateUpdateResponseGoerli) *StateUpdateResponse {
-	deployedContracts := make([]DeployedContract, 0)
-
-	for _, d := range res.StateDiff.DeployedContracts {
-		deployedContracts = append(deployedContracts, DeployedContract{
-			Address:      d.Address,
-			ContractHash: d.ContractHash,
-		})
-	}
-	return &StateUpdateResponse{
-		BlockHash: res.BlockHash,
-		NewRoot:   res.NewRoot,
-		OldRoot:   res.OldRoot,
-		StateDiff: StateDiff{
-			DeployedContracts: deployedContracts,
-			StorageDiffs:      res.StateDiff.StorageDiffs,
-		},
-	}
-}
-
-// GetStateUpdate creates a new request to get the State Update of a given block
+// GetStateUpdate creates a new request to get the state Update of a given block
 // from the gateway.
 func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateResponse, error) {
 	req, err := c.newRequest("GET", "/get_state_update", formattedBlockIdentifier(blockHash, blockNumber), nil)
@@ -371,6 +347,34 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 		return nil, err
 	}
 	return &res, err
+}
+
+// GetFullContractRaw creates a new request to get the full state of a
+// contract and returns the raw message.
+func (c Client) GetFullContractRaw(contractAddress, blockHash, blockNumber string) (*json.RawMessage, error) {
+	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
+	if blockIdentifier == nil {
+		// notest
+		blockIdentifier = map[string]string{}
+	}
+	blockIdentifier["contractAddress"] = contractAddress
+	req, err := c.newRequest("GET", "/get_full_contract", blockIdentifier, nil)
+	if err != nil {
+		metr.IncreaseFullContractsFailed()
+		metr.IncreaseRequestsFailed()
+		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_full_contract.")
+		return nil, err
+	}
+	var res *json.RawMessage
+	metr.IncreaseFullContractsSent()
+	_, err = c.do(req, &res)
+	if err != nil {
+		metr.IncreaseFullContractsFailed()
+		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Error connecting to the gateway.")
+		return nil, err
+	}
+	metr.IncreaseFullContractsReceived()
+	return res, err
 }
 
 // GetFullContract creates a new request to get the full state of a
