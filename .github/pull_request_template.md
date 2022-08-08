@@ -2,7 +2,7 @@ Fixes | Closes | Resolves #
 
 ## Description
 
-_Explanation about why the PR is necessary_
+_Explanation about why the PR is necessary._
 
 ## Changes:
 
