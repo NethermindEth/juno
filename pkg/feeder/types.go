@@ -67,6 +67,7 @@ type TxnSpecificInfo struct {
 	EntryPointSelector  string   `json:"entry_point_selector"`
 	EntryPointType      string   `json:"entry_point_type"`
 	Calldata            []string `json:"calldata"`
+	ConstructorCalldata []string `json:"constructor_calldata"`
 	Signature           []string `json:"signature"`
 	TransactionHash     string   `json:"transaction_hash"`
 	MaxFee              string   `json:"max_fee"`

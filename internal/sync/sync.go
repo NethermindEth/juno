@@ -524,12 +524,16 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			Version:       new(felt.Felt).SetHex(info.Transaction.Version),
 		}
 	default:
+		constructorCalldata := make([]*felt.Felt, 0, len(info.Transaction.ConstructorCalldata))
+		for _, data := range info.Transaction.ConstructorCalldata {
+			constructorCalldata = append(constructorCalldata, new(felt.Felt).SetHex(data))
+		}
 		return &types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetHex(info.Transaction.TransactionHash),
 			ContractAddress:     new(felt.Felt).SetHex(info.Transaction.ContractAddress),
 			ContractAddressSalt: new(felt.Felt).SetHex(info.Transaction.ContractAddressSalt),
 			ClassHash:           new(felt.Felt).SetHex(info.Transaction.ClassHash),
-			ConstructorCallData: calldata,
+			ConstructorCallData: constructorCalldata,
 		}
 	}
 }
