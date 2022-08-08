@@ -99,12 +99,12 @@ func IncreaseBlockSent() {
 // This increases when the request in GetStateUpdateGoerli in feeder.go is sent
 func IncreaseStateUpdateGoerliSent() {
 	// notest
-	noOfRequests.WithLabelValues("Sent", "State Update Goerli").Inc()
+	noOfRequests.WithLabelValues("Sent", "State update on Goerli").Inc()
 }
 
 // This increases when the request in GetStateUpdate in feeder.go is sent
 func IncreaseStateUpdateSent() {
-	noOfRequests.WithLabelValues("Sent", "State Update").Inc()
+	noOfRequests.WithLabelValues("Sent", "State update").Inc()
 }
 
 // This increases when the request in GetFullContract in feeder.go is sent
@@ -176,12 +176,12 @@ func IncreaseBlockReceived() {
 // This increases when the response of GetStateUpdateGoerli in feeder.go is received
 func IncreaseStateUpdateGoerliReceived() {
 	// notest
-	noOfRequests.WithLabelValues("Received", "State Update Goerli").Inc()
+	noOfRequests.WithLabelValues("Received", "State update on Goerli").Inc()
 }
 
 // This increases when the response of GetStateUpdate in feeder.go is received
 func IncreaseStateUpdateReceived() {
-	noOfRequests.WithLabelValues("Received", "State Update").Inc()
+	noOfRequests.WithLabelValues("Received", "State update").Inc()
 }
 
 // This increases when the response of GetFullContract in feeder.go is received
@@ -254,12 +254,12 @@ func IncreaseBlockFailed() {
 // This increases when the request in GetStateUpdateGoerli in feeder.go fails
 func IncreaseStateUpdateGoerliFailed() {
 	// notest
-	noOfRequests.WithLabelValues("Failed", "State Update Goerli").Inc()
+	noOfRequests.WithLabelValues("Failed", "State update on Goerli").Inc()
 }
 
 // This increases when the request in GetStateUpdate in feeder.go fails
 func IncreaseStateUpdateFailed() {
-	noOfRequests.WithLabelValues("Failed", "State Update").Inc()
+	noOfRequests.WithLabelValues("Failed", "State update").Inc()
 }
 
 // This increases when the request in GetFullContract in feeder.go fails
@@ -321,11 +321,13 @@ func IncreaseCountStarknetStateFailed() {
 }
 
 // This increases when the StateUpdateAndCommit method in state.go updates the state successfully
+// notest
 func IncreaseCountStarknetStateSuccess() {
 	countStarknetSync.WithLabelValues("Success").Inc()
 }
 
 // Changes the total and average amount of time needed for updating and committing a block
+// notest
 func UpdateStarknetSyncTime(t float64) {
 	timeStarknetSync.WithLabelValues("Total").Add(t)
 	val1 := &dto.Metric{}
