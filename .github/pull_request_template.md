@@ -11,7 +11,7 @@ _Explanation about why the PR is necessary._
 
 ## Types of changes
 
-_Leave only the ones that describe your changes, remove the rest. Can remove this line too_
+_Leave only items that describe your changes, remove the rest. Remove this line too._
 
 - Bugfix (non-breaking change which fixes an issue)
 - New feature (non-breaking change which adds functionality)
