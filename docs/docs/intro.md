@@ -50,7 +50,7 @@ After compilation, you will have two executables inside the `build` folder:
 To synchronize with the StarkNet state from the centralized feeder gateway, run the following command:
 
 ```bash
-$ ./build/juno --starknet-enable --starknet-apisync
+$ ./build/juno --starknet-enable --starknet-trusted
 ```
 
 To sync the state without relying on the feeder gateway, you need to configure an Ethereum node and run the following command:
