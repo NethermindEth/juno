@@ -43,7 +43,7 @@ func TestVMCall(t *testing.T) {
 	}
 	vm := New(statedb.NewManager(stateDb, contractDefDb))
 
-	if err := vm.Run(); err != nil {
+	if err := vm.Run(t.TempDir()); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)
 	}
 	defer vm.Close(context.Background())
