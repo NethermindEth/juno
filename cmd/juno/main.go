@@ -119,11 +119,11 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
 
 	// StarkNet
-	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "starknet-enable", false, "if set, the node will synchronize with the StarkNet chain.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Sequencer, "starknet-sequencer", "https://alpha-mainnet.starknet.io", "the sequencer endpoint. Useful for those wishing to cache feeder gateway responses in a proxy.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Network, "starknet-network", "mainnet", "the StarkNet network with which to sync. Options: mainnet, goerli")
-	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Trusted, "starknet-trusted", false, "sync with the feeder gateway, not against L1. Only set if an Ethereum node is not available. The node provides no guarantees about the integrity of the state when syncing with the feeder gateway.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "starknet-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way.")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "sync-enable", false, "if set, the node will synchronize with the StarkNet chain.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Sequencer, "sync-sequencer", "https://alpha-mainnet.starknet.io", "the sequencer endpoint. Useful for those wishing to cache feeder gateway responses in a proxy.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Network, "sync-network", "mainnet", "the StarkNet network with which to sync. Options: mainnet, goerli")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Trusted, "sync-trusted", false, "sync with the feeder gateway, not against L1. Only set if an Ethereum node is not available. The node provides no guarantees about the integrity of the state when syncing with the feeder gateway.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "sync-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way.")
 
 	return rootCmd
 }
@@ -206,7 +206,7 @@ func juno(cfg *config.Juno) {
 		// Currently, Juno is only useful for storing StarkNet
 		// state locally. We notify the user of this. We don't
 		// exit since some RPCs are useful on a stale database.
-		fmt.Println("StarkNet synchronization is disabled. To enable it, use the --starknet-enable flag.")
+		fmt.Println("StarkNet synchronization is disabled. To enable it, use the --sync-enable flag.")
 	}
 	if cfg.Rpc.Enable {
 		errChs = append(errChs, make(chan error))
