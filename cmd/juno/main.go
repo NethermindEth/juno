@@ -118,11 +118,10 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
 
 	// StarkNet
-	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "sync-enable", false, "if set, the node will synchronize with the StarkNet chain.")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "sync-enable", false, "if set, the node will synchronize with the StarkNet chain. If --sync-ethnode is not set, Juno will default to syncing the state from the feeder gateway.")
 	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Sequencer, "sync-sequencer", "https://alpha-mainnet.starknet.io", "the sequencer endpoint. Useful for those wishing to cache feeder gateway responses in a proxy.")
 	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Network, "sync-network", "mainnet", "the StarkNet network with which to sync. Options: mainnet, goerli")
-	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Trusted, "sync-trusted", false, "sync with the feeder gateway, not against L1. Only set if an Ethereum node is not available. The node provides no guarantees about the integrity of the state when syncing with the feeder gateway.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "sync-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "sync-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way. If not set with `--sync-enable`, Juno will default to syncing the state from the (centralized) feeder gateway.")
 
 	return rootCmd
 }
@@ -236,7 +235,7 @@ func setupLogger(cfg *config.Log) {
 }
 
 func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
-	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(cfg.Trusted, errChan)
+	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {

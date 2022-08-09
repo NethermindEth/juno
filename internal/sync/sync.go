@@ -71,11 +71,13 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 	synchro := new(Synchronizer)
 	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
-	if !cfg.Trusted {
-		ethereumClient, err := ethclient.Dial(cfg.EthNode)
-		if err != nil {
-			synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
-		}
+	ethereumClient, err := ethclient.Dial(cfg.EthNode)
+	trusted := err != nil
+	if trusted {
+		// If we can't connect to an ethereum node, log an error
+		// and sync from the (trusted) feeder gateway.
+		synchro.logger.With("error", err).Error("Cannot connect to Ethereum Client: syncing state from the centralized feeder gateway")
+	} else {
 		synchro.l1Client = ethereumClient
 	}
 
@@ -88,7 +90,7 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 
 	synchro.setChainId(cfg.Network)
 	synchro.setStateToLatestRoot()
-	synchro.setStateDiffCollector(cfg.Trusted)
+	synchro.setStateDiffCollector(trusted)
 	return synchro
 }
 
@@ -103,13 +105,13 @@ func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
 }
 
 // Run starts the service.
-func (s *Synchronizer) Run(apiSync bool, errChan chan error) {
+func (s *Synchronizer) Run(errChan chan error) {
 	s.Running = true
 	go s.updateBlocksInfo()
-	go s.handleSync(apiSync, errChan)
+	go s.handleSync(errChan)
 }
 
-func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
+func (s *Synchronizer) handleSync(errChan chan error) {
 	for {
 		err := s.sync()
 		if err == nil {
@@ -119,7 +121,6 @@ func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
 		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 		time.Sleep(10 * time.Second)
 		s.stateDiffCollector.Close()
-		s.setStateDiffCollector(apiSync)
 	}
 }
 
