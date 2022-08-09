@@ -28,3 +28,7 @@ _Leave only items that describe your changes, remove the rest. Remove this line 
 
 **Did you write tests??**: Yes/No
 
+## Documentation
+
+**If this requires a documentation update, did you add one?** Yes/No
+
