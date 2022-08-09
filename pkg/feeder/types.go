@@ -59,18 +59,19 @@ type InvokeFunction struct {
 
 // TxnSpecificInfo represent a StarkNet transaction information.
 type TxnSpecificInfo struct {
-	ContractAddress    string   `json:"contract_address"`
-	ClassHash          string   `json:"class_hash"`
-	Nonce              string   `json:"nonce"`
-	SenderAddress      string   `json:"sender_address"`
-	Version            string   `json:"version"`
-	EntryPointSelector string   `json:"entry_point_selector"`
-	EntryPointType     string   `json:"entry_point_type"`
-	Calldata           []string `json:"calldata"`
-	Signature          []string `json:"signature"`
-	TransactionHash    string   `json:"transaction_hash"`
-	MaxFee             string   `json:"max_fee"`
-	Type               string   `json:"type"`
+	ContractAddress     string   `json:"contract_address"`
+	ClassHash           string   `json:"class_hash"`
+	Nonce               string   `json:"nonce"`
+	SenderAddress       string   `json:"sender_address"`
+	Version             string   `json:"version"`
+	EntryPointSelector  string   `json:"entry_point_selector"`
+	EntryPointType      string   `json:"entry_point_type"`
+	Calldata            []string `json:"calldata"`
+	ConstructorCalldata []string `json:"constructor_calldata"`
+	Signature           []string `json:"signature"`
+	TransactionHash     string   `json:"transaction_hash"`
+	MaxFee              string   `json:"max_fee"`
+	Type                string   `json:"type"`
 }
 
 // L1ToL2Message Represents a StarkNet L1-to-L2 message.
