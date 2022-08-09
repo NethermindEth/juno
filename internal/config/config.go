@@ -14,6 +14,7 @@ import (
 type Log struct {
 	Level string `yaml:"level" mapstructure:"level"`
 	Json  bool   `yaml:"json" mapstructure:"json"`
+	Color bool   `yaml:"color" mapstructure:"color"`
 }
 
 // Rpc represents the juno RPC configuration.
