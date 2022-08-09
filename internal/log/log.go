@@ -25,11 +25,11 @@ func init() {
 }
 
 // ReplaceGlobalLogger replace the logger and inject it globally
-func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string, disableColorEncoder bool) error {
+func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string, enableColorEncoder bool) error {
 	config := zap.NewProductionConfig()
 
 	// Colour coding
-	if !disableColorEncoder {
+	if enableColorEncoder {
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 
