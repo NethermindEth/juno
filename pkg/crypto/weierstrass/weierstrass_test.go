@@ -10,25 +10,45 @@ import (
 	"testing"
 )
 
-var curve = Stark()
+// isInfinity returns true if the x and y coordinates of a point
+// represent the point at infinity.
+func isInfinity(x, y *big.Int) bool {
+	return x.Sign() == 0 && y.Sign() == 0
+}
 
 // BenchmarkMarshalUnmarshal runs benchmarks on marshalling and
 // un-marshalling points.
 func BenchmarkMarshalUnmarshal(b *testing.B) {
+	curve := Stark()
 	_, x, y, _ := GenerateKey(curve, rand.Reader)
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		buf := Marshal(curve, x, y)
-		xx, yy := Unmarshal(curve, buf)
-		if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
-			b.Error("Unmarshal output different from Marshal input")
+
+	b.Run("Uncompressed", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			buf := Marshal(curve, x, y)
+			xx, yy := Unmarshal(curve, buf)
+			if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
+				b.Error("Unmarshal output different from Marshal input")
+			}
 		}
-	}
+	})
+
+	b.Run("Compressed", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			buf := MarshalCompressed(curve, x, y)
+			xx, yy := UnmarshalCompressed(curve, buf)
+			if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
+				b.Error("Unmarshal output different from Marshal input")
+			}
+		}
+	})
 }
 
 // BenchmarkScalarBaseMult runs a benchmark on the scalar base
 // multiplication operation on a curve.
 func BenchmarkScalarBaseMult(b *testing.B) {
+	curve := Stark()
 	pvt, _, _, _ := GenerateKey(curve, rand.Reader)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -42,6 +62,7 @@ func BenchmarkScalarBaseMult(b *testing.B) {
 // BenchmarkScalarBaseMult runs a benchmark on the scalar multiplication
 // operation on a curve.
 func BenchmarkScalarMult(b *testing.B) {
+	curve := Stark()
 	_, x, y, _ := GenerateKey(curve, rand.Reader)
 	pvt, _, _, _ := GenerateKey(curve, rand.Reader)
 	b.ReportAllocs()
@@ -54,11 +75,21 @@ func BenchmarkScalarMult(b *testing.B) {
 // TestOffCurve checks whether a point that is not on a curve can be
 // detected.
 func TestOffCurve(t *testing.T) {
+	curve := Stark()
 	x, y := new(big.Int).SetInt64(1), new(big.Int).SetInt64(1)
 	if curve.IsOnCurve(x, y) {
 		t.Error("point off curve is claimed to be on the curve")
 	}
-	b := Marshal(curve, x, y)
+
+	// XXX: Marshal curve. Note that this is essentially the body of the
+	// Marshal function but given that will panic when the point is off
+	// the curve, it is unsuitable here.
+	byteLen := (curve.Params().BitSize + 7) / 8
+	b := make([]byte, 1+2*byteLen)
+	b[0] = 4 // uncompressed point
+	x.FillBytes(b[1 : 1+byteLen])
+	y.FillBytes(b[1+byteLen : 1+2*byteLen])
+
 	x1, y1 := Unmarshal(curve, b)
 	if x1 != nil || y1 != nil {
 		t.Error("unmarshaling a point not on the curve succeeded")
@@ -68,42 +99,60 @@ func TestOffCurve(t *testing.T) {
 // TestInfinity checks whether the methods on a curve return valid
 // values when some input value is ∞.
 func TestInfinity(t *testing.T) {
-	_, x, y, _ := GenerateKey(curve, rand.Reader)
-	x, y = curve.ScalarMult(x, y, curve.Params().N.Bytes())
-	if x.Sign() != 0 || y.Sign() != 0 {
-		t.Error("x^q != ∞")
+	curve := Stark()
+	x0, y0 := new(big.Int), new(big.Int)
+	xG, yG := curve.Params().Gx, curve.Params().Gy
+
+	if !isInfinity(curve.ScalarMult(xG, yG, curve.Params().N.Bytes())) {
+		t.Errorf("x^q != ∞")
 	}
 
-	x, y = curve.ScalarBaseMult([]byte{0})
-	if x.Sign() != 0 || y.Sign() != 0 {
-		t.Error("b^0 != ∞")
-		x.SetInt64(0)
-		y.SetInt64(0)
+	if !isInfinity(curve.ScalarMult(xG, yG, []byte{0})) {
+		t.Errorf("x^0 != ∞")
 	}
 
-	x2, y2 := curve.Double(x, y)
-	if x2.Sign() != 0 || y2.Sign() != 0 {
-		t.Error("2∞ != ∞")
+	if !isInfinity(curve.ScalarMult(x0, y0, []byte{1, 2, 3})) {
+		t.Errorf("∞^k != ∞")
 	}
 
-	baseX := curve.Params().Gx
-	baseY := curve.Params().Gy
+	if !isInfinity(curve.ScalarMult(x0, y0, []byte{0})) {
+		t.Errorf("∞^0 != ∞")
+	}
 
-	x3, y3 := curve.Add(baseX, baseY, x, y)
-	if x3.Cmp(baseX) != 0 || y3.Cmp(baseY) != 0 {
+	if !isInfinity(curve.ScalarBaseMult(curve.Params().N.Bytes())) {
+		t.Errorf("b^q != ∞")
+	}
+
+	if !isInfinity(curve.ScalarBaseMult([]byte{0})) {
+		t.Errorf("b^0 != ∞")
+	}
+
+	if !isInfinity(curve.Double(x0, y0)) {
+		t.Errorf("2∞ != ∞")
+	}
+
+	nMinusOne := new(big.Int).Sub(curve.Params().N, big.NewInt(1))
+	x, y := curve.ScalarMult(xG, yG, nMinusOne.Bytes())
+	x, y = curve.Add(x, y, xG, yG)
+	if !isInfinity(x, y) {
+		t.Errorf("x^(q-1) + x != ∞")
+	}
+
+	x, y = curve.Add(xG, yG, x0, y0)
+	if x.Cmp(xG) != 0 || y.Cmp(yG) != 0 {
 		t.Error("x+∞ != x")
 	}
 
-	x4, y4 := curve.Add(x, y, baseX, baseY)
-	if x4.Cmp(baseX) != 0 || y4.Cmp(baseY) != 0 {
+	x, y = curve.Add(x0, y0, xG, yG)
+	if x.Cmp(xG) != 0 || y.Cmp(yG) != 0 {
 		t.Error("∞+x != x")
 	}
 
-	if curve.IsOnCurve(x, y) {
+	if curve.IsOnCurve(x0, y0) {
 		t.Error("IsOnCurve(∞) == true")
 	}
 
-	xx, yy := Unmarshal(curve, Marshal(curve, x, y))
+	xx, yy := Unmarshal(curve, Marshal(curve, x0, y0))
 	if xx != nil || yy != nil {
 		t.Error("Unmarshal(Marshal(∞)) did not return an error")
 	}
@@ -114,10 +163,17 @@ func TestInfinity(t *testing.T) {
 	if xx != nil || yy != nil {
 		t.Error("Unmarshal(∞) did not return an error")
 	}
+	byteLen := (curve.Params().BitSize + 7) / 8
+	buf := make([]byte, byteLen*2+1)
+	buf[0] = 4 // Uncompressed format.
+	if xx, yy := Unmarshal(curve, buf); xx != nil || yy != nil {
+		t.Errorf("Unmarshal((0,0)) did not return an error")
+	}
 }
 
 // TestMarshal checks whether a point can be serialised correctly.
 func TestMarshal(t *testing.T) {
+	curve := Stark()
 	_, x, y, err := GenerateKey(curve, rand.Reader)
 	if err != nil {
 		t.Fatalf("failed to generate key: %v", err)
@@ -135,6 +191,7 @@ func TestMarshal(t *testing.T) {
 // TestUnmarshalToLargeCoordinates checks whether a point with (invalid)
 // large coordinates will be deserialised.
 func TestUnmarshalToLargeCoordinates(t *testing.T) {
+	curve := Stark()
 	p := curve.Params().P
 	byteLen := (p.BitLen() + 7) / 8
 
@@ -155,10 +212,11 @@ func TestUnmarshalToLargeCoordinates(t *testing.T) {
 	}
 }
 
-// TestInvalidCoordinates tests big.Int values that are not valid field
-// elements (negative or bigger than P). They are expected to return
-// false from IsOnCurve, all other behaviour is undefined.
+// TestInvalidCoordinates tests [big.Int] values that are not valid
+// field elements i.e. negative or larger than P. They are expected to
+// return false from IsOnCurve, all other behaviour is undefined.
 func TestInvalidCoordinates(t *testing.T) {
+	curve := Stark()
 	checkIsOnCurveFalse := func(name string, x, y *big.Int) {
 		if curve.IsOnCurve(x, y) {
 			t.Errorf("IsOnCurve(%s) unexpectedly returned true", name)
@@ -208,8 +266,9 @@ func TestInvalidCoordinates(t *testing.T) {
 }
 
 // TestMarshallCompressed checks whether points can be compressed and
-// deserialised successfully.
+// deserialised.
 func TestMarshallCompressed(t *testing.T) {
+	curve := Stark()
 	_, x, y, err := GenerateKey(curve, rand.Reader)
 	if err != nil {
 		t.Fatalf("failed to generate key: %v", err)
@@ -239,6 +298,7 @@ func TestMarshallCompressed(t *testing.T) {
 // TestLargeIsOnCurve checks whether a point with (invalid) large
 // coordinates is reported to be on the curve.
 func TestLargeIsOnCurve(t *testing.T) {
+	curve := Stark()
 	large := big.NewInt(1)
 	large.Lsh(large, 1000)
 	if curve.IsOnCurve(large, large) {
