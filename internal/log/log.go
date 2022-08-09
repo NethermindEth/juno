@@ -31,6 +31,8 @@ func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string, enableCol
 	// Colour coding
 	if enableColorEncoder {
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	} else {
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	}
 
 	// Timestamp format (ISO8601) and time zone (UTC)
