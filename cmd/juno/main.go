@@ -99,7 +99,7 @@ func newRootCmd() *cobra.Command {
 	// Log
 	rootCmd.PersistentFlags().StringVar(&cfg.Log.Level, "log-level", "info", "verbosity of the logs. Options: debug, info, warn, error, dpanic, panic, fatal.")
 	rootCmd.PersistentFlags().BoolVar(&cfg.Log.Json, "log-json", false, "print logs in json format. Useful for automated processing. Typically omitted if logs are only viewed from console.")
-	rootCmd.PersistentFlags().BoolVar(&cfg.Log.Color, "no-color", false, "disable colour coded logs. Colour coded logs are enabled by default.")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Log.NoColor, "log-nocolor", false, "disable colour coded logs. Colour coded logs are enabled by default.")
 
 	// RPC
 	rootCmd.PersistentFlags().BoolVar(&cfg.Rpc.Enable, "rpc-enable", false, "enable the RPC server. Warning: this exposes the node to external requests and potentially DoS attacks.")
@@ -230,7 +230,7 @@ func setupVirtualMachine() {
 }
 
 func setupLogger(cfg *config.Log) {
-	if err := ReplaceGlobalLogger(cfg.Json, cfg.Level, cfg.Color); err != nil {
+	if err := ReplaceGlobalLogger(cfg.Json, cfg.Level, cfg.NoColor); err != nil {
 		fmt.Printf("failed to initialize logger: %s\n", err)
 		os.Exit(1)
 	}
