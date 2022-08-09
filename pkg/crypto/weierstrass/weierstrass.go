@@ -10,7 +10,9 @@
 // a uniform interface for a broader set of curves than just standard
 // NIST curves with a = -3.
 //
-// It is based on the following https://github.com/golang/go/pull/26873.
+// It is based on the following [pull request].
+//
+// - [pull request]: https://github.com/golang/go/pull/26873
 package weierstrass
 
 import (
@@ -20,13 +22,13 @@ import (
 
 // Curve represents a short-form Weierstrass curve.
 //
-// The behaviour of Add, Double, and ScalarMult when the input is not a
-// point on the curve is undefined.
+// The behaviour of [Add], [Double], and [ScalarMult] when the input is
+// not a point on the curve is undefined.
 //
 // Note that the conventional point at infinity (0, 0) is not considered
-// on the curve, although it can be returned by Add, Double, ScalarMult,
-// or ScalarBaseMult (but not the Unmarshal or UnmarshalCompressed
-// functions).
+// on the curve, although it can be returned by [Add], [Double],
+// [ScalarMult], or [ScalarBaseMult] (but not the [Unmarshal] or
+// [UnmarshalCompressed] functions).
 type Curve interface {
 	// Params returns the parameters for the curve.
 	Params() *CurveParams
@@ -57,13 +59,13 @@ type CurveParams struct {
 
 // Params returns the CurveParams of the curve.
 //
-// CurveParams operates, internally, on Jacobian coordinates. For a
+// [CurveParams] operates, internally, on Jacobian coordinates. For a
 // given (x, y) position on the curve, the Jacobian coordinates are
-// (x1, y1, z1) where x = x1/z1² and y = y1/z1³. The greatest speedups
+// (x1, y1, z1) where x = x1/z1² and y = y1/z1³. The greatest speed-ups
 // come when the whole calculation can be performed within the transform
-// (as in ScalarMult and ScalarBaseMult). But even for Add and Double,
-// it's faster to apply and reverse the transform than to operate in
-// affine coordinates.
+// (as in [ScalarMult] and [ScalarBaseMult]). But even for [Add] and
+// [Double], it's faster to apply and reverse the transform than to
+// operate in affine coordinates.
 func (curve *CurveParams) Params() *CurveParams { return curve }
 
 // short returns the short Weierstrass form of a curve,
@@ -109,9 +111,7 @@ func zForAffine(x, y *big.Int) *big.Int {
 
 // affineFromJacobian reverses the Jacobian transform. See the comment
 // at the top of the file. If the point is ∞ it returns 0, 0.
-func (curve *CurveParams) affineFromJacobian(
-	x, y, z *big.Int,
-) (affX, affY *big.Int) {
+func (curve *CurveParams) affineFromJacobian(x, y, z *big.Int) (affX, affY *big.Int) {
 	if z.Sign() == 0 {
 		return new(big.Int), new(big.Int)
 	}
@@ -130,9 +130,7 @@ func (curve *CurveParams) affineFromJacobian(
 }
 
 // Add returns the sum of (x1, y1) and (x2, y2).
-func (curve *CurveParams) Add(
-	x1, y1, x2, y2 *big.Int,
-) (*big.Int, *big.Int) {
+func (curve *CurveParams) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	z1 := zForAffine(x1, y1)
 	z2 := zForAffine(x2, y2)
 	return curve.affineFromJacobian(curve.addJacobian(x1, y1, z1, x2, y2, z2))
@@ -140,9 +138,7 @@ func (curve *CurveParams) Add(
 
 // addJacobian takes two points in Jacobian coordinates, (x1, y1, z1)
 // and (x2, y2, z2) and returns their sum, also in Jacobian form.
-func (curve *CurveParams) addJacobian(
-	x1, y1, z1, x2, y2, z2 *big.Int,
-) (*big.Int, *big.Int, *big.Int) {
+func (curve *CurveParams) addJacobian(x1, y1, z1, x2, y2, z2 *big.Int) (*big.Int, *big.Int, *big.Int) {
 	// See: https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-2007-bl.
 	x3, y3, z3 := new(big.Int), new(big.Int), new(big.Int)
 	if z1.Sign() == 0 {
@@ -251,9 +247,7 @@ func (curve *CurveParams) Double(x1, y1 *big.Int) (*big.Int, *big.Int) {
 
 // doubleJacobian takes a point in Jacobian coordinates, (x, y, z), and
 // returns its double, also in Jacobian form.
-func (curve *CurveParams) doubleJacobian(
-	x, y, z *big.Int,
-) (*big.Int, *big.Int, *big.Int) {
+func (curve *CurveParams) doubleJacobian(x, y, z *big.Int) (*big.Int, *big.Int, *big.Int) {
 	// See: https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-2007-bl.
 	// xx = x1².
 	xx := new(big.Int).Mul(x, x)
@@ -339,9 +333,7 @@ func (curve *CurveParams) doubleJacobian(
 }
 
 // ScalarMult returns k * (Bx, By) where k is a number in big-endian.
-func (curve *CurveParams) ScalarMult(
-	Bx, By *big.Int, k []byte,
-) (*big.Int, *big.Int) {
+func (curve *CurveParams) ScalarMult(Bx, By *big.Int, k []byte) (*big.Int, *big.Int) {
 	Bz := new(big.Int).SetInt64(1)
 	x, y, z := new(big.Int), new(big.Int), new(big.Int)
 
@@ -368,9 +360,7 @@ var mask = []byte{0xff, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f}
 
 // GenerateKey returns a public/private key pair. The private key is
 // generated using the given reader, which must return random data.
-func GenerateKey(
-	curve Curve, rand io.Reader,
-) (pvt []byte, x, y *big.Int, err error) {
+func GenerateKey(curve Curve, rand io.Reader) (pvt []byte, x, y *big.Int, err error) {
 	N := curve.Params().N
 	bitSize := N.BitLen()
 	byteLen := (bitSize + 7) / 8
@@ -404,6 +394,8 @@ func GenerateKey(
 // on the curve (or is the conventional point at infinity), the
 // behaviour is undefined.
 func Marshal(curve Curve, x, y *big.Int) []byte {
+	panicIfNotOnCurve(curve, x, y)
+
 	byteLen := (curve.Params().BitSize + 7) / 8
 
 	ret := make([]byte, 1+2*byteLen)
@@ -420,6 +412,7 @@ func Marshal(curve Curve, x, y *big.Int) []byte {
 // not on the curve (or is the conventional point at infinity), the
 // behaviour is undefined.
 func MarshalCompressed(curve Curve, x, y *big.Int) []byte {
+	panicIfNotOnCurve(curve, x, y)
 	byteLen := (curve.Params().BitSize + 7) / 8
 	compressed := make([]byte, 1+byteLen)
 	compressed[0] = byte(y.Bit(0)) | 2
@@ -452,8 +445,8 @@ func Unmarshal(curve Curve, data []byte) (x, y *big.Int) {
 }
 
 // UnmarshalCompressed converts a point, serialized by
-// MarshalCompressed, into an x, y pair. It is an error if the point is
-// not in compressed form, is not on the curve, or is the point at
+// [MarshalCompressed], into an x, y pair. It is an error if the point
+// is not in compressed form, is not on the curve, or is the point at
 // infinity. On error, x = nil.
 func UnmarshalCompressed(curve Curve, data []byte) (x, y *big.Int) {
 	byteLen := (curve.Params().BitSize + 7) / 8
@@ -487,4 +480,16 @@ func UnmarshalCompressed(curve Curve, data []byte) (x, y *big.Int) {
 		return nil, nil
 	}
 	return
+}
+
+func panicIfNotOnCurve(curve Curve, x, y *big.Int) {
+	// (0, 0) is the point at infinity by convention. It's ok to operated
+	// on it, although IsOnCurve is documented to return false for it.
+	if x.Sign() == 0 && y.Sign() == 0 {
+		return
+	}
+
+	if !curve.IsOnCurve(x, y) {
+		panic("crypto/weierstrass: attempted operation on invalid point")
+	}
 }
