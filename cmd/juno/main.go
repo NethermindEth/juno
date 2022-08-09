@@ -4,6 +4,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
+	"gopkg.in/yaml.v2"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/config"
@@ -187,7 +189,12 @@ func setFlagValue(cmd *cobra.Command, v *viper.Viper, f *pflag.Flag) {
 
 // juno is the main entrypoint for the Juno node.
 func juno(cfg *config.Juno) {
-	fmt.Printf("using config: %+v\n\n", cfg)
+	configYaml, err := yaml.Marshal(cfg)
+	if err != nil {
+		log.Fatal("Failed to marshal config: ", err)
+	}
+
+	fmt.Printf("Config:\n%s\n\n", configYaml)
 
 	// Configure the logger first so we can use it
 	setupLogger(&cfg.Log)
