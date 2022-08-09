@@ -60,6 +60,5 @@ func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string, disableCo
 	}
 
 	Logger = logger.Sugar()
-	Logger.Info("logger replaced")
 	return nil
 }
