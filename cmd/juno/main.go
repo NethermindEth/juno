@@ -273,10 +273,11 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 			Logger.With("Error", err).Error("Failed to register RPC handler.")
 		}
 	}
-	rpcServer, err := rpc.NewHttpRpc(":"+strconv.FormatUint(uint64(cfg.Port), 10), "/rpc", jsonRpc)
+	server, err := rpc.NewHttpRpc(":"+strconv.FormatUint(uint64(cfg.Port), 10), "/rpc", jsonRpc)
 	if err != nil {
 		Logger.Fatal("Failed to initialise RPC Server", err)
 	}
+	rpcServer = server
 	rpcServer.ListenAndServe(errChan)
 }
 
