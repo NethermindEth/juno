@@ -20,7 +20,7 @@ COPY --from=build /app/build/juno /home/app/juno
 COPY --from=build /app/requirements.txt /req/requirements.txt
 
 RUN apk update && apk upgrade && apk add --update alpine-sdk && \
-    apk add --no-cache bash git openssh make cmake clang && pip install -r /req/requirements.txt
+    apk add --no-cache gmp-dev cmake gcc g++ linux-headers && pip install -r /req/requirements.txt
 
 RUN addgroup -S appgroup && adduser -S app -G appgroup
 USER app
