@@ -221,7 +221,7 @@ func juno(cfg *config.Juno) {
 	}
 
 	// Wait until error
-	checkErrChs(errChs)
+	checkErrChs(errChs, cfg)
 }
 
 func setupVirtualMachine() {
@@ -390,11 +390,11 @@ func shutdown(cfg *config.Juno) {
 	}
 }
 
-func checkErrChs(errChs []chan error) {
+func checkErrChs(errChs []chan error, cfg *config.Juno) {
 	for _, errCh := range errChs {
 		for {
 			if err := <-errCh; err != nil {
-				Logger.Fatal(err)
+				shutdown(cfg)
 			}
 		}
 	}
