@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/config"
@@ -189,7 +189,7 @@ func setFlagValue(cmd *cobra.Command, v *viper.Viper, f *pflag.Flag) {
 
 // juno is the main entrypoint for the Juno node.
 func juno(cfg *config.Juno) {
-	configYaml, err := yaml.Marshal(cfg)
+	configYaml, err := yaml.Marshal(&cfg)
 	if err != nil {
 		log.Fatal("Failed to marshal config: ", err)
 	}
