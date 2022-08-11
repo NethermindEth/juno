@@ -15,6 +15,7 @@ var Logger *zap.SugaredLogger
 func init() {
 	config := zap.NewDevelopmentConfig()
 	config.DisableStacktrace = true
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	logger, err := config.Build()
 	if err != nil {
 		// notest
@@ -24,8 +25,15 @@ func init() {
 }
 
 // ReplaceGlobalLogger replace the logger and inject it globally
-func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string) error {
+func ReplaceGlobalLogger(enableJsonOutput bool, verbosityLevel string, enableColorEncoder bool) error {
 	config := zap.NewProductionConfig()
+
+	// Colour coding
+	if enableColorEncoder {
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	} else {
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	}
 
 	// Timestamp format (ISO8601) and time zone (UTC)
 	config.EncoderConfig.EncodeTime = zapcore.TimeEncoder(func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
