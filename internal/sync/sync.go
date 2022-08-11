@@ -71,14 +71,17 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 	synchro := new(Synchronizer)
 	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
-	ethereumClient, err := ethclient.Dial(cfg.EthNode)
-	trusted := err != nil
+	trusted := cfg.EthNode == ""
 	if trusted {
-		// If we can't connect to an ethereum node, log an error
-		// and sync from the (trusted) feeder gateway.
-		synchro.logger.With("error", err).Info("Cannot connect to Ethereum Client: defaulting to syncing from gateway")
+		synchro.logger.Info("Defaulting to syncing from gateway")
 	} else {
-		synchro.l1Client = ethereumClient
+		ethereumClient, err := ethclient.Dial(cfg.EthNode)
+		if err == nil {
+			synchro.l1Client = ethereumClient
+		} else {
+			synchro.logger.With("error", err).Error("Cannot connect to Ethereum Client: defaulting to syncing from gateway")
+			trusted = true
+		}
 	}
 
 	synchro.syncManager = syncManager
