@@ -97,7 +97,7 @@ func (s *StarkNetRpc) GetStorageAt(blockId *BlockId, address string, key string)
 		}
 		// TODO: manage unexpected error
 	}
-	return value, nil
+	return value.Hex0x(), nil
 }
 
 func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) {
