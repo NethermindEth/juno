@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && apk add --update alpine-sdk && \
 COPY . .
 RUN go mod download
 
-RUN make compile
+RUN make juno
 
 FROM python:3.7.13-alpine
 

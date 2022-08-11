@@ -2,9 +2,6 @@
   "name": "juno-docs",
   "version": "0.0.0",
   "private": true,
-  "engines": {
-      "yarn": ">=3.2.2"
-  },
   "scripts": {
     "docusaurus": "docusaurus",
     "setup-cname": "node ./scripts/setup-cname.js",

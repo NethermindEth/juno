@@ -10,8 +10,9 @@ import (
 var rest_handler RestHandler
 
 // NewServer creates a REST API server with the listed endpoints
-func NewServer(rest_port string, feeder_gateway string, prefix string) *Server {
-	rest_handler.RestFeeder = feeder.NewClient(feeder_gateway, "/feeder_gateway", nil)
+func NewServer(rest_port string, feederClient *feeder.Client) *Server {
+	rest_handler.RestFeeder = feederClient
+	prefix := feederClient.BaseAPI
 	m := http.NewServeMux()
 
 	m.HandleFunc(prefix+"/get_block", rest_handler.GetBlock)
