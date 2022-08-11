@@ -17,25 +17,25 @@ type SyncService struct {
 	l2 Syncer
 }
 
-func NewMainnetSyncService(backend bind.ContractBackend, feederClient *feeder.Client) (*SyncService, error) {
-	l1, err := NewMainnetL1SyncService(backend)
+func NewMainnetSyncService(l1Backend bind.ContractBackend, l2Backend *feeder.Client) (*SyncService, error) {
+	l1, err := NewMainnetL1SyncService(l1Backend)
 	if err != nil {
 		return nil, err
 	}
 	return &SyncService{
 		l1: l1,
-		l2: NewL2SyncService(feederClient),
+		l2: NewL2SyncService(l2Backend),
 	}, nil
 }
 
-func NewGoerliSyncService(backend bind.ContractBackend, feederClient *feeder.Client) (*SyncService, error) {
-	l1, err := NewGoerliL1SyncService(backend)
+func NewGoerliSyncService(l1Backend bind.ContractBackend, l2Backend *feeder.Client) (*SyncService, error) {
+	l1, err := NewGoerliL1SyncService(l1Backend)
 	if err != nil {
 		return nil, err
 	}
 	return &SyncService{
 		l1: l1,
-		l2: NewL2SyncService(feederClient),
+		l2: NewL2SyncService(l2Backend),
 	}, nil
 }
 
