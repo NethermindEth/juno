@@ -71,7 +71,9 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 	synchro := new(Synchronizer)
 	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
+
 	trusted := cfg.EthNode == ""
+
 	if trusted {
 		synchro.logger.Info("Defaulting to syncing from gateway")
 	} else {
