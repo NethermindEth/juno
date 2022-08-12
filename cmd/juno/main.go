@@ -195,7 +195,7 @@ func juno(cfg *config.Juno) {
 		log.Fatal("Failed to marshal config: ", err)
 	}
 
-	fmt.Printf("Config:\n%s\n\n", configYaml)
+	fmt.Printf("Using config:\n\n%s\n\n", string(configYaml))
 
 	// Configure the logger first so we can use it
 	setupLogger(&cfg.Log)
