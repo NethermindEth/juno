@@ -237,7 +237,7 @@ func setupVirtualMachine() {
 }
 
 func setupLogger(cfg *config.Log) {
-	if err := ReplaceGlobalLogger(cfg.Json, cfg.Level, cfg.NoColor); err != nil {
+	if err := ReplaceGlobalLogger(cfg.Json, cfg.Level, !cfg.NoColor); err != nil {
 		fmt.Printf("failed to initialize logger: %s\n", err)
 		os.Exit(1)
 	}
