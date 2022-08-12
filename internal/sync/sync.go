@@ -68,9 +68,10 @@ type Synchronizer struct {
 func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
 ) *Synchronizer {
-	synchro := new(Synchronizer)
-	synchro.logger = Logger.Named("Sync Service")
-	synchro.feeder = feederClient
+	synchro := &Synchronizer{
+		logger: Logger.Named("Sync Service"),
+		feeder: feederClient,
+	}
 
 	trusted := cfg.EthNode == ""
 
