@@ -48,16 +48,18 @@ type DeployedContract struct {
 	ConstructorCallData []*felt.Felt `json:"constructor_call_data"`
 }
 
-type StorageDiff map[string][]MemoryCell
-
 // StateDiff Represent the deployed contracts and the storage diffs for those and
 // for the one's already deployed
 type StateDiff struct {
-	StorageDiff       `json:"storage_diffs"`
-	BlockNumber       int64              `json:"block_number"`
-	NewRoot           *felt.Felt         `json:"new_root"`
-	OldRoot           *felt.Felt         `json:"old_root"`
-	DeployedContracts []DeployedContract `json:"deployed_contracts"`
+	StorageDiff       map[string][]MemoryCell `json:"storage_diffs"`
+	DeployedContracts []DeployedContract      `json:"deployed_contracts"`
+}
+
+// Implements the heap.Interface interface
+type StateUpdate struct {
+	StateDiff      StateDiff
+	SequenceNumber uint64
+	NewRoot        *felt.Felt
 }
 
 // ContractInfo represent the info associated to one contract

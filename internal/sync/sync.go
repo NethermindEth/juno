@@ -1,12 +1,16 @@
 package sync
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-// TODO logging
-// TODO the feeder package should export a set of interfaces that we can mock
+// TODO
+// - think about how to manage database to keep api clean (see erigon)
+// - L2Backend interface
+// - logging
 
 type Syncer interface {
 	Run(errChan chan error)
@@ -17,25 +21,33 @@ type SyncService struct {
 	l2 Syncer
 }
 
-func NewMainnetSyncService(l1Backend bind.ContractBackend, l2Backend *feeder.Client) (*SyncService, error) {
-	l1, err := NewMainnetL1SyncService(l1Backend)
+func NewSyncService(network, nodeUrl, feederUrl string) (*SyncService, error) {
+	feederClient := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
+	l1Client, err := ethclient.Dial(nodeUrl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connect to ethereum node: %w", err)
 	}
-	return &SyncService{
-		l1: l1,
-		l2: NewL2SyncService(l2Backend),
-	}, nil
-}
 
-func NewGoerliSyncService(l1Backend bind.ContractBackend, l2Backend *feeder.Client) (*SyncService, error) {
-	l1, err := NewGoerliL1SyncService(l1Backend)
+	// Mainnet
+	if network == "mainnet" {
+		l1, err := NewMainnetL1SyncService(l1Client)
+		if err != nil {
+			return nil, err
+		}
+		return &SyncService{
+			l1: l1,
+			l2: NewL2SyncService(feederClient),
+		}, nil
+	}
+
+	// Goerli
+	l1, err := NewGoerliL1SyncService(l1Client)
 	if err != nil {
 		return nil, err
 	}
 	return &SyncService{
 		l1: l1,
-		l2: NewL2SyncService(l2Backend),
+		l2: NewL2SyncService(feederClient),
 	}, nil
 }
 

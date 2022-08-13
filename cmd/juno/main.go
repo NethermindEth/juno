@@ -41,7 +41,7 @@ var (
 	metricsServer *metric.Server
 	restServer    *rest.Server
 
-	synchronizer   *syncService.Synchronizer
+	synchronizer   *syncService.SyncService
 	virtualMachine *cairovm.VirtualMachine
 
 	stateManager       *state.Manager
@@ -201,7 +201,7 @@ func juno(cfg *config.Juno) {
 
 	if cfg.Sync.Enable {
 		errChs = append(errChs, make(chan error))
-		setupSynchronizer(&cfg.Sync, feederClient, errChs[len(errChs)-1])
+		setupSynchronizer(&cfg.Sync, errChs[len(errChs)-1])
 	} else {
 		// Currently, Juno is only useful for storing StarkNet
 		// state locally. We notify the user of this. We don't
@@ -236,8 +236,12 @@ func setupLogger(cfg *config.Log) {
 	}
 }
 
-func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
-	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(cfg.Trusted, errChan)
+func setupSynchronizer(cfg *config.Sync, errChan chan error) {
+	syncer, err := syncService.NewSyncService(cfg.Network, cfg.EthNode, cfg.Sequencer)
+	if err != nil {
+		Logger.With("error", err).Fatal("Failed to initialize sync service")
+	}
+	syncer.Run(errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
