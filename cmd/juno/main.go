@@ -157,6 +157,7 @@ func loadConfig(cmd *cobra.Command, configFile *string) error {
 	v.AddConfigPath(filepath.Dir(*configFile))
 	v.SetConfigType("yaml")
 	v.SetConfigName(filepath.Base(*configFile))
+	fmt.Printf("Loading config from %s\n", *configFile)
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
