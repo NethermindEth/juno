@@ -37,7 +37,7 @@ func NewMDBXEnv(path string, optMaxDB uint64, flags uint) (*mdbx.Env, error) {
 		// notest
 		return nil, err
 	}
-	err = env.SetGeometry(268435456, 268435456, 25769803776, 268435456, 268435456, 4096)
+	err = env.SetGeometry(268435456, 268435456, 4123168604160, 268435456, 268435456, 4096)
 	if err != nil {
 		// notest
 		return nil, err
