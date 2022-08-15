@@ -129,7 +129,7 @@ func newRootCmd() *cobra.Command {
 
 type keyToEnvReplacer struct{}
 
-// Replace is used to conviently convert from a viper key to an
+// Replace is used to conveniently convert from a viper key to an
 // environment variable. E.g. "database-path" --> "JUNO_DATABASE_PATH"
 //
 // It is public to fulfill the viper.EnvKeyReplacer interface.
@@ -236,7 +236,9 @@ func setupLogger(cfg *config.Log) {
 }
 
 func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
-	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(errChan)
+	synchronizer = syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager,
+		transactionManager)
+	synchronizer.Run(errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
@@ -263,7 +265,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_blockNumber", starknetApi.BlockNumber, nil},
 		{"starknet_blockHashAndNumber", starknetApi.BlockHashAndNumber, nil},
 		{"starknet_chainId", starknetApi.ChainId, nil},
-		{"starkent_pendingTrnasactions", starknetApi.PendingTransactions, nil},
+		{"starknet_pendingTransactions", starknetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starknetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starknetApi.Syncing, nil},
 	}
@@ -272,10 +274,11 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 			Logger.With("Error", err).Error("Failed to register RPC handler.")
 		}
 	}
-	rpcServer, err := rpc.NewHttpRpc(":"+strconv.FormatUint(uint64(cfg.Port), 10), "/rpc", jsonRpc)
+	server, err := rpc.NewHttpRpc(":"+strconv.FormatUint(uint64(cfg.Port), 10), "/rpc", jsonRpc)
 	if err != nil {
 		Logger.Fatal("Failed to initialise RPC Server", err)
 	}
+	rpcServer = server
 	rpcServer.ListenAndServe(errChan)
 }
 
