@@ -130,7 +130,7 @@ func newRootCmd() *cobra.Command {
 
 type keyToEnvReplacer struct{}
 
-// Replace is used to conviently convert from a viper key to an
+// Replace is used to conveniently convert from a viper key to an
 // environment variable. E.g. "database-path" --> "JUNO_DATABASE_PATH"
 //
 // It is public to fulfill the viper.EnvKeyReplacer interface.
@@ -266,7 +266,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_blockNumber", starknetApi.BlockNumber, nil},
 		{"starknet_blockHashAndNumber", starknetApi.BlockHashAndNumber, nil},
 		{"starknet_chainId", starknetApi.ChainId, nil},
-		{"starkent_pendingTrnasactions", starknetApi.PendingTransactions, nil},
+		{"starknet_pendingTransactions", starknetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starknetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starknetApi.Syncing, nil},
 	}
