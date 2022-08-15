@@ -67,8 +67,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		return res, err
 	}
 
-	available := make(chan bool, 2)
-	available <- true
+	available := make(chan bool, 1)
 	available <- true
 	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
 }
