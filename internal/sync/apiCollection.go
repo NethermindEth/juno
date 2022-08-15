@@ -71,7 +71,10 @@ func (a *apiCollector) Run() {
 				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
 				continue
 			}
-			a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
+			stateDiff := stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
+			a.updateContractCode(stateDiff)
+
+			a.buffer <- stateDiff
 			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 			latestStateDiffSynced += 1
 		}
@@ -121,6 +124,32 @@ func (a *apiCollector) LatestBlock() *feeder.StarknetBlock {
 
 func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
 	return a.pendingBlock
+}
+
+// updateContractCode update the contract code
+func (a *apiCollector) updateContractCode(stateDiff *types.StateDiff) {
+
+	for i, deployedContract := range stateDiff.DeployedContracts {
+
+		contractFromApi, err := a.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
+			strconv.FormatInt(stateDiff.BlockNumber, 10))
+		if err != nil {
+			a.logger.With("Block Number", stateDiff.BlockNumber,
+				"Contract Address", deployedContract.Address.Hex0x()).
+				Error("Error getting full contract")
+			return
+		}
+
+		contract := new(types.Contract)
+		err = contract.UnmarshalRaw(contractFromApi)
+		if err != nil {
+			a.logger.With("Block Number", stateDiff.BlockNumber,
+				"Contract Address", deployedContract.Address.Hex0x()).
+				Error("Error unmarshalling contract")
+			return
+		}
+		stateDiff.DeployedContracts[i].Code = contract
+	}
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff

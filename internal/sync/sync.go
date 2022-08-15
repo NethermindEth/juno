@@ -133,6 +133,7 @@ func (s *Synchronizer) sync() error {
 		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
+			s.logger.With("Error", err).Error("State update failed, reverting state")
 			prometheus.IncreaseCountStarknetStateFailed()
 			s.setStateToLatestRoot()
 			return err
@@ -200,24 +201,24 @@ func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
 
 func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
 	// Get Full Contract
-	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
-		strconv.FormatInt(stateDiff.BlockNumber, 10))
-	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address.Hex0x()).
-			Error("Error getting full contract")
-		return err
-	}
-
-	contract := new(types.Contract)
-	err = contract.UnmarshalRaw(contractFromApi)
-	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address.Hex0x()).
-			Error("Error unmarshalling contract")
-		return err
-	}
-	err = s.state.SetContract(deployedContract.Address, deployedContract.Hash, contract)
+	//contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
+	//	strconv.FormatInt(stateDiff.BlockNumber, 10))
+	//if err != nil {
+	//	s.logger.With("Block Number", stateDiff.BlockNumber,
+	//		"Contract Address", deployedContract.Address.Hex0x()).
+	//		Error("Error getting full contract")
+	//	return err
+	//}
+	//
+	//contract := new(types.Contract)
+	//err = contract.UnmarshalRaw(contractFromApi)
+	//if err != nil {
+	//	s.logger.With("Block Number", stateDiff.BlockNumber,
+	//		"Contract Address", deployedContract.Address.Hex0x()).
+	//		Error("Error unmarshalling contract")
+	//	return err
+	//}
+	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash, deployedContract.Code)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).

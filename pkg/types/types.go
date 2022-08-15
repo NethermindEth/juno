@@ -46,6 +46,7 @@ type DeployedContract struct {
 	Address             *felt.Felt   `json:"address"`
 	Hash                *felt.Felt   `json:"contract_hash"`
 	ConstructorCallData []*felt.Felt `json:"constructor_call_data"`
+	Code                *Contract
 }
 
 type StorageDiff map[string][]MemoryCell

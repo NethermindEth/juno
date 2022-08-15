@@ -152,6 +152,7 @@ func (l *l1Collector) Run() {
 				stateDiff := parsePages(pages)
 				stateDiff.NewRoot = fact.StateRoot
 				stateDiff.BlockNumber = int64(fact.SequenceNumber)
+				l.updateContractCode(stateDiff)
 				l.buffer <- stateDiff
 
 				l.removeFactTree(fact)
@@ -564,6 +565,32 @@ func (l *l1Collector) fetchPendingBlock() {
 	}
 
 	l.pendingBlock = pendingBlock
+}
+
+// updateContractCode update the contract code
+func (l *l1Collector) updateContractCode(stateDiff *types2.StateDiff) {
+
+	for i, deployedContract := range stateDiff.DeployedContracts {
+
+		contractFromApi, err := l.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
+			strconv.FormatInt(stateDiff.BlockNumber, 10))
+		if err != nil {
+			l.logger.With("Block Number", stateDiff.BlockNumber,
+				"Contract Address", deployedContract.Address.Hex0x()).
+				Error("Error getting full contract")
+			return
+		}
+
+		contract := new(types2.Contract)
+		err = contract.UnmarshalRaw(contractFromApi)
+		if err != nil {
+			l.logger.With("Block Number", stateDiff.BlockNumber,
+				"Contract Address", deployedContract.Address.Hex0x()).
+				Error("Error unmarshalling contract")
+			return
+		}
+		stateDiff.DeployedContracts[i].Code = contract
+	}
 }
 
 // parsePages converts an array of memory pages into a state diff that
