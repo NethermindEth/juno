@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -181,7 +182,7 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 
 func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
 	for _, deployedContract := range stateDiff.DeployedContracts {
-		err := s.SetCode(stateDiff, deployedContract)
+		err := s.SetCode(stateDiff, &deployedContract)
 		if err != nil {
 			return err
 		}
@@ -199,7 +200,7 @@ func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
 	return nil
 }
 
-func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
+func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract *types.DeployedContract) error {
 	// Get Full Contract
 	//contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
 	//	strconv.FormatInt(stateDiff.BlockNumber, 10))
@@ -218,6 +219,10 @@ func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract type
 	//		Error("Error unmarshalling contract")
 	//	return err
 	//}
+	if deployedContract == nil {
+		ErrorNotDeployedContract := errors.New("contract not deployed")
+		return ErrorNotDeployedContract
+	}
 	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash, deployedContract.Code)
 	if err != nil {
 		s.logger.With("Block Number", stateDiff.BlockNumber,
