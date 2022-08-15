@@ -237,7 +237,9 @@ func setupLogger(cfg *config.Log) {
 }
 
 func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
-	syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager, transactionManager).Run(cfg.Trusted, errChan)
+	synchronizer = syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager,
+		transactionManager)
+	synchronizer.Run(cfg.Trusted, errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
