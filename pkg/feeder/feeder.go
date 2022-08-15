@@ -32,6 +32,7 @@ type Client struct {
 
 	BaseURL            *url.URL
 	BaseAPI, UserAgent string
+	available          chan bool
 }
 
 // NewClient returns a new Client.
@@ -53,14 +54,23 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	// retry mechanism for do requests
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error) {
 		var res *http.Response
-		for i := 0; err != nil && i < 2; i++ {
-			time.Sleep(time.Second * 10)
+		wait := 5 * time.Second
+		for i := 0; err != nil && i < 10; i++ {
 			res, err = httpClient.Do(req)
+			if err == nil {
+				return res, nil
+			}
+			fmt.Println("Waiting to do again a request:", wait.Seconds())
+			time.Sleep(wait)
+			wait = wait * 2
 		}
 		return res, err
 	}
 
-	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq}
+	available := make(chan bool, 2)
+	available <- true
+	available <- true
+	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
 }
 
 func NewClientWithRetryFuncForDoReq(baseURL, baseAPI string, client *HttpClient, retryFunc func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)) *Client {
@@ -143,6 +153,11 @@ func (c *Client) newRequest(method string, path string, query map[string]string,
 // do executes a request and waits for response and returns an error
 // otherwise.
 func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
+	<-c.available
+	defer func() {
+		c.available <- true
+	}()
+
 	metr.IncreaseRequestsSent()
 	res, err := (*c.httpClient).Do(req)
 	// notest
