@@ -28,7 +28,7 @@ type HttpClient interface {
 // Client represents a client for the StarkNet feeder gateway.
 type Client struct {
 	httpClient        *HttpClient
-	retryFuncForDoReq func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)
+	retryFuncForDoReq func(req *http.Request, httpClient HttpClient) (*http.Response, error)
 
 	BaseURL            *url.URL
 	BaseAPI, UserAgent string
@@ -52,15 +52,16 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	}
 
 	// retry mechanism for do requests
-	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error) {
+	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient) (*http.Response, error) {
 		var res *http.Response
 		wait := 5 * time.Second
-		for i := 0; err != nil && i < 10; i++ {
+		for i := 0; i < 10; i++ {
 			res, err = httpClient.Do(req)
 			if res.StatusCode == http.StatusOK {
-				return res, nil
+				Logger.Info("Successful request")
+				return res, err
 			}
-			fmt.Println("Waiting to do again a request:", wait.Seconds())
+			Logger.With("Waiting:", wait.Seconds()).Info("Waiting to do again a request")
 			time.Sleep(wait)
 			wait = wait * 2
 		}
@@ -72,7 +73,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
 }
 
-func NewClientWithRetryFuncForDoReq(baseURL, baseAPI string, client *HttpClient, retryFunc func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)) *Client {
+func NewClientWithRetryFuncForDoReq(baseURL, baseAPI string, client *HttpClient, retryFunc func(req *http.Request, httpClient HttpClient) (*http.Response, error)) *Client {
 	newClient := NewClient(baseURL, baseAPI, client)
 	newClient.retryFuncForDoReq = retryFunc
 
@@ -158,9 +159,8 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	}()
 
 	metr.IncreaseRequestsSent()
-	res, err := (*c.httpClient).Do(req)
 	// notest
-	_, err = c.retryFuncForDoReq(req, *c.httpClient, err)
+	res, err := c.retryFuncForDoReq(req, *c.httpClient)
 
 	// We tried three times and still received an error
 	if err != nil {
