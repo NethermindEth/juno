@@ -58,10 +58,9 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		for i := 0; i < 10; i++ {
 			res, err = httpClient.Do(req)
 			if res.StatusCode == http.StatusOK {
-				Logger.Info("Successful request")
 				return res, err
 			}
-			Logger.With("Waiting:", wait.Seconds()).Info("Waiting to do again a request")
+			Logger.With("Waiting:", wait.Seconds()).Error("Waiting to do again a request")
 			time.Sleep(wait)
 			wait = wait * 2
 		}
