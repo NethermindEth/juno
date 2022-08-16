@@ -39,7 +39,7 @@ func init() {
 	pf = failHttpClient
 	client = feeder.NewClient(baseURL, baseAPI, &p)
 	restHandler.RestFeeder = client
-	failClient = feeder.NewClientWithRetryFuncForDoReq(baseURL, baseAPI, &pf, func(req *http.Request, httpClient feeder.HttpClient, err error) (*http.Response, error) {
+	failClient = feeder.NewClientWithRetryFuncForDoReq(baseURL, baseAPI, &pf, func(req *http.Request, httpClient feeder.HttpClient) (*http.Response, error) {
 		time.Sleep(failRequestTimeout)
 		return httpClient.Do(req)
 	})
