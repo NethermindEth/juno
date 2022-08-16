@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -29,21 +28,12 @@ type L1Backend interface {
 	l1Reader
 }
 
-// This is data that technically belongs in the bindgen code, but isn't provided so we manually input it ourselves.
-type contractsMetadata struct {
-	starknetDeploymentBlock               uint64
-	gpsStatementVerifierDeploymentBlock   uint64
-	memoryPageFactRegistryDeploymentBlock uint64
-	memoryPageFactRegistryAbi             *abi.ABI
-}
-
 type L1SyncService struct {
 	// L1 StarkNet Contract bindings
-	starknet               *contracts.Starknet
-	gpsStatementVerifier   *contracts.GpsStatementVerifier
-	memoryPageFactRegistry *contracts.MemoryPageFactRegistry
+	starknet               *contracts.StarknetContract
+	gpsStatementVerifier   *contracts.GpsStatementVerifierContract
+	memoryPageFactRegistry *contracts.MemoryPageFactRegistryContract
 
-	contractsMetadata
 	manager  *syncdb.Manager
 	l1Reader l1Reader
 
@@ -54,16 +44,16 @@ type L1SyncService struct {
 	queue StateUpdateQueue
 }
 
-func NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress ethcommon.Address, deploymentBlock uint64, backend L1Backend) (*L1SyncService, error) {
-	starknet, err := contracts.NewStarknet(starknetAddress, backend)
+func NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress ethcommon.Address, starknetDeploymentBlock, gpsStatementVerifierDeploymentBlock, memoryPageFactRegistryDeploymentBlock uint64, backend L1Backend) (*L1SyncService, error) {
+	starknet, err := contracts.NewStarknetContract(starknetAddress, starknetDeploymentBlock, backend)
 	if err != nil {
 		return nil, err
 	}
-	gpsStatementVerifier, err := contracts.NewGpsStatementVerifier(gpsStatementVerifierAddress, nil)
+	gpsStatementVerifier, err := contracts.NewGpsStatementVerifierContract(gpsStatementVerifierAddress, gpsStatementVerifierDeploymentBlock, backend)
 	if err != nil {
 		return nil, err
 	}
-	memoryPageFactRegistry, err := contracts.NewMemoryPageFactRegistry(memoryPageFactRegistryAddress, nil)
+	memoryPageFactRegistry, err := contracts.NewMemoryPageFactRegistryContract(memoryPageFactRegistryAddress, memoryPageFactRegistryDeploymentBlock, backend)
 	if err != nil {
 		return nil, err
 	}
@@ -73,26 +63,24 @@ func NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFa
 		starknet:               starknet,
 		gpsStatementVerifier:   gpsStatementVerifier,
 		memoryPageFactRegistry: memoryPageFactRegistry,
-		contractsMetadata: contractsMetadata{
-			starknetDeploymentBlock: deploymentBlock,
-		},
 	}, nil
 }
 
 // TODO double-check addresses against pathfinder (are they using the proxies or the actual?)
+// TODO get more accurate deployment blocks
 
 func NewMainnetL1SyncService(backend L1Backend) (*L1SyncService, error) {
 	starknetAddress := ethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
 	gpsStatementVerifierAddress := ethcommon.HexToAddress("0xa739b175325cca7b71fcb51c3032935ef7ac338f")
 	memoryPageFactRegistryAddress := ethcommon.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b")
-	return NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress, 13617000, backend)
+	return NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress, 13617000, 0, 0, backend)
 }
 
 func NewGoerliL1SyncService(backend L1Backend) (*L1SyncService, error) {
 	starknetAddress := ethcommon.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e")
 	gpsStatementVerifierAddress := ethcommon.HexToAddress("0x5ef3c980bf970fce5bbc217835743ea9f0388f4f")
 	memoryPageFactRegistryAddress := ethcommon.HexToAddress("0x743789ff2ff82bfb907009c9911a7da636d34fa7")
-	return NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress, 5840000, backend)
+	return NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress, 5840000, 0, 0, backend)
 }
 
 func (s *L1SyncService) Run(errChan chan error) {
@@ -100,6 +88,7 @@ func (s *L1SyncService) Run(errChan chan error) {
 	go s.getLogStateUpdates(logStateUpdates, errChan)
 
 	for logStateUpdate := range logStateUpdates {
+		// TODO handle reorgs here
 		go s.updateState(logStateUpdate, errChan)
 	}
 }
@@ -136,7 +125,9 @@ func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUp
 		}
 		// Parse the tx for the calldata
 		inputs := make(map[string]interface{})
-		err = s.memoryPageFactRegistryAbi.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, tx.Data()[4:])
+		// TODO we should make this a receiver on the MemoryPageFactRegistryContract type
+		// We shouldn't have to use the Abi
+		err = s.memoryPageFactRegistry.Abi.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, tx.Data()[4:])
 		if err != nil {
 			errChan <- err
 			return
@@ -180,7 +171,7 @@ func (s *L1SyncService) findLogStateTransitionFact(logStateUpdate *contracts.Sta
 
 func (s *L1SyncService) findLogMemoryPagesHashes(logStateTransitionFact *contracts.StarknetLogStateTransitionFact) (*contracts.GpsStatementVerifierLogMemoryPagesHashes, error) {
 	step := uint64(500)
-	for start, end := logStateTransitionFact.Raw.BlockNumber-step, logStateTransitionFact.Raw.BlockNumber; start < s.gpsStatementVerifierDeploymentBlock; start, end = start-step, start {
+	for start, end := logStateTransitionFact.Raw.BlockNumber-step, logStateTransitionFact.Raw.BlockNumber; start < s.gpsStatementVerifier.DeploymentBlock; start, end = start-step, start {
 		opts := &bind.FilterOpts{
 			Start: start,
 			End:   &end,
@@ -210,7 +201,7 @@ func (s *L1SyncService) findLogMemoryPageFactContinuouses(logMemoryPagesHashes *
 	numberOfLogsFound := 0
 	continuousMemoryPageLogs := make([]contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, len(pagesHashes))
 	step := uint64(500)
-	for start, end := logMemoryPagesHashes.Raw.BlockNumber-step, logMemoryPagesHashes.Raw.BlockNumber; start < s.memoryPageFactRegistryDeploymentBlock; start, end = start-step, start {
+	for start, end := logMemoryPagesHashes.Raw.BlockNumber-step, logMemoryPagesHashes.Raw.BlockNumber; start < s.memoryPageFactRegistry.DeploymentBlock; start, end = start-step, start {
 		opts := &bind.FilterOpts{
 			Start: start,
 			End:   &end,
@@ -245,7 +236,7 @@ func (s *L1SyncService) getLogStateUpdates(sink chan *contracts.StarknetLogState
 	l2ChainLength, err := s.manager.L2ChainLength()
 	if err != nil {
 		if err == db.ErrNotFound {
-			l2ChainLength = s.starknetDeploymentBlock
+			l2ChainLength = s.starknet.DeploymentBlock
 		} else {
 			errChan <- err
 			return
