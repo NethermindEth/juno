@@ -128,7 +128,6 @@ func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
 
 // updateContractCode update the contract code
 func (a *apiCollector) updateContractCode(stateDiff *types.StateDiff) {
-
 	for i, deployedContract := range stateDiff.DeployedContracts {
 
 		contractFromApi, err := a.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",

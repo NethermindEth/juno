@@ -167,7 +167,6 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 	metr.IncreaseRequestsSent()
 	// notest
 	res, err := c.retryFuncForDoReq(req, *c.httpClient)
-
 	// We tried three times and still received an error
 	if err != nil {
 		metr.IncreaseRequestsFailed()

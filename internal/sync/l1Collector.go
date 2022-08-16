@@ -569,7 +569,6 @@ func (l *l1Collector) fetchPendingBlock() {
 
 // updateContractCode update the contract code
 func (l *l1Collector) updateContractCode(stateDiff *types2.StateDiff) {
-
 	for i, deployedContract := range stateDiff.DeployedContracts {
 
 		contractFromApi, err := l.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
