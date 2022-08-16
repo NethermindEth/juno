@@ -201,24 +201,6 @@ func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
 }
 
 func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract *types.DeployedContract) error {
-	// Get Full Contract
-	//contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
-	//	strconv.FormatInt(stateDiff.BlockNumber, 10))
-	//if err != nil {
-	//	s.logger.With("Block Number", stateDiff.BlockNumber,
-	//		"Contract Address", deployedContract.Address.Hex0x()).
-	//		Error("Error getting full contract")
-	//	return err
-	//}
-	//
-	//contract := new(types.Contract)
-	//err = contract.UnmarshalRaw(contractFromApi)
-	//if err != nil {
-	//	s.logger.With("Block Number", stateDiff.BlockNumber,
-	//		"Contract Address", deployedContract.Address.Hex0x()).
-	//		Error("Error unmarshalling contract")
-	//	return err
-	//}
 	if deployedContract == nil {
 		ErrorNotDeployedContract := errors.New("contract not deployed")
 		return ErrorNotDeployedContract
@@ -397,6 +379,7 @@ func (s *Synchronizer) updateBlocksInfo() {
 			time.Sleep(time.Minute)
 			continue
 		}
+		s.logger.With("block", currentBlock).Info("Updated block info")
 		s.syncManager.StoreLatestBlockSaved(currentBlock)
 		currentBlock++
 
