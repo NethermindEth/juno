@@ -18,6 +18,18 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
+type contractInfo struct {
+	address         ethcommon.Address
+	deploymentBlock uint64
+}
+
+// TODO this should probably be in the config package
+type l1ChainInfo struct {
+	starknet               contractInfo
+	gpsStatementVerifier   contractInfo
+	memoryPageFactRegistry contractInfo
+}
+
 type l1Reader interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*ethtypes.Header, error)
 	TransactionByHash(ctx context.Context, txHash ethcommon.Hash) (tx *ethtypes.Transaction, isPending bool, err error)
@@ -44,43 +56,67 @@ type L1SyncService struct {
 	queue StateUpdateQueue
 }
 
-func NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress ethcommon.Address, starknetDeploymentBlock, gpsStatementVerifierDeploymentBlock, memoryPageFactRegistryDeploymentBlock uint64, backend L1Backend) (*L1SyncService, error) {
-	starknet, err := contracts.NewStarknetContract(starknetAddress, starknetDeploymentBlock, backend)
+func NewL1SyncService(chain l1ChainInfo, backend L1Backend) (*L1SyncService, error) {
+	starknet, err := contracts.NewStarknetContract(chain.starknet.address, chain.starknet.deploymentBlock, backend)
 	if err != nil {
 		return nil, err
 	}
-	gpsStatementVerifier, err := contracts.NewGpsStatementVerifierContract(gpsStatementVerifierAddress, gpsStatementVerifierDeploymentBlock, backend)
+	gpsStatementVerifier, err := contracts.NewGpsStatementVerifierContract(chain.gpsStatementVerifier.address, chain.gpsStatementVerifier.deploymentBlock, backend)
 	if err != nil {
 		return nil, err
 	}
-	memoryPageFactRegistry, err := contracts.NewMemoryPageFactRegistryContract(memoryPageFactRegistryAddress, memoryPageFactRegistryDeploymentBlock, backend)
+	memoryPageFactRegistry, err := contracts.NewMemoryPageFactRegistryContract(chain.memoryPageFactRegistry.address, chain.memoryPageFactRegistry.deploymentBlock, backend)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO initialize all fields here
+	// TODO initialize all fields
 	return &L1SyncService{
 		starknet:               starknet,
 		gpsStatementVerifier:   gpsStatementVerifier,
 		memoryPageFactRegistry: memoryPageFactRegistry,
+		l1Reader:               backend,
 	}, nil
 }
 
-// TODO double-check addresses against pathfinder (are they using the proxies or the actual?)
-// TODO get more accurate deployment blocks
+// TODO
+// - double-check addresses against pathfinder (are they using the proxies or the actual?)
+// - get more accurate deployment blocks
 
 func NewMainnetL1SyncService(backend L1Backend) (*L1SyncService, error) {
-	starknetAddress := ethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
-	gpsStatementVerifierAddress := ethcommon.HexToAddress("0xa739b175325cca7b71fcb51c3032935ef7ac338f")
-	memoryPageFactRegistryAddress := ethcommon.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b")
-	return NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress, 13617000, 0, 0, backend)
+	chain := l1ChainInfo{
+		starknet: contractInfo{
+			address:         ethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+			deploymentBlock: 13617000,
+		},
+		gpsStatementVerifier: contractInfo{
+			address:         ethcommon.HexToAddress("0xa739b175325cca7b71fcb51c3032935ef7ac338f"),
+			deploymentBlock: 0,
+		},
+		memoryPageFactRegistry: contractInfo{
+			address:         ethcommon.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"),
+			deploymentBlock: 0,
+		},
+	}
+	return NewL1SyncService(chain, backend)
 }
 
 func NewGoerliL1SyncService(backend L1Backend) (*L1SyncService, error) {
-	starknetAddress := ethcommon.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e")
-	gpsStatementVerifierAddress := ethcommon.HexToAddress("0x5ef3c980bf970fce5bbc217835743ea9f0388f4f")
-	memoryPageFactRegistryAddress := ethcommon.HexToAddress("0x743789ff2ff82bfb907009c9911a7da636d34fa7")
-	return NewL1SyncService(starknetAddress, gpsStatementVerifierAddress, memoryPageFactRegistryAddress, 5840000, 0, 0, backend)
+	chain := l1ChainInfo{
+		starknet: contractInfo{
+			address:         ethcommon.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+			deploymentBlock: 5840000,
+		},
+		gpsStatementVerifier: contractInfo{
+			address:         ethcommon.HexToAddress("0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"),
+			deploymentBlock: 0,
+		},
+		memoryPageFactRegistry: contractInfo{
+			address:         ethcommon.HexToAddress("0x743789ff2ff82bfb907009c9911a7da636d34fa7"),
+			deploymentBlock: 0,
+		},
+	}
+	return NewL1SyncService(chain, backend)
 }
 
 func (s *L1SyncService) Run(errChan chan error) {
