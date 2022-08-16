@@ -130,7 +130,7 @@ func newRootCmd() *cobra.Command {
 
 type keyToEnvReplacer struct{}
 
-// Replace is used to conviently convert from a viper key to an
+// Replace is used to conveniently convert from a viper key to an
 // environment variable. E.g. "database-path" --> "JUNO_DATABASE_PATH"
 //
 // It is public to fulfill the viper.EnvKeyReplacer interface.
@@ -256,7 +256,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_getBlockWithTxHashes", starknetApi.GetBlockWithTxHashes, []string{"block_id"}},
 		{"starknet_getBlockWithTxs", starknetApi.GetBlockWithTxs, []string{"block_id"}},
 		{"starknet_getStateUpdate", starknetApi.GetStateUpdate, []string{"block_id"}},
-		{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"block_id", "address", "key"}},
+		{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"block_id", "contract_address", "key"}},
 		{"starknet_getTransactionByHash", starknetApi.GetTransactionByHash, []string{"transaction_hash"}},
 		{"starknet_getTransactionByBlockIdAndIndex", starknetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
 		{"starknet_getTransactionReceipt", starknetApi.GetTransactionReceipt, []string{"transaction_hash"}},
@@ -268,7 +268,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_blockNumber", starknetApi.BlockNumber, nil},
 		{"starknet_blockHashAndNumber", starknetApi.BlockHashAndNumber, nil},
 		{"starknet_chainId", starknetApi.ChainId, nil},
-		{"starkent_pendingTrnasactions", starknetApi.PendingTransactions, nil},
+		{"starknet_pendingTransactions", starknetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starknetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starknetApi.Syncing, nil},
 	}
@@ -277,10 +277,11 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 			Logger.With("Error", err).Error("Failed to register RPC handler.")
 		}
 	}
-	rpcServer, err := rpc.NewHttpRpc(":"+strconv.FormatUint(uint64(cfg.Port), 10), "/rpc", jsonRpc)
+	server, err := rpc.NewHttpRpc(":"+strconv.FormatUint(uint64(cfg.Port), 10), "/rpc", jsonRpc)
 	if err != nil {
 		Logger.Fatal("Failed to initialise RPC Server", err)
 	}
+	rpcServer = server
 	rpcServer.ListenAndServe(errChan)
 }
 
