@@ -70,8 +70,12 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		return res, err
 	}
 
-	available := make(chan bool, 1)
-	available <- true
+	requestInParallel := 3
+
+	available := make(chan bool, requestInParallel)
+	for i := 0; i < requestInParallel; i++ {
+		available <- true
+	}
 	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
 }
 
