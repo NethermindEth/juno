@@ -9,6 +9,14 @@ func (s *StarkNetError) Error() string {
 	return s.Message
 }
 
+func NewInvalidStorageKey() *StarkNetError {
+    // NOTE: this error is not documented in the RPC specification
+    return &StarkNetError{
+        Code:    -1,
+        Message: "Invalid storage key",
+    }
+}
+
 func NewContractNotFound() *StarkNetError {
 	return &StarkNetError{
 		Code:    20,
