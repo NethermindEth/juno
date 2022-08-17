@@ -27,7 +27,6 @@ import (
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -39,7 +38,6 @@ var (
 
 	rpcServer     *rpc.HttpRpc
 	metricsServer *metric.Server
-	restServer    *rest.Server
 
 	synchronizer   *syncService.Synchronizer
 	virtualMachine *cairovm.VirtualMachine
@@ -109,11 +107,6 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&cfg.Metrics.Enable, "metrics-enable", false, "enable the metrics server.")
 	rootCmd.PersistentFlags().UintVar(&cfg.Metrics.Port, "metrics-port", 9090, "the port on which the metrics server listens.")
 
-	// REST
-	rootCmd.PersistentFlags().BoolVar(&cfg.Rest.Enable, "rest-enable", false, "enable the REST server.")
-	rootCmd.PersistentFlags().UintVar(&cfg.Rest.Port, "rest-port", 8100, "the port on which the rest server will listen. Warning: this exposes the node to external requests and potentially DoS attacks.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Rest.Prefix, "rest-prefix", "/feeder_gateway", "part of the the url endpoint for the REST server.")
-
 	// Database
 	cfg.Database.Path, _ = config.UserDataDir() // Empty string is a sensible default if there is an error
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
@@ -130,7 +123,7 @@ func newRootCmd() *cobra.Command {
 
 type keyToEnvReplacer struct{}
 
-// Replace is used to conviently convert from a viper key to an
+// Replace is used to conveniently convert from a viper key to an
 // environment variable. E.g. "database-path" --> "JUNO_DATABASE_PATH"
 //
 // It is public to fulfill the viper.EnvKeyReplacer interface.
@@ -216,10 +209,6 @@ func juno(cfg *config.Juno) {
 		errChs = append(errChs, make(chan error))
 		setupMetrics(&cfg.Metrics, errChs[len(errChs)-1])
 	}
-	if cfg.Rest.Enable {
-		errChs = append(errChs, make(chan error))
-		setupRest(&cfg.Rest, feederClient, errChs[len(errChs)-1])
-	}
 
 	// Wait until error
 	checkErrChs(errChs)
@@ -267,7 +256,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_blockNumber", starknetApi.BlockNumber, nil},
 		{"starknet_blockHashAndNumber", starknetApi.BlockHashAndNumber, nil},
 		{"starknet_chainId", starknetApi.ChainId, nil},
-		{"starkent_pendingTrnasactions", starknetApi.PendingTransactions, nil},
+		{"starknet_pendingTransactions", starknetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starknetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starknetApi.Syncing, nil},
 	}
@@ -288,12 +277,6 @@ func setupMetrics(cfg *config.Metrics, errChan chan error) {
 	checkPort("Metrics", cfg.Port)
 	metricsServer = metric.SetupMetric(":" + strconv.FormatUint(uint64(cfg.Port), 10))
 	metricsServer.ListenAndServe(errChan)
-}
-
-func setupRest(cfg *config.Rest, feederClient *feeder.Client, errChan chan error) {
-	checkPort("API", cfg.Port)
-	restServer = rest.NewServer(":"+strconv.FormatUint(uint64(cfg.Port), 10), feederClient)
-	restServer.ListenAndServe(errChan)
 }
 
 func checkPort(server string, port uint) {
@@ -385,12 +368,6 @@ func shutdown(cfg *config.Juno) {
 	if cfg.Metrics.Enable {
 		if err := metricsServer.Close(shutdownTimeout); err != nil {
 			Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err)
-		}
-	}
-
-	if cfg.Rest.Enable {
-		if err := restServer.Close(shutdownTimeout); err != nil {
-			Logger.Fatal("Failed to shutdown REST server gracefully: ", err)
 		}
 	}
 }
