@@ -1,15 +1,11 @@
 export CC = clang
-.DEFAULT_GOAL 	:= help
+.DEFAULT_GOAL := help
 
-compile: ## compile
+juno: ## compile
 	@mkdir -p build
-	@go build -o build/juno-cli cmd/juno-cli/main.go
-	@go build -o build/juno cmd/juno/main.go
+	@go build -o build/juno cmd/juno/*.go
 
-run: ## run
-	@./build/juno
-
-all: compile run ## build and run
+all: juno
 
 generate: ## generate
 	@cd internal/db && $(MAKE) generate
@@ -57,8 +53,7 @@ format-check: ## check formatting
 	test ! $$(gofumpt -l . | tee /dev/stderr)
 
 clean: ## clean project builds
-	@rm -rf ./build/juno
-	@rm -rf ./build/juno-cli
+	@rm -rf ./build
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

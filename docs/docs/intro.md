@@ -37,22 +37,23 @@ $ go get ./...
 Compile Juno:
 
 ```bash
-$ make compile
+$ make all
 ```
 
-After compilation, you will have 2 commands inside the `build` folder of the project:
-
-- juno
-    - `juno` is the command that initialize the node
-- juno-cli
-    - `juno-cli` is the command that handle a set of different commands about the StarkNet ecosystem.
+To synchronize with the StarkNet state from the centralized feeder gateway, run the following command:
 
 ```bash
-$ make run
+$ ./build/juno --sync-enable --sync-trusted
 ```
 
-For more details on the configuration, check the [config description](./running/config.mdx). 
+To sync the state without relying on the feeder gateway, you need to configure an Ethereum node and run the following command:
+
+```bash
+$ ./build/juno --sync-enable --sync-ethnode <node-endpoint>
+```
+
+For more configuration details, check the [config description](https://gojuno.xyz/docs/running/config).
 
 ### Using Docker
 
-If you prefer to use docker, you can follow [this](./running/docker.mdx) guide.
+If you prefer to use docker, you can follow [this](https://gojuno.xyz/docs/running/docker) guide.
