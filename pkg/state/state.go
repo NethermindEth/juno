@@ -14,8 +14,7 @@ const (
 type State interface {
 	Root() *felt.Felt
 	GetContractState(address *felt.Felt) (*ContractState, error)
-	GetContract(address *felt.Felt) (*types.Contract, error)
-	SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error
+	SetContract(address *felt.Felt, hash *felt.Felt) error
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
 	SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) error
 	GetClassHash(address *felt.Felt) (*felt.Felt, error)
@@ -56,25 +55,13 @@ func (st *state) GetContractState(address *felt.Felt) (*ContractState, error) {
 	return st.manager.GetContractState(leaf)
 }
 
-// notest
-func (st *state) GetContract(address *felt.Felt) (*types.Contract, error) {
-	contractState, err := st.GetContractState(address)
-	if err != nil {
-		return nil, err
-	}
-	return st.manager.GetContract(contractState.ContractHash)
-}
-
-func (st *state) SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error {
+func (st *state) SetContract(address *felt.Felt, hash *felt.Felt) error {
 	contract, err := st.GetContractState(address)
 	if err != nil {
 		return err
 	}
 	contract.ContractHash = hash
 	if err = st.manager.PutContractState(contract); err != nil {
-		return err
-	}
-	if err = st.manager.PutContract(hash, code); err != nil {
 		return err
 	}
 	return st.stateTrie.Put(address, contract.Hash())

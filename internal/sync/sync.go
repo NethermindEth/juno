@@ -16,6 +16,7 @@ import (
 
 type Syncer interface {
 	Run(errChan chan error)
+	Close() error
 }
 
 type SyncService struct {
@@ -23,7 +24,7 @@ type SyncService struct {
 	l2 Syncer
 }
 
-func NewSyncService(network, nodeUrl, feederUrl string, syncManager *syncdb.Manager, stateManager *state.StateManager) (*SyncService, error) {
+func NewSyncService(network, nodeUrl, feederUrl string, syncManager *syncdb.Manager, stateManager state.StateManager) (*SyncService, error) {
 	feederClient := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 	l1Client, err := ethclient.Dial(nodeUrl)
 	if err != nil {
@@ -56,4 +57,11 @@ func NewSyncService(network, nodeUrl, feederUrl string, syncManager *syncdb.Mana
 func (s *SyncService) Run(errChan chan error) {
 	go s.l1.Run(errChan)
 	go s.l2.Run(errChan)
+}
+
+func (s *SyncService) Close() error {
+	if err := s.l1.Close(); err != nil {
+		return err
+	}
+	return s.l2.Close()
 }

@@ -1,5 +1,6 @@
 package starknet
 
+/*
 import (
 	"context"
 	"errors"
@@ -280,3 +281,4 @@ func (s *StarkNetRpc) Syncing() (any, error) {
 	}
 	return false, nil
 }
+*/

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/NethermindEth/juno/internal/db"
 	syncdb "github.com/NethermindEth/juno/internal/db/sync"
@@ -49,15 +50,15 @@ type L1SyncService struct {
 	manager  *syncdb.Manager
 	l1Reader l1Reader
 
-	state        state.State
-	currentBlock uint64
+	state     state.State
+	nextBlock uint64
 
 	// An in-memory priority queue of the state updates not yet
 	// committed to the database.
-	queue StateUpdateQueue
+	queue *StateUpdateQueue
 }
 
-func NewL1SyncService(chain L1ChainInfo, backend L1Backend, syncManager *syncdb.Manager, stateManager *state.StateManager) (*L1SyncService, error) {
+func NewL1SyncService(chain L1ChainInfo, backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
 	starknet, err := contracts.NewStarknetContract(chain.starknet.address, chain.starknet.deploymentBlock, backend)
 	if err != nil {
 		return nil, err
@@ -77,16 +78,15 @@ func NewL1SyncService(chain L1ChainInfo, backend L1Backend, syncManager *syncdb.
 		memoryPageFactRegistry: memoryPageFactRegistry,
 		l1Reader:               backend,
 		manager:                syncManager,
-		state:                  state.New(*stateManager, new(felt.Felt)),
-		queue:                  make(StateUpdateQueue, 0),
+		state:                  state.New(stateManager, new(felt.Felt)),
+		queue:                  NewStateUpdateQueue(),
+		nextBlock:              0, // TODO we should get this from the sync manager
 	}, nil
 }
 
-// TODO
-// - double-check addresses against pathfinder (are they using the proxies or the actual?)
-// - get more accurate deployment blocks
+// TODO get more accurate deployment blocks
 
-func NewMainnetL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager *state.StateManager) (*L1SyncService, error) {
+func NewMainnetL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
 	chain := L1ChainInfo{
 		starknet: ContractInfo{
 			address:         ethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
@@ -104,7 +104,7 @@ func NewMainnetL1SyncService(backend L1Backend, syncManager *syncdb.Manager, sta
 	return NewL1SyncService(chain, backend, syncManager, stateManager)
 }
 
-func NewGoerliL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager *state.StateManager) (*L1SyncService, error) {
+func NewGoerliL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
 	chain := L1ChainInfo{
 		starknet: ContractInfo{
 			address:         ethcommon.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
@@ -127,28 +127,32 @@ func (s *L1SyncService) Run(errChan chan error) {
 	go s.getLogStateUpdates(logStateUpdates, errChan)
 
 	for logStateUpdate := range logStateUpdates {
-		// TODO handle reorgs here
-		go s.updateState(logStateUpdate, errChan)
+		go func(logStateUpdate *contracts.StarknetLogStateUpdate) {
+			if err := s.updateState(logStateUpdate); err != nil {
+				errChan <- err
+			}
+		}(logStateUpdate)
 	}
 }
 
-func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUpdate, errChan chan error) {
+func (s *L1SyncService) Close() error {
+	return nil // TODO
+}
+
+func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUpdate) error {
 	logStateTransitionFact, err := s.findLogStateTransitionFact(logStateUpdate)
 	if err != nil {
-		errChan <- err
-		return
+		return err
 	}
 
 	logMemoryPagesHashes, err := s.findLogMemoryPagesHashes(logStateTransitionFact)
 	if err != nil {
-		errChan <- err
-		return
+		return err
 	}
 
 	logMemoryPageFactContinuouses, err := s.findLogMemoryPageFactContinuouses(logMemoryPagesHashes)
 	if err != nil {
-		errChan <- err
-		return
+		return err
 	}
 
 	pages := make([][]*big.Int, 0)
@@ -159,8 +163,7 @@ func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUp
 		// the RPC ourselves.
 		tx, _, err := s.l1Reader.TransactionByHash(context.Background(), log.Raw.TxHash)
 		if err != nil {
-			errChan <- err
-			return
+			return err
 		}
 		// Parse the tx for the calldata
 		inputs := make(map[string]interface{})
@@ -168,22 +171,19 @@ func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUp
 		// We shouldn't have to use the Abi
 		err = s.memoryPageFactRegistry.Abi.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, tx.Data()[4:])
 		if err != nil {
-			errChan <- err
-			return
+			return err
 		}
 		pages = append(pages, inputs["values"].([]*big.Int))
 	}
 
-	stateUpdate := &types.StateUpdate{
+	update := &types.StateUpdate{
 		StateDiff:      *parsePages(pages),
 		SequenceNumber: logStateUpdate.BlockNumber.Uint64(),
 		NewRoot:        new(felt.Felt).SetBigInt(logStateUpdate.GlobalRoot),
 	}
 
-	if err := s.commit(stateUpdate); err != nil {
-		errChan <- err
-		return
-	}
+	fmt.Printf("got state update %d\n", update.SequenceNumber)
+	return s.commit(update)
 }
 
 func (s *L1SyncService) findLogStateTransitionFact(logStateUpdate *contracts.StarknetLogStateUpdate) (*contracts.StarknetLogStateTransitionFact, error) {
@@ -210,7 +210,7 @@ func (s *L1SyncService) findLogStateTransitionFact(logStateUpdate *contracts.Sta
 
 func (s *L1SyncService) findLogMemoryPagesHashes(logStateTransitionFact *contracts.StarknetLogStateTransitionFact) (*contracts.GpsStatementVerifierLogMemoryPagesHashes, error) {
 	step := uint64(500)
-	for start, end := logStateTransitionFact.Raw.BlockNumber-step, logStateTransitionFact.Raw.BlockNumber; start < s.gpsStatementVerifier.DeploymentBlock; start, end = start-step, start {
+	for start, end := logStateTransitionFact.Raw.BlockNumber-step, logStateTransitionFact.Raw.BlockNumber; start >= s.gpsStatementVerifier.DeploymentBlock; start, end = start-step, start {
 		opts := &bind.FilterOpts{
 			Start: start,
 			End:   &end,
@@ -231,16 +231,16 @@ func (s *L1SyncService) findLogMemoryPagesHashes(logStateTransitionFact *contrac
 	return nil, errors.New("could not find LogMemoryPagesHashes for LogStateTransitionFact")
 }
 
-func (s *L1SyncService) findLogMemoryPageFactContinuouses(logMemoryPagesHashes *contracts.GpsStatementVerifierLogMemoryPagesHashes) ([]contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, error) {
+func (s *L1SyncService) findLogMemoryPageFactContinuouses(logMemoryPagesHashes *contracts.GpsStatementVerifierLogMemoryPagesHashes) ([]*contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, error) {
 	// When geth can search for logs in reverse chronological order this will be far easier
 	// See https://github.com/ethereum/go-ethereum/issues/20593
 
 	pagesHashes := logMemoryPagesHashes.PagesHashes
 
 	numberOfLogsFound := 0
-	continuousMemoryPageLogs := make([]contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, len(pagesHashes))
+	continuousMemoryPageLogs := make([]*contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, len(pagesHashes))
 	step := uint64(500)
-	for start, end := logMemoryPagesHashes.Raw.BlockNumber-step, logMemoryPagesHashes.Raw.BlockNumber; start < s.memoryPageFactRegistry.DeploymentBlock; start, end = start-step, start {
+	for start, end := logMemoryPagesHashes.Raw.BlockNumber-step, logMemoryPagesHashes.Raw.BlockNumber; start >= s.memoryPageFactRegistry.DeploymentBlock && numberOfLogsFound != len(pagesHashes); start, end = start-step, start {
 		opts := &bind.FilterOpts{
 			Start: start,
 			End:   &end,
@@ -250,18 +250,18 @@ func (s *L1SyncService) findLogMemoryPageFactContinuouses(logMemoryPagesHashes *
 			return nil, err
 		}
 
+		tmp := make([]*contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, 0)
 		for iterator.Next() {
 			for _, hash := range pagesHashes {
-				if ethcommon.BytesToHash(hash[:]).Big().Cmp(iterator.Event.Raw.TxHash.Big()) == 0 {
-					continuousMemoryPageLogs[len(continuousMemoryPageLogs)-numberOfLogsFound] = *iterator.Event
-					numberOfLogsFound++
+				if ethcommon.BytesToHash(hash[:]).Big().Cmp(iterator.Event.MemoryHash) == 0 {
+					tmp = append(tmp, iterator.Event)
 				}
 			}
 		}
-
-		if numberOfLogsFound == len(pagesHashes) {
-			break
-		}
+		end_ := len(continuousMemoryPageLogs) - numberOfLogsFound
+		start_ := end_ - len(tmp)
+		copy(continuousMemoryPageLogs[start_:end_], tmp)
+		numberOfLogsFound += len(tmp)
 	}
 
 	if numberOfLogsFound < len(pagesHashes) {
@@ -416,35 +416,39 @@ func parsePages(pages [][]*big.Int) *types.StateDiff {
 }
 
 func (s *L1SyncService) commit(newUpdate *types.StateUpdate) error {
-	heap.Push(&s.queue, newUpdate)
-
-	if s.queue[0].value.SequenceNumber != s.currentBlock+1 {
-		// We don't have the next block yet
-		return nil
-	}
-
-	update := s.queue[0].value
+	heap.Push(s.queue, *newUpdate)
 
 	// TODO we can do some creative things here, like batching the state updates
 	// during the sync to mitigate I/O congestion
-	// To do this, we need a better way to track sync progress relative to the
-	// head of the L2 chain
-	for _, deployedContract := range update.StateDiff.DeployedContracts {
-		// The Contract Code is nil since it isn't on L1. It will be set in the L2 sync.
-		// TODO we probably should not be storing the code with the hash at all.
-		err := s.state.SetContract(deployedContract.Address, deployedContract.Hash, nil)
-		if err != nil {
-			return err
-		}
-	}
+	for ; s.queue.Len() > 0 && s.queue.Peek().(*item).value.SequenceNumber == s.nextBlock; s.nextBlock++ {
+		start := time.Now()
+		update := heap.Pop(s.queue).(*item).value
 
-	for contractAddress, memoryCells := range update.StateDiff.StorageDiff {
-		for _, cell := range memoryCells {
-			err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value)
+		for _, deployedContract := range update.StateDiff.DeployedContracts {
+			// The Contract Code is nil since it isn't on L1. It will be set in the L2 sync.
+			// TODO we probably should not be storing the code with the hash at all.
+			err := s.state.SetContract(deployedContract.Address, deployedContract.Hash)
 			if err != nil {
 				return err
 			}
 		}
+
+		for contractAddress, memoryCells := range update.StateDiff.StorageDiff {
+			for _, cell := range memoryCells {
+				err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if s.state.Root().Cmp(update.NewRoot) == 0 {
+			fmt.Printf("synced %d in %f seconds\n", update.SequenceNumber, time.Since(start).Seconds())
+		} else {
+			// This should never happen, only here for debugging purposes.
+			panic("state roots not equal for block " + string(rune(update.SequenceNumber)))
+		}
 	}
+
 	return nil
 }

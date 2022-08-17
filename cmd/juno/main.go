@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NethermindEth/juno/pkg/jsonrpc"
+	//"github.com/NethermindEth/juno/pkg/jsonrpc"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/config"
@@ -24,7 +24,7 @@ import (
 	. "github.com/NethermindEth/juno/internal/log"
 	metric "github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
-	"github.com/NethermindEth/juno/internal/rpc/starknet"
+	//"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/rest"
@@ -208,10 +208,10 @@ func juno(cfg *config.Juno) {
 		// exit since some RPCs are useful on a stale database.
 		fmt.Println("StarkNet synchronization is disabled. To enable it, use the --sync-enable flag.")
 	}
-	if cfg.Rpc.Enable {
-		errChs = append(errChs, make(chan error))
-		setupRpc(&cfg.Rpc, synchronizer, errChs[len(errChs)-1])
-	}
+	//if cfg.Rpc.Enable {
+	//	errChs = append(errChs, make(chan error))
+	//	setupRpc(&cfg.Rpc, synchronizer, errChs[len(errChs)-1])
+	//}
 	if cfg.Metrics.Enable {
 		errChs = append(errChs, make(chan error))
 		setupMetrics(&cfg.Metrics, errChs[len(errChs)-1])
@@ -237,13 +237,14 @@ func setupLogger(cfg *config.Log) {
 }
 
 func setupSynchronizer(cfg *config.Sync, errChan chan error) {
-	syncer, err := syncService.NewSyncService(cfg.Network, cfg.EthNode, cfg.Sequencer)
+	syncer, err := syncService.NewSyncService(cfg.Network, cfg.EthNode, cfg.Sequencer, syncManager, stateManager)
 	if err != nil {
 		Logger.With("error", err).Fatal("Failed to initialize sync service")
 	}
 	syncer.Run(errChan)
 }
 
+/*
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
 	checkPort("JSON-RPC", cfg.Port)
 	starknetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer, virtualMachine)
@@ -284,6 +285,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 	rpcServer = server
 	rpcServer.ListenAndServe(errChan)
 }
+*/
 
 func setupMetrics(cfg *config.Metrics, errChan chan error) {
 	checkPort("Metrics", cfg.Port)

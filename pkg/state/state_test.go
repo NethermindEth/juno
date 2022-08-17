@@ -1,10 +1,7 @@
 package state_test
 
 import (
-	"encoding/json"
 	"testing"
-
-	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
@@ -136,11 +133,7 @@ func TestStateFromStateDiffs(t *testing.T) {
 			}
 		}
 
-		if err := state.SetContract(addr, contractHash, &types.Contract{
-			Abi:      nil,
-			Bytecode: nil,
-			FullDef:  json.RawMessage{},
-		}); err != nil {
+		if err := state.SetContract(addr, contractHash); err != nil {
 			t.Fatal(err)
 		}
 	}

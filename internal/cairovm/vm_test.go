@@ -61,7 +61,7 @@ func TestVMCall(t *testing.T) {
 	if err := json.Unmarshal(testContract, &contract); err != nil {
 		t.Fatal(err)
 	}
-	state.SetContract(address, hash, &contract)
+	state.SetContract(address, hash)
 	slot := new(felt.Felt).SetHex("0x84")
 	value := new(felt.Felt).SetHex("0x3")
 	state.SetSlot(address, slot, value)

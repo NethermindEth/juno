@@ -18,3 +18,7 @@ func NewL2SyncService(backend *feeder.Client) *L2SyncService {
 
 // TODO implement
 func (s *L2SyncService) Run(errChan chan error) {}
+
+func (s *L2SyncService) Close() error {
+	return nil
+}
