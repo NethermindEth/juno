@@ -70,7 +70,7 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 	}
 }
 
-func (s *StarkNetRpc) GetStorageAt(blockId *BlockId, address string, key string) (any, error) {
+func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId) (any, error) {
 	// Parsing Key param
 	if !isStorageKey(key) {
 		// TODO: the rpc spec does not specify what to do if the key is not a storage key
