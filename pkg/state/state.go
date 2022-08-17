@@ -6,7 +6,6 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/trie"
@@ -140,10 +139,10 @@ func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractCla
 	var c bytes.Buffer
 	gz := gzip.NewWriter(&c)
 	if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if err := gz.Close(); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
