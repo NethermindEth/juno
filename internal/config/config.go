@@ -10,52 +10,38 @@ import (
 	"runtime"
 )
 
-// Log represents the logger configuration
-type Log struct {
-	Level   string `yaml:"level" mapstructure:"level"`
-	Json    bool   `yaml:"json" mapstructure:"json"`
-	NoColor bool   `yaml:"nocolor" mapstructure:"nocolor"`
-}
+type Network uint8
 
-// Rpc represents the juno RPC configuration.
-type Rpc struct {
-	Enable bool `yaml:"enable" mapstructure:"enable"`
-	Port   uint `yaml:"port" mapstructure:"port"`
-}
+const (
+	GOERLI Network = iota
+	MAINNET
+)
 
-// Metrics represents the Prometheus Metrics configuration.
-type Metrics struct {
-	Enable bool `yaml:"enable" mapstructure:"enable"`
-	Port   uint `yaml:"port" mapstructure:"port"`
-}
-
-// Database represents the juno database configuration.
-type Database struct {
-	Path string `yaml:"path" mapstructure:"path"`
-}
-
-// Sync represents the juno StarkNet configuration.
-type Sync struct {
-	Enable    bool   `yaml:"enable" mapstructure:"enable"`
-	Sequencer string `yaml:"sequencer" mapstructure:"sequencer"`
-	Network   string `yaml:"network" mapstructure:"network"`
-	Trusted   bool   `yaml:"trusted" mapstructure:"trusted"`
-	EthNode   string `yaml:"ethnode" mapstructure:"ethnode"`
+func (n Network) String() string {
+	switch n {
+	case GOERLI:
+		return "goerli"
+	case MAINNET:
+		return "mainnet"
+	default:
+		return ""
+	}
 }
 
 // Juno is the top-level juno configuration.
 type Juno struct {
-	Log      Log      `yaml:"log" mapstructure:"log"`
-	Rpc      Rpc      `yaml:"rpc" mapstructure:"rpc"`
-	Metrics  Metrics  `yaml:"metrics" mapstructure:"metrics"`
-	Database Database `yaml:"database" mapstructure:"database"`
-	Sync     Sync     `yaml:"sync" mapstructure:"sync"`
+	Verbosity    string  `mapstructure:"verbosity"`
+	RpcPort      uint16  `mapstructure:"rpc-port"`
+	MetricsPort  uint16  `mapstructure:"metrics-port"`
+	DatabasePath string  `mapstructure:"db-path"`
+	Network      Network `mapstructure:"network"`
+	EthNode      string  `mapstructure:"eth-node"`
 }
 
 // UserDataDir finds the user's default data directory, returning the
-// empty string and an error otherwise.
+// empty string an error otherwise.
 //
-// It is analagous to os.UserConfigDir.
+// It is analogous to os.UserConfigDir.
 func UserDataDir() (string, error) {
 	// notest
 	const junoDir = "juno"

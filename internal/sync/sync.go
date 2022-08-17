@@ -65,19 +65,19 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer.
 // notest
-func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager *sync.Manager,
+func NewSynchronizer(cfg *config.Juno, feederClient *feeder.Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
 ) *Synchronizer {
 	synchro := new(Synchronizer)
 	synchro.logger = Logger.Named("Sync Service")
 	synchro.feeder = feederClient
-	if !cfg.Trusted {
-		ethereumClient, err := ethclient.Dial(cfg.EthNode)
-		if err != nil {
-			synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
-		}
-		synchro.l1Client = ethereumClient
+	// if !cfg.Trusted {
+	ethereumClient, err := ethclient.Dial(cfg.EthNode)
+	if err != nil {
+		synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
 	}
+	synchro.l1Client = ethereumClient
+	//}
 
 	synchro.syncManager = syncManager
 	synchro.stateManager = stateManager
@@ -86,9 +86,9 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 
 	synchro.Running = false
 
-	synchro.setChainId(cfg.Network)
-	synchro.setStateToLatestRoot()
-	synchro.setStateDiffCollector(cfg.Trusted)
+	// synchro.setChainId(cfg.Network)
+	// synchro.setStateToLatestRoot()
+	// synchro.setStateDiffCollector(cfg.Trusted)
 	return synchro
 }
 
