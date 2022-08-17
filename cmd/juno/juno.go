@@ -76,9 +76,9 @@ func NewCmd(newStarkNetNodeFn juno.NewStarkNetNodeFn) *cobra.Command {
 		"panic, fatal."
 	rpcPortUsage := "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	metricsPortUsage := "Enables the metrics server and listens on the provided port"
-	dbPathUsage := "Location of the database files"
-	networkUsage := fmt.Sprintf("Available StarkNet networks. Options: %d for %v and %d for %v",
+	metricsPortUsage := "Enables the metrics server and listens on the provided port."
+	dbPathUsage := "Location of the database files."
+	networkUsage := fmt.Sprintf("Available StarkNet networks. Options: %d = %v and %d = %v",
 		config.GOERLI, config.GOERLI, config.MAINNET, config.MAINNET)
 	ethNodeUsage := "The Ethereum endpoint to synchronise with. " +
 		"If unset feeder gateway will be used."
