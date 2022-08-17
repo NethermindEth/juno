@@ -29,13 +29,6 @@ type Metrics struct {
 	Port   uint `yaml:"port" mapstructure:"port"`
 }
 
-// Rest represents the juno REST configuration.
-type Rest struct {
-	Enable bool   `yaml:"enable" mapstructure:"enable"`
-	Port   uint   `yaml:"port" mapstructure:"port"`
-	Prefix string `yaml:"prefix" mapstructure:"prefix"`
-}
-
 // Database represents the juno database configuration.
 type Database struct {
 	Path string `yaml:"path" mapstructure:"path"`
@@ -55,7 +48,6 @@ type Juno struct {
 	Log      Log      `yaml:"log" mapstructure:"log"`
 	Rpc      Rpc      `yaml:"rpc" mapstructure:"rpc"`
 	Metrics  Metrics  `yaml:"metrics" mapstructure:"metrics"`
-	Rest     Rest     `yaml:"rest" mapstructure:"rest"`
 	Database Database `yaml:"database" mapstructure:"database"`
 	Sync     Sync     `yaml:"sync" mapstructure:"sync"`
 }
