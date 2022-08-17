@@ -69,15 +69,13 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 		number, _ := blockId.number()
 		return s.synchronizer.GetStateDiff(int64(number)), nil
 	default:
-		// TODO: manage unexpected type
-		return nil, nil
+		return nil, NewInvalidBlockId()
 	}
 }
 
 func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId) (any, error) {
 	if !isStorageKey(key) {
-		// TODO: the rpc spec does not specify what to do if the key is not a storage key
-		return nil, nil
+		return nil, NewInvalidStorageKey()
 	}
 	keyF := new(felt.Felt).SetHex(key)
 	if !isFelt(address) {
@@ -94,7 +92,8 @@ func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId)
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewContractNotFound()
 		}
-		// TODO: manage unexpected error
+        s.logger.Errorw(err.Error(), "function", "GetStorageAt")
+        return nil, errors.New("unexpected error")
 	}
 	return value.Hex0x(), nil
 }
@@ -109,7 +108,8 @@ func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) 
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewInvalidTxnHash()
 		}
-		// TODO: manage unexpected error
+        s.logger.Errorw(err.Error(), "function", "GetTransactionByHash")
+        return nil, errors.New("unexpected error")
 	}
 	return NewTxn(tx)
 }
@@ -125,7 +125,8 @@ func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index ui
 	txHash := b.TxHashes[index]
 	tx, err := s.txnManager.GetTransaction(txHash)
 	if err != nil {
-		// TODO: manage unexpected error
+        s.logger.Errorw(err.Error(), "function", "GetTransactionByBlockIdAndIndex")
+        return nil, errors.New("unexpected error")
 	}
 	return NewTxn(tx)
 }
@@ -140,7 +141,8 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error)
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewInvalidTxnHash()
 		}
-		// TODO: manage unexpected error
+		s.logger.Errorw(err.Error(), "function", "GetTransactionReceipt")
+		return nil, errors.New("unexpected error")
 	}
 	return NewReceipt(_receipt)
 }
@@ -153,7 +155,10 @@ func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
 	_, latestBlockHash := s.synchronizer.LatestBlockSynced()
 	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
-		// TODO: manage unexpeceted error
+        if errors.Is(err, db.ErrNotFound) {
+            return nil, NewInvalidContractClassHash()
+        }
+        s.logger.Errorw(err.Error(), "function", "GetClass")
 		return nil, errors.New("unexpected error")
 	}
 	_ = state.New(s.stateManager, latestBlock.NewRoot)
@@ -176,7 +181,8 @@ func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, err
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewContractNotFound()
 		}
-		// TODO: manage unexpected error
+        s.logger.Errorw(err.Error(), "function", "GetClassHashAt")
+        return nil, errors.New("unexpected error")
 	}
 	if classHash.IsZero() {
 		return nil, NewContractNotFound()
@@ -227,7 +233,7 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 		b.Sequencer,
 	)
 	if err != nil {
-		// TODO: manage error
+        s.logger.Errorw(err.Error(), "function", "Call")
 		return nil, errors.New("unexpected error")
 	}
 	return out, nil
