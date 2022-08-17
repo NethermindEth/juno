@@ -146,7 +146,7 @@ func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractCla
 	}
 
 	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
-	entryPointsByType := fullDefMap["entryPointsByType"]
+	entryPointsByType := fullDefMap["entry_points_by_type"]
 	contractClass := &types.ContractClass{
 		Program:           encodedProgram,
 		EntryPointsByType: entryPointsByType,
