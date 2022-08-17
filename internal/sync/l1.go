@@ -18,16 +18,16 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
-type contractInfo struct {
+type ContractInfo struct {
 	address         ethcommon.Address
 	deploymentBlock uint64
 }
 
 // TODO this should probably be in the config package
-type l1ChainInfo struct {
-	starknet               contractInfo
-	gpsStatementVerifier   contractInfo
-	memoryPageFactRegistry contractInfo
+type L1ChainInfo struct {
+	starknet               ContractInfo
+	gpsStatementVerifier   ContractInfo
+	memoryPageFactRegistry ContractInfo
 }
 
 type l1Reader interface {
@@ -49,14 +49,15 @@ type L1SyncService struct {
 	manager  *syncdb.Manager
 	l1Reader l1Reader
 
-	state state.State
+	state        state.State
+	currentBlock uint64
 
 	// An in-memory priority queue of the state updates not yet
 	// committed to the database.
 	queue StateUpdateQueue
 }
 
-func NewL1SyncService(chain l1ChainInfo, backend L1Backend) (*L1SyncService, error) {
+func NewL1SyncService(chain L1ChainInfo, backend L1Backend, syncManager *syncdb.Manager, stateManager *state.StateManager) (*L1SyncService, error) {
 	starknet, err := contracts.NewStarknetContract(chain.starknet.address, chain.starknet.deploymentBlock, backend)
 	if err != nil {
 		return nil, err
@@ -70,12 +71,14 @@ func NewL1SyncService(chain l1ChainInfo, backend L1Backend) (*L1SyncService, err
 		return nil, err
 	}
 
-	// TODO initialize all fields
 	return &L1SyncService{
 		starknet:               starknet,
 		gpsStatementVerifier:   gpsStatementVerifier,
 		memoryPageFactRegistry: memoryPageFactRegistry,
 		l1Reader:               backend,
+		manager:                syncManager,
+		state:                  state.New(*stateManager, new(felt.Felt)),
+		queue:                  make(StateUpdateQueue, 0),
 	}, nil
 }
 
@@ -83,40 +86,40 @@ func NewL1SyncService(chain l1ChainInfo, backend L1Backend) (*L1SyncService, err
 // - double-check addresses against pathfinder (are they using the proxies or the actual?)
 // - get more accurate deployment blocks
 
-func NewMainnetL1SyncService(backend L1Backend) (*L1SyncService, error) {
-	chain := l1ChainInfo{
-		starknet: contractInfo{
+func NewMainnetL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager *state.StateManager) (*L1SyncService, error) {
+	chain := L1ChainInfo{
+		starknet: ContractInfo{
 			address:         ethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
 			deploymentBlock: 13617000,
 		},
-		gpsStatementVerifier: contractInfo{
+		gpsStatementVerifier: ContractInfo{
 			address:         ethcommon.HexToAddress("0xa739b175325cca7b71fcb51c3032935ef7ac338f"),
 			deploymentBlock: 0,
 		},
-		memoryPageFactRegistry: contractInfo{
+		memoryPageFactRegistry: ContractInfo{
 			address:         ethcommon.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"),
 			deploymentBlock: 0,
 		},
 	}
-	return NewL1SyncService(chain, backend)
+	return NewL1SyncService(chain, backend, syncManager, stateManager)
 }
 
-func NewGoerliL1SyncService(backend L1Backend) (*L1SyncService, error) {
-	chain := l1ChainInfo{
-		starknet: contractInfo{
+func NewGoerliL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager *state.StateManager) (*L1SyncService, error) {
+	chain := L1ChainInfo{
+		starknet: ContractInfo{
 			address:         ethcommon.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 			deploymentBlock: 5840000,
 		},
-		gpsStatementVerifier: contractInfo{
+		gpsStatementVerifier: ContractInfo{
 			address:         ethcommon.HexToAddress("0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"),
 			deploymentBlock: 0,
 		},
-		memoryPageFactRegistry: contractInfo{
+		memoryPageFactRegistry: ContractInfo{
 			address:         ethcommon.HexToAddress("0x743789ff2ff82bfb907009c9911a7da636d34fa7"),
 			deploymentBlock: 0,
 		},
 	}
-	return NewL1SyncService(chain, backend)
+	return NewL1SyncService(chain, backend, syncManager, stateManager)
 }
 
 func (s *L1SyncService) Run(errChan chan error) {
@@ -230,7 +233,7 @@ func (s *L1SyncService) findLogMemoryPagesHashes(logStateTransitionFact *contrac
 
 func (s *L1SyncService) findLogMemoryPageFactContinuouses(logMemoryPagesHashes *contracts.GpsStatementVerifierLogMemoryPagesHashes) ([]contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, error) {
 	// When geth can search for logs in reverse chronological order this will be far easier
-	// See https://github.com/ethereum/go-ethereum/issues/20593 for somewhat related issue
+	// See https://github.com/ethereum/go-ethereum/issues/20593
 
 	pagesHashes := logMemoryPagesHashes.PagesHashes
 
@@ -412,10 +415,15 @@ func parsePages(pages [][]*big.Int) *types.StateDiff {
 	}
 }
 
-func (s *L1SyncService) commit(update *types.StateUpdate) error {
-	heap.Push(&s.queue, update)
+func (s *L1SyncService) commit(newUpdate *types.StateUpdate) error {
+	heap.Push(&s.queue, newUpdate)
 
-	// TODO this is buggy - we need to get next update here
+	if s.queue[0].value.SequenceNumber != s.currentBlock+1 {
+		// We don't have the next block yet
+		return nil
+	}
+
+	update := s.queue[0].value
 
 	// TODO we can do some creative things here, like batching the state updates
 	// during the sync to mitigate I/O congestion
@@ -423,7 +431,7 @@ func (s *L1SyncService) commit(update *types.StateUpdate) error {
 	// head of the L2 chain
 	for _, deployedContract := range update.StateDiff.DeployedContracts {
 		// The Contract Code is nil since it isn't on L1. It will be set in the L2 sync.
-		// TODO we should not be storing the code with the hash at all.
+		// TODO we probably should not be storing the code with the hash at all.
 		err := s.state.SetContract(deployedContract.Address, deployedContract.Hash, nil)
 		if err != nil {
 			return err
