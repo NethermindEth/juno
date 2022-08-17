@@ -40,23 +40,10 @@
 
 Make sure you have Go installed ([download](https://go.dev/dl/)). Version `1.18` or higher is required.
 
-At time of writing, we support two commands:
-
-- juno
-    - `juno` is the command to initialize the node.
-- juno-cli
-    - `juno-cli` is the command that handles a set of different commands for StarkNet ecosystem.
-
 You can install `juno` with:
 
 ```bash
 go install github.com/NethermindEth/juno/cmd/juno@latest
-```
-
-To install `juno-cli`:
-
-```bash
-go install github.com/NethermindEth/juno/cmd/juno-cli@latest
 ```
 
 For details about the configuration you can look at
