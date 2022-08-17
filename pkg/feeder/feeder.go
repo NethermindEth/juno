@@ -70,7 +70,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		return res, err
 	}
 
-	requestInParallel := 3
+	requestInParallel := 1
 
 	available := make(chan bool, requestInParallel)
 	for i := 0; i < requestInParallel; i++ {
