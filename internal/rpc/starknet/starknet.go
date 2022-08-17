@@ -165,6 +165,30 @@ func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
 	return nil, errors.New("unimplemented")
 }
 
+func (s *StarkNetRpc) GetClassAt(blockId *BlockId, address string) (any, error) {
+	if !isFelt(address) {
+		return nil, NewContractNotFound()
+	}
+	addressF := new(felt.Felt).SetHex(address)
+	b, err := getBlockById(blockId, s.blockManager)
+	if err != nil {
+		return nil, NewInvalidBlockId()
+	}
+	_state := state.New(s.stateManager, b.NewRoot)
+	classHash, err := _state.GetClassHash(addressF)
+	if err != nil {
+		return nil, err
+	}
+	class, err := _state.GetClass(blockId, classHash)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, NewContractNotFound()
+		}
+	}
+
+	return class, nil
+}
+
 func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, error) {
 	if !isFelt(address) {
 		return nil, NewContractNotFound()

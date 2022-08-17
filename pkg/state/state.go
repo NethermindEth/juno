@@ -1,6 +1,13 @@
 package state
 
 import (
+	"bytes"
+	"compress/gzip"
+	b64 "encoding/base64"
+	"encoding/json"
+	"fmt"
+	"log"
+
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -19,6 +26,7 @@ type State interface {
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
 	SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) error
 	GetClassHash(address *felt.Felt) (*felt.Felt, error)
+	GetClass(blockId any, classHash *felt.Felt) (*types.ContractClass, error)
 }
 
 type StateManager interface {
@@ -114,4 +122,36 @@ func (st *state) GetClassHash(address *felt.Felt) (*felt.Felt, error) {
 		return nil, err
 	}
 	return contract.ContractHash, nil
+}
+
+func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractClass, error) {
+	contract, err := st.manager.GetContract(classHash)
+	if err != nil {
+		return nil, err
+	}
+
+	fullDef := contract.FullDef
+	var fullDefMap map[string]interface{}
+	if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
+		return nil, err
+	}
+
+	program := fullDefMap["program"]
+	var c bytes.Buffer
+	gz := gzip.NewWriter(&c)
+	if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
+		log.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
+	entryPointsByType := fullDefMap["entryPointsByType"]
+	contractClass := &types.ContractClass{
+		Program:           encodedProgram,
+		EntryPointsByType: entryPointsByType,
+	}
+
+	return contractClass, nil
 }

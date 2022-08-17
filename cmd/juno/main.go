@@ -259,6 +259,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_getTransactionByBlockIdAndIndex", starknetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
 		{"starknet_getTransactionReceipt", starknetApi.GetTransactionReceipt, []string{"transaction_hash"}},
 		{"starknet_getClass", starknetApi.GetClass, []string{"class_hash"}},
+		{"starknet_getClassAt", starknetApi.GetClassAt, []string{"block_id", "address"}},
 		{"starknet_getClassHashAt", starknetApi.GetClassHashAt, []string{"block_id", "address"}},
 		{"starknet_getBlockTransactionCount", starknetApi.GetBlockTransactionCount, []string{"block_id"}},
 		{"starknet_call", starknetApi.Call, []string{"block_id", "request"}},

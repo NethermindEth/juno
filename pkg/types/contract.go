@@ -23,6 +23,11 @@ type Contract struct {
 	FullDef json.RawMessage
 }
 
+type ContractClass struct {
+	Program           string      `json:"program"`
+	EntryPointsByType interface{} `json:"entryPointsByType"`
+}
+
 // UnmarshalRaw unmarshal the raw message data into the contract.
 // notest
 func (c *Contract) UnmarshalRaw(raw *json.RawMessage) error {
