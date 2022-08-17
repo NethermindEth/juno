@@ -55,6 +55,9 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
+		if value < 0 {
+			return ErrInvalidBlockId
+		}
 		id.idType = blockIdNumber
 		id.value = value
 	case string:
