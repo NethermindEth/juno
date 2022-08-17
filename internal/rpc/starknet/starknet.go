@@ -71,25 +71,20 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId) (any, error) {
-	// Parsing Key param
 	if !isStorageKey(key) {
 		// TODO: the rpc spec does not specify what to do if the key is not a storage key
 		return nil, nil
 	}
 	keyF := new(felt.Felt).SetHex(key)
-	// Parsing Address param
 	if !isFelt(address) {
 		return nil, NewContractNotFound()
 	}
 	addressF := new(felt.Felt).SetHex(address)
-	// Searching for the block in the database
 	b, err := getBlockById(blockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
-	// Building the state of the block
 	_state := state.New(s.stateManager, b.NewRoot)
-	// Searching for the value of the key in the state
 	value, err := _state.GetSlot(addressF, keyF)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
@@ -101,7 +96,6 @@ func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId)
 }
 
 func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) {
-	// Parsing TransactionHash param
 	if !isFelt(transactionHash) {
 		return nil, NewInvalidTxnHash()
 	}
@@ -133,7 +127,6 @@ func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index ui
 }
 
 func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error) {
-	// Parsing TxnHash param
 	if !isFelt(transactionHash) {
 		return nil, NewInvalidTxnHash()
 	}
@@ -149,7 +142,6 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error)
 }
 
 func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
-	// Parsing ClassHash param
 	if !isFelt(classHash) {
 		return nil, NewInvalidContractClassHash()
 	}
