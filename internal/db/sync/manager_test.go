@@ -136,5 +136,13 @@ func TestStateDiff(t *testing.T) {
 		t.Errorf("State diff was not stored correctly.")
 	}
 
+	// Check that the state diff is stored correctly.
+	retrievedStateDiff = manager.GetStateDiff(stateDiff.BlockNumber)
+
+	// Check that the state diff is stored correctly.
+	if !reflect.DeepEqual(retrievedStateDiff, stateDiff) {
+		t.Errorf("State diff was not stored correctly.")
+	}
+
 	manager.Close()
 }
