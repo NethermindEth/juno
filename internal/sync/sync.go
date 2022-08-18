@@ -245,7 +245,6 @@ func (s *Synchronizer) GetStateDiff(blockNumber int64) *types.StateDiff {
 }
 
 func (s *Synchronizer) GetStateDiffFromFelt(blockHash *felt.Felt) *types.StateDiff {
-
 	block, err := s.blockManager.GetBlockByHash(blockHash)
 	if err != nil {
 		return nil
