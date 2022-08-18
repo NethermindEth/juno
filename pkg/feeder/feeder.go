@@ -79,13 +79,6 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
 }
 
-func NewClientWithRetryFuncForDoReq(baseURL, baseAPI string, client *HttpClient, retryFunc func(req *http.Request, httpClient HttpClient) (*http.Response, error)) *Client {
-	newClient := NewClient(baseURL, baseAPI, client)
-	newClient.retryFuncForDoReq = retryFunc
-
-	return newClient
-}
-
 func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
 	if len(blockHash) == 0 && len(blockNumber) == 0 {
 		// notest

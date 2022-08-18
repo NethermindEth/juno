@@ -71,9 +71,7 @@ func (a *apiCollector) Run() {
 				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
 				continue
 			}
-			stateDiff := stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
-			collectedDiff := a.fetchContractCode(stateDiff)
-			a.buffer <- collectedDiff
+			a.buffer <- fetchContractCode(stateUpdateResponseToStateDiff(*update, latestStateDiffSynced), a.client, a.logger)
 			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 			latestStateDiffSynced += 1
 		}
@@ -132,7 +130,6 @@ func (a *apiCollector) fetchContractCode(stateDiff *types.StateDiff) *CollectorD
 		Code:      make(map[string]*types.Contract),
 	}
 	for _, deployedContract := range stateDiff.DeployedContracts {
-
 		contractFromApi, err := a.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
 			strconv.FormatInt(stateDiff.BlockNumber, 10))
 		if err != nil {
@@ -143,8 +140,7 @@ func (a *apiCollector) fetchContractCode(stateDiff *types.StateDiff) *CollectorD
 		}
 
 		contract := new(types.Contract)
-		err = contract.UnmarshalRaw(contractFromApi)
-		if err != nil {
+		if err = contract.UnmarshalRaw(contractFromApi); err != nil {
 			a.logger.With("Block Number", stateDiff.BlockNumber,
 				"Contract Address", deployedContract.Address.Hex0x()).
 				Error("Error unmarshalling contract")

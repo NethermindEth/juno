@@ -152,8 +152,7 @@ func (l *l1Collector) Run() {
 				stateDiff := parsePages(pages)
 				stateDiff.NewRoot = fact.StateRoot
 				stateDiff.BlockNumber = int64(fact.SequenceNumber)
-				collectedDiff := l.fetchContractCode(stateDiff)
-				l.buffer <- collectedDiff
+				l.buffer <- fetchContractCode(stateDiff, l.client, l.logger)
 
 				l.removeFactTree(fact)
 				l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
@@ -565,35 +564,6 @@ func (l *l1Collector) fetchPendingBlock() {
 	}
 
 	l.pendingBlock = pendingBlock
-}
-
-// fetchContractCode fetch the code of the contract from the Feeder Gateway.
-func (l *l1Collector) fetchContractCode(stateDiff *types2.StateDiff) *CollectorDiff {
-	collectedDiff := &CollectorDiff{
-		stateDiff: stateDiff,
-	}
-	for _, deployedContract := range stateDiff.DeployedContracts {
-
-		contractFromApi, err := l.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
-			strconv.FormatInt(stateDiff.BlockNumber, 10))
-		if err != nil {
-			l.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address.Hex0x()).
-				Error("Error getting full contract")
-			return collectedDiff
-		}
-
-		contract := new(types2.Contract)
-		err = contract.UnmarshalRaw(contractFromApi)
-		if err != nil {
-			l.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address.Hex0x()).
-				Error("Error unmarshalling contract")
-			return collectedDiff
-		}
-		collectedDiff.Code[deployedContract.Address.Hex0x()] = contract
-	}
-	return collectedDiff
 }
 
 // parsePages converts an array of memory pages into a state diff that

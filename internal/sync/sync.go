@@ -141,11 +141,11 @@ func (s *Synchronizer) sync() error {
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
-		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
-			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-
-				collectedDiff.stateDiff.BlockNumber,
-			"Timer", time.Since(start)).
-			Info("Synced block")
+		s.logger.With(
+			"Number", collectedDiff.stateDiff.BlockNumber,
+			"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
+			"Time", time.Since(start),
+		).Info("Synchronized block")
 		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
 		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
 			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
@@ -183,16 +183,14 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 
 func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 	for _, deployedContract := range collectedDiff.stateDiff.DeployedContracts {
-		err := s.SetCode(collectedDiff, &deployedContract)
-		if err != nil {
+		if err := s.SetCode(collectedDiff, &deployedContract); err != nil {
 			return err
 		}
 	}
 
 	for contractAddress, memoryCells := range collectedDiff.stateDiff.StorageDiff {
 		for _, cell := range memoryCells {
-			err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value)
-			if err != nil {
+			if err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value); err != nil {
 				return err
 			}
 		}
@@ -203,8 +201,7 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 
 func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *types.DeployedContract) error {
 	if deployedContract == nil {
-		ErrorNotDeployedContract := errors.New("contract not deployed")
-		return ErrorNotDeployedContract
+		return errors.New("contract not deployed")
 	}
 	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash,
 		collectedDiff.Code[deployedContract.Address.Hex0x()])
@@ -381,7 +378,7 @@ func (s *Synchronizer) updateBlocksInfo() {
 			time.Sleep(time.Minute)
 			continue
 		}
-		s.logger.With("block", currentBlock).Info("Updated block info")
+		s.logger.With("Block Number", currentBlock).Info("Updated block info")
 		s.syncManager.StoreLatestBlockSaved(currentBlock)
 		currentBlock++
 

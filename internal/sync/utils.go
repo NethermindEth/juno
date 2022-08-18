@@ -1,6 +1,9 @@
 package sync
 
 import (
+	"github.com/NethermindEth/juno/pkg/feeder"
+	"go.uber.org/zap"
+	"strconv"
 	"strings"
 
 	"github.com/NethermindEth/juno/pkg/types"
@@ -53,4 +56,33 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 		return abi.ABI{}, err
 	}
 	return contractAbi, nil
+}
+
+// fetchContractCode fetch the code of the contract from the Feeder Gateway.
+func fetchContractCode(stateDiff *types.StateDiff, client *feeder.Client, logger *zap.SugaredLogger) *CollectorDiff {
+	collectedDiff := &CollectorDiff{
+		stateDiff: stateDiff,
+	}
+	for _, deployedContract := range stateDiff.DeployedContracts {
+		contractFromApi, err := client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
+			strconv.FormatInt(stateDiff.BlockNumber, 10))
+		if err != nil {
+			logger.With(
+				"Block Number", stateDiff.BlockNumber,
+				"Contract Address", deployedContract.Address.Hex0x(),
+			).Error("Error getting full contract")
+			return collectedDiff
+		}
+
+		contract := new(types.Contract)
+		err = contract.UnmarshalRaw(contractFromApi)
+		if err != nil {
+			logger.With(
+				"Block Number", stateDiff.BlockNumber,
+				"Contract Address", deployedContract.Address.Hex0x(),
+			).Error("Error unmarshalling contract")
+		}
+		collectedDiff.Code[deployedContract.Address.Hex0x()] = contract
+	}
+	return collectedDiff
 }
