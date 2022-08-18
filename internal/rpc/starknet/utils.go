@@ -32,9 +32,9 @@ func isStorageKey(s string) bool {
 }
 
 func getBlockById(blockId *BlockId, blockManager *block.Manager) (*types.Block, error) {
-    if blockId == nil {
-        return nil, NewInvalidBlockId()
-    }
+	if blockId == nil {
+		return nil, NewInvalidBlockId()
+	}
 	switch blockId.idType {
 	case blockIdHash:
 		hash, _ := blockId.hash()

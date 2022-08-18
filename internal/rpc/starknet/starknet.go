@@ -92,8 +92,8 @@ func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId)
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewContractNotFound()
 		}
-        s.logger.Errorw(err.Error(), "function", "GetStorageAt")
-        return nil, errors.New("unexpected error")
+		s.logger.Errorw(err.Error(), "function", "GetStorageAt")
+		return nil, NewUnexpectedError()
 	}
 	return value.Hex0x(), nil
 }
@@ -108,25 +108,25 @@ func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) 
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewInvalidTxnHash()
 		}
-        s.logger.Errorw(err.Error(), "function", "GetTransactionByHash")
-        return nil, errors.New("unexpected error")
+		s.logger.Errorw(err.Error(), "function", "GetTransactionByHash")
+		return nil, NewUnexpectedError()
 	}
 	return NewTxn(tx)
 }
 
-func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index uint64) (any, error) {
+func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index *uint64) (any, error) {
 	b, err := getBlockById(blockId, s.blockManager)
 	if err != nil {
 		return nil, err
 	}
-	if index >= b.TxCount {
+	if index == nil || *index >= b.TxCount {
 		return nil, NewInvalidTxnIndex()
 	}
-	txHash := b.TxHashes[index]
+	txHash := b.TxHashes[*index]
 	tx, err := s.txnManager.GetTransaction(txHash)
 	if err != nil {
-        s.logger.Errorw(err.Error(), "function", "GetTransactionByBlockIdAndIndex")
-        return nil, errors.New("unexpected error")
+		s.logger.Errorw(err.Error(), "function", "GetTransactionByBlockIdAndIndex")
+		return nil, NewUnexpectedError()
 	}
 	return NewTxn(tx)
 }
@@ -142,7 +142,7 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error)
 			return nil, NewInvalidTxnHash()
 		}
 		s.logger.Errorw(err.Error(), "function", "GetTransactionReceipt")
-		return nil, errors.New("unexpected error")
+		return nil, NewUnexpectedError()
 	}
 	return NewReceipt(_receipt)
 }
@@ -155,15 +155,15 @@ func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
 	_, latestBlockHash := s.synchronizer.LatestBlockSynced()
 	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
-        if errors.Is(err, db.ErrNotFound) {
-            return nil, NewInvalidContractClassHash()
-        }
-        s.logger.Errorw(err.Error(), "function", "GetClass")
-		return nil, errors.New("unexpected error")
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, NewInvalidContractClassHash()
+		}
+		s.logger.Errorw(err.Error(), "function", "GetClass")
+		return nil, NewUnexpectedError()
 	}
 	_ = state.New(s.stateManager, latestBlock.NewRoot)
 	// TODO: implement class service
-	return nil, errors.New("unimplemented")
+	return nil, NewNotImplementedError()
 }
 
 func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, error) {
@@ -181,8 +181,8 @@ func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, err
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, NewContractNotFound()
 		}
-        s.logger.Errorw(err.Error(), "function", "GetClassHashAt")
-        return nil, errors.New("unexpected error")
+		s.logger.Errorw(err.Error(), "function", "GetClassHashAt")
+		return nil, NewUnexpectedError()
 	}
 	if classHash.IsZero() {
 		return nil, NewContractNotFound()
@@ -199,6 +199,13 @@ func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
+	b, err := getBlockById(blockId, s.blockManager)
+	if err != nil {
+		return nil, err
+	}
+	if request == nil {
+		return nil, NewInvalidCallData()
+	}
 	var (
 		callData           = make([]*felt.Felt, len(request.Calldata))
 		contractAddress    *felt.Felt
@@ -218,10 +225,6 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 		return nil, NewInvalidMessageSelector()
 	}
 	entryPointSelector = new(felt.Felt).SetHex(request.EntryPointSelector)
-	b, err := getBlockById(blockId, s.blockManager)
-	if err != nil {
-		return nil, err
-	}
 	_state := state.New(s.stateManager, b.NewRoot)
 	out, err := s.vm.Call(
 		context.Background(),
@@ -233,15 +236,15 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 		b.Sequencer,
 	)
 	if err != nil {
-        s.logger.Errorw(err.Error(), "function", "Call")
-		return nil, errors.New("unexpected error")
+		s.logger.Errorw(err.Error(), "function", "Call")
+		return nil, NewUnexpectedError()
 	}
 	return out, nil
 }
 
 func (s *StarkNetRpc) EstimateFee(blockId *BlockId, request *InvokeTxn) (any, error) {
 	// TODO: implement
-	return nil, errors.New("not implemented")
+	return nil, NewNotImplementedError()
 }
 
 func (s *StarkNetRpc) BlockNumber() (any, error) {
