@@ -42,7 +42,7 @@ func New(stateManager state.StateManager, blockManager *block.Manager, txnManage
 }
 
 func (s *StarkNetRpc) GetBlockWithTxHashes(blockId *BlockId) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *StarkNetRpc) GetBlockWithTxHashes(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) GetBlockWithTxs(blockId *BlockId) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId)
 		return nil, NewContractNotFound()
 	}
 	addressF := new(felt.Felt).SetHex(address)
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) 
 }
 
 func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index *uint64) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -171,9 +171,9 @@ func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, err
 		return nil, NewContractNotFound()
 	}
 	addressF := new(felt.Felt).SetHex(address)
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
-		return nil, NewInvalidBlockId()
+		return nil, err
 	}
 	_state := state.New(s.stateManager, b.NewRoot)
 	classHash, err := _state.GetClassHash(addressF)
@@ -191,7 +191,7 @@ func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, err
 }
 
 func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
