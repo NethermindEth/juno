@@ -63,9 +63,6 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 				wait = wait * 2
 				continue
 			}
-			if res == nil {
-				return nil, err
-			}
 			if res.StatusCode == http.StatusOK {
 				break
 			}
