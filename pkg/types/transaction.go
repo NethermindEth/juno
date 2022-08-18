@@ -12,6 +12,7 @@ type TransactionDeploy struct {
 	Hash                *felt.Felt
 	ClassHash           *felt.Felt
 	ContractAddress     *felt.Felt
+	ContractAddressSalt *felt.Felt
 	ConstructorCallData []*felt.Felt
 }
 
