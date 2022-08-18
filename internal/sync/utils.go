@@ -1,10 +1,11 @@
 package sync
 
 import (
-	"github.com/NethermindEth/juno/pkg/feeder"
-	"go.uber.org/zap"
 	"strconv"
 	"strings"
+
+	"github.com/NethermindEth/juno/pkg/feeder"
+	"go.uber.org/zap"
 
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
