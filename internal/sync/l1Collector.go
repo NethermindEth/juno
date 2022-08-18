@@ -45,7 +45,7 @@ type l1Collector struct {
 	// latestBlockSynced is the last block that was synced.
 	latestBlockSynced int64
 	// buffer is the channel that will be used to collect the StateDiff.
-	buffer chan *types2.StateDiff
+	buffer chan *CollectorDiff
 
 	// starknetContractAddress is the address of the Starknet contract on Layer 1.
 	starknetContractAddress common.Address
@@ -83,7 +83,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		quit:     make(chan struct{}),
 	}
 	collector.logger = log.Logger.Named("l1Collector")
-	collector.buffer = make(chan *types2.StateDiff, 10)
+	collector.buffer = make(chan *CollectorDiff, 10)
 	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	collector.memoryPageHash = types2.NewDictionary()
 	collector.gpsVerifier = types2.NewDictionary()
@@ -152,8 +152,8 @@ func (l *l1Collector) Run() {
 				stateDiff := parsePages(pages)
 				stateDiff.NewRoot = fact.StateRoot
 				stateDiff.BlockNumber = int64(fact.SequenceNumber)
-				l.updateContractCode(stateDiff)
-				l.buffer <- stateDiff
+				collectedDiff := l.fetchContractCode(stateDiff)
+				l.buffer <- collectedDiff
 
 				l.removeFactTree(fact)
 				l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
@@ -164,7 +164,7 @@ func (l *l1Collector) Run() {
 	}
 }
 
-func (l *l1Collector) GetChannel() chan *types2.StateDiff {
+func (l *l1Collector) GetChannel() chan *CollectorDiff {
 	return l.buffer
 }
 
@@ -567,9 +567,12 @@ func (l *l1Collector) fetchPendingBlock() {
 	l.pendingBlock = pendingBlock
 }
 
-// updateContractCode update the contract code
-func (l *l1Collector) updateContractCode(stateDiff *types2.StateDiff) {
-	for i, deployedContract := range stateDiff.DeployedContracts {
+// fetchContractCode fetch the code of the contract from the Feeder Gateway.
+func (l *l1Collector) fetchContractCode(stateDiff *types2.StateDiff) *CollectorDiff {
+	collectedDiff := &CollectorDiff{
+		stateDiff: stateDiff,
+	}
+	for _, deployedContract := range stateDiff.DeployedContracts {
 
 		contractFromApi, err := l.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
 			strconv.FormatInt(stateDiff.BlockNumber, 10))
@@ -577,7 +580,7 @@ func (l *l1Collector) updateContractCode(stateDiff *types2.StateDiff) {
 			l.logger.With("Block Number", stateDiff.BlockNumber,
 				"Contract Address", deployedContract.Address.Hex0x()).
 				Error("Error getting full contract")
-			return
+			return collectedDiff
 		}
 
 		contract := new(types2.Contract)
@@ -586,10 +589,11 @@ func (l *l1Collector) updateContractCode(stateDiff *types2.StateDiff) {
 			l.logger.With("Block Number", stateDiff.BlockNumber,
 				"Contract Address", deployedContract.Address.Hex0x()).
 				Error("Error unmarshalling contract")
-			return
+			return collectedDiff
 		}
-		stateDiff.DeployedContracts[i].Code = contract
+		collectedDiff.Code[deployedContract.Address.Hex0x()] = contract
 	}
+	return collectedDiff
 }
 
 // parsePages converts an array of memory pages into a state diff that

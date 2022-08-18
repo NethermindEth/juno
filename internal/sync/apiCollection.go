@@ -21,7 +21,7 @@ type apiCollector struct {
 	// feeder is the client that provides the Connection to the feeder gateway.
 	client *feeder.Client
 	// buffer represent the channel of StateDiff collected
-	buffer chan *types.StateDiff
+	buffer chan *CollectorDiff
 
 	// latestBlock is the last block of StarkNet
 	latestBlock *feeder.StarknetBlock
@@ -40,7 +40,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector
 		quit:    make(chan struct{}),
 	}
 	collector.logger = log.Logger.Named("apiCollector")
-	collector.buffer = make(chan *types.StateDiff, 10)
+	collector.buffer = make(chan *CollectorDiff, 10)
 	go collector.updateLatestBlockOnChain()
 	return collector
 }
@@ -72,9 +72,8 @@ func (a *apiCollector) Run() {
 				continue
 			}
 			stateDiff := stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
-			a.updateContractCode(stateDiff)
-
-			a.buffer <- stateDiff
+			collectedDiff := a.fetchContractCode(stateDiff)
+			a.buffer <- collectedDiff
 			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 			latestStateDiffSynced += 1
 		}
@@ -86,7 +85,7 @@ func (a *apiCollector) Close() {
 }
 
 // GetChannel returns the channel of StateDiffs
-func (a *apiCollector) GetChannel() chan *types.StateDiff {
+func (a *apiCollector) GetChannel() chan *CollectorDiff {
 	return a.buffer
 }
 
@@ -126,9 +125,13 @@ func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
 	return a.pendingBlock
 }
 
-// updateContractCode update the contract code
-func (a *apiCollector) updateContractCode(stateDiff *types.StateDiff) {
-	for i, deployedContract := range stateDiff.DeployedContracts {
+// fetchContractCode fetch the code of the contract from the Feeder Gateway.
+func (a *apiCollector) fetchContractCode(stateDiff *types.StateDiff) *CollectorDiff {
+	collectedDiff := &CollectorDiff{
+		stateDiff: stateDiff,
+		Code:      make(map[string]*types.Contract),
+	}
+	for _, deployedContract := range stateDiff.DeployedContracts {
 
 		contractFromApi, err := a.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
 			strconv.FormatInt(stateDiff.BlockNumber, 10))
@@ -136,7 +139,7 @@ func (a *apiCollector) updateContractCode(stateDiff *types.StateDiff) {
 			a.logger.With("Block Number", stateDiff.BlockNumber,
 				"Contract Address", deployedContract.Address.Hex0x()).
 				Error("Error getting full contract")
-			return
+			return collectedDiff
 		}
 
 		contract := new(types.Contract)
@@ -145,10 +148,11 @@ func (a *apiCollector) updateContractCode(stateDiff *types.StateDiff) {
 			a.logger.With("Block Number", stateDiff.BlockNumber,
 				"Contract Address", deployedContract.Address.Hex0x()).
 				Error("Error unmarshalling contract")
-			return
+			return collectedDiff
 		}
-		stateDiff.DeployedContracts[i].Code = contract
+		collectedDiff.Code[deployedContract.Address.Hex0x()] = contract
 	}
+	return collectedDiff
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff

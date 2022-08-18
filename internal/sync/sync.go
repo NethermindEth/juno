@@ -127,11 +127,11 @@ func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
 func (s *Synchronizer) sync() error {
 	go s.stateDiffCollector.Run()
 	// Get state
-	for stateDiff := range s.stateDiffCollector.GetChannel() {
+	for collectedDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
 
-		err := s.updateState(stateDiff)
-		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
+		err := s.updateState(collectedDiff)
+		if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
 			s.logger.With("Error", err).Error("State update failed, reverting state")
@@ -141,21 +141,22 @@ func (s *Synchronizer) sync() error {
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
+		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
+			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-
+				collectedDiff.stateDiff.BlockNumber,
 			"Timer", time.Since(start)).
 			Info("Synced block")
-		s.syncManager.StoreLatestBlockSync(stateDiff.BlockNumber)
-		if stateDiff.OldRoot.Hex() == "" {
-			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
+		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
+		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
+			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
 		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		s.syncManager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex0x())
-		s.latestBlockNumberSynced = stateDiff.BlockNumber
+		s.syncManager.StoreStateDiff(collectedDiff.stateDiff, s.latestBlockHashSynced.Hex0x())
+		s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
 		if s.startingBlockHash == "" {
-			s.startingBlockNumber = stateDiff.BlockNumber
+			s.startingBlockNumber = collectedDiff.stateDiff.BlockNumber
 			s.startingBlockHash = s.latestBlockHashSynced.Hex0x()
 		}
 	}
@@ -180,15 +181,15 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 	}
 }
 
-func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
-	for _, deployedContract := range stateDiff.DeployedContracts {
-		err := s.SetCode(stateDiff, &deployedContract)
+func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
+	for _, deployedContract := range collectedDiff.stateDiff.DeployedContracts {
+		err := s.SetCode(collectedDiff, &deployedContract)
 		if err != nil {
 			return err
 		}
 	}
 
-	for contractAddress, memoryCells := range stateDiff.StorageDiff {
+	for contractAddress, memoryCells := range collectedDiff.stateDiff.StorageDiff {
 		for _, cell := range memoryCells {
 			err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value)
 			if err != nil {
@@ -196,23 +197,24 @@ func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
 			}
 		}
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
+	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
 	return nil
 }
 
-func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract *types.DeployedContract) error {
+func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *types.DeployedContract) error {
 	if deployedContract == nil {
 		ErrorNotDeployedContract := errors.New("contract not deployed")
 		return ErrorNotDeployedContract
 	}
-	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash, deployedContract.Code)
+	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash,
+		collectedDiff.Code[deployedContract.Address.Hex0x()])
 	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
+		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).
 			Error("Error setting code")
 		return err
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber, "Address", deployedContract.Address).
+	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber, "Address", deployedContract.Address).
 		Debug("State updated for Contract")
 	return nil
 }
