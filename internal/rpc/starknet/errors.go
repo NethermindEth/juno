@@ -5,86 +5,53 @@ type StarkNetError struct {
 	Message string
 }
 
-func (s *StarkNetError) Error() string {
+func (s StarkNetError) Error() string {
 	return s.Message
 }
 
-func NewUnexpectedError() *StarkNetError {
-	// NOTE: this error is not documented in the RPC specification
-	return &StarkNetError{
+var (
+	UnexpectedError = StarkNetError{
 		Code:    -1,
 		Message: "Unexpected error",
 	}
-}
-
-func NewNotImplementedError() *StarkNetError {
-	// NOTE: this error is not documented in the RPC specification
-	return &StarkNetError{
+	NotImplementedError = StarkNetError{
 		Code:    -2,
 		Message: "Not implemented",
 	}
-}
-
-func NewInvalidStorageKey() *StarkNetError {
-	// NOTE: this error is not documented in the RPC specification
-	return &StarkNetError{
+	InvalidStorageKey = StarkNetError{
 		Code:    -3,
 		Message: "Invalid storage key",
 	}
-}
-
-func NewContractNotFound() *StarkNetError {
-	return &StarkNetError{
+	ContractNotFound = StarkNetError{
 		Code:    20,
 		Message: "Contract not found",
 	}
-}
-
-func NewInvalidMessageSelector() *StarkNetError {
-	return &StarkNetError{
+	InvalidMessageSelector = StarkNetError{
 		Code:    21,
 		Message: "Invalid message selector",
 	}
-}
-
-func NewInvalidCallData() *StarkNetError {
-	return &StarkNetError{
+	InvalidCallData = StarkNetError{
 		Code:    22,
 		Message: "Invalid call data",
 	}
-}
-
-func NewInvalidBlockId() *StarkNetError {
-	return &StarkNetError{
+	InvalidBlockId = StarkNetError{
 		Code:    24,
 		Message: "Invalid block id",
 	}
-}
-
-func NewInvalidTxnHash() *StarkNetError {
-	return &StarkNetError{
+	InvalidTxnHash = StarkNetError{
 		Code:    25,
 		Message: "Invalid txn hash",
 	}
-}
-
-func NewInvalidTxnIndex() *StarkNetError {
-	return &StarkNetError{
+	InvalidTxnIndex = StarkNetError{
 		Code:    26,
 		Message: "Invalid transaction index in a block",
 	}
-}
-
-func NewInvalidContractClassHash() *StarkNetError {
-	return &StarkNetError{
+	InvalidContractClassHash = StarkNetError{
 		Code:    28,
 		Message: "The supplied contract class hash is invalid or unknown",
 	}
-}
-
-func NewNoBlocks() *StarkNetError {
-	return &StarkNetError{
+	NoBlocks = StarkNetError{
 		Code:    32,
 		Message: "There are no blocks",
 	}
-}
+)
