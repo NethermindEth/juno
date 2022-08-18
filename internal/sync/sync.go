@@ -33,14 +33,11 @@ type Synchronizer struct {
 	logger *zap.SugaredLogger
 
 	// startingBlockNumber is the block number of the first block that we will sync.
-	startingBlockNumber int64
-	// startingBlockHash is the hash of the first block that we will sync.
-	startingBlockHash string
+	startingBlockNumber      int64
+	startingBlockNumberSaved int64
 
 	// latestBlockNumberSynced is the last block that was synced.
 	latestBlockNumberSynced int64
-	// latestBlockHashSynced is the last block that was synced.
-	latestBlockHashSynced *felt.Felt
 
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
@@ -125,6 +122,10 @@ func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
 
 func (s *Synchronizer) sync() error {
 	go s.stateDiffCollector.Run()
+
+	s.startingBlockNumber = s.syncManager.GetLatestBlockSync()
+	s.latestBlockNumberSynced = s.startingBlockNumber
+
 	// Get state
 	for stateDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
@@ -148,33 +149,43 @@ func (s *Synchronizer) sync() error {
 			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
 		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		s.syncManager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex0x())
+		s.syncManager.StoreStateDiff(stateDiff)
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
-
-		// Used to keep a track of where the sync started
-		if s.startingBlockHash == "" {
-			s.startingBlockNumber = stateDiff.BlockNumber
-			s.startingBlockHash = s.latestBlockHashSynced.Hex0x()
-		}
 	}
 	return nil
 }
 
 func (s *Synchronizer) Status() *types.SyncStatus {
-	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), float64(s.syncManager.GetLatestBlockSaved())))
+	latestBlockSaved := float64(s.syncManager.GetLatestBlockSaved())
+
+	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), latestBlockSaved))
 
 	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
 	if err != nil {
 		return nil
 	}
 
+	startingBlockNumber := uint64(math.Min(float64(s.startingBlockNumber), latestBlockSaved))
+
+	startingBlock, err := s.blockManager.GetBlockByNumber(startingBlockNumber)
+	if err != nil {
+		return nil
+	}
+
+	highestBlockHash := "pending"
+	highestBlockNumber := "pending"
+	if s.stateDiffCollector.LatestBlock() != nil {
+		highestBlockHash = s.stateDiffCollector.LatestBlock().BlockHash
+		highestBlockNumber = fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber)
+	}
+
 	return &types.SyncStatus{
-		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
+		StartingBlockHash:   startingBlock.BlockHash.Hex0x(),
+		StartingBlockNumber: fmt.Sprintf("%x", startingBlockNumber),
 		CurrentBlockHash:    block.BlockHash.Hex0x(),
 		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
-		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
-		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
+		HighestBlockHash:    highestBlockHash,
+		HighestBlockNumber:  highestBlockNumber,
 	}
 }
 
@@ -289,18 +300,17 @@ func (s *Synchronizer) setChainId(network string) {
 }
 
 func (s *Synchronizer) updateBlocks(number int64) error {
-	block, err := s.updateBlock(number)
+	err := s.updateBlock(number)
 	if err != nil {
 		return err
 	}
-	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
 	return nil
 }
 
-func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
+func (s *Synchronizer) updateBlock(blockNumber int64) error {
 	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, txn := range block.Transactions {
@@ -313,12 +323,12 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 					break
 				}
 				if iterations > 20 {
-					return nil, err
+					return err
 				}
 				iterations++
 			}
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -332,12 +342,12 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 					break
 				}
 				if iterations > 20 {
-					return nil, err
+					return err
 				}
 				iterations++
 			}
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -345,9 +355,9 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 	blockHash := new(felt.Felt).SetHex(block.BlockHash)
 	err = s.blockManager.PutBlock(blockHash, feederBlockToDBBlock(block))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return block, nil
+	return nil
 }
 
 func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
@@ -377,6 +387,7 @@ func (s *Synchronizer) updateTransactionReceipts(receipt feeder.TransactionExecu
 func (s *Synchronizer) updateBlocksInfo() {
 	latestBlockInfoFetched := s.syncManager.GetLatestBlockSaved()
 	currentBlock := latestBlockInfoFetched
+	s.startingBlockNumberSaved = currentBlock
 	for {
 		latestBlock := s.stateDiffCollector.LatestBlock()
 		if latestBlock == nil {

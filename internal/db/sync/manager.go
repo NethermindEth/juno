@@ -168,20 +168,13 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 }
 
 // StoreStateDiff stores the state diff for the given block.
-func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash string) {
+func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff) {
 	// Get the key we will use to store the state diff
 	key := []byte(strconv.FormatInt(stateDiff.BlockNumber, 10))
 	// Marshal the state diff
 	value, err := json.Marshal(stateDiff)
 	if err != nil {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
-	}
-
-	// Store the stateDiff key using a blockHash
-	key2 := append(stateDiffPrefix, []byte(blockHash)...)
-	err = m.database.Put(key2, key)
-	if err != nil {
-		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
 
 	// Store the state diff
