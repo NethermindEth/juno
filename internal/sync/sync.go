@@ -244,8 +244,13 @@ func (s *Synchronizer) GetStateDiff(blockNumber int64) *types.StateDiff {
 	return s.syncManager.GetStateDiff(blockNumber)
 }
 
-func (s *Synchronizer) GetStateDiffFromHash(blockHash string) *types.StateDiff {
-	return s.syncManager.GetStateDiffFromHash(blockHash)
+func (s *Synchronizer) GetStateDiffFromFelt(blockHash *felt.Felt) *types.StateDiff {
+
+	block, err := s.blockManager.GetBlockByHash(blockHash)
+	if err != nil {
+		return nil
+	}
+	return s.syncManager.GetStateDiff(int64(block.BlockNumber))
 }
 
 func (s *Synchronizer) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {

@@ -206,26 +206,6 @@ func (m *Manager) GetStateDiff(blockNumber int64) *types.StateDiff {
 	return stateDiff
 }
 
-func (m *Manager) GetStateDiffFromHash(blockHash string) *types.StateDiff {
-	// Query to database
-	key := append(stateDiffPrefix, []byte(blockHash)...)
-	data, err := m.database.Get(key)
-	if err != nil {
-		// notest
-		if errors.Is(err, db.ErrNotFound) {
-			return nil
-		}
-		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	// Unmarshal the data from database
-	blockNumber := new(int64)
-	if err := json.Unmarshal(data, blockNumber); err != nil {
-		// notest
-		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
-	}
-	return m.GetStateDiff(*blockNumber)
-}
-
 // Close closes the Manager.
 func (m *Manager) Close() {
 	m.database.Close()
