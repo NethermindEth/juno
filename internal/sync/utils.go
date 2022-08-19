@@ -60,6 +60,7 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 }
 
 // fetchContractCode fetch the code of the contract from the Feeder Gateway.
+// notest
 func fetchContractCode(stateDiff *types.StateDiff, client *feeder.Client, logger *zap.SugaredLogger) *CollectorDiff {
 	collectedDiff := &CollectorDiff{
 		stateDiff: stateDiff,

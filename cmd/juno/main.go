@@ -185,17 +185,18 @@ func juno(cfg *config.Juno) {
 	fmt.Printf("using config: %+v\n\n", cfg)
 
 	// Configure the logger first so we can use it
+	feederClient := setupFeederGateway(&cfg.Sync)
 	setupLogger(&cfg.Log)
 	setupInterruptHandler(cfg)
 	setupDatabase(&cfg.Database)
-	feederClient := setupFeederGateway(&cfg.Sync)
+	setupSynchronizer(&cfg.Sync, feederClient)
 	virtualMachine = cairovm.New(stateManager)
 
 	errChs := make([]chan error, 0)
 
 	if cfg.Sync.Enable {
 		errChs = append(errChs, make(chan error))
-		setupSynchronizer(&cfg.Sync, feederClient, errChs[len(errChs)-1])
+		synchronizer.Run(cfg.Sync.Trusted, errChs[len(errChs)-1])
 	} else {
 		// Currently, Juno is only useful for storing StarkNet
 		// state locally. We notify the user of this. We don't
@@ -226,10 +227,9 @@ func setupLogger(cfg *config.Log) {
 	}
 }
 
-func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
+func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client) {
 	synchronizer = syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager,
 		transactionManager)
-	synchronizer.Run(cfg.Trusted, errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {

@@ -123,34 +123,6 @@ func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
 	return a.pendingBlock
 }
 
-// fetchContractCode fetch the code of the contract from the Feeder Gateway.
-func (a *apiCollector) fetchContractCode(stateDiff *types.StateDiff) *CollectorDiff {
-	collectedDiff := &CollectorDiff{
-		stateDiff: stateDiff,
-		Code:      make(map[string]*types.Contract),
-	}
-	for _, deployedContract := range stateDiff.DeployedContracts {
-		contractFromApi, err := a.client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
-			strconv.FormatInt(stateDiff.BlockNumber, 10))
-		if err != nil {
-			a.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address.Hex0x()).
-				Error("Error getting full contract")
-			return collectedDiff
-		}
-
-		contract := new(types.Contract)
-		if err = contract.UnmarshalRaw(contractFromApi); err != nil {
-			a.logger.With("Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address.Hex0x()).
-				Error("Error unmarshalling contract")
-			return collectedDiff
-		}
-		collectedDiff.Code[deployedContract.Address.Hex0x()] = contract
-	}
-	return collectedDiff
-}
-
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
 func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumber int64) *types.StateDiff {
 	var stateDiff types.StateDiff
