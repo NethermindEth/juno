@@ -19,7 +19,7 @@ var (
 	latestBlockSyncKey             = []byte("latestBlockSync")
 	blockOfLatestEventProcessedKey = []byte("blockOfLatestEventProcessed")
 	latestStateRoot                = []byte("latestStateRoot")
-	stateDiffPrefix                = []byte("stateDiffPrefix_")
+	stateDiffPrefix                = []byte("stateDiff:")
 )
 
 // Manager is a Block database manager to save and search the blocks.
