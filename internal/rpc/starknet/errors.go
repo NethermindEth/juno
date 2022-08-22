@@ -43,7 +43,7 @@ var (
 		Message: "Invalid txn hash",
 	}
 	InvalidTxnIndex = StarkNetError{
-		Code:    26,
+		Code:    27,
 		Message: "Invalid transaction index in a block",
 	}
 	InvalidContractClassHash = StarkNetError{
