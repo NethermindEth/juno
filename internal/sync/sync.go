@@ -148,7 +148,7 @@ func (s *Synchronizer) sync() error {
 			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
 		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		s.syncManager.StoreStateDiff(stateDiff, s.latestBlockHashSynced.Hex0x())
+		s.syncManager.StoreStateDiff(stateDiff, stateDiff.BlockHash)
 		s.latestBlockNumberSynced = stateDiff.BlockNumber
 
 		// Used to keep a track of where the sync started
@@ -229,12 +229,8 @@ func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract type
 	return nil
 }
 
-func (s *Synchronizer) GetStateDiff(blockNumber int64) *types.StateDiff {
-	return s.syncManager.GetStateDiff(blockNumber)
-}
-
-func (s *Synchronizer) GetStateDiffFromHash(blockHash string) *types.StateDiff {
-	return s.syncManager.GetStateDiffFromHash(blockHash)
+func (s *Synchronizer) GetStateDiff(blockHash *felt.Felt) (*types.StateDiff, error) {
+	return s.syncManager.GetStateUpdate(blockHash)
 }
 
 func (s *Synchronizer) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {

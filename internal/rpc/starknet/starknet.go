@@ -57,17 +57,15 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 	if blockId == nil {
 		return nil, nil
 	}
-	switch blockId.idType {
-	case blockIdHash:
-		hash, _ := blockId.hash()
-		return s.synchronizer.GetStateDiffFromHash(hash.Hex()), nil
-	case blockIdNumber:
-		number, _ := blockId.number()
-		return s.synchronizer.GetStateDiff(int64(number)), nil
-	default:
-		// TODO: manage unexpected type
-		return nil, nil
+	block, err := getBlockById(blockId, s.blockManager)
+	if err != nil {
+		return nil, err
 	}
+	diff, err := s.synchronizer.GetStateDiff(block.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+	return NewStateUpdate(diff), nil
 }
 
 func (s *StarkNetRpc) GetStorageAt(blockId *BlockId, address string, key string) (any, error) {

@@ -128,6 +128,7 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumb
 	var stateDiff types.StateDiff
 	stateDiff.NewRoot = new(felt.Felt).SetHex(update.NewRoot)
 	stateDiff.BlockNumber = blockNumber
+	stateDiff.BlockHash = new(felt.Felt).SetHex(update.BlockHash)
 	stateDiff.OldRoot = new(felt.Felt).SetHex(update.OldRoot)
 	stateDiff.DeployedContracts = make([]types.DeployedContract, len(update.StateDiff.DeployedContracts))
 	for i, v := range update.StateDiff.DeployedContracts {
@@ -145,8 +146,9 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumb
 				Value:   new(felt.Felt).SetHex(cell.Value),
 			})
 		}
+		ca := new(felt.Felt).SetHex(contractAddress)
 		// Create felt and convert to string for consistency
-		stateDiff.StorageDiff[new(felt.Felt).SetHex(contractAddress).String()] = kvs
+		stateDiff.StorageDiff[*ca] = kvs
 	}
 
 	return &stateDiff

@@ -451,3 +451,65 @@ type SyncStatus struct {
 	HighestBlockHash    string `json:"highest_block_hash"`
 	HighestBlockNumber  string `json:"highest_block_number"`
 }
+
+type StorageDiffItem struct {
+	Address string `json:"address"`
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+}
+
+type DeployedContractItem struct {
+	Address   string `json:"address"`
+	ClassHash string `json:"class_hash"`
+}
+
+type DeclatedContractItem struct {
+	ClassHash string `json:"class_hash"`
+}
+
+type StateDiff struct {
+	StorageDiffs      []*StorageDiffItem      `json:"storage_diffs"`
+	DeployedContracts []*DeployedContractItem `json:"deployed_contracts"`
+	DeclaredContracts []*DeclatedContractItem `json:"declared_contracts"`
+}
+
+type StateUpdate struct {
+	BlockHash string     `json:"block_hash"`
+	NewRoot   string     `json:"new_root"`
+	OldRoot   string     `json:"old_root"`
+	StateDiff *StateDiff `json:"state_diff"`
+}
+
+func NewStateUpdate(s *types.StateDiff) *StateUpdate {
+	stateDiff := &StateDiff{
+		StorageDiffs:      make([]*StorageDiffItem, 0, len(s.StorageDiff)),
+		DeployedContracts: make([]*DeployedContractItem, len(s.DeployedContracts)),
+		DeclaredContracts: make([]*DeclatedContractItem, len(s.DeclaredContracts)),
+	}
+	for address, diffs := range s.StorageDiff {
+		for _, diff := range diffs {
+			stateDiff.StorageDiffs = append(stateDiff.StorageDiffs, &StorageDiffItem{
+				Address: address.Hex0x(),
+				Key:     diff.Address.Hex0x(),
+				Value:   diff.Value.Hex0x(),
+			})
+		}
+	}
+	for i, deployedContract := range s.DeployedContracts {
+		stateDiff.DeployedContracts[i] = &DeployedContractItem{
+			Address:   deployedContract.Address.Hex0x(),
+			ClassHash: deployedContract.Hash.Hex0x(),
+		}
+	}
+	for i, declaredContract := range s.DeclaredContracts {
+		stateDiff.DeclaredContracts[i] = &DeclatedContractItem{
+			ClassHash: declaredContract.Hex0x(),
+		}
+	}
+	return &StateUpdate{
+		BlockHash: s.BlockHash.Hex0x(),
+		NewRoot:   s.NewRoot.Hex0x(),
+		OldRoot:   s.OldRoot.Hex0x(),
+		StateDiff: stateDiff,
+	}
+}
