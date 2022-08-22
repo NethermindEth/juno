@@ -195,7 +195,6 @@ func stateDbKey(blockHash *felt.Felt) []byte {
 }
 
 func marshalStateUpdate(s *types.StateDiff) ([]byte, error) {
-	fmt.Println("marshalStateUpdate")
 	stateUpdateProto := &StateUpdate{
 		BlockHash:         s.BlockHash.ByteSlice(),
 		NewRoot:           s.NewRoot.ByteSlice(),
@@ -213,7 +212,6 @@ func marshalStateUpdate(s *types.StateDiff) ([]byte, error) {
 				Value: diff.Value.ByteSlice(),
 			}
 		}
-		fmt.Printf("Address: %s\n", address.Hex())
 		stateUpdateProto.StorageDiffs[address.Hex()] = &StorageDiffs{
 			Diffs: diffsProto,
 		}
@@ -232,7 +230,6 @@ func marshalStateUpdate(s *types.StateDiff) ([]byte, error) {
 }
 
 func unmarshalStateUpdate(data []byte) (*types.StateDiff, error) {
-	fmt.Println("unmarshalStateUpdate")
 	var stateUpdateProto StateUpdate
 	if err := proto.Unmarshal(data, &stateUpdateProto); err != nil {
 		return nil, err
@@ -263,8 +260,8 @@ func unmarshalStateUpdate(data []byte) (*types.StateDiff, error) {
 		}
 		stateUpdate.DeployedContracts[i] = deployed
 	}
-	for i, delcaredContract := range stateUpdateProto.DeclaredContracts {
-		stateUpdate.DeclaredContracts[i] = new(felt.Felt).SetBytes(delcaredContract)
+	for i, declaredContract := range stateUpdateProto.DeclaredContracts {
+		stateUpdate.DeclaredContracts[i] = new(felt.Felt).SetBytes(declaredContract)
 	}
 	return stateUpdate, nil
 }
