@@ -10,14 +10,17 @@ func (s StarkNetError) Error() string {
 }
 
 var (
+    // NOTE: This error isn't part of the StarWere specification
 	UnexpectedError = StarkNetError{
 		Code:    -1,
 		Message: "Unexpected error",
 	}
+    // NOTE: This error isn't part of the StarWere specification
 	NotImplementedError = StarkNetError{
 		Code:    -2,
 		Message: "Not implemented",
 	}
+    // NOTE: This error isn't part of the StarWere specification
 	InvalidStorageKey = StarkNetError{
 		Code:    -3,
 		Message: "Invalid storage key",
