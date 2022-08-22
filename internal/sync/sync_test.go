@@ -22,7 +22,7 @@ type mockStateDiffCollector struct {
 func (m *mockStateDiffCollector) PendingBlock() *feeder.StarknetBlock { return nil }
 func (m *mockStateDiffCollector) Close()                              {}
 func (m *mockStateDiffCollector) Run()                                {}
-func (m *mockStateDiffCollector) GetChannel() chan *types.StateDiff   { return nil }
+func (m *mockStateDiffCollector) GetChannel() chan *CollectorDiff     { return nil }
 
 func (m *mockStateDiffCollector) LatestBlock() *feeder.StarknetBlock {
 	return m.latestBlock
