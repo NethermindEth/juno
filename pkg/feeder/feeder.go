@@ -28,10 +28,11 @@ type HttpClient interface {
 // Client represents a client for the StarkNet feeder gateway.
 type Client struct {
 	httpClient        *HttpClient
-	retryFuncForDoReq func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)
+	retryFuncForDoReq func(req *http.Request, httpClient HttpClient) (*http.Response, error)
 
 	BaseURL            *url.URL
 	BaseAPI, UserAgent string
+	available          chan bool
 }
 
 // NewClient returns a new Client.
@@ -51,23 +52,31 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	}
 
 	// retry mechanism for do requests
-	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error) {
+	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient) (*http.Response, error) {
 		var res *http.Response
-		for i := 0; err != nil && i < 2; i++ {
-			time.Sleep(time.Second * 10)
+		wait := 5 * time.Second
+		for i := 0; i < 10; i++ {
 			res, err = httpClient.Do(req)
+			if err != nil {
+				Logger.With("Waiting:", wait.Seconds()).Info("Waiting to do again a request")
+				time.Sleep(wait)
+				wait = wait * 2
+				continue
+			}
+			if res.StatusCode == http.StatusOK {
+				break
+			}
 		}
 		return res, err
 	}
 
-	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq}
-}
+	requestInParallel := 1
 
-func NewClientWithRetryFuncForDoReq(baseURL, baseAPI string, client *HttpClient, retryFunc func(req *http.Request, httpClient HttpClient, err error) (*http.Response, error)) *Client {
-	newClient := NewClient(baseURL, baseAPI, client)
-	newClient.retryFuncForDoReq = retryFunc
-
-	return newClient
+	available := make(chan bool, requestInParallel)
+	for i := 0; i < requestInParallel; i++ {
+		available <- true
+	}
+	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
 }
 
 func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
@@ -143,11 +152,14 @@ func (c *Client) newRequest(method string, path string, query map[string]string,
 // do executes a request and waits for response and returns an error
 // otherwise.
 func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
-	metr.IncreaseRequestsSent()
-	res, err := (*c.httpClient).Do(req)
-	// notest
-	_, err = c.retryFuncForDoReq(req, *c.httpClient, err)
+	<-c.available
+	defer func() {
+		c.available <- true
+	}()
 
+	metr.IncreaseRequestsSent()
+	// notest
+	res, err := c.retryFuncForDoReq(req, *c.httpClient)
 	// We tried three times and still received an error
 	if err != nil {
 		metr.IncreaseRequestsFailed()
