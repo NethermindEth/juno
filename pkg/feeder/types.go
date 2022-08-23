@@ -72,6 +72,7 @@ type TxnSpecificInfo struct {
 	TransactionHash     string   `json:"transaction_hash"`
 	MaxFee              string   `json:"max_fee"`
 	Type                string   `json:"type"`
+	ContractAddressSalt string   `json:"contract_address_salt"`
 }
 
 // L1ToL2Message Represents a StarkNet L1-to-L2 message.

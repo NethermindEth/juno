@@ -27,7 +27,6 @@ import (
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncService "github.com/NethermindEth/juno/internal/sync"
 	"github.com/NethermindEth/juno/pkg/feeder"
-	"github.com/NethermindEth/juno/pkg/rest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -39,7 +38,6 @@ var (
 
 	rpcServer     *rpc.HttpRpc
 	metricsServer *metric.Server
-	restServer    *rest.Server
 
 	synchronizer   *syncService.Synchronizer
 	virtualMachine *cairovm.VirtualMachine
@@ -109,11 +107,6 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&cfg.Metrics.Enable, "metrics-enable", false, "enable the metrics server.")
 	rootCmd.PersistentFlags().UintVar(&cfg.Metrics.Port, "metrics-port", 9090, "the port on which the metrics server listens.")
 
-	// REST
-	rootCmd.PersistentFlags().BoolVar(&cfg.Rest.Enable, "rest-enable", false, "enable the REST server.")
-	rootCmd.PersistentFlags().UintVar(&cfg.Rest.Port, "rest-port", 8100, "the port on which the rest server will listen. Warning: this exposes the node to external requests and potentially DoS attacks.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Rest.Prefix, "rest-prefix", "/feeder_gateway", "part of the the url endpoint for the REST server.")
-
 	// Database
 	cfg.Database.Path, _ = config.UserDataDir() // Empty string is a sensible default if there is an error
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
@@ -156,6 +149,7 @@ func loadConfig(cmd *cobra.Command, configFile *string) error {
 	v.AddConfigPath(filepath.Dir(*configFile))
 	v.SetConfigType("yaml")
 	v.SetConfigName(filepath.Base(*configFile))
+	fmt.Printf("Loading config from %s\n", *configFile)
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -190,17 +184,18 @@ func juno(cfg *config.Juno) {
 	fmt.Printf("using config: %+v\n\n", cfg)
 
 	// Configure the logger first so we can use it
+	feederClient := setupFeederGateway(&cfg.Sync)
 	setupLogger(&cfg.Log)
 	setupInterruptHandler(cfg)
 	setupDatabase(&cfg.Database)
-	feederClient := setupFeederGateway(&cfg.Sync)
+	setupSynchronizer(&cfg.Sync, feederClient)
 	virtualMachine = cairovm.New(stateManager)
 
 	errChs := make([]chan error, 0)
 
 	if cfg.Sync.Enable {
 		errChs = append(errChs, make(chan error))
-		setupSynchronizer(&cfg.Sync, feederClient, errChs[len(errChs)-1])
+		synchronizer.Run(errChs[len(errChs)-1])
 	} else {
 		// Currently, Juno is only useful for storing StarkNet
 		// state locally. We notify the user of this. We don't
@@ -214,10 +209,6 @@ func juno(cfg *config.Juno) {
 	if cfg.Metrics.Enable {
 		errChs = append(errChs, make(chan error))
 		setupMetrics(&cfg.Metrics, errChs[len(errChs)-1])
-	}
-	if cfg.Rest.Enable {
-		errChs = append(errChs, make(chan error))
-		setupRest(&cfg.Rest, feederClient, errChs[len(errChs)-1])
 	}
 
 	// Wait until error
@@ -235,10 +226,9 @@ func setupLogger(cfg *config.Log) {
 	}
 }
 
-func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
+func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client) {
 	synchronizer = syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager,
 		transactionManager)
-	synchronizer.Run(errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
@@ -286,12 +276,6 @@ func setupMetrics(cfg *config.Metrics, errChan chan error) {
 	checkPort("Metrics", cfg.Port)
 	metricsServer = metric.SetupMetric(":" + strconv.FormatUint(uint64(cfg.Port), 10))
 	metricsServer.ListenAndServe(errChan)
-}
-
-func setupRest(cfg *config.Rest, feederClient *feeder.Client, errChan chan error) {
-	checkPort("API", cfg.Port)
-	restServer = rest.NewServer(":"+strconv.FormatUint(uint64(cfg.Port), 10), feederClient)
-	restServer.ListenAndServe(errChan)
 }
 
 func checkPort(server string, port uint) {
@@ -383,12 +367,6 @@ func shutdown(cfg *config.Juno) {
 	if cfg.Metrics.Enable {
 		if err := metricsServer.Close(shutdownTimeout); err != nil {
 			Logger.Fatal("Failed to shutdown Metrics server gracefully: ", err)
-		}
-	}
-
-	if cfg.Rest.Enable {
-		if err := restServer.Close(shutdownTimeout); err != nil {
-			Logger.Fatal("Failed to shutdown REST server gracefully: ", err)
 		}
 	}
 }

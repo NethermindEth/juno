@@ -40,13 +40,6 @@ Compile Juno:
 $ make all
 ```
 
-After compilation, you will have two executables inside the `build` folder:
-
-- juno
-    - `juno` is the command that initializes the node.
-- juno-cli
-    - `juno-cli` is the command that direct interactions with the StarkNet ecosystem.
-
 To synchronize with the StarkNet state from the centralized feeder gateway, run the following command:
 
 ```bash

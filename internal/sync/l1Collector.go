@@ -45,7 +45,7 @@ type l1Collector struct {
 	// latestBlockSynced is the last block that was synced.
 	latestBlockSynced int64
 	// buffer is the channel that will be used to collect the StateDiff.
-	buffer chan *types2.StateDiff
+	buffer chan *CollectorDiff
 
 	// starknetContractAddress is the address of the Starknet contract on Layer 1.
 	starknetContractAddress common.Address
@@ -83,7 +83,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		quit:     make(chan struct{}),
 	}
 	collector.logger = log.Logger.Named("l1Collector")
-	collector.buffer = make(chan *types2.StateDiff, 10)
+	collector.buffer = make(chan *CollectorDiff, 10)
 	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	collector.memoryPageHash = types2.NewDictionary()
 	collector.gpsVerifier = types2.NewDictionary()
@@ -152,7 +152,7 @@ func (l *l1Collector) Run() {
 				stateDiff := parsePages(pages)
 				stateDiff.NewRoot = fact.StateRoot
 				stateDiff.BlockNumber = int64(fact.SequenceNumber)
-				l.buffer <- stateDiff
+				l.buffer <- fetchContractCode(stateDiff, l.client, l.logger)
 
 				l.removeFactTree(fact)
 				l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
@@ -163,7 +163,7 @@ func (l *l1Collector) Run() {
 	}
 }
 
-func (l *l1Collector) GetChannel() chan *types2.StateDiff {
+func (l *l1Collector) GetChannel() chan *CollectorDiff {
 	return l.buffer
 }
 

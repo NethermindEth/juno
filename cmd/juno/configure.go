@@ -64,9 +64,6 @@ func configure(cfg *config.Juno, configFile string) {
 		AddCheckbox("Metrics Enabled", cfg.Metrics.Enable, func(checked bool) {
 			cfg.Metrics.Enable = checked
 		}).
-		AddCheckbox("REST API Enabled", cfg.Rest.Enable, func(checked bool) {
-			cfg.Rest.Enable = checked
-		}).
 		AddInputField("Ethereum Node URL", cfg.Sync.EthNode, 20, nil, func(nodeURL string) {
 			cfg.Sync.EthNode = nodeURL
 		}).
@@ -104,9 +101,6 @@ func configure(cfg *config.Juno, configFile string) {
 		}).
 		AddInputField("Metrics Port", formatPortNumber(cfg.Metrics.Port), 5, isPortNumber, func(metricsPort string) {
 			cfg.Metrics.Port, _ = parsePortNumber(metricsPort)
-		}).
-		AddInputField("REST Port", formatPortNumber(cfg.Rest.Port), 5, isPortNumber, func(restPort string) {
-			cfg.Rest.Port, _ = parsePortNumber(restPort)
 		}).
 		AddInputField("Database Path", cfg.Database.Path, 50, nil, func(dbPath string) {
 			cfg.Database.Path = dbPath
