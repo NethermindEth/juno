@@ -43,10 +43,10 @@ $ make all
 To synchronize with the StarkNet state from the centralized feeder gateway, run the following command:
 
 ```bash
-$ ./build/juno --sync-enable --sync-trusted
+$ ./build/juno --sync-enable
 ```
 
-To sync the state without relying on the feeder gateway, you need to configure an Ethereum node and run the following command:
+To sync the state without relying on the feeder gateway, configure an Ethereum node and run the following command:
 
 ```bash
 $ ./build/juno --sync-enable --sync-ethnode <node-endpoint>
