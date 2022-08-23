@@ -553,6 +553,73 @@ Retrieves the transaction information.
   </TabItem>
 </Tabs>
 
+### starknet_getTransactionByBlockIdAndIndex 
+
+Get the details of the transaction given by the identified block and index in that block. If no transaction is found, null is returned.
+
+#### Params
+
+[`block_id`, `index`]
+
+| Param name | Type |
+| --- | --- |
+| `block_id` | [BlockId](#blockid) |
+| `index` | integer |
+
+#### Example
+
+<Tabs>
+  <TabItem value="list-param" label="Request (List Params)">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "starknet_getTransactionByBlockIdAndIndex",
+	"params": [0, 1]
+}
+```
+
+  </TabItem>
+  <TabItem value="named-params" label="Request (Named Params)">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "starknet_getTransactionByBlockIdAndIndex",
+	"params": {
+		"block_id": 0,
+		"index": 1
+	}
+}
+```
+
+  </TabItem>
+  <TabItem value="response" label="Response">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"result": {
+		"txn_hash": "0x012c96ae3c050771689eb261c9bf78fac2580708c7f1f3d69a9647d8be59f1e1",
+		"class_hash": "0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+		"version": "0x0",
+		"type": "DEPLOY",
+		"contract_address": "0x031c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280",
+		"contract_address_salt": "0x0012afa0f342ece0468ca9810f0ea59f9c7204af32d1b8b0d318c4f2fe1f384e",
+		"constructor_calldata": [
+			"0x00cfc2e2866fd08bfb4ac73b70e0c136e326ae18fc797a2c090c8811c695577e",
+			"0x05f1dd5a5aef88e0498eeca4e7b2ea0fa7110608c11531278742f0b5499af4b3"
+		]
+	},
+	"id": 1
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### starknet_syncing
 
 Retrieves information about the sync process status.
