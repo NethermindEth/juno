@@ -93,7 +93,7 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 		deploy := Deploy{
 			ClassHash:           tx.ClassHash.ByteSlice(),
 			ContractAddress:     tx.ContractAddress.ByteSlice(),
-			ContractAddressSalt: tx.ContractAddress.ByteSlice(),
+			ContractAddressSalt: tx.ContractAddressSalt.ByteSlice(),
 			ConstructorCallData: marshalFelts(tx.ConstructorCallData),
 		}
 		protoTx.Tx = &Transaction_Deploy{&deploy}
@@ -139,7 +139,8 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 		out := types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetBytes(protoTx.Hash),
 			ClassHash:           new(felt.Felt).SetBytes(tx.ClassHash),
-			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddressSalt),
+			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddress),
+			ContractAddressSalt: new(felt.Felt).SetBytes(tx.ContractAddressSalt),
 			ConstructorCallData: unmarshalFelts(tx.ConstructorCallData),
 		}
 		return &out, nil
