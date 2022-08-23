@@ -429,6 +429,68 @@ Get the information about the result of executing the requested block.
   </TabItem>
 </Tabs>
 
+### starknet_getStorageAt
+
+Get the value of the storage at the given address and key.
+
+#### Params
+
+[`contract_address`, `key`, `block_id`]
+
+| Param name | Type |
+| --- | --- |
+| `contract_address` | [Felt](#felt) |
+| `key` | [StorageKey](#storage-key) |
+| `block_id` | [BlockId](#blockid) |
+
+#### Example
+
+<Tabs>
+  <TabItem value="list-param" label="Request (List Params)">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "starknet_getStorageAt",
+	"params": [
+        "0x0735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c",
+		"0x0000000000000000000000000000000000000000000000000000000000000005",
+		"0x047c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943"
+	]
+}
+```
+
+  </TabItem>
+  <TabItem value="named-params" label="Request (Named Params)">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "starknet_getStorageAt",
+	"params": {
+		"contract_address": "0x0735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c",
+		"key": "0x0000000000000000000000000000000000000000000000000000000000000005",
+		"block_id": "0x047c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943"
+	}
+}
+```
+
+  </TabItem>
+  <TabItem value="response" label="Response">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"result": "0x0000000000000000000000000000000000000000000000000000000000000064",
+	"id": 1
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### starknet_getTransactionByHash
 
 Retrieves the transaction information.
@@ -558,3 +620,6 @@ An identifier that represents a block. Can be one of these:
     - `latest`: refer to the latest block
     - `pending`: refer to the pending block
 
+### Storage Key
+
+A storage key, represented as a string of hex digits (up to 62 hex digits, 3 bits, and 5 leading zeroes), matching with this regex: `^0x0[0-7]{1}[a-fA-F0-9]{0,62}$`.
