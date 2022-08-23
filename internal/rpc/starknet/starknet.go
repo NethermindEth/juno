@@ -60,7 +60,7 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 	switch blockId.idType {
 	case blockIdHash:
 		hash, _ := blockId.hash()
-		return s.synchronizer.GetStateDiffFromFelt(hash), nil
+		return s.synchronizer.GetStateDiffFromHash(hash), nil
 	case blockIdNumber:
 		number, _ := blockId.number()
 		return s.synchronizer.GetStateDiff(int64(number)), nil
