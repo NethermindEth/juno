@@ -168,20 +168,13 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 }
 
 // StoreStateDiff stores the state diff for the given block.
-func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash string) {
+func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff) {
 	// Get the key we will use to store the state diff
 	key := []byte(strconv.FormatInt(stateDiff.BlockNumber, 10))
 	// Marshal the state diff
 	value, err := json.Marshal(stateDiff)
 	if err != nil {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
-	}
-
-	// Store the stateDiff key using a blockHash
-	key2 := append(stateDiffPrefix, []byte(blockHash)...)
-	err = m.database.Put(key2, key)
-	if err != nil {
-		panic(any(fmt.Errorf("%w: %s", DbError, err.Error())))
 	}
 
 	// Store the state diff
@@ -211,26 +204,6 @@ func (m *Manager) GetStateDiff(blockNumber int64) *types.StateDiff {
 		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
 	}
 	return stateDiff
-}
-
-func (m *Manager) GetStateDiffFromHash(blockHash string) *types.StateDiff {
-	// Query to database
-	key := append(stateDiffPrefix, []byte(blockHash)...)
-	data, err := m.database.Get(key)
-	if err != nil {
-		// notest
-		if errors.Is(err, db.ErrNotFound) {
-			return nil
-		}
-		panic(any(fmt.Errorf("%w: %s", DbError, err)))
-	}
-	// Unmarshal the data from database
-	blockNumber := new(int64)
-	if err := json.Unmarshal(data, blockNumber); err != nil {
-		// notest
-		panic(any(fmt.Errorf("%w: %s", UnmarshalError, err.Error())))
-	}
-	return m.GetStateDiff(*blockNumber)
 }
 
 // Close closes the Manager.
