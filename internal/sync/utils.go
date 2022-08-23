@@ -64,7 +64,7 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 func fetchContractCode(stateDiff *types.StateDiff, client *feeder.Client, logger *zap.SugaredLogger) *CollectorDiff {
 	collectedDiff := &CollectorDiff{
 		stateDiff: stateDiff,
-		Code:      make(map[string]*types.Contract, 0),
+		Code:      make(map[string]*types.Contract, len(stateDiff.DeployedContracts)),
 	}
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		contractFromApi, err := client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
