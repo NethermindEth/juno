@@ -20,11 +20,6 @@ var (
 		Code:    -2,
 		Message: "Not implemented",
 	}
-	// NOTE: This error isn't part of the StarWere specification
-	InvalidStorageKey = StarkNetError{
-		Code:    -3,
-		Message: "Invalid storage key",
-	}
 	ContractNotFound = StarkNetError{
 		Code:    20,
 		Message: "Contract not found",

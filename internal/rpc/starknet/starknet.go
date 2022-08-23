@@ -73,21 +73,13 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 	}
 }
 
-func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId) (any, error) {
-	if !isStorageKey(key) {
-		return nil, InvalidStorageKey
-	}
-	keyF := new(felt.Felt).SetHex(key)
-	if !isFelt(address) {
-		return nil, ContractNotFound
-	}
-	addressF := new(felt.Felt).SetHex(address)
+func (s *StarkNetRpc) GetStorageAt(address *RpcFelt, key *StorageKey, blockId *BlockId) (any, error) {
 	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
 	_state := state.New(s.stateManager, b.NewRoot)
-	value, err := _state.GetSlot(addressF, keyF)
+	value, err := _state.GetSlot(address.Felt(), key.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, ContractNotFound
@@ -98,12 +90,8 @@ func (s *StarkNetRpc) GetStorageAt(address string, key string, blockId *BlockId)
 	return value.Hex0x(), nil
 }
 
-func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) {
-	if !isFelt(transactionHash) {
-		return nil, InvalidTxnHash
-	}
-	txHash := new(felt.Felt).SetHex(transactionHash)
-	tx, err := s.txnManager.GetTransaction(txHash)
+func (s *StarkNetRpc) GetTransactionByHash(transactionHash *RpcFelt) (any, error) {
+	tx, err := s.txnManager.GetTransaction(transactionHash.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, InvalidTxnHash
@@ -131,12 +119,8 @@ func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index *u
 	return NewTxn(tx)
 }
 
-func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error) {
-	if !isFelt(transactionHash) {
-		return nil, InvalidTxnHash
-	}
-	txHash := new(felt.Felt).SetHex(transactionHash)
-	_receipt, err := s.txnManager.GetReceipt(txHash)
+func (s *StarkNetRpc) GetTransactionReceipt(transactionHash *RpcFelt) (any, error) {
+	receipt, err := s.txnManager.GetReceipt(transactionHash.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, InvalidTxnHash
@@ -144,14 +128,10 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error)
 		s.logger.Errorw(err.Error(), "function", "GetTransactionReceipt")
 		return nil, UnexpectedError
 	}
-	return NewReceipt(_receipt)
+	return NewReceipt(receipt)
 }
 
-func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
-	if !isFelt(classHash) {
-		return nil, InvalidContractClassHash
-	}
-	_ = new(felt.Felt).SetHex(classHash)
+func (s *StarkNetRpc) GetClass(classHash *RpcFelt) (any, error) {
 	_, latestBlockHash := s.synchronizer.LatestBlockSynced()
 	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
@@ -166,17 +146,13 @@ func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
 	return nil, NotImplementedError
 }
 
-func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, error) {
-	if !isFelt(address) {
-		return nil, ContractNotFound
-	}
-	addressF := new(felt.Felt).SetHex(address)
+func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, error) {
 	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
 	_state := state.New(s.stateManager, b.NewRoot)
-	classHash, err := _state.GetClassHash(addressF)
+	classHash, err := _state.GetClassHash(address.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, ContractNotFound
