@@ -15,7 +15,7 @@ var (
 		Code:    -1,
 		Message: "Unexpected error",
 	}
-	// NOTE: This error isn't part of the StarWere specification
+	// NOTE: This error isn't part of the StarkNet RPC specification.
 	NotImplementedError = StarkNetError{
 		Code:    -2,
 		Message: "Not implemented",
