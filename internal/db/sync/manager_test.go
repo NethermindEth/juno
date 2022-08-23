@@ -126,7 +126,7 @@ func TestStateDiff(t *testing.T) {
 	}
 
 	// Store the state diff.
-	manager.StoreStateDiff(stateDiff, "0x123")
+	manager.StoreStateDiff(stateDiff)
 
 	// Check that the state diff is stored correctly.
 	retrievedStateDiff := manager.GetStateDiff(1)
@@ -136,9 +136,13 @@ func TestStateDiff(t *testing.T) {
 		t.Errorf("State diff was not stored correctly.")
 	}
 
-	retrievedStateDiffByHash := manager.GetStateDiffFromHash("0x123")
-	if !reflect.DeepEqual(retrievedStateDiffByHash, stateDiff) {
+	// Check that the state diff is stored correctly.
+	retrievedStateDiff = manager.GetStateDiff(stateDiff.BlockNumber)
+
+	// Check that the state diff is stored correctly.
+	if !reflect.DeepEqual(retrievedStateDiff, stateDiff) {
 		t.Errorf("State diff was not stored correctly.")
 	}
+
 	manager.Close()
 }
