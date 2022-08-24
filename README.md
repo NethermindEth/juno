@@ -38,7 +38,15 @@
 
 ## ⚙️ Installation
 
-Make sure you have Go installed ([download](https://go.dev/dl/)). Version `1.18` or higher is required.
+### Dependencies
+
+- Golang 1.18 or higher is required to build and run the project.You can found the installer on the official Golang
+  [download](https://go.dev/dl/) page.
+- _For Linux_: You will need to install `clang`:
+
+```shell
+sudo apt -y install clang
+```
 
 You can install `juno` with:
 
@@ -61,24 +69,43 @@ You can install the entire app using docker. Just check the
 - Store [StarkNet State](https://gojuno.xyz/docs/features/sync) locally.
 - Store StarkNet Transactions.
 - Store StarkNet Blocks.
-- Store the ABI of StarkNet contracts.
+- Store the ABI and full Code of StarkNet contracts.
 - Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
   [this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Currently
   supported are:
-    - starknet_getStorageAt
-    - starknet_getCode
-    - starknet_getBlockByHash
-    - starknet_getBlockByNumber
-    - starknet_getTransactionByHash
-    - starknet_getTransactionByBlockHashAndIndex
-    - starknet_getStorageAt (pending)
-    - starknet_getCode (pending)
-    - starknet_getBlockByNumber (pending)
-- [Rest API](https://gojuno.xyz/docs/features/rest) is a wrapper to the StarkNet feeder gateway. Through it you can call the node
-  in the same way you would call the feeder gateway, where using the same params will return the same response.
-- [CLI](https://gojuno.xyz/docs/features/cli) for general StarkNet tools.
+    - starknet_getBlockWithTxHashes - `Get block information with transaction hashes given the block id`
+    - starknet_getBlockWithTxs - `Get block information with full transactions given the block id`
+    - starknet_getStateUpdate - `Get the information about the result of executing the requested block`
+    - starknet_getStorageAt - `Get the value of the storage at the given address and key`
+    - starknet_getTransactionByHash - `Get the details and status of a submitted transaction`
+    - starknet_getTransactionByBlockIdAndIndex - `Get the details of a transaction by a given block id and index`
+    - starknet_getTransactionReceipt - `Get the transaction receipt by the transaction hash`
+    - starknet_getClassHashAt
+      - `Get the contract class hash in the given block for the contract deployed at the given address`
+    - starknet_getBlockTransactionCount - `Get the number of transactions in a block given a block id`
+    - starknet_call - `Call a starknet function without creating a StarkNet transaction`
+    - starknet_blockNumber - `Get the most recent accepted block number`
+    - starknet_blockHashAndNumber - `Get the most recent accepted block hash and number`
+    - starknet_chainId - `Return the currently configured StarkNet chain id`
+    - starknet_pendingTransactions - `Returns the transactions in the transaction pool, recognized by this sequencer`
+    - starknet_syncing - `Returns an object about the sync status, or false if the node is not synching`
 - [Prometheus Metrics](https://gojuno.xyz/docs/features/metrics).
 - [Dockerized app](https://gojuno.xyz/docs/running/docker).
+
+## 🛣 Roadmap
+
+In the future we plan to add a new set of features like:
+
+- P2P between all nodes on the network.
+- Support for more RPC methods like:
+    - starknet_getClass - `Get the contract class definition in the given block associated with the given hash`
+    - starknet_getClassAt - `Get the contract class definition in the given block at the given address`
+    - starknet_estimateFee - `Estimate the fee for a given StarkNet transaction`
+    - starknet_getEvents - `Returns all events matching the given filter`
+    - starknet_getNonce - `Get the nonce associated with the given address in the given block`
+- Improvement on the sync time
+- More metrics
+- More and more! Stay tuned! 🚀
 
 ## 📜 Documentation
 
@@ -90,7 +117,7 @@ If you want to say **thank you** and/or support the active development of `Juno`
 
 1. Run a node.
 2. Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
-3. Tweet about 
+3. Tweet about
    `Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum)
    .
 4. Contribute to use, make sure to
