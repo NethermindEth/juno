@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/block"
 	"go.uber.org/zap"
 
+	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
@@ -54,7 +55,7 @@ func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.Sug
 			return nil, InvalidBlockId
 		}
 		logger.With("err", err).Errorf("failed to get block with id: %v", blockId)
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return block, nil
 }

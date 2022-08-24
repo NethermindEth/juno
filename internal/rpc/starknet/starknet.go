@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db"
 	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	"github.com/NethermindEth/juno/pkg/state"
 )
 
@@ -85,7 +86,7 @@ func (s *StarkNetRpc) GetStorageAt(address *RpcFelt, key *StorageKey, blockId *B
 			return nil, ContractNotFound
 		}
 		s.logger.Errorw(err.Error(), "function", "GetStorageAt")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return value.Hex0x(), nil
 }
@@ -97,7 +98,7 @@ func (s *StarkNetRpc) GetTransactionByHash(transactionHash *RpcFelt) (any, error
 			return nil, InvalidTxnHash
 		}
 		s.logger.Errorw(err.Error(), "function", "GetTransactionByHash")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return NewTxn(tx)
 }
@@ -114,7 +115,7 @@ func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index *u
 	tx, err := s.txnManager.GetTransaction(txHash)
 	if err != nil {
 		s.logger.Errorw(err.Error(), "function", "GetTransactionByBlockIdAndIndex")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return NewTxn(tx)
 }
@@ -126,7 +127,7 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash *RpcFelt) (any, erro
 			return nil, InvalidTxnHash
 		}
 		s.logger.Errorw(err.Error(), "function", "GetTransactionReceipt")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return NewReceipt(receipt)
 }
@@ -139,11 +140,11 @@ func (s *StarkNetRpc) GetClass(classHash *RpcFelt) (any, error) {
 			return nil, InvalidContractClassHash
 		}
 		s.logger.Errorw(err.Error(), "function", "GetClass")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	_ = state.New(s.stateManager, latestBlock.NewRoot)
 	// TODO: implement class service
-	return nil, NotImplementedError
+	return nil, jsonrpc.NewInternalError("not implemented")
 }
 
 func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, error) {
@@ -158,7 +159,7 @@ func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, e
 			return nil, ContractNotFound
 		}
 		s.logger.Errorw(err.Error(), "function", "GetClassHashAt")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	if classHash.IsZero() {
 		return nil, ContractNotFound
@@ -213,14 +214,14 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 	)
 	if err != nil {
 		s.logger.Errorw(err.Error(), "function", "Call")
-		return nil, UnexpectedError
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return out, nil
 }
 
 func (s *StarkNetRpc) EstimateFee(blockId *BlockId, request *InvokeTxn) (any, error) {
 	// TODO: implement
-	return nil, NotImplementedError
+	return nil, jsonrpc.NewInternalError("not implemented")
 }
 
 func (s *StarkNetRpc) BlockNumber() (any, error) {
