@@ -39,7 +39,6 @@ type Sync struct {
 	Enable    bool   `yaml:"enable" mapstructure:"enable"`
 	Sequencer string `yaml:"sequencer" mapstructure:"sequencer"`
 	Network   string `yaml:"network" mapstructure:"network"`
-	Trusted   bool   `yaml:"trusted" mapstructure:"trusted"`
 	EthNode   string `yaml:"ethnode" mapstructure:"ethnode"`
 }
 
