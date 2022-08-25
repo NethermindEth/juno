@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 
@@ -148,7 +149,10 @@ func (s *VirtualMachine) Run(dataDir string) error {
 func (s *VirtualMachine) Close() {
 	s.rpcServer.Stop()
 	s.vmCmd.Process.Kill()
-	os.RemoveAll(s.vmDir)
+	os.RemoveAll(path.Join(s.vmDir, "__pycache__"))
+	os.Remove(path.Join(s.vmDir, "vm.py"))
+	os.Remove(path.Join(s.vmDir, "vm_pb2.py"))
+	os.Remove(path.Join(s.vmDir, "vm_pb2_grpc.py"))
 }
 
 func (s *VirtualMachine) Call(
