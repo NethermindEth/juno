@@ -40,7 +40,7 @@
 
 ### Dependencies
 
-- Golang 1.18 or higher is required to build and run the project.You can found the installer on the official Golang
+- Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang
   [download](https://go.dev/doc/install) page.
 - _For Linux_: You will need to install `clang`:
 
