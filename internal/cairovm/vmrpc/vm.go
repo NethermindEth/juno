@@ -2,6 +2,7 @@ package vmrpc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -39,7 +40,7 @@ func (s *storageRPCServer) GetPatriciaNode(ctx context.Context, request *GetValu
 		nodeP.Left = n.LeftH.ByteSlice()
 		nodeP.Right = n.RightH.ByteSlice()
 	default:
-		return nil, fmt.Errorf("unknown node type")
+		return nil, errors.New("unsupported trie node type")
 	}
 	return nodeP, nil
 }
