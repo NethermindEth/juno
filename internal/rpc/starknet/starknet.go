@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
+	"go.uber.org/zap"
 
 	sync2 "github.com/NethermindEth/juno/internal/sync"
 
@@ -13,7 +14,9 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/internal/db"
+	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	"github.com/NethermindEth/juno/pkg/state"
 )
 
@@ -23,6 +26,7 @@ type StarkNetRpc struct {
 	txnManager   *transaction.Manager
 	synchronizer *sync2.Synchronizer
 	vm           *cairovm.VirtualMachine
+	logger       *zap.SugaredLogger
 }
 
 func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
@@ -34,11 +38,12 @@ func New(stateManager state.StateManager, blockManager *block.Manager, txnManage
 		txnManager:   txnManager,
 		synchronizer: synchronizer,
 		vm:           vm,
+		logger:       Logger.Named("RPC"),
 	}
 }
 
 func (s *StarkNetRpc) GetBlockWithTxHashes(blockId *BlockId) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +51,7 @@ func (s *StarkNetRpc) GetBlockWithTxHashes(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) GetBlockWithTxs(blockId *BlockId) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -65,131 +70,105 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 		number, _ := blockId.number()
 		return s.synchronizer.GetStateDiff(int64(number)), nil
 	default:
-		// TODO: manage unexpected type
-		return nil, nil
+		return nil, InvalidBlockId
 	}
 }
 
-func (s *StarkNetRpc) GetStorageAt(blockId *BlockId, address string, key string) (any, error) {
-	// Parsing Key param
-	if !isStorageKey(key) {
-		// TODO: the rpc spec does not specify what to do if the key is not a storage key
-		return nil, nil
-	}
-	keyF := new(felt.Felt).SetHex(key)
-	// Parsing Address param
-	if !isFelt(address) {
-		return nil, NewContractNotFound()
-	}
-	addressF := new(felt.Felt).SetHex(address)
-	// Searching for the block in the database
-	b, err := getBlockById(blockId, s.blockManager)
+func (s *StarkNetRpc) GetStorageAt(address *RpcFelt, key *StorageKey, blockId *BlockId) (any, error) {
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
-	// Building the state of the block
 	_state := state.New(s.stateManager, b.NewRoot)
-	// Searching for the value of the key in the state
-	value, err := _state.GetSlot(addressF, keyF)
+	value, err := _state.GetSlot(address.Felt(), key.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, NewContractNotFound()
+			return nil, ContractNotFound
 		}
-		// TODO: manage unexpected error
+		s.logger.Errorw(err.Error(), "function", "GetStorageAt")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return value.Hex0x(), nil
 }
 
-func (s *StarkNetRpc) GetTransactionByHash(transactionHash string) (any, error) {
-	// Parsing TransactionHash param
-	if !isFelt(transactionHash) {
-		return nil, NewInvalidTxnHash()
-	}
-	txHash := new(felt.Felt).SetHex(transactionHash)
-	tx, err := s.txnManager.GetTransaction(txHash)
+func (s *StarkNetRpc) GetTransactionByHash(transactionHash *RpcFelt) (any, error) {
+	tx, err := s.txnManager.GetTransaction(transactionHash.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, NewInvalidTxnHash()
+			return nil, InvalidTxnHash
 		}
-		// TODO: manage unexpected error
+		s.logger.Errorw(err.Error(), "function", "GetTransactionByHash")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return NewTxn(tx)
 }
 
-func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index uint64) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+func (s *StarkNetRpc) GetTransactionByBlockIdAndIndex(blockId *BlockId, index *uint64) (any, error) {
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
-	if index >= b.TxCount {
-		return nil, NewInvalidTxnIndex()
+	if index == nil || *index >= b.TxCount {
+		return nil, InvalidTxnIndex
 	}
-	txHash := b.TxHashes[index]
+	txHash := b.TxHashes[*index]
 	tx, err := s.txnManager.GetTransaction(txHash)
 	if err != nil {
-		// TODO: manage unexpected error
+		s.logger.Errorw(err.Error(), "function", "GetTransactionByBlockIdAndIndex")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return NewTxn(tx)
 }
 
-func (s *StarkNetRpc) GetTransactionReceipt(transactionHash string) (any, error) {
-	// Parsing TxnHash param
-	if !isFelt(transactionHash) {
-		return nil, NewInvalidTxnHash()
-	}
-	txHash := new(felt.Felt).SetHex(transactionHash)
-	_receipt, err := s.txnManager.GetReceipt(txHash)
+func (s *StarkNetRpc) GetTransactionReceipt(transactionHash *RpcFelt) (any, error) {
+	receipt, err := s.txnManager.GetReceipt(transactionHash.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, NewInvalidTxnHash()
+			return nil, InvalidTxnHash
 		}
-		// TODO: manage unexpected error
+		s.logger.Errorw(err.Error(), "function", "GetTransactionReceipt")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
-	return NewReceipt(_receipt)
+	return NewReceipt(receipt)
 }
 
-func (s *StarkNetRpc) GetClass(classHash string) (any, error) {
-	// Parsing ClassHash param
-	if !isFelt(classHash) {
-		return nil, NewInvalidContractClassHash()
-	}
-	_ = new(felt.Felt).SetHex(classHash)
+func (s *StarkNetRpc) GetClass(classHash *RpcFelt) (any, error) {
 	_, latestBlockHash := s.synchronizer.LatestBlockSynced()
 	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
 	if err != nil {
-		// TODO: manage unexpeceted error
-		return nil, errors.New("unexpected error")
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, InvalidContractClassHash
+		}
+		s.logger.Errorw(err.Error(), "function", "GetClass")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	_ = state.New(s.stateManager, latestBlock.NewRoot)
 	// TODO: implement class service
-	return nil, errors.New("unimplemented")
+	return nil, jsonrpc.NewInternalError("not implemented")
 }
 
-func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address string) (any, error) {
-	if !isFelt(address) {
-		return nil, NewContractNotFound()
-	}
-	addressF := new(felt.Felt).SetHex(address)
-	b, err := getBlockById(blockId, s.blockManager)
+func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, error) {
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
-		return nil, NewInvalidBlockId()
+		return nil, err
 	}
 	_state := state.New(s.stateManager, b.NewRoot)
-	classHash, err := _state.GetClassHash(addressF)
+	classHash, err := _state.GetClassHash(address.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, NewContractNotFound()
+			return nil, ContractNotFound
 		}
-		// TODO: manage unexpected error
+		s.logger.Errorw(err.Error(), "function", "GetClassHashAt")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	if classHash.IsZero() {
-		return nil, NewContractNotFound()
+		return nil, ContractNotFound
 	}
 	return classHash.Hex0x(), nil
 }
 
 func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +176,13 @@ func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
+	if err != nil {
+		return nil, err
+	}
+	if request == nil {
+		return nil, InvalidCallData
+	}
 	var (
 		callData           = make([]*felt.Felt, len(request.Calldata))
 		contractAddress    *felt.Felt
@@ -204,22 +190,18 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 	)
 	for i, data := range request.Calldata {
 		if !isFelt(data) {
-			return nil, NewInvalidCallData()
+			return nil, InvalidCallData
 		}
 		callData[i] = new(felt.Felt).SetHex(data)
 	}
 	if !isFelt(request.ContractAddress) {
-		return nil, NewContractNotFound()
+		return nil, ContractNotFound
 	}
 	contractAddress = new(felt.Felt).SetHex(request.ContractAddress)
 	if !isFelt(request.EntryPointSelector) {
-		return nil, NewInvalidMessageSelector()
+		return nil, InvalidMessageSelector
 	}
 	entryPointSelector = new(felt.Felt).SetHex(request.EntryPointSelector)
-	b, err := getBlockById(blockId, s.blockManager)
-	if err != nil {
-		return nil, err
-	}
 	_state := state.New(s.stateManager, b.NewRoot)
 	out, err := s.vm.Call(
 		context.Background(),
@@ -231,15 +213,15 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 		b.Sequencer,
 	)
 	if err != nil {
-		// TODO: manage error
-		return nil, errors.New("unexpected error")
+		s.logger.Errorw(err.Error(), "function", "Call")
+		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return out, nil
 }
 
 func (s *StarkNetRpc) EstimateFee(blockId *BlockId, request *InvokeTxn) (any, error) {
 	// TODO: implement
-	return nil, errors.New("not implemented")
+	return nil, jsonrpc.NewInternalError("not implemented")
 }
 
 func (s *StarkNetRpc) BlockNumber() (any, error) {

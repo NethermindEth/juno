@@ -243,7 +243,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_getBlockWithTxHashes", starknetApi.GetBlockWithTxHashes, []string{"block_id"}},
 		{"starknet_getBlockWithTxs", starknetApi.GetBlockWithTxs, []string{"block_id"}},
 		{"starknet_getStateUpdate", starknetApi.GetStateUpdate, []string{"block_id"}},
-		{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"block_id", "contract_address", "key"}},
+		{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"contract_address", "key", "block_id"}},
 		{"starknet_getTransactionByHash", starknetApi.GetTransactionByHash, []string{"transaction_hash"}},
 		{"starknet_getTransactionByBlockIdAndIndex", starknetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
 		{"starknet_getTransactionReceipt", starknetApi.GetTransactionReceipt, []string{"transaction_hash"}},
