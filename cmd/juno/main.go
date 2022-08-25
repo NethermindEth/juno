@@ -189,9 +189,11 @@ func juno(cfg *config.Juno) {
 	setupInterruptHandler(cfg)
 	setupDatabase(&cfg.Database)
 	setupSynchronizer(&cfg.Sync, feederClient)
-	virtualMachine = cairovm.New(stateManager)
 
 	errChs := make([]chan error, 0)
+
+	errChs = append(errChs, make(chan error))
+	setupVirtualMachine(cfg, errChs[len(errChs)-1])
 
 	if cfg.Sync.Enable {
 		errChs = append(errChs, make(chan error))
@@ -210,8 +212,6 @@ func juno(cfg *config.Juno) {
 		errChs = append(errChs, make(chan error))
 		setupMetrics(&cfg.Metrics, errChs[len(errChs)-1])
 	}
-	errChs = append(errChs, make(chan error))
-	setupVirtualMachine(cfg, errChs[len(errChs)-1])
 
 	// Wait until error
 	checkErrChs(errChs)
