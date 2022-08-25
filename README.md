@@ -41,7 +41,7 @@
 ### Dependencies
 
 - Golang 1.18 or higher is required to build and run the project.You can found the installer on the official Golang
-  [download](https://go.dev/dl/) page.
+  [download](https://go.dev/doc/install) page.
 - _For Linux_: You will need to install `clang`:
 
 ```shell
@@ -81,7 +81,7 @@ You can install the entire app using docker. Just check the
     - starknet_getTransactionByBlockIdAndIndex - `Get the details of a transaction by a given block id and index`
     - starknet_getTransactionReceipt - `Get the transaction receipt by the transaction hash`
     - starknet_getClassHashAt
-      - `Get the contract class hash in the given block for the contract deployed at the given address`
+        - `Get the contract class hash in the given block for the contract deployed at the given address`
     - starknet_getBlockTransactionCount - `Get the number of transactions in a block given a block id`
     - starknet_call - `Call a starknet function without creating a StarkNet transaction`
     - starknet_blockNumber - `Get the most recent accepted block number`
