@@ -1,7 +1,11 @@
 package sync
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	b64 "encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -219,8 +223,30 @@ func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *t
 	if deployedContract == nil {
 		return errors.New("contract not deployed")
 	}
+	contract := collectedDiff.Code[deployedContract.Address.Hex0x()]
+	fullDef := contract.FullDef
+	var fullDefMap map[string]interface{}
+	if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
+		return err
+	}
+
+	program := fullDefMap["program"]
+	var c bytes.Buffer
+	gz := gzip.NewWriter(&c)
+	if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
+		return err
+	}
+	if err := gz.Close(); err != nil {
+		return err
+	}
+
+	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
+	fullDefMap["program"] = encodedProgram
+
+	fullDef, _ = json.Marshal(fullDefMap)
+	contract.FullDef = fullDef
 	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash,
-		collectedDiff.Code[deployedContract.Address.Hex0x()])
+		contract)
 	if err != nil {
 		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).

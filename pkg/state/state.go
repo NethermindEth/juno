@@ -1,11 +1,7 @@
 package state
 
 import (
-	"bytes"
-	"compress/gzip"
-	b64 "encoding/base64"
 	"encoding/json"
-	"fmt"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/trie"
@@ -131,24 +127,13 @@ func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractCla
 
 	fullDef := contract.FullDef
 	var fullDefMap map[string]interface{}
-	if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
+	if err := json.Unmarshal(fullDef, &fullDefMap); err != nil {
 		return nil, err
 	}
-
 	program := fullDefMap["program"]
-	var c bytes.Buffer
-	gz := gzip.NewWriter(&c)
-	if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
-		return nil, err
-	}
-	if err := gz.Close(); err != nil {
-		return nil, err
-	}
-
-	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
 	entryPointsByType := fullDefMap["entry_points_by_type"]
 	contractClass := &types.ContractClass{
-		Program:           encodedProgram,
+		Program:           program,
 		EntryPointsByType: entryPointsByType,
 	}
 
