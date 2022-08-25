@@ -80,11 +80,14 @@ class StorageRPCClient(Storage):
             request = vm_pb2.GetValueRequest(key=suffix)
             if prefix == b'patricia_node':
                 response = await stub.GetPatriciaNode(request)
-                return (
-                        response.bottom
-                        + response.path
-                        + response.len.to_bytes(1, "big").strip(b"\x00")
-                )
+                if response.type == vm_pb2.NodeType.EDGE_NODE:
+                    return (
+                            response.bottom
+                            + response.path
+                            + response.len.to_bytes(1, "big").strip(b"\x00")
+                    )
+                elif response.type == vm_pb2.NodeType.BINARY_NODE:
+                    return response.left + response.right
             elif prefix == b"contract_state":
                 response = await stub.GetContractState(request)
                 return (
