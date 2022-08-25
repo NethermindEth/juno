@@ -145,7 +145,7 @@ func (s *VirtualMachine) Run(dataDir string) error {
 	return nil
 }
 
-func (s *VirtualMachine) Close(_ context.Context) {
+func (s *VirtualMachine) Close() {
 	s.rpcServer.Stop()
 	s.vmCmd.Process.Kill()
 	os.RemoveAll(s.vmDir)
