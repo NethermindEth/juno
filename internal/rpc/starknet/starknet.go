@@ -216,7 +216,11 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 		s.logger.Errorw(err.Error(), "function", "Call")
 		return nil, jsonrpc.NewInternalError(err.Error())
 	}
-	return out, nil
+    _out := make([]string, len(out))
+    for i, v := range out {
+        _out[i] = v.Hex0x()
+    }
+	return _out, nil
 }
 
 func (s *StarkNetRpc) EstimateFee(blockId *BlockId, request *InvokeTxn) (any, error) {
