@@ -40,17 +40,27 @@ Compile Juno:
 $ make all
 ```
 
-To synchronize with the StarkNet state from the centralized feeder gateway, run the following command:
+To synchronize with the StarkNet state from the centralized feeder gateway, run the following 
+command:
 
 ```bash
-$ ./build/juno --sync-enable
+# For Ethereum Goerli testnet
+$ ./build/juno
+
+# For Ethereum Mainnet
+$ ./build/juno --netowrk 1
 ```
 
 To sync the state without relying on the feeder gateway, configure an Ethereum node and run the following command:
 
 ```bash
-$ ./build/juno --sync-enable --sync-ethnode <node-endpoint>
+# For Ethereum Goerli testnet
+$ ./build/juno --eth-node "<node-endpoint>"
+
+# For Ethereum Mainnet
+$ ./build/juno --netowrk 1 --eth-node "<node-endpoint>"
 ```
+To view other available options please run `./build/juno -h`.
 
 For more configuration details, check the [config description](https://gojuno.xyz/docs/running/config).
 
