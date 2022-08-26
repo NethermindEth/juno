@@ -3,39 +3,24 @@ title: Configuration File
 position: 2
 ---
 
-To quickly edit the configuration file, you can use the following command:
-
+Juno uses `yaml` format to for its configuration file. It can be provided via the following flag:
+```bash
+$ ./build/juno --config "path/to/config/file"
 ```
-./build/juno configure
-```
-
-This will open a Terminal User Interface displaying the current configuration and allowing you to edit them.
-Note that the command will overwrite your existing configuration with your changes.
 
 # juno.yaml
 
-Each of the configuration options has a corresponding CLI flag and environment variable.
-For example, the CLI flag for the database path is `--database-path` and the environment variable is `JUNO_DATABASE_PATH` (all environment variables are prefixed by `JUNO_` to avoid collisions).
+Each of the configuration options has a corresponding CLI flag. For example, the CLI flag for
+the database path is `--db-path`.
 
 To see a description of the configuration options, run `./build/juno --help`.
 
-Structure:
+Example `juno.yaml`:
 ```yaml
-log:
-  level: INFO
-  json: false
-  nocolor: false
-rpc:
-  enable: false
-  port: 8080
-metrics:
-  enable: false
-  port: 9090
-database:
-  path: /path/to/database
-sync:
-  enable: false
-  sequencer: https://alpha-mainnet.starknet.io
-  network: mainnet
-  ethnode: ""
+verbosity: "debug"
+rpc-port: 4576
+metrics: true
+db-path: "/home/.juno"
+network: 1
+eth-node: "https://some-ethnode:5673"
 ```
