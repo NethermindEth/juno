@@ -142,18 +142,18 @@ func (s *Synchronizer) sync() error {
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
-		s.logger.With(
-			"Number", collectedDiff.stateDiff.BlockNumber,
-			"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
-			"Time", time.Since(start),
-		).Info("Synchronized block")
+		s.syncManager.StoreStateDiff(collectedDiff.stateDiff)
 		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
 		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
 			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
 		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		s.syncManager.StoreStateDiff(collectedDiff.stateDiff)
 		s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
+		s.logger.With(
+			"Number", collectedDiff.stateDiff.BlockNumber,
+			"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
+			"Time", time.Since(start),
+		).Info("Synchronized block")
 	}
 	return nil
 }
