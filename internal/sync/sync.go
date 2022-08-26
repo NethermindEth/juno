@@ -9,19 +9,17 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/metrics/prometheus"
-
-	"github.com/ethereum/go-ethereum/ethclient"
-
-	"github.com/NethermindEth/juno/internal/config"
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/metrics/prometheus"
+	"github.com/NethermindEth/juno/internal/utils"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 )
 
@@ -63,20 +61,21 @@ type Synchronizer struct {
 
 // NewSynchronizer creates a new Synchronizer.
 // notest
-func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager *sync.Manager,
-	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
+func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Client,
+	syncManager *sync.Manager, stateManager state.StateManager, blockManager *blockDB.Manager,
+	transactionManager *transaction.Manager,
 ) *Synchronizer {
 	synchro := &Synchronizer{
 		logger: Logger.Named("Sync Service"),
 		feeder: feederClient,
 	}
 
-	trusted := cfg.EthNode == ""
+	trusted := ethNode == ""
 
 	if trusted {
 		synchro.logger.Info("Defaulting to syncing from gateway")
 	} else {
-		ethereumClient, err := ethclient.Dial(cfg.EthNode)
+		ethereumClient, err := ethclient.Dial(ethNode)
 		if err != nil {
 			synchro.logger.With("error", err).Fatal("Cannot connect to Ethereum Client")
 		}
@@ -90,7 +89,7 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 
 	synchro.Running = false
 
-	synchro.setChainId(cfg.Network)
+	synchro.setChainId(n.String())
 	synchro.setStateToLatestRoot()
 	synchro.setStateDiffCollector(trusted)
 	return synchro
@@ -107,19 +106,15 @@ func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
 }
 
 // Run starts the service.
-func (s *Synchronizer) Run(errChan chan error) {
+func (s *Synchronizer) Run() {
 	s.Running = true
 	go s.updateBlocksInfo()
-	go s.handleSync(errChan)
+	go s.handleSync()
 }
 
-func (s *Synchronizer) handleSync(errChan chan error) {
+func (s *Synchronizer) handleSync() {
 	for {
 		err := s.sync()
-		if err == nil {
-			errChan <- err
-			return
-		}
 		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 		time.Sleep(10 * time.Second)
 		s.stateDiffCollector.Close()
