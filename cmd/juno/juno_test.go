@@ -271,8 +271,10 @@ network: 1
 
 func quitTest() chan os.Signal {
 	exit := make(chan os.Signal, 1)
-	time.Sleep(15 * time.Millisecond)
-	exit <- syscall.SIGINT
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+		exit <- syscall.SIGINT
+	}()
 	return exit
 }
 
