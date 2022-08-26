@@ -33,7 +33,7 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 		},
 	}
 
-	want := &types.StateDiff{
+	want := &types.StateUpdate{
 		BlockHash: new(felt.Felt).SetHex("0"),
 		NewRoot:   new(felt.Felt).SetHex("0"),
 		OldRoot:   new(felt.Felt).SetHex("0"),

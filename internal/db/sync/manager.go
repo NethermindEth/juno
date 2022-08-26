@@ -168,8 +168,8 @@ func (m *Manager) GetBlockOfProcessedEvent(starknetFact int64) int64 {
 	return *blockSync
 }
 
-// StoreStateDiff stores the state diff for the given block.
-func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash *felt.Felt) error {
+// StoreStateUpdate stores the state diff for the given block.
+func (m *Manager) StoreStateUpdate(stateDiff *types.StateUpdate, blockHash *felt.Felt) error {
 	data, err := marshalStateUpdate(stateDiff)
 	if err != nil {
 		return err
@@ -177,7 +177,7 @@ func (m *Manager) StoreStateDiff(stateDiff *types.StateDiff, blockHash *felt.Fel
 	return m.database.Put(stateDbKey(blockHash), data)
 }
 
-func (m *Manager) GetStateUpdate(blockHash *felt.Felt) (*types.StateDiff, error) {
+func (m *Manager) GetStateUpdate(blockHash *felt.Felt) (*types.StateUpdate, error) {
 	data, err := m.database.Get(stateDbKey(blockHash))
 	if err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func stateDbKey(blockHash *felt.Felt) []byte {
 	return append(stateDiffPrefix, blockHash.ByteSlice()...)
 }
 
-func marshalStateUpdate(s *types.StateDiff) ([]byte, error) {
+func marshalStateUpdate(s *types.StateUpdate) ([]byte, error) {
 	stateUpdateProto := &StateUpdate{
 		BlockHash:         s.BlockHash.ByteSlice(),
 		NewRoot:           s.NewRoot.ByteSlice(),
@@ -229,12 +229,12 @@ func marshalStateUpdate(s *types.StateDiff) ([]byte, error) {
 	return proto.Marshal(stateUpdateProto)
 }
 
-func unmarshalStateUpdate(data []byte) (*types.StateDiff, error) {
+func unmarshalStateUpdate(data []byte) (*types.StateUpdate, error) {
 	var stateUpdateProto StateUpdate
 	if err := proto.Unmarshal(data, &stateUpdateProto); err != nil {
 		return nil, err
 	}
-	stateUpdate := &types.StateDiff{
+	stateUpdate := &types.StateUpdate{
 		BlockHash:         new(felt.Felt).SetBytes(stateUpdateProto.BlockHash),
 		NewRoot:           new(felt.Felt).SetBytes(stateUpdateProto.NewRoot),
 		OldRoot:           new(felt.Felt).SetBytes(stateUpdateProto.OldRoot),

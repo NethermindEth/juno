@@ -519,7 +519,7 @@ type StateUpdate struct {
 	StateDiff *StateDiff `json:"state_diff"`
 }
 
-func NewStateUpdate(s *types.StateDiff) *StateUpdate {
+func NewStateUpdate(s *types.StateUpdate) *StateUpdate {
 	stateDiff := &StateDiff{
 		StorageDiffs:      make([]*StorageDiffItem, 0, len(s.StorageDiff)),
 		DeployedContracts: make([]*DeployedContractItem, len(s.DeployedContracts)),

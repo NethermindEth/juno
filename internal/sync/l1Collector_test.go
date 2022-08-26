@@ -258,7 +258,7 @@ func TestParsePages(t *testing.T) {
 		},
 	}
 
-	wantDiff := &types.StateDiff{
+	wantDiff := &types.StateUpdate{
 		DeployedContracts: []types.DeployedContract{
 			{
 				Address:             new(felt.Felt).SetHex("02"),               // Contract address

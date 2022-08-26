@@ -72,7 +72,7 @@ func (a *apiCollector) Run() {
 				continue
 			}
 			a.buffer <- fetchContractCode(stateUpdateResponseToStateDiff(*update, latestStateDiffSynced), a.client, a.logger)
-			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
+			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateUpdate collected")
 			latestStateDiffSynced += 1
 		}
 	}
@@ -124,8 +124,8 @@ func (a *apiCollector) PendingBlock() *feeder.StarknetBlock {
 }
 
 // stateUpdateResponseToStateDiff convert the input feeder.StateUpdateResponse to StateDiff
-func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumber int64) *types.StateDiff {
-	var stateDiff types.StateDiff
+func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumber int64) *types.StateUpdate {
+	var stateDiff types.StateUpdate
 	stateDiff.NewRoot = new(felt.Felt).SetHex(update.NewRoot)
 	stateDiff.BlockNumber = blockNumber
 	stateDiff.BlockHash = new(felt.Felt).SetHex(update.BlockHash)

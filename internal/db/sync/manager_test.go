@@ -102,7 +102,7 @@ func TestStateDiff(t *testing.T) {
 	// Create a new database manager.
 	manager := sync.NewManager(syncDatabase)
 
-	stateDiff := &types.StateDiff{
+	stateDiff := &types.StateUpdate{
 		StorageDiff: map[felt.Felt][]types.MemoryCell{
 			new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000002").Value(): {
 				{
@@ -124,7 +124,7 @@ func TestStateDiff(t *testing.T) {
 	}
 
 	// Store the state diff.
-	if err := manager.StoreStateDiff(stateDiff, stateDiff.BlockHash); err != nil {
+	if err := manager.StoreStateUpdate(stateDiff, stateDiff.BlockHash); err != nil {
 		t.Error(err)
 	}
 

@@ -155,7 +155,7 @@ func (l *l1Collector) Run() {
 				l.buffer <- fetchContractCode(stateDiff, l.client, l.logger)
 
 				l.removeFactTree(fact)
-				l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateDiff collected")
+				l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateUpdate collected")
 				l.latestBlockSynced += 1
 			}
 
@@ -568,7 +568,7 @@ func (l *l1Collector) fetchPendingBlock() {
 
 // parsePages converts an array of memory pages into a state diff that
 // can be used to update the local state.
-func parsePages(pages [][]*big.Int) *types2.StateDiff {
+func parsePages(pages [][]*big.Int) *types2.StateUpdate {
 	// Remove first page
 	pagesWithoutFirst := pages[1:]
 
@@ -643,7 +643,7 @@ func parsePages(pages [][]*big.Int) *types2.StateDiff {
 		storageDiff[*address] = kvs
 	}
 
-	return &types2.StateDiff{
+	return &types2.StateUpdate{
 		DeployedContracts: deployedContracts,
 		StorageDiff:       storageDiff,
 	}

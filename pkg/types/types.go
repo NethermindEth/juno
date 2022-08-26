@@ -50,9 +50,9 @@ type DeployedContract struct {
 
 type StorageDiff map[felt.Felt][]MemoryCell
 
-// StateDiff Represent the deployed contracts and the storage diffs for those and
+// StateUpdate Represent the deployed contracts and the storage diffs for those and
 // for the one's already deployed
-type StateDiff struct {
+type StateUpdate struct {
 	StorageDiff       `json:"storage_diffs"`
 	BlockHash         *felt.Felt         `json:"block_hash"`
 	BlockNumber       int64              `json:"block_number"`
