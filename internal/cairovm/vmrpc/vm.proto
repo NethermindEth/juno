@@ -6,10 +6,18 @@ message GetValueRequest {
   bytes key = 1;
 }
 
+enum NodeType {
+    EDGE_NODE = 0;
+    BINARY_NODE = 1;
+}
+
 message VMTrieNode {
     uint32 len = 1;
     bytes bottom = 2;
     bytes path = 3;
+    bytes left = 4;
+    bytes right = 5;
+    NodeType type = 6;
 }
 
 message VMContractState {
