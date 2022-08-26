@@ -1,41 +1,41 @@
 package log
 
-import "testing"
+import (
+	"testing"
 
-func TestReplaceGlobalLogger(t *testing.T) {
-	type args struct {
-		enableJsonOutput   bool
-		verbosityLevel     string
-		enableColorEncoder bool
-	}
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGlobalLoggerVerbosity(t *testing.T) {
 	tests := []struct {
-		name string
-		args args
-		err  error
+		verbosity string
+		err       bool
 	}{
-		{
-			name: "replace logger with good configuration (console encoding) should not return error",
-			args: args{
-				enableJsonOutput:   false,
-				verbosityLevel:     "debug",
-				enableColorEncoder: false,
-			},
-			err: nil,
-		},
-		{
-			name: "replace logger with good configuration (json encoding) should not return error",
-			args: args{
-				enableJsonOutput:   true,
-				verbosityLevel:     "debug",
-				enableColorEncoder: true,
-			},
-			err: nil,
-		},
+		{verbosity: "info", err: false},
+		{verbosity: "debug", err: false},
+		{verbosity: "warn", err: false},
+		{verbosity: "error", err: false},
+		{verbosity: "dpanic", err: false},
+		{verbosity: "panic", err: false},
+		{verbosity: "fatal", err: false},
+		{verbosity: "something", err: true},
+
+		{verbosity: "INFO", err: false},
+		{verbosity: "DEBUG", err: false},
+		{verbosity: "WARN", err: false},
+		{verbosity: "ERROR", err: false},
+		{verbosity: "DPANIC", err: false},
+		{verbosity: "PANIC", err: false},
+		{verbosity: "FATAL", err: false},
+		{verbosity: "SOMETHING", err: true},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if err := ReplaceGlobalLogger(test.args.enableJsonOutput, test.args.verbosityLevel, test.args.enableColorEncoder); err != nil {
-				t.Errorf("ReplaceGlobalLogger() error = %v", err)
+		t.Run(test.verbosity, func(t *testing.T) {
+			err := SetGlobalLogger(test.verbosity)
+			if test.err {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
