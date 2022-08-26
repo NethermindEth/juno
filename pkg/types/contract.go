@@ -24,7 +24,7 @@ type Contract struct {
 }
 
 type ContractClass struct {
-	Program           interface{} `json:"program"`
+	Program           string      `json:"program"`
 	EntryPointsByType interface{} `json:"entryPointsByType"`
 }
 
