@@ -34,6 +34,10 @@ func (z *Felt) Hex0x() string {
 	return fmt.Sprintf("0x0%063s", z.Hex())
 }
 
+func (z *Felt) Value() Felt {
+	return *z
+}
+
 // SetBit sets bit i to j on z. Undefined behavior if
 // j is not zero or one. It is the responsibility of the caller to
 // convert to/from regular form if necessary.

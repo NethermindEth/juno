@@ -78,9 +78,6 @@ func configure(cfg *config.Juno, configFile string) {
 				cfg.Sync.Network = "goerli"
 			}
 		}).
-		AddCheckbox("API Sync Enabled", cfg.Sync.Trusted, func(checked bool) {
-			cfg.Sync.Trusted = checked
-		}).
 		AddButton("Save (CTRL + S)", func() {
 			// Close the application
 			app.Stop()

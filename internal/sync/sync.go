@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -33,14 +34,11 @@ type Synchronizer struct {
 	logger *zap.SugaredLogger
 
 	// startingBlockNumber is the block number of the first block that we will sync.
-	startingBlockNumber int64
-	// startingBlockHash is the hash of the first block that we will sync.
-	startingBlockHash string
+	startingBlockNumber      int64
+	startingBlockNumberSaved int64
 
 	// latestBlockNumberSynced is the last block that was synced.
 	latestBlockNumberSynced int64
-	// latestBlockHashSynced is the last block that was synced.
-	latestBlockHashSynced *felt.Felt
 
 	// stateDIffCollector
 	stateDiffCollector StateDiffCollector
@@ -68,13 +66,19 @@ type Synchronizer struct {
 func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager *sync.Manager,
 	stateManager state.StateManager, blockManager *blockDB.Manager, transactionManager *transaction.Manager,
 ) *Synchronizer {
-	synchro := new(Synchronizer)
-	synchro.logger = Logger.Named("Sync Service")
-	synchro.feeder = feederClient
-	if !cfg.Trusted {
+	synchro := &Synchronizer{
+		logger: Logger.Named("Sync Service"),
+		feeder: feederClient,
+	}
+
+	trusted := cfg.EthNode == ""
+
+	if trusted {
+		synchro.logger.Info("Defaulting to syncing from gateway")
+	} else {
 		ethereumClient, err := ethclient.Dial(cfg.EthNode)
 		if err != nil {
-			synchro.logger.Fatal("Unable to connect to Ethereum Client", err)
+			synchro.logger.With("error", err).Fatal("Cannot connect to Ethereum Client")
 		}
 		synchro.l1Client = ethereumClient
 	}
@@ -88,7 +92,7 @@ func NewSynchronizer(cfg *config.Sync, feederClient *feeder.Client, syncManager 
 
 	synchro.setChainId(cfg.Network)
 	synchro.setStateToLatestRoot()
-	synchro.setStateDiffCollector(cfg.Trusted)
+	synchro.setStateDiffCollector(trusted)
 	return synchro
 }
 
@@ -103,13 +107,13 @@ func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
 }
 
 // Run starts the service.
-func (s *Synchronizer) Run(apiSync bool, errChan chan error) {
+func (s *Synchronizer) Run(errChan chan error) {
 	s.Running = true
 	go s.updateBlocksInfo()
-	go s.handleSync(apiSync, errChan)
+	go s.handleSync(errChan)
 }
 
-func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
+func (s *Synchronizer) handleSync(errChan chan error) {
 	for {
 		err := s.sync()
 		if err == nil {
@@ -119,112 +123,113 @@ func (s *Synchronizer) handleSync(apiSync bool, errChan chan error) {
 		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 		time.Sleep(10 * time.Second)
 		s.stateDiffCollector.Close()
-		s.setStateDiffCollector(apiSync)
 	}
 }
 
 func (s *Synchronizer) sync() error {
 	go s.stateDiffCollector.Run()
+
+	s.startingBlockNumber = s.syncManager.GetLatestBlockSync()
+	s.latestBlockNumberSynced = s.startingBlockNumber
+
 	// Get state
-	for stateDiff := range s.stateDiffCollector.GetChannel() {
+	for collectedDiff := range s.stateDiffCollector.GetChannel() {
 		start := time.Now()
 
-		err := s.updateState(stateDiff)
-		if err != nil || s.state.Root().Cmp(stateDiff.NewRoot) != 0 {
+		err := s.updateState(collectedDiff)
+		if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 			// In case some errors exist or the new root of the trie didn't match with
 			// the root we receive from the StateDiff, we have to revert the trie
+			s.logger.With("Error", err).Error("State update failed, reverting state")
 			prometheus.IncreaseCountStarknetStateFailed()
 			s.setStateToLatestRoot()
 			return err
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Missing Blocks to fully Sync", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-stateDiff.BlockNumber,
-			"Timer", time.Since(start)).
-			Info("Synced block")
-		s.syncManager.StoreLatestBlockSync(stateDiff.BlockNumber)
-		if stateDiff.OldRoot.Hex() == "" {
-			stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
+		s.logger.With(
+			"Number", collectedDiff.stateDiff.BlockNumber,
+			"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
+			"Time", time.Since(start),
+		).Info("Synchronized block")
+		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
+		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
+			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
 		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		s.syncManager.StoreStateDiff(stateDiff, stateDiff.BlockHash)
-		s.latestBlockNumberSynced = stateDiff.BlockNumber
-
-		// Used to keep a track of where the sync started
-		if s.startingBlockHash == "" {
-			s.startingBlockNumber = stateDiff.BlockNumber
-			s.startingBlockHash = s.latestBlockHashSynced.Hex0x()
+		if err := s.syncManager.StoreStateDiff(collectedDiff.stateDiff, collectedDiff.stateDiff.BlockHash); err != nil {
+			return err
 		}
+		s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
 	}
 	return nil
 }
 
 func (s *Synchronizer) Status() *types.SyncStatus {
-	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), float64(s.syncManager.GetLatestBlockSaved())))
+	latestBlockSaved := float64(s.syncManager.GetLatestBlockSaved())
+
+	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), latestBlockSaved))
 
 	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
 	if err != nil {
 		return nil
 	}
 
+	startingBlockNumber := uint64(math.Min(float64(s.startingBlockNumber), latestBlockSaved))
+
+	startingBlock, err := s.blockManager.GetBlockByNumber(startingBlockNumber)
+	if err != nil {
+		return nil
+	}
+
+	highestBlockHash := "pending"
+	highestBlockNumber := "pending"
+	if s.stateDiffCollector.LatestBlock() != nil {
+		highestBlockHash = s.stateDiffCollector.LatestBlock().BlockHash
+		highestBlockNumber = fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber)
+	}
+
 	return &types.SyncStatus{
-		StartingBlockHash:   s.startingBlockHash,
-		StartingBlockNumber: fmt.Sprintf("%x", s.startingBlockNumber),
+		StartingBlockHash:   startingBlock.BlockHash.Hex0x(),
+		StartingBlockNumber: fmt.Sprintf("%x", startingBlockNumber),
 		CurrentBlockHash:    block.BlockHash.Hex0x(),
 		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
-		HighestBlockHash:    s.stateDiffCollector.LatestBlock().BlockHash,
-		HighestBlockNumber:  fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber),
+		HighestBlockHash:    highestBlockHash,
+		HighestBlockNumber:  highestBlockNumber,
 	}
 }
 
-func (s *Synchronizer) updateState(stateDiff *types.StateDiff) error {
-	for _, deployedContract := range stateDiff.DeployedContracts {
-		err := s.SetCode(stateDiff, deployedContract)
-		if err != nil {
+func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
+	for _, deployedContract := range collectedDiff.stateDiff.DeployedContracts {
+		if err := s.SetCode(collectedDiff, &deployedContract); err != nil {
 			return err
 		}
 	}
 
-	for contractAddress, memoryCells := range stateDiff.StorageDiff {
+	for contractAddress, memoryCells := range collectedDiff.stateDiff.StorageDiff {
 		for _, cell := range memoryCells {
-			err := s.state.SetSlot(&contractAddress, cell.Address, cell.Value)
-			if err != nil {
+			if err := s.state.SetSlot(&contractAddress, cell.Address, cell.Value); err != nil {
 				return err
 			}
 		}
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber).Debug("State updated")
+	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
 	return nil
 }
 
-func (s *Synchronizer) SetCode(stateDiff *types.StateDiff, deployedContract types.DeployedContract) error {
-	// Get Full Contract
-	contractFromApi, err := s.feeder.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
-		strconv.FormatInt(stateDiff.BlockNumber, 10))
-	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address.Hex0x()).
-			Error("Error getting full contract")
-		return err
+func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *types.DeployedContract) error {
+	if deployedContract == nil {
+		return errors.New("contract not deployed")
 	}
-
-	contract := new(types.Contract)
-	err = contract.UnmarshalRaw(contractFromApi)
+	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash,
+		collectedDiff.Code[deployedContract.Address.Hex0x()])
 	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address.Hex0x()).
-			Error("Error unmarshalling contract")
-		return err
-	}
-	err = s.state.SetContract(deployedContract.Address, deployedContract.Hash, contract)
-	if err != nil {
-		s.logger.With("Block Number", stateDiff.BlockNumber,
+		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
 			"Contract Address", deployedContract.Address).
 			Error("Error setting code")
 		return err
 	}
-	s.logger.With("Block Number", stateDiff.BlockNumber, "Address", deployedContract.Address).
+	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber, "Address", deployedContract.Address).
 		Debug("State updated for Contract")
 	return nil
 }
@@ -285,18 +290,17 @@ func (s *Synchronizer) setChainId(network string) {
 }
 
 func (s *Synchronizer) updateBlocks(number int64) error {
-	block, err := s.updateBlock(number)
+	err := s.updateBlock(number)
 	if err != nil {
 		return err
 	}
-	s.latestBlockHashSynced = new(felt.Felt).SetHex(block.BlockHash)
 	return nil
 }
 
-func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, error) {
+func (s *Synchronizer) updateBlock(blockNumber int64) error {
 	block, err := s.feeder.GetBlock("", strconv.FormatInt(blockNumber, 10))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, txn := range block.Transactions {
@@ -309,12 +313,12 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 					break
 				}
 				if iterations > 20 {
-					return nil, err
+					return err
 				}
 				iterations++
 			}
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -328,12 +332,12 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 					break
 				}
 				if iterations > 20 {
-					return nil, err
+					return err
 				}
 				iterations++
 			}
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -341,9 +345,9 @@ func (s *Synchronizer) updateBlock(blockNumber int64) (*feeder.StarknetBlock, er
 	blockHash := new(felt.Felt).SetHex(block.BlockHash)
 	err = s.blockManager.PutBlock(blockHash, feederBlockToDBBlock(block))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return block, nil
+	return nil
 }
 
 func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
@@ -373,6 +377,7 @@ func (s *Synchronizer) updateTransactionReceipts(receipt feeder.TransactionExecu
 func (s *Synchronizer) updateBlocksInfo() {
 	latestBlockInfoFetched := s.syncManager.GetLatestBlockSaved()
 	currentBlock := latestBlockInfoFetched
+	s.startingBlockNumberSaved = currentBlock
 	for {
 		latestBlock := s.stateDiffCollector.LatestBlock()
 		if latestBlock == nil {
@@ -387,6 +392,7 @@ func (s *Synchronizer) updateBlocksInfo() {
 			time.Sleep(time.Minute)
 			continue
 		}
+		s.logger.With("Block Number", currentBlock).Info("Updated block info")
 		s.syncManager.StoreLatestBlockSaved(currentBlock)
 		currentBlock++
 

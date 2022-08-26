@@ -102,8 +102,8 @@ func TestStateDiff(t *testing.T) {
 	manager := sync.NewManager(syncDatabase)
 
 	stateDiff := &types.StateDiff{
-		StorageDiff: map[string][]types.MemoryCell{
-			"0x0000000000000000000000000000000000000000000000000000000000000002": {
+		StorageDiff: map[felt.Felt][]types.MemoryCell{
+			new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000002").Value(): {
 				{
 					Address: new(felt.Felt).SetHex("0x0000000000000000000000000000000000000001"),
 					Value:   new(felt.Felt).SetHex("0x0000000000000000000000000000000000000002"),
@@ -111,6 +111,7 @@ func TestStateDiff(t *testing.T) {
 			},
 		},
 		BlockNumber: 5,
+		BlockHash:   new(felt.Felt).SetHex("0x0123"),
 		NewRoot:     new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000123"),
 		OldRoot:     new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
 		DeployedContracts: []types.DeployedContract{
@@ -126,19 +127,31 @@ func TestStateDiff(t *testing.T) {
 	}
 
 	// Store the state diff.
-	manager.StoreStateDiff(stateDiff, "0x123")
+	if err := manager.StoreStateDiff(stateDiff, stateDiff.BlockHash); err != nil {
+		t.Error(err)
+	}
 
 	// Check that the state diff is stored correctly.
-	retrievedStateDiff := manager.GetStateDiff(1)
+	retrievedStateDiff, err := manager.GetStateUpdate(stateDiff.BlockHash)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// Check that the state diff is stored correctly.
 	if reflect.DeepEqual(retrievedStateDiff, stateDiff) {
 		t.Errorf("State diff was not stored correctly.")
 	}
 
-	retrievedStateDiffByHash := manager.GetStateDiffFromHash("0x123")
-	if !reflect.DeepEqual(retrievedStateDiffByHash, stateDiff) {
+	// Check that the state diff is stored correctly.
+	retrievedStateDiff, err = manager.GetStateUpdate(stateDiff.BlockHash)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check that the state diff is stored correctly.
+	if !reflect.DeepEqual(retrievedStateDiff, stateDiff) {
 		t.Errorf("State diff was not stored correctly.")
 	}
+
 	manager.Close()
 }

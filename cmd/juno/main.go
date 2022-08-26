@@ -112,11 +112,10 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&cfg.Database.Path, "database-path", cfg.Database.Path, "location of the database files.")
 
 	// StarkNet
-	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "sync-enable", false, "if set, the node will synchronize with the StarkNet chain.")
+	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Enable, "sync-enable", false, "if set, the node will synchronize with the StarkNet chain. If --sync-ethnode is not set, Juno will default to syncing the state from the feeder gateway.")
 	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Sequencer, "sync-sequencer", "https://alpha-mainnet.starknet.io", "the sequencer endpoint. Useful for those wishing to cache feeder gateway responses in a proxy.")
 	rootCmd.PersistentFlags().StringVar(&cfg.Sync.Network, "sync-network", "mainnet", "the StarkNet network with which to sync. Options: mainnet, goerli")
-	rootCmd.PersistentFlags().BoolVar(&cfg.Sync.Trusted, "sync-trusted", false, "sync with the feeder gateway, not against L1. Only set if an Ethereum node is not available. The node provides no guarantees about the integrity of the state when syncing with the feeder gateway.")
-	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "sync-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way.")
+	rootCmd.PersistentFlags().StringVar(&cfg.Sync.EthNode, "sync-ethnode", "", "the endpoint to the ethereum node. Required if one wants to maintain the state in a truly trustless way. If not set with `--sync-enable`, Juno will default to syncing the state from the (centralized) feeder gateway.")
 
 	return rootCmd
 }
@@ -150,6 +149,7 @@ func loadConfig(cmd *cobra.Command, configFile *string) error {
 	v.AddConfigPath(filepath.Dir(*configFile))
 	v.SetConfigType("yaml")
 	v.SetConfigName(filepath.Base(*configFile))
+	fmt.Printf("Loading config from %s\n", *configFile)
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -184,17 +184,20 @@ func juno(cfg *config.Juno) {
 	fmt.Printf("using config: %+v\n\n", cfg)
 
 	// Configure the logger first so we can use it
+	feederClient := setupFeederGateway(&cfg.Sync)
 	setupLogger(&cfg.Log)
 	setupInterruptHandler(cfg)
 	setupDatabase(&cfg.Database)
-	feederClient := setupFeederGateway(&cfg.Sync)
-	virtualMachine = cairovm.New(stateManager)
+	setupSynchronizer(&cfg.Sync, feederClient)
 
 	errChs := make([]chan error, 0)
 
+	errChs = append(errChs, make(chan error))
+	setupVirtualMachine(cfg, errChs[len(errChs)-1])
+
 	if cfg.Sync.Enable {
 		errChs = append(errChs, make(chan error))
-		setupSynchronizer(&cfg.Sync, feederClient, errChs[len(errChs)-1])
+		synchronizer.Run(errChs[len(errChs)-1])
 	} else {
 		// Currently, Juno is only useful for storing StarkNet
 		// state locally. We notify the user of this. We don't
@@ -214,8 +217,11 @@ func juno(cfg *config.Juno) {
 	checkErrChs(errChs)
 }
 
-func setupVirtualMachine() {
+func setupVirtualMachine(cfg *config.Juno, errChan chan error) {
 	virtualMachine = cairovm.New(stateManager)
+	if err := virtualMachine.Run(cfg.Database.Path); err != nil {
+		errChan <- err
+	}
 }
 
 func setupLogger(cfg *config.Log) {
@@ -225,10 +231,9 @@ func setupLogger(cfg *config.Log) {
 	}
 }
 
-func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client, errChan chan error) {
+func setupSynchronizer(cfg *config.Sync, feederClient *feeder.Client) {
 	synchronizer = syncService.NewSynchronizer(cfg, feederClient, syncManager, stateManager, blockManager,
 		transactionManager)
-	synchronizer.Run(cfg.Trusted, errChan)
 }
 
 func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan chan error) {
@@ -243,7 +248,7 @@ func setupRpc(cfg *config.Rpc, synchronizer *syncService.Synchronizer, errChan c
 		{"starknet_getBlockWithTxHashes", starknetApi.GetBlockWithTxHashes, []string{"block_id"}},
 		{"starknet_getBlockWithTxs", starknetApi.GetBlockWithTxs, []string{"block_id"}},
 		{"starknet_getStateUpdate", starknetApi.GetStateUpdate, []string{"block_id"}},
-		{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"block_id", "contract_address", "key"}},
+		{"starknet_getStorageAt", starknetApi.GetStorageAt, []string{"contract_address", "key", "block_id"}},
 		{"starknet_getTransactionByHash", starknetApi.GetTransactionByHash, []string{"transaction_hash"}},
 		{"starknet_getTransactionByBlockIdAndIndex", starknetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
 		{"starknet_getTransactionReceipt", starknetApi.GetTransactionReceipt, []string{"transaction_hash"}},
@@ -352,6 +357,7 @@ func shutdown(cfg *config.Juno) {
 	blockManager.Close()
 	stateManager.Close()
 	syncManager.Close()
+	virtualMachine.Close()
 	if cfg.Sync.Enable {
 		synchronizer.Close()
 	}

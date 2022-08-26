@@ -21,7 +21,7 @@ type apiCollector struct {
 	// feeder is the client that provides the Connection to the feeder gateway.
 	client *feeder.Client
 	// buffer represent the channel of StateDiff collected
-	buffer chan *types.StateDiff
+	buffer chan *CollectorDiff
 
 	// latestBlock is the last block of StarkNet
 	latestBlock *feeder.StarknetBlock
@@ -40,7 +40,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector
 		quit:    make(chan struct{}),
 	}
 	collector.logger = log.Logger.Named("apiCollector")
-	collector.buffer = make(chan *types.StateDiff, 10)
+	collector.buffer = make(chan *CollectorDiff, 10)
 	go collector.updateLatestBlockOnChain()
 	return collector
 }
@@ -71,7 +71,7 @@ func (a *apiCollector) Run() {
 				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
 				continue
 			}
-			a.buffer <- stateUpdateResponseToStateDiff(*update, latestStateDiffSynced)
+			a.buffer <- fetchContractCode(stateUpdateResponseToStateDiff(*update, latestStateDiffSynced), a.client, a.logger)
 			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateDiff collected")
 			latestStateDiffSynced += 1
 		}
@@ -83,7 +83,7 @@ func (a *apiCollector) Close() {
 }
 
 // GetChannel returns the channel of StateDiffs
-func (a *apiCollector) GetChannel() chan *types.StateDiff {
+func (a *apiCollector) GetChannel() chan *CollectorDiff {
 	return a.buffer
 }
 

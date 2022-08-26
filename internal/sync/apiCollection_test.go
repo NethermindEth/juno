@@ -37,7 +37,7 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 		NewRoot: new(felt.Felt).SetHex("0"),
 		OldRoot: new(felt.Felt).SetHex("0"),
 		StorageDiff: types.StorageDiff{
-			new(felt.Felt).SetHex("0").String(): []types.MemoryCell{
+			new(felt.Felt).SetHex("0").Value(): []types.MemoryCell{
 				{
 					Address: new(felt.Felt).SetHex("0"),
 					Value:   new(felt.Felt).SetHex("0"),

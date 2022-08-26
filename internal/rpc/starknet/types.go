@@ -55,6 +55,9 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
+		if value < 0 {
+			return ErrInvalidBlockId
+		}
 		id.idType = blockIdNumber
 		id.value = value
 	case string:
@@ -450,6 +453,42 @@ type SyncStatus struct {
 	CurrentBlockNumber  string `json:"current_block_number"`
 	HighestBlockHash    string `json:"highest_block_hash"`
 	HighestBlockNumber  string `json:"highest_block_number"`
+}
+
+type StorageKey string
+
+func (s *StorageKey) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	if !isStorageKey(str) {
+		return errors.New("invalid storage key")
+	}
+	*s = StorageKey(str)
+	return nil
+}
+
+func (s *StorageKey) Felt() *felt.Felt {
+	return new(felt.Felt).SetHex(string(*s))
+}
+
+type RpcFelt string
+
+func (r *RpcFelt) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	if !isFelt(str) {
+		return errors.New("invalid felt")
+	}
+	*r = RpcFelt(str)
+	return nil
+}
+
+func (r *RpcFelt) Felt() *felt.Felt {
+	return new(felt.Felt).SetHex(string(*r))
 }
 
 type StorageDiffItem struct {
