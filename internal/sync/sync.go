@@ -142,20 +142,20 @@ func (s *Synchronizer) sync() error {
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
+		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
+		if err := s.syncManager.StoreStateUpdate(collectedDiff.stateDiff, collectedDiff.stateDiff.BlockHash); err != nil {
+			return err
+		}
+		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
+			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
+		}
+		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
+		s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
 		s.logger.With(
 			"Number", collectedDiff.stateDiff.BlockNumber,
 			"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
 			"Time", time.Since(start),
 		).Info("Synchronized block")
-		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
-		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
-			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
-		}
-		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		if err := s.syncManager.StoreStateUpdate(collectedDiff.stateDiff, collectedDiff.stateDiff.BlockHash); err != nil {
-			return err
-		}
-		s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
 	}
 	return nil
 }
