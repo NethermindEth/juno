@@ -3,7 +3,7 @@ package sync_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/assert"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -135,7 +135,7 @@ func TestStateDiff(t *testing.T) {
 	}
 
 	// Check that the state diff is stored correctly.
-	assert.Equal(t, retrievedStateDiff, stateDiff)
+	assert.DeepEqual(t, retrievedStateDiff, stateDiff)
 
 	// Check that the state diff is stored correctly.
 	retrievedStateDiff, err = manager.GetStateUpdate(stateDiff.BlockHash)
@@ -144,7 +144,7 @@ func TestStateDiff(t *testing.T) {
 	}
 
 	// Check that the state diff is stored correctly.
-	assert.Equal(t, retrievedStateDiff, stateDiff)
+	assert.DeepEqual(t, retrievedStateDiff, stateDiff)
 
 	manager.Close()
 }
