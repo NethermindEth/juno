@@ -52,10 +52,7 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 	switch t := token.(type) {
 	case json.Number:
 		value, err := t.Int64()
-		if err != nil {
-			return err
-		}
-		if value < 0 {
+		if err != nil || value < 0 {
 			return ErrInvalidBlockId
 		}
 		id.idType = blockIdNumber
