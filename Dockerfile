@@ -20,7 +20,7 @@ WORKDIR /app
 
 COPY ./requirements.txt /req/requirements.txt
 
-# Install Python Dependencies
+# Install Python dependencies
 RUN apk update && apk upgrade && apk add --update alpine-sdk && apk add --no-cache gmp-dev cmake gcc g++ linux-headers
 
 # Install project dependencies
