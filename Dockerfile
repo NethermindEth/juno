@@ -13,7 +13,7 @@ RUN go mod download
 
 RUN make juno
 
-# State 2: Build Python dependencies for Cairo
+# Stage 2: Build Python dependencies for Cairo
 FROM python:3.7.13-alpine as py_builder
 
 WORKDIR /app
