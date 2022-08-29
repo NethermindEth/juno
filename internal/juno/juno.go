@@ -239,3 +239,31 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 	}
 	return jsonRpc, nil
 }
+func healthJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
+	transactionManager *transaction.Manager, synchronizer *syncer.Synchronizer,
+	virtualMachine *cairovm.VirtualMachine,
+) (*jsonrpc.JsonRpc, error) {
+	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
+		virtualMachine)
+	jsonRpc := jsonrpc.NewJsonRpc()
+	handlers := []struct {
+		name       string
+		function   any
+		paramNames []string
+	}{
+		{"starknet_call", starkNetApi.Call, []string{"block_id", "request"}},
+		{"starknet_estimateFee", starkNetApi.EstimateFee, []string{"block_id", "request"}},
+		{"starknet_blockNumber", starkNetApi.BlockNumber, nil},
+		{"starknet_blockHashAndNumber", starkNetApi.BlockHashAndNumber, nil},
+		{"starknet_chainId", starkNetApi.ChainId, nil},
+		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
+		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
+		{"starknet_syncing", starkNetApi.Syncing, nil},
+	}
+	for _, handler := range handlers {
+		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
+			return nil, err
+		}
+	}
+	return jsonRpc, nil
+}
