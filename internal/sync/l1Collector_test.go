@@ -267,7 +267,7 @@ func TestParsePages(t *testing.T) {
 			},
 		},
 		StorageDiff: types.StorageDiff{
-			new(felt.Felt).SetHex("3").Value(): { // Contract address
+			new(felt.Felt).SetHex("3").Deref(): { // Contract address
 				{
 					Address: new(felt.Felt).SetHex("3"), // Cairo memory address
 					Value:   new(felt.Felt).SetHex("04"),

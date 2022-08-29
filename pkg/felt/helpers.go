@@ -34,7 +34,7 @@ func (z *Felt) Hex0x() string {
 	return fmt.Sprintf("0x0%063s", z.Hex())
 }
 
-func (z *Felt) Value() Felt {
+func (z *Felt) Deref() Felt {
 	return *z
 }
 

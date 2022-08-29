@@ -104,7 +104,7 @@ func TestStateDiff(t *testing.T) {
 
 	stateDiff := &types.StateUpdate{
 		StorageDiff: map[felt.Felt][]types.MemoryCell{
-			new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000002").Value(): {
+			new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000002").Deref(): {
 				{
 					Address: new(felt.Felt).SetHex("0x0000000000000000000000000000000000000001"),
 					Value:   new(felt.Felt).SetHex("0x0000000000000000000000000000000000000002"),
