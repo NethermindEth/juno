@@ -31,7 +31,7 @@ RUN find ${PY_PATH} -type d -a -name test -exec rm -rf '{}' + \
     && find ${PY_PATH} -type f -a -name '*.pyc' -exec rm -rf '{}' + \
     && find ${PY_PATH} -type f -a -name '*.pyo' -exec rm -rf '{}' +
 
-# Stage 3: Build Docker Image
+# Stage 3: Build Docker image
 FROM python:3.7.13-alpine as runtime
 
 COPY --from=py_builder /usr/local/lib/python3.7/site-packages /usr/local/lib/python3.7/site-packages
