@@ -23,7 +23,7 @@ COPY ./requirements.txt /req/requirements.txt
 # Install Python Dependencies
 RUN apk update && apk upgrade && apk add --update alpine-sdk && apk add --no-cache gmp-dev cmake gcc g++ linux-headers
 
-# Install project Dependencies
+# Install project dependencies
 RUN pip --disable-pip-version-check install -r /req/requirements.txt
 ENV PY_PATH=/usr/local/lib/python3.7/
 RUN find ${PY_PATH} -type d -a -name test -exec rm -rf '{}' + \
