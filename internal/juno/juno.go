@@ -235,7 +235,6 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starkNetApi.Syncing, nil},
 		{"health_nodeStatus", healthApi.NodeStatus, nil},
-		{"health_available", healthApi.Available, nil},
 	}
 	for _, handler := range handlers {
 		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {

@@ -39,7 +39,3 @@ func (r *Rpc) NodeStatus() (any, error) {
 	}
 	return nil, UnHealthy
 }
-
-func (r *Rpc) Available() (any, error) {
-	return r.synchronizer.Running, nil
-}
