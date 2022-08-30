@@ -54,13 +54,13 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	// retry mechanism for do requests
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient) (*http.Response, error) {
 		var res *http.Response
-		wait := 5 * time.Second
-		for i := 0; ; i++ {
+		wait := 2 * time.Second
+		for {
 			res, err = httpClient.Do(req)
-			if err != nil || res.StatusCode != http.StatusOK {
+			if err != nil || res != nil || res.StatusCode != http.StatusOK {
+				wait *= 2
 				Logger.With("Waiting:", wait.Seconds(), "Error", err).Info("Waiting to do again a request")
 				time.Sleep(wait)
-				wait = wait * 2
 				continue
 			}
 			if res.StatusCode == http.StatusOK {
