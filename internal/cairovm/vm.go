@@ -46,6 +46,7 @@ type VirtualMachine struct {
 	rpcNet         string
 	rpcVMAddr      string
 	rpcStorageAddr string
+	running        bool
 }
 
 var (
@@ -94,6 +95,7 @@ func freePorts(n int) ([]int, error) {
 }
 
 func (s *VirtualMachine) Run(dataDir string) error {
+	s.running = false
 	s.rpcServer = grpc.NewServer()
 
 	// Generate the Python environment in the data dir.
@@ -142,8 +144,12 @@ func (s *VirtualMachine) Run(dataDir string) error {
 			s.logger.Errorf("failed to serve: %v", err)
 		}
 	}()
-
+	s.running = true
 	return nil
+}
+
+func (s *VirtualMachine) Running() bool {
+	return s.running
 }
 
 func (s *VirtualMachine) Close() {
