@@ -111,7 +111,7 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var got BlockId
 			if err := got.UnmarshalJSON(tt.data); !errors.Is(err, tt.err) {
-				t.Errorf("BlockId.UnmarshalJSON() error = %v, wantErr %v", err, tt.err)
+				t.Errorf("BlockId.UnmarshalJSON() = %v, want %v", err, tt.err)
 			}
 			assert.DeepEqual(t, got, tt.want, gocmp.Comparer(func(x, y BlockId) bool {
 				xv := reflect.ValueOf(x)
