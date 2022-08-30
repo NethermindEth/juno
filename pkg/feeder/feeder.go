@@ -196,7 +196,7 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
 	metr.IncreaseABISent()
-	res, err := (*c.httpClient).Do(req)
+	res, err := c.retryFuncForDoReq(req, *c.httpClient)
 	if err != nil {
 		metr.IncreaseABIFailed()
 		return nil, err
