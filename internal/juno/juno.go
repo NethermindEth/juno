@@ -3,10 +3,11 @@ package juno
 import (
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/internal/rpc/health"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/rpc/health"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/db"
