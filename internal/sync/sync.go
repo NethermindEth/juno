@@ -425,9 +425,17 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 				Payload:     payload,
 			})
 		}
-		payloadFromL1ToL2 := make([]*felt.Felt, 0)
-		for _, p := range receipt.L1ToL2Message.Payload {
-			payloadFromL1ToL2 = append(payloadFromL1ToL2, new(felt.Felt).SetHex(p))
+		var msgToL2 *types.MsgToL2
+		if receipt.L1ToL2Message != nil {
+			payload := make([]*felt.Felt, len(receipt.L1ToL2Message.Payload))
+			for i, item := range receipt.L1ToL2Message.Payload {
+				payload[i] = new(felt.Felt).SetHex(item)
+			}
+			msgToL2 = &types.MsgToL2{
+				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.ToAddress),
+				ToAddress:   new(felt.Felt).SetHex(receipt.L1ToL2Message.FromAddress),
+				Payload:     payload,
+			}
 		}
 
 		events := make([]*types.Event, 0)
@@ -453,12 +461,8 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 		return &types.TxnInvokeReceipt{
 			TxnReceiptCommon: common,
 			MessagesSent:     l2ToL1,
-			L1OriginMessage: &types.MsgToL2{
-				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.FromAddress),
-				Payload:     payloadFromL1ToL2,
-				ToAddress:   new(felt.Felt).SetHex(receipt.L1ToL2Message.ToAddress),
-			},
-			Events: events,
+			L1OriginMessage:  msgToL2,
+			Events:           events,
 		}
 	case "DECLARE":
 		return &types.TxnDeclareReceipt{TxnReceiptCommon: common}
