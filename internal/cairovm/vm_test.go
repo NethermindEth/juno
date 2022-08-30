@@ -46,6 +46,10 @@ func TestVMCall(t *testing.T) {
 	if err := vm.Run(t.TempDir()); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)
 	}
+
+	if !vm.Running() {
+		t.Errorf("vm not running")
+	}
 	defer vm.Close()
 
 	// XXX: Wait some time for the gRPC server to start. Note that this

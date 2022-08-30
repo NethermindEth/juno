@@ -15,6 +15,8 @@ type Rpc struct {
 	logger       *zap.SugaredLogger
 }
 
+// New returns a new health rpc service.
+// notest
 func New(synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine) *Rpc {
 	return &Rpc{
 		synchronizer: synchronizer,
@@ -23,6 +25,8 @@ func New(synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine) *Rpc {
 	}
 }
 
+// NodeStatus returns the current node status.
+// notest
 func (r *Rpc) NodeStatus() (any, error) {
 	if r.synchronizer.Running && r.vm.Running() {
 		return Status{
