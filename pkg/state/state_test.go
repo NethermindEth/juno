@@ -129,9 +129,7 @@ func TestStateFromStateDiffs(t *testing.T) {
 		addr := new(felt.Felt).SetHex(addr)
 		slots := make([]state.Slot, len(diff))
 		for i, slot := range diff {
-			key := new(felt.Felt).SetHex(slot.key)
-			val := new(felt.Felt).SetHex(slot.val)
-			slots[i] = state.Slot{Key: key, Value: val}
+			slots[i] = state.Slot{Key: new(felt.Felt).SetHex(slot.key), Value: new(felt.Felt).SetHex(slot.val)}
 		}
 		if err := stateTest.SetSlots(addr, slots); err != nil {
 			t.Fatal(err)
