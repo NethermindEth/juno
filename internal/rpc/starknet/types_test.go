@@ -174,7 +174,7 @@ func TestStorageKey_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestStorageKey_Felt(t *testing.T) {
+func TestStorageKeyToFelt(t *testing.T) {
 	tests := []struct {
 		name       string
 		storageKey StorageKey
@@ -243,7 +243,7 @@ func TestRpcFelt_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestRpcFelt_Felt(t *testing.T) {
+func TestRpcFeltToFelt(t *testing.T) {
 	tests := []struct {
 		name    string
 		rpcFelt RpcFelt
