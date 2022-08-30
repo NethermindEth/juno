@@ -6,11 +6,7 @@ import (
 
 	sync2 "github.com/NethermindEth/juno/internal/sync"
 
-	"github.com/NethermindEth/juno/internal/db/block"
-	"github.com/NethermindEth/juno/internal/db/transaction"
-
 	. "github.com/NethermindEth/juno/internal/log"
-	"github.com/NethermindEth/juno/pkg/state"
 )
 
 type Rpc struct {
@@ -19,9 +15,7 @@ type Rpc struct {
 	logger       *zap.SugaredLogger
 }
 
-func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
-	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine,
-) *Rpc {
+func New(synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine) *Rpc {
 	return &Rpc{
 		synchronizer: synchronizer,
 		vm:           vm,
