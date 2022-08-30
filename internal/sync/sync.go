@@ -107,14 +107,15 @@ func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
 
 // Run starts the service.
 func (s *Synchronizer) Run() {
-	s.Running = true
 	go s.updateBlocksInfo()
 	go s.handleSync()
 }
 
 func (s *Synchronizer) handleSync() {
 	for {
+		s.Running = true
 		err := s.sync()
+		s.Running = false
 		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 		time.Sleep(10 * time.Second)
 		s.stateDiffCollector.Close()
