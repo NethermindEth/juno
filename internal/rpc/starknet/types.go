@@ -345,7 +345,7 @@ type InvokeTxReceipt struct {
 	CommonReceiptProperties
 	MessagesSent    []*MsgToL1 `json:"messages_sent,omitempty"`
 	L1OriginMessage *MsgToL2   `json:"l1_origin_message,omitempty"`
-	Events          []*Event   `json:"events,omitempty,omitempty"`
+	Events          []*Event   `json:"events,omitempty"`
 }
 
 func (*InvokeTxReceipt) isReceipt() {}
