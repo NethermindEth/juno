@@ -147,6 +147,27 @@ func (s *StarkNetRpc) GetClass(classHash *RpcFelt) (any, error) {
 	return nil, jsonrpc.NewInternalError("not implemented")
 }
 
+func (s *StarkNetRpc) GetClassAt(blockId *BlockId, address string) (any, error) {
+	addressF := new(felt.Felt).SetHex(address)
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
+	if err != nil {
+		return nil, err
+	}
+	_state := state.New(s.stateManager, b.NewRoot)
+	classHash, err := _state.GetClassHash(addressF)
+	if err != nil {
+		return nil, err
+	}
+	class, err := _state.GetClass(blockId, classHash)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, err
+		}
+	}
+
+	return class, nil
+}
+
 func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, error) {
 	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
@@ -154,10 +175,6 @@ func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, e
 	}
 	_state := state.New(s.stateManager, b.NewRoot)
 	classHash, err := _state.GetClassHash(address.Felt())
-	if err != nil {
-		return nil, err
-	}
-	class, err := _state.GetClass(blockId, classHash)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, ContractNotFound
