@@ -27,6 +27,8 @@ type TransactionInvoke struct {
 	CallData           []*felt.Felt `json:"calldata"`
 	Signature          []*felt.Felt `json:"-"`
 	MaxFee             *felt.Felt   `json:"max_fee"`
+	Nonce              *felt.Felt   `json:"nonce"`
+	Version            *felt.Felt   `json:"version"`
 }
 
 func (tx *TransactionInvoke) GetHash() *felt.Felt {
