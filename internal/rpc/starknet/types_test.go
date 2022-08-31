@@ -151,6 +151,9 @@ func TestStorageKey_UnmarshalJSON(t *testing.T) {
 			err:  true,
 		},
 		{
+			// NOTE: This storage key is invalid because it is greater than prime P on the Stark
+			// curve and also does not match the storage key regular expression provided by the RPC
+			// specification.
 			name: "invalid storage key",
 			data: []byte(`"0x0ad328a71faf48c5c3857e99f20a77b18522480956d1cd5bff1ff2df3c8b427b"`),
 			want: "",
