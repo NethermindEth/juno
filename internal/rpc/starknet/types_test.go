@@ -179,33 +179,24 @@ func TestStorageKey_UnmarshalJSON(t *testing.T) {
 
 func TestStorageKeyToFelt(t *testing.T) {
 	tests := []struct {
-		name       string
 		storageKey StorageKey
 		want       *felt.Felt
 	}{
 		{
-			name:       "test 1",
 			storageKey: "0x07352d792298a2578d6ef20e80bce32473fff67b9b12b1bc431982287190291a",
 			want:       new(felt.Felt).SetHex("0x07352d792298a2578d6ef20e80bce32473fff67b9b12b1bc431982287190291a"),
 		},
 		{
-			name:       "test 2",
 			storageKey: "0x00898cca7dbf84c2213f3a00e84775013bc991bc104d3a00952ce4bc166a4a1a",
 			want:       new(felt.Felt).SetHex("0x00898cca7dbf84c2213f3a00e84775013bc991bc104d3a00952ce4bc166a4a1a"),
 		},
 		{
-			name:       "test 2",
 			storageKey: "0x0000000000000000000000000000000000000000000000000000000000000005",
 			want:       new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000005"),
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.storageKey.Felt()
-			if !got.Equal(tt.want) {
-				t.Fatalf("StorageKey.Felt() = %v, want %v", got, tt.want)
-			}
-		})
+		assert.Check(t, tt.storageKey.Felt().Equal(tt.want))
 	}
 }
 
@@ -248,32 +239,23 @@ func TestRpcFelt_UnmarshalJSON(t *testing.T) {
 
 func TestRpcFeltToFelt(t *testing.T) {
 	tests := []struct {
-		name    string
 		rpcFelt RpcFelt
 		want    *felt.Felt
 	}{
 		{
-			name:    "test 1",
 			rpcFelt: "0x045c61314be4da85f0e13df53d18062e002c04803218f08061e4b274d4b38537",
 			want:    new(felt.Felt).SetHex("0x045c61314be4da85f0e13df53d18062e002c04803218f08061e4b274d4b38537"),
 		},
 		{
-			name:    "test 2",
 			rpcFelt: "0x0320e37cf7c972458a3edf08ab51f2ab7596857706af174a3d5be4e46f16c63e",
 			want:    new(felt.Felt).SetHex("0x0320e37cf7c972458a3edf08ab51f2ab7596857706af174a3d5be4e46f16c63e"),
 		},
 		{
-			name:    "test 2",
 			rpcFelt: "0x048636a22c6c74f5631b00c66ac3c8ab4714aa308ddd214af4089ccdfcee0f81",
 			want:    new(felt.Felt).SetHex("0x048636a22c6c74f5631b00c66ac3c8ab4714aa308ddd214af4089ccdfcee0f81"),
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.rpcFelt.Felt()
-			if !got.Equal(tt.want) {
-				t.Fatalf("RpcFelt.Felt() = %v, want %v", got, tt.want)
-			}
-		})
+		assert.Check(t, tt.rpcFelt.Felt().Equal(tt.want))
 	}
 }
