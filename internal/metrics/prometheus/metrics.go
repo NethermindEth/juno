@@ -63,6 +63,7 @@ func IncreaseRequestsSent() {
 // Keeps a track of the total number of requests is sent
 // Is called whenever the function do in feeder.go is called
 func IncreaseRequestsFailed() {
+	// notest
 	noOfRequests.WithLabelValues("Failed", "Total").Inc()
 }
 
@@ -73,6 +74,7 @@ func IncreaseABISent() {
 
 // This increases when the request in GetCode in feeder.go fails
 func IncreaseABIFailed() {
+	// notest
 	noOfABI.WithLabelValues("Failed").Inc()
 }
 

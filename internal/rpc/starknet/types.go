@@ -55,6 +55,9 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
+		if value < 0 {
+			return ErrInvalidBlockId
+		}
 		id.idType = blockIdNumber
 		id.value = value
 	case string:
@@ -172,14 +175,12 @@ func NewTxn(tx types.IsTransaction) (Txn, error) {
 }
 
 type CommonTxnProperties struct {
-	TxnHash          string   `json:"txn_hash"`
-	MaxFee           string   `json:"max_fee"`
-	Version          string   `json:"version"`
-	Signature        []string `json:"signature"`
-	Status           string   `json:"status"`
-	TransactionIndex string   `json:"transaction_index"`
-	Nonce            string   `json:"nonce"`
-	Type             string   `json:"type"`
+	TxnHash   string   `json:"txn_hash"`
+	MaxFee    string   `json:"max_fee"`
+	Version   string   `json:"version"`
+	Signature []string `json:"signature"`
+	Nonce     string   `json:"nonce"`
+	Type      string   `json:"type"`
 }
 
 type FunctionCall struct {
@@ -251,7 +252,10 @@ func (*DeclareTxn) isTxn() {}
 type DeployTxn struct {
 	TxnHash             string   `json:"txn_hash"`
 	ClassHash           string   `json:"class_hash"`
+	Version             string   `json:"version"`
+	Type                string   `json:"type"`
 	ContractAddress     string   `json:"contract_address"`
+	ContractAddressSalt string   `json:"contract_address_salt"`
 	ConstructorCalldata []string `json:"constructor_calldata"`
 }
 
@@ -263,7 +267,10 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 	return &DeployTxn{
 		TxnHash:             txn.Hash.Hex0x(),
 		ClassHash:           txn.ClassHash.Hex0x(),
+		Version:             "0x0", // XXX: hardcoded version for now
+		Type:                "DEPLOY",
 		ContractAddress:     txn.ContractAddress.Hex0x(),
+		ContractAddressSalt: txn.ContractAddressSalt.Hex0x(),
 		ConstructorCalldata: callData,
 	}
 }
@@ -446,4 +453,40 @@ type SyncStatus struct {
 	CurrentBlockNumber  string `json:"current_block_number"`
 	HighestBlockHash    string `json:"highest_block_hash"`
 	HighestBlockNumber  string `json:"highest_block_number"`
+}
+
+type StorageKey string
+
+func (s *StorageKey) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	if !isStorageKey(str) {
+		return errors.New("invalid storage key")
+	}
+	*s = StorageKey(str)
+	return nil
+}
+
+func (s *StorageKey) Felt() *felt.Felt {
+	return new(felt.Felt).SetHex(string(*s))
+}
+
+type RpcFelt string
+
+func (r *RpcFelt) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	if !isFelt(str) {
+		return errors.New("invalid felt")
+	}
+	*r = RpcFelt(str)
+	return nil
+}
+
+func (r *RpcFelt) Felt() *felt.Felt {
+	return new(felt.Felt).SetHex(string(*r))
 }

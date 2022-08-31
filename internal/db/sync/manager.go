@@ -49,6 +49,7 @@ func (m *Manager) L2ChainLength() (uint64, error) {
 	return binary.BigEndian.Uint64(chainLengthBytes), nil
 }
 
+// Close closes the Manager.
 func (m *Manager) Close() {
 	m.database.Close()
 }

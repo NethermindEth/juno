@@ -43,3 +43,10 @@ type RpcError struct {
 func (err *RpcError) Error() string {
 	return err.Message
 }
+
+func NewInternalError(message string) *RpcError {
+	return &RpcError{
+		Code:    internalErrorCode,
+		Message: message,
+	}
+}
