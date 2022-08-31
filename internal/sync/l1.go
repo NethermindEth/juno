@@ -19,16 +19,16 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
-type ContractInfo struct {
+type ContractConfig struct {
 	address         ethcommon.Address
 	deploymentBlock uint64
 }
 
 // TODO this should probably be in the config package
-type L1ChainInfo struct {
-	starknet               ContractInfo
-	gpsStatementVerifier   ContractInfo
-	memoryPageFactRegistry ContractInfo
+type L1ChainConfig struct {
+	starknet               ContractConfig
+	gpsStatementVerifier   ContractConfig
+	memoryPageFactRegistry ContractConfig
 }
 
 type l1Reader interface {
@@ -58,7 +58,7 @@ type L1SyncService struct {
 	queue *StateUpdateQueue
 }
 
-func NewL1SyncService(chain L1ChainInfo, backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
+func NewL1SyncService(chain L1ChainConfig, backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
 	starknet, err := contracts.NewStarknetContract(chain.starknet.address, chain.starknet.deploymentBlock, backend)
 	if err != nil {
 		return nil, err
@@ -87,16 +87,16 @@ func NewL1SyncService(chain L1ChainInfo, backend L1Backend, syncManager *syncdb.
 // TODO get more accurate deployment blocks
 
 func NewMainnetL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
-	chain := L1ChainInfo{
-		starknet: ContractInfo{
+	chain := L1ChainConfig{
+		starknet: ContractConfig{
 			address:         ethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
 			deploymentBlock: 13617000,
 		},
-		gpsStatementVerifier: ContractInfo{
+		gpsStatementVerifier: ContractConfig{
 			address:         ethcommon.HexToAddress("0xa739b175325cca7b71fcb51c3032935ef7ac338f"),
 			deploymentBlock: 0,
 		},
-		memoryPageFactRegistry: ContractInfo{
+		memoryPageFactRegistry: ContractConfig{
 			address:         ethcommon.HexToAddress("0x96375087b2f6efc59e5e0dd5111b4d090ebfdd8b"),
 			deploymentBlock: 0,
 		},
@@ -105,16 +105,16 @@ func NewMainnetL1SyncService(backend L1Backend, syncManager *syncdb.Manager, sta
 }
 
 func NewGoerliL1SyncService(backend L1Backend, syncManager *syncdb.Manager, stateManager state.StateManager) (*L1SyncService, error) {
-	chain := L1ChainInfo{
-		starknet: ContractInfo{
+	chain := L1ChainConfig{
+		starknet: ContractConfig{
 			address:         ethcommon.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 			deploymentBlock: 5840000,
 		},
-		gpsStatementVerifier: ContractInfo{
+		gpsStatementVerifier: ContractConfig{
 			address:         ethcommon.HexToAddress("0x5ef3c980bf970fce5bbc217835743ea9f0388f4f"),
 			deploymentBlock: 0,
 		},
-		memoryPageFactRegistry: ContractInfo{
+		memoryPageFactRegistry: ContractConfig{
 			address:         ethcommon.HexToAddress("0x743789ff2ff82bfb907009c9911a7da636d34fa7"),
 			deploymentBlock: 0,
 		},
@@ -140,17 +140,17 @@ func (s *L1SyncService) Close() error {
 }
 
 func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUpdate) error {
-	logStateTransitionFact, err := s.findLogStateTransitionFact(logStateUpdate)
+	logStateTransitionFact, err := s.findLogStateTransitionFact(logStateUpdate.Raw.BlockNumber, logStateUpdate.Raw.TxHash)
 	if err != nil {
 		return err
 	}
 
-	logMemoryPagesHashes, err := s.findLogMemoryPagesHashes(logStateTransitionFact)
+	pagesHashes, blockNum, err := s.findLogMemoryPagesHashes(logStateTransitionFact.Raw.BlockNumber, logStateTransitionFact.StateTransitionFact, 500)
 	if err != nil {
 		return err
 	}
 
-	logMemoryPageFactContinuouses, err := s.findLogMemoryPageFactContinuouses(logMemoryPagesHashes)
+	logMemoryPageFactContinuouses, err := s.findLogMemoryPageFactContinuouses(blockNum, pagesHashes)
 	if err != nil {
 		return err
 	}
@@ -186,10 +186,10 @@ func (s *L1SyncService) updateState(logStateUpdate *contracts.StarknetLogStateUp
 	return s.commit(update)
 }
 
-func (s *L1SyncService) findLogStateTransitionFact(logStateUpdate *contracts.StarknetLogStateUpdate) (*contracts.StarknetLogStateTransitionFact, error) {
+func (s *L1SyncService) findLogStateTransitionFact(blockNumber uint64, txHash ethcommon.Hash) (*contracts.StarknetLogStateTransitionFact, error) {
 	opts := &bind.FilterOpts{
-		Start: logStateUpdate.Raw.BlockNumber,
-		End:   &logStateUpdate.Raw.BlockNumber,
+		Start: blockNumber,
+		End:   &blockNumber,
 	}
 	iterator, err := s.starknet.FilterLogStateTransitionFact(opts)
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *L1SyncService) findLogStateTransitionFact(logStateUpdate *contracts.Sta
 	}
 	var logStateTransitionFact *contracts.StarknetLogStateTransitionFact
 	for iterator.Next() {
-		if iterator.Event.Raw.TxHash == logStateUpdate.Raw.TxHash {
+		if iterator.Event.Raw.TxHash == txHash {
 			logStateTransitionFact = iterator.Event
 		}
 	}
@@ -208,45 +208,60 @@ func (s *L1SyncService) findLogStateTransitionFact(logStateUpdate *contracts.Sta
 	return logStateTransitionFact, nil
 }
 
-func (s *L1SyncService) findLogMemoryPagesHashes(logStateTransitionFact *contracts.StarknetLogStateTransitionFact) (*contracts.GpsStatementVerifierLogMemoryPagesHashes, error) {
-	step := uint64(500)
-	for start, end := logStateTransitionFact.Raw.BlockNumber-step, logStateTransitionFact.Raw.BlockNumber; start >= s.gpsStatementVerifier.DeploymentBlock; start, end = start-step, start {
+func (s *L1SyncService) findLogMemoryPagesHashes(startBlockNumber uint64, fact ethcommon.Hash, step uint64) ([][32]byte, uint64, error) {
+	start := startBlockNumber
+	end := startBlockNumber + step
+	for {
 		opts := &bind.FilterOpts{
 			Start: start,
 			End:   &end,
 		}
+
 		iterator, err := s.gpsStatementVerifier.FilterLogMemoryPagesHashes(opts)
 		if err != nil {
-			return nil, err
+			// TODO deal with rate limiting here
+			return nil, 0, err
 		}
 
-		fact := ethcommon.BytesToHash(logStateTransitionFact.StateTransitionFact[:])
 		for iterator.Next() {
-			if ethcommon.BytesToHash(iterator.Event.FactHash[:]).Big().Cmp(fact.Big()) == 0 {
-				return iterator.Event, nil
+			hash := ethcommon.Hash(iterator.Event.FactHash)
+			if hash.Big().Cmp(fact.Big()) == 0 {
+				return iterator.Event.PagesHashes, iterator.Event.Raw.BlockNumber, nil
 			}
+		}
+
+		// We have filtered all of the logs from this contract
+		if start == s.gpsStatementVerifier.DeploymentBlock {
+			break
+		}
+
+		end = start
+		if start < step {
+			// Avoid underflows in case start-step < 0
+			start = 0
+		} else {
+			start -= step
 		}
 	}
 
-	return nil, errors.New("could not find LogMemoryPagesHashes for LogStateTransitionFact")
+	return nil, 0, errors.New("could not find LogMemoryPagesHashes for LogStateTransitionFact")
 }
 
-func (s *L1SyncService) findLogMemoryPageFactContinuouses(logMemoryPagesHashes *contracts.GpsStatementVerifierLogMemoryPagesHashes) ([]*contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, error) {
+func (s *L1SyncService) findLogMemoryPageFactContinuouses(startBlockNumber uint64, pagesHashes [][32]byte) ([]*contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, error) {
 	// When geth can search for logs in reverse chronological order this will be far easier
 	// See https://github.com/ethereum/go-ethereum/issues/20593
-
-	pagesHashes := logMemoryPagesHashes.PagesHashes
 
 	numberOfLogsFound := 0
 	continuousMemoryPageLogs := make([]*contracts.MemoryPageFactRegistryLogMemoryPageFactContinuous, len(pagesHashes))
 	step := uint64(500)
-	for start, end := logMemoryPagesHashes.Raw.BlockNumber-step, logMemoryPagesHashes.Raw.BlockNumber; start >= s.memoryPageFactRegistry.DeploymentBlock && numberOfLogsFound != len(pagesHashes); start, end = start-step, start {
+	for start, end := startBlockNumber-step, startBlockNumber; start >= s.memoryPageFactRegistry.DeploymentBlock && numberOfLogsFound != len(pagesHashes); start, end = start-step, start {
 		opts := &bind.FilterOpts{
 			Start: start,
 			End:   &end,
 		}
 		iterator, err := s.memoryPageFactRegistry.FilterLogMemoryPageFactContinuous(opts)
 		if err != nil {
+			// TODO deal with rate limiting here
 			return nil, err
 		}
 
@@ -312,7 +327,8 @@ func (s *L1SyncService) getLogStateUpdates(sink chan *contracts.StarknetLogState
 
 		iterator, err := s.starknet.FilterLogStateUpdate(opts)
 		if err != nil {
-			errChan <- err // TODO can we recover
+			// TODO handle rate limiting here
+			errChan <- err
 			return
 		}
 
@@ -321,7 +337,7 @@ func (s *L1SyncService) getLogStateUpdates(sink chan *contracts.StarknetLogState
 		}
 
 		if err = iterator.Close(); err != nil {
-			errChan <- err // TODO can we recover
+			errChan <- err
 			return
 		}
 
