@@ -187,7 +187,7 @@ func juno(cfg *config.Juno) {
 	setupLogger(&cfg.Log)
 	setupInterruptHandler(cfg)
 	setupDatabase(&cfg.Database)
-	feederClient := setupFeederGateway(&cfg.Sync)
+	// feederClient := setupFeederGateway(&cfg.Sync)
 	virtualMachine = cairovm.New(stateManager)
 
 	errChs := make([]chan error, 0)
