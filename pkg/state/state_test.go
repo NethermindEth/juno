@@ -127,9 +127,9 @@ func TestStateFromStateDiffs(t *testing.T) {
 	stateTest := state.New(newTestStateManager(t), new(felt.Felt))
 	for addr, diff := range addresses {
 		addr := new(felt.Felt).SetHex(addr)
-		slots := make([]state.Slot, len(diff))
-		for i, slot := range diff {
-			slots[i] = state.Slot{Key: new(felt.Felt).SetHex(slot.key), Value: new(felt.Felt).SetHex(slot.val)}
+		slots := make([]state.Slot, 0, len(diff))
+		for _, slot := range diff {
+			slots = append(slots, state.Slot{Key: new(felt.Felt).SetHex(slot.key), Value: new(felt.Felt).SetHex(slot.val)})
 		}
 		if err := stateTest.SetSlots(addr, slots); err != nil {
 			t.Fatal(err)

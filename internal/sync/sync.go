@@ -200,9 +200,9 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 	}
 
 	for contractAddress, memoryCells := range collectedDiff.stateDiff.StorageDiff {
-		slots := make([]state.Slot, len(memoryCells))
-		for i, cell := range memoryCells {
-			slots[i] = state.Slot{Key: cell.Address, Value: cell.Value}
+		slots := make([]state.Slot, 0, len(memoryCells))
+		for _, cell := range memoryCells {
+			slots = append(slots, state.Slot{Key: cell.Address, Value: cell.Value})
 		}
 		if err := s.state.SetSlots(new(felt.Felt).SetString(contractAddress), slots); err != nil {
 			return err
