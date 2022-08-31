@@ -135,7 +135,7 @@ func (n *Node) Run() error {
 
 	n.feederClient = feeder.NewClient(n.cfg.Network.URL(), feederGatewaySuffix, nil)
 	n.virtualMachine = cairovm.New(n.stateManager)
-	n.syncService, err = syncer.NewSyncService(n.cfg.Network.String(), n.cfg.EthNode, n.cfg.Network.URL(), n.syncManager, n.stateManager)
+	n.syncService, err = syncer.NewSyncService(n.cfg.Network, n.cfg.EthNode, n.cfg.Network.URL(), n.syncManager, n.stateManager)
 	if err != nil {
 		return err
 	}
@@ -163,15 +163,11 @@ func (n *Node) Run() error {
 	if err != nil {
 		return err
 	}
-	n.syncService.Run(syncErrCh)
+	n.syncService.Run(syncErrCh) // TODO check the error channel asynchronously
 	// n.rpcServer.ListenAndServe(rpcErrCh)
 
 	if n.metricsServer != nil {
 		n.metricsServer.ListenAndServe(metricsErrCh)
-	}
-
-	if err = <-syncErrCh; err != nil {
-		return err
 	}
 
 	//if err = <-rpcErrCh; err != nil {

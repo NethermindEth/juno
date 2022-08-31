@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	syncdb "github.com/NethermindEth/juno/internal/db/sync"
+	"github.com/NethermindEth/juno/internal/utils"
 	"github.com/NethermindEth/juno/pkg/feeder"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -24,7 +25,7 @@ type SyncService struct {
 	l2 Syncer
 }
 
-func NewSyncService(network, nodeUrl, feederUrl string, syncManager *syncdb.Manager, stateManager state.StateManager) (*SyncService, error) {
+func NewSyncService(network utils.Network, nodeUrl, feederUrl string, syncManager *syncdb.Manager, stateManager state.StateManager) (*SyncService, error) {
 	feederClient := feeder.NewClient(feederUrl, "/feeder_gateway", nil)
 	l1Client, err := ethclient.Dial(nodeUrl)
 	if err != nil {
@@ -32,7 +33,7 @@ func NewSyncService(network, nodeUrl, feederUrl string, syncManager *syncdb.Mana
 	}
 
 	// Mainnet
-	if network == "mainnet" {
+	if network == utils.MAINNET {
 		l1, err := NewMainnetL1SyncService(l1Client, syncManager, stateManager)
 		if err != nil {
 			return nil, err

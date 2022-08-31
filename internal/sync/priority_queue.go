@@ -70,5 +70,5 @@ func (pq *StateUpdateQueue) Pop() any {
 }
 
 func (pq *StateUpdateQueue) Peek() any {
-	return pq.items[0]
+	return pq.items[0].value
 }
