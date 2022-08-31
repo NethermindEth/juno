@@ -38,8 +38,8 @@ func (id *BlockId) tag() (string, bool) {
 }
 
 func (id *BlockId) number() (uint64, bool) {
-	n, ok := id.value.(int64)
-	return uint64(n), ok
+	n, ok := id.value.(uint64)
+	return n, ok
 }
 
 func (id *BlockId) UnmarshalJSON(data []byte) error {
@@ -56,7 +56,7 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 			return ErrInvalidBlockId
 		}
 		id.idType = blockIdNumber
-		id.value = value
+		id.value = uint64(value)
 	case string:
 		if isBlockTag(t) {
 			id.idType = blockIdTag

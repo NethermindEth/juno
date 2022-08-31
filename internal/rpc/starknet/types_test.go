@@ -53,7 +53,7 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 			name: "zero number",
 			data: []byte(`0`),
 			want: BlockId{
-				value:  int64(0),
+				value:  uint64(0),
 				idType: blockIdNumber,
 			},
 			err: nil,
@@ -62,7 +62,7 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 			name: "positive number",
 			data: []byte(`1`),
 			want: BlockId{
-				value:  int64(1),
+				value:  uint64(1),
 				idType: blockIdNumber,
 			},
 			err: nil,
@@ -128,7 +128,7 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 				case blockIdTag:
 					return x.value.(string) == y.value.(string)
 				case blockIdNumber:
-					return x.value.(int64) == y.value.(int64)
+					return x.value.(uint64) == y.value.(uint64)
 				default:
 					return false
 				}
