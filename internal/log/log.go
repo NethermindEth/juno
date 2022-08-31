@@ -23,7 +23,7 @@ func SetGlobalLogger(verbosityLevel string) error {
 
 	// Timestamp format (ISO8601) and time zone (UTC)
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.UTC().Format("2006-01-02T15:04:05Z0700"))
+		enc.AppendString(t.Local().Format(time.ANSIC))
 	}
 
 	logLevel, err := zapcore.ParseLevel(verbosityLevel)
