@@ -1,13 +1,21 @@
 package state
 
 import (
+	"bytes"
+	"compress/gzip"
+	b64 "encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
+
+type Program struct {
+	EncodedProgram string `json:"compressedProgram"`
+}
 
 func (m *Manager) GetContractState(hash *felt.Felt) (*state.ContractState, error) {
 	raw, err := m.stateDatabase.Get(hash.ByteSlice())
@@ -60,8 +68,34 @@ func (m *Manager) GetContract(contractHash *felt.Felt) (*types.Contract, error) 
 }
 
 func (x *Manager) PutContract(contractHash *felt.Felt, contract *types.Contract) error {
+	fullDef := contract.FullDef
+	var fullDefMap map[string]interface{}
+	if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
+		return err
+	}
+
+	program := fullDefMap["program"]
+	var c bytes.Buffer
+	gz := gzip.NewWriter(&c)
+	if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
+		return err
+	}
+	if err := gz.Close(); err != nil {
+		return err
+	}
+
+	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
+	var jsonProgram Program
+	jsonProgram.EncodedProgram = encodedProgram
+	fullDefMap["program"] = jsonProgram
+
+	compressedFullDef, err := json.Marshal(fullDefMap)
+	if err != nil {
+		return err
+	}
+
 	codeDefinition := CodeDefinition{
-		Definition: string(contract.FullDef),
+		Definition: string(compressedFullDef),
 	}
 	rawData, err := proto.Marshal(&codeDefinition)
 	if err != nil {
