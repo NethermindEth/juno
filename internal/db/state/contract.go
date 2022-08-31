@@ -70,32 +70,36 @@ func (m *Manager) GetContract(contractHash *felt.Felt) (*types.Contract, error) 
 func (x *Manager) PutContract(contractHash *felt.Felt, contract *types.Contract) error {
 	fullDef := contract.FullDef
 	var fullDefMap map[string]interface{}
-	if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
-		return err
-	}
+	if len(fullDef) > 0 {
+		if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
+			return err
+		}
 
-	program := fullDefMap["program"]
-	var c bytes.Buffer
-	gz := gzip.NewWriter(&c)
-	if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
-		return err
-	}
-	if err := gz.Close(); err != nil {
-		return err
-	}
+		program := fullDefMap["program"]
+		var c bytes.Buffer
+		gz := gzip.NewWriter(&c)
+		if _, err := gz.Write([]byte(fmt.Sprintf("%v", program))); err != nil {
+			return err
+		}
+		if err := gz.Close(); err != nil {
+			return err
+		}
 
-	encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
-	var jsonProgram Program
-	jsonProgram.EncodedProgram = encodedProgram
-	fullDefMap["program"] = jsonProgram
+		encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
+		var jsonProgram Program
+		jsonProgram.EncodedProgram = encodedProgram
+		fullDefMap["program"] = jsonProgram
 
-	compressedFullDef, err := json.Marshal(fullDefMap)
-	if err != nil {
-		return err
+		compressedFullDef, err := json.Marshal(fullDefMap)
+		if err != nil {
+			return err
+		}
+
+		fullDef = compressedFullDef
 	}
 
 	codeDefinition := CodeDefinition{
-		Definition: string(compressedFullDef),
+		Definition: string(fullDef),
 	}
 	rawData, err := proto.Marshal(&codeDefinition)
 	if err != nil {
