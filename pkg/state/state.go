@@ -126,17 +126,19 @@ func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractCla
 	}
 
 	fullDef := contract.FullDef
-	var fullDefMap map[string]interface{}
-	if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
-		return nil, err
+	if len(fullDef) > 0 {
+		var fullDefMap map[string]interface{}
+		if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
+			return nil, err
+		}
+
+		program := fullDefMap["program"]
+		entryPointsByType := fullDefMap["entry_points_by_type"]
+		return &types.ContractClass{
+			Program:           program,
+			EntryPointsByType: entryPointsByType,
+		}, nil
 	}
 
-	program := fullDefMap["program"]
-	entryPointsByType := fullDefMap["entry_points_by_type"]
-	contractClass := &types.ContractClass{
-		Program:           program,
-		EntryPointsByType: entryPointsByType,
-	}
-
-	return contractClass, nil
+	return nil, nil
 }
