@@ -226,19 +226,13 @@ func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
 		return nil, err
 	}
 	if receipt := protoReceipt.GetInvoke(); receipt != nil {
-		var messagesSent []*types.MsgToL1 = nil
-		if len(receipt.MessagesSent) > 0 {
-			messagesSent = make([]*types.MsgToL1, len(receipt.MessagesSent))
-			for i, msg := range receipt.MessagesSent {
-				messagesSent[i] = unmarshalMessageL2ToL1(msg)
-			}
+		messagesSent := make([]*types.MsgToL1, len(receipt.MessagesSent))
+		for i, msg := range receipt.MessagesSent {
+			messagesSent[i] = unmarshalMessageL2ToL1(msg)
 		}
-		var events []*types.Event = nil
-		if len(receipt.Events) > 0 {
-			events = make([]*types.Event, len(receipt.Events))
-			for i, event := range receipt.Events {
-				events[i] = unmarshalEvent(event)
-			}
+		events := make([]*types.Event, len(receipt.Events))
+		for i, event := range receipt.Events {
+			events[i] = unmarshalEvent(event)
 		}
 		return &types.TxnInvokeReceipt{
 			TxnReceiptCommon: types.TxnReceiptCommon{
