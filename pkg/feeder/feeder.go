@@ -54,14 +54,13 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	// retry mechanism for do requests
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient) (*http.Response, error) {
 		var res *http.Response
-		wait := 5 * time.Second
-		for i := 0; i < 10; i++ {
+		wait := 2 * time.Second
+		for {
 			res, err = httpClient.Do(req)
-			if err != nil || res.StatusCode != http.StatusOK {
-				Logger.With("Error", err, "StatusCode", res.StatusCode).Debug("Error connecting to the gateway.")
-				Logger.With("Waiting:", wait.Seconds()).Info("Waiting to do again a request")
+			if err != nil || res == nil || res.StatusCode != http.StatusOK {
+				wait *= 2
+				Logger.With("Waiting:", wait.Seconds(), "Error", err).Info("Waiting to do again a request")
 				time.Sleep(wait)
-				wait = wait * 2
 				continue
 			}
 			if res.StatusCode == http.StatusOK {
@@ -197,7 +196,7 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
 	metr.IncreaseABISent()
-	res, err := (*c.httpClient).Do(req)
+	res, err := c.retryFuncForDoReq(req, *c.httpClient)
 	if err != nil {
 		metr.IncreaseABIFailed()
 		return nil, err
