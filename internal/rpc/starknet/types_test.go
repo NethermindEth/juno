@@ -3,12 +3,9 @@ package starknet
 import (
 	"errors"
 	"io"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/felt"
-	gocmp "github.com/google/go-cmp/cmp"
-
 	"gotest.tools/assert"
 )
 
@@ -113,26 +110,7 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 			if err := got.UnmarshalJSON(tt.data); !errors.Is(err, tt.err) {
 				t.Errorf("BlockId.UnmarshalJSON() = %v, want %v", err, tt.err)
 			}
-			assert.DeepEqual(t, got, tt.want, gocmp.Comparer(func(x, y BlockId) bool {
-				xv := reflect.ValueOf(x)
-				yv := reflect.ValueOf(y)
-				if xv.IsZero() || yv.IsZero() {
-					return xv.IsZero() && yv.IsZero()
-				}
-				if x.idType != y.idType {
-					return false
-				}
-				switch x.idType {
-				case blockIdHash:
-					return x.value.(*felt.Felt).Equal(y.value.(*felt.Felt))
-				case blockIdTag:
-					return x.value.(string) == y.value.(string)
-				case blockIdNumber:
-					return x.value.(uint64) == y.value.(uint64)
-				default:
-					return false
-				}
-			}))
+			assert.DeepEqual(t, got, tt.want)
 		})
 	}
 }

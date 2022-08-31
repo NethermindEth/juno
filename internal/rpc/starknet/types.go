@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"reflect"
 
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
@@ -73,6 +74,27 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 		return ErrInvalidBlockId
 	}
 	return nil
+}
+
+func (id BlockId) Equal(other BlockId) bool {
+	xv := reflect.ValueOf(id)
+	yv := reflect.ValueOf(other)
+	if xv.IsZero() || yv.IsZero() {
+		return xv.IsZero() && yv.IsZero()
+	}
+	if id.idType != other.idType {
+		return false
+	}
+	switch id.idType {
+	case blockIdHash:
+		return id.value.(*felt.Felt).Equal(other.value.(*felt.Felt))
+	case blockIdTag:
+		return id.value.(string) == other.value.(string)
+	case blockIdNumber:
+		return id.value.(uint64) == other.value.(uint64)
+	default:
+		return false
+	}
 }
 
 type BlockBodyWithTxHashes struct {
