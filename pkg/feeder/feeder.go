@@ -61,9 +61,8 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		maxWait := 32 * time.Second
 		for i := 1; i <= 10; i++ {
 			res, err = httpClient.Do(req)
-			if err != nil || res.StatusCode != http.StatusOK {
-				Logger.With("Error", err, "StatusCode", res.StatusCode).Debug("Error connecting to the gateway.")
-				Logger.With("Waiting:", wait.Seconds()).Info("Waiting to do again a request")
+			if err != nil || res == nil || res.StatusCode != http.StatusOK {
+				Logger.With("Waiting:", wait.Seconds(), "Error", err).Info("Waiting to do again a request")
 				time.Sleep(wait)
 				x := time.Duration(math.Pow(2, float64(i)))*time.Second + time.Duration(rand.Intn(1000))*time.Millisecond
 				wait = minDuration(x, maxWait)
@@ -209,7 +208,7 @@ func (c *Client) do(req *http.Request, v any) (*http.Response, error) {
 // otherwise. de-Marshals response into appropriate ByteCode and ABI structs.
 func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, error) {
 	metr.IncreaseABISent()
-	res, err := (*c.httpClient).Do(req)
+	res, err := c.retryFuncForDoReq(req, *c.httpClient)
 	if err != nil {
 		metr.IncreaseABIFailed()
 		return nil, err

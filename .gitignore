@@ -5,8 +5,8 @@
 build/
 coverage/*
 courtney/
-.idea/
 __pycache__/
+config/
 
 # pyenv
 .python-version
