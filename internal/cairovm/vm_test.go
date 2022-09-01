@@ -57,7 +57,7 @@ func TestVMCall(t *testing.T) {
 	// be restarted.
 	time.Sleep(time.Second * 3)
 
-	state := state.New(vm.manager, trie.EmptyNode.Hash())
+	stateTest := state.New(vm.manager, trie.EmptyNode.Hash())
 	b, _ := new(big.Int).SetString("2483955865838519930787573649413589905962103032695051953168137837593959392116", 10)
 	address := new(felt.Felt).SetBigInt(b)
 	hash := new(felt.Felt).SetHex("0x050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b")
@@ -65,15 +65,18 @@ func TestVMCall(t *testing.T) {
 	if err := json.Unmarshal(testContract, &contract); err != nil {
 		t.Fatal(err)
 	}
-	state.SetContract(address, hash, &contract)
+	stateTest.SetContract(address, hash, &contract)
 	slot := new(felt.Felt).SetHex("0x84")
 	value := new(felt.Felt).SetHex("0x3")
-	state.SetSlot(address, slot, value)
+	stateTest.SetSlots(address, []state.Slot{{
+		Key:   slot,
+		Value: value,
+	}})
 
 	ret, err := vm.Call(
 		context.Background(),
 		// State
-		state,
+		stateTest,
 		// Calldata.
 		[]*felt.Felt{slot},
 		// Caller's address.
