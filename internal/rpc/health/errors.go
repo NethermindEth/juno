@@ -10,16 +10,16 @@ func (s Error) Error() string {
 }
 
 var (
-	NodeNotSyncing = Error{
+	ErrorNodeNotSyncing = Error{
 		Code:    10,
 		Message: "Node is not syncing",
 	}
-	VMNotRunning = Error{
-		Code:    20,
+	ErrorVMNotRunning = Error{
+		Code:    11,
 		Message: "Cairo VM is not running",
 	}
-	UnHealthy = Error{
-		Code:    30,
+	ErrorUnHealthy = Error{
+		Code:    12,
 		Message: "Node is not healthy",
 	}
 )

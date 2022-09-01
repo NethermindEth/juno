@@ -51,10 +51,10 @@ func (r *Rpc) NodeStatus() (any, error) {
 		}, nil
 	}
 	if !r.synchronizer.Running {
-		return nil, NodeNotSyncing
+		return nil, ErrorNodeNotSyncing
 	}
 	if !r.vm.Running() {
-		return nil, VMNotRunning
+		return nil, ErrorVMNotRunning
 	}
-	return nil, UnHealthy
+	return nil, ErrorUnHealthy
 }
