@@ -21,7 +21,7 @@ func SetGlobalLogger(verbosityLevel string) error {
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	config.Encoding = "console"
 
-	// Timestamp format (ISO8601) and time zone (UTC)
+	// Timestamp format (ANSIC) and time zone (local)
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format(time.ANSIC))
 	}
