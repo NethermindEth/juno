@@ -142,8 +142,10 @@ func (s *Synchronizer) sync() error {
 		}
 		prometheus.IncreaseCountStarknetStateSuccess()
 		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
-		s.syncManager.StoreStateDiff(collectedDiff.stateDiff)
 		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
+		if err := s.syncManager.StoreStateUpdate(collectedDiff.stateDiff, collectedDiff.stateDiff.BlockHash); err != nil {
+			return err
+		}
 		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
 			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
 		}
@@ -204,7 +206,7 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 		for _, cell := range memoryCells {
 			slots = append(slots, state.Slot{Key: cell.Address, Value: cell.Value})
 		}
-		if err := s.state.SetSlots(new(felt.Felt).SetString(contractAddress), slots); err != nil {
+		if err := s.state.SetSlots(&contractAddress, slots); err != nil {
 			return err
 		}
 	}
@@ -229,16 +231,8 @@ func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *t
 	return nil
 }
 
-func (s *Synchronizer) GetStateDiff(blockNumber int64) *types.StateDiff {
-	return s.syncManager.GetStateDiff(blockNumber)
-}
-
-func (s *Synchronizer) GetStateDiffFromHash(blockHash *felt.Felt) *types.StateDiff {
-	block, err := s.blockManager.GetBlockByHash(blockHash)
-	if err != nil {
-		return nil
-	}
-	return s.syncManager.GetStateDiff(int64(block.BlockNumber))
+func (s *Synchronizer) GetStateDiff(blockHash *felt.Felt) (*types.StateUpdate, error) {
+	return s.syncManager.GetStateUpdate(blockHash)
 }
 
 func (s *Synchronizer) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {

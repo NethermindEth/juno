@@ -258,7 +258,7 @@ func TestParsePages(t *testing.T) {
 		},
 	}
 
-	wantDiff := &types.StateDiff{
+	wantDiff := &types.StateUpdate{
 		DeployedContracts: []types.DeployedContract{
 			{
 				Address:             new(felt.Felt).SetHex("02"),               // Contract address
@@ -267,7 +267,7 @@ func TestParsePages(t *testing.T) {
 			},
 		},
 		StorageDiff: types.StorageDiff{
-			new(felt.Felt).SetHex("3").String(): { // Contract address
+			new(felt.Felt).SetHex("3").Deref(): { // Contract address
 				{
 					Address: new(felt.Felt).SetHex("3"), // Cairo memory address
 					Value:   new(felt.Felt).SetHex("04"),
