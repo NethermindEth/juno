@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
@@ -453,6 +454,17 @@ type SyncStatus struct {
 	CurrentBlockNumber  string `json:"current_block_number"`
 	HighestBlockHash    string `json:"highest_block_hash"`
 	HighestBlockNumber  string `json:"highest_block_number"`
+}
+
+func NewSyncStatus(status *types.SyncStatus) SyncStatus {
+	return SyncStatus{
+		StartingBlockHash:   status.StartingBlockHash.Hex0x(),
+		StartingBlockNumber: fmt.Sprintf("%x", status.StartingBlockNumber),
+		CurrentBlockHash:    status.CurrentBlockHash.Hex0x(),
+		CurrentBlockNumber:  fmt.Sprintf("%x", status.CurrentBlockNumber),
+		HighestBlockHash:    status.HighestBlockHash.Hex0x(),
+		HighestBlockNumber:  fmt.Sprintf("%x", status.HighestBlockNumber),
+	}
 }
 
 type StorageKey string

@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -194,18 +193,18 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 		return nil
 	}
 
-	highestBlockHash := "pending"
-	highestBlockNumber := "pending"
+	highestBlockHash := new(felt.Felt)
+	highestBlockNumber := uint64(0)
 	if s.stateDiffCollector.LatestBlock() != nil {
-		highestBlockHash = s.stateDiffCollector.LatestBlock().BlockHash
-		highestBlockNumber = fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber)
+		highestBlockHash = new(felt.Felt).SetHex(s.stateDiffCollector.LatestBlock().BlockHash)
+		highestBlockNumber = uint64(s.stateDiffCollector.LatestBlock().BlockNumber)
 	}
 
 	return &types.SyncStatus{
-		StartingBlockHash:   startingBlock.BlockHash.Hex0x(),
-		StartingBlockNumber: fmt.Sprintf("%x", startingBlockNumber),
-		CurrentBlockHash:    block.BlockHash.Hex0x(),
-		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
+		StartingBlockHash:   startingBlock.BlockHash,
+		StartingBlockNumber: startingBlockNumber,
+		CurrentBlockHash:    block.BlockHash,
+		CurrentBlockNumber:  block.BlockNumber,
 		HighestBlockHash:    highestBlockHash,
 		HighestBlockNumber:  highestBlockNumber,
 	}

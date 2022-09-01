@@ -15,6 +15,17 @@ type Rpc struct {
 	logger       *zap.SugaredLogger
 }
 
+type SyncStatus struct {
+	CurrentBlockNumber uint64 `json:"current_block_number"`
+	HighestBlockNumber uint64 `json:"highest_block_number"`
+}
+
+type Status struct {
+	Status        string      `json:"status"`
+	Message       string      `json:"message"`
+	SyncingStatus *SyncStatus `json:"syncing_status"`
+}
+
 // New returns a new health rpc service.
 // notest
 func New(synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine) *Rpc {
@@ -29,10 +40,14 @@ func New(synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine) *Rpc {
 // notest
 func (r *Rpc) NodeStatus() (any, error) {
 	if r.synchronizer.Running && r.vm.Running() {
+		status := r.synchronizer.Status()
 		return Status{
-			Status:        "Healthy",
-			Message:       "Node running",
-			SyncingStatus: r.synchronizer.Status(),
+			Status:  "Healthy",
+			Message: "Node running",
+			SyncingStatus: &SyncStatus{
+				CurrentBlockNumber: status.CurrentBlockNumber,
+				HighestBlockNumber: status.HighestBlockNumber,
+			},
 		}, nil
 	}
 	if !r.synchronizer.Running {
