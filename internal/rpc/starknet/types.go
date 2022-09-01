@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"reflect"
 
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
@@ -38,8 +39,8 @@ func (id *BlockId) tag() (string, bool) {
 }
 
 func (id *BlockId) number() (uint64, bool) {
-	n, ok := id.value.(int64)
-	return uint64(n), ok
+	n, ok := id.value.(uint64)
+	return n, ok
 }
 
 func (id *BlockId) UnmarshalJSON(data []byte) error {
@@ -52,14 +53,11 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 	switch t := token.(type) {
 	case json.Number:
 		value, err := t.Int64()
-		if err != nil {
-			return err
-		}
-		if value < 0 {
+		if err != nil || value < 0 {
 			return ErrInvalidBlockId
 		}
 		id.idType = blockIdNumber
-		id.value = value
+		id.value = uint64(value)
 	case string:
 		if isBlockTag(t) {
 			id.idType = blockIdTag
@@ -76,6 +74,27 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 		return ErrInvalidBlockId
 	}
 	return nil
+}
+
+func (id BlockId) Equal(other BlockId) bool {
+	xv := reflect.ValueOf(id)
+	yv := reflect.ValueOf(other)
+	if xv.IsZero() || yv.IsZero() {
+		return xv.IsZero() && yv.IsZero()
+	}
+	if id.idType != other.idType {
+		return false
+	}
+	switch id.idType {
+	case blockIdHash:
+		return id.value.(*felt.Felt).Equal(other.value.(*felt.Felt))
+	case blockIdTag:
+		return id.value.(string) == other.value.(string)
+	case blockIdNumber:
+		return id.value.(uint64) == other.value.(uint64)
+	default:
+		return false
+	}
 }
 
 type BlockBodyWithTxHashes struct {
