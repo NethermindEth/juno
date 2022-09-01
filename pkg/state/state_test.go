@@ -121,16 +121,15 @@ func TestStateFromStateDiffs(t *testing.T) {
 		contractHash = new(felt.Felt).SetHex("10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
-	state := state.New(newTestStateManager(t), new(felt.Felt))
+	stateTest := state.New(newTestStateManager(t), new(felt.Felt))
 	for addr, diff := range addresses {
 		addr := new(felt.Felt).SetHex(addr)
-
+		slots := make([]state.Slot, 0, len(diff))
 		for _, slot := range diff {
-			key := new(felt.Felt).SetHex(slot.key)
-			val := new(felt.Felt).SetHex(slot.val)
-			if err := state.SetSlot(addr, key, val); err != nil {
-				t.Fatal(err)
-			}
+			slots = append(slots, state.Slot{Key: new(felt.Felt).SetHex(slot.key), Value: new(felt.Felt).SetHex(slot.val)})
+		}
+		if err := stateTest.SetSlots(addr, slots); err != nil {
+			t.Fatal(err)
 		}
 
 		if err := state.SetContract(addr, contractHash); err != nil {
@@ -138,7 +137,7 @@ func TestStateFromStateDiffs(t *testing.T) {
 		}
 	}
 
-	got := state.Root()
+	got := stateTest.Root()
 	if !got.Equal(want) {
 		t.Errorf("state.RootHash() = %x, want = %x", got, want)
 	}

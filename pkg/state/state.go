@@ -16,7 +16,7 @@ type State interface {
 	GetContractState(address *felt.Felt) (*ContractState, error)
 	SetContract(address *felt.Felt, hash *felt.Felt) error
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
-	SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) error
+	SetSlots(address *felt.Felt, slots []types.Slot) error
 	GetClassHash(address *felt.Felt) (*felt.Felt, error)
 }
 
@@ -85,6 +85,25 @@ func (st *state) SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) 
 	storage := trie.New(st.manager, contract.StorageRoot, StorageTrieHeight)
 	if err := storage.Put(slot, value); err != nil {
 		return err
+	}
+	contract.StorageRoot = storage.Root()
+	err = st.manager.PutContractState(contract)
+	if err != nil {
+		return err
+	}
+	return st.stateTrie.Put(address, contract.Hash())
+}
+
+func (st *state) SetSlots(address *felt.Felt, slots []types.Slot) error {
+	contract, err := st.GetContractState(address)
+	if err != nil {
+		return err
+	}
+	storage := trie.New(st.manager, contract.StorageRoot, StorageTrieHeight)
+	for _, slot := range slots {
+		if err := storage.Put(slot.Address, slot.Value); err != nil {
+			return err
+		}
 	}
 	contract.StorageRoot = storage.Root()
 	err = st.manager.PutContractState(contract)

@@ -34,8 +34,8 @@ type SyncStatus struct {
 	HighestBlockNumber string `json:"highest_block_number"`
 }
 
-// MemoryCell represents a memory cell in Cairo
-type MemoryCell struct {
+// Slot represents a memory cell in Cairo
+type Slot struct {
 	Address *felt.Felt `json:"key"`
 	Value   *felt.Felt `json:"Value"`
 }
@@ -48,14 +48,15 @@ type DeployedContract struct {
 	ConstructorCallData []*felt.Felt `json:"constructor_call_data"`
 }
 
+type StorageDiff map[felt.Felt][]Slot
+
 // StateDiff Represent the deployed contracts and the storage diffs for those and
 // for the one's already deployed
 type StateDiff struct {
-	StorageDiff       map[string][]MemoryCell `json:"storage_diffs"`
-	DeployedContracts []DeployedContract      `json:"deployed_contracts"`
+	StorageDiff       StorageDiff        `json:"storage_diffs"`
+	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 }
 
-// Implements the heap.Interface interface
 type StateUpdate struct {
 	StateDiff      StateDiff
 	SequenceNumber uint64

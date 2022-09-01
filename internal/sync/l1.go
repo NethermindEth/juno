@@ -402,7 +402,7 @@ func parsePages(pages [][]*big.Int) *types.StateDiff {
 	numContractsUpdate := pagesFlatter[0].Int64()
 	pagesFlatter = pagesFlatter[1:]
 
-	storageDiff := make(map[string][]types.MemoryCell, 0)
+	storageDiff := make(types.StorageDiff, 0)
 
 	// Iterate over all the contracts that had been updated and collect the needed information
 	for i := int64(0); i < numContractsUpdate; i++ {
@@ -414,15 +414,15 @@ func parsePages(pages [][]*big.Int) *types.StateDiff {
 		numStorageUpdates := pagesFlatter[0].Int64()
 		pagesFlatter = pagesFlatter[1:]
 
-		kvs := make([]types.MemoryCell, 0)
+		kvs := make([]types.Slot, 0)
 		for k := int64(0); k < numStorageUpdates; k++ {
-			kvs = append(kvs, types.MemoryCell{
+			kvs = append(kvs, types.Slot{
 				Address: new(felt.Felt).SetBigInt(pagesFlatter[0]),
 				Value:   new(felt.Felt).SetBigInt(pagesFlatter[1]),
 			})
 			pagesFlatter = pagesFlatter[2:]
 		}
-		storageDiff[address.String()] = kvs
+		storageDiff[address.Deref()] = kvs
 	}
 
 	return &types.StateDiff{
@@ -451,12 +451,7 @@ func (s *L1SyncService) commit(newUpdate *types.StateUpdate) error {
 		}
 
 		for contractAddress, memoryCells := range update.StateDiff.StorageDiff {
-			for _, cell := range memoryCells {
-				err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value)
-				if err != nil {
-					return err
-				}
-			}
+			s.state.SetSlots(&contractAddress, memoryCells)
 		}
 
 		if s.state.Root().Cmp(update.NewRoot) == 0 {

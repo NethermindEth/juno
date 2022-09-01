@@ -184,12 +184,14 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) Shutdown() error {
+	log.Logger.Info("Shutting down Juno...")
+	n.virtualMachine.Close()
+	n.syncService.Close()
+
 	n.stateManager.Close()
 	n.transactionManager.Close()
 	n.blockManager.Close()
-	n.stateManager.Close()
-	n.syncService.Close()
-	n.virtualMachine.Close()
+	n.syncManager.Close()
 
 	//if err := n.rpcServer.Close(shutdownTimeout); err != nil {
 	//	return err
