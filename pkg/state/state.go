@@ -140,5 +140,8 @@ func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractCla
 		}, nil
 	}
 
-	return nil, nil
+	return &types.ContractClass{
+		Program:           nil,
+		EntryPointsByType: nil,
+	}, nil
 }
