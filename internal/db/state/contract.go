@@ -90,12 +90,12 @@ func (x *Manager) PutContract(contractHash *felt.Felt, contract *types.Contract)
 		jsonProgram.EncodedProgram = encodedProgram
 		fullDefMap["program"] = jsonProgram
 
-		// compressedFullDef, err := json.Marshal(fullDefMap)
-		// if err != nil {
-		// 	return err
-		// }
+		compressedFullDef, err := json.Marshal(fullDefMap)
+		if err != nil {
+			return err
+		}
 
-		// fullDef = compressedFullDef
+		fullDef = compressedFullDef
 	}
 
 	codeDefinition := CodeDefinition{
