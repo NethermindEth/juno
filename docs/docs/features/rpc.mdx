@@ -44,9 +44,7 @@ The RPC server is configured using the `rpc` section on the configuration file, 
 
 ## Health Check
 
-Health checks are available at the endpoint `health_nodeStatus` and retrieves the status of the node.
-
-### health_nodeStatus
+### juno_healthCheck
 
 Retrieves information of the health of the node.
 
@@ -59,7 +57,7 @@ Retrieves information of the health of the node.
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "health_nodeStatus",
+	"method": "juno_healthCheck",
 	"params": []
 }
 ```
@@ -89,21 +87,9 @@ Retrieves information of the health of the node.
   </TabItem>
 </Tabs>
 
-#### No Healthy endoints
+#### No Healthy endpoints
 
 <Tabs>
-  <TabItem value="list-param" label="Request (List Params)">
-
-```json
-{
-	"jsonrpc": "2.0",
-	"id": 1,
-	"method": "health_nodeStatus",
-	"params": []
-}
-```
-
-  </TabItem>
   <TabItem value="no-sync" label="No Synced">
 
 ```json
