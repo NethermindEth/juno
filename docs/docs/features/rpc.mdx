@@ -71,15 +71,11 @@ Retrieves information of the health of the node.
     "result": {
         "status": "Healthy",
         "message": "Node running",
-        "syncingStatus": {
-            "starting_block_hash": "0x0336912d969aaffcd93f6e236e76ebcffbb1a73a7ae9f5c230ef010b29d3c014",
-            "starting_block_number": "b",
-            "current_block_hash": "0x0336912d969aaffcd93f6e236e76ebcffbb1a73a7ae9f5c230ef010b29d3c014",
-            "current_block_number": "b",
-            "highest_block_hash": "0x122583e830c8053c74d1a79bb401cb772d84011fb18bb1561cb2449a22ec4cd",
-            "highest_block_number": "4d34a"
-	    }
-	},
+        "syncing_status": {
+            "current_block_number": 32,
+            "highest_block_number": 318586
+        }
+    },
     "id": 1
 }
 ```
@@ -110,7 +106,7 @@ Retrieves information of the health of the node.
 {
     "jsonrpc": "2.0",
     "error": {
-        "Code": 20,
+        "Code": 11,
         "Message": "Cairo VM is not running"
     },
     "id": 1
@@ -124,7 +120,7 @@ Retrieves information of the health of the node.
 {
     "jsonrpc": "2.0",
     "error": {
-        "Code": 30,
+        "Code": 12,
         "Message": "Node is not healthy"
     },
     "id": 1
