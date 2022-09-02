@@ -554,5 +554,5 @@ func NewStateUpdate(s *types.StateUpdate) *StateUpdate {
 }
 
 type Status struct {
-	Status string `json:"status"`
+	Status bool `json:"status"`
 }
