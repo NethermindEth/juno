@@ -6,7 +6,7 @@ import (
 )
 
 type CollectorDiff struct {
-	stateDiff *starknetTypes.StateDiff
+	stateDiff *starknetTypes.StateUpdate
 	Code      map[string]*starknetTypes.Contract
 }
 
