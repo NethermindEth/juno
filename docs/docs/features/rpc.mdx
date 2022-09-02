@@ -42,94 +42,6 @@ Or with named params:
 
 The RPC server is configured using the `rpc` section on the configuration file, see the [configuration section](/running/config.mdx).
 
-## Health Check
-
-### juno_healthCheck
-
-Retrieves information of the health of the node.
-
-#### Healthy node response
-
-<Tabs>
-  <TabItem value="list-param" label="Request">
-
-```json
-{
-	"jsonrpc": "2.0",
-	"id": 1,
-	"method": "juno_healthCheck",
-	"params": []
-}
-```
-
-  </TabItem>
-  <TabItem value="response" label="Response">
-
-```json
-{
-    "jsonrpc": "2.0",
-    "result": {
-        "status": "Healthy",
-        "message": "Node running",
-        "syncing_status": {
-            "current_block_number": 32,
-            "highest_block_number": 318586
-        }
-    },
-    "id": 1
-}
-```
-
-  </TabItem>
-</Tabs>
-
-#### No Healthy endpoints
-
-<Tabs>
-  <TabItem value="no-sync" label="No Synced">
-
-```json
-{
-    "jsonrpc": "2.0",
-    "error": {
-        "Code": 10,
-        "Message": "Node is not syncing"
-    },
-    "id": 1
-}
-```
-
-  </TabItem>
-  <TabItem value="no-vm" label="No VM">
-
-```json
-{
-    "jsonrpc": "2.0",
-    "error": {
-        "Code": 11,
-        "Message": "Cairo VM is not running"
-    },
-    "id": 1
-}
-```
-
-  </TabItem>
-  <TabItem value="unknown" label="Unknown">
-
-```json
-{
-    "jsonrpc": "2.0",
-    "error": {
-        "Code": 12,
-        "Message": "Node is not healthy"
-    },
-    "id": 1
-}
-```
-
-  </TabItem>
-</Tabs>
-
 ## Functions
 
 ### starknet_getBlockWithTxHashes
@@ -746,6 +658,40 @@ Retrieves information about the sync process status.
 ```
 
   </TabItem>
+</Tabs>
+
+### starknet_healthCheck
+
+Retrieves information of the health of the node.
+
+#### Healthy node response
+
+<Tabs>
+    <TabItem value="list-param" label="Request">
+
+        ```json
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "juno_healthCheck",
+            "params": []
+        }
+        ```
+
+    </TabItem>
+    <TabItem value="response" label="Response">
+
+        ```json
+        {
+            "jsonrpc": "2.0",
+            "result": {
+            "status": "available",
+        },
+            "id": 1
+        }
+        ```
+
+    </TabItem>
 </Tabs>
 
 ## Types

@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/rpc/health"
-
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
@@ -211,7 +209,6 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 ) (*jsonrpc.JsonRpc, error) {
 	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
 		virtualMachine)
-	healthApi := health.New(synchronizer, virtualMachine)
 
 	jsonRpc := jsonrpc.NewJsonRpc()
 	handlers := []struct {
@@ -237,7 +234,7 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starkNetApi.Syncing, nil},
-		{"juno_healthCheck", healthApi.NodeStatus, nil},
+		{"starknet_healthCheck", starkNetApi.HealthCheck(), nil},
 	}
 	for _, handler := range handlers {
 		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
