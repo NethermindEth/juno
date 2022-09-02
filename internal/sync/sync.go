@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -112,6 +113,7 @@ func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
 
 // Run starts the service.
 func (s *Synchronizer) Run() {
+	s.Running = true
 	go s.updateBlocksInfo()
 	go s.handleSync()
 }
@@ -119,9 +121,7 @@ func (s *Synchronizer) Run() {
 func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
-		s.Running = true
 		if err := s.sync(); err != nil {
-			s.Running = false
 			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
@@ -193,18 +193,18 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 		return nil
 	}
 
-	highestBlockHash := new(felt.Felt)
-	highestBlockNumber := uint64(0)
+	highestBlockHash := "pending"
+	highestBlockNumber := "pending"
 	if s.stateDiffCollector.LatestBlock() != nil {
-		highestBlockHash = new(felt.Felt).SetHex(s.stateDiffCollector.LatestBlock().BlockHash)
-		highestBlockNumber = uint64(s.stateDiffCollector.LatestBlock().BlockNumber)
+		highestBlockHash = s.stateDiffCollector.LatestBlock().BlockHash
+		highestBlockNumber = fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber)
 	}
 
 	return &types.SyncStatus{
-		StartingBlockHash:   startingBlock.BlockHash,
-		StartingBlockNumber: startingBlockNumber,
-		CurrentBlockHash:    block.BlockHash,
-		CurrentBlockNumber:  block.BlockNumber,
+		StartingBlockHash:   startingBlock.BlockHash.Hex0x(),
+		StartingBlockNumber: fmt.Sprintf("%x", startingBlockNumber),
+		CurrentBlockHash:    block.BlockHash.Hex0x(),
+		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
 		HighestBlockHash:    highestBlockHash,
 		HighestBlockNumber:  highestBlockNumber,
 	}
