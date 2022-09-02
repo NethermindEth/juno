@@ -284,9 +284,9 @@ type Receipt interface {
 func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 	switch receipt := receipt.(type) {
 	case *types.TxnInvokeReceipt:
-		messagesSent := make([]*MsgToL1, len(receipt.MessagesSent))
-		for i, msg := range receipt.MessagesSent {
-			messagesSent[i] = NewMsgToL1(msg)
+		messagesSent := make([]*MsgToL1, 0, len(receipt.MessagesSent))
+		for _, msg := range receipt.MessagesSent {
+			messagesSent = append(messagesSent, NewMsgToL1(msg))
 		}
 		events := make([]*Event, len(receipt.Events))
 		for i, e := range receipt.Events {

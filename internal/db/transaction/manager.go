@@ -230,9 +230,9 @@ func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
 		for _, msg := range receipt.MessagesSent {
 			messagesSent = append(messagesSent, unmarshalMessageL2ToL1(msg))
 		}
-		events := make([]*types.Event, len(receipt.Events))
-		for i, event := range receipt.Events {
-			events[i] = unmarshalEvent(event)
+		events := make([]*types.Event, 0, len(receipt.Events))
+		for _, event := range receipt.Events {
+			events = append(events, unmarshalEvent(event))
 		}
 		return &types.TxnInvokeReceipt{
 			TxnReceiptCommon: types.TxnReceiptCommon{

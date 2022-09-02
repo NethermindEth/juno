@@ -427,9 +427,9 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 		}
 		var msgToL2 *types.MsgToL2
 		if receipt.L1ToL2Message != nil {
-			payload := make([]*felt.Felt, len(receipt.L1ToL2Message.Payload))
-			for i, item := range receipt.L1ToL2Message.Payload {
-				payload[i] = new(felt.Felt).SetHex(item)
+			payload := make([]*felt.Felt, 0, len(receipt.L1ToL2Message.Payload))
+			for _, item := range receipt.L1ToL2Message.Payload {
+				payload = append(payload, new(felt.Felt).SetHex(item))
 			}
 			msgToL2 = &types.MsgToL2{
 				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.ToAddress),
