@@ -226,9 +226,9 @@ func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
 		return nil, err
 	}
 	if receipt := protoReceipt.GetInvoke(); receipt != nil {
-		messagesSent := make([]*types.MsgToL1, len(receipt.MessagesSent))
-		for i, msg := range receipt.MessagesSent {
-			messagesSent[i] = unmarshalMessageL2ToL1(msg)
+		messagesSent := make([]*types.MsgToL1, 0, len(receipt.MessagesSent))
+		for _, msg := range receipt.MessagesSent {
+			messagesSent = append(messagesSent, unmarshalMessageL2ToL1(msg))
 		}
 		events := make([]*types.Event, len(receipt.Events))
 		for i, event := range receipt.Events {
