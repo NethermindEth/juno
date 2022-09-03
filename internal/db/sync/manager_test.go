@@ -1,8 +1,9 @@
 package sync_test
 
 import (
-	"reflect"
 	"testing"
+
+	"gotest.tools/assert"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -101,48 +102,49 @@ func TestStateDiff(t *testing.T) {
 	// Create a new database manager.
 	manager := sync.NewManager(syncDatabase)
 
-	stateDiff := &types.StateDiff{
-		StorageDiff: map[string][]types.MemoryCell{
-			"0x0000000000000000000000000000000000000000000000000000000000000002": {
+	stateDiff := &types.StateUpdate{
+		StorageDiff: map[felt.Felt][]types.MemoryCell{
+			new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000002").Deref(): {
 				{
 					Address: new(felt.Felt).SetHex("0x0000000000000000000000000000000000000001"),
 					Value:   new(felt.Felt).SetHex("0x0000000000000000000000000000000000000002"),
 				},
 			},
 		},
-		BlockNumber: 5,
-		NewRoot:     new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000123"),
-		OldRoot:     new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
+		BlockHash: new(felt.Felt).SetHex("0x0123"),
+		NewRoot:   new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000123"),
+		OldRoot:   new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
 		DeployedContracts: []types.DeployedContract{
 			{
 				Address: new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000002"),
 				Hash:    new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000123"),
-				ConstructorCallData: []*felt.Felt{
-					new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000003"),
-					new(felt.Felt).SetHex("0x0000000000000000000000000000000000000000000000000000000000000004"),
-				},
 			},
 		},
+		DeclaredContracts: make([]*felt.Felt, 0),
 	}
 
 	// Store the state diff.
-	manager.StoreStateDiff(stateDiff)
-
-	// Check that the state diff is stored correctly.
-	retrievedStateDiff := manager.GetStateDiff(1)
-
-	// Check that the state diff is stored correctly.
-	if reflect.DeepEqual(retrievedStateDiff, stateDiff) {
-		t.Errorf("State diff was not stored correctly.")
+	if err := manager.StoreStateUpdate(stateDiff, stateDiff.BlockHash); err != nil {
+		t.Error(err)
 	}
 
 	// Check that the state diff is stored correctly.
-	retrievedStateDiff = manager.GetStateDiff(stateDiff.BlockNumber)
+	retrievedStateDiff, err := manager.GetStateUpdate(stateDiff.BlockHash)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// Check that the state diff is stored correctly.
-	if !reflect.DeepEqual(retrievedStateDiff, stateDiff) {
-		t.Errorf("State diff was not stored correctly.")
+	assert.DeepEqual(t, retrievedStateDiff, stateDiff)
+
+	// Check that the state diff is stored correctly.
+	retrievedStateDiff, err = manager.GetStateUpdate(stateDiff.BlockHash)
+	if err != nil {
+		t.Error(err)
 	}
+
+	// Check that the state diff is stored correctly.
+	assert.DeepEqual(t, retrievedStateDiff, stateDiff)
 
 	manager.Close()
 }
