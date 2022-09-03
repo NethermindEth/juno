@@ -42,17 +42,10 @@
 
 - Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang
   [download](https://go.dev/doc/install) page.
-- _For Linux_: You will need to install `clang`:
+- Python 3.7
 
-```shell
-sudo apt -y install clang
-```
-
-You can install `juno` with:
-
-```bash
-go install github.com/NethermindEth/juno/cmd/juno@latest
-```
+For a detailed installation guide, please refer to the [installation guide](https://gojuno.xyz/docs/intro#installing) 
+page.
 
 For details about the configuration you can look at
 the [config file description](https://gojuno.xyz/docs/running/config).

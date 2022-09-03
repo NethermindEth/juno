@@ -23,34 +23,45 @@ For the latest on the project, check out our [Github repo](https://github.com/Ne
 
 The disk space issues are currently work in progress, and will be addressed in an upcoming new release.
 
-## Main Features
+## 🎯 Features
+
 - [Get and Sync state from Layer 1](https://gojuno.xyz/docs/features/sync) (Ethereum).
 - [Get and Sync state from API](https://gojuno.xyz/docs/features/sync) (Feeder Gateway).
 - Store [StarkNet State](https://gojuno.xyz/docs/features/sync) locally.
 - Store StarkNet Transactions.
 - Store StarkNet Blocks.
-- Store the ABI of StarkNet contracts.
+- Store the ABI and full Code of StarkNet contracts.
 - Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
-[this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json).
-in the same way you would call the feeder gateway, where using the same params will return the same response.
-- [CLI](https://gojuno.xyz/docs/features/cli) for general StarkNet tools.
-- [Metrics](https://gojuno.xyz/docs/features/metrics) using Prometheus.
+[this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Currently
+supported are:
+- starknet_getBlockWithTxHashes - `Get block information with transaction hashes given the block id`
+- starknet_getBlockWithTxs - `Get block information with full transactions given the block id`
+- starknet_getStateUpdate - `Get the information about the result of executing the requested block`
+- starknet_getStorageAt - `Get the value of the storage at the given address and key`
+- starknet_getTransactionByHash - `Get the details and status of a submitted transaction`
+- starknet_getTransactionByBlockIdAndIndex - `Get the details of a transaction by a given block id and index`
+- starknet_getTransactionReceipt - `Get the transaction receipt by the transaction hash`
+- starknet_getClassHashAt
+- `Get the contract class hash in the given block for the contract deployed at the given address`
+- starknet_getBlockTransactionCount - `Get the number of transactions in a block given a block id`
+- starknet_call - `Call a starknet function without creating a StarkNet transaction`
+- starknet_blockNumber - `Get the most recent accepted block number`
+- starknet_blockHashAndNumber - `Get the most recent accepted block hash and number`
+- starknet_chainId - `Return the currently configured StarkNet chain id`
+- starknet_pendingTransactions - `Returns the transactions in the transaction pool, recognized by this sequencer`
+- starknet_syncing - `Returns an object about the sync status, or false if the node is not synching`
+- [Prometheus Metrics](https://gojuno.xyz/docs/features/metrics).
+- [Dockerized app](https://gojuno.xyz/docs/running/docker).
 
 ## Installation
 
 ### Specification 🤖
 
-    - Raspberry 4 (model B) - 4GB
-    - MicroSD card - 16GB+ (Class 10 Minimum)
+    - Raspberry 4 (model B) - 4GB running Raspbian
+    - MicroSD card - 16GB+ (Class 10 Minimum) or SSD
     - Power supply
     - Internet connection (ethernet preferrable)
-    - USB keyboard, a monitor, and an HDMI cable to interact with the computer or .
-
-    - [Install Raspbian](https://www.raspbian.org/)
-    - [Install Golang (see below)](https://golang.org/doc/install)
-    - [Have make installed](https://golang.org/doc/install#make)
-
-
+    - USB keyboard, a monitor, and an HDMI cable to interact with the computer or ssh into the raspberry pi.
 
 ### Get Golang 🦫
 
@@ -98,30 +109,114 @@ go version
 
 ### Install Juno ⚙️
 
-To install `juno`, the StarkNet node:
+### Installing
+
+Clone the repository:
 
 ```bash
-go install github.com/NethermindEth/juno/cmd/juno@latest
+git clone https://github.com/NethermindEth/juno
 ```
 
-To install `juno-cli`, the separate tool for interacting with StarkNet:
+#### Install python dependencies
+
+We are currently only support python `3.7`, and we recommend use pyenv. To install it, you can follow this instruction:
+
+1. Install dependencies:
+
+```shell
+sudo apt-get update
+sudo apt-get install make build-essential git patch zlib1g-dev clang \
+  openssl libssl-dev libbz2-dev libreadline-dev libsqlite3-dev llvm \
+  libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev \
+  liblzma-dev
+```
+
+2. Install pyenv:
+
+```shell
+curl https://pyenv.run | bash
+```
+
+3. Add the following entries into your `~/.bashrc` file:
+
+```shell
+# pyenv
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv virtualenv-init -)"
+```
+
+4. Restart your shell:
+
+```shell
+exec $SHELL
+```
+
+5. Install python 3.7:
+
+```shell
+pyenv install 3.7.13
+pyenv global 3.7.13
+```
+
+6. Inside of the project folder, install python dependencies:
+
+```shell
+$ pip install -r requirenments.txt
+```
+
+#### Installing golang dependencies
+
+You can install all golang dependencies running the next command inside the project folder:
 
 ```bash
-go install github.com/NethermindEth/juno/cmd/juno-cli@latest
+$ go get ./...
 ```
 
+### Compile
+
+```bash
+$ make juno
+```
+
+### Run
+
+To synchronize with the StarkNet state from the centralized feeder gateway, run the following
+command:
+
+```bash
+# For Ethereum Goerli testnet
+$ ./build/juno
+
+# For Ethereum Mainnet
+$ ./build/juno --netowrk 1
+```
+
+To sync the state without relying on the feeder gateway, configure an Ethereum node and run the following command:
+
+```bash
+# For Ethereum Goerli testnet
+$ ./build/juno --eth-node "<node-endpoint>"
+
+# For Ethereum Mainnet
+$ ./build/juno --netowrk 1 --eth-node "<node-endpoint>"
+```
+
+To view other available options please run `./build/juno -h`.
+
+For more configuration details, check the [config description](/docs/running/config).
 For details about the configuration you can look at
-the [config file description](https://gojuno.xyz/docs/running/config).
-
+the [config file description](/docs/running/config).
 
 ## Configuring juno
-Usually, when you first run Juno, a [config file](https://gojuno.xyz/docs/running/config) will be created in
-`/home/pi/.config/juno/juno.yaml` in your home directory.
 
 When syncing the StarkNet state from a Raspberry Pi, we expect you to have at least 64GB. In case of you don't have
-this space, you can run it using an SSD, ensuring that the property `db_path` points to the external SSD:
+this space, you can run it using an SSD, ensuring that the property `db-path` in the config or the flag `--db-path`
+points to the external SSD:
 
 ```yaml
 # juno.yaml
-db_path: /path/to/ssd/database/here
+db-path: /path/to/ssd/database/here
 ```
+
+And yes, you are now helping on the StarkNet decentralisation!
