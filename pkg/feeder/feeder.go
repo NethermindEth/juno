@@ -58,14 +58,14 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient) (*http.Response, error) {
 		var res *http.Response
 		wait := 1*time.Second + time.Duration(rand.Intn(1000))*time.Millisecond
-		maxWait := 32 * time.Second
-		for i := 1; i <= 10; i++ {
+		maxWait := float64(10 * time.Minute)
+		for {
 			res, err = httpClient.Do(req)
 			if err != nil || res == nil || res.StatusCode != http.StatusOK {
 				Logger.With("Waiting:", wait.Seconds(), "Error", err).Info("Waiting to do again a request")
 				time.Sleep(wait)
-				x := time.Duration(math.Pow(2, float64(i)))*time.Second + time.Duration(rand.Intn(1000))*time.Millisecond
-				wait = minDuration(x, maxWait)
+				x := float64(wait*2) + float64(rand.Intn(1000))/1000
+				wait = time.Duration(math.Min(maxWait, x))
 				continue
 			}
 			if res.StatusCode == http.StatusOK {
@@ -82,13 +82,6 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 		available <- true
 	}
 	return &Client{BaseURL: u, BaseAPI: baseAPI, httpClient: client, retryFuncForDoReq: retryFuncForDoReq, available: available}
-}
-
-func minDuration(a, b time.Duration) time.Duration {
-	if a <= b {
-		return a
-	}
-	return b
 }
 
 func formattedBlockIdentifier(blockHash, blockNumber string) map[string]string {
