@@ -5,6 +5,8 @@ import (
 	"io"
 	"testing"
 
+	gocmp "github.com/google/go-cmp/cmp"
+
 	"github.com/NethermindEth/juno/pkg/felt"
 	"gotest.tools/assert"
 )
@@ -110,7 +112,19 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 			if err := got.UnmarshalJSON(tt.data); !errors.Is(err, tt.err) {
 				t.Errorf("BlockId.UnmarshalJSON() = %v, want %v", err, tt.err)
 			}
-			assert.DeepEqual(t, got, tt.want)
+			assert.DeepEqual(t, got, tt.want, gocmp.Comparer(func(x, y BlockId) bool {
+				switch x.idType {
+				case blockIdHash:
+					return x.value.(*felt.Felt).Equal(y.value.(*felt.Felt))
+				case blockIdTag:
+					return x.value.(string) == y.value.(string)
+				case blockIdNumber:
+					return x.value.(uint64) == y.value.(uint64)
+				case blockIdUnknown:
+					return y.idType == blockIdUnknown && x.value == nil && y.value == nil
+				}
+				return false
+			}))
 		})
 	}
 }
