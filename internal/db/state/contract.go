@@ -26,7 +26,7 @@ func (m *Manager) GetContractState(hash *felt.Felt) (*state.ContractState, error
 	contractState := state.ContractState{
 		ContractHash: new(felt.Felt).SetBytes(contractStatePB.GetContractHash()),
 		StorageRoot:  new(felt.Felt).SetBytes(contractStatePB.GetStorageRoot()),
-		Nonce:		  new(felt.Felt).SetBytes(contractStatePB.GetNonce()),
+		Nonce:        new(felt.Felt).SetBytes(contractStatePB.GetNonce()),
 	}
 	return &contractState, nil
 }
@@ -36,7 +36,7 @@ func (m *Manager) PutContractState(cs *state.ContractState) error {
 	contractStatePB := &ContractState{
 		ContractHash: cs.ContractHash.ByteSlice(),
 		StorageRoot:  cs.StorageRoot.ByteSlice(),
-		Nonce:		  cs.Nonce.ByteSlice(),
+		Nonce:        cs.Nonce.ByteSlice(),
 	}
 	// Marshal to protobuf bytes
 	raw, err := proto.Marshal(contractStatePB)

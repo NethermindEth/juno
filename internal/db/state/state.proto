@@ -13,7 +13,7 @@ message CodeDefinition {
 message ContractState {
     bytes contractHash = 1;
     bytes storageRoot = 2;
-	bytes nonce = 3;
+    bytes nonce = 3;
 }
 
 message TrieNode {
