@@ -261,7 +261,7 @@ func (s *StarkNetRpc) ProtocolVersion() (any, error) {
 
 func (s *StarkNetRpc) Syncing() (any, error) {
 	if s.synchronizer.Running {
-		return s.synchronizer.Status(), nil
+		return NewSyncStatus(s.synchronizer.Status()), nil
 	}
 	return false, nil
 }

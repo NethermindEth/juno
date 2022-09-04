@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -113,7 +112,6 @@ func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
 
 // Run starts the service.
 func (s *Synchronizer) Run() {
-	s.Running = true
 	go s.updateBlocksInfo()
 	go s.handleSync()
 }
@@ -121,7 +119,9 @@ func (s *Synchronizer) Run() {
 func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
+		s.Running = true
 		if err := s.sync(); err != nil {
+			s.Running = false
 			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
@@ -179,32 +179,45 @@ func (s *Synchronizer) sync() error {
 func (s *Synchronizer) Status() *types.SyncStatus {
 	latestBlockSaved := float64(s.syncManager.GetLatestBlockSaved())
 
+	startingBlockHash := new(felt.Felt)
+	startingBlockNumber := uint64(math.Min(float64(s.startingBlockNumber), latestBlockSaved))
+
+	currentBlockHash := new(felt.Felt)
 	latestBlockNumber := uint64(math.Min(float64(s.latestBlockNumberSynced), latestBlockSaved))
 
-	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
-	if err != nil {
-		return nil
-	}
-
-	startingBlockNumber := uint64(math.Min(float64(s.startingBlockNumber), latestBlockSaved))
+	highestBlockHash := new(felt.Felt)
+	highestBlockNumber := uint64(0)
 
 	startingBlock, err := s.blockManager.GetBlockByNumber(startingBlockNumber)
 	if err != nil {
-		return nil
+		if startingBlockNumber != 0 {
+			return nil
+		}
+		startingBlockHash = new(felt.Felt).SetHex("0x0")
+	} else {
+		startingBlockHash = startingBlock.BlockHash
 	}
 
-	highestBlockHash := "pending"
-	highestBlockNumber := "pending"
+	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
+	if err != nil {
+		if latestBlockNumber != 0 {
+			return nil
+		}
+		currentBlockHash = new(felt.Felt).SetHex("0x0")
+	} else {
+		currentBlockHash = block.BlockHash
+	}
+
 	if s.stateDiffCollector.LatestBlock() != nil {
-		highestBlockHash = s.stateDiffCollector.LatestBlock().BlockHash
-		highestBlockNumber = fmt.Sprintf("%x", s.stateDiffCollector.LatestBlock().BlockNumber)
+		highestBlockHash = new(felt.Felt).SetHex(s.stateDiffCollector.LatestBlock().BlockHash)
+		highestBlockNumber = uint64(s.stateDiffCollector.LatestBlock().BlockNumber)
 	}
 
 	return &types.SyncStatus{
-		StartingBlockHash:   startingBlock.BlockHash.Hex0x(),
-		StartingBlockNumber: fmt.Sprintf("%x", startingBlockNumber),
-		CurrentBlockHash:    block.BlockHash.Hex0x(),
-		CurrentBlockNumber:  fmt.Sprintf("%x", block.BlockNumber),
+		StartingBlockHash:   startingBlockHash,
+		StartingBlockNumber: startingBlockNumber,
+		CurrentBlockHash:    currentBlockHash,
+		CurrentBlockNumber:  latestBlockNumber,
 		HighestBlockHash:    highestBlockHash,
 		HighestBlockNumber:  highestBlockNumber,
 	}
