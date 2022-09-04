@@ -1,0 +1,15 @@
+#cloud-config
+shell: /bin/bash
+
+package_update: true
+
+packages:
+ - golang-go
+
+runcmd:
+ - export HOME=/home/ubuntu
+ - export GOPATH=$HOME/go
+ - export GOCACHE=$HOME/.cache/go-build
+ - go install github.com/NethermindEth/juno/cmd/juno@latest
+ - go install github.com/NethermindEth/juno/cmd/juno-cli@latest 
+ - /home/ubuntu/go/bin/juno
