@@ -425,7 +425,6 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 		TxnHash:     new(felt.Felt).SetHex(receipt.TransactionHash),
 		ActualFee:   new(felt.Felt).SetHex(receipt.ActualFee),
 		Status:      types.TxStatusValue[receipt.Status],
-		StatusData:  receipt.TxStatus,
 		BlockHash:   new(felt.Felt).SetHex(receipt.BlockHash),
 		BlockNumber: uint64(receipt.BlockNumber),
 	}

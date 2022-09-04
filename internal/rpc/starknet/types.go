@@ -297,7 +297,6 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 				TransactionHash: receipt.TxnHash.Hex0x(),
 				ActualFee:       receipt.ActualFee.Hex0x(),
 				Status:          receipt.Status.String(),
-				StatusData:      receipt.StatusData,
 				BlockHash:       receipt.BlockHash.Hex0x(),
 				BlockNumber:     receipt.BlockNumber,
 			},
@@ -311,7 +310,6 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 				TransactionHash: receipt.TxnHash.Hex0x(),
 				ActualFee:       receipt.ActualFee.Hex0x(),
 				Status:          receipt.Status.String(),
-				StatusData:      receipt.StatusData,
 				BlockHash:       receipt.BlockHash.Hex0x(),
 				BlockNumber:     receipt.BlockNumber,
 			},
@@ -322,7 +320,6 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 				TransactionHash: receipt.TxnHash.Hex0x(),
 				ActualFee:       receipt.ActualFee.Hex0x(),
 				Status:          receipt.Status.String(),
-				StatusData:      receipt.StatusData,
 				BlockHash:       receipt.BlockHash.Hex0x(),
 				BlockNumber:     receipt.BlockNumber,
 			},
@@ -336,7 +333,6 @@ type CommonReceiptProperties struct {
 	TransactionHash string `json:"transaction_hash"`
 	ActualFee       string `json:"actual_fee"`
 	Status          string `json:"status"`
-	StatusData      string `json:"status_data"`
 	BlockHash       string `json:"block_hash"`
 	BlockNumber     uint64 `json:"block_number"`
 }
