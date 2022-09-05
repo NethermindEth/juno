@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

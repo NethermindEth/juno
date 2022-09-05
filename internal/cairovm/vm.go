@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 
 	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 

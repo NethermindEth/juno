@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
 

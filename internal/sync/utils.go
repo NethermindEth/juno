@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/pkg/feeder"
 
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"

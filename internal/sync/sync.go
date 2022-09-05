@@ -13,7 +13,7 @@ import (
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/utils"
 	"github.com/NethermindEth/juno/pkg/feeder"

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/pkg/felt"
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"

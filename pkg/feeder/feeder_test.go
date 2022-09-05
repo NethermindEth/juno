@@ -16,7 +16,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/bxcodec/faker"
 	"github.com/stretchr/testify/assert"
 )

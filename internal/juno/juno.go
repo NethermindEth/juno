@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	"github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
