@@ -31,6 +31,9 @@ func SetGlobalLogger(verbosityLevel string) error {
 		return err
 	}
 
+	if logLevel == zapcore.InfoLevel {
+		config.DisableCaller = true
+	}
 	config.Level.SetLevel(logLevel)
 
 	logger, err := config.Build()
