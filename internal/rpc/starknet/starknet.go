@@ -62,16 +62,15 @@ func (s *StarkNetRpc) GetStateUpdate(blockId *BlockId) (any, error) {
 	if blockId == nil {
 		return nil, nil
 	}
-	switch blockId.idType {
-	case blockIdHash:
-		hash, _ := blockId.hash()
-		return s.synchronizer.GetStateDiffFromHash(hash), nil
-	case blockIdNumber:
-		number, _ := blockId.number()
-		return s.synchronizer.GetStateDiff(int64(number)), nil
-	default:
-		return nil, InvalidBlockId
+	block, err := getBlockById(blockId, s.blockManager, s.logger)
+	if err != nil {
+		return nil, err
 	}
+	diff, err := s.synchronizer.GetStateDiff(block.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+	return NewStateUpdate(diff), nil
 }
 
 func (s *StarkNetRpc) GetStorageAt(address *RpcFelt, key *StorageKey, blockId *BlockId) (any, error) {
@@ -278,4 +277,9 @@ func (s *StarkNetRpc) Syncing() (any, error) {
 		return s.synchronizer.Status(), nil
 	}
 	return false, nil
+}
+
+func (s *StarkNetRpc) HealthCheck() (any, error) {
+	// notest
+	return Status{Available: true}, nil
 }

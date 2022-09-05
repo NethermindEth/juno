@@ -94,7 +94,6 @@ type TxnReceiptCommon struct {
 	TxnHash     *felt.Felt
 	ActualFee   *felt.Felt
 	Status      TxnStatus
-	StatusData  string
 	BlockHash   *felt.Felt
 	BlockNumber uint64
 }

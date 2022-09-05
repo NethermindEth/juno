@@ -181,12 +181,14 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) Shutdown() error {
+	log.Logger.Info("Shutting down Juno...")
+	n.virtualMachine.Close()
+	n.synchronizer.Close()
+
 	n.stateManager.Close()
 	n.transactionManager.Close()
 	n.blockManager.Close()
-	n.stateManager.Close()
-	n.synchronizer.Close()
-	n.virtualMachine.Close()
+	n.syncManager.Close()
 
 	if err := n.rpcServer.Close(shutdownTimeout); err != nil {
 		return err
@@ -207,6 +209,7 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 ) (*jsonrpc.JsonRpc, error) {
 	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
 		virtualMachine)
+
 	jsonRpc := jsonrpc.NewJsonRpc()
 	handlers := []struct {
 		name       string
@@ -232,6 +235,7 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starkNetApi.Syncing, nil},
 		{"starknet_getNonce", starkNetApi.GetNonce, []string{"block_id", "contract_address"}},
+		{"starknet_healthCheck", starkNetApi.HealthCheck, nil},
 	}
 	for _, handler := range handlers {
 		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {

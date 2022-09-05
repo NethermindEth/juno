@@ -181,7 +181,6 @@ func marshalTransactionReceipt(receipt types.TxnReceipt) ([]byte, error) {
 					TxnHash:     r.TxnHash.ByteSlice(),
 					ActualFee:   r.ActualFee.ByteSlice(),
 					Status:      marshalTransactionStatus(r.Status),
-					StatusData:  r.StatusData,
 					BlockHash:   r.BlockHash.ByteSlice(),
 					BlockNumber: r.BlockNumber,
 				},
@@ -197,7 +196,6 @@ func marshalTransactionReceipt(receipt types.TxnReceipt) ([]byte, error) {
 					TxnHash:     r.TxnHash.ByteSlice(),
 					ActualFee:   r.ActualFee.ByteSlice(),
 					Status:      marshalTransactionStatus(r.Status),
-					StatusData:  r.StatusData,
 					BlockHash:   r.BlockHash.ByteSlice(),
 					BlockNumber: r.BlockNumber,
 				},
@@ -210,7 +208,6 @@ func marshalTransactionReceipt(receipt types.TxnReceipt) ([]byte, error) {
 					TxnHash:     r.TxnHash.ByteSlice(),
 					ActualFee:   r.ActualFee.ByteSlice(),
 					Status:      marshalTransactionStatus(r.Status),
-					StatusData:  r.StatusData,
 					BlockHash:   r.BlockHash.ByteSlice(),
 					BlockNumber: r.BlockNumber,
 				},
@@ -228,26 +225,19 @@ func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
 		return nil, err
 	}
 	if receipt := protoReceipt.GetInvoke(); receipt != nil {
-		var messagesSent []*types.MsgToL1 = nil
-		if len(receipt.MessagesSent) > 0 {
-			messagesSent = make([]*types.MsgToL1, len(receipt.MessagesSent))
-			for i, msg := range receipt.MessagesSent {
-				messagesSent[i] = unmarshalMessageL2ToL1(msg)
-			}
+		messagesSent := make([]*types.MsgToL1, 0, len(receipt.MessagesSent))
+		for _, msg := range receipt.MessagesSent {
+			messagesSent = append(messagesSent, unmarshalMessageL2ToL1(msg))
 		}
-		var events []*types.Event = nil
-		if len(receipt.Events) > 0 {
-			events = make([]*types.Event, len(receipt.Events))
-			for i, event := range receipt.Events {
-				events[i] = unmarshalEvent(event)
-			}
+		events := make([]*types.Event, 0, len(receipt.Events))
+		for _, event := range receipt.Events {
+			events = append(events, unmarshalEvent(event))
 		}
 		return &types.TxnInvokeReceipt{
 			TxnReceiptCommon: types.TxnReceiptCommon{
 				TxnHash:     new(felt.Felt).SetBytes(receipt.Common.TxnHash),
 				ActualFee:   new(felt.Felt).SetBytes(receipt.Common.ActualFee),
 				Status:      unmarshalTransactionStatus(receipt.Common.Status),
-				StatusData:  receipt.Common.StatusData,
 				BlockHash:   new(felt.Felt).SetBytes(receipt.Common.BlockHash),
 				BlockNumber: receipt.Common.BlockNumber,
 			},
@@ -262,7 +252,6 @@ func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
 				TxnHash:     new(felt.Felt).SetBytes(receipt.Common.TxnHash),
 				ActualFee:   new(felt.Felt).SetBytes(receipt.Common.ActualFee),
 				Status:      unmarshalTransactionStatus(receipt.Common.Status),
-				StatusData:  receipt.Common.StatusData,
 				BlockHash:   new(felt.Felt).SetBytes(receipt.Common.BlockHash),
 				BlockNumber: receipt.Common.BlockNumber,
 			},
@@ -274,7 +263,6 @@ func unmarshalTransactionReceipt(b []byte) (types.TxnReceipt, error) {
 				TxnHash:     new(felt.Felt).SetBytes(receipt.Common.TxnHash),
 				ActualFee:   new(felt.Felt).SetBytes(receipt.Common.ActualFee),
 				Status:      unmarshalTransactionStatus(receipt.Common.Status),
-				StatusData:  receipt.Common.StatusData,
 				BlockHash:   new(felt.Felt).SetBytes(receipt.Common.BlockHash),
 				BlockNumber: receipt.Common.BlockNumber,
 			},

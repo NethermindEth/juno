@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	sync2 "sync"
 	"time"
 
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
@@ -57,6 +58,9 @@ type Synchronizer struct {
 
 	// Running is true when the service is active and running
 	Running bool
+
+	wg   *sync2.WaitGroup
+	quit chan struct{}
 }
 
 // NewSynchronizer creates a new Synchronizer.
@@ -68,6 +72,8 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 	synchro := &Synchronizer{
 		logger: Logger.Named("Sync Service"),
 		feeder: feederClient,
+		quit:   make(chan struct{}),
+		wg:     new(sync2.WaitGroup),
 	}
 
 	trusted := ethNode == ""
@@ -113,11 +119,16 @@ func (s *Synchronizer) Run() {
 }
 
 func (s *Synchronizer) handleSync() {
+	s.wg.Add(1)
 	for {
-		err := s.sync()
-		s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
-		time.Sleep(10 * time.Second)
-		s.stateDiffCollector.Close()
+		if err := s.sync(); err != nil {
+			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
+			time.Sleep(10 * time.Second)
+			s.stateDiffCollector.Close()
+			continue
+		}
+		s.wg.Done()
+		return
 	}
 }
 
@@ -129,31 +140,38 @@ func (s *Synchronizer) sync() error {
 
 	// Get state
 	for collectedDiff := range s.stateDiffCollector.GetChannel() {
-		start := time.Now()
+		select {
+		case <-s.quit:
+			return nil
+		default:
+			start := time.Now()
 
-		err := s.updateState(collectedDiff)
-		if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
-			// In case some errors exist or the new root of the trie didn't match with
-			// the root we receive from the StateDiff, we have to revert the trie
-			s.logger.With("Error", err).Error("State update failed, reverting state")
-			prometheus.IncreaseCountStarknetStateFailed()
-			s.setStateToLatestRoot()
-			return err
+			err := s.updateState(collectedDiff)
+			if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
+				// In case some errors exist or the new root of the trie didn't match with
+				// the root we receive from the StateDiff, we have to revert the trie
+				s.logger.With("Error", err).Error("State update failed, reverting state")
+				prometheus.IncreaseCountStarknetStateFailed()
+				s.setStateToLatestRoot()
+				return err
+			}
+			prometheus.IncreaseCountStarknetStateSuccess()
+			prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
+			s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
+			if err := s.syncManager.StoreStateUpdate(collectedDiff.stateDiff, collectedDiff.stateDiff.BlockHash); err != nil {
+				return err
+			}
+			if collectedDiff.stateDiff.OldRoot.Hex() == "" {
+				collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
+			}
+			s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
+			s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
+			s.logger.With(
+				"Number", collectedDiff.stateDiff.BlockNumber,
+				"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
+				"Time(sec)", time.Since(start).Seconds(),
+			).Info("Synchronized block")
 		}
-		prometheus.IncreaseCountStarknetStateSuccess()
-		prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
-		s.syncManager.StoreStateDiff(collectedDiff.stateDiff)
-		s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
-		if collectedDiff.stateDiff.OldRoot.Hex() == "" {
-			collectedDiff.stateDiff.OldRoot = new(felt.Felt).SetHex(s.syncManager.GetLatestStateRoot())
-		}
-		s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
-		s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
-		s.logger.With(
-			"Number", collectedDiff.stateDiff.BlockNumber,
-			"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
-			"Time", time.Since(start),
-		).Info("Synchronized block")
 	}
 	return nil
 }
@@ -200,10 +218,12 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 	}
 
 	for contractAddress, memoryCells := range collectedDiff.stateDiff.StorageDiff {
+		slots := make([]state.Slot, 0, len(memoryCells))
 		for _, cell := range memoryCells {
-			if err := s.state.SetSlot(new(felt.Felt).SetString(contractAddress), cell.Address, cell.Value); err != nil {
-				return err
-			}
+			slots = append(slots, state.Slot{Key: cell.Address, Value: cell.Value})
+		}
+		if err := s.state.SetSlots(&contractAddress, slots); err != nil {
+			return err
 		}
 	}
 	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
@@ -227,16 +247,8 @@ func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *t
 	return nil
 }
 
-func (s *Synchronizer) GetStateDiff(blockNumber int64) *types.StateDiff {
-	return s.syncManager.GetStateDiff(blockNumber)
-}
-
-func (s *Synchronizer) GetStateDiffFromHash(blockHash *felt.Felt) *types.StateDiff {
-	block, err := s.blockManager.GetBlockByHash(blockHash)
-	if err != nil {
-		return nil
-	}
-	return s.syncManager.GetStateDiff(int64(block.BlockNumber))
+func (s *Synchronizer) GetStateDiff(blockHash *felt.Felt) (*types.StateUpdate, error) {
+	return s.syncManager.GetStateUpdate(blockHash)
 }
 
 func (s *Synchronizer) LatestBlockSynced() (blockNumber int64, blockHash *felt.Felt) {
@@ -270,6 +282,8 @@ func (s *Synchronizer) setStateToLatestRoot() {
 // Close closes the service.
 func (s *Synchronizer) Close() {
 	s.stateDiffCollector.Close()
+	close(s.quit)
+	s.wg.Wait()
 }
 
 func (s *Synchronizer) setChainId(network string) {
@@ -376,27 +390,33 @@ func (s *Synchronizer) updateTransactionReceipts(receipt feeder.TransactionExecu
 }
 
 func (s *Synchronizer) updateBlocksInfo() {
+	s.wg.Add(1)
 	latestBlockInfoFetched := s.syncManager.GetLatestBlockSaved()
 	currentBlock := latestBlockInfoFetched
 	s.startingBlockNumberSaved = currentBlock
 	for {
-		latestBlock := s.stateDiffCollector.LatestBlock()
-		if latestBlock == nil {
-			time.Sleep(time.Second * 1)
-			continue
+		select {
+		case <-s.quit:
+			s.wg.Done()
+			return
+		default:
+			latestBlock := s.stateDiffCollector.LatestBlock()
+			if latestBlock == nil {
+				time.Sleep(time.Second * 1)
+				continue
+			}
+			if currentBlock == int64(latestBlock.BlockNumber) {
+				time.Sleep(time.Minute)
+			}
+			err := s.updateBlocks(currentBlock)
+			if err != nil {
+				time.Sleep(time.Minute)
+				continue
+			}
+			s.logger.With("Block Number", currentBlock).Info("Updated block info")
+			s.syncManager.StoreLatestBlockSaved(currentBlock)
+			currentBlock++
 		}
-		if currentBlock == int64(latestBlock.BlockNumber) {
-			time.Sleep(time.Minute)
-		}
-		err := s.updateBlocks(currentBlock)
-		if err != nil {
-			time.Sleep(time.Minute)
-			continue
-		}
-		s.logger.With("Block Number", currentBlock).Info("Updated block info")
-		s.syncManager.StoreLatestBlockSaved(currentBlock)
-		currentBlock++
-
 	}
 }
 
@@ -405,7 +425,6 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 		TxnHash:     new(felt.Felt).SetHex(receipt.TransactionHash),
 		ActualFee:   new(felt.Felt).SetHex(receipt.ActualFee),
 		Status:      types.TxStatusValue[receipt.Status],
-		StatusData:  receipt.TxStatus,
 		BlockHash:   new(felt.Felt).SetHex(receipt.BlockHash),
 		BlockNumber: uint64(receipt.BlockNumber),
 	}
@@ -425,9 +444,17 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 				Payload:     payload,
 			})
 		}
-		payloadFromL1ToL2 := make([]*felt.Felt, 0)
-		for _, p := range receipt.L1ToL2Message.Payload {
-			payloadFromL1ToL2 = append(payloadFromL1ToL2, new(felt.Felt).SetHex(p))
+		var msgToL2 *types.MsgToL2
+		if receipt.L1ToL2Message != nil {
+			payload := make([]*felt.Felt, 0, len(receipt.L1ToL2Message.Payload))
+			for _, item := range receipt.L1ToL2Message.Payload {
+				payload = append(payload, new(felt.Felt).SetHex(item))
+			}
+			msgToL2 = &types.MsgToL2{
+				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.ToAddress),
+				ToAddress:   new(felt.Felt).SetHex(receipt.L1ToL2Message.FromAddress),
+				Payload:     payload,
+			}
 		}
 
 		events := make([]*types.Event, 0)
@@ -453,18 +480,13 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 		return &types.TxnInvokeReceipt{
 			TxnReceiptCommon: common,
 			MessagesSent:     l2ToL1,
-			L1OriginMessage: &types.MsgToL2{
-				FromAddress: types.HexToEthAddress(receipt.L1ToL2Message.FromAddress),
-				Payload:     payloadFromL1ToL2,
-				ToAddress:   new(felt.Felt).SetHex(receipt.L1ToL2Message.ToAddress),
-			},
-			Events: events,
+			L1OriginMessage:  msgToL2,
+			Events:           events,
 		}
 	case "DECLARE":
 		return &types.TxnDeclareReceipt{TxnReceiptCommon: common}
 	case "DEPLOY":
-		return &types.TxnInvokeReceipt{TxnReceiptCommon: common}
-
+		return &types.TxnDeployReceipt{TxnReceiptCommon: common}
 	default:
 		return &common
 	}

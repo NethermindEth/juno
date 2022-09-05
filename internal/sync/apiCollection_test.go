@@ -33,11 +33,12 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 		},
 	}
 
-	want := &types.StateDiff{
-		NewRoot: new(felt.Felt).SetHex("0"),
-		OldRoot: new(felt.Felt).SetHex("0"),
+	want := &types.StateUpdate{
+		BlockHash: new(felt.Felt).SetHex("0"),
+		NewRoot:   new(felt.Felt).SetHex("0"),
+		OldRoot:   new(felt.Felt).SetHex("0"),
 		StorageDiff: types.StorageDiff{
-			new(felt.Felt).SetHex("0").String(): []types.MemoryCell{
+			new(felt.Felt).SetHex("0").Deref(): []types.MemoryCell{
 				{
 					Address: new(felt.Felt).SetHex("0"),
 					Value:   new(felt.Felt).SetHex("0"),

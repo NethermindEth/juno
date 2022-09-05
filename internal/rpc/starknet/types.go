@@ -15,7 +15,8 @@ import (
 var ErrInvalidBlockId = errors.New("invalid block id")
 
 const (
-	blockIdHash BlockIdType = iota
+	blockIdUnknown BlockIdType = iota
+	blockIdHash
 	blockIdTag
 	blockIdNumber
 )
@@ -38,8 +39,8 @@ func (id *BlockId) tag() (string, bool) {
 }
 
 func (id *BlockId) number() (uint64, bool) {
-	n, ok := id.value.(int64)
-	return uint64(n), ok
+	n, ok := id.value.(uint64)
+	return n, ok
 }
 
 func (id *BlockId) UnmarshalJSON(data []byte) error {
@@ -52,14 +53,11 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 	switch t := token.(type) {
 	case json.Number:
 		value, err := t.Int64()
-		if err != nil {
-			return err
-		}
-		if value < 0 {
+		if err != nil || value < 0 {
 			return ErrInvalidBlockId
 		}
 		id.idType = blockIdNumber
-		id.value = value
+		id.value = uint64(value)
 	case string:
 		if isBlockTag(t) {
 			id.idType = blockIdTag
@@ -277,6 +275,15 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 
 func (*DeployTxn) isTxn() {}
 
+type TxnType string
+
+const (
+	TxnDeclare   TxnType = "DECLARE"
+	TxnDeploy    TxnType = "DEPLOY"
+	TxnInvoke    TxnType = "INVOKE"
+	TxnL1Handler TxnType = "L1_HANDLER"
+)
+
 type Receipt interface {
 	isReceipt()
 }
@@ -284,28 +291,22 @@ type Receipt interface {
 func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 	switch receipt := receipt.(type) {
 	case *types.TxnInvokeReceipt:
-		var messagesSent []*MsgToL1 = nil
-		if len(receipt.MessagesSent) > 0 {
-			messagesSent = make([]*MsgToL1, len(receipt.MessagesSent))
-			for i, msg := range receipt.MessagesSent {
-				messagesSent[i] = NewMsgToL1(msg)
-			}
+		messagesSent := make([]*MsgToL1, 0, len(receipt.MessagesSent))
+		for _, msg := range receipt.MessagesSent {
+			messagesSent = append(messagesSent, NewMsgToL1(msg))
 		}
-		var events []*Event = nil
-		if len(receipt.Events) > 0 {
-			events = make([]*Event, len(receipt.Events))
-			for i, event := range receipt.Events {
-				events[i] = NewEvent(event)
-			}
+		events := make([]*Event, len(receipt.Events))
+		for i, e := range receipt.Events {
+			events[i] = NewEvent(e)
 		}
 		return &InvokeTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash.Hex0x(),
-				ActualFee:   receipt.ActualFee.Hex0x(),
-				Status:      receipt.Status.String(),
-				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash.Hex0x(),
-				BlockNumber: receipt.BlockNumber,
+				TransactionHash: receipt.TxnHash.Hex0x(),
+				ActualFee:       receipt.ActualFee.Hex0x(),
+				Status:          receipt.Status.String(),
+				BlockHash:       receipt.BlockHash.Hex0x(),
+				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnInvoke,
 			},
 			MessagesSent:    messagesSent,
 			L1OriginMessage: NewMsgToL2(receipt.L1OriginMessage),
@@ -314,23 +315,23 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 	case *types.TxnDeployReceipt:
 		return &DeployTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash.Hex0x(),
-				ActualFee:   receipt.ActualFee.Hex0x(),
-				Status:      receipt.Status.String(),
-				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash.Hex0x(),
-				BlockNumber: receipt.BlockNumber,
+				TransactionHash: receipt.TxnHash.Hex0x(),
+				ActualFee:       receipt.ActualFee.Hex0x(),
+				Status:          receipt.Status.String(),
+				BlockHash:       receipt.BlockHash.Hex0x(),
+				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnDeploy,
 			},
 		}, nil
 	case *types.TxnDeclareReceipt:
 		return &DeclareTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash.Hex0x(),
-				ActualFee:   receipt.ActualFee.Hex0x(),
-				Status:      receipt.Status.String(),
-				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash.Hex0x(),
-				BlockNumber: receipt.BlockNumber,
+				TransactionHash: receipt.TxnHash.Hex0x(),
+				ActualFee:       receipt.ActualFee.Hex0x(),
+				Status:          receipt.Status.String(),
+				BlockHash:       receipt.BlockHash.Hex0x(),
+				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnDeclare,
 			},
 		}, nil
 	default:
@@ -339,19 +340,18 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 }
 
 type CommonReceiptProperties struct {
-	TxnHash          string `json:"txn_hash"`
-	TransactionIndex uint64 `json:"transaction_index"`
-	ActualFee        string `json:"actual_fee"`
-	Status           string `json:"status"`
-	StatusData       string `json:"status_data"`
-	BlockHash        string `json:"block_hash"`
-	BlockNumber      uint64 `json:"block_number"`
+	TransactionHash string  `json:"transaction_hash"`
+	ActualFee       string  `json:"actual_fee"`
+	Status          string  `json:"status"`
+	BlockHash       string  `json:"block_hash"`
+	BlockNumber     uint64  `json:"block_number"`
+	Type            TxnType `json:"type"`
 }
 
 type InvokeTxReceipt struct {
 	CommonReceiptProperties
 	MessagesSent    []*MsgToL1 `json:"messages_sent"`
-	L1OriginMessage *MsgToL2   `json:"l1_origin_message"`
+	L1OriginMessage *MsgToL2   `json:"l1_origin_message,omitempty"`
 	Events          []*Event   `json:"events"`
 }
 
@@ -392,7 +392,7 @@ type MsgToL2 struct {
 
 func NewMsgToL2(msg *types.MsgToL2) *MsgToL2 {
 	if msg == nil {
-		return &MsgToL2{}
+		return nil
 	}
 	payload := make([]string, len(msg.Payload))
 	for i, data := range msg.Payload {
@@ -489,4 +489,70 @@ func (r *RpcFelt) UnmarshalJSON(data []byte) error {
 
 func (r *RpcFelt) Felt() *felt.Felt {
 	return new(felt.Felt).SetHex(string(*r))
+}
+
+type StorageDiffItem struct {
+	Address string `json:"address"`
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+}
+
+type DeployedContractItem struct {
+	Address   string `json:"address"`
+	ClassHash string `json:"class_hash"`
+}
+
+type DeclatedContractItem struct {
+	ClassHash string `json:"class_hash"`
+}
+
+type StateDiff struct {
+	StorageDiffs      []*StorageDiffItem      `json:"storage_diffs"`
+	DeployedContracts []*DeployedContractItem `json:"deployed_contracts"`
+	DeclaredContracts []*DeclatedContractItem `json:"declared_contracts"`
+}
+
+type StateUpdate struct {
+	BlockHash string     `json:"block_hash"`
+	NewRoot   string     `json:"new_root"`
+	OldRoot   string     `json:"old_root"`
+	StateDiff *StateDiff `json:"state_diff"`
+}
+
+func NewStateUpdate(s *types.StateUpdate) *StateUpdate {
+	stateDiff := &StateDiff{
+		StorageDiffs:      make([]*StorageDiffItem, 0, len(s.StorageDiff)),
+		DeployedContracts: make([]*DeployedContractItem, len(s.DeployedContracts)),
+		DeclaredContracts: make([]*DeclatedContractItem, len(s.DeclaredContracts)),
+	}
+	for address, diffs := range s.StorageDiff {
+		for _, diff := range diffs {
+			stateDiff.StorageDiffs = append(stateDiff.StorageDiffs, &StorageDiffItem{
+				Address: address.Hex0x(),
+				Key:     diff.Address.Hex0x(),
+				Value:   diff.Value.Hex0x(),
+			})
+		}
+	}
+	for i, deployedContract := range s.DeployedContracts {
+		stateDiff.DeployedContracts[i] = &DeployedContractItem{
+			Address:   deployedContract.Address.Hex0x(),
+			ClassHash: deployedContract.Hash.Hex0x(),
+		}
+	}
+	for i, declaredContract := range s.DeclaredContracts {
+		stateDiff.DeclaredContracts[i] = &DeclatedContractItem{
+			ClassHash: declaredContract.Hex0x(),
+		}
+	}
+	return &StateUpdate{
+		BlockHash: s.BlockHash.Hex0x(),
+		NewRoot:   s.NewRoot.Hex0x(),
+		OldRoot:   s.OldRoot.Hex0x(),
+		StateDiff: stateDiff,
+	}
+}
+
+type Status struct {
+	Available bool `json:"available"`
 }

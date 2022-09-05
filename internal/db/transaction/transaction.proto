@@ -48,9 +48,8 @@ message ReceiptCommon {
   bytes txnHash = 1;
   bytes actualFee = 2;
   Status status = 3;
-  string statusData = 4;
-  bytes blockHash = 5;
-  uint64 blockNumber = 6;
+  bytes blockHash = 4;
+  uint64 blockNumber = 5;
 }
 
 message InvokeReceipt {
