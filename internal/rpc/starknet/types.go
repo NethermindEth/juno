@@ -552,3 +552,7 @@ func NewStateUpdate(s *types.StateUpdate) *StateUpdate {
 		StateDiff: stateDiff,
 	}
 }
+
+type Status struct {
+	Available bool `json:"available"`
+}

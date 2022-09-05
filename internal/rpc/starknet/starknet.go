@@ -264,3 +264,8 @@ func (s *StarkNetRpc) Syncing() (any, error) {
 	}
 	return false, nil
 }
+
+func (s *StarkNetRpc) HealthCheck() (any, error) {
+	// notest
+	return Status{Available: true}, nil
+}
