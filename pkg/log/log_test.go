@@ -36,16 +36,35 @@ func TestVerbosity(t *testing.T) {
 	}
 }
 
+// TestLog ensures all functions execute successfully on all provided loggers.
 func TestLog(t *testing.T) {
-	logger, err := NewProductionLogger("error")
+	productionLogger, err := NewProductionLogger("info")
 	if err != nil {
 		t.Fatalf("unexpected error creating production logger: %s", err)
 	}
-	logger.Debug("test msg")
-	logger.Debugw("test msg", "key", "value")
-	logger.Info("test msg")
-	logger.Infow("test msg", "key", "value")
-	logger.Error("test msg")
-	logger.Infow("test msg", "key", "value")
-	logger.Named("TEST")
+	tests := []struct {
+		name   string
+		logger *Log
+	}{
+		{
+			"NopLogger",
+			NewNopLogger(),
+		},
+		{
+			"ProductionLogger",
+			productionLogger,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			test.logger.Debug("test msg")
+			test.logger.Debugw("test msg", "key", "value")
+			test.logger.Info("test msg")
+			test.logger.Infow("test msg", "key", "value")
+			test.logger.Error("test msg")
+			test.logger.Infow("test msg", "key", "value")
+			test.logger.Named("TEST")
+		})
+	}
 }
