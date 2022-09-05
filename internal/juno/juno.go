@@ -231,6 +231,7 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starkNetApi.Syncing, nil},
+		{"starknet_getNonce", starkNetApi.GetNonce, []string{"block_id", "contract_address"}},
 	}
 	for _, handler := range handlers {
 		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
