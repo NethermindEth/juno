@@ -341,11 +341,14 @@ func UpdateStarknetSyncTime(t float64) {
 	timeStarknetSync.WithLabelValues("Average").Set(val3)
 }
 
-func SetupMetric(port string) *Server {
+func SetupMetric(port string, logger log.Logger) *Server {
 	// notest
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	return &Server{server: http.Server{Addr: port, Handler: mux}}
+	return &Server{
+		server: http.Server{Addr: port, Handler: mux},
+		logger: logger,
+	}
 }
 
 // ListenAndServe listens to TCP port and handles requests on incoming

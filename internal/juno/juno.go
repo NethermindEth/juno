@@ -160,7 +160,7 @@ func (n *Node) Run() error {
 	n.rpcServer = rpc.NewHttpRpc(rpcAddr, rpcSuffix, jsonRpc, rpcLogger)
 
 	if n.cfg.Metrics {
-		n.metricsServer = prometheus.SetupMetric(defaultMetricsPort)
+		n.metricsServer = prometheus.SetupMetric(defaultMetricsPort, n.logger.Named("METRICS"))
 	}
 
 	rpcErrCh := make(chan error)
