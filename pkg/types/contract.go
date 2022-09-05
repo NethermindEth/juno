@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/NethermindEth/juno/pkg/felt"
@@ -76,7 +77,8 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	decodedProgram, err := base64.StdEncoding.DecodeString(fullDefMap["program"].(string))
+	program := fmt.Sprintf("%v", fullDefMap["program"])
+	decodedProgram, err := base64.StdEncoding.DecodeString(program)
 	if err != nil {
 		return err
 	}
