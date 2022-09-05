@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	. "github.com/NethermindEth/juno/pkg/jsonrpc/providers/http"
 )
@@ -14,15 +14,18 @@ import (
 type HttpRpc struct {
 	server   *http.Server
 	provider *HttpProvider
+	logger   log.Logger
 }
 
-func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc) (*HttpRpc, error) {
+func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc, logger log.Logger) *HttpRpc {
 	httpRpc := new(HttpRpc)
-	httpRpc.provider = NewHttpProvider(rpc)
 	mux := http.NewServeMux()
 	mux.Handle(pattern, httpRpc.provider)
-	httpRpc.server = &http.Server{Addr: addr, Handler: mux}
-	return httpRpc, nil
+	return &HttpRpc{
+		server: &http.Server{Addr: addr, Handler: mux},
+		provider: NewHttpProvider(rpc),
+		logger: logger,
+	}
 }
 
 func (h *HttpRpc) ListenAndServe(errCh chan<- error) {
@@ -32,7 +35,7 @@ func (h *HttpRpc) ListenAndServe(errCh chan<- error) {
 
 func (h *HttpRpc) listenAndServe(errCh chan<- error) {
 	// notest
-	Logger.Info("Listening for JSON-RPC connections...")
+	h.logger.Info("Listening for JSON-RPC connections")
 
 	// Since ListenAndServe always returns an error we need to ensure that there
 	// is no write to a closed channel. Therefore, we check for ErrServerClosed
@@ -46,7 +49,7 @@ func (h *HttpRpc) listenAndServe(errCh chan<- error) {
 }
 
 func (h *HttpRpc) Close(timeout time.Duration) error {
-	Logger.Info("Shutting down JSON-RPC server...")
+	h.logger.Info("Shutting down JSON-RPC server...")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return h.server.Shutdown(ctx)
 }

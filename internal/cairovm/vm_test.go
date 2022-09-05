@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/pkg/felt"
+	"github.com/NethermindEth/juno/internal/log"
 
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
@@ -16,6 +17,12 @@ import (
 	"github.com/NethermindEth/juno/pkg/trie"
 	"github.com/NethermindEth/juno/pkg/types"
 )
+
+var logger *log.Log
+
+func init() {
+	logger, _ = log.NewProductionLogger("info")
+}
 
 func setupDatabase(path string) {
 	err := db.InitializeMDBXEnv(path, 1, 0)
@@ -41,7 +48,7 @@ func TestVMCall(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	vm := New(statedb.NewManager(stateDb, contractDefDb))
+	vm := New(statedb.NewManager(stateDb, contractDefDb), logger)
 
 	if err := vm.Run(t.TempDir()); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)

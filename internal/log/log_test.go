@@ -13,25 +13,20 @@ func TestGlobalLoggerVerbosity(t *testing.T) {
 	}{
 		{verbosity: "info", err: false},
 		{verbosity: "debug", err: false},
-		{verbosity: "warn", err: false},
+		{verbosity: "warn", err: true},
 		{verbosity: "error", err: false},
-		{verbosity: "dpanic", err: false},
-		{verbosity: "panic", err: false},
-		{verbosity: "fatal", err: false},
 		{verbosity: "something", err: true},
 
 		{verbosity: "INFO", err: false},
 		{verbosity: "DEBUG", err: false},
-		{verbosity: "WARN", err: false},
+		{verbosity: "WARN", err: true},
 		{verbosity: "ERROR", err: false},
-		{verbosity: "DPANIC", err: false},
-		{verbosity: "PANIC", err: false},
-		{verbosity: "FATAL", err: false},
+		{verbosity: "FATAL", err: true},
 		{verbosity: "SOMETHING", err: true},
 	}
 	for _, test := range tests {
 		t.Run(test.verbosity, func(t *testing.T) {
-			err := SetGlobalLogger(test.verbosity)
+			_, err := NewProductionLogger(test.verbosity)
 			if test.err {
 				assert.Error(t, err)
 			} else {

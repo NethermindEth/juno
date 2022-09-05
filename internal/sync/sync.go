@@ -13,7 +13,7 @@ import (
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
-	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/metrics/prometheus"
 	"github.com/NethermindEth/juno/internal/utils"
 	"github.com/NethermindEth/juno/pkg/feeder"
@@ -21,7 +21,6 @@ import (
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"go.uber.org/zap"
 )
 
 type Synchronizer struct {
@@ -30,7 +29,7 @@ type Synchronizer struct {
 	// l1Client represent the ethereum client
 	l1Client L1Client
 
-	logger *zap.SugaredLogger
+	logger log.Logger
 
 	// startingBlockNumber is the block number of the first block that we will sync.
 	startingBlockNumber      int64
@@ -67,10 +66,10 @@ type Synchronizer struct {
 // notest
 func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Client,
 	syncManager *sync.Manager, stateManager state.StateManager, blockManager *blockDB.Manager,
-	transactionManager *transaction.Manager,
-) *Synchronizer {
+	transactionManager *transaction.Manager, logger log.Logger,
+) (*Synchronizer, error) {
 	synchro := &Synchronizer{
-		logger: Logger.Named("Sync Service"),
+		logger: logger,
 		feeder: feederClient,
 		quit:   make(chan struct{}),
 		wg:     new(sync2.WaitGroup),
@@ -83,7 +82,8 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 	} else {
 		ethereumClient, err := ethclient.Dial(ethNode)
 		if err != nil {
-			synchro.logger.With("error", err).Fatal("Cannot connect to Ethereum Client")
+			synchro.logger.Errorw("Cannot connect to Ethereum Client", "error", err)
+			return nil, err
 		}
 		synchro.l1Client = ethereumClient
 	}
@@ -95,19 +95,21 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 
 	synchro.Running = false
 
-	synchro.setChainId(n.String())
+	if err := synchro.setChainId(n.String()); err != nil {
+		return nil, err
+	}
 	synchro.setStateToLatestRoot()
-	synchro.setStateDiffCollector(trusted)
-	return synchro
+	synchro.setStateDiffCollector(trusted, logger)
+	return synchro, nil
 }
 
 // setStateDiffCollector sets the stateDiffCollector.
-func (s *Synchronizer) setStateDiffCollector(apiSync bool) {
+func (s *Synchronizer) setStateDiffCollector(apiSync bool, logger log.Logger) {
 	if apiSync {
-		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder)
+		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder, logger)
 	} else {
 		s.stateDiffCollector = NewL1Collector(s.syncManager, s.feeder, s.l1Client,
-			int(s.chainId.Int64()))
+			int(s.chainId.Int64()), logger)
 	}
 }
 
@@ -122,7 +124,7 @@ func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
 		if err := s.sync(); err != nil {
-			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
+			s.logger.Infow("Sync Failed, restarting iterator in 10 seconds", "error", err)
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
 			continue
@@ -135,7 +137,8 @@ func (s *Synchronizer) handleSync() {
 func (s *Synchronizer) sync() error {
 	go s.stateDiffCollector.Run()
 
-	s.startingBlockNumber = s.syncManager.GetLatestBlockSync()
+	blockNumber := s.syncManager.GetLatestBlockSync()
+	s.startingBlockNumber = blockNumber
 	s.latestBlockNumberSynced = s.startingBlockNumber
 
 	// Get state
@@ -150,7 +153,7 @@ func (s *Synchronizer) sync() error {
 			if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 				// In case some errors exist or the new root of the trie didn't match with
 				// the root we receive from the StateDiff, we have to revert the trie
-				s.logger.With("Error", err).Error("State update failed, reverting state")
+				s.logger.Errorw("State update failed, reverting state", "error", err)
 				prometheus.IncreaseCountStarknetStateFailed()
 				s.setStateToLatestRoot()
 				return err
@@ -166,11 +169,11 @@ func (s *Synchronizer) sync() error {
 			}
 			s.syncManager.StoreLatestStateRoot(s.state.Root().Hex0x())
 			s.latestBlockNumberSynced = collectedDiff.stateDiff.BlockNumber
-			s.logger.With(
-				"Number", collectedDiff.stateDiff.BlockNumber,
-				"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
+			s.logger.Infow("Synchronized block",
+				"number", collectedDiff.stateDiff.BlockNumber,
+				"pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
 				"Time(sec)", time.Since(start).Seconds(),
-			).Info("Synchronized block")
+			)
 		}
 	}
 	return nil
@@ -226,7 +229,7 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 			return err
 		}
 	}
-	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
+	s.logger.Debugw("State updated", "Block Number", collectedDiff.stateDiff.BlockNumber)
 	return nil
 }
 
@@ -237,13 +240,10 @@ func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *t
 	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash,
 		collectedDiff.Code[deployedContract.Address.Hex0x()])
 	if err != nil {
-		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
-			Error("Error setting code")
+		s.logger.Errorw("Error setting code", "blockNumber", collectedDiff.stateDiff.BlockNumber, "address", deployedContract.Address)
 		return err
 	}
-	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber, "Address", deployedContract.Address).
-		Debug("State updated for Contract")
+	s.logger.Debugw("State updated for Contract", "blockNumber", collectedDiff.stateDiff.BlockNumber, "address", deployedContract.Address)
 	return nil
 }
 
@@ -286,7 +286,7 @@ func (s *Synchronizer) Close() {
 	s.wg.Wait()
 }
 
-func (s *Synchronizer) setChainId(network string) {
+func (s *Synchronizer) setChainId(network string) error {
 	if s.l1Client == nil {
 		// notest
 		if network == "mainnet" {
@@ -299,9 +299,10 @@ func (s *Synchronizer) setChainId(network string) {
 		s.chainId, err = s.l1Client.ChainID(context.Background())
 		if err != nil {
 			// notest
-			Logger.Panic("Unable to retrieve chain ID from Ethereum Node")
+			return fmt.Errorf("retrieve chain ID from Ethereum node: %w", err)
 		}
 	}
+	return nil
 }
 
 func (s *Synchronizer) updateBlocks(number int64) error {
@@ -413,7 +414,7 @@ func (s *Synchronizer) updateBlocksInfo() {
 				time.Sleep(time.Minute)
 				continue
 			}
-			s.logger.With("Block Number", currentBlock).Info("Updated block info")
+			s.logger.Infow("Updated block info", "Block Number", currentBlock)
 			s.syncManager.StoreLatestBlockSaved(currentBlock)
 			currentBlock++
 		}

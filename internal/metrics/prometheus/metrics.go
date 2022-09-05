@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/log"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -19,6 +19,7 @@ import (
 
 type Server struct {
 	server http.Server
+	logger log.Logger
 }
 
 var (
@@ -357,7 +358,7 @@ func (s *Server) ListenAndServe(errCh chan<- error) {
 
 func (s *Server) listenAndServe(errCh chan<- error) {
 	// notest
-	Logger.Info("Handling Metrics...")
+	s.logger.Info("Serving metrics")
 
 	// Since ListenAndServe always returns an error we need to ensure that there
 	// is no write to a closed channel. Therefore, we check for ErrServerClosed
@@ -365,7 +366,8 @@ func (s *Server) listenAndServe(errCh chan<- error) {
 	// write to the channel is required. Otherwise, any other error is written
 	// which will cause the program to exit.
 	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		errCh <- errors.New("Failed to ListenAndServe on Metrics server: " + err.Error())
+		s.logger.Infow("Error while serving metrics", "error", err)
+		errCh <- err
 	}
 	close(errCh)
 }
@@ -373,7 +375,7 @@ func (s *Server) listenAndServe(errCh chan<- error) {
 // Close gracefully shuts down the server.
 func (s *Server) Close(timeout time.Duration) error {
 	// notest
-	Logger.Info("Shutting down Metrics server...")
+	s.logger.Info("Shutting down Metrics server")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return s.server.Shutdown(ctx)
 }

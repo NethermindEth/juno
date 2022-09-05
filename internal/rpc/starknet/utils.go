@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
-	"go.uber.org/zap"
+	"github.com/NethermindEth/juno/internal/log"
 
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	"github.com/NethermindEth/juno/pkg/types"
@@ -34,7 +34,7 @@ func isStorageKey(s string) bool {
 	return storageKeyRegexp.MatchString(s)
 }
 
-func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.SugaredLogger) (block *types.Block, err error) {
+func getBlockById(blockId *BlockId, blockManager *block.Manager, logger log.Logger) (block *types.Block, err error) {
 	if blockId == nil {
 		return nil, InvalidBlockId
 	}
@@ -54,7 +54,7 @@ func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.Sug
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, InvalidBlockId
 		}
-		logger.With("err", err).Errorf("failed to get block with id: %v", blockId)
+		logger.Errorw("Failed to get block", "id", blockId, "error", err)
 		return nil, jsonrpc.NewInternalError(err.Error())
 	}
 	return block, nil

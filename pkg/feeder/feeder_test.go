@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/feeder"
 
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/bxcodec/faker"
 	"github.com/stretchr/testify/assert"
 )
@@ -23,12 +24,14 @@ import (
 var (
 	httpClient = &feederfakes.FakeHttpClient{}
 	client     *feeder.Client
+	logger log.Logger
 )
 
 func init() {
 	var p feeder.HttpClient
 	p = httpClient
-	client = feeder.NewClient("https:/local", "/feeder_gateway/", &p)
+	logger, _ = log.NewProductionLogger("info")
+	client, _ = feeder.NewClient("https:/local", "/feeder_gateway/", &p, logger)
 }
 
 func generateResponse(body string) *http.Response {
@@ -58,7 +61,7 @@ func StructFaker(a interface{}) (string, error) {
 }
 
 func TestClient(t *testing.T) {
-	_ = feeder.NewClient("https:/local", "/feeder_gateway/", nil)
+	feeder.NewClient("https:/local", "/feeder_gateway/", nil, logger)
 }
 
 func TestGetContractAddress(t *testing.T) {

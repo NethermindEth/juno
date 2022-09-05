@@ -55,6 +55,8 @@ type Config struct {
 type Node struct {
 	cfg *Config
 
+	logger log.Logger
+
 	feederClient   *feeder.Client
 	virtualMachine *cairovm.VirtualMachine
 	synchronizer   *syncer.Synchronizer
@@ -84,13 +86,16 @@ func New(cfg *Config) (StarkNetNode, error) {
 }
 
 func (n *Node) Run() error {
-	log.Logger.Info("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
+	fmt.Printf("Running Juno with config: %s\n", fmt.Sprintf("%+v", *n.cfg))
 
-	if err := utils.CreateDir(n.cfg.DatabasePath); err != nil {
+	// Set up logging
+	logger, err := log.NewProductionLogger(n.cfg.Verbosity)
+	if err != nil {
 		return err
 	}
+	n.logger = logger
 
-	if err := log.SetGlobalLogger(n.cfg.Verbosity); err != nil {
+	if err := utils.CreateDir(n.cfg.DatabasePath); err != nil {
 		return err
 	}
 
@@ -133,21 +138,26 @@ func (n *Node) Run() error {
 	}
 	n.blockManager = block.NewManager(blockDb)
 
-	n.feederClient = feeder.NewClient(n.cfg.Network.URL(), feederGatewaySuffix, nil)
-	n.virtualMachine = cairovm.New(n.stateManager)
-	n.synchronizer = syncer.NewSynchronizer(n.cfg.Network, n.cfg.EthNode, n.feederClient,
-		n.syncManager, n.stateManager, n.blockManager, n.transactionManager)
+	n.feederClient, err = feeder.NewClient(n.cfg.Network.URL(), feederGatewaySuffix, nil, n.logger.Named("FEEDER"))
+	if err != nil {
+		return err
+	}
+	n.virtualMachine = cairovm.New(n.stateManager, n.logger.Named("VM"))
+	n.synchronizer, err = syncer.NewSynchronizer(n.cfg.Network, n.cfg.EthNode, n.feederClient,
+		n.syncManager, n.stateManager, n.blockManager, n.transactionManager, n.logger.Named("SYNC"))
 
+	if err != nil {
+		return err
+	}
+
+	rpcLogger := n.logger.Named("RPC")
 	jsonRpc, err := starkNetJsonRPC(n.stateManager, n.blockManager, n.transactionManager,
-		n.synchronizer, n.virtualMachine)
+		n.synchronizer, n.virtualMachine, rpcLogger)
 	if err != nil {
 		return err
 	}
 	rpcAddr := ":" + strconv.FormatUint(uint64(n.cfg.RpcPort), 10)
-	n.rpcServer, err = rpc.NewHttpRpc(rpcAddr, rpcSuffix, jsonRpc)
-	if err != nil {
-		return err
-	}
+	n.rpcServer = rpc.NewHttpRpc(rpcAddr, rpcSuffix, jsonRpc, rpcLogger)
 
 	if n.cfg.Metrics {
 		n.metricsServer = prometheus.SetupMetric(defaultMetricsPort)
@@ -181,7 +191,7 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) Shutdown() error {
-	log.Logger.Info("Shutting down Juno...")
+	n.logger.Info("Shutting down Juno")
 	n.virtualMachine.Close()
 	n.synchronizer.Close()
 
@@ -205,10 +215,10 @@ func (n *Node) Shutdown() error {
 
 func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 	transactionManager *transaction.Manager, synchronizer *syncer.Synchronizer,
-	virtualMachine *cairovm.VirtualMachine,
+	virtualMachine *cairovm.VirtualMachine, logger log.Logger,
 ) (*jsonrpc.JsonRpc, error) {
 	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
-		virtualMachine)
+		virtualMachine, logger)
 	jsonRpc := jsonrpc.NewJsonRpc()
 	handlers := []struct {
 		name       string

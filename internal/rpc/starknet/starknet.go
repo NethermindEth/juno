@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
-	"go.uber.org/zap"
 
 	sync2 "github.com/NethermindEth/juno/internal/sync"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/internal/db"
-	. "github.com/NethermindEth/juno/internal/log"
+	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -26,11 +25,11 @@ type StarkNetRpc struct {
 	txnManager   *transaction.Manager
 	synchronizer *sync2.Synchronizer
 	vm           *cairovm.VirtualMachine
-	logger       *zap.SugaredLogger
+	logger       log.Logger
 }
 
 func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
-	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine,
+	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine, logger log.Logger,
 ) *StarkNetRpc {
 	return &StarkNetRpc{
 		stateManager: stateManager,
@@ -38,7 +37,7 @@ func New(stateManager state.StateManager, blockManager *block.Manager, txnManage
 		txnManager:   txnManager,
 		synchronizer: synchronizer,
 		vm:           vm,
-		logger:       Logger.Named("RPC"),
+		logger:       logger,
 	}
 }
 
