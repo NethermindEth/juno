@@ -21,7 +21,7 @@ import (
 var logger *log.Log
 
 func init() {
-	logger, _ = log.NewProductionLogger("info")
+	logger = log.NewNopLogger()
 }
 
 func setupDatabase(path string) {

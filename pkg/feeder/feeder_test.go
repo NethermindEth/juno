@@ -30,7 +30,7 @@ var (
 func init() {
 	var p feeder.HttpClient
 	p = httpClient
-	logger, _ = log.NewProductionLogger("info")
+	logger = log.NewNopLogger()
 	client, _ = feeder.NewClient("https:/local", "/feeder_gateway/", &p, logger)
 }
 

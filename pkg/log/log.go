@@ -32,6 +32,10 @@ type Log struct {
 // *Log implements Logger
 var _ Logger = &Log{}
 
+func NewNopLogger() *Log {
+	return NewLogger(zap.NewNop().Sugar())
+}
+
 // NewProductionLogger creates a *Log with sane defaults.
 func NewProductionLogger(verbosity string) (*Log, error) {
 	re := regexp.MustCompile("(?i)debug|info|error")
