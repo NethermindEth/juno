@@ -486,8 +486,7 @@ func feederTransactionToDBReceipt(receipt *feeder.TransactionReceipt, txnType st
 	case "DECLARE":
 		return &types.TxnDeclareReceipt{TxnReceiptCommon: common}
 	case "DEPLOY":
-		return &types.TxnInvokeReceipt{TxnReceiptCommon: common}
-
+		return &types.TxnDeployReceipt{TxnReceiptCommon: common}
 	default:
 		return &common
 	}
