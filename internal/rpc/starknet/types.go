@@ -15,7 +15,8 @@ import (
 var ErrInvalidBlockId = errors.New("invalid block id")
 
 const (
-	blockIdHash BlockIdType = iota
+	blockIdUnknown BlockIdType = iota
+	blockIdHash
 	blockIdTag
 	blockIdNumber
 )
@@ -38,8 +39,8 @@ func (id *BlockId) tag() (string, bool) {
 }
 
 func (id *BlockId) number() (uint64, bool) {
-	n, ok := id.value.(int64)
-	return uint64(n), ok
+	n, ok := id.value.(uint64)
+	return n, ok
 }
 
 func (id *BlockId) UnmarshalJSON(data []byte) error {
@@ -52,14 +53,11 @@ func (id *BlockId) UnmarshalJSON(data []byte) error {
 	switch t := token.(type) {
 	case json.Number:
 		value, err := t.Int64()
-		if err != nil {
-			return err
-		}
-		if value < 0 {
+		if err != nil || value < 0 {
 			return ErrInvalidBlockId
 		}
 		id.idType = blockIdNumber
-		id.value = value
+		id.value = uint64(value)
 	case string:
 		if isBlockTag(t) {
 			id.idType = blockIdTag
