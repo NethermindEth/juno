@@ -277,6 +277,15 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 
 func (*DeployTxn) isTxn() {}
 
+type TxnType string
+
+const (
+	TxnDeclare   TxnType = "DECLARE"
+	TxnDeploy    TxnType = "DEPLOY"
+	TxnInvoke    TxnType = "INVOKE"
+	TxnL1Handler TxnType = "L1_HANDLER"
+)
+
 type Receipt interface {
 	isReceipt()
 }
@@ -299,6 +308,7 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 				Status:          receipt.Status.String(),
 				BlockHash:       receipt.BlockHash.Hex0x(),
 				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnInvoke,
 			},
 			MessagesSent:    messagesSent,
 			L1OriginMessage: NewMsgToL2(receipt.L1OriginMessage),
@@ -312,6 +322,7 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 				Status:          receipt.Status.String(),
 				BlockHash:       receipt.BlockHash.Hex0x(),
 				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnDeploy,
 			},
 		}, nil
 	case *types.TxnDeclareReceipt:
@@ -322,6 +333,7 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 				Status:          receipt.Status.String(),
 				BlockHash:       receipt.BlockHash.Hex0x(),
 				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnDeclare,
 			},
 		}, nil
 	default:
@@ -330,11 +342,12 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 }
 
 type CommonReceiptProperties struct {
-	TransactionHash string `json:"transaction_hash"`
-	ActualFee       string `json:"actual_fee"`
-	Status          string `json:"status"`
-	BlockHash       string `json:"block_hash"`
-	BlockNumber     uint64 `json:"block_number"`
+	TransactionHash string  `json:"transaction_hash"`
+	ActualFee       string  `json:"actual_fee"`
+	Status          string  `json:"status"`
+	BlockHash       string  `json:"block_hash"`
+	BlockNumber     uint64  `json:"block_number"`
+	Type            TxnType `json:"type"`
 }
 
 type InvokeTxReceipt struct {
