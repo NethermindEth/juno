@@ -13,10 +13,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type Program struct {
-	EncodedProgram string `json:"compressedProgram"`
-}
-
 func (m *Manager) GetContractState(hash *felt.Felt) (*state.ContractState, error) {
 	raw, err := m.stateDatabase.Get(hash.ByteSlice())
 	if err != nil {
@@ -86,9 +82,7 @@ func (x *Manager) PutContract(contractHash *felt.Felt, contract *types.Contract)
 		}
 
 		encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
-		var jsonProgram Program
-		jsonProgram.EncodedProgram = encodedProgram
-		fullDefMap["program"] = jsonProgram
+		fullDefMap["program"] = encodedProgram
 
 		compressedFullDef, err := json.Marshal(fullDefMap)
 		if err != nil {

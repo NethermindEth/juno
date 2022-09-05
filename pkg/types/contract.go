@@ -1,7 +1,11 @@
 package types
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 )
@@ -60,17 +64,47 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 	}
 
 	var contract struct {
-		Abi     Abi `json:"abi"`
-		Program struct {
-			Data []*felt.Felt `json:"data"`
-		} `json:"program"`
+		Abi Abi `json:"abi"`
 	}
+
 	if err := json.Unmarshal(data, &contract); err != nil {
 		return err
 	}
 
+	var fullDefMap map[string]interface{}
+	if err := json.Unmarshal(data, &fullDefMap); err != nil {
+		return err
+	}
+
+	decodedProgram, err := base64.StdEncoding.DecodeString(fullDefMap["program"].(string))
+	if err != nil {
+		return err
+	}
+	gr, err := gzip.NewReader(bytes.NewBuffer(decodedProgram))
+	if err != nil {
+		return err
+	}
+	defer gr.Close()
+	decodedProgram, err = ioutil.ReadAll(gr)
+	if err != nil {
+		return err
+	}
+
+	feltedProgram, err := new(felt.Felt).SetInterface((decodedProgram))
+	if err != nil {
+		return err
+	}
+
+	var bytecode struct {
+		Program struct {
+			Data []*felt.Felt `json:"data"`
+		} `json:"program"`
+	}
+
+	bytecode.Program.Data = []*felt.Felt{feltedProgram}
+
 	c.Abi = contract.Abi
-	c.Bytecode = contract.Program.Data
+	c.Bytecode = bytecode.Program.Data
 	c.FullDef = fullDef
 	return nil
 }
