@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGlobalLoggerVerbosity(t *testing.T) {
+func TestVerbosity(t *testing.T) {
 	tests := []struct {
 		verbosity string
 		err       bool
@@ -34,4 +34,18 @@ func TestGlobalLoggerVerbosity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLog(t *testing.T) {
+	logger, err := NewProductionLogger("error")
+	if err != nil {
+		t.Fatalf("unexpected error creating production logger: %s", err)
+	}
+	logger.Debug("test msg")
+	logger.Debugw("test msg", "key", "value")
+	logger.Info("test msg")
+	logger.Infow("test msg", "key", "value")
+	logger.Error("test msg")
+	logger.Infow("test msg", "key", "value")
+	logger.Named("TEST")
 }
