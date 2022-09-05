@@ -209,6 +209,7 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 ) (*jsonrpc.JsonRpc, error) {
 	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
 		virtualMachine)
+
 	jsonRpc := jsonrpc.NewJsonRpc()
 	handlers := []struct {
 		name       string
@@ -233,6 +234,7 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
 		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starkNetApi.Syncing, nil},
+		{"starknet_healthCheck", starkNetApi.HealthCheck, nil},
 	}
 	for _, handler := range handlers {
 		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
