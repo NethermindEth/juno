@@ -12,34 +12,16 @@ import (
 	. "github.com/NethermindEth/juno/pkg/jsonrpc/providers/http"
 )
 
-const (
-	InterfaceWlan     = "wlan0"
-	InterfaceEthernet = "eth0"
-)
-
-// A NetEnumerator enumerates local IP addresses.
-type NetEnumerator struct {
-	Interfaces     func() ([]net.Interface, error)
-	InterfaceAddrs func(*net.Interface) ([]net.Addr, error)
-}
-
-// DefaultEnumerator returns a NetEnumerator that uses the default
-// implementations from the net package.
-func DefaultEnumerator() NetEnumerator {
-	return NetEnumerator{
-		Interfaces:     net.Interfaces,
-		InterfaceAddrs: (*net.Interface).Addrs,
-	}
-}
-
 type HttpRpc struct {
 	server   *http.Server
 	provider *HttpProvider
+	pattern  string
 }
 
 func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc) (*HttpRpc, error) {
 	httpRpc := new(HttpRpc)
 	httpRpc.provider = NewHttpProvider(rpc)
+	httpRpc.pattern = pattern
 	mux := http.NewServeMux()
 	mux.Handle(pattern, httpRpc.provider)
 	httpRpc.server = &http.Server{Addr: addr, Handler: mux}
@@ -55,7 +37,7 @@ func (h *HttpRpc) listenAndServe(errCh chan<- error) {
 	// notest
 	ip, err := getIpAddress(NetworkHandler{
 		GetInterfaces: net.Interfaces,
-		GetAddrsFromInterface: func(p net.Interface) ([]net.Addr, error) {
+		GetAddressFromInterface: func(p net.Interface) ([]net.Addr, error) {
 			return p.Addrs()
 		},
 	})
@@ -63,7 +45,7 @@ func (h *HttpRpc) listenAndServe(errCh chan<- error) {
 		errCh <- err
 		return
 	}
-	Logger.With("Running at", ip.String()+h.server.Addr).Info("Listening for JSON-RPC connections...")
+	Logger.With("Running at", "http://"+ip.String()+h.server.Addr+h.pattern).Info("Listening for JSON-RPC connections...")
 
 	// Since ListenAndServe always returns an error we need to ensure that there
 	// is no write to a closed channel. Therefore, we check for ErrServerClosed
@@ -83,23 +65,22 @@ func (h *HttpRpc) Close(timeout time.Duration) error {
 }
 
 type NetworkHandler struct {
-	GetInterfaces         func() ([]net.Interface, error)
-	GetAddrsFromInterface func(p net.Interface) ([]net.Addr, error)
+	GetInterfaces           func() ([]net.Interface, error)
+	GetAddressFromInterface func(p net.Interface) ([]net.Addr, error)
 }
 
 func getIpAddress(networkHandler NetworkHandler) (net.IP, error) {
-	ifaces, err := networkHandler.GetInterfaces()
+	interfaces, err := networkHandler.GetInterfaces()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, i := range ifaces {
-		addresses, err := networkHandler.GetAddrsFromInterface(i)
+	for _, i := range interfaces {
+		addresses, err := networkHandler.GetAddressFromInterface(i)
 		if err != nil {
 			return nil, err
 		}
 		for _, addr := range addresses {
-			// check the address type and if it is not a loopback the display it
 			if len(addr.String()) < 4 {
 				continue
 			}

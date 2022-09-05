@@ -11,8 +11,8 @@ import (
 func TestGetIpAddress(t *testing.T) {
 	t.Run("should return error when cannot get address from net.interface", func(t *testing.T) {
 		result, err := getIpAddress(NetworkHandler{
-			GetInterfaces:         mockGetInterfaces,
-			GetAddrsFromInterface: mockGetEmptyAddress,
+			GetInterfaces:           mockGetInterfaces,
+			GetAddressFromInterface: mockGetEmptyAddress,
 		})
 
 		assert.Assert(t, result == nil, "result should be nil")
@@ -20,16 +20,16 @@ func TestGetIpAddress(t *testing.T) {
 	})
 	t.Run("should return the IP provided while mocking", func(t *testing.T) {
 		result, err := getIpAddress(NetworkHandler{
-			GetInterfaces:         mockGetInterfaces,
-			GetAddrsFromInterface: mockGetAddress,
+			GetInterfaces:           mockGetInterfaces,
+			GetAddressFromInterface: mockGetAddress,
 		})
 		assert.Assert(t, err == nil, "error should be nil")
 		assert.Equal(t, result.String(), "192.168.1.1", "IP should be the same mocked")
 	})
 	t.Run("should return error when cannot remove the mask", func(t *testing.T) {
 		result, err := getIpAddress(NetworkHandler{
-			GetInterfaces:         mockGetInterfaces,
-			GetAddrsFromInterface: mockGetAddressWithoutMask,
+			GetInterfaces:           mockGetInterfaces,
+			GetAddressFromInterface: mockGetAddressWithoutMask,
 		})
 		assert.Assert(t, result == nil, "result should be nil")
 		assert.Equal(t, "network: ip not found", err.Error())
