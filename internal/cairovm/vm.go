@@ -27,7 +27,7 @@ type pySubProcessLogger struct {
 
 func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
 	// notest
-	p.logger.Info("Python VM Subprocess", p0)
+	p.logger.Info("Python VM Subprocess", string(p0))
 	return len(p0), nil
 }
 
