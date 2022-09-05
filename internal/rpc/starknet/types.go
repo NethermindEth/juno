@@ -275,6 +275,15 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 
 func (*DeployTxn) isTxn() {}
 
+type TxnType string
+
+const (
+	TxnDeclare   TxnType = "DECLARE"
+	TxnDeploy    TxnType = "DEPLOY"
+	TxnInvoke    TxnType = "INVOKE"
+	TxnL1Handler TxnType = "L1_HANDLER"
+)
+
 type Receipt interface {
 	isReceipt()
 }
@@ -282,28 +291,22 @@ type Receipt interface {
 func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 	switch receipt := receipt.(type) {
 	case *types.TxnInvokeReceipt:
-		var messagesSent []*MsgToL1 = nil
-		if len(receipt.MessagesSent) > 0 {
-			messagesSent = make([]*MsgToL1, len(receipt.MessagesSent))
-			for i, msg := range receipt.MessagesSent {
-				messagesSent[i] = NewMsgToL1(msg)
-			}
+		messagesSent := make([]*MsgToL1, 0, len(receipt.MessagesSent))
+		for _, msg := range receipt.MessagesSent {
+			messagesSent = append(messagesSent, NewMsgToL1(msg))
 		}
-		var events []*Event = nil
-		if len(receipt.Events) > 0 {
-			events = make([]*Event, len(receipt.Events))
-			for i, event := range receipt.Events {
-				events[i] = NewEvent(event)
-			}
+		events := make([]*Event, len(receipt.Events))
+		for i, e := range receipt.Events {
+			events[i] = NewEvent(e)
 		}
 		return &InvokeTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash.Hex0x(),
-				ActualFee:   receipt.ActualFee.Hex0x(),
-				Status:      receipt.Status.String(),
-				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash.Hex0x(),
-				BlockNumber: receipt.BlockNumber,
+				TransactionHash: receipt.TxnHash.Hex0x(),
+				ActualFee:       receipt.ActualFee.Hex0x(),
+				Status:          receipt.Status.String(),
+				BlockHash:       receipt.BlockHash.Hex0x(),
+				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnInvoke,
 			},
 			MessagesSent:    messagesSent,
 			L1OriginMessage: NewMsgToL2(receipt.L1OriginMessage),
@@ -312,23 +315,23 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 	case *types.TxnDeployReceipt:
 		return &DeployTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash.Hex0x(),
-				ActualFee:   receipt.ActualFee.Hex0x(),
-				Status:      receipt.Status.String(),
-				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash.Hex0x(),
-				BlockNumber: receipt.BlockNumber,
+				TransactionHash: receipt.TxnHash.Hex0x(),
+				ActualFee:       receipt.ActualFee.Hex0x(),
+				Status:          receipt.Status.String(),
+				BlockHash:       receipt.BlockHash.Hex0x(),
+				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnDeploy,
 			},
 		}, nil
 	case *types.TxnDeclareReceipt:
 		return &DeclareTxReceipt{
 			CommonReceiptProperties: CommonReceiptProperties{
-				TxnHash:     receipt.TxnHash.Hex0x(),
-				ActualFee:   receipt.ActualFee.Hex0x(),
-				Status:      receipt.Status.String(),
-				StatusData:  receipt.StatusData,
-				BlockHash:   receipt.BlockHash.Hex0x(),
-				BlockNumber: receipt.BlockNumber,
+				TransactionHash: receipt.TxnHash.Hex0x(),
+				ActualFee:       receipt.ActualFee.Hex0x(),
+				Status:          receipt.Status.String(),
+				BlockHash:       receipt.BlockHash.Hex0x(),
+				BlockNumber:     receipt.BlockNumber,
+				Type:            TxnDeclare,
 			},
 		}, nil
 	default:
@@ -337,19 +340,18 @@ func NewReceipt(receipt types.TxnReceipt) (Receipt, error) {
 }
 
 type CommonReceiptProperties struct {
-	TxnHash          string `json:"txn_hash"`
-	TransactionIndex uint64 `json:"transaction_index"`
-	ActualFee        string `json:"actual_fee"`
-	Status           string `json:"status"`
-	StatusData       string `json:"status_data"`
-	BlockHash        string `json:"block_hash"`
-	BlockNumber      uint64 `json:"block_number"`
+	TransactionHash string  `json:"transaction_hash"`
+	ActualFee       string  `json:"actual_fee"`
+	Status          string  `json:"status"`
+	BlockHash       string  `json:"block_hash"`
+	BlockNumber     uint64  `json:"block_number"`
+	Type            TxnType `json:"type"`
 }
 
 type InvokeTxReceipt struct {
 	CommonReceiptProperties
 	MessagesSent    []*MsgToL1 `json:"messages_sent"`
-	L1OriginMessage *MsgToL2   `json:"l1_origin_message"`
+	L1OriginMessage *MsgToL2   `json:"l1_origin_message,omitempty"`
 	Events          []*Event   `json:"events"`
 }
 
@@ -390,7 +392,7 @@ type MsgToL2 struct {
 
 func NewMsgToL2(msg *types.MsgToL2) *MsgToL2 {
 	if msg == nil {
-		return &MsgToL2{}
+		return nil
 	}
 	payload := make([]string, len(msg.Payload))
 	for i, data := range msg.Payload {
