@@ -161,7 +161,7 @@ Retrieves the block information and the list of all transaction details in the b
 	"id": 1,
 	"method": "starknet_getBlockWithTxs",
 	"params": {
-		"block_id": 2 
+		"block_id": 2
 	}
 }
 ```
@@ -553,7 +553,7 @@ Retrieves the transaction information.
   </TabItem>
 </Tabs>
 
-### starknet_getTransactionByBlockIdAndIndex 
+### starknet_getTransactionByBlockIdAndIndex
 
 Get the details of the transaction given by the identified block and index in that block. If no transaction is found, null is returned.
 
@@ -654,6 +654,40 @@ Retrieves information about the sync process status.
 		"highest_block_number": "f6c"
 	},
 	"id": 1
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### starknet_healthCheck
+
+Retrieves information of the health of the node.
+
+#### Healthy node response
+
+<Tabs>
+  <TabItem value="list-param" label="Request">
+
+```json
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "starknet_healthCheck",
+	"params": []
+}
+```
+
+  </TabItem>
+  <TabItem value="response" label="Response">
+
+```json
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "available": true,
+	},
+    "id": 1
 }
 ```
 
