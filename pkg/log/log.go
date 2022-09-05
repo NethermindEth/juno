@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Logger is the interface used for all loggers in Juno.
 type Logger interface {
 	Debug(...any)
 	Debugw(string, ...any)
@@ -23,6 +24,7 @@ type Logger interface {
 	Named(string) Logger
 }
 
+// Log wraps a *zap.SugaredLogger to fulfill the Logger interface.
 type Log struct {
 	zapLogger *zap.SugaredLogger
 }
@@ -30,6 +32,7 @@ type Log struct {
 // *Log implements Logger
 var _ Logger = &Log{}
 
+// NewProductionLogger creates a *Log with sane defaults.
 func NewProductionLogger(verbosity string) (*Log, error) {
 	re := regexp.MustCompile("(?i)debug|info|error")
 	if !re.Match([]byte(verbosity)) {
@@ -55,6 +58,7 @@ func NewProductionLogger(verbosity string) (*Log, error) {
 	return NewLogger(logger.Sugar()), nil
 }
 
+// NewLogger creates a *Log given a *zap.SugaredLogger.
 func NewLogger(zapLogger *zap.SugaredLogger) *Log {
 	zapLogger.Sync()
 	return &Log{
