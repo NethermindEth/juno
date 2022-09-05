@@ -90,12 +90,7 @@ You can install the entire app using docker. Just check the
 In the future we plan to add a new set of features like:
 
 - P2P between all nodes on the network.
-- Support for more RPC methods like:
-    - starknet_getClass - `Get the contract class definition in the given block associated with the given hash`
-    - starknet_getClassAt - `Get the contract class definition in the given block at the given address`
-    - starknet_estimateFee - `Estimate the fee for a given StarkNet transaction`
-    - starknet_getEvents - `Returns all events matching the given filter`
-    - starknet_getNonce - `Get the nonce associated with the given address in the given block`
+- Complete support for v1 of the [RPC spec](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.1.0)
 - Faster sync
 - Enhanced metrics
 - More and more! Stay tuned! 🚀
