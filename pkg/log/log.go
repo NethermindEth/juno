@@ -3,8 +3,8 @@ package log
 
 import (
 	"fmt"
-	"time"
 	"regexp"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	. "github.com/NethermindEth/juno/pkg/jsonrpc/providers/http"
+	"github.com/NethermindEth/juno/pkg/log"
 )
 
 type HttpRpc struct {
@@ -22,9 +22,9 @@ func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc, logger log.Logger) *
 	mux := http.NewServeMux()
 	mux.Handle(pattern, httpRpc.provider)
 	return &HttpRpc{
-		server: &http.Server{Addr: addr, Handler: mux},
+		server:   &http.Server{Addr: addr, Handler: mux},
 		provider: NewHttpProvider(rpc),
-		logger: logger,
+		logger:   logger,
 	}
 }
 

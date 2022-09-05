@@ -14,8 +14,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/NethermindEth/juno/pkg/log"
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
+	"github.com/NethermindEth/juno/pkg/log"
 )
 
 var ErrorBlockNotFound = fmt.Errorf("block not found")
@@ -33,7 +33,7 @@ type Client struct {
 	BaseURL            *url.URL
 	BaseAPI, UserAgent string
 	available          chan bool
-	logger log.Logger
+	logger             log.Logger
 }
 
 // NewClient returns a new Client.

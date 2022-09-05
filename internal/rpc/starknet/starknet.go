@@ -13,9 +13,9 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/internal/db"
-	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
+	"github.com/NethermindEth/juno/pkg/log"
 	"github.com/NethermindEth/juno/pkg/state"
 )
 

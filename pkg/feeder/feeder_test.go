@@ -24,7 +24,7 @@ import (
 var (
 	httpClient = &feederfakes.FakeHttpClient{}
 	client     *feeder.Client
-	logger log.Logger
+	logger     log.Logger
 )
 
 func init() {
