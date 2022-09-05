@@ -8,6 +8,7 @@ import (
 type ContractState struct {
 	ContractHash *felt.Felt
 	StorageRoot  *felt.Felt
+	Nonce        *felt.Felt
 }
 
 func (c *ContractState) Hash() *felt.Felt {

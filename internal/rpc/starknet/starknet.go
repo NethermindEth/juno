@@ -175,6 +175,19 @@ func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
 	return b.TxCount, nil
 }
 
+func (s *StarkNetRpc) GetNonce(blockId *BlockId, address *RpcFelt) (any, error) {
+	b, err := getBlockById(blockId, s.blockManager, s.logger)
+	if err != nil {
+		return nil, err
+	}
+	_state := state.New(s.stateManager, b.NewRoot)
+	nonce, err := _state.GetNonce(address.Felt())
+	if err != nil {
+		return nil, err
+	}
+	return nonce, nil
+}
+
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
 	b, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {

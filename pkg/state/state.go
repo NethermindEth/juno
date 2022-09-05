@@ -19,6 +19,7 @@ type State interface {
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
 	SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) error
 	GetClassHash(address *felt.Felt) (*felt.Felt, error)
+	GetNonce(address *felt.Felt) (*felt.Felt, error)
 }
 
 type StateManager interface {
@@ -51,7 +52,7 @@ func (st *state) GetContractState(address *felt.Felt) (*ContractState, error) {
 		return nil, err
 	}
 	if leaf.Cmp(trie.EmptyNode.Bottom()) == 0 {
-		return &ContractState{new(felt.Felt), new(felt.Felt)}, nil
+		return &ContractState{new(felt.Felt), new(felt.Felt), new(felt.Felt)}, nil
 	}
 	return st.manager.GetContractState(leaf)
 }
@@ -105,6 +106,14 @@ func (st *state) SetSlot(address *felt.Felt, slot *felt.Felt, value *felt.Felt) 
 		return err
 	}
 	return st.stateTrie.Put(address, contract.Hash())
+}
+
+func (st *state) GetNonce(address *felt.Felt) (*felt.Felt, error) {
+	contract, err := st.GetContractState(address)
+	if err != nil {
+		return nil, err
+	}
+	return contract.Nonce, nil
 }
 
 // notest
