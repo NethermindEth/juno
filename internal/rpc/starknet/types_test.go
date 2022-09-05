@@ -115,11 +115,26 @@ func TestBlockId_UnmarshalJSON(t *testing.T) {
 			assert.DeepEqual(t, got, tt.want, gocmp.Comparer(func(x, y BlockId) bool {
 				switch x.idType {
 				case blockIdHash:
-					return x.value.(*felt.Felt).Equal(y.value.(*felt.Felt))
+					xh, xok := x.hash()
+					yh, yok := y.hash()
+					if !xok || !yok {
+						t.Fatal("invalid block id")
+					}
+					return xh.Equal(yh)
 				case blockIdTag:
-					return x.value.(string) == y.value.(string)
+					xt, xok := x.tag()
+					yt, yok := x.tag()
+					if !xok || !yok {
+						t.Fatal("invalid block id")
+					}
+					return xt == yt
 				case blockIdNumber:
-					return x.value.(uint64) == y.value.(uint64)
+					xn, xok := x.number()
+					yn, yok := y.number()
+					if !xok || !yok {
+						t.Fatal("invalid block id")
+					}
+					return xn == yn
 				case blockIdUnknown:
 					return y.idType == blockIdUnknown && x.value == nil && y.value == nil
 				}
