@@ -96,7 +96,7 @@ In the future we plan to add a new set of features like:
     - starknet_estimateFee - `Estimate the fee for a given StarkNet transaction`
     - starknet_getEvents - `Returns all events matching the given filter`
     - starknet_getNonce - `Get the nonce associated with the given address in the given block`
-- Improvement on the sync time
+- Faster sync
 - More metrics
 - More and more! Stay tuned! 🚀
 
