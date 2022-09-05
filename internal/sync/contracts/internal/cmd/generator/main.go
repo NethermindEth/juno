@@ -12,6 +12,7 @@ import (
 
 type contract struct {
 	abiName  string
+	binName string
 	typeName string
 }
 
@@ -19,15 +20,17 @@ type contract struct {
 func main() {
 	contracts := []contract{
 		{
-			abiName:  "./starknet_abi.json",
+			abiName:  "./starknet.json",
 			typeName: "Starknet",
 		},
 		{
-			abiName:  "./gps_verifier_abi.json",
+			abiName:  "./gps_statement_verifier.json",
+			binName: "./gps_statement_verifier.bin",
 			typeName: "GpsStatementVerifier",
 		},
 		{
-			abiName:  "./memory_pages_abi.json",
+			abiName:  "./memory_page_fact_registry.json",
+			binName: "./memory_page_fact_registry.bin",
 			typeName: "MemoryPageFactRegistry",
 		},
 	}
@@ -36,19 +39,19 @@ func main() {
 		// Read in ABI
 		abi, err := os.ReadFile(contract.abiName)
 		if err != nil {
-			fatal("Failed to read input ABI: %v", err)
+			fatal(fmt.Errorf("failed to read input ABI: %w", err))
 		}
 
 		// Generate code
 		code, err := bind.Bind([]string{contract.typeName}, []string{string(abi)}, []string{""}, nil, "contracts", bind.LangGo, nil, nil)
 		if err != nil {
-			fatal("Failed to generate ABI binding: %v", err)
+			fatal(fmt.Errorf("failed to generate ABI binding: %w", err))
 		}
 
 		// Write code to file
 		path := filepath.Join("../../../", snakeCase(contract.typeName)+".go")
 		if err := os.WriteFile(path, []byte(code), 0o600); err != nil {
-			fatal("Failed to write ABI binding: %v", err)
+			fatal(fmt.Errorf("failed to write ABI binding: %w", err))
 		}
 	}
 }
@@ -61,7 +64,7 @@ func snakeCase(str string) string {
 	return strings.ToLower(snake)
 }
 
-func fatal(msg string, err error) {
-	fmt.Fprintf(os.Stderr, msg, err)
+func fatal(err error) {
+	fmt.Fprint(os.Stderr, err.Error())
 	os.Exit(1)
 }
