@@ -51,7 +51,7 @@ func NewProductionLogger(verbosity string) (*Log, error) {
 		return nil, err
 	}
 	logConfig.Level.SetLevel(logLevel)
-	logger, err := logConfig.Build()
+	logger, err := logConfig.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		return nil, err
 	}
