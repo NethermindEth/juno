@@ -39,7 +39,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector
 		manager: manager,
 		quit:    make(chan struct{}),
 	}
-	collector.logger = log.Logger.Named("apiCollector")
+	collector.logger = log.Logger.Named("L2 Collector")
 	collector.buffer = make(chan *CollectorDiff, 10)
 	go collector.updateLatestBlockOnChain()
 	return collector
@@ -47,7 +47,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector
 
 // Run start to store StateDiff locally
 func (a *apiCollector) Run() {
-	a.logger.Debug("Collector Started")
+	a.logger.Debug("API collector Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
@@ -68,7 +68,7 @@ func (a *apiCollector) Run() {
 			var err error
 			update, err = a.client.GetStateUpdate("", strconv.FormatInt(latestStateDiffSynced, 10))
 			if err != nil {
-				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Info("Couldn't get state update")
+				a.logger.With("Error", err, "Block Number", latestStateDiffSynced).Debug("Couldn't get state update")
 				continue
 			}
 			a.buffer <- fetchContractCode(stateUpdateResponseToStateDiff(*update, latestStateDiffSynced), a.client, a.logger)

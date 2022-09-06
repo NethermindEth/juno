@@ -70,7 +70,7 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 	transactionManager *transaction.Manager,
 ) *Synchronizer {
 	synchro := &Synchronizer{
-		logger: Logger.Named("Sync Service"),
+		logger: Logger.Named("Synchronizer"),
 		feeder: feederClient,
 		quit:   make(chan struct{}),
 		wg:     new(sync2.WaitGroup),
@@ -122,7 +122,7 @@ func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
 		if err := s.sync(); err != nil {
-			s.logger.With("Error", err).Info("Sync Failed, restarting in 10 seconds")
+			s.logger.With("Error", err).Error("Sync Failed, restarting in 10 seconds")
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
 			continue
@@ -170,7 +170,7 @@ func (s *Synchronizer) sync() error {
 				"Number", collectedDiff.stateDiff.BlockNumber,
 				"Pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
 				"Time(sec)", time.Since(start).Seconds(),
-			).Info("Synchronized block")
+			).Info("Synchronized Block State")
 		}
 	}
 	return nil
@@ -226,7 +226,6 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 			return err
 		}
 	}
-	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
 	return nil
 }
 
@@ -413,7 +412,7 @@ func (s *Synchronizer) updateBlocksInfo() {
 				time.Sleep(time.Minute)
 				continue
 			}
-			s.logger.With("Block Number", currentBlock).Info("Updated block info")
+			s.logger.With("Block Number", currentBlock).Debug("Synchronized Block Info")
 			s.syncManager.StoreLatestBlockSaved(currentBlock)
 			currentBlock++
 		}

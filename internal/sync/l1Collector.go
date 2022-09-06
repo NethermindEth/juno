@@ -82,7 +82,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		l1Client: l1client,
 		quit:     make(chan struct{}),
 	}
-	collector.logger = log.Logger.Named("l1Collector")
+	collector.logger = log.Logger.Named("L1 Collector")
 	collector.buffer = make(chan *CollectorDiff, 10)
 	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	collector.memoryPageHash = types2.NewDictionary()
@@ -101,7 +101,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 }
 
 func (l *l1Collector) Run() {
-	l.logger.Debug("Collector Started")
+	l.logger.Debug("L1 collector started")
 
 	l.latestBlockSynced = l.manager.GetLatestBlockSync()
 
@@ -349,7 +349,7 @@ func (l *l1Collector) processSubscription(initialBlock int64) error {
 	hLog := make(chan types.Log)
 	sub, err := l.l1Client.SubscribeFilterLogs(context.Background(), query, hLog)
 	if err != nil {
-		l.logger.Info("Couldn't subscribe for incoming blocks")
+		l.logger.Error("Couldn't subscribe for incoming blocks")
 		return err
 	}
 	for {
@@ -403,9 +403,6 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	}
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
-		// l.logger.With("Event Name", l.contractInfo[vLog.Address].EventName,
-		//	"Contract Address", vLog.Address.Hex(), "Topics", vLog.Topics,
-		//	"Address", addresses).Info("Unpacking event")
 
 		err = l.contractInfo[vLog.Address].Contract.UnpackIntoMap(event, l.contractInfo[vLog.Address].EventName, vLog.Data)
 		if err != nil {
@@ -533,7 +530,7 @@ func (l *l1Collector) updateBlockOnChain(logStateUpdateData []byte) {
 	event := map[string]interface{}{}
 	err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", logStateUpdateData)
 	if err != nil {
-		l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+		l.logger.With("Error", err).Error("Couldn't get state root or sequence number from LogStateUpdate event")
 		return
 	}
 	// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
