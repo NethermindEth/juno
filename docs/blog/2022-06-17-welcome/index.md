@@ -64,7 +64,7 @@ After cloning the project,
 git clone https://github.com/NethermindEth/juno
 ```
 
-You can install all the dependencies running the next command inside the project folder:
+You can install all the dependencies by running the next command inside the project root folder:
 
 ```bash
 $ go get ./...
