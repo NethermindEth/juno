@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -57,15 +56,14 @@ func NewClient(baseURL, baseAPI string, client *HttpClient) *Client {
 	// https://cloud.google.com/iot/docs/how-tos/exponential-backoff
 	retryFuncForDoReq := func(req *http.Request, httpClient HttpClient) (*http.Response, error) {
 		var res *http.Response
-		wait := 1*time.Second + time.Duration(rand.Intn(1000))*time.Millisecond
-		maxWait := float64(10 * time.Minute)
+		wait := 1 * time.Second
+		const maxWait = 10 * time.Minute
 		for {
 			res, err = httpClient.Do(req)
 			if err != nil || res == nil || res.StatusCode != http.StatusOK {
 				Logger.With("Waiting:", wait.Seconds(), "Error", err).Info("Waiting to do again a request")
 				time.Sleep(wait)
-				x := float64(wait*2) + float64(rand.Intn(1000))/1000
-				wait = time.Duration(math.Min(maxWait, x))
+				wait = time.Duration(math.Min((wait * 2).Seconds(), maxWait.Minutes()))
 				continue
 			}
 			if res.StatusCode == http.StatusOK {
