@@ -20,7 +20,7 @@ sudo apt -y install clang
 
 #### Installing Python
 
-We are currently only support python `3.7`, and we recommend use pyenv. To install it, you can follow this instruction:
+Python 3.7 is the only supported version and it is recommended you use pyenv using the following instructions:
 
 1. Install dependencies:
 
