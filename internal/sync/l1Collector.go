@@ -82,7 +82,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		l1Client: l1client,
 		quit:     make(chan struct{}),
 	}
-	collector.logger = log.Logger.Named("l1Collector")
+	collector.logger = log.Logger.Named("L1 Collector")
 	collector.buffer = make(chan *CollectorDiff, 10)
 	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	collector.memoryPageHash = types2.NewDictionary()
@@ -101,7 +101,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 }
 
 func (l *l1Collector) Run() {
-	l.logger.Info("Collector Started")
+	l.logger.Debug("Starting to Collect")
 
 	l.latestBlockSynced = l.manager.GetLatestBlockSync()
 
@@ -155,7 +155,7 @@ func (l *l1Collector) Run() {
 				l.buffer <- fetchContractCode(stateDiff, l.client, l.logger)
 
 				l.removeFactTree(fact)
-				l.logger.With("BlockNumber", l.latestBlockSynced).Info("StateUpdate collected")
+				l.logger.With("BlockNumber", l.latestBlockSynced).Debug("StateUpdate collected")
 				l.latestBlockSynced += 1
 			}
 
@@ -235,7 +235,7 @@ func (l *l1Collector) processPagesHashes(pagesHashes [][32]byte, memoryContract 
 		inputs := make(map[string]interface{})
 		err = memoryContract.Methods["registerContinuousMemoryPage"].Inputs.UnpackIntoMap(inputs, data)
 		if err != nil {
-			l.logger.With("Error", err).Info("Couldn't unpack into map")
+			l.logger.With("Error", err).Debug("Couldn't unpack into map")
 			return nil, err
 		}
 		// Append calldata to pages
@@ -313,7 +313,7 @@ func (l *l1Collector) handleEvents() {
 	// Process blocks until latest
 	for initialBlock < int64(blockNumber) {
 		if len(l.buffer) > 8 {
-			l.logger.Info("Buffer contains some elements, waiting to get more events")
+			l.logger.Debug("Buffer contains some elements, waiting to get more events")
 			time.Sleep(10 * time.Second)
 			continue
 		}
@@ -349,7 +349,7 @@ func (l *l1Collector) processSubscription(initialBlock int64) error {
 	hLog := make(chan types.Log)
 	sub, err := l.l1Client.SubscribeFilterLogs(context.Background(), query, hLog)
 	if err != nil {
-		l.logger.Info("Couldn't subscribe for incoming blocks")
+		l.logger.Debug("Couldn't subscribe for incoming blocks")
 		return err
 	}
 	for {
@@ -387,7 +387,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 		topics = append(topics, crypto.Keccak256Hash([]byte(v.Contract.Events[v.EventName].Sig)))
 	}
 
-	l.logger.With("From Block", initialBlock, "To Block", initialBlock+window).Info("Fetching logs....")
+	l.logger.With("From Block", initialBlock, "To Block", initialBlock+window).Debug("Fetching logs....")
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(initialBlock),
 		ToBlock:   big.NewInt(initialBlock + window),
@@ -398,18 +398,15 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 	starknetLogs, err := l.l1Client.FilterLogs(context.Background(), query)
 	if err != nil {
 		l.logger.With("Error", err, "Initial block", initialBlock, "End block", initialBlock+window, "Addresses", addresses).
-			Info("Couldn't get logs")
+			Debug("Couldn't get logs")
 		return err
 	}
 	for _, vLog := range starknetLogs {
 		event := map[string]interface{}{}
-		// l.logger.With("Event Name", l.contractInfo[vLog.Address].EventName,
-		//	"Contract Address", vLog.Address.Hex(), "Topics", vLog.Topics,
-		//	"Address", addresses).Info("Unpacking event")
 
 		err = l.contractInfo[vLog.Address].Contract.UnpackIntoMap(event, l.contractInfo[vLog.Address].EventName, vLog.Data)
 		if err != nil {
-			l.logger.With("Error", err).Info("Couldn't get LogStateTransitionFact from event")
+			l.logger.With("Error", err).Debug("Couldn't get LogStateTransitionFact from event")
 			continue
 		}
 		eventValue := &types2.EventInfo{
@@ -461,11 +458,11 @@ func (l *l1Collector) processEvents(event *types2.EventInfo) {
 		starknetLogs, err := l.l1Client.FilterLogs(context.Background(), query)
 		if err != nil {
 			l.logger.With("Error", err, "Initial block", event.Block, "End block", event.Block+1).
-				Info("Couldn't get logs")
+				Debug("Couldn't get logs")
 		}
 		fullFact, err := l.getFactInfo(starknetLogs, common.BytesToHash(b), event.TxnHash)
 		if err != nil {
-			l.logger.With("Error", err).Info("Couldn't get fact info")
+			l.logger.With("Error", err).Debug("Couldn't get fact info")
 			return
 		}
 
@@ -484,7 +481,7 @@ func (l *l1Collector) getFactInfo(starknetLogs []types.Log, fact common.Hash, tx
 		err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", vLog.Data)
 		if err != nil {
 			// notest
-			l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+			l.logger.With("Error", err).Debug("Couldn't get state root or sequence number from LogStateUpdate event")
 			continue
 		}
 		// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
@@ -533,7 +530,7 @@ func (l *l1Collector) updateBlockOnChain(logStateUpdateData []byte) {
 	event := map[string]interface{}{}
 	err := l.starknetABI.UnpackIntoMap(event, "LogStateUpdate", logStateUpdateData)
 	if err != nil {
-		l.logger.With("Error", err).Info("Couldn't get state root or sequence number from LogStateUpdate event")
+		l.logger.With("Error", err).Debug("Couldn't get state root or sequence number from LogStateUpdate event")
 		return
 	}
 	// Corresponding LogStateUpdate for the LogStateTransitionFact (they must occur in the same transaction)
