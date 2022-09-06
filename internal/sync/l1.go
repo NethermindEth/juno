@@ -436,14 +436,11 @@ func (s *L1SyncService) commit(newUpdate *types.StateUpdate) error {
 
 	// TODO we can do some creative things here, like batching the state updates
 	// during the sync to mitigate I/O congestion
-	// Also: it may be clearer to use a channel than a mutex, especially once database performance improves
 	for ; s.queue.Len() > 0 && s.queue.Peek().(types.StateUpdate).SequenceNumber == s.nextBlock; s.nextBlock++ {
 		start := time.Now()
 		update := heap.Pop(s.queue).(*item).value
 
 		for _, deployedContract := range update.StateDiff.DeployedContracts {
-			// The Contract Code is nil since it isn't on L1. It will be set in the L2 sync.
-			// TODO we probably should not be storing the code with the hash at all.
 			err := s.state.SetContract(deployedContract.Address, deployedContract.Hash)
 			if err != nil {
 				return err

@@ -16,11 +16,17 @@ type contract struct {
 	typeName string
 }
 
+var (
+	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+)
+
 //go:generate go run main.go
 func main() {
 	contracts := []contract{
 		{
 			abiName:  "./starknet.json",
+			binName:  "./starknet.bin",
 			typeName: "Starknet",
 		},
 		{
@@ -33,6 +39,56 @@ func main() {
 			binName:  "./memory_page_fact_registry.bin",
 			typeName: "MemoryPageFactRegistry",
 		},
+		{
+			abiName:  "./cairo_bootloader_program.json",
+			binName:  "./cairo_bootloader_program.bin",
+			typeName: "CairoBootloaderProgram",
+		},
+		{
+			abiName:  "./cairo_verifier.json",
+			binName:  "./cairo_verifier.bin",
+			typeName: "CairoVerifier",
+		},
+		{
+			abiName:  "./cpu_constraint_poly.json",
+			binName:  "./cpu_constraint_poly.bin",
+			typeName: "CpuConstraintPoly",
+		},
+		{
+			abiName:  "./pedersen_hash_points_x_column.json",
+			binName:  "./pedersen_hash_points_x_column.bin",
+			typeName: "PedersenHashPointsXColumn",
+		},
+		{
+			abiName:  "./pedersen_hash_points_y_column.json",
+			binName:  "./pedersen_hash_points_y_column.bin",
+			typeName: "PedersenHashPointsYColumn",
+		},
+		{
+			abiName:  "./ecdsa_points_x_column.json",
+			binName:  "./ecdsa_points_x_column.bin",
+			typeName: "EcdsaPointsXColumn",
+		},
+		{
+			abiName:  "./ecdsa_points_y_column.json",
+			binName:  "./ecdsa_points_y_column.bin",
+			typeName: "EcdsaPointsYColumn",
+		},
+		{
+			abiName:  "./merkle_statement.json",
+			binName:  "./merkle_statement.bin",
+			typeName: "MerkleStatement",
+		},
+		{
+			abiName:  "./cpu_odds.json",
+			binName:  "./cpu_oods.bin",
+			typeName: "CpuOods",
+		},
+		{
+			abiName:  "./fri_statement.json",
+			binName:  "./fri_statement.bin",
+			typeName: "FriStatement",
+		},
 	}
 
 	for _, contract := range contracts {
@@ -41,9 +97,13 @@ func main() {
 		if err != nil {
 			fatal(fmt.Errorf("failed to read input ABI: %w", err))
 		}
+		bin, err := os.ReadFile(contract.binName)
+		if err != nil {
+			fatal(fmt.Errorf("failed to read input bin: %w", err))
+		}
 
 		// Generate code
-		code, err := bind.Bind([]string{contract.typeName}, []string{string(abi)}, []string{""}, nil, "contracts", bind.LangGo, nil, nil)
+		code, err := bind.Bind([]string{contract.typeName}, []string{string(abi)}, []string{string(bin)}, nil, "contracts", bind.LangGo, nil, nil)
 		if err != nil {
 			fatal(fmt.Errorf("failed to generate ABI binding: %w", err))
 		}
@@ -57,8 +117,6 @@ func main() {
 }
 
 func snakeCase(str string) string {
-	matchFirstCap := regexp.MustCompile("(.)([A-Z][a-z]+)")
-	matchAllCap := regexp.MustCompile("([a-z0-9])([A-Z])")
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
