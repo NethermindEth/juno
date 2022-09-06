@@ -222,6 +222,7 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 	return _out, nil
 }
 
+// notest
 func (s *StarkNetRpc) EstimateFee(request *InvokeTxn, blockId *BlockId) (any, error) {
 	// TODO: implement
 	return nil, jsonrpc.NewInternalError("not implemented")
