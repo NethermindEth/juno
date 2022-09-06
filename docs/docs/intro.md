@@ -68,7 +68,7 @@ pyenv global 3.7.13
 $ pip install -r requirenments.txt
 ```
 
-### Installing golang dependencies
+### Installing Go dependencies
 
 You can install all golang dependencies running the next command inside the project folder:
 
