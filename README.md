@@ -62,7 +62,7 @@ You can install the entire app using docker. Just check the
 - Store [StarkNet State](https://gojuno.xyz/docs/features/sync) locally.
 - Store StarkNet Transactions.
 - Store StarkNet Blocks.
-- Store the ABI and full Code of StarkNet contracts.
+- Store the ABI and full code of StarkNet contracts.
 - Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
   [this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Currently
   supported are:
