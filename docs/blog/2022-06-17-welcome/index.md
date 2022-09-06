@@ -56,7 +56,7 @@ pyenv global 3.7.13
 ```
 
 
-#### Installing golang dependencies
+#### Installing Go dependencies
 
 After cloning the project,
 
