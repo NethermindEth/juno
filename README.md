@@ -93,7 +93,7 @@ In the future we plan to add a new set of features like:
 - Complete support for v1 of the [RPC spec](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.1.0)
 - Faster sync
 - Enhanced metrics
-- More and more! Stay tuned! 🚀
+- And more! Stay tuned! 🚀
 
 ## 📜 Documentation
 
