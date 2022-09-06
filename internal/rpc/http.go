@@ -43,7 +43,7 @@ func (h *HttpRpc) listenAndServe(errCh chan<- error) {
 	// write to the channel is required. Otherwise, any other error is written
 	// which will cause the program to exit.
 	if err := h.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		errCh <- errors.New("Failed to ListenAndServe on Metrics server: " + err.Error())
+		errCh <- errors.New("Failed to ListenAndServe on JSON-RPC server: " + err.Error())
 	}
 	close(errCh)
 }
