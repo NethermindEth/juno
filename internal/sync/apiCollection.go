@@ -47,7 +47,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client) *apiCollector
 
 // Run start to store StateDiff locally
 func (a *apiCollector) Run() {
-	a.logger.Info("Collector Started")
+	a.logger.Debug("Collector Started")
 	// start the buffer updater
 	latestStateDiffSynced := a.manager.GetLatestBlockSync()
 	for {
@@ -72,7 +72,7 @@ func (a *apiCollector) Run() {
 				continue
 			}
 			a.buffer <- fetchContractCode(stateUpdateResponseToStateDiff(*update, latestStateDiffSynced), a.client, a.logger)
-			a.logger.With("BlockNumber", latestStateDiffSynced).Info("StateUpdate collected")
+			a.logger.With("BlockNumber", latestStateDiffSynced).Debug("StateUpdate collected")
 			latestStateDiffSynced += 1
 		}
 	}

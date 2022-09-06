@@ -122,7 +122,7 @@ func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
 		if err := s.sync(); err != nil {
-			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
+			s.logger.With("Error", err).Info("Sync Failed, restarting in 10 seconds")
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
 			continue
@@ -150,7 +150,7 @@ func (s *Synchronizer) sync() error {
 			if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 				// In case some errors exist or the new root of the trie didn't match with
 				// the root we receive from the StateDiff, we have to revert the trie
-				s.logger.With("Error", err).Error("State update failed, reverting state")
+				s.logger.With("Error", err).Error("State update failed, reverting state by one block")
 				prometheus.IncreaseCountStarknetStateFailed()
 				s.setStateToLatestRoot()
 				return err
