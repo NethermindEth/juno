@@ -1,5 +1,6 @@
 package starknet
 
+/*
 import (
 	"errors"
 	"regexp"
@@ -59,3 +60,4 @@ func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.Sug
 	}
 	return block, nil
 }
+*/

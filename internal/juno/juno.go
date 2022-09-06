@@ -57,7 +57,7 @@ type Node struct {
 
 	feederClient   *feeder.Client
 	virtualMachine *cairovm.VirtualMachine
-	syncService    *syncer.SyncService
+	synchronizer   *syncer.SyncService
 
 	syncManager        *sync.Manager
 	stateManager       *state.Manager
@@ -135,13 +135,13 @@ func (n *Node) Run() error {
 
 	n.feederClient = feeder.NewClient(n.cfg.Network.URL(), feederGatewaySuffix, nil)
 	n.virtualMachine = cairovm.New(n.stateManager)
-	n.syncService, err = syncer.NewSyncService(n.cfg.Network, n.cfg.EthNode, n.cfg.Network.URL(), n.syncManager, n.stateManager)
+	n.synchronizer, err = syncer.NewSyncService(n.cfg.Network, n.cfg.EthNode, n.cfg.Network.URL(), n.syncManager, n.stateManager)
 	if err != nil {
 		return err
 	}
 
 	//jsonRpc, err := starkNetJsonRPC(n.stateManager, n.blockManager, n.transactionManager,
-	//	n.syncService, n.virtualMachine)
+	//	n.synchronizer, n.virtualMachine)
 	//if err != nil {
 	//	return err
 	//}
@@ -163,7 +163,7 @@ func (n *Node) Run() error {
 	if err != nil {
 		return err
 	}
-	n.syncService.Run(syncErrCh) // TODO check the error channel asynchronously
+	n.synchronizer.Run(syncErrCh)
 	// n.rpcServer.ListenAndServe(rpcErrCh)
 
 	if n.metricsServer != nil {
@@ -186,7 +186,7 @@ func (n *Node) Run() error {
 func (n *Node) Shutdown() error {
 	log.Logger.Info("Shutting down Juno...")
 	n.virtualMachine.Close()
-	n.syncService.Close()
+	n.synchronizer.Close()
 
 	n.stateManager.Close()
 	n.transactionManager.Close()
@@ -206,41 +206,45 @@ func (n *Node) Shutdown() error {
 	return nil
 }
 
-//func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
-//	transactionManager *transaction.Manager, synchronizer *syncer.Synchronizer,
-//	virtualMachine *cairovm.VirtualMachine,
-//) (*jsonrpc.JsonRpc, error) {
-//	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
-//		virtualMachine)
-//	jsonRpc := jsonrpc.NewJsonRpc()
-//	handlers := []struct {
-//		name       string
-//		function   any
-//		paramNames []string
-//	}{
-//		{"starknet_getBlockWithTxHashes", starkNetApi.GetBlockWithTxHashes, []string{"block_id"}},
-//		{"starknet_getBlockWithTxs", starkNetApi.GetBlockWithTxs, []string{"block_id"}},
-//		{"starknet_getStateUpdate", starkNetApi.GetStateUpdate, []string{"block_id"}},
-//		{"starknet_getStorageAt", starkNetApi.GetStorageAt, []string{"contract_address", "key", "block_id"}},
-//		{"starknet_getTransactionByHash", starkNetApi.GetTransactionByHash, []string{"transaction_hash"}},
-//		{"starknet_getTransactionByBlockIdAndIndex", starkNetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
-//		{"starknet_getTransactionReceipt", starkNetApi.GetTransactionReceipt, []string{"transaction_hash"}},
-//		{"starknet_getClass", starkNetApi.GetClass, []string{"class_hash"}},
-//		{"starknet_getClassHashAt", starkNetApi.GetClassHashAt, []string{"block_id", "address"}},
-//		{"starknet_getBlockTransactionCount", starkNetApi.GetBlockTransactionCount, []string{"block_id"}},
-//		{"starknet_call", starkNetApi.Call, []string{"block_id", "request"}},
-//		{"starknet_estimateFee", starkNetApi.EstimateFee, []string{"block_id", "request"}},
-//		{"starknet_blockNumber", starkNetApi.BlockNumber, nil},
-//		{"starknet_blockHashAndNumber", starkNetApi.BlockHashAndNumber, nil},
-//		{"starknet_chainId", starkNetApi.ChainId, nil},
-//		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
-//		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
-//		{"starknet_syncing", starkNetApi.Syncing, nil},
-//	}
-//	for _, handler := range handlers {
-//		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
-//			return nil, err
-//		}
-//	}
-//	return jsonRpc, nil
-//}
+/*
+func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
+	transactionManager *transaction.Manager, synchronizer *syncer.SyncService,
+	virtualMachine *cairovm.VirtualMachine,
+) (*jsonrpc.JsonRpc, error) {
+	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
+		virtualMachine)
+
+	jsonRpc := jsonrpc.NewJsonRpc()
+	handlers := []struct {
+		name       string
+		function   any
+		paramNames []string
+	}{
+		{"starknet_getBlockWithTxHashes", starkNetApi.GetBlockWithTxHashes, []string{"block_id"}},
+		{"starknet_getBlockWithTxs", starkNetApi.GetBlockWithTxs, []string{"block_id"}},
+		{"starknet_getStateUpdate", starkNetApi.GetStateUpdate, []string{"block_id"}},
+		{"starknet_getStorageAt", starkNetApi.GetStorageAt, []string{"contract_address", "key", "block_id"}},
+		{"starknet_getTransactionByHash", starkNetApi.GetTransactionByHash, []string{"transaction_hash"}},
+		{"starknet_getTransactionByBlockIdAndIndex", starkNetApi.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
+		{"starknet_getTransactionReceipt", starkNetApi.GetTransactionReceipt, []string{"transaction_hash"}},
+		{"starknet_getClass", starkNetApi.GetClass, []string{"class_hash"}},
+		{"starknet_getClassHashAt", starkNetApi.GetClassHashAt, []string{"block_id", "address"}},
+		{"starknet_getBlockTransactionCount", starkNetApi.GetBlockTransactionCount, []string{"block_id"}},
+		{"starknet_call", starkNetApi.Call, []string{"block_id", "request"}},
+		{"starknet_estimateFee", starkNetApi.EstimateFee, []string{"request", "block_id"}},
+		{"starknet_blockNumber", starkNetApi.BlockNumber, nil},
+		{"starknet_blockHashAndNumber", starkNetApi.BlockHashAndNumber, nil},
+		{"starknet_chainId", starkNetApi.ChainId, nil},
+		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
+		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
+		{"starknet_syncing", starkNetApi.Syncing, nil},
+		{"starknet_healthCheck", starkNetApi.HealthCheck, nil},
+	}
+	for _, handler := range handlers {
+		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
+			return nil, err
+		}
+	}
+	return jsonRpc, nil
+}
+*/

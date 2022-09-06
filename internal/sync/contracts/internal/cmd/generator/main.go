@@ -12,7 +12,7 @@ import (
 
 type contract struct {
 	abiName  string
-	binName string
+	binName  string
 	typeName string
 }
 
@@ -25,12 +25,12 @@ func main() {
 		},
 		{
 			abiName:  "./gps_statement_verifier.json",
-			binName: "./gps_statement_verifier.bin",
+			binName:  "./gps_statement_verifier.bin",
 			typeName: "GpsStatementVerifier",
 		},
 		{
 			abiName:  "./memory_page_fact_registry.json",
-			binName: "./memory_page_fact_registry.bin",
+			binName:  "./memory_page_fact_registry.bin",
 			typeName: "MemoryPageFactRegistry",
 		},
 	}
