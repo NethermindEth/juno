@@ -64,9 +64,9 @@ You can install the entire app using docker. Just check the
 - Store StarkNet Blocks.
 - Store the ABI and full code of StarkNet contracts.
 - Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
-  [this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Currently
-  supported are:
-    - `starknet_getBlockWithTxHashes` - Get block information with transaction hashes given the block id.
+  [the v0.1.0 spec](https://github.com/starkware-libs/starknet-specs/blob/v0.1.0/api/starknet_api_openrpc.json). 
+Currently, supported are:
+     - `starknet_getBlockWithTxHashes` - Get block information with transaction hashes given the block id.
      - `starknet_getBlockWithTxs` - Get block information with full transactions given the block id.
      - `starknet_getStateUpdate` - Get the information about the result of executing the requested block.
      - `starknet_getStorageAt` - Get the value of the storage at the given address and key.
@@ -89,7 +89,7 @@ You can install the entire app using docker. Just check the
 In the future we plan to add a new set of features like:
 
 - P2P between all nodes on the network.
-- Complete support for v1 of the [RPC spec](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.1.0)
+- Complete support for v0.2.0 of the [RPC spec](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.1.0)
 - Faster sync
 - Enhanced metrics
 - And more! Stay tuned! 🚀
