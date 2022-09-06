@@ -81,7 +81,7 @@ func NewL1Collector(manager *sync.Manager, feeder *feeder.Client, l1client L1Cli
 		l1Client: l1client,
 		quit:     make(chan struct{}),
 	}
-	collector.logger = logger.Named("l1Collector")
+	collector.logger = logger
 	collector.buffer = make(chan *CollectorDiff, 10)
 	collector.starknetABI, _ = loadAbiOfContract(abi.StarknetAbi)
 	collector.memoryPageHash = types2.NewDictionary()

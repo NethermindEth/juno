@@ -106,10 +106,10 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 // setStateDiffCollector sets the stateDiffCollector.
 func (s *Synchronizer) setStateDiffCollector(apiSync bool, logger log.Logger) {
 	if apiSync {
-		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder, logger)
+		s.stateDiffCollector = NewApiCollector(s.syncManager, s.feeder, logger.Named("api"))
 	} else {
 		s.stateDiffCollector = NewL1Collector(s.syncManager, s.feeder, s.l1Client,
-			int(s.chainId.Int64()), logger)
+			int(s.chainId.Int64()), logger.Named("l1"))
 	}
 }
 

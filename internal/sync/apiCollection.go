@@ -38,7 +38,7 @@ func NewApiCollector(manager *sync.Manager, feeder *feeder.Client, logger log.Lo
 		manager: manager,
 		quit:    make(chan struct{}),
 	}
-	collector.logger = logger.Named("apiCollector")
+	collector.logger = logger
 	collector.buffer = make(chan *CollectorDiff, 10)
 	go collector.updateLatestBlockOnChain()
 	return collector
