@@ -184,7 +184,7 @@ func (s *StarkNetRpc) GetNonce(blockId *BlockId, address *RpcFelt) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	return nonce, nil
+	return nonce.Hex0x(), nil
 }
 
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
