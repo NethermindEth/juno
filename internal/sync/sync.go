@@ -150,6 +150,9 @@ func (s *Synchronizer) sync() error {
 			if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 				// In case some errors exist or the new root of the trie didn't match with
 				// the root we receive from the StateDiff, we have to revert the trie
+				if err == nil {
+					err = errors.New("incompatible state root")
+				}
 				s.logger.With("Error", err).Error("State update failed, reverting state")
 				prometheus.IncreaseCountStarknetStateFailed()
 				s.setStateToLatestRoot()
