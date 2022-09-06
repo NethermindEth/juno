@@ -34,22 +34,21 @@ The disk space issues are currently work in progress, and will be addressed in a
 - Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
 [this spec](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json). Currently
 supported are:
-- starknet_getBlockWithTxHashes - `Get block information with transaction hashes given the block id`
-- starknet_getBlockWithTxs - `Get block information with full transactions given the block id`
-- starknet_getStateUpdate - `Get the information about the result of executing the requested block`
-- starknet_getStorageAt - `Get the value of the storage at the given address and key`
-- starknet_getTransactionByHash - `Get the details and status of a submitted transaction`
-- starknet_getTransactionByBlockIdAndIndex - `Get the details of a transaction by a given block id and index`
-- starknet_getTransactionReceipt - `Get the transaction receipt by the transaction hash`
-- starknet_getClassHashAt
-- `Get the contract class hash in the given block for the contract deployed at the given address`
-- starknet_getBlockTransactionCount - `Get the number of transactions in a block given a block id`
-- starknet_call - `Call a starknet function without creating a StarkNet transaction`
-- starknet_blockNumber - `Get the most recent accepted block number`
-- starknet_blockHashAndNumber - `Get the most recent accepted block hash and number`
-- starknet_chainId - `Return the currently configured StarkNet chain id`
-- starknet_pendingTransactions - `Returns the transactions in the transaction pool, recognized by this sequencer`
-- starknet_syncing - `Returns an object about the sync status, or false if the node is not synching`
+- `starknet_getBlockWithTxHashes` - Get block information with transaction hashes given the block id.
+- `starknet_getBlockWithTxs` - Get block information with full transactions given the block id.
+- `starknet_getStateUpdate` - Get the information about the result of executing the requested block.
+- `starknet_getStorageAt` - Get the value of the storage at the given address and key.
+- `starknet_getTransactionByHash` - Get the details and status of a submitted transaction.
+- `starknet_getTransactionByBlockIdAndIndex` - Get the details of a transaction by a given block id and index.
+- `starknet_getTransactionReceipt` - Get the transaction receipt by the transaction hash.
+- `starknet_getClassHashAt` - Get the contract class hash in the given block for the contract deployed at the given address.
+- `starknet_getBlockTransactionCount` -  Get the number of transactions in a block given a block id.
+- `starknet_call` - Call a StarkNet function without creating a transaction.
+- `starknet_blockNumber` - Get the most recent accepted block number.
+- `starknet_blockHashAndNumber` - Get the most recent accepted block hash and number.
+- `starknet_chainId` - Return the currently configured StarkNet chain id.
+- `starknet_pendingTransactions` - Returns the transactions in the transaction pool, recognized by this sequencer.
+- `starknet_syncing` - Returns an object about the sync status, or false if the node is not synching.
 - [Prometheus Metrics](https://gojuno.xyz/docs/features/metrics).
 - [Dockerized app](https://gojuno.xyz/docs/running/docker).
 
