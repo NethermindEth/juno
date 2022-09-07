@@ -161,7 +161,7 @@ type Txn interface {
 
 func NewTxn(tx types.IsTransaction) (Txn, error) {
 	switch tx := tx.(type) {
-	case *types.TransactionInvoke:
+	case *types.TransactionInvokeV0:
 		return NewInvokeTxn(tx), nil
 	case *types.TransactionDeploy:
 		return NewDeployTxn(tx), nil
@@ -192,7 +192,7 @@ type InvokeTxn struct {
 	FunctionCall
 }
 
-func NewInvokeTxn(txn *types.TransactionInvoke) *InvokeTxn {
+func NewInvokeTxn(txn *types.TransactionInvokeV0) *InvokeTxn {
 	signature := make([]string, len(txn.Signature))
 	for i, sig := range txn.Signature {
 		signature[i] = sig.Hex0x()

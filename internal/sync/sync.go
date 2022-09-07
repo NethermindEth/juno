@@ -526,7 +526,7 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, new(felt.Felt).SetHex(data))
 		}
-		return &types.TransactionInvoke{
+		return &types.TransactionInvokeV0{
 			Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
 			ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
 			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
