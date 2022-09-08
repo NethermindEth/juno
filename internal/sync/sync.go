@@ -80,6 +80,7 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 	if trusted {
 		synchro.logger.Info("Defaulting to syncing from gateway")
 	} else {
+		synchro.logger.Infow("Connecting to ethnode", "address", ethNode)
 		ethereumClient, err := ethclient.Dial(ethNode)
 		if err != nil {
 			synchro.logger.Errorw("Cannot connect to Ethereum Client", "error", err)
