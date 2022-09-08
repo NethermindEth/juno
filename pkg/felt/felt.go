@@ -102,8 +102,9 @@ func init() {
 // NewFelt returns a new Felt from a uint64 value
 //
 // it is equivalent to
-// 		var v NewFelt
-// 		v.SetUint64(...)
+//
+//	var v NewFelt
+//	v.SetUint64(...)
 func NewFelt(v uint64) Felt {
 	z := Felt{v}
 	z.Mul(&z, &rSquare)
@@ -266,10 +267,9 @@ func (z *Felt) FitsOnOneWord() bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *Felt) Cmp(x *Felt) int {
 	_z := *z
 	_x := *x
@@ -933,19 +933,18 @@ func (z *Felt) setBigInt(v *big.Int) *Felt {
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
-// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
+// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
+// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character ''_'' may appear between a base
+// An underscore character ”_” may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there
 // are no other errors.
-//
 func (z *Felt) SetString(number string) *Felt {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)

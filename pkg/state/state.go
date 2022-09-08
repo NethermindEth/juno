@@ -115,6 +115,7 @@ func (st *state) GetNonce(address *felt.Felt) (*felt.Felt, error) {
 	}
 	return contract.Nonce, nil
 }
+
 func (st *state) SetSlots(address *felt.Felt, slots []Slot) error {
 	contract, err := st.GetContractState(address)
 	if err != nil {
