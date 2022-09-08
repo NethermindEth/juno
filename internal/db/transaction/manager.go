@@ -104,7 +104,6 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 			CallData:           marshalFelts(tx.CallData),
 			Signature:          marshalFelts(tx.Signature),
 			MaxFee:             tx.MaxFee.ByteSlice(),
-			Version:            tx.Version.ByteSlice(),
 		}
 		protoTx.Tx = &Transaction_Invoke{&invoke}
 	case *types.TransactionDeclare:
@@ -133,7 +132,6 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 			CallData:           unmarshalFelts(tx.CallData),
 			Signature:          unmarshalFelts(tx.Signature),
 			MaxFee:             new(felt.Felt).SetBytes(tx.MaxFee),
-			Version:            new(felt.Felt).SetBytes(tx.Version),
 		}
 		return &out, nil
 	}

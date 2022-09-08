@@ -24,7 +24,6 @@ message InvokeFunction {
   repeated bytes callData = 4;
   repeated bytes signature = 5;
   bytes maxFee = 6;
-  bytes version = 7;
 }
 
 message Declare {
