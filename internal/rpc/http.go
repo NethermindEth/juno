@@ -19,13 +19,12 @@ type HttpRpc struct {
 
 func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc, logger log.Logger) *HttpRpc {
 	httpRpc := new(HttpRpc)
+	httpRpc.provider = NewHttpProvider(rpc)
 	mux := http.NewServeMux()
 	mux.Handle(pattern, httpRpc.provider)
-	return &HttpRpc{
-		server:   &http.Server{Addr: addr, Handler: mux},
-		provider: NewHttpProvider(rpc),
-		logger:   logger,
-	}
+	httpRpc.server = &http.Server{Addr: addr, Handler: mux}
+	httpRpc.logger = logger
+	return httpRpc
 }
 
 func (h *HttpRpc) ListenAndServe(errCh chan<- error) {
