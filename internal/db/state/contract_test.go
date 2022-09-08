@@ -1,10 +1,9 @@
 package state
 
 import (
-	"errors"
-	"fmt"
-	"reflect"
 	"testing"
+
+	"gotest.tools/assert"
 
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/pkg/felt"
@@ -15,93 +14,35 @@ var contractStates = []*state.ContractState{
 	{
 		ContractHash: new(felt.Felt).SetBytes([]byte{1, 2, 3}),
 		StorageRoot:  new(felt.Felt).SetBytes([]byte{4, 5, 6}),
+		Nonce:        new(felt.Felt).SetUint64(1),
 	},
 }
 
-func TestManager_PutContractState(t *testing.T) {
+func TestManagerPutGetContractState(t *testing.T) {
 	manager := newTestManager(t)
 	defer manager.Close()
-	for i, contractState := range contractStates {
-		t.Run(fmt.Sprintf("test %d", i), func(t *testing.T) {
-			if err := manager.PutContractState(contractState); err != nil {
-				t.Error(err)
-			}
-		},
-		)
+
+	for _, contractState := range contractStates {
+		if err := manager.PutContractState(contractState); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, contractState := range contractStates {
+		got, err := manager.GetContractState(contractState.Hash())
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.DeepEqual(t, contractState, got)
 	}
 }
 
-func TestManager_GetContractState(t *testing.T) {
+func TestManagerContractStateNotFound(t *testing.T) {
 	manager := newTestManager(t)
 	defer manager.Close()
-	var tests []struct {
-		name string
-		hash *felt.Felt
-		want struct {
-			*state.ContractState
-			error
-		}
-	}
-	// Build found tests
-	for i, contractState := range contractStates {
-		tests = append(tests, struct {
-			name string
-			hash *felt.Felt
-			want struct {
-				*state.ContractState
-				error
-			}
-		}{
-			name: fmt.Sprintf("test found %d", i),
-			hash: contractState.Hash(),
-			want: struct {
-				*state.ContractState
-				error
-			}{
-				ContractState: contractState,
-				error:         nil,
-			},
-		})
-	}
-	// Build not found tests
-	for i := 0; i < len(contractStates); i++ {
-		tests = append(tests, struct {
-			name string
-			hash *felt.Felt
-			want struct {
-				*state.ContractState
-				error
-			}
-		}{
-			name: fmt.Sprintf("test not found %d", i),
-			hash: new(felt.Felt).SetBytes([]byte{1, 2, 3}),
-			want: struct {
-				*state.ContractState
-				error
-			}{
-				ContractState: nil,
-				error:         db.ErrNotFound,
-			},
-		})
-	}
-	// Store contract states
-	for _, contractState := range contractStates {
-		if err := manager.PutContractState(contractState); err != nil {
-			t.Error(err)
-		}
-	}
-	// Run tests
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := manager.GetContractState(tt.hash)
-			if tt.want.error != nil && !errors.Is(err, tt.want.error) {
-				t.Errorf("GetContractState() error = %v, want %v", err, tt.want.error)
-			}
-			if !reflect.DeepEqual(got, tt.want.ContractState) {
-				t.Errorf("GetContractState() = %v, want %v", got, tt.want.ContractState)
-			}
-		})
-	}
+
+	_, err := manager.GetContractState(new(felt.Felt).SetBytes([]byte{1, 2, 3}))
+	assert.ErrorType(t, err, db.ErrNotFound)
 }
 
 func newTestManager(t *testing.T) *Manager {
