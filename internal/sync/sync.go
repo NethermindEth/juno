@@ -522,10 +522,23 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 
 	switch info.Transaction.Type {
 	case "INVOKE_FUNCTION":
+		version := new(felt.Felt).SetHex(info.Transaction.Version)
+		zero := new(felt.Felt).SetZero()
 		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, new(felt.Felt).SetHex(data))
 		}
+		if version != zero {
+			return &types.TransactionInvokeV1{
+				Hash:          new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+				SenderAddress: new(felt.Felt).SetHex(info.Transaction.SenderAddress),
+				CallData:      calldata,
+				Signature:     signature,
+				MaxFee:        new(felt.Felt).SetHex(info.Transaction.MaxFee),
+				Nonce:         new(felt.Felt).SetHex(info.Transaction.Nonce),
+			}
+		}
+
 		return &types.TransactionInvokeV0{
 			Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
 			ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
