@@ -63,7 +63,7 @@ func TestLog(t *testing.T) {
 			test.logger.Info("test msg")
 			test.logger.Infow("test msg", "key", "value")
 			test.logger.Error("test msg")
-			test.logger.Infow("test msg", "key", "value")
+			test.logger.Errorw("test msg", "key", "value")
 			test.logger.Named("TEST")
 		})
 	}
