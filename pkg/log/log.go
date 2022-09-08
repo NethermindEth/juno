@@ -54,6 +54,7 @@ func NewProductionLogger(verbosity string) (*Log, error) {
 	if err != nil {
 		return nil, err
 	}
+	logConfig.DisableCaller = logLevel >= zapcore.InfoLevel
 	logConfig.Level.SetLevel(logLevel)
 	logger, err := logConfig.Build(zap.AddCallerSkip(1))
 	if err != nil {
