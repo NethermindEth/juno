@@ -83,7 +83,6 @@ func TestStatus(t *testing.T) {
 }
 
 func TestTransactionConverter(t *testing.T) {
-
 	tests := []struct {
 		name  string
 		input *feeder.TransactionInfo
