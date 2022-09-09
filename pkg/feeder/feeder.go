@@ -547,7 +547,7 @@ func (c Client) GetBlockHashById(blockID string) (*string, error) {
 	if err != nil {
 		metr.IncreaseBlockHashFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_block_hash_by_id.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_block_hash_by_id", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res string
