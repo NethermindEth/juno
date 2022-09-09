@@ -578,7 +578,7 @@ func (c Client) GetBlockIDByHash(blockHash string) (*string, error) {
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseBlockIDFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	resStr := fmt.Sprintf("%v", res)
