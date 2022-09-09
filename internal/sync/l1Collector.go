@@ -392,7 +392,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 
 	starknetLogs, err := l.l1Client.FilterLogs(context.Background(), query)
 	if err != nil {
-		l.logger.Infow("Couldn't get logs", "error", err, "Initial block", initialBlock, "End block", initialBlock+window, "Addresses", addresses)
+		l.logger.Infow("Couldn't get logs", "error", err, "fromBlock", initialBlock, "toBlock", initialBlock+window, "addresses", addresses)
 		return err
 	}
 	for _, vLog := range starknetLogs {
