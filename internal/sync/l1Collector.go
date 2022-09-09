@@ -382,7 +382,7 @@ func (l *l1Collector) processBatchOfEvents(initialBlock, window int64) error {
 		topics = append(topics, crypto.Keccak256Hash([]byte(v.Contract.Events[v.EventName].Sig)))
 	}
 
-	l.logger.Infow("Fetching logs....", "From Block", initialBlock, "To Block", initialBlock+window)
+	l.logger.Infow("Fetching logs", "fromBlock", initialBlock, "toBlock", initialBlock+window)
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(initialBlock),
 		ToBlock:   big.NewInt(initialBlock + window),
