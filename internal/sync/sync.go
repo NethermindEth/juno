@@ -24,6 +24,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	txnV0Id = new(felt.Felt).SetHex("0x0")
+	txnV1Id = new(felt.Felt).SetHex("0x1")
+)
+
 type Synchronizer struct {
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
@@ -373,7 +378,11 @@ func (s *Synchronizer) updateTransactions(txn feeder.TxnSpecificInfo) error {
 
 	transactionHash := new(felt.Felt).SetHex(transactionInfo.Transaction.TransactionHash)
 	// transactionHash := types.HexToTransactionHash(transactionInfo.Transaction.TransactionHash)
-	err = s.transactionManager.PutTransaction(transactionHash, feederTransactionToDBTransaction(transactionInfo))
+	t, err := feederTransactionToDBTransaction(transactionInfo)
+	if err != nil {
+		return err
+	}
+	err = s.transactionManager.PutTransaction(transactionHash, t)
 	if err != nil {
 		return err
 	}
@@ -514,7 +523,7 @@ func feederBlockToDBBlock(b *feeder.StarknetBlock) *types.Block {
 }
 
 // feederTransactionToDBTransaction convert the feeder TransactionInfo to the transaction stored in DB
-func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTransaction {
+func feederTransactionToDBTransaction(info *feeder.TransactionInfo) (types.IsTransaction, error) {
 	calldata := make([]*felt.Felt, 0)
 	for _, data := range info.Transaction.Calldata {
 		calldata = append(calldata, new(felt.Felt).SetHex(data))
@@ -523,12 +532,21 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 	switch info.Transaction.Type {
 	case "INVOKE_FUNCTION":
 		version := new(felt.Felt).SetHex(info.Transaction.Version)
-		zero := new(felt.Felt).SetZero()
 		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
 			signature = append(signature, new(felt.Felt).SetHex(data))
 		}
-		if !version.Equal(zero) {
+		if version.Equal(txnV0Id) {
+			return &types.TransactionInvokeV0{
+				Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
+				ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
+				EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
+				CallData:           calldata,
+				Signature:          signature,
+				MaxFee:             new(felt.Felt).SetHex(info.Transaction.MaxFee),
+			}, nil
+		}
+		if version.Equal(txnV1Id) {
 			return &types.TransactionInvokeV1{
 				Hash:          new(felt.Felt).SetHex(info.Transaction.TransactionHash),
 				SenderAddress: new(felt.Felt).SetHex(info.Transaction.SenderAddress),
@@ -536,17 +554,9 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 				Signature:     signature,
 				MaxFee:        new(felt.Felt).SetHex(info.Transaction.MaxFee),
 				Nonce:         new(felt.Felt).SetHex(info.Transaction.Nonce),
-			}
+			}, nil
 		}
-
-		return &types.TransactionInvokeV0{
-			Hash:               new(felt.Felt).SetHex(info.Transaction.TransactionHash),
-			ContractAddress:    new(felt.Felt).SetHex(info.Transaction.ContractAddress),
-			EntryPointSelector: new(felt.Felt).SetHex(info.Transaction.EntryPointSelector),
-			CallData:           calldata,
-			Signature:          signature,
-			MaxFee:             new(felt.Felt).SetHex(info.Transaction.MaxFee),
-		}
+		return nil, errors.New("unknown invoke transaction version " + version.Hex())
 	case "DECLARE":
 		signature := make([]*felt.Felt, 0)
 		for _, data := range info.Transaction.Signature {
@@ -560,8 +570,8 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			Signature:     signature,
 			Nonce:         new(felt.Felt).SetHex(info.Transaction.Nonce),
 			Version:       new(felt.Felt).SetHex(info.Transaction.Version),
-		}
-	default:
+		}, nil
+	case "DEPLOY":
 		constructorCalldata := make([]*felt.Felt, 0, len(info.Transaction.ConstructorCalldata))
 		for _, data := range info.Transaction.ConstructorCalldata {
 			constructorCalldata = append(constructorCalldata, new(felt.Felt).SetHex(data))
@@ -572,6 +582,8 @@ func feederTransactionToDBTransaction(info *feeder.TransactionInfo) types.IsTran
 			ContractAddressSalt: new(felt.Felt).SetHex(info.Transaction.ContractAddressSalt),
 			ClassHash:           new(felt.Felt).SetHex(info.Transaction.ClassHash),
 			ConstructorCallData: constructorCalldata,
-		}
+		}, nil
+	default:
+		return nil, errors.New("unknown transaction type " + info.Transaction.Type)
 	}
 }

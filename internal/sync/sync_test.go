@@ -63,7 +63,9 @@ func TestStatus(t *testing.T) {
 		BlockNumber: uint64(blockNumber),
 		BlockHash:   new(felt.Felt),
 	}
-	s.blockManager.PutBlock(new(felt.Felt), block)
+	if err := s.blockManager.PutBlock(new(felt.Felt), block); err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	got := s.Status()
 	if got == nil {
@@ -162,7 +164,10 @@ func TestTransactionConverter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := feederTransactionToDBTransaction(tt.input)
+			got, err := feederTransactionToDBTransaction(tt.input)
+			if err != nil {
+				t.Fatal(err)
+			}
 			assert.DeepEqual(t, got, tt.want)
 		})
 	}
