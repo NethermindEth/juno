@@ -48,7 +48,7 @@ func (h *HttpRpc) listenAndServe(errCh chan<- error) {
 }
 
 func (h *HttpRpc) Close(timeout time.Duration) error {
-	h.logger.Info("Shutting down JSON-RPC server...")
+	h.logger.Info("Shutting down JSON-RPC server")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return h.server.Shutdown(ctx)
 }
