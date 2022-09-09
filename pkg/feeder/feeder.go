@@ -63,7 +63,7 @@ func NewClient(baseURL, baseAPI string, client *HttpClient, logger log.Logger) (
 					err = errors.New("failed request")
 				}
 				wait *= 2
-				msg := "Unable to request from feeder gateway (probably rate limiting): pausing requests"
+				const msg = "Unable to request from feeder gateway (probably rate limiting): pausing requests"
 				logger.Infow(msg, "pauseForSeconds", wait.Seconds(), "error", err, "statusCode", res.StatusCode)
 				time.Sleep(wait)
 				continue
