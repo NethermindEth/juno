@@ -173,7 +173,7 @@ func (s *Synchronizer) sync() error {
 			s.logger.Infow("Synchronized block",
 				"number", collectedDiff.stateDiff.BlockNumber,
 				"pending", int64(s.stateDiffCollector.LatestBlock().BlockNumber)-collectedDiff.stateDiff.BlockNumber,
-				"Time(sec)", time.Since(start).Seconds(),
+				"time", time.Since(start).String(),
 			)
 		}
 	}
