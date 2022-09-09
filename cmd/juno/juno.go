@@ -30,6 +30,7 @@ const (
 	dbPathF    = "db-path"
 	networkF   = "network"
 	ethNodeF   = "eth-node"
+	prof       = "prof"
 
 	defaultConfig    = ""
 	defaultVerbosity = "info"
@@ -38,17 +39,16 @@ const (
 	defaultDbPath    = ""
 	defaultNetwork   = utils.GOERLI
 	defaultEthNode   = ""
+	defaultProf      = false
 
 	configFlagUsage    = "The yaml configuration file."
-	verbosityFlagUsage = "Verbosity of the logs. Options: debug, info, warn, error, dpanic, " +
-		"panic, fatal."
-	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
-		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	metricsUsage = "Enables the metrics server and listens on port 9090."
-	dbPathUsage  = "Location of the database files."
-	networkUsage = "Available StarkNet networks. Options: 0 = goerli and 1 = mainnet"
-	ethNodeUsage = "The Ethereum endpoint to synchronise with. " +
-		"If unset feeder gateway will be used."
+	verbosityFlagUsage = "Verbosity of the logs. Options: debug, info, warn, error, dpanic, panic, fatal."
+	rpcPortUsage       = "The port on which the RPC server will listen for requests."
+	metricsUsage       = "Enables the metrics server and listens on port 9090."
+	dbPathUsage        = "Location of the database files."
+	networkUsage       = "Available StarkNet networks. Options: 0 = goerli and 1 = mainnet"
+	ethNodeUsage       = "The Ethereum endpoint to synchronise with. If unset feeder gateway will be used."
+	profUsage          = "Profile the application."
 )
 
 var (
@@ -69,6 +69,7 @@ func NewCmd(newNodeFn juno.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Comm
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
 	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.Flags().Bool(prof, defaultProf, profUsage)
 
 	junoCmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		v := viper.New()

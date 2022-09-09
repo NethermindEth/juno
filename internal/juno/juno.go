@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 	"github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/internal/metrics/prometheus"
+	"github.com/NethermindEth/juno/internal/prof"
 	"github.com/NethermindEth/juno/internal/rpc"
 	"github.com/NethermindEth/juno/internal/rpc/starknet"
 	syncer "github.com/NethermindEth/juno/internal/sync"
@@ -50,6 +51,7 @@ type Config struct {
 	DatabasePath string        `mapstructure:"db-path"`
 	Network      utils.Network `mapstructure:"network"`
 	EthNode      string        `mapstructure:"eth-node"`
+	Prof         bool          `mapstructure:"prof"`
 }
 
 type Node struct {
@@ -66,12 +68,15 @@ type Node struct {
 
 	rpcServer     *rpc.HttpRpc
 	metricsServer *prometheus.Server
+
+	profile *prof.Prof
 }
 
 func New(cfg *Config) (StarkNetNode, error) {
 	if cfg.Network != utils.GOERLI && cfg.Network != utils.MAINNET {
 		return nil, ErrUnknownNetwork
 	}
+
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -85,6 +90,17 @@ func New(cfg *Config) (StarkNetNode, error) {
 
 func (n *Node) Run() error {
 	log.Logger.Info("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
+
+	ch := make(chan error, 1)
+	if n.cfg.Prof {
+		prof.Serve(ch)
+		/*
+			n.profile = &prof.Prof{}
+			if err := n.profile.CPU(); err != nil {
+				return err
+			}
+		*/
+	}
 
 	if err := utils.CreateDir(n.cfg.DatabasePath); err != nil {
 		return err
@@ -177,6 +193,12 @@ func (n *Node) Run() error {
 		}
 	}
 
+	if n.profile != nil {
+		if err := <-ch; err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -196,6 +218,12 @@ func (n *Node) Shutdown() error {
 
 	if n.metricsServer != nil {
 		if err := n.metricsServer.Close(shutdownTimeout); err != nil {
+			return err
+		}
+	}
+
+	if n.profile != nil {
+		if err := n.profile.Stop(); err != nil {
 			return err
 		}
 	}
