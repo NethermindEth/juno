@@ -119,9 +119,7 @@ func (s *Synchronizer) Run() {
 func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
-		s.Running = true
 		if err := s.sync(); err != nil {
-			s.Running = false
 			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
@@ -133,6 +131,10 @@ func (s *Synchronizer) handleSync() {
 }
 
 func (s *Synchronizer) sync() error {
+	s.Running = true
+	defer func() {
+		s.Running = false
+	}()
 	go s.stateDiffCollector.Run()
 
 	s.startingBlockNumber = s.syncManager.GetLatestBlockSync()
