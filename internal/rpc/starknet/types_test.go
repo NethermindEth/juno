@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"errors"
+	"github.com/NethermindEth/juno/pkg/types"
 	"io"
 	"testing"
 
@@ -264,5 +265,38 @@ func TestRpcFeltToFelt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		assert.Check(t, tt.rpcFelt.Felt().Equal(tt.want))
+	}
+}
+
+func TestNewSyncStatus(t *testing.T) {
+	tests := []struct {
+		name string
+		data *types.SyncStatus
+		want *SyncStatus
+	}{
+		{
+			name: "new sync status",
+			data: &types.SyncStatus{
+				StartingBlockNumber: 0,
+				CurrentBlockNumber:  9,
+				HighestBlockNumber:  213,
+				StartingBlockHash:   new(felt.Felt).SetHex("0x7d328a71faf48c5c3857e99f20a77b18522480956d1cd5bff1ff2df3c8b427b"),
+				CurrentBlockHash:    new(felt.Felt).SetHex("0x1530943c3f4f05c20a80e3dc1e4edc6247785ba4f24f320576757a87fefce54"),
+				HighestBlockHash:    new(felt.Felt).SetHex("0x24b0e6f7555d66febdb43fb073a5cbb2ef94ba35229ea5f9aa3982af4faf6b6"),
+			},
+			want: &SyncStatus{
+				StartingBlockNumber: "0",
+				CurrentBlockNumber:  "9",
+				HighestBlockNumber:  "d5",
+				StartingBlockHash:   "0x07d328a71faf48c5c3857e99f20a77b18522480956d1cd5bff1ff2df3c8b427b",
+				CurrentBlockHash:    "0x01530943c3f4f05c20a80e3dc1e4edc6247785ba4f24f320576757a87fefce54",
+				HighestBlockHash:    "0x024b0e6f7555d66febdb43fb073a5cbb2ef94ba35229ea5f9aa3982af4faf6b6",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.DeepEqual(t, NewSyncStatus(tt.data), tt.want)
+		})
 	}
 }
