@@ -2,9 +2,10 @@ package starknet
 
 import (
 	"errors"
-	"github.com/NethermindEth/juno/pkg/types"
 	"io"
 	"testing"
+
+	"github.com/NethermindEth/juno/pkg/types"
 
 	gocmp "github.com/google/go-cmp/cmp"
 

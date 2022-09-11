@@ -3,12 +3,13 @@ package sync
 import (
 	"context"
 	"errors"
-	"github.com/NethermindEth/juno/internal/db"
 	"math"
 	"math/big"
 	"strconv"
 	sync2 "sync"
 	"time"
+
+	"github.com/NethermindEth/juno/internal/db"
 
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/sync"
