@@ -195,8 +195,9 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) && startingBlockNumber == 0 {
 			startingBlockHash = new(felt.Felt).SetHex("0x0")
+		} else {
+			return nil
 		}
-		return nil
 	} else {
 		startingBlockHash = startingBlock.BlockHash
 	}
@@ -205,8 +206,9 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) && latestBlockNumber == 0 {
 			currentBlockHash = new(felt.Felt).SetHex("0x0")
+		} else {
+			return nil
 		}
-		return nil
 	} else {
 		currentBlockHash = block.BlockHash
 	}
