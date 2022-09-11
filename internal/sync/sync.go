@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"github.com/NethermindEth/juno/internal/db"
 	"math"
 	"math/big"
 	"strconv"
@@ -192,20 +193,20 @@ func (s *Synchronizer) Status() *types.SyncStatus {
 
 	startingBlock, err := s.blockManager.GetBlockByNumber(startingBlockNumber)
 	if err != nil {
-		if startingBlockNumber != 0 {
-			return nil
+		if errors.Is(err, db.ErrNotFound) && startingBlockNumber == 0 {
+			startingBlockHash = new(felt.Felt).SetHex("0x0")
 		}
-		startingBlockHash = new(felt.Felt).SetHex("0x0")
+		return nil
 	} else {
 		startingBlockHash = startingBlock.BlockHash
 	}
 
 	block, err := s.blockManager.GetBlockByNumber(latestBlockNumber)
 	if err != nil {
-		if latestBlockNumber != 0 {
-			return nil
+		if errors.Is(err, db.ErrNotFound) && latestBlockNumber == 0 {
+			currentBlockHash = new(felt.Felt).SetHex("0x0")
 		}
-		currentBlockHash = new(felt.Felt).SetHex("0x0")
+		return nil
 	} else {
 		currentBlockHash = block.BlockHash
 	}
