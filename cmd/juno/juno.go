@@ -48,7 +48,7 @@ const (
 	dbPathUsage        = "Location of the database files."
 	networkUsage       = "Available StarkNet networks. Options: 0 = goerli and 1 = mainnet"
 	ethNodeUsage       = "The Ethereum endpoint to synchronise with. If unset feeder gateway will be used."
-	profUsage          = "Profile the application."
+	profUsage          = "Enables the profiling server and listens on port 8080."
 )
 
 var (

@@ -36,7 +36,8 @@ const (
 	feederGatewaySuffix = "/feeder_gateway"
 	rpcSuffix           = "/rpc"
 
-	defaultMetricsPort = ":9090"
+	defaultProfilerPort = ":8080"
+	defaultMetricsPort  = ":9090"
 
 	shutdownTimeout = 5 * time.Second
 )
@@ -68,6 +69,8 @@ type Node struct {
 
 	rpcServer     *rpc.HttpRpc
 	metricsServer *prometheus.Server
+
+	profiler *prof.Prof
 }
 
 func New(cfg *Config) (StarkNetNode, error) {
@@ -89,17 +92,19 @@ func New(cfg *Config) (StarkNetNode, error) {
 func (n *Node) Run() error {
 	log.Logger.Info("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
 
-	profErrCh := make(chan error, 1)
-	if n.cfg.Prof {
-		prof.Serve(profErrCh)
-	}
-
 	if err := utils.CreateDir(n.cfg.DatabasePath); err != nil {
 		return err
 	}
 
 	if err := log.SetGlobalLogger(n.cfg.Verbosity); err != nil {
 		return err
+	}
+
+	profErrCh := make(chan error)
+	if n.cfg.Prof {
+		// TODO: Inject logger.
+		n.profiler = prof.New(defaultProfilerPort, nil)
+		n.profiler.Serve(profErrCh)
 	}
 
 	// Set up database managers
@@ -161,16 +166,17 @@ func (n *Node) Run() error {
 		n.metricsServer = prometheus.SetupMetric(defaultMetricsPort)
 	}
 
-	rpcErrCh := make(chan error)
-	metricsErrCh := make(chan error)
-
 	err = n.virtualMachine.Run(n.cfg.DatabasePath)
 	if err != nil {
 		return err
 	}
+
 	n.synchronizer.Run()
+
+	rpcErrCh := make(chan error)
 	n.rpcServer.ListenAndServe(rpcErrCh)
 
+	metricsErrCh := make(chan error)
 	if n.metricsServer != nil {
 		n.metricsServer.ListenAndServe(metricsErrCh)
 	}
@@ -181,6 +187,12 @@ func (n *Node) Run() error {
 
 	if n.metricsServer != nil {
 		if err = <-metricsErrCh; err != nil {
+			return err
+		}
+	}
+
+	if n.profiler != nil {
+		if err = <-profErrCh; err != nil {
 			return err
 		}
 	}
@@ -204,6 +216,12 @@ func (n *Node) Shutdown() error {
 
 	if n.metricsServer != nil {
 		if err := n.metricsServer.Close(shutdownTimeout); err != nil {
+			return err
+		}
+	}
+
+	if n.profiler != nil {
+		if err := n.profiler.Close(shutdownTimeout); err != nil {
 			return err
 		}
 	}
