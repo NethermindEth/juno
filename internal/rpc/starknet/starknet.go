@@ -243,7 +243,8 @@ func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error)
 	return _out, nil
 }
 
-func (s *StarkNetRpc) EstimateFee(blockId *BlockId, request *InvokeTxn) (any, error) {
+// notest
+func (s *StarkNetRpc) EstimateFee(request *InvokeTxn, blockId *BlockId) (any, error) {
 	// TODO: implement
 	return nil, jsonrpc.NewInternalError("not implemented")
 }
@@ -285,4 +286,9 @@ func (s *StarkNetRpc) Syncing() (any, error) {
 		return s.synchronizer.Status(), nil
 	}
 	return false, nil
+}
+
+func (s *StarkNetRpc) HealthCheck() (any, error) {
+	// notest
+	return Status{Available: true}, nil
 }

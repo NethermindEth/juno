@@ -9,27 +9,20 @@ position: 1
 docker build . -t juno
 ```
 
-# Creating a volume for Data
-
-You can create your volume and bind it directly, or just use one volume created by docker. For
-example:
-
-```
-docker volume create juno_data
-```
-
 # Running
 
-Create your config file and update it to the relevant values, see [Configuration](https://github.com/NethermindEth/juno#configuration)
-in the Readme of the project.
+Create your config file and update it to the relevant values, see [Configuration](/docs/running/config) for more details.
 
 You can then run your app using docker with:
 
 ```
-docker run -p 8080:8080 -v juno_data:/home/app/.config/juno/data -v /path/to/your/config/file/juno.yaml:/home/app/.config/juno/juno.yaml juno
+docker run -p 6060:6060 -p 9090:9090 -v /local/path/for/db:/path/to/db/inside/container juno --network 1 --db-path /path/to/db/inside/container
 ```
 
-You need to be aware that the value of `db_path` inside config is the same as the one set to link the value of the
-`juno_data` volume.
+For more flags, and usage, see the [Configuration](/docs/running/config) section.
 
-Remember to export the ports you are using.
+## Open ports
+
+By default, Juno uses ports 6060 and 9090 for the [RPC server](/docs/features/rpc) and the [metrics](/docs/features/metrics) respectively.
+
+Remember to run the container with the `-p 6060:6060 -p 9090:9090 ` flags to enable these ports.
