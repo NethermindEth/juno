@@ -44,7 +44,7 @@ func (p *Prof) Serve(ch chan<- error) {
 	p.logger.Infow("Starting profiling server on address", "address", p.server.Addr)
 
 	go func(ch chan<- error) {
-		if err := http.ListenAndServe("localhost:8080", nil); !errors.Is(err, http.ErrServerClosed) {
+		if err := p.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			ch <- errors.New("prof: listen and serve: " + err.Error())
 		}
 		close(ch)
