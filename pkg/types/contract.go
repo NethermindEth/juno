@@ -1,12 +1,8 @@
 package types
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 )
@@ -78,21 +74,8 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 	}
 
 	program := fmt.Sprintf("%v", fullDefMap["program"])
-	decodedProgram, err := base64.StdEncoding.DecodeString(program)
-	if err != nil {
-		return err
-	}
-	gr, err := gzip.NewReader(bytes.NewBuffer(decodedProgram))
-	if err != nil {
-		return err
-	}
-	defer gr.Close()
-	decodedProgram, err = ioutil.ReadAll(gr)
-	if err != nil {
-		return err
-	}
 
-	feltedProgram, err := new(felt.Felt).SetInterface((decodedProgram))
+	feltedProgram, err := new(felt.Felt).SetInterface([]byte(program))
 	if err != nil {
 		return err
 	}
@@ -104,9 +87,9 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 	}
 
 	bytecode.Program.Data = []*felt.Felt{feltedProgram}
+	c.Bytecode = bytecode.Program.Data
 
 	c.Abi = contract.Abi
-	c.Bytecode = bytecode.Program.Data
 	c.FullDef = fullDef
 	return nil
 }

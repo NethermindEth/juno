@@ -3,7 +3,7 @@ package state
 import (
 	"bytes"
 	"compress/gzip"
-	b64 "encoding/base64"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -12,6 +12,10 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
+
+type Program struct {
+	EncodedProgram interface{} `json:"program"`
+}
 
 func (m *Manager) GetContractState(hash *felt.Felt) (*state.ContractState, error) {
 	raw, err := m.stateDatabase.Get(hash.ByteSlice())
@@ -81,7 +85,7 @@ func (x *Manager) PutContract(contractHash *felt.Felt, contract *types.Contract)
 			return err
 		}
 
-		encodedProgram := b64.StdEncoding.EncodeToString(c.Bytes())
+		encodedProgram := base64.StdEncoding.EncodeToString(c.Bytes())
 		fullDefMap["program"] = encodedProgram
 
 		compressedFullDef, err := json.Marshal(fullDefMap)
