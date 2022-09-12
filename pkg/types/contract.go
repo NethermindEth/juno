@@ -27,6 +27,7 @@ type Contract struct {
 type ContractClass struct {
 	Program           interface{} `json:"program"`
 	EntryPointsByType interface{} `json:"entryPointsByType"`
+	Abi               interface{} `json:"abi"`
 }
 
 // UnmarshalRaw unmarshal the raw message data into the contract.

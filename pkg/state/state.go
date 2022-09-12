@@ -153,9 +153,11 @@ func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractCla
 
 		program := fullDefMap["program"]
 		entryPointsByType := fullDefMap["entry_points_by_type"]
+		abi := fullDefMap["abi"]
 		return &types.ContractClass{
 			Program:           program,
 			EntryPointsByType: entryPointsByType,
+			Abi:               abi,
 		}, nil
 	}
 
