@@ -1,13 +1,8 @@
 package types
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"reflect"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 )
@@ -79,31 +74,9 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	program := fullDefMap["program"]
-	t := reflect.TypeOf(program)
+	program := fmt.Sprintf("%v", fullDefMap["program"])
 
-	var decodedProgram []byte
-
-	// This checks if it is compressed (a string), so it can decompress it first.
-	if t.Kind() == reflect.String {
-		programDecoding, err := base64.StdEncoding.DecodeString(program.(string))
-		if err != nil {
-			return err
-		}
-		gr, err := gzip.NewReader(bytes.NewBuffer(programDecoding))
-		if err != nil {
-			return err
-		}
-		defer gr.Close()
-		decodedProgram, err = ioutil.ReadAll(gr)
-		if err != nil {
-			return err
-		}
-	} else {
-		decodedProgram = []byte(fmt.Sprintf("%v", program))
-	}
-
-	feltedProgram, err := new(felt.Felt).SetInterface(decodedProgram)
+	feltedProgram, err := new(felt.Felt).SetInterface([]byte(program))
 	if err != nil {
 		return err
 	}
