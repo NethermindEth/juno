@@ -68,8 +68,6 @@ type Node struct {
 
 	rpcServer     *rpc.HttpRpc
 	metricsServer *prometheus.Server
-
-	profile *prof.Prof
 }
 
 func New(cfg *Config) (StarkNetNode, error) {
@@ -91,15 +89,9 @@ func New(cfg *Config) (StarkNetNode, error) {
 func (n *Node) Run() error {
 	log.Logger.Info("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
 
-	ch := make(chan error, 1)
+	profErrCh := make(chan error, 1)
 	if n.cfg.Prof {
-		prof.Serve(ch)
-		/*
-			n.profile = &prof.Prof{}
-			if err := n.profile.CPU(); err != nil {
-				return err
-			}
-		*/
+		prof.Serve(profErrCh)
 	}
 
 	if err := utils.CreateDir(n.cfg.DatabasePath); err != nil {
@@ -193,12 +185,6 @@ func (n *Node) Run() error {
 		}
 	}
 
-	if n.profile != nil {
-		if err := <-ch; err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -218,12 +204,6 @@ func (n *Node) Shutdown() error {
 
 	if n.metricsServer != nil {
 		if err := n.metricsServer.Close(shutdownTimeout); err != nil {
-			return err
-		}
-	}
-
-	if n.profile != nil {
-		if err := n.profile.Stop(); err != nil {
 			return err
 		}
 	}
