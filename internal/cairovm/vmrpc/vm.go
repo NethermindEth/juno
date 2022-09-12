@@ -1,8 +1,13 @@
 package vmrpc
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -62,7 +67,32 @@ func (s *storageRPCServer) GetContractDefinition(ctx context.Context, request *G
 	if err != nil {
 		return nil, err
 	}
+	var fullDefMap map[string]interface{}
+	if err := json.Unmarshal(cd.FullDef, &fullDefMap); err != nil {
+		return nil, err
+	}
+
+	decodedProgram, err := base64.StdEncoding.DecodeString(fullDefMap["program"].(string))
+	if err != nil {
+		return nil, err
+	}
+	gr, err := gzip.NewReader(bytes.NewBuffer(decodedProgram))
+	if err != nil {
+		return nil, err
+	}
+	defer gr.Close()
+	decodedProgram, err = ioutil.ReadAll(gr)
+	if err != nil {
+		return nil, err
+	}
+
+	fullDefMap["program"] = decodedProgram
+	fullDef, err := json.Marshal(fullDefMap)
+	if err != nil {
+		return nil, err
+	}
+
 	return &VMContractDefinition{
-		Value: cd.FullDef,
+		Value: fullDef,
 	}, nil
 }
