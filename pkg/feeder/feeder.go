@@ -603,7 +603,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseTxHashFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseTxHashReceived()
