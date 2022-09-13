@@ -19,7 +19,10 @@ type Prof struct {
 func register() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/" /* catch-all */, pprof.Index)
+	// Leverage the http.ServeMux catch-all behaviour to redirect the user
+	// to the profiling index page for routes that cannot be found.
+	mux.Handle("/", http.RedirectHandler("/debug/pprof/", http.StatusSeeOther))
+
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
