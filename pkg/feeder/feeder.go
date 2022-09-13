@@ -482,7 +482,7 @@ func (c Client) GetTransactionTrace(txHash, txID string) (*TransactionTrace, err
 	req, err := c.newRequest("GET", "/get_transaction_trace", TxnIdentifier(txHash, txID), nil)
 	if err != nil {
 		metr.IncreaseTxTraceFailed()
-		c.logger.Errorw("Unable to create a request for get_transaction_trace.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_transaction_trace", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res TransactionTrace
