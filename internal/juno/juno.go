@@ -2,7 +2,6 @@ package juno
 
 import (
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -86,14 +85,21 @@ func New(cfg *Config) (StarkNetNode, error) {
 }
 
 func (n *Node) Run() error {
-	fmt.Printf("Running Juno with config: %s\n", fmt.Sprintf("%+v", *n.cfg))
-
 	// Set up logging
 	logger, err := log.NewProductionLogger(n.cfg.Verbosity)
 	if err != nil {
 		return err
 	}
 	n.logger = logger
+
+	n.logger.Infow("Running with config",
+		"verbosity", n.cfg.Verbosity,
+		"rpcPort", n.cfg.RpcPort,
+		"metrics", n.cfg.Metrics,
+		"dbPath", n.cfg.DatabasePath,
+		"network", n.cfg.Network,
+		"ethNode", n.cfg.EthNode,
+	)
 
 	if err := utils.CreateDir(n.cfg.DatabasePath); err != nil {
 		return err
