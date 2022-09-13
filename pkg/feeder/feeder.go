@@ -460,7 +460,7 @@ func (c Client) GetTransactionStatus(txHash, txID string) (*TransactionStatus, e
 	if err != nil {
 		metr.IncreaseTxStatusFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_transaction_status.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_transaction_status", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res TransactionStatus
