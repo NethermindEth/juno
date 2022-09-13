@@ -300,7 +300,7 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	if err != nil {
 		metr.IncreaseBlockFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_contract_addresses.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_contract_addresses", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseBlockSent()
