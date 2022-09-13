@@ -161,7 +161,7 @@ func (s *VirtualMachine) Call(
 	selector,
 	sequencer *felt.Felt,
 ) ([]*felt.Felt, error) {
-	s.logger.Info("Executing contract call.")
+	s.logger.Info("Executing contract call")
 
 	// XXX: Right now rpcVMAddr will probably only work if using TCP.
 	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))

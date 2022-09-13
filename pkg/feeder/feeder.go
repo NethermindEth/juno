@@ -379,7 +379,7 @@ func (c Client) GetFullContractRaw(contractAddress, blockHash, blockNumber strin
 	if err != nil {
 		metr.IncreaseFullContractsFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Error("Unable to create a request for get_full_contract.", "error", err, "url", c.BaseURL)
+		c.logger.Error("Unable to create a request for get_full_contract", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res *json.RawMessage
@@ -628,7 +628,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseTxIDFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	resStr := fmt.Sprintf("%v", res)
@@ -667,7 +667,7 @@ func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]string, reqBo
 	var res EstimateFeeResponse
 	_, err = c.do(req, &res)
 	if err != nil {
-		c.logger.Errorw("Error connecting to gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to gateway", "error", err, "url", c.BaseURL)
 	}
 	return &res, err
 }
