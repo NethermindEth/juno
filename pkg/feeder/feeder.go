@@ -353,7 +353,7 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 	req, err := c.newRequest("GET", "/get_code", blockIdentifier, nil)
 	if err != nil {
 		metr.IncreaseABIFailed()
-		c.logger.Errorw("Unable to create a request for get_contract_addresses.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_contract_addresses", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res CodeInfo
