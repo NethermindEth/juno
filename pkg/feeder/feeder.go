@@ -661,7 +661,7 @@ func (c Client) CallEstimateFeeWithBody(blockIdentifier map[string]string, reqBo
 	req, err := c.newRequest(
 		"POST", "/estimate_fee", blockIdentifier, reqBody)
 	if err != nil {
-		c.logger.Errorw("Unable to create a request for estimate_fee.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for estimate_fee", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res EstimateFeeResponse
