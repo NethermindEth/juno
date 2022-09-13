@@ -503,7 +503,7 @@ func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	if err != nil {
 		metr.IncreaseTxFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_transaction.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_transaction", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res TransactionInfo
