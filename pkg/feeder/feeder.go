@@ -326,7 +326,7 @@ func (c Client) GetStateUpdate(blockHash, blockNumber string) (*StateUpdateRespo
 	if err != nil {
 		metr.IncreaseStateUpdateFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Error("Unable to create a request for get_contract_addresses.", "error", err, "url", c.BaseURL)
+		c.logger.Error("Unable to create a request for get_contract_addresses", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 
