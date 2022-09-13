@@ -511,7 +511,7 @@ func (c Client) GetTransaction(txHash, txID string) (*TransactionInfo, error) {
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseTxFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseTxReceived()
