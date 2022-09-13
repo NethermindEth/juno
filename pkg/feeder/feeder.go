@@ -525,7 +525,7 @@ func (c Client) GetTransactionReceipt(txHash, txID string) (*TransactionReceipt,
 	if err != nil {
 		metr.IncreaseTxReceiptFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_transaction_receipt.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_transaction_receipt", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res TransactionReceipt
