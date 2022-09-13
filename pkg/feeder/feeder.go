@@ -595,7 +595,7 @@ func (c Client) GetTransactionHashByID(txID string) (*string, error) {
 	if err != nil {
 		metr.IncreaseTxHashFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_transaction_hash_by_id.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_transaction_hash_by_id", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res string
