@@ -446,7 +446,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 
 	if err != nil {
 		metr.IncreaseContractStorageFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseContractStorageReceived()
