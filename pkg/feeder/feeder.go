@@ -415,7 +415,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseFullContractsFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseFullContractsReceived()
