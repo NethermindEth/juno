@@ -407,7 +407,7 @@ func (c Client) GetFullContract(contractAddress, blockHash, blockNumber string) 
 	if err != nil {
 		metr.IncreaseFullContractsFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_full_contract.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_full_contract", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res map[string]interface{}
