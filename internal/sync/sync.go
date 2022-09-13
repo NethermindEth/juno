@@ -23,6 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+var errIncompatibleStateRoot = errors.New("incompatible state root")
+
 type Synchronizer struct {
 	// feeder is the client that will be used to fetch the data that comes from the Feeder Gateway.
 	feeder *feeder.Client
@@ -125,6 +127,10 @@ func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
 		if err := s.sync(); err != nil {
+			if err == errIncompatibleStateRoot {
+				s.logger.Error(err)
+				break
+			}
 			s.logger.Infow("Sync Failed, restarting iterator in 10 seconds", "error", err)
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
@@ -154,6 +160,9 @@ func (s *Synchronizer) sync() error {
 			if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 				// In case some errors exist or the new root of the trie didn't match with
 				// the root we receive from the StateDiff, we have to revert the trie
+				if err == nil {
+					err = errIncompatibleStateRoot
+				}
 				s.logger.Errorw("State update failed, reverting state", "error", err)
 				prometheus.IncreaseCountStarknetStateFailed()
 				s.setStateToLatestRoot()
