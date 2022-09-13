@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,35 +37,29 @@ func TestVerbosity(t *testing.T) {
 	}
 }
 
-// TestLog ensures all functions execute successfully on all provided loggers.
-func TestLog(t *testing.T) {
-	productionLogger, err := NewProductionLogger("info")
+func ExampleNewProductionLogger() {
+	logger, err := NewProductionLogger("info")
 	if err != nil {
-		t.Fatalf("unexpected error creating production logger: %s", err)
-	}
-	tests := []struct {
-		name   string
-		logger *Log
-	}{
-		{
-			"NopLogger",
-			NewNopLogger(),
-		},
-		{
-			"ProductionLogger",
-			productionLogger,
-		},
+		panic(fmt.Sprintf("unexpected error creating production logger: %s", err))
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(_ *testing.T) {
-			test.logger.Debug("test msg")
-			test.logger.Debugw("test msg", "key", "value")
-			test.logger.Info("test msg")
-			test.logger.Infow("test msg", "key", "value")
-			test.logger.Error("test msg")
-			test.logger.Errorw("test msg", "key", "value")
-			test.logger.Named("TEST")
-		})
-	}
+	logger.Debug("test msg")
+	logger.Debugw("test msg", "key", "value")
+	logger.Info("test msg")
+	logger.Infow("test msg", "key", "value")
+	logger.Error("test msg")
+	logger.Errorw("test msg", "key", "value")
+	logger.Named("TEST")
+}
+
+func ExampleNewNopLogger() {
+	logger := NewNopLogger()
+
+	logger.Debug("test msg")
+	logger.Debugw("test msg", "key", "value")
+	logger.Info("test msg")
+	logger.Infow("test msg", "key", "value")
+	logger.Error("test msg")
+	logger.Errorw("test msg", "key", "value")
+	logger.Named("TEST")
 }
