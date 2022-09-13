@@ -437,7 +437,7 @@ func (c Client) GetStorageAt(contractAddress, key, blockHash, blockNumber string
 	if err != nil {
 		metr.IncreaseContractStorageFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_storage_at.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_storage_at", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res StorageInfo
