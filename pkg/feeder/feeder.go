@@ -309,7 +309,7 @@ func (c Client) GetBlock(blockHash, blockNumber string) (*StarknetBlock, error) 
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseBlockFailed()
-		c.logger.Error("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Error("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	} else if reflect.DeepEqual(res, StarknetBlock{}) {
 		return nil, fmt.Errorf("block not found")
