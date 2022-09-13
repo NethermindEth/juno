@@ -619,7 +619,7 @@ func (c Client) GetTransactionIDByHash(txHash string) (*string, error) {
 	if err != nil {
 		metr.IncreaseTxIDFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_transaction_id_by_hash.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_transaction_id_by_hash", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	// Need to use interface as response due to response being integer or string.
