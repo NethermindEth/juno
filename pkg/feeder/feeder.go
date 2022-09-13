@@ -263,7 +263,7 @@ func (c Client) GetContractAddresses() (*ContractAddresses, error) {
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseContractAddressesFailed()
-		c.logger.Errorw("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseContractAddressesReceived()
