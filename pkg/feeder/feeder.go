@@ -284,7 +284,7 @@ func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber s
 	_, err = c.do(req, &res)
 	if err != nil {
 		metr.IncreaseContractCallsFailed()
-		c.logger.Error("Error connecting to the gateway.", "error", err, "url", c.BaseURL)
+		c.logger.Error("Error connecting to the gateway", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	metr.IncreaseContractCallsReceived()
