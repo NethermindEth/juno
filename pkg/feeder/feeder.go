@@ -276,7 +276,7 @@ func (c Client) CallContract(invokeFunc InvokeFunction, blockHash, blockNumber s
 	if err != nil {
 		metr.IncreaseContractCallsFailed()
 		metr.IncreaseRequestsFailed()
-		c.logger.Errorw("Unable to create a request for get_contract_addresses.", "error", err, "url", c.BaseURL)
+		c.logger.Errorw("Unable to create a request for get_contract_addresses", "error", err, "url", c.BaseURL)
 		return nil, err
 	}
 	var res map[string][]string
