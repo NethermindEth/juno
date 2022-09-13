@@ -25,8 +25,9 @@ import (
 )
 
 var (
-	txnV0Id = new(felt.Felt).SetHex("0x0")
-	txnV1Id = new(felt.Felt).SetHex("0x1")
+	txnV0Id                  = new(felt.Felt).SetHex("0x0")
+	txnV1Id                  = new(felt.Felt).SetHex("0x1")
+	errIncompatibleStateRoot = errors.New("incompatible state root")
 )
 
 type Synchronizer struct {
@@ -127,6 +128,10 @@ func (s *Synchronizer) handleSync() {
 	s.wg.Add(1)
 	for {
 		if err := s.sync(); err != nil {
+			if err == errIncompatibleStateRoot {
+				s.logger.Fatal(err)
+				break
+			}
 			s.logger.With("Error", err).Info("Sync Failed, restarting iterator in 10 seconds")
 			time.Sleep(10 * time.Second)
 			s.stateDiffCollector.Close()
@@ -155,6 +160,9 @@ func (s *Synchronizer) sync() error {
 			if err != nil || s.state.Root().Cmp(collectedDiff.stateDiff.NewRoot) != 0 {
 				// In case some errors exist or the new root of the trie didn't match with
 				// the root we receive from the StateDiff, we have to revert the trie
+				if err == nil {
+					err = errIncompatibleStateRoot
+				}
 				s.logger.With("Error", err).Error("State update failed, reverting state")
 				prometheus.IncreaseCountStarknetStateFailed()
 				s.setStateToLatestRoot()
