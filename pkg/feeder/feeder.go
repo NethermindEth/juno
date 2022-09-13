@@ -250,7 +250,7 @@ func (c *Client) doCodeWithABI(req *http.Request, v *CodeInfo) (*http.Response, 
 // GetContractAddresses creates a new request to get contract addresses
 // from the gateway.
 func (c Client) GetContractAddresses() (*ContractAddresses, error) {
-	c.logger.Infow("Getting contract address from gateway.", "url", c.BaseURL)
+	c.logger.Infow("Getting contract address from gateway", "url", c.BaseURL)
 	req, err := c.newRequest("GET", "/get_contract_addresses", nil, nil)
 	if err != nil {
 		metr.IncreaseContractAddressesFailed()
