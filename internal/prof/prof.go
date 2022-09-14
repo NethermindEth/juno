@@ -11,11 +11,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Prof represents a HTTP profiler over TCP.
 type Prof struct {
 	logger *zap.SugaredLogger
 	server *http.Server
 }
 
+// register creates a new http.ServeMux and registers all the handlers
+// that will be responsible for servicing profiling requests.
 func register() http.Handler {
 	mux := http.NewServeMux()
 
@@ -34,6 +37,8 @@ func register() http.Handler {
 	return mux
 }
 
+// New constructs a new Prof which will serve requests via TCP at addr
+// where addr is of the form host:port.
 func New(addr string, logger *zap.SugaredLogger) *Prof {
 	// notest
 	return &Prof{
@@ -46,6 +51,8 @@ func New(addr string, logger *zap.SugaredLogger) *Prof {
 	}
 }
 
+// Serve starts the profiling server and starts listening on the address
+// specified in the constructor.
 func (p *Prof) Serve(ch chan<- error) {
 	// notest
 	p.logger.Infow("Starting profiling server on address", "address", p.server.Addr)
@@ -58,6 +65,7 @@ func (p *Prof) Serve(ch chan<- error) {
 	}(ch)
 }
 
+// Close gracefully shuts down the profiling server.
 func (p *Prof) Close(timeout time.Duration) error {
 	// notest
 	p.logger.Info("Shutting down profiling server")

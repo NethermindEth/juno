@@ -7,10 +7,18 @@ import (
 	"testing"
 )
 
+// testServer is a helper struct that represents a HTTP server.
 type testServer struct {
 	*httptest.Server
 }
 
+// newTestServer creates a new testServer with the given routes h.
+func newTestServer(t *testing.T, h http.Handler) *testServer {
+	return &testServer{httptest.NewServer(h)}
+}
+
+// get executes a GET request against the test server and returns the
+// resulting HTTP status code.
 func (ts *testServer) get(t *testing.T, url string) (code int) {
 	t.Helper()
 
@@ -22,6 +30,8 @@ func (ts *testServer) get(t *testing.T, url string) (code int) {
 	return r.StatusCode
 }
 
+// TestProfiles executes HTTP requests for the different profiles and
+// checks the response for the expected status code.
 func TestProfiles(t *testing.T) {
 	const baseURL = "/debug/pprof/"
 
@@ -71,7 +81,7 @@ func TestProfiles(t *testing.T) {
 		},
 	}
 
-	ts := testServer{httptest.NewServer(register())}
+	ts := newTestServer(t, register())
 	defer ts.Close()
 
 	for _, test := range tests {
