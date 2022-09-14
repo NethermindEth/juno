@@ -36,15 +36,11 @@ func newTestTrieManager(t *testing.T) trie.TrieManager {
 	if err != nil {
 		t.Fail()
 	}
-	codeDatabase, err := db.NewMDBXDatabase(env, "CODE")
-	if err != nil {
-		t.Fail()
-	}
 	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
 		t.Fail()
 	}
-	return state.NewManager(stateDatabase, codeDatabase)
+	return state.NewManager(stateDatabase)
 }
 
 func TestExample(t *testing.T) {

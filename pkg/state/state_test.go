@@ -1,10 +1,7 @@
 package state_test
 
 import (
-	"encoding/json"
 	"testing"
-
-	"github.com/NethermindEth/juno/pkg/types"
 
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
@@ -17,15 +14,11 @@ func newTestStateManager(t *testing.T) state.StateManager {
 		t.Error(err)
 	}
 	env, _ := db.GetMDBXEnv()
-	contractDef, err := db.NewMDBXDatabase(env, "CONTRACT")
-	if err != nil {
-		t.Fail()
-	}
 	stateDatabase, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
 		t.Fail()
 	}
-	return statedb.NewManager(stateDatabase, contractDef)
+	return statedb.NewManager(stateDatabase)
 }
 
 func TestStateFromStateDiffs(t *testing.T) {
@@ -131,15 +124,10 @@ func TestStateFromStateDiffs(t *testing.T) {
 		for _, slot := range diff {
 			slots = append(slots, state.Slot{Key: new(felt.Felt).SetHex(slot.key), Value: new(felt.Felt).SetHex(slot.val)})
 		}
-		if err := stateTest.SetSlots(addr, slots); err != nil {
+		if err := stateTest.InitNewContract(addr, contractHash); err != nil {
 			t.Fatal(err)
 		}
-
-		if err := stateTest.SetContract(addr, contractHash, &types.Contract{
-			Abi:      nil,
-			Bytecode: nil,
-			FullDef:  json.RawMessage{},
-		}); err != nil {
+		if err := stateTest.SetSlots(addr, slots); err != nil {
 			t.Fatal(err)
 		}
 	}

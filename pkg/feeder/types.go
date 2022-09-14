@@ -2,6 +2,8 @@ package feeder
 
 // notest
 import (
+	"encoding/json"
+
 	feeder "github.com/NethermindEth/juno/pkg/feeder/abi"
 )
 
@@ -239,4 +241,21 @@ type Fee struct {
 type EstimateFeeResponse struct {
 	TransactionFailureReason
 	Fee
+}
+
+type EntryPoint struct {
+	Selector string `json:"selector"`
+	Offset   string `json:"offset"`
+}
+
+type EntryPoints struct {
+	Constructor []EntryPoint `json:"CONSTRUCTOR"`
+	External    []EntryPoint `json:"EXTERNAL"`
+	L1Handler   []EntryPoint `json:"L1_HANDLER"`
+}
+
+type FullContract struct {
+	Program     json.RawMessage `json:"program"`
+	Entrypoints EntryPoints     `json:"entry_points_by_type"`
+	Abi         json.RawMessage `json:"abi"`
 }

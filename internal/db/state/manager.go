@@ -8,15 +8,13 @@ import (
 // the contract codes and contract storages databases.
 type Manager struct {
 	stateDatabase db.Database
-	contractDef   db.Database
 }
 
 // NewManager returns a new instance of Manager with the given database sources.
-func NewManager(stateDatabase, contractDef db.Database) *Manager {
-	return &Manager{stateDatabase, contractDef}
+func NewManager(stateDatabase db.Database) *Manager {
+	return &Manager{stateDatabase}
 }
 
 func (m *Manager) Close() {
 	m.stateDatabase.Close()
-	m.contractDef.Close()
 }

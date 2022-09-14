@@ -10,6 +10,8 @@ import (
 	sync2 "sync"
 	"time"
 
+	"github.com/NethermindEth/juno/internal/db/class"
+
 	blockDB "github.com/NethermindEth/juno/internal/db/block"
 	"github.com/NethermindEth/juno/internal/db/sync"
 	"github.com/NethermindEth/juno/internal/db/transaction"
@@ -55,6 +57,7 @@ type Synchronizer struct {
 	transactionManager *transaction.Manager
 	// stateManager represent the manager for the state
 	stateManager state.StateManager
+	classManager class.ClassManager
 
 	// Running is true when the service is active and running
 	Running bool
@@ -67,7 +70,7 @@ type Synchronizer struct {
 // notest
 func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Client,
 	syncManager *sync.Manager, stateManager state.StateManager, blockManager *blockDB.Manager,
-	transactionManager *transaction.Manager,
+	transactionManager *transaction.Manager, classManager class.ClassManager,
 ) *Synchronizer {
 	synchro := &Synchronizer{
 		logger: Logger.Named("Sync Service"),
@@ -92,6 +95,7 @@ func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Clien
 	synchro.stateManager = stateManager
 	synchro.blockManager = blockManager
 	synchro.transactionManager = transactionManager
+	synchro.classManager = classManager
 
 	synchro.Running = false
 
@@ -234,12 +238,16 @@ func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *t
 	if deployedContract == nil {
 		return errors.New("contract not deployed")
 	}
-	err := s.state.SetContract(deployedContract.Address, deployedContract.Hash,
-		collectedDiff.Code[deployedContract.Address.Hex0x()])
-	if err != nil {
-		s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber,
-			"Contract Address", deployedContract.Address).
+	if err := s.classManager.PutClass(deployedContract.Hash, collectedDiff.Code[deployedContract.Address.Hex0x()]); err != nil {
+		s.logger.
+			With("Block Number", collectedDiff.stateDiff.BlockNumber, "Contract Address", deployedContract.Address).
 			Error("Error setting code")
+		return err
+	}
+	if err := s.state.InitNewContract(deployedContract.Address, deployedContract.Hash); err != nil {
+		s.logger.
+			With("Block Number", collectedDiff.stateDiff.BlockNumber, "Contract Address", deployedContract.Address).
+			Error("Error adding new contract to the state")
 		return err
 	}
 	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber, "Address", deployedContract.Address).

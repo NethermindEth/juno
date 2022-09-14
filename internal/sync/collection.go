@@ -2,12 +2,12 @@ package sync
 
 import (
 	"github.com/NethermindEth/juno/pkg/feeder"
-	starknetTypes "github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/pkg/types"
 )
 
 type CollectorDiff struct {
-	stateDiff *starknetTypes.StateUpdate
-	Code      map[string]*starknetTypes.Contract
+	stateDiff *types.StateUpdate
+	Code      map[string]*types.ContractClass
 }
 
 // StateDiffCollector is a collection of StateDiff provided from the feeder gateway that can be iterated over.

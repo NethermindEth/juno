@@ -1,11 +1,8 @@
 package state
 
 import (
-	"encoding/json"
-
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/types"
 )
 
 const (
@@ -16,20 +13,16 @@ const (
 type State interface {
 	Root() *felt.Felt
 	GetContractState(address *felt.Felt) (*ContractState, error)
-	GetContract(address *felt.Felt) (*types.Contract, error)
-	SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error
+	InitNewContract(address *felt.Felt, classHash *felt.Felt) error
 	GetSlot(address *felt.Felt, slot *felt.Felt) (*felt.Felt, error)
 	SetSlots(address *felt.Felt, slots []Slot) error
 	GetClassHash(address *felt.Felt) (*felt.Felt, error)
-	GetClass(blockId any, classHash *felt.Felt) (*types.ContractClass, error)
 }
 
 type StateManager interface {
 	trie.TrieManager
 	GetContractState(*felt.Felt) (*ContractState, error)
 	PutContractState(*ContractState) error
-	PutContract(*felt.Felt, *types.Contract) error
-	GetContract(*felt.Felt) (*types.Contract, error)
 }
 
 type state struct {
@@ -59,28 +52,15 @@ func (st *state) GetContractState(address *felt.Felt) (*ContractState, error) {
 	return st.manager.GetContractState(leaf)
 }
 
-// notest
-func (st *state) GetContract(address *felt.Felt) (*types.Contract, error) {
-	contractState, err := st.GetContractState(address)
-	if err != nil {
-		return nil, err
+func (st *state) InitNewContract(address *felt.Felt, classHash *felt.Felt) error {
+	contractState := ContractState{
+		ContractHash: classHash,
+		StorageRoot:  new(felt.Felt),
 	}
-	return st.manager.GetContract(contractState.ContractHash)
-}
-
-func (st *state) SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error {
-	contract, err := st.GetContractState(address)
-	if err != nil {
+	if err := st.manager.PutContractState(&contractState); err != nil {
 		return err
 	}
-	contract.ContractHash = hash
-	if err = st.manager.PutContractState(contract); err != nil {
-		return err
-	}
-	if err = st.manager.PutContract(hash, code); err != nil {
-		return err
-	}
-	return st.stateTrie.Put(address, contract.Hash())
+	return st.stateTrie.Put(address, contractState.Hash())
 }
 
 // notest
@@ -136,30 +116,4 @@ func (st *state) GetClassHash(address *felt.Felt) (*felt.Felt, error) {
 		return nil, err
 	}
 	return contract.ContractHash, nil
-}
-
-func (st *state) GetClass(blockId any, classHash *felt.Felt) (*types.ContractClass, error) {
-	contract, err := st.manager.GetContract(classHash)
-	if err != nil {
-		return nil, err
-	}
-
-	fullDef := contract.FullDef
-	if len(fullDef) > 0 {
-		var fullDefMap map[string]interface{}
-		if err := json.Unmarshal([]byte(fullDef), &fullDefMap); err != nil {
-			return nil, err
-		}
-
-		program := fullDefMap["program"]
-		entryPointsByType := fullDefMap["entry_points_by_type"]
-		abi := fullDefMap["abi"]
-		return &types.ContractClass{
-			Program:           program,
-			EntryPointsByType: entryPointsByType,
-			Abi:               abi,
-		}, nil
-	}
-
-	return &types.ContractClass{}, nil
 }
