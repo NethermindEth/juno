@@ -20,7 +20,9 @@ func register() http.Handler {
 	mux := http.NewServeMux()
 
 	// Leverage the http.ServeMux catch-all behaviour to redirect the user
-	// to the profiling index page for routes that cannot be found.
+	// to the profiling index page if they enter the wrong URL. Note that
+	// all routes under /debug/pprof/ will still return 404 Not found
+	// errors.
 	mux.Handle("/", http.RedirectHandler("/debug/pprof/", http.StatusSeeOther))
 
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -33,8 +35,9 @@ func register() http.Handler {
 }
 
 func New(addr string, logger *zap.SugaredLogger) *Prof {
+	// notest
 	return &Prof{
-		// TODO: Inject logger.
+		// TODO: Use injected logger.
 		logger: Logger,
 		server: &http.Server{
 			Addr:    addr,
@@ -44,6 +47,7 @@ func New(addr string, logger *zap.SugaredLogger) *Prof {
 }
 
 func (p *Prof) Serve(ch chan<- error) {
+	// notest
 	p.logger.Infow("Starting profiling server on address", "address", p.server.Addr)
 
 	go func(ch chan<- error) {
@@ -55,6 +59,7 @@ func (p *Prof) Serve(ch chan<- error) {
 }
 
 func (p *Prof) Close(timeout time.Duration) error {
+	// notest
 	p.logger.Info("Shutting down profiling server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
