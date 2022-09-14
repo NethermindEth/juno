@@ -235,13 +235,13 @@ type InvokeTxnV1 struct {
 }
 
 func NewInvokeTxnV1(txn *types.TransactionInvokeV1) *InvokeTxnV1 {
-	signature := make([]string, len(txn.Signature))
-	for i, sig := range txn.Signature {
-		signature[i] = sig.Hex0x()
+	signature := make([]string, 0, len(txn.Signature))
+	for _, sig := range txn.Signature {
+		signature = append(signature, sig.Hex0x())
 	}
-	calldata := make([]string, len(txn.CallData))
-	for i, data := range txn.CallData {
-		calldata[i] = data.Hex0x()
+	calldata := make([]string, 0, len(txn.CallData))
+	for _, data := range txn.CallData {
+		calldata = append(calldata, data.Hex0x())
 	}
 	return &InvokeTxnV1{
 		CommonTxnProperties: CommonTxnProperties{
@@ -298,9 +298,9 @@ type DeployTxnProperties struct {
 }
 
 type DeployTxn struct {
+	DeployTxnProperties
 	TxnHash   string `json:"transaction_hash"`
 	ClassHash string `json:"class_hash"`
-	DeployTxnProperties
 }
 
 func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
