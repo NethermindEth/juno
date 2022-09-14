@@ -183,8 +183,8 @@ type BroadcastedTxnCommonProperties struct {
 }
 
 type CommonTxnProperties struct {
-	TxnHash string `json:"transaction_hash"`
 	BroadcastedTxnCommonProperties
+	TxnHash string `json:"transaction_hash"`
 }
 
 type FunctionCall struct {
