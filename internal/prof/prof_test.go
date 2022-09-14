@@ -40,6 +40,10 @@ func TestProfiles(t *testing.T) {
 		want    int
 	}{
 		{
+			"/", /* catch-all */
+			http.StatusOK,
+		},
+		{
 			baseURL + "nonexistent",
 			http.StatusNotFound,
 		},
