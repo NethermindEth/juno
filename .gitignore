@@ -7,7 +7,6 @@ coverage/*
 courtney/
 __pycache__/
 config/
-*.prof
 
 # pyenv
 .python-version
