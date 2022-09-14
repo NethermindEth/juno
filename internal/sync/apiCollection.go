@@ -137,9 +137,9 @@ func stateUpdateResponseToStateDiff(update feeder.StateUpdateResponse, blockNumb
 			Hash:    new(felt.Felt).SetHex(v.ContractHash),
 		}
 	}
-	stateDiff.Nonces = make([]*felt.Felt, len(update.StateDiff.Nonces))
-	for i, v := range update.StateDiff.Nonces {
-		stateDiff.Nonces[i] = new(felt.Felt).SetHex(v)
+	stateDiff.Nonces = make(map[*felt.Felt]*felt.Felt, len(update.StateDiff.Nonces))
+	for k, v := range update.StateDiff.Nonces {
+		stateDiff.Nonces[new(felt.Felt).SetHex(k)] = new(felt.Felt).SetHex(v)
 	}
 	stateDiff.StorageDiff = make(types.StorageDiff)
 	for contractAddress, memoryCells := range update.StateDiff.StorageDiffs {

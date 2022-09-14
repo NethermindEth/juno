@@ -213,7 +213,7 @@ type DeployedContract struct {
 }
 
 type StateDiff struct {
-	Nonces            []string           `json:"nonces"`
+	Nonces            map[string]string  `json:"nonces"`
 	StorageDiffs      map[string][]KV    `json:"storage_diffs"`
 	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 }

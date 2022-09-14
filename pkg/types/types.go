@@ -54,13 +54,13 @@ type StorageDiff map[felt.Felt][]MemoryCell
 // for the one's already deployed
 type StateUpdate struct {
 	StorageDiff       `json:"storage_diffs"`
-	BlockHash         *felt.Felt         `json:"block_hash"`
-	BlockNumber       int64              `json:"block_number"`
-	NewRoot           *felt.Felt         `json:"new_root"`
-	OldRoot           *felt.Felt         `json:"old_root"`
-	DeployedContracts []DeployedContract `json:"deployed_contracts"`
-	DeclaredContracts []*felt.Felt       `json:"declared_contracts"`
-	Nonces            []*felt.Felt       `json:"nonce"`
+	BlockHash         *felt.Felt                `json:"block_hash"`
+	BlockNumber       int64                     `json:"block_number"`
+	NewRoot           *felt.Felt                `json:"new_root"`
+	OldRoot           *felt.Felt                `json:"old_root"`
+	DeployedContracts []DeployedContract        `json:"deployed_contracts"`
+	DeclaredContracts []*felt.Felt              `json:"declared_contracts"`
+	Nonces            map[*felt.Felt]*felt.Felt `json:"nonce"`
 }
 
 // ContractInfo represent the info associated to one contract
