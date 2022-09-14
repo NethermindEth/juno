@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	txnV0Id                  = new(felt.Felt).SetHex("0x0")
-	txnV1Id                  = new(felt.Felt).SetHex("0x1")
+	txnV0Id                  = new(felt.Felt).SetZero()
+	txnV1Id                  = new(felt.Felt).SetOne()
 	errIncompatibleStateRoot = errors.New("incompatible state root")
 )
 
