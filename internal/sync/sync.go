@@ -216,7 +216,12 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 			return err
 		}
 	}
-
+	// TODO: Handle Nonce insertion on the trie
+	//for _, nonce := range collectedDiff.stateDiff.Nonces {
+	//	if err := s.state.SetNonce(collectedDiff, &nonce); err != nil {
+	//		return err
+	//	}
+	//}
 	for contractAddress, memoryCells := range collectedDiff.stateDiff.StorageDiff {
 		slots := make([]state.Slot, 0, len(memoryCells))
 		for _, cell := range memoryCells {
