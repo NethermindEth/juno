@@ -60,6 +60,7 @@ type StateUpdate struct {
 	OldRoot           *felt.Felt         `json:"old_root"`
 	DeployedContracts []DeployedContract `json:"deployed_contracts"`
 	DeclaredContracts []*felt.Felt       `json:"declared_contracts"`
+	Nonces            []*felt.Felt       `json:"nonce"`
 }
 
 // ContractInfo represent the info associated to one contract
