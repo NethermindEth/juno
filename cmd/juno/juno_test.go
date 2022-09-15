@@ -74,6 +74,8 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 		// implementation.
 		defaultVerbosity := "info"
 		defaultRpcPort := uint16(6060)
+		defaultRpcCors := false
+		defaultRpcCorsOrigins := "*"
 		defaultMetrics := false
 		defaultDbPath := ""
 		defaultNetwork := utils.GOERLI
@@ -89,21 +91,27 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			"default config with no flags": {
 				inputArgs: []string{""},
 				expectedConfig: &juno.Config{
-					Verbosity:    defaultVerbosity,
-					RpcPort:      defaultRpcPort,
-					Metrics:      defaultMetrics,
-					DatabasePath: defaultDbPath,
-					Network:      defaultNetwork, EthNode: defaultEthNode,
+					Verbosity:      defaultVerbosity,
+					RpcPort:        defaultRpcPort,
+					RpcCors:        defaultRpcCors,
+					RpcCorsOrigins: defaultRpcCorsOrigins,
+					Metrics:        defaultMetrics,
+					DatabasePath:   defaultDbPath,
+					Network:        defaultNetwork,
+					EthNode:        defaultEthNode,
 				},
 			},
 			"config file path is empty string": {
 				inputArgs: []string{"--config", ""},
 				expectedConfig: &juno.Config{
-					Verbosity:    defaultVerbosity,
-					RpcPort:      defaultRpcPort,
-					Metrics:      defaultMetrics,
-					DatabasePath: defaultDbPath,
-					Network:      defaultNetwork, EthNode: defaultEthNode,
+					Verbosity:      defaultVerbosity,
+					RpcPort:        defaultRpcPort,
+					RpcCors:        defaultRpcCors,
+					RpcCorsOrigins: defaultRpcCorsOrigins,
+					Metrics:        defaultMetrics,
+					DatabasePath:   defaultDbPath,
+					Network:        defaultNetwork,
+					EthNode:        defaultEthNode,
 				},
 			},
 			"config file doesn't exist": {
@@ -114,28 +122,35 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 				cfgFile:         tempCfgFile,
 				cfgFileContents: "\n",
 				expectedConfig: &juno.Config{
-					Verbosity: defaultVerbosity,
-					RpcPort:   defaultRpcPort,
-					Metrics:   defaultMetrics,
-					Network:   defaultNetwork, EthNode: defaultEthNode,
+					Verbosity:      defaultVerbosity,
+					RpcPort:        defaultRpcPort,
+					RpcCors:        defaultRpcCors,
+					RpcCorsOrigins: defaultRpcCorsOrigins,
+					Metrics:        defaultMetrics,
+					Network:        defaultNetwork,
+					EthNode:        defaultEthNode,
 				},
 			},
 			"config file with all settings but without any other flags": {
 				cfgFile: tempCfgFile,
 				cfgFileContents: `verbosity: "debug"
 rpc-port: 4576
+rpc-cors: true
+rpc-cors-origins: http://127.0.0.1
 metrics: true
 db-path: /home/.juno
 network: 1
 eth-node: "https://some-ethnode:5673"
 `,
 				expectedConfig: &juno.Config{
-					Verbosity:    "debug",
-					RpcPort:      4576,
-					Metrics:      true,
-					DatabasePath: "/home/.juno",
-					Network:      utils.MAINNET,
-					EthNode:      "https://some-ethnode:5673",
+					Verbosity:      "debug",
+					RpcPort:        4576,
+					RpcCors:        true,
+					RpcCorsOrigins: "http://127.0.0.1",
+					Metrics:        true,
+					DatabasePath:   "/home/.juno",
+					Network:        utils.MAINNET,
+					EthNode:        "https://some-ethnode:5673",
 				},
 			},
 			"config file with some settings but without any other flags": {
@@ -145,47 +160,56 @@ rpc-port: 4576
 metrics: true
 `,
 				expectedConfig: &juno.Config{
-					Verbosity:    "debug",
-					RpcPort:      4576,
-					Metrics:      true,
-					DatabasePath: defaultDbPath,
-					Network:      defaultNetwork,
-					EthNode:      defaultEthNode,
+					Verbosity:      "debug",
+					RpcPort:        4576,
+					RpcCors:        defaultRpcCors,
+					RpcCorsOrigins: defaultRpcCorsOrigins,
+					Metrics:        true,
+					DatabasePath:   defaultDbPath,
+					Network:        defaultNetwork,
+					EthNode:        defaultEthNode,
 				},
 			},
 			"all flags without config file": {
 				inputArgs: []string{
 					"--verbosity", "debug", "--rpc-port", "4576",
 					"--metrics", "--db-path", "/home/.juno", "--network", "1",
-					"--eth-node", "https://some-ethnode:5673",
+					"--eth-node", "https://some-ethnode:5673", "--rpc-cors", "--rpc-cors-origins",
+					"http://127.0.0.1",
 				},
 				expectedConfig: &juno.Config{
-					Verbosity:    "debug",
-					RpcPort:      4576,
-					Metrics:      true,
-					DatabasePath: "/home/.juno",
-					Network:      utils.MAINNET,
-					EthNode:      "https://some-ethnode:5673",
+					Verbosity:      "debug",
+					RpcPort:        4576,
+					RpcCors:        true,
+					RpcCorsOrigins: "http://127.0.0.1",
+					Metrics:        true,
+					DatabasePath:   "/home/.juno",
+					Network:        utils.MAINNET,
+					EthNode:        "https://some-ethnode:5673",
 				},
 			},
 			"some flags without config file": {
 				inputArgs: []string{
 					"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
-					"--network", "1",
+					"--network", "1", "--rpc-cors",
 				},
 				expectedConfig: &juno.Config{
-					Verbosity:    "debug",
-					RpcPort:      4576,
-					Metrics:      defaultMetrics,
-					DatabasePath: "/home/.juno",
-					Network:      utils.MAINNET,
-					EthNode:      defaultEthNode,
+					Verbosity:      "debug",
+					RpcPort:        4576,
+					RpcCors:        true,
+					RpcCorsOrigins: defaultRpcCorsOrigins,
+					Metrics:        defaultMetrics,
+					DatabasePath:   "/home/.juno",
+					Network:        utils.MAINNET,
+					EthNode:        defaultEthNode,
 				},
 			},
 			"all setting set in both config file and flags": {
 				cfgFile: tempCfgFile,
 				cfgFileContents: `verbosity: "debug"
 rpc-port: 4576
+rpc-cors: false
+rpc-cors-origins: http://127.0.0.1
 metrics: true
 db-path: /home/config-file/.juno
 network: 0
@@ -194,34 +218,40 @@ eth-node: "https://some-ethnode:5673"
 				inputArgs: []string{
 					"--verbosity", "error", "--rpc-port", "4577",
 					"--metrics", "--db-path", "/home/flag/.juno", "--network", "1",
-					"--eth-node", "https://some-ethnode:5674",
+					"--eth-node", "https://some-ethnode:5674", "--rpc-cors", "--rpc-cors-origins",
+					"http://example.com",
 				},
 				expectedConfig: &juno.Config{
-					Verbosity:    "error",
-					RpcPort:      4577,
-					Metrics:      true,
-					DatabasePath: "/home/flag/.juno",
-					Network:      utils.MAINNET,
-					EthNode:      "https://some-ethnode:5674",
+					Verbosity:      "error",
+					RpcPort:        4577,
+					RpcCors:        true,
+					RpcCorsOrigins: "http://example.com",
+					Metrics:        true,
+					DatabasePath:   "/home/flag/.juno",
+					Network:        utils.MAINNET,
+					EthNode:        "https://some-ethnode:5674",
 				},
 			},
 			"some setting set in both config file and flags": {
 				cfgFile: tempCfgFile,
 				cfgFileContents: `verbosity: "panic"
 rpc-port: 4576
+rpc-cors-origins: http://127.0.0.1
 network: 1
 `,
 				inputArgs: []string{
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
-					"https://some-ethnode:5674",
+					"https://some-ethnode:5674", "--rpc-cors",
 				},
 				expectedConfig: &juno.Config{
-					Verbosity:    "panic",
-					RpcPort:      4576,
-					Metrics:      true,
-					DatabasePath: "/home/flag/.juno",
-					Network:      utils.MAINNET,
-					EthNode:      "https://some-ethnode:5674",
+					Verbosity:      "panic",
+					RpcPort:        4576,
+					RpcCors:        true,
+					RpcCorsOrigins: "http://127.0.0.1",
+					Metrics:        true,
+					DatabasePath:   "/home/flag/.juno",
+					Network:        utils.MAINNET,
+					EthNode:        "https://some-ethnode:5674",
 				},
 			},
 			"some setting set in default, config file and flags": {
@@ -232,12 +262,14 @@ network: 1
 					"https://some-ethnode:5674",
 				},
 				expectedConfig: &juno.Config{
-					Verbosity:    defaultVerbosity,
-					RpcPort:      defaultRpcPort,
-					Metrics:      true,
-					DatabasePath: "/home/flag/.juno",
-					Network:      utils.MAINNET,
-					EthNode:      "https://some-ethnode:5674",
+					Verbosity:      defaultVerbosity,
+					RpcPort:        defaultRpcPort,
+					RpcCors:        defaultRpcCors,
+					RpcCorsOrigins: defaultRpcCorsOrigins,
+					Metrics:        true,
+					DatabasePath:   "/home/flag/.juno",
+					Network:        utils.MAINNET,
+					EthNode:        "https://some-ethnode:5674",
 				},
 			},
 		}
