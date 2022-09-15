@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 // testServer is a helper struct that represents a HTTP server.
@@ -91,9 +93,7 @@ func TestProfiles(t *testing.T) {
 	for _, test := range tests {
 		t.Run(strconv.Quote(test.profile), func(t *testing.T) {
 			got := ts.get(t, test.profile)
-			if got != test.want {
-				t.Errorf("%s%s status = %d, want %d", baseURL, test.profile, got, test.want)
-			}
+			assert.Check(t, got == test.want, "%s status = %d, want %d", test.profile, got, test.want)
 		})
 	}
 }
