@@ -14,6 +14,8 @@ Example `juno.yaml`:
 ```yaml
 verbosity: "debug"
 rpc-port: 4576
+rpc-cors: true
+rpc-cors-origins: "http://cors-origin.com,http://127.0.0.1"
 metrics: true
 db-path: "/home/.juno"
 network: 1
@@ -34,14 +36,16 @@ Usage:
   juno [flags]
 
 Flags:
-      --config string      The yaml configuration file.
-      --db-path string     Location of the database files.
-      --eth-node string    The Ethereum endpoint to synchronise with. If unset feeder gateway will be used.
-  -h, --help               help for juno
-      --metrics            Enables the metrics server and listens on port 9090.
-      --network uint8      Available StarkNet networks. Options: 0 = goerli and 1 = mainnet
-      --rpc-port uint16    The port on which the RPC server will listen for requests. Warning: this exposes the node to external requests and potentially DoS attacks. (default 6060)
-      --verbosity string   Verbosity of the logs. Options: debug, info, warn, error, dpanic, panic, fatal. (default "info")
+      --config string             The yaml configuration file.
+      --db-path string            Location of the database files.
+      --eth-node string           The Ethereum endpoint to synchronise with. If unset feeder gateway will be used.
+  -h, --help                      help for juno
+      --metrics                   Enables the metrics server and listens on port 9090.
+      --network uint8             Available StarkNet networks. Options: 0 = goerli and 1 = mainnet
+      --rpc-cors                  Allow cross-origin requests to the RPC server.
+      --rpc-cors-origins string   Comma-separated list of origins to allow cross-origin requests to the RPC server. If rpc-cors flag is not set to true, this flag is ignored. (default "*")
+      --rpc-port uint16           The port on which the RPC server will listen for requests. Warning: this exposes the node to external requests and potentially DoS attacks. (default 6060)
+      --verbosity string          Verbosity of the logs. Options: debug, info, warn, error, dpanic, panic, fatal. (default "info")
 ```
 
 ## Default Configuration
@@ -50,6 +54,8 @@ The default values for the configuration are the following:
 ```yaml
 verbosity: "info"
 rpc-port: 6060
+rpc-cors: false
+rpc-cors-origins: "*"
 metrics: true
 db-path: "~/.local/share/juno/"
 network: 0

@@ -48,7 +48,7 @@ const (
 		"panic, fatal."
 	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	rpcCorsUsage        = "Whether to allow cross-origin requests to the RPC server."
+	rpcCorsUsage        = "Allow cross-origin requests to the RPC server."
 	rpcCorsOriginsUsage = "Comma-separated list of origins to allow cross-origin requests to the RPC server. " +
 		"If rpc-cors flag is not set to true, this flag is ignored."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
