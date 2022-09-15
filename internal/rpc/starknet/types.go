@@ -162,8 +162,10 @@ type Txn interface {
 
 func NewTxn(tx types.IsTransaction) (Txn, error) {
 	switch tx := tx.(type) {
-	case *types.TransactionInvoke:
-		return NewInvokeTxn(tx), nil
+	case *types.TransactionInvokeV0:
+		return NewInvokeTxnV0(tx), nil
+	case *types.TransactionInvokeV1:
+		return NewInvokeTxnV1(tx), nil
 	case *types.TransactionDeploy:
 		return NewDeployTxn(tx), nil
 	case *types.TransactionDeclare:
@@ -173,13 +175,17 @@ func NewTxn(tx types.IsTransaction) (Txn, error) {
 	}
 }
 
-type CommonTxnProperties struct {
-	TxnHash   string   `json:"txn_hash"`
+type BroadcastedTxnCommonProperties struct {
+	Type      TxnType  `json:"type"`
 	MaxFee    string   `json:"max_fee"`
 	Version   string   `json:"version"`
 	Signature []string `json:"signature"`
 	Nonce     string   `json:"nonce"`
-	Type      string   `json:"type"`
+}
+
+type CommonTxnProperties struct {
+	BroadcastedTxnCommonProperties
+	TxnHash string `json:"transaction_hash"`
 }
 
 type FunctionCall struct {
@@ -188,12 +194,12 @@ type FunctionCall struct {
 	Calldata           []string `json:"calldata"`
 }
 
-type InvokeTxn struct {
+type InvokeTxnV0 struct {
 	CommonTxnProperties
 	FunctionCall
 }
 
-func NewInvokeTxn(txn *types.TransactionInvoke) *InvokeTxn {
+func NewInvokeTxnV0(txn *types.TransactionInvokeV0) *InvokeTxnV0 {
 	signature := make([]string, len(txn.Signature))
 	for i, sig := range txn.Signature {
 		signature[i] = sig.Hex0x()
@@ -202,14 +208,16 @@ func NewInvokeTxn(txn *types.TransactionInvoke) *InvokeTxn {
 	for i, data := range txn.CallData {
 		calldata[i] = data.Hex0x()
 	}
-	return &InvokeTxn{
+	return &InvokeTxnV0{
 		CommonTxnProperties: CommonTxnProperties{
-			TxnHash:   txn.Hash.Hex0x(),
-			MaxFee:    txn.MaxFee.Hex0x(),
-			Version:   "0x0", // XXX: hardcoded version for now
-			Signature: signature,
-			Nonce:     "", // TODO: Manage transaction nonce
-			Type:      "INVOKE",
+			TxnHash: txn.Hash.Hex0x(),
+			BroadcastedTxnCommonProperties: BroadcastedTxnCommonProperties{
+				MaxFee:    txn.MaxFee.Hex0x(),
+				Version:   "0x0",
+				Signature: signature,
+				Nonce:     "", // TODO: Manage transaction nonce
+				Type:      TxnInvoke,
+			},
 		},
 		FunctionCall: FunctionCall{
 			ContractAddress:    txn.ContractAddress.Hex0x(),
@@ -219,7 +227,40 @@ func NewInvokeTxn(txn *types.TransactionInvoke) *InvokeTxn {
 	}
 }
 
-func (*InvokeTxn) isTxn() {}
+func (*InvokeTxnV0) isTxn() {}
+
+type InvokeTxnV1 struct {
+	CommonTxnProperties
+	SenderAddress string   `json:"sender_address"`
+	Calldata      []string `json:"calldata"`
+}
+
+func NewInvokeTxnV1(txn *types.TransactionInvokeV1) *InvokeTxnV1 {
+	signature := make([]string, 0, len(txn.Signature))
+	for _, sig := range txn.Signature {
+		signature = append(signature, sig.Hex0x())
+	}
+	calldata := make([]string, 0, len(txn.CallData))
+	for _, data := range txn.CallData {
+		calldata = append(calldata, data.Hex0x())
+	}
+	return &InvokeTxnV1{
+		CommonTxnProperties: CommonTxnProperties{
+			TxnHash: txn.GetHash().Hex0x(),
+			BroadcastedTxnCommonProperties: BroadcastedTxnCommonProperties{
+				Type:      TxnInvoke,
+				MaxFee:    txn.MaxFee.Hex0x(),
+				Version:   "0x1",
+				Signature: signature,
+				Nonce:     "", // TODO: Manage transaction nonce
+			},
+		},
+		SenderAddress: txn.SenderAddress.Hex0x(),
+		Calldata:      calldata,
+	}
+}
+
+func (*InvokeTxnV1) isTxn() {}
 
 type DeclareTxn struct {
 	CommonTxnProperties
@@ -234,12 +275,14 @@ func NewDeclareTxn(txn *types.TransactionDeclare) *DeclareTxn {
 	}
 	return &DeclareTxn{
 		CommonTxnProperties: CommonTxnProperties{
-			TxnHash:   txn.Hash.Hex0x(),
-			MaxFee:    txn.MaxFee.Hex0x(),
-			Version:   "0x0", // XXX: hardcoded version for now
-			Signature: signature,
-			Nonce:     "", // TODO: Manage transaction nonce
-			Type:      "DECLARE",
+			TxnHash: txn.GetHash().Hex0x(),
+			BroadcastedTxnCommonProperties: BroadcastedTxnCommonProperties{
+				Type:      TxnDeclare,
+				MaxFee:    txn.MaxFee.Hex0x(),
+				Version:   "0x0",
+				Signature: signature,
+				Nonce:     "", // TODO: Manage transaction nonce
+			},
 		},
 		ClassHash:     txn.ClassHash.Hex0x(),
 		SenderAddress: txn.SenderAddress.Hex0x(),
@@ -248,14 +291,17 @@ func NewDeclareTxn(txn *types.TransactionDeclare) *DeclareTxn {
 
 func (*DeclareTxn) isTxn() {}
 
-type DeployTxn struct {
-	TxnHash             string   `json:"txn_hash"`
-	ClassHash           string   `json:"class_hash"`
+type DeployTxnProperties struct {
 	Version             string   `json:"version"`
-	Type                string   `json:"type"`
-	ContractAddress     string   `json:"contract_address"`
+	Type                TxnType  `json:"type"`
 	ContractAddressSalt string   `json:"contract_address_salt"`
 	ConstructorCalldata []string `json:"constructor_calldata"`
+}
+
+type DeployTxn struct {
+	DeployTxnProperties
+	TxnHash   string `json:"transaction_hash"`
+	ClassHash string `json:"class_hash"`
 }
 
 func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
@@ -264,13 +310,14 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 		callData[i] = data.Hex0x()
 	}
 	return &DeployTxn{
-		TxnHash:             txn.Hash.Hex0x(),
-		ClassHash:           txn.ClassHash.Hex0x(),
-		Version:             "0x0", // XXX: hardcoded version for now
-		Type:                "DEPLOY",
-		ContractAddress:     txn.ContractAddress.Hex0x(),
-		ContractAddressSalt: txn.ContractAddressSalt.Hex0x(),
-		ConstructorCalldata: callData,
+		TxnHash:   txn.GetHash().Hex0x(),
+		ClassHash: txn.ClassHash.Hex0x(),
+		DeployTxnProperties: DeployTxnProperties{
+			Version:             "0x0",
+			Type:                TxnDeploy,
+			ContractAddressSalt: "", // TODO: Manage contract address salt
+			ConstructorCalldata: callData,
+		},
 	}
 }
 

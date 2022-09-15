@@ -6,7 +6,7 @@ message Transaction {
   bytes hash = 1;
   oneof tx {
     Deploy deploy = 2;
-    InvokeFunction invoke = 3;
+    InvokeVersioned invoke = 3;
     Declare declare = 4;
   }
 }
@@ -18,7 +18,22 @@ message Deploy {
   repeated bytes constructorCallData = 4;
 }
 
-message InvokeFunction {
+message InvokeVersioned {
+  oneof txn {
+    InvokeVersion0 version0 = 1;
+    InvokeVersion1 version1 = 2;
+  }
+}
+
+message InvokeVersion1 {
+  bytes senderAddress = 1;
+  repeated bytes callData = 2;
+  repeated bytes signature = 3;
+  bytes maxFee = 4;
+  bytes nonce = 5;
+}
+
+message InvokeVersion0 {
   bytes contractAddress = 2;
   bytes entryPointSelector = 3;
   repeated bytes callData = 4;

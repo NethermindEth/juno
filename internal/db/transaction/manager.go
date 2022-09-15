@@ -97,13 +97,30 @@ func marshalTransaction(transaction types.IsTransaction) ([]byte, error) {
 			ConstructorCallData: marshalFelts(tx.ConstructorCallData),
 		}
 		protoTx.Tx = &Transaction_Deploy{&deploy}
-	case *types.TransactionInvoke:
-		invoke := InvokeFunction{
-			ContractAddress:    tx.ContractAddress.ByteSlice(),
-			EntryPointSelector: tx.EntryPointSelector.ByteSlice(),
-			CallData:           marshalFelts(tx.CallData),
-			Signature:          marshalFelts(tx.Signature),
-			MaxFee:             tx.MaxFee.ByteSlice(),
+	case *types.TransactionInvokeV0:
+		invoke := InvokeVersioned{
+			Txn: &InvokeVersioned_Version0{
+				Version0: &InvokeVersion0{
+					ContractAddress:    tx.ContractAddress.ByteSlice(),
+					EntryPointSelector: tx.EntryPointSelector.ByteSlice(),
+					CallData:           marshalFelts(tx.CallData),
+					Signature:          marshalFelts(tx.Signature),
+					MaxFee:             tx.MaxFee.ByteSlice(),
+				},
+			},
+		}
+		protoTx.Tx = &Transaction_Invoke{&invoke}
+	case *types.TransactionInvokeV1:
+		invoke := InvokeVersioned{
+			Txn: &InvokeVersioned_Version1{
+				Version1: &InvokeVersion1{
+					SenderAddress: tx.SenderAddress.ByteSlice(),
+					CallData:      marshalFelts(tx.CallData),
+					Signature:     marshalFelts(tx.Signature),
+					MaxFee:        tx.MaxFee.ByteSlice(),
+					Nonce:         tx.Nonce.ByteSlice(),
+				},
+			},
 		}
 		protoTx.Tx = &Transaction_Invoke{&invoke}
 	case *types.TransactionDeclare:
@@ -125,25 +142,35 @@ func unmarshalTransaction(b []byte) (types.IsTransaction, error) {
 		return nil, err
 	}
 	if tx := protoTx.GetInvoke(); tx != nil {
-		out := types.TransactionInvoke{
-			Hash:               new(felt.Felt).SetBytes(protoTx.Hash),
-			ContractAddress:    new(felt.Felt).SetBytes(tx.ContractAddress),
-			EntryPointSelector: new(felt.Felt).SetBytes(tx.EntryPointSelector),
-			CallData:           unmarshalFelts(tx.CallData),
-			Signature:          unmarshalFelts(tx.Signature),
-			MaxFee:             new(felt.Felt).SetBytes(tx.MaxFee),
+		if v0 := tx.GetVersion0(); v0 != nil {
+			return &types.TransactionInvokeV0{
+				Hash:               new(felt.Felt).SetBytes(protoTx.GetHash()),
+				ContractAddress:    new(felt.Felt).SetBytes(v0.GetContractAddress()),
+				EntryPointSelector: new(felt.Felt).SetBytes(v0.GetEntryPointSelector()),
+				CallData:           unmarshalFelts(v0.GetCallData()),
+				Signature:          unmarshalFelts(v0.GetSignature()),
+				MaxFee:             new(felt.Felt).SetBytes(v0.GetMaxFee()),
+			}, nil
 		}
-		return &out, nil
+		if v1 := tx.GetVersion1(); v1 != nil {
+			return &types.TransactionInvokeV1{
+				Hash:          new(felt.Felt).SetBytes(protoTx.GetHash()),
+				SenderAddress: new(felt.Felt).SetBytes(v1.GetSenderAddress()),
+				CallData:      unmarshalFelts(v1.GetCallData()),
+				Signature:     unmarshalFelts(v1.GetSignature()),
+				MaxFee:        new(felt.Felt).SetBytes(v1.GetMaxFee()),
+				Nonce:         new(felt.Felt).SetBytes(v1.GetNonce()),
+			}, nil
+		}
 	}
 	if tx := protoTx.GetDeploy(); tx != nil {
-		out := types.TransactionDeploy{
+		return &types.TransactionDeploy{
 			Hash:                new(felt.Felt).SetBytes(protoTx.Hash),
 			ClassHash:           new(felt.Felt).SetBytes(tx.ClassHash),
 			ContractAddress:     new(felt.Felt).SetBytes(tx.ContractAddress),
 			ContractAddressSalt: new(felt.Felt).SetBytes(tx.ContractAddressSalt),
 			ConstructorCallData: unmarshalFelts(tx.ConstructorCallData),
-		}
-		return &out, nil
+		}, nil
 	}
 	if tx := protoTx.GetDeclare(); tx != nil {
 		out := types.TransactionDeclare{
