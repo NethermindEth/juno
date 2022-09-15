@@ -50,3 +50,7 @@ func (h *HttpRpc) Close(timeout time.Duration) error {
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return h.server.Shutdown(ctx)
 }
+
+func (h *HttpRpc) Provider() *HttpProvider {
+	return h.provider
+}

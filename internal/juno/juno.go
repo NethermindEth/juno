@@ -150,6 +150,9 @@ func (n *Node) Run() error {
 	if err != nil {
 		return err
 	}
+	if n.cfg.RpcCors {
+		n.rpcServer.Provider().EnableCors(n.cfg.RpcCorsOrigins)
+	}
 
 	if n.cfg.Metrics {
 		n.metricsServer = prometheus.SetupMetric(defaultMetricsPort)

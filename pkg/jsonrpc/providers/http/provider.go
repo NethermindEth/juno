@@ -10,6 +10,8 @@ import (
 type HttpProvider struct {
 	http.Handler
 	jsonrpcServer *jsonrpc.JsonRpc
+	cors          bool
+	corsOrigins   string
 }
 
 func NewHttpProvider(jsonrpcServer *jsonrpc.JsonRpc) *HttpProvider {
@@ -19,6 +21,15 @@ func NewHttpProvider(jsonrpcServer *jsonrpc.JsonRpc) *HttpProvider {
 }
 
 func (p *HttpProvider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if p.cors {
+		w.Header().Set("Access-Control-Allow-Origin", p.corsOrigins)
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "POST")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
 	// Check request method
 	if r.Method != http.MethodPost {
 		// All the requests should be POST
@@ -45,4 +56,9 @@ func (p *HttpProvider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func (p *HttpProvider) EnableCors(origins string) {
+	p.cors = true
+	p.corsOrigins = origins
 }
