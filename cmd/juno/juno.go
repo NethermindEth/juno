@@ -23,27 +23,34 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 `
 
 const (
-	configF    = "config"
-	verbosityF = "verbosity"
-	rpcPortF   = "rpc-port"
-	metricsF   = "metrics"
-	dbPathF    = "db-path"
-	networkF   = "network"
-	ethNodeF   = "eth-node"
+	configF         = "config"
+	verbosityF      = "verbosity"
+	rpcPortF        = "rpc-port"
+	rpcCorsF        = "rpc-cors"
+	rpcCorsOriginsF = "rpc-cors-origins"
+	metricsF        = "metrics"
+	dbPathF         = "db-path"
+	networkF        = "network"
+	ethNodeF        = "eth-node"
 
-	defaultConfig    = ""
-	defaultVerbosity = "info"
-	defaultRpcPort   = uint16(6060)
-	defaultMetrics   = false
-	defaultDbPath    = ""
-	defaultNetwork   = utils.GOERLI
-	defaultEthNode   = ""
+	defaultConfig         = ""
+	defaultVerbosity      = "info"
+	defaultRpcPort        = uint16(6060)
+	defaultRpcCors        = false
+	defaultRpcCorsOrigins = "*"
+	defaultMetrics        = false
+	defaultDbPath         = ""
+	defaultNetwork        = utils.GOERLI
+	defaultEthNode        = ""
 
 	configFlagUsage    = "The yaml configuration file."
 	verbosityFlagUsage = "Verbosity of the logs. Options: debug, info, warn, error, dpanic, " +
 		"panic, fatal."
 	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
+	rpcCorsUsage        = "Whether to allow cross-origin requests to the RPC server."
+	rpcCorsOriginsUsage = "Comma-separated list of origins to allow cross-origin requests to the RPC server. " +
+		"If rpc-cors flag is not set to true, this flag is ignored."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
 	networkUsage = "Available StarkNet networks. Options: 0 = goerli and 1 = mainnet"
@@ -65,6 +72,8 @@ func NewCmd(newNodeFn juno.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Comm
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().String(verbosityF, defaultVerbosity, verbosityFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
+	junoCmd.Flags().Bool(rpcCorsF, defaultRpcCors, rpcCorsUsage)
+	junoCmd.Flags().String(rpcCorsOriginsF, defaultRpcCorsOrigins, rpcCorsOriginsUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
 	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
