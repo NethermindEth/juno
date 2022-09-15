@@ -20,6 +20,7 @@ type State interface {
 	SetSlots(address *felt.Felt, slots []Slot) error
 	GetClassHash(address *felt.Felt) (*felt.Felt, error)
 	GetNonce(address *felt.Felt) (*felt.Felt, error)
+	SetNonce(address *felt.Felt, nonce *felt.Felt) error
 }
 
 type StateManager interface {
@@ -114,6 +115,18 @@ func (st *state) GetNonce(address *felt.Felt) (*felt.Felt, error) {
 		return nil, err
 	}
 	return contract.Nonce, nil
+}
+
+func (st *state) SetNonce(address *felt.Felt, nonce *felt.Felt) error {
+	contract, err := st.GetContractState(address)
+	if err != nil {
+		return err
+	}
+	contract.Nonce = nonce
+	if err = st.manager.PutContractState(contract); err != nil {
+		return err
+	}
+	return st.stateTrie.Put(address, contract.Hash())
 }
 
 func (st *state) SetSlots(address *felt.Felt, slots []Slot) error {
