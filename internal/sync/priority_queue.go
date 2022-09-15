@@ -3,7 +3,7 @@ package sync
 import (
 	"sync"
 
-	"github.com/NethermindEth/juno/pkg/types"
+	"github.com/NethermindEth/juno/internal/sync/contracts"
 )
 
 // This is modified from an example in the standard library heap package
@@ -11,33 +11,33 @@ import (
 
 // An item is something we manage in a priority queue.
 type item struct {
-	value types.StateUpdate
+	value contracts.LogStateUpdate
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
 }
 
-// A StateUpdateQueue implements heap.Interface and holds items.
+// A LogStateUpdateQueue implements heap.Interface and holds items.
 // It is goroutine-safe.
-type StateUpdateQueue struct {
+type LogStateUpdateQueue struct {
 	items []*item
 	mu    sync.Mutex
 }
 
-func NewStateUpdateQueue() *StateUpdateQueue {
-	return &StateUpdateQueue{
+func NewStateUpdateQueue() *LogStateUpdateQueue {
+	return &LogStateUpdateQueue{
 		items: make([]*item, 0),
 	}
 }
 
-func (pq *StateUpdateQueue) Len() int {
+func (pq *LogStateUpdateQueue) Len() int {
 	return len(pq.items)
 }
 
-func (pq *StateUpdateQueue) Less(i, j int) bool {
-	return pq.items[i].value.SequenceNumber < pq.items[j].value.SequenceNumber
+func (pq *LogStateUpdateQueue) Less(i, j int) bool {
+	return pq.items[i].value.BlockNumber.Cmp(pq.items[j].value.BlockNumber) == -1
 }
 
-func (pq *StateUpdateQueue) Swap(i, j int) {
+func (pq *LogStateUpdateQueue) Swap(i, j int) {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()
 	pq.items[i], pq.items[j] = pq.items[j], pq.items[i]
@@ -45,9 +45,9 @@ func (pq *StateUpdateQueue) Swap(i, j int) {
 	pq.items[j].index = j
 }
 
-func (pq *StateUpdateQueue) Push(x any) {
+func (pq *LogStateUpdateQueue) Push(x any) {
 	n := len((*pq).items)
-	val := x.(types.StateUpdate)
+	val := x.(contracts.LogStateUpdate)
 	item := &item{
 		value: val,
 		index: n,
@@ -57,7 +57,7 @@ func (pq *StateUpdateQueue) Push(x any) {
 	pq.mu.Unlock()
 }
 
-func (pq *StateUpdateQueue) Pop() any {
+func (pq *LogStateUpdateQueue) Pop() any {
 	old := (*pq).items
 	n := len(old)
 	item := old[n-1]
@@ -69,6 +69,6 @@ func (pq *StateUpdateQueue) Pop() any {
 	return item
 }
 
-func (pq *StateUpdateQueue) Peek() any {
+func (pq *LogStateUpdateQueue) Peek() any {
 	return pq.items[0].value
 }

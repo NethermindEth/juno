@@ -1,1 +1,0 @@
-[{"inputs":[{"internalType":"uint256","name":"x","type":"uint256"}],"name":"compute","outputs":[{"internalType":"uint256","name":"result","type":"uint256"}],"stateMutability":"pure","type":"function"}]
