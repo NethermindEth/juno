@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/internal/cairovm"
+	"github.com/NethermindEth/juno/internal/validate"
 	"go.uber.org/zap"
 
 	sync2 "github.com/NethermindEth/juno/internal/sync"
@@ -175,51 +176,51 @@ func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
-	b, err := getBlockById(blockId, s.blockManager, s.logger)
+	block, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
 	}
+
 	if request == nil {
-		return nil, InvalidCallData
+		return nil, jsonrpc.ErrInvalidRequest
 	}
-	var (
-		callData           = make([]*felt.Felt, len(request.Calldata))
-		contractAddress    *felt.Felt
-		entryPointSelector *felt.Felt
-	)
-	for i, data := range request.Calldata {
-		if !isFelt(data) {
-			return nil, InvalidCallData
-		}
-		callData[i] = new(felt.Felt).SetHex(data)
-	}
-	if !isFelt(request.ContractAddress) {
+
+	newState := state.New(s.stateManager, block.NewRoot)
+
+	if ok := validate.Felt(request.ContractAddress); !ok {
 		return nil, ContractNotFound
 	}
-	contractAddress = new(felt.Felt).SetHex(request.ContractAddress)
-	if !isFelt(request.EntryPointSelector) {
+	contractAddress := new(felt.Felt).SetHex(request.ContractAddress)
+
+	if ok := validate.Felt(request.EntryPointSelector); !ok {
 		return nil, InvalidMessageSelector
 	}
-	entryPointSelector = new(felt.Felt).SetHex(request.EntryPointSelector)
-	_state := state.New(s.stateManager, b.NewRoot)
-	out, err := s.vm.Call(
+	entryPointSelector := new(felt.Felt).SetHex(request.EntryPointSelector)
+
+	if ok := validate.Felts(request.Calldata); !ok {
+		return nil, InvalidCallData
+	}
+	calldata := felt.SetStrings(request.Calldata)
+
+	returned, err := s.vm.Call(
 		context.Background(),
-		_state,
-		callData,
-		new(felt.Felt),
+		newState,
+		block.Sequencer,
 		contractAddress,
 		entryPointSelector,
-		b.Sequencer,
+		calldata,
 	)
 	if err != nil {
-		s.logger.Errorw(err.Error(), "function", "Call")
+		s.logger.Error("rpc/starknet: call: " + err.Error())
 		return nil, jsonrpc.NewInternalError(err.Error())
 	}
-	_out := make([]string, len(out))
-	for i, v := range out {
-		_out[i] = v.Hex0x()
+
+	response := make([]string, 0, len(returned))
+	for _, data := range returned {
+		response = append(response, data.Hex0x())
 	}
-	return _out, nil
+
+	return response, nil
 }
 
 // notest
