@@ -60,11 +60,12 @@ func TestVMCall(t *testing.T) {
 	}
 	testState.SetContract(address, hash, &contract)
 
-	slot := new(felt.Felt).SetHex("0x84")
-	value := new(felt.Felt).SetHex("0x3")
+	// Pre-populate the contracts storage with key = 132, val = 3.
+	key := new(felt.Felt).SetUint64(132 /* 0x84 */)
+	val := new(felt.Felt).SetUint64(3)
 	testState.SetSlots(address, []state.Slot{{
-		Key:   slot,
-		Value: value,
+		Key:   key,
+		Value: val,
 	}})
 
 	// StarkNet Keccak hash of the ASCII encoded string "get_value".
@@ -73,11 +74,10 @@ func TestVMCall(t *testing.T) {
 	returned, err := vm.Call(
 		context.Background(),
 		testState,                /* state */
-		[]*felt.Felt{slot},       /* calldata */
-		new(felt.Felt).SetZero(), /* caller address */
-		address,                  /* contract address */
-		selector,                 /* selector */
 		new(felt.Felt).SetOne(),  /* sequencer address */
+		address,                  /* contract address */
+		selector,                 /* entry point selector */
+		[]*felt.Felt{key},        /* calldata */
 	)
 	if err != nil {
 		t.Fatalf("virtual machine call: " + err.Error())

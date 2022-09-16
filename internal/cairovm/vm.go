@@ -163,14 +163,15 @@ func (s *VirtualMachine) Close() {
 
 func (s *VirtualMachine) Call(
 	ctx context.Context,
+	// TODO: Can the sequencer address be omitted?
 	state state.State,
-	calldata []*felt.Felt,
-	callerAddr,
+	sequencer,
+	// Function call.
 	contractAddr,
-	selector,
-	sequencer *felt.Felt,
+	entryPointSelector *felt.Felt,
+	calldata []*felt.Felt,
 ) ([]*felt.Felt, error) {
-	// TODO: Perhaps log the arguments?
+	// TODO: Log arguments?
 	s.logger.Info("Executing contract call")
 
 	contractState, err := state.GetContractState(contractAddr)
@@ -193,11 +194,10 @@ func (s *VirtualMachine) Call(
 	client := vmrpc2.NewVMClient(conn)
 	response, err := client.Call(ctx, &vmrpc2.VMCallRequest{
 		Calldata:        calldataBytes,
-		CallerAddress:   callerAddr.ByteSlice(),
 		ContractAddress: contractAddr.ByteSlice(),
 		ClassHash:       contractState.ContractHash.ByteSlice(),
 		Root:            state.Root().ByteSlice(),
-		Selector:        selector.ByteSlice(),
+		Selector:        entryPointSelector.ByteSlice(),
 		Sequencer:       sequencer.ByteSlice(),
 	})
 	if err != nil {

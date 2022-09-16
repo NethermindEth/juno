@@ -34,7 +34,6 @@ def split_key(key):
 async def call(
     adapter=None,
     calldata=None,
-    caller_address=None,
     class_hash=None,
     contract_address=None,
     root=None,
@@ -56,7 +55,7 @@ async def call(
         contract_address=contract_address,
         selector=selector,
         calldata=calldata,
-        caller_address=caller_address,
+        caller_address=0,
         max_fee=0,
     )
     return result[0].retdata
@@ -123,7 +122,6 @@ class VMServicer(vm_pb2_grpc.VMServicer):
         try:
             # Parse values.
             calldata = [int.from_bytes(c, byteorder="big") for c in request.calldata]
-            caller_address = int.from_bytes(request.caller_address, byteorder="big")
             contract_address = int.from_bytes(request.contract_address, byteorder="big")
             class_hash = request.class_hash
             root = request.root
@@ -133,7 +131,6 @@ class VMServicer(vm_pb2_grpc.VMServicer):
             retdata = await call(
                 adapter=self.storage,
                 calldata=calldata,
-                caller_address=caller_address,
                 contract_address=contract_address,
                 class_hash=class_hash,
                 root=root,
