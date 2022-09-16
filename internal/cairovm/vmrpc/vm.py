@@ -32,14 +32,14 @@ def split_key(key):
 
 
 async def call(
-        adapter=None,
-        calldata=None,
-        caller_address=None,
-        class_hash=None,
-        contract_address=None,
-        root=None,
-        selector=None,
-        sequencer=None,
+    adapter=None,
+    calldata=None,
+    caller_address=None,
+    class_hash=None,
+    contract_address=None,
+    root=None,
+    selector=None,
+    sequencer=None,
 ):
     shared_state = SharedState(
         contract_states=PatriciaTree(root=root, height=251),
@@ -74,34 +74,43 @@ class StorageRPCClient(Storage):
 
     async def get_value(self, key):
         prefix, suffix = split_key(key)
+
         async with grpc.aio.insecure_channel(self.juno_address) as channel:
             stub = vm_pb2_grpc.StorageAdapterStub(channel)
-            suffix = bytes.fromhex(suffix.decode("ascii"))
-            request = vm_pb2.GetValueRequest(key=suffix)
-            if prefix == b'patricia_node':
+
+            suffix_bytes = bytes.fromhex(suffix.decode("ascii"))
+
+            # Execute the call to get a value from the database on the
+            # Go side.
+            request = vm_pb2.GetValueRequest(key=suffix_bytes)
+
+            # Branch depending on which type of trie node it is.
+            if prefix == b"patricia_node":
                 response = await stub.GetPatriciaNode(request)
                 if response.type == vm_pb2.NodeType.EDGE_NODE:
                     return (
-                            response.bottom.rjust(32, b'\00')
-                            + response.path.rjust(32, b'\00')
-                            + response.len.to_bytes(1, "big")
+                        response.bottom.rjust(32, b"\00")
+                        + response.path.rjust(32, b"\00")
+                        + response.len.to_bytes(1, "big")
                     )
                 elif response.type == vm_pb2.NodeType.BINARY_NODE:
-                    return response.left.rjust(32, b'\00') + response.right.rjust(32, b'\00')
+                    return response.left.rjust(32, b"\00") + response.right.rjust(
+                        32, b"\00"
+                    )
             elif prefix == b"contract_state":
                 response = await stub.GetContractState(request)
                 return (
-                        b'{"storage_commitment_tree": {"root": "'
-                        + response.storageRoot.hex().encode("utf-8")
-                        + b'", "height": 251}, "contract_hash": "'
-                        + response.contractHash.hex().encode("utf-8")
-                        + b'"}'
+                    b'{"storage_commitment_tree": {"root": "'
+                    + response.storageRoot.hex().encode("utf-8")
+                    + b'", "height": 251}, "contract_hash": "'
+                    + response.contractHash.hex().encode("utf-8")
+                    + b'"}'
                 )
             elif prefix == b"contract_definition_fact":
                 response = await stub.GetContractDefinition(request)
                 return b'{"contract_definition":' + response.value + b"}"
             elif prefix == b"starknet_storage_leaf":
-                return suffix
+                return suffix_bytes
             else:
                 raise ValueError(f"Unknown prefix: {prefix}")
 

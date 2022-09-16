@@ -12,8 +12,8 @@ import (
 )
 
 type storageRPCServer struct {
-	stateManager *statedb.Manager
 	UnimplementedStorageAdapterServer
+	stateManager *statedb.Manager
 }
 
 func NewStorageRPCServer(stateManager *statedb.Manager) *storageRPCServer {
@@ -27,6 +27,7 @@ func (s *storageRPCServer) GetPatriciaNode(ctx context.Context, request *GetValu
 	if err != nil {
 		return nil, err
 	}
+
 	nodeP := &VMTrieNode{
 		Len:    uint32(node.Path().Len()),
 		Path:   node.Path().Bytes(),
@@ -40,7 +41,7 @@ func (s *storageRPCServer) GetPatriciaNode(ctx context.Context, request *GetValu
 		nodeP.Left = n.LeftH.ByteSlice()
 		nodeP.Right = n.RightH.ByteSlice()
 	default:
-		return nil, errors.New("unsupported trie node type")
+		return nil, errors.New("cairovm/vmrpc: unsupported trie node type")
 	}
 	return nodeP, nil
 }

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/NethermindEth/juno/internal/log"
+	. "github.com/NethermindEth/juno/internal/log"
 
 	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 
@@ -22,16 +22,14 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type pySubProcessLogger struct {
-	// TODO: this should use an interface, but everywhere else it's a
-	// *zap.SugaredLogger.
+type subprocessLogger struct {
 	logger *zap.SugaredLogger
 }
 
-func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
+func (sl *subprocessLogger) Write(trace []byte) (int, error) {
 	// notest
-	p.logger.Warnf("Python VM Subprocess: \n%s\n", p0)
-	return len(p0), nil
+	sl.logger.Warnf("cairovm: python subprocess: \n%s\n", trace)
+	return len(trace), nil
 }
 
 type VirtualMachine struct {
@@ -57,7 +55,7 @@ var (
 	pyPbGRpc []byte
 )
 
-func New(stateManager *statedb.Manager) *VirtualMachine {
+func New(stateManager *statedb.Manager, logger *zap.SugaredLogger) *VirtualMachine {
 	ports, err := freePorts(2)
 	if err != nil {
 		// notest
@@ -69,7 +67,8 @@ func New(stateManager *statedb.Manager) *VirtualMachine {
 		manager:        stateManager,
 		rpcVMAddr:      "localhost:" + strconv.Itoa(ports[0]),
 		rpcStorageAddr: "localhost:" + strconv.Itoa(ports[1]),
-		logger:         log.Logger.Named("VM"),
+		// TODO: Use injected logger.
+		logger: Logger,
 	}
 }
 
@@ -117,29 +116,34 @@ func (s *VirtualMachine) Run(dataDir string) error {
 
 	// Start the cairo-lang gRPC server (serving contract calls).
 	s.vmCmd = exec.Command("python3", filepath.Join(s.vmDir, "vm.py"), s.rpcVMAddr, s.rpcStorageAddr)
-	pyLogger := &pySubProcessLogger{logger: s.logger}
+
+	pyLogger := &subprocessLogger{logger: s.logger}
 	s.vmCmd.Stdout = pyLogger
 	s.vmCmd.Stderr = pyLogger
+
 	if err := s.vmCmd.Start(); err != nil {
-		s.logger.Errorf("failed to start python vm rpc: %v", err)
+		s.logger.Error("cairovm: start virtual machine server: " + err.Error())
 		return err
 	}
 
-	// Start the Go gRPC server (serving storage).
+	// Start the storage server.
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
 	if err != nil {
-		// notest
-		s.logger.Errorf("failed to listen: %v", err)
+		s.logger.Error("cairovm: storage server: " + err.Error())
+		// TODO: Execution was allowed to continue here. I am not sure that
+		// was the right behaviour.
+		return err
 	}
+
 	storageServer := vmrpc2.NewStorageRPCServer(s.manager)
 	vmrpc2.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
 	// Run the gRPC server.
 	go func() {
-		s.logger.Infof("gRPC server listening at %v", lis.Addr())
+		s.logger.Infow("Starting storage server at", "address", lis.Addr().String())
 		if err := s.rpcServer.Serve(lis); err != nil {
 			// notest
-			s.logger.Errorf("failed to serve: %v", err)
+			s.logger.Error("cairovm: start storage server: " + err.Error())
 		}
 	}()
 
@@ -149,6 +153,8 @@ func (s *VirtualMachine) Run(dataDir string) error {
 func (s *VirtualMachine) Close() {
 	s.rpcServer.Stop()
 	s.vmCmd.Process.Kill()
+
+	// Clean up.
 	os.RemoveAll(path.Join(s.vmDir, "__pycache__"))
 	os.Remove(path.Join(s.vmDir, "vm.py"))
 	os.Remove(path.Join(s.vmDir, "vm_pb2.py"))
@@ -164,29 +170,28 @@ func (s *VirtualMachine) Call(
 	selector,
 	sequencer *felt.Felt,
 ) ([]*felt.Felt, error) {
-	s.logger.Info("Executing contract call.")
-
-	// XXX: Right now rpcVMAddr will probably only work if using TCP.
-	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		s.logger.Errorf("failed to dial: %v", err)
-		return nil, err
-	}
-	defer conn.Close()
-	c := vmrpc2.NewVMClient(conn)
+	// TODO: Perhaps log the arguments?
+	s.logger.Info("Executing contract call")
 
 	contractState, err := state.GetContractState(contractAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	calldataBytes := make([][]byte, len(calldata))
-	for i, d := range calldata {
-		calldataBytes[i] = d.ByteSlice()
+	calldataBytes := make([][]byte, 0, len(calldata))
+	for _, d := range calldata {
+		calldataBytes = append(calldataBytes, d.ByteSlice())
 	}
 
-	// Contact the server and print out its response.
-	r, err := c.Call(ctx, &vmrpc2.VMCallRequest{
+	conn, err := grpc.Dial(s.rpcVMAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		s.logger.Error("cairovm: grpc dial: " + err.Error())
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := vmrpc2.NewVMClient(conn)
+	response, err := client.Call(ctx, &vmrpc2.VMCallRequest{
 		Calldata:        calldataBytes,
 		CallerAddress:   callerAddr.ByteSlice(),
 		ContractAddress: contractAddr.ByteSlice(),
@@ -196,14 +201,14 @@ func (s *VirtualMachine) Call(
 		Sequencer:       sequencer.ByteSlice(),
 	})
 	if err != nil {
-		s.logger.Errorf("failed to call: %v", err)
+		s.logger.Errorf("cairovm: call: " + err.Error())
 		return nil, err
 	}
 
-	retdataFelts := make([]*felt.Felt, len(r.Retdata))
-	for i, ret := range r.Retdata {
-		retdataFelts[i] = new(felt.Felt).SetBytes(ret)
+	returned := make([]*felt.Felt, 0, len(response.Retdata))
+	for _, data := range response.Retdata {
+		returned = append(returned, new(felt.Felt).SetBytes(data))
 	}
 
-	return retdataFelts, nil
+	return returned, nil
 }

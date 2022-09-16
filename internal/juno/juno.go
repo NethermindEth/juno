@@ -134,7 +134,10 @@ func (n *Node) Run() error {
 	n.blockManager = block.NewManager(blockDb)
 
 	n.feederClient = feeder.NewClient(n.cfg.Network.URL(), feederGatewaySuffix, nil)
-	n.virtualMachine = cairovm.New(n.stateManager)
+
+	// TODO: Inject logger.
+	n.virtualMachine = cairovm.New(n.stateManager, nil)
+
 	n.synchronizer = syncer.NewSynchronizer(n.cfg.Network, n.cfg.EthNode, n.feederClient,
 		n.syncManager, n.stateManager, n.blockManager, n.transactionManager)
 

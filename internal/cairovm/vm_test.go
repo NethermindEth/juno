@@ -4,11 +4,11 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/pkg/felt"
+	"gotest.tools/assert"
 
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
@@ -17,34 +17,31 @@ import (
 	"github.com/NethermindEth/juno/pkg/types"
 )
 
-func setupDatabase(path string) {
-	err := db.InitializeMDBXEnv(path, 1, 0)
-	if err != nil {
-		return
-	}
-}
-
-//go:embed test.cairo.json
+//go:embed test_contract.json
 var testContract []byte
 
 func TestVMCall(t *testing.T) {
 	db.InitializeMDBXEnv(t.TempDir(), 5, 0)
 	env, err := db.GetMDBXEnv()
 	if err != nil {
-		t.Fail()
+		t.Fatal("initialise database environment: " + err.Error())
 	}
+
 	contractDefDb, err := db.NewMDBXDatabase(env, "CODE")
 	if err != nil {
-		t.Fail()
+		t.Fatal("new database: code: " + err.Error())
 	}
+
 	stateDb, err := db.NewMDBXDatabase(env, "STATE")
 	if err != nil {
-		t.Fail()
+		t.Fatal("new database: state: " + err.Error())
 	}
-	vm := New(statedb.NewManager(stateDb, contractDefDb))
+
+	// TODO: Inject no-op logger.
+	vm := New(statedb.NewManager(stateDb, contractDefDb), nil)
 
 	if err := vm.Run(t.TempDir()); err != nil {
-		t.Errorf("unexpected error starting the service: %s", err)
+		t.Fatal("run virtual machine: " + err.Error())
 	}
 	defer vm.Close()
 
@@ -53,42 +50,39 @@ func TestVMCall(t *testing.T) {
 	// be restarted.
 	time.Sleep(time.Second * 3)
 
-	stateTest := state.New(vm.manager, trie.EmptyNode.Hash())
-	b, _ := new(big.Int).SetString("2483955865838519930787573649413589905962103032695051953168137837593959392116", 10)
-	address := new(felt.Felt).SetBigInt(b)
+	testState := state.New(vm.manager, trie.EmptyNode.Hash())
+	address := new(felt.Felt).SetHex("0x57dde83c18c0efe7123c36a52d704cf27d5c38cdf0b1e1edc3b0dae3ee4e374")
 	hash := new(felt.Felt).SetHex("0x050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b")
+
 	var contract types.Contract
 	if err := json.Unmarshal(testContract, &contract); err != nil {
 		t.Fatal(err)
 	}
-	stateTest.SetContract(address, hash, &contract)
+	testState.SetContract(address, hash, &contract)
+
 	slot := new(felt.Felt).SetHex("0x84")
 	value := new(felt.Felt).SetHex("0x3")
-	stateTest.SetSlots(address, []state.Slot{{
+	testState.SetSlots(address, []state.Slot{{
 		Key:   slot,
 		Value: value,
 	}})
 
-	ret, err := vm.Call(
+	// StarkNet Keccak hash of the ASCII encoded string "get_value".
+	selector := new(felt.Felt).SetHex("0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0")
+
+	returned, err := vm.Call(
 		context.Background(),
-		// State
-		stateTest,
-		// Calldata.
-		[]*felt.Felt{slot},
-		// Caller's address.
-		new(felt.Felt).SetHex("0x0"),
-		// Contract's address.
-		address,
-		// Selector (StarkNet Keccak hash of the ASCII encoded string "get_value").
-		new(felt.Felt).SetHex("0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0"),
-		// Sequencer
-		new(felt.Felt).SetHex("0x000000000000000000000000000000000000000000000000000000000000001"),
+		testState,                /* state */
+		[]*felt.Felt{slot},       /* calldata */
+		new(felt.Felt).SetZero(), /* caller address */
+		address,                  /* contract address */
+		selector,                 /* selector */
+		new(felt.Felt).SetOne(),  /* sequencer address */
 	)
 	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
+		t.Fatalf("virtual machine call: " + err.Error())
 	}
 
-	if !ret[0].Equal(new(felt.Felt).SetHex("0x3")) {
-		t.Errorf("got %s, want 0x3 from executing cairo-lang call", ret[0])
-	}
+	want := new(felt.Felt).SetUint64(3)
+	assert.Check(t, returned[0].Equal(want), "got = 0x%s, want 0x%s", returned[0].Hex(), want.Hex())
 }
