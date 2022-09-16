@@ -65,10 +65,10 @@ func (s *JsonRpc) Call(request []byte) json.RawMessage {
 	if isJsonList(request) {
 		var rawRequests []json.RawMessage
 		if err := json.Unmarshal(request, &rawRequests); err != nil {
-			return errResponse(nil, errParseError)
+			return errResponse(nil, ErrParseError)
 		}
 		if len(rawRequests) == 0 {
-			return errResponse(nil, errInvalidRequest)
+			return errResponse(nil, ErrInvalidRequest)
 		}
 		responses := make([]json.RawMessage, 0, len(rawRequests))
 		responseChannel := make(chan json.RawMessage)
@@ -97,10 +97,10 @@ func (s *JsonRpc) callRaw(request json.RawMessage) json.RawMessage {
 	var requestObject rpcRequest
 	if err := json.Unmarshal(request, &requestObject); err != nil {
 		if _, ok := err.(*json.UnmarshalTypeError); ok {
-			return errResponse(nil, errInvalidRequest)
+			return errResponse(nil, ErrInvalidRequest)
 		}
 		if _, ok := err.(*json.SyntaxError); ok {
-			return errResponse(nil, errParseError)
+			return errResponse(nil, ErrParseError)
 		}
 		return errResponse(nil, err)
 	}
@@ -117,7 +117,7 @@ func (s *JsonRpc) callRaw(request json.RawMessage) json.RawMessage {
 func (s *JsonRpc) processRequest(request *rpcRequest) (any, error) {
 	e, ok := s.endpoints[request.Method]
 	if !ok {
-		return nil, errMethodNotFound
+		return nil, ErrMethodNotFound
 	}
 	params := make([]reflect.Value, 0, len(e.paramTypes))
 	if isJsonList(request.Params) {
@@ -127,12 +127,12 @@ func (s *JsonRpc) processRequest(request *rpcRequest) (any, error) {
 			return nil, err
 		}
 		if len(paramsRaw) > len(e.paramNames) {
-			return nil, errInvalidParams
+			return nil, ErrInvalidParams
 		}
 		for i := 0; i < len(paramsRaw); i++ {
 			params = append(params, reflect.New(e.paramTypes[i]).Elem())
 			if err := json.Unmarshal(paramsRaw[i], params[i].Addr().Interface()); err != nil {
-				return nil, errInvalidParams
+				return nil, ErrInvalidParams
 			}
 		}
 		for i := len(paramsRaw); i < len(e.paramTypes); i++ {
@@ -141,13 +141,13 @@ func (s *JsonRpc) processRequest(request *rpcRequest) (any, error) {
 	} else {
 		var paramsRaw map[string]json.RawMessage
 		if err := json.Unmarshal(request.Params, &paramsRaw); err != nil {
-			return nil, errInvalidParams
+			return nil, ErrInvalidParams
 		}
 		for i := 0; i < len(e.paramNames); i++ {
 			if param, ok := paramsRaw[e.paramNames[i]]; ok {
 				params = append(params, reflect.New(e.paramTypes[i]).Elem())
 				if err := json.Unmarshal(param, params[i].Addr().Interface()); err != nil {
-					return nil, errInvalidParams
+					return nil, ErrInvalidParams
 				}
 			} else {
 				params = append(params, reflect.New(e.paramTypes[i]).Elem())
@@ -186,7 +186,7 @@ func newRpcResponse(id any, result any, err error) json.RawMessage {
 			Jsonrpc: jsonrpcVersion,
 			Id:      id,
 			Result:  nil,
-			Error:   errInternalError,
+			Error:   ErrInternalError,
 		})
 	}
 	return rawResponse

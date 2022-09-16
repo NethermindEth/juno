@@ -9,23 +9,23 @@ const (
 )
 
 var (
-	errParseError = &RpcError{
+	ErrParseError = &RpcError{
 		Code:    parseErrorCode,
 		Message: "Parse error",
 	}
-	errInvalidRequest = &RpcError{
+	ErrInvalidRequest = &RpcError{
 		Code:    invalidRequestCode,
 		Message: "Invalid Request",
 	}
-	errMethodNotFound = &RpcError{
+	ErrMethodNotFound = &RpcError{
 		Code:    methodNotFoundCode,
 		Message: "Method not found",
 	}
-	errInvalidParams = &RpcError{
+	ErrInvalidParams = &RpcError{
 		Code:    invalidParamsCode,
 		Message: "Invalid params",
 	}
-	errInternalError = &RpcError{
+	ErrInternalError = &RpcError{
 		Code:    internalErrorCode,
 		Message: "Internal error",
 	}

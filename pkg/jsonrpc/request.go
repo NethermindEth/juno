@@ -24,7 +24,7 @@ func (r *rpcRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if rawRequest.Jsonrpc != jsonrpcVersion {
-		return errInvalidRequest
+		return ErrInvalidRequest
 	}
 	r.Method = rawRequest.Method
 	r.Params = rawRequest.Params
@@ -35,11 +35,11 @@ func (r *rpcRequest) UnmarshalJSON(data []byte) error {
 		case json.Number:
 			intId, err := id.Int64()
 			if err != nil {
-				return errInvalidRequest
+				return ErrInvalidRequest
 			}
 			r.Id = intId
 		default:
-			return errInvalidRequest
+			return ErrInvalidRequest
 		}
 	}
 	return nil
