@@ -6,14 +6,29 @@ import (
 	"github.com/NethermindEth/juno/pkg/common"
 )
 
-// ByteSlice() is exactly the same as Marshal() except that it returns
-// nil when z is nil. This mimics the behavior of big.Int.Bytes.
+// ByteSlice is exactly the same as [Marshal] except that it returns
+// nil when z is nil. This mimics the behavior of [big.Int.Bytes].
 func (z *Felt) ByteSlice() []byte {
 	if z == nil {
 		// notest
 		return nil
 	}
 	return z.Marshal()
+}
+
+// SetStrings returns a slice of *Felts corresponding to each string in
+// ss. It will return nil if any string in ss is invalid.
+func SetStrings(ss []string) []*Felt {
+	fs := make([]*Felt, 0, len(ss))
+	for _, s := range ss {
+		f := new(Felt).SetString(s)
+		if f == nil {
+			return nil
+		}
+
+		fs = append(fs, f)
+	}
+	return fs
 }
 
 // SetHex sets z to the value represented by the hex string s mod q.
