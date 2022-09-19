@@ -20,7 +20,15 @@ import (
 //go:embed test_contract.json
 var testContract []byte
 
-func TestVMCall(t *testing.T) {
+// TestCall tests a Cairo call (execution without modifying state) of a
+// contract. The contract used has a get_value function that will return
+// the value at a given memory address. It first populates said memory
+// address (address 0x84 with value 0x3) and executes the call to get
+// the value at this address. All of this is done via a Python gRPC
+// server which will intern query another Go gRPC server which serves
+// the state storage i.e. state and contract trie nodes used to fulfil
+// the request.
+func TestCall(t *testing.T) {
 	db.InitializeMDBXEnv(t.TempDir(), 5, 0)
 	env, err := db.GetMDBXEnv()
 	if err != nil {
@@ -73,11 +81,11 @@ func TestVMCall(t *testing.T) {
 
 	returned, err := vm.Call(
 		context.Background(),
-		testState,                /* state */
-		new(felt.Felt).SetOne(),  /* sequencer address */
-		address,                  /* contract address */
-		selector,                 /* entry point selector */
-		[]*felt.Felt{key},        /* calldata */
+		testState,               /* state */
+		new(felt.Felt).SetOne(), /* sequencer address */
+		address,                 /* contract address */
+		selector,                /* entry point selector */
+		[]*felt.Felt{key},       /* calldata */
 	)
 	if err != nil {
 		t.Fatalf("virtual machine call: " + err.Error())

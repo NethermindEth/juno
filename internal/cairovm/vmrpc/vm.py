@@ -4,13 +4,15 @@ import traceback
 
 import grpc
 from starkware.cairo.lang.vm import crypto
-from starkware.starknet.business_logic.state.state import (
-    BlockInfo,
-    SharedState,
-    StateSelector,
+from starkware.starknet.business_logic.execution.execute_entry_point import (
+    ExecuteEntryPoint,
 )
+from starkware.starknet.business_logic.fact_state.patricia_state import (
+    PatriciaStateReader,
+)
+from starkware.starknet.business_logic.fact_state.state import ExecutionResourcesManager
+from starkware.starknet.business_logic.state.state import BlockInfo, CachedState
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
-from starkware.starknet.testing.state import StarknetState
 from starkware.starkware_utils.commitment_tree.patricia_tree.patricia_tree import (
     PatriciaTree,
 )
@@ -34,31 +36,30 @@ def split_key(key):
 async def call(
     adapter=None,
     calldata=None,
-    class_hash=None,
     contract_address=None,
     root=None,
     selector=None,
     sequencer=None,
 ):
-    shared_state = SharedState(
-        contract_states=PatriciaTree(root=root, height=251),
-        block_info=BlockInfo.empty(sequencer_address=sequencer),
-    )
-    carried_state = await shared_state.get_filled_carried_state(
-        ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
-        state_selector=StateSelector(
-            contract_addresses={contract_address}, class_hashes={class_hash}
-        ),
-    )
-    state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
-    result = await state.call_raw(
+    tree = PatriciaTree(root=root, height=251)
+    ffc = FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func)
+    state_reader = PatriciaStateReader(global_state_root=tree, ffc=ffc)
+    block_info = BlockInfo.empty(sequencer_address=sequencer)
+    cached_state = CachedState(block_info=block_info, state_reader=state_reader)
+
+    entry_point = ExecuteEntryPoint.create_for_testing(
         contract_address=contract_address,
-        selector=selector,
         calldata=calldata,
-        caller_address=0,
-        max_fee=0,
+        entry_point_selector=selector,
     )
-    return result[0].retdata
+
+    config = StarknetGeneralConfig()
+    resources_manager = ExecutionResourcesManager.empty()
+    call_info = await entry_point.execute_for_testing(
+        state=cached_state, general_config=config, resources_manager=resources_manager
+    )
+
+    return call_info.retdata
 
 
 class StorageRPCClient(Storage):
@@ -123,16 +124,15 @@ class VMServicer(vm_pb2_grpc.VMServicer):
             # Parse values.
             calldata = [int.from_bytes(c, byteorder="big") for c in request.calldata]
             contract_address = int.from_bytes(request.contract_address, byteorder="big")
-            class_hash = request.class_hash
             root = request.root
             selector = int.from_bytes(request.selector, byteorder="big")
             sequencer = int.from_bytes(request.sequencer, byteorder="big")
 
+            # Execute call.
             retdata = await call(
                 adapter=self.storage,
                 calldata=calldata,
                 contract_address=contract_address,
-                class_hash=class_hash,
                 root=root,
                 selector=selector,
                 sequencer=sequencer,

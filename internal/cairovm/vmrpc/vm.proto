@@ -37,12 +37,13 @@ service StorageAdapter {
 }
 
 message VMCallRequest {
-  repeated bytes calldata = 1;
-  bytes contract_address = 2;
-  bytes class_hash = 3;
+  /* function call */
+  bytes contract_address = 1;
+  bytes selector = 2;
+  repeated bytes calldata = 3;
+  /* misc. */
   bytes root = 4;
-  bytes selector = 5;
-  bytes sequencer = 6;
+  bytes sequencer = 5;
 }
 
 message VMCallResponse {
