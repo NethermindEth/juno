@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func TestCmpCompat(t *testing.T) {
@@ -122,6 +125,33 @@ func TestSetHex(t *testing.T) {
 			t.Errorf("SetHex(%s) = %s", test.input, got.Hex())
 			t.Errorf("%d, %d, %d, %d", got[0], got[1], got[2], got[3])
 		}
+	}
+}
+
+func TestSetStrings(t *testing.T) {
+	tests := [...]struct {
+		input []string
+		want  []*Felt
+	}{
+		{
+			[]string{""},
+			nil,
+		},
+		{
+			[]string{"0xabcdefg", "0x1"},
+			nil,
+		},
+		{
+			[]string{"0xabc", "0x0", "0x01"},
+			[]*Felt{new(Felt).SetUint64(0xabc), new(Felt).SetUint64(0x0), new(Felt).SetUint64(0x1)},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("felt.SetStrings(%#v)", test.input), func(t *testing.T) {
+			got := SetStrings(test.input)
+			assert.Check(t, reflect.DeepEqual(got, test.want), "SetStrings(%#v) = %v, want %v", test.input, got, test.want)
+		})
 	}
 }
 

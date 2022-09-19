@@ -16,10 +16,17 @@ func (z *Felt) ByteSlice() []byte {
 	return z.Marshal()
 }
 
-// SetStrings returns a slice of *Felts corresponding to each string in
-// ss. It will return nil if any string in ss is invalid.
+// SetStrings returns a slice of *Felts corresponding to each string
+// in ss. It will return nil if any string in ss is invalid. The base of
+// the string is inferred from the prefix i.e. equivalent to calling
+// *big.Int.SetString(s, 0) where s is the string in question.
 func SetStrings(ss []string) []*Felt {
 	fs := make([]*Felt, 0, len(ss))
+
+	// SetString will panic if it cannot parse the string is given. This
+	// is undesirable here so recover (and return nil instead).
+	defer func() { recover() }()
+
 	for _, s := range ss {
 		f := new(Felt).SetString(s)
 		if f == nil {
