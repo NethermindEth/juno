@@ -176,6 +176,8 @@ func (s *StarkNetRpc) GetBlockTransactionCount(blockId *BlockId) (any, error) {
 }
 
 func (s *StarkNetRpc) Call(blockId *BlockId, request *FunctionCall) (any, error) {
+	// TODO: Test this function.
+	// notest
 	block, err := getBlockById(blockId, s.blockManager, s.logger)
 	if err != nil {
 		return nil, err
