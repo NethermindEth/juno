@@ -30,6 +30,7 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 					},
 				},
 			},
+			Nonces: map[string]string{},
 		},
 	}
 
@@ -51,6 +52,7 @@ func TestStateUpdateResponseToStateDiff(t *testing.T) {
 				Hash:    new(felt.Felt).SetHex("0"),
 			},
 		},
+		Nonces: map[*felt.Felt]*felt.Felt{},
 	}
 
 	got := stateUpdateResponseToStateDiff(resp, 0)
