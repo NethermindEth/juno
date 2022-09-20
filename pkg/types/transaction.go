@@ -20,7 +20,7 @@ func (tx *TransactionDeploy) GetHash() *felt.Felt {
 	return tx.Hash
 }
 
-type TransactionInvoke struct {
+type TransactionInvokeV0 struct {
 	Hash               *felt.Felt   `json:"txn_hash"`
 	ContractAddress    *felt.Felt   `json:"contract_address"`
 	EntryPointSelector *felt.Felt   `json:"entry_point_selector"`
@@ -29,7 +29,20 @@ type TransactionInvoke struct {
 	MaxFee             *felt.Felt   `json:"max_fee"`
 }
 
-func (tx *TransactionInvoke) GetHash() *felt.Felt {
+func (tx *TransactionInvokeV0) GetHash() *felt.Felt {
+	return tx.Hash
+}
+
+type TransactionInvokeV1 struct {
+	Hash          *felt.Felt
+	SenderAddress *felt.Felt
+	CallData      []*felt.Felt
+	Signature     []*felt.Felt
+	MaxFee        *felt.Felt
+	Nonce         *felt.Felt
+}
+
+func (tx *TransactionInvokeV1) GetHash() *felt.Felt {
 	return tx.Hash
 }
 
