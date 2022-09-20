@@ -10,19 +10,15 @@ import (
 )
 
 var (
-	compileReOnce sync.Once
-	re            *regexp.Regexp
-
-	p *big.Int
+	re         *regexp.Regexp
+	p          *big.Int
+	bigIntPool sync.Pool
 )
 
-func compileRe() {
+func init() {
 	re = regexp.MustCompile(`^0x0[a-fA-F0-9]{1,63}$`)
 	p, _ = new(big.Int).SetString("800000000000011000000000000000000000000000000000000000000000001", 16)
-}
-
-func init() {
-	compileReOnce.Do(compileRe)
+	bigIntPool = sync.Pool{New: func() any { return new(big.Int) }}
 }
 
 // Felt returns true if s conforms to the regular expression
@@ -30,9 +26,13 @@ func init() {
 // where p = 2²⁵¹ + 17 ⋅ 2¹⁹² + 1.
 func Felt(s string) bool {
 	if re.MatchString(s) {
+		// Avoid excessive allocations.
+		bigInt := bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(bigInt)
+
 		// XXX: The following assumes that any string that satisfies re is a
 		// valid hexadecimal number which makes it okay to ignore the error.
-		f, _ := new(big.Int).SetString(strings.TrimPrefix(s, "0x"), 16)
+		f, _ := bigInt.SetString(strings.TrimPrefix(s, "0x"), 16)
 		return f.Cmp(p) == -1
 	}
 	return false
