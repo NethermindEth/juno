@@ -8,32 +8,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/pkg/types"
+
+	"github.com/NethermindEth/juno/pkg/feeder"
+
+	"github.com/NethermindEth/juno/internal/db/class"
+
 	"github.com/NethermindEth/juno/pkg/felt"
 
 	"github.com/NethermindEth/juno/internal/db"
 	statedb "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/pkg/state"
 	"github.com/NethermindEth/juno/pkg/trie"
-	"github.com/NethermindEth/juno/pkg/types"
 )
-
-func setupDatabase(path string) {
-	err := db.InitializeMDBXEnv(path, 1, 0)
-	if err != nil {
-		return
-	}
-}
 
 //go:embed test.cairo.json
 var testContract []byte
 
 func TestVMCall(t *testing.T) {
-	db.InitializeMDBXEnv(t.TempDir(), 5, 0)
-	env, err := db.GetMDBXEnv()
-	if err != nil {
-		t.Fail()
+	if err := db.InitializeMDBXEnv(t.TempDir(), 5, 0); err != nil {
+		t.Fatal(err)
 	}
-	contractDefDb, err := db.NewMDBXDatabase(env, "CODE")
+	env, err := db.GetMDBXEnv()
 	if err != nil {
 		t.Fail()
 	}
@@ -41,7 +37,12 @@ func TestVMCall(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	vm := New(statedb.NewManager(stateDb, contractDefDb))
+	classDb, err := db.NewMDBXDatabase(env, "CLASS")
+	if err != nil {
+		t.Fail()
+	}
+	classManager := class.NewClassManager(classDb)
+	vm := New(statedb.NewManager(stateDb), classManager)
 
 	if err := vm.Run(t.TempDir()); err != nil {
 		t.Errorf("unexpected error starting the service: %s", err)
@@ -57,17 +58,25 @@ func TestVMCall(t *testing.T) {
 	b, _ := new(big.Int).SetString("2483955865838519930787573649413589905962103032695051953168137837593959392116", 10)
 	address := new(felt.Felt).SetBigInt(b)
 	hash := new(felt.Felt).SetHex("0x050b2148c0d782914e0b12a1a32abe5e398930b7e914f82c65cb7afce0a0ab9b")
-	var contract types.Contract
-	if err := json.Unmarshal(testContract, &contract); err != nil {
+	var fullContract feeder.FullContract
+	if err := json.Unmarshal(testContract, &fullContract); err != nil {
 		t.Fatal(err)
 	}
-	stateTest.SetContract(address, hash, &contract)
+	if err := stateTest.InitNewContract(address, hash); err != nil {
+		t.Fatal(err)
+	}
+	contractClass, err := types.NewContractClassFromFeeder(&fullContract)
+	if err := classManager.PutClass(hash, contractClass); err != nil {
+		t.Fatal(err)
+	}
 	slot := new(felt.Felt).SetHex("0x84")
 	value := new(felt.Felt).SetHex("0x3")
-	stateTest.SetSlots(address, []state.Slot{{
+	if err := stateTest.SetSlots(address, []state.Slot{{
 		Key:   slot,
 		Value: value,
-	}})
+	}}); err != nil {
+		t.Fatal(err)
+	}
 
 	ret, err := vm.Call(
 		context.Background(),

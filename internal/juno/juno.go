@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NethermindEth/juno/internal/db/class"
+
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"github.com/NethermindEth/juno/internal/db"
 	"github.com/NethermindEth/juno/internal/db/block"
@@ -63,6 +65,7 @@ type Node struct {
 	stateManager       *state.Manager
 	transactionManager *transaction.Manager
 	blockManager       *block.Manager
+	classManager       class.ClassManager
 
 	rpcServer     *rpc.HttpRpc
 	metricsServer *prometheus.Server
@@ -107,15 +110,11 @@ func (n *Node) Run() error {
 	}
 	n.syncManager = sync.NewManager(syncDb)
 
-	contractDefDb, err := db.NewMDBXDatabase(mdbxEnv, "CONTRACT_DEF")
-	if err != nil {
-		return err
-	}
 	stateDb, err := db.NewMDBXDatabase(mdbxEnv, "STATE")
 	if err != nil {
 		return err
 	}
-	n.stateManager = state.NewManager(stateDb, contractDefDb)
+	n.stateManager = state.NewManager(stateDb)
 
 	txDb, err := db.NewMDBXDatabase(mdbxEnv, "TRANSACTION")
 	if err != nil {
@@ -133,13 +132,19 @@ func (n *Node) Run() error {
 	}
 	n.blockManager = block.NewManager(blockDb)
 
+	classDb, err := db.NewMDBXDatabase(mdbxEnv, "CLASS")
+	if err != nil {
+		return err
+	}
+	n.classManager = class.NewClassManager(classDb)
+
 	n.feederClient = feeder.NewClient(n.cfg.Network.URL(), feederGatewaySuffix, nil)
-	n.virtualMachine = cairovm.New(n.stateManager)
+	n.virtualMachine = cairovm.New(n.stateManager, n.classManager)
 	n.synchronizer = syncer.NewSynchronizer(n.cfg.Network, n.cfg.EthNode, n.feederClient,
-		n.syncManager, n.stateManager, n.blockManager, n.transactionManager)
+		n.syncManager, n.stateManager, n.blockManager, n.transactionManager, n.classManager)
 
 	jsonRpc, err := starkNetJsonRPC(n.stateManager, n.blockManager, n.transactionManager,
-		n.synchronizer, n.virtualMachine)
+		n.synchronizer, n.virtualMachine, n.classManager)
 	if err != nil {
 		return err
 	}
@@ -189,6 +194,7 @@ func (n *Node) Shutdown() error {
 	n.transactionManager.Close()
 	n.blockManager.Close()
 	n.syncManager.Close()
+	n.classManager.Close()
 
 	if err := n.rpcServer.Close(shutdownTimeout); err != nil {
 		return err
@@ -205,10 +211,10 @@ func (n *Node) Shutdown() error {
 
 func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 	transactionManager *transaction.Manager, synchronizer *syncer.Synchronizer,
-	virtualMachine *cairovm.VirtualMachine,
+	virtualMachine *cairovm.VirtualMachine, classManager class.ClassManager,
 ) (*jsonrpc.JsonRpc, error) {
 	starkNetApi := starknet.New(stateManager, blockManager, transactionManager, synchronizer,
-		virtualMachine)
+		virtualMachine, classManager)
 
 	jsonRpc := jsonrpc.NewJsonRpc()
 	handlers := []struct {

@@ -18,8 +18,6 @@ import (
 	metr "github.com/NethermindEth/juno/internal/metrics/prometheus"
 )
 
-var ErrorBlockNotFound = fmt.Errorf("block not found")
-
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . FeederHttpClient
 type HttpClient interface {
 	Do(*http.Request) (*http.Response, error)
@@ -363,7 +361,7 @@ func (c Client) GetCode(contractAddress, blockHash, blockNumber string) (*CodeIn
 
 // GetFullContractRaw creates a new request to get the full state of a
 // contract and returns the raw message.
-func (c Client) GetFullContractRaw(contractAddress, blockHash, blockNumber string) (*json.RawMessage, error) {
+func (c Client) GetFullContractRaw(contractAddress, blockHash, blockNumber string) (*FullContract, error) {
 	blockIdentifier := formattedBlockIdentifier(blockHash, blockNumber)
 	if blockIdentifier == nil {
 		// notest
@@ -377,7 +375,7 @@ func (c Client) GetFullContractRaw(contractAddress, blockHash, blockNumber strin
 		Logger.With("Error", err, "Gateway URL", c.BaseURL).Error("Unable to create a request for get_full_contract.")
 		return nil, err
 	}
-	var res *json.RawMessage
+	var res *FullContract
 	metr.IncreaseFullContractsSent()
 	_, err = c.do(req, &res)
 	if err != nil {

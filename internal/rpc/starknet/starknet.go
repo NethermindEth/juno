@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/internal/db/class"
+
 	"github.com/NethermindEth/juno/internal/cairovm"
 	"go.uber.org/zap"
 
@@ -24,19 +26,21 @@ type StarkNetRpc struct {
 	stateManager state.StateManager
 	blockManager *block.Manager
 	txnManager   *transaction.Manager
+	classManager class.ClassManager
 	synchronizer *sync2.Synchronizer
 	vm           *cairovm.VirtualMachine
 	logger       *zap.SugaredLogger
 }
 
 func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
-	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine,
+	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine, classManager class.ClassManager,
 ) *StarkNetRpc {
 	return &StarkNetRpc{
 		stateManager: stateManager,
 		blockManager: blockManager,
 		txnManager:   txnManager,
 		synchronizer: synchronizer,
+		classManager: classManager,
 		vm:           vm,
 		logger:       Logger.Named("RPC"),
 	}
@@ -132,18 +136,12 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash *RpcFelt) (any, erro
 }
 
 func (s *StarkNetRpc) GetClass(classHash *RpcFelt) (any, error) {
-	_, latestBlockHash := s.synchronizer.LatestBlockSynced()
-	latestBlock, err := s.blockManager.GetBlockByHash(latestBlockHash)
+	ch := classHash.Felt()
+	c, err := s.classManager.GetClass(ch)
 	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			return nil, InvalidContractClassHash
-		}
-		s.logger.Errorw(err.Error(), "function", "GetClass")
-		return nil, jsonrpc.NewInternalError(err.Error())
+		return nil, err
 	}
-	_ = state.New(s.stateManager, latestBlock.NewRoot)
-	// TODO: implement class service
-	return nil, jsonrpc.NewInternalError("not implemented")
+	return NewContractClass(c), nil
 }
 
 func (s *StarkNetRpc) GetClassAt(blockId *BlockId, address string) (any, error) {
@@ -157,14 +155,14 @@ func (s *StarkNetRpc) GetClassAt(blockId *BlockId, address string) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	class, err := _state.GetClass(blockId, classHash)
+	c, err := s.classManager.GetClass(classHash)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, err
 		}
 	}
 
-	return class, nil
+	return NewContractClass(c), nil
 }
 
 func (s *StarkNetRpc) GetClassHashAt(blockId *BlockId, address *RpcFelt) (any, error) {

@@ -1,13 +1,13 @@
 package vmrpc
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+
+	"github.com/NethermindEth/juno/internal/utils"
+
+	"github.com/NethermindEth/juno/internal/db/class"
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -18,12 +18,14 @@ import (
 
 type storageRPCServer struct {
 	stateManager *statedb.Manager
+	classManager class.ClassManager
 	UnimplementedStorageAdapterServer
 }
 
-func NewStorageRPCServer(stateManager *statedb.Manager) *storageRPCServer {
+func NewStorageRPCServer(stateManager *statedb.Manager, classManager class.ClassManager) *storageRPCServer {
 	return &storageRPCServer{
 		stateManager: stateManager,
+		classManager: classManager,
 	}
 }
 
@@ -63,36 +65,27 @@ func (s *storageRPCServer) GetContractState(ctx context.Context, request *GetVal
 }
 
 func (s *storageRPCServer) GetContractDefinition(ctx context.Context, request *GetValueRequest) (*VMContractDefinition, error) {
-	cd, err := s.stateManager.GetContract(new(felt.Felt).SetBytes(request.GetKey()))
+	c, err := s.classManager.GetClass(new(felt.Felt).SetBytes(request.GetKey()))
 	if err != nil {
 		return nil, err
 	}
-	var fullDefMap map[string]interface{}
-	if err := json.Unmarshal(cd.FullDef, &fullDefMap); err != nil {
-		return nil, err
-	}
-
-	decodedProgram, err := base64.StdEncoding.DecodeString(fullDefMap["program"].(string))
+	decompressedProgram, err := utils.DecompressGzipB64(c.Program)
 	if err != nil {
 		return nil, err
 	}
-	gr, err := gzip.NewReader(bytes.NewBuffer(decodedProgram))
+	decompressedAbi, err := utils.DecompressGzipB64(c.Abi)
 	if err != nil {
 		return nil, err
 	}
-	defer gr.Close()
-	decodedProgram, err = ioutil.ReadAll(gr)
+	data, err := json.Marshal(map[string]interface{}{
+		"program":              json.RawMessage(decompressedProgram),
+		"abi":                  json.RawMessage(decompressedAbi),
+		"entry_points_by_type": c.EntryPointsByType,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	fullDefMap["program"] = decodedProgram
-	fullDef, err := json.Marshal(fullDefMap)
-	if err != nil {
-		return nil, err
-	}
-
 	return &VMContractDefinition{
-		Value: fullDef,
+		Value: data,
 	}, nil
 }

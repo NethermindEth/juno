@@ -116,9 +116,5 @@ func newTestManager(t *testing.T) *Manager {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contractDefDb, err := db.NewMDBXDatabase(env, "CONTRACT_DEF")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return NewManager(stateDb, contractDefDb)
+	return NewManager(stateDb)
 }

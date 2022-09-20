@@ -10,9 +10,11 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/NethermindEth/juno/internal/db/class"
+
 	"github.com/NethermindEth/juno/internal/log"
 
-	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
+	"github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 
 	statedb "github.com/NethermindEth/juno/internal/db/state"
 	"github.com/NethermindEth/juno/pkg/felt"
@@ -35,7 +37,8 @@ func (p *pySubProcessLogger) Write(p0 []byte) (int, error) {
 }
 
 type VirtualMachine struct {
-	manager *statedb.Manager
+	manager      *statedb.Manager
+	classManager class.ClassManager
 
 	logger *zap.SugaredLogger
 
@@ -57,7 +60,7 @@ var (
 	pyPbGRpc []byte
 )
 
-func New(stateManager *statedb.Manager) *VirtualMachine {
+func New(stateManager *statedb.Manager, classManager class.ClassManager) *VirtualMachine {
 	ports, err := freePorts(2)
 	if err != nil {
 		// notest
@@ -67,6 +70,7 @@ func New(stateManager *statedb.Manager) *VirtualMachine {
 	return &VirtualMachine{
 		rpcNet:         "tcp",
 		manager:        stateManager,
+		classManager:   classManager,
 		rpcVMAddr:      "localhost:" + strconv.Itoa(ports[0]),
 		rpcStorageAddr: "localhost:" + strconv.Itoa(ports[1]),
 		logger:         log.Logger.Named("VM"),
@@ -131,8 +135,8 @@ func (s *VirtualMachine) Run(dataDir string) error {
 		// notest
 		s.logger.Errorf("failed to listen: %v", err)
 	}
-	storageServer := vmrpc2.NewStorageRPCServer(s.manager)
-	vmrpc2.RegisterStorageAdapterServer(s.rpcServer, storageServer)
+	storageServer := vmrpc.NewStorageRPCServer(s.manager, s.classManager)
+	vmrpc.RegisterStorageAdapterServer(s.rpcServer, storageServer)
 
 	// Run the gRPC server.
 	go func() {
@@ -173,7 +177,7 @@ func (s *VirtualMachine) Call(
 		return nil, err
 	}
 	defer conn.Close()
-	c := vmrpc2.NewVMClient(conn)
+	c := vmrpc.NewVMClient(conn)
 
 	contractState, err := state.GetContractState(contractAddr)
 	if err != nil {
@@ -186,7 +190,7 @@ func (s *VirtualMachine) Call(
 	}
 
 	// Contact the server and print out its response.
-	r, err := c.Call(ctx, &vmrpc2.VMCallRequest{
+	r, err := c.Call(ctx, &vmrpc.VMCallRequest{
 		Calldata:        calldataBytes,
 		CallerAddress:   callerAddr.ByteSlice(),
 		ContractAddress: contractAddr.ByteSlice(),

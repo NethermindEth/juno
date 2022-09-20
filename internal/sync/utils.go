@@ -64,7 +64,7 @@ func loadAbiOfContract(abiVal string) (abi.ABI, error) {
 func fetchContractCode(stateDiff *types.StateUpdate, client *feeder.Client, logger *zap.SugaredLogger) *CollectorDiff {
 	collectedDiff := &CollectorDiff{
 		stateDiff: stateDiff,
-		Code:      make(map[string]*types.Contract, len(stateDiff.DeployedContracts)),
+		Code:      make(map[string]*types.ContractClass, len(stateDiff.DeployedContracts)),
 	}
 	for _, deployedContract := range stateDiff.DeployedContracts {
 		contractFromApi, err := client.GetFullContractRaw(deployedContract.Address.Hex0x(), "",
@@ -77,15 +77,13 @@ func fetchContractCode(stateDiff *types.StateUpdate, client *feeder.Client, logg
 			return collectedDiff
 		}
 
-		contract := new(types.Contract)
-		err = contract.UnmarshalRaw(contractFromApi)
+		contractClass, err := types.NewContractClassFromFeeder(contractFromApi)
 		if err != nil {
-			logger.With(
-				"Block Number", stateDiff.BlockNumber,
-				"Contract Address", deployedContract.Address.Hex0x(),
-			).Error("Error unmarshalling contract")
+			logger.With("Block Number", stateDiff.BlockNumber, "Contract Address", deployedContract.Address.Hex0x()).
+				Error("Error building contract class from feeder gateway")
+			return collectedDiff
 		}
-		collectedDiff.Code[deployedContract.Address.Hex0x()] = contract
+		collectedDiff.Code[deployedContract.Address.Hex0x()] = contractClass
 	}
 	return collectedDiff
 }

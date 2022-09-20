@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "github.com/NethermindEth/juno/internal/class";
+
+message ContractClass {
+  string program = 1;
+  string abi = 2;
+  EntryPoints entryPoints = 3;
+}
+
+message EntryPoints {
+  repeated EntryPoint constructor = 1;
+  repeated EntryPoint external = 2;
+  repeated EntryPoint l1Handler = 3;
+}
+
+message EntryPoint {
+  bytes offset = 1;
+  bytes selector = 2;
+}

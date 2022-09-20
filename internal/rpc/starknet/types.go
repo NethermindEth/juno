@@ -432,7 +432,33 @@ type ContractClass struct {
 		Constructor []*ContractEntryPoint `json:"CONSTRUCTOR"`
 		External    []*ContractEntryPoint `json:"EXTERNAL"`
 		L1Handler   []*ContractEntryPoint `json:"L1_HANDLER"`
+	} `json:"entry_points_by_type"`
+}
+
+func NewContractClass(c *types.ContractClass) *ContractClass {
+	return &ContractClass{
+		Program: c.Program,
+		EntryPointsByType: struct {
+			Constructor []*ContractEntryPoint `json:"CONSTRUCTOR"`
+			External    []*ContractEntryPoint `json:"EXTERNAL"`
+			L1Handler   []*ContractEntryPoint `json:"L1_HANDLER"`
+		}{
+			Constructor: parseEntryPoints(c.EntryPointsByType.Constructor),
+			External:    parseEntryPoints(c.EntryPointsByType.External),
+			L1Handler:   parseEntryPoints(c.EntryPointsByType.L1Handler),
+		},
 	}
+}
+
+func parseEntryPoints(entryPoints []*types.ContractEntryPoint) []*ContractEntryPoint {
+	entries := make([]*ContractEntryPoint, len(entryPoints))
+	for i, entry := range entryPoints {
+		entries[i] = &ContractEntryPoint{
+			Offset:   entry.Offset.Text(16),
+			Selector: entry.Selector.Hex0x(),
+		}
+	}
+	return entries
 }
 
 type ContractEntryPoint struct {
