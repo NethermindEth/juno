@@ -1,7 +1,6 @@
 package class
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/NethermindEth/juno/internal/db"
@@ -13,7 +12,6 @@ import (
 type ClassManager interface {
 	GetClass(classHash *felt.Felt) (*types.ContractClass, error)
 	PutClass(classHash *felt.Felt, class *types.ContractClass) error
-	Exists(classHash *felt.Felt) (bool, error)
 	Close()
 }
 
@@ -41,17 +39,6 @@ func (c *classManager) PutClass(classHash *felt.Felt, class *types.ContractClass
 		return err
 	}
 	return c.database.Put(classHash.ByteSlice(), data)
-}
-
-func (c *classManager) Exists(classHash *felt.Felt) (bool, error) {
-	_, err := c.database.Get(classHash.ByteSlice())
-	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
 
 func (c *classManager) Close() {
