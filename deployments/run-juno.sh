@@ -10,8 +10,8 @@ JUNO_TESTNET_CMD="${RUN_JUNO_TESTNET:-./build/juno --network 0}"
 # codenoid
 # https://gist.github.com/codenoid/4806365032bb4ed62f381d8a76ddb8e6
 printf "Checking latest Go version...\n";
-LATEST_GO_VERSION="$(curl --silent https://go.dev/VERSION?m=text)";
-LATEST_GO_DOWNLOAD_URL="https://golang.org/dl/go1.18.linux-amd64.tar.gz"
+go_version="$(curl --silent https://go.dev/VERSION?m=text)";
+go_download_url="https://golang.org/dl/go1.18.linux-amd64.tar.gz"
 
 printf "cd to home ($USER) directory \n"
 cd "/root/"
