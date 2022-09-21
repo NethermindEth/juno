@@ -44,14 +44,13 @@ var ErrUnknownNetwork = errors.New("unknown network")
 
 // Config is the top-level juno configuration.
 type Config struct {
-	Verbosity      string        `mapstructure:"verbosity"`
-	RpcPort        uint16        `mapstructure:"rpc-port"`
-	RpcCors        bool          `mapstructure:"rpc-cors"`
-	RpcCorsOrigins string        `mapstructure:"rpc-cors-origins"`
-	Metrics        bool          `mapstructure:"metrics"`
-	DatabasePath   string        `mapstructure:"db-path"`
-	Network        utils.Network `mapstructure:"network"`
-	EthNode        string        `mapstructure:"eth-node"`
+	Verbosity    string        `mapstructure:"verbosity"`
+	RpcPort      uint16        `mapstructure:"rpc-port"`
+	RpcCors      string        `mapstructure:"rpc-cors"`
+	Metrics      bool          `mapstructure:"metrics"`
+	DatabasePath string        `mapstructure:"db-path"`
+	Network      utils.Network `mapstructure:"network"`
+	EthNode      string        `mapstructure:"eth-node"`
 }
 
 type Node struct {
@@ -150,8 +149,8 @@ func (n *Node) Run() error {
 	if err != nil {
 		return err
 	}
-	if n.cfg.RpcCors {
-		n.rpcServer.Provider().EnableCors(n.cfg.RpcCorsOrigins)
+	if n.cfg.RpcCors != "" {
+		n.rpcServer.Provider().EnableCors(n.cfg.RpcCors)
 	}
 
 	if n.cfg.Metrics {
