@@ -11,8 +11,7 @@ import (
 	junoCmd "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/internal/juno"
 	"github.com/NethermindEth/juno/internal/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/assert"
 )
 
 type spyJuno struct {
@@ -55,14 +54,14 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 		cmd := junoCmd.NewCmd(newSpyJuno, quitTest())
 		cmd.SetOut(b)
 		err := cmd.Execute()
-		require.NoError(t, err)
+		assert.NilError(t, err)
 
 		actual := b.String()
 		assert.Equal(t, expected, actual)
 
 		n, ok := junoCmd.StarkNetNode.(*spyJuno)
-		require.Equal(t, true, ok)
-		assert.Equal(t, []string{"run", "shutdown"}, n.calls)
+		assert.Equal(t, true, ok)
+		assert.DeepEqual(t, []string{"run", "shutdown"}, n.calls)
 	})
 
 	t.Run("config precedence", func(t *testing.T) {
@@ -255,15 +254,15 @@ network: 1
 
 				err := cmd.Execute()
 				if tc.expectErr {
-					require.Error(t, err)
+					assert.Error(t, err, err.Error(), "error executing juno command")
 					return
 				}
-				require.NoError(t, err)
+				assert.NilError(t, err)
 
 				n, ok := junoCmd.StarkNetNode.(*spyJuno)
-				require.Equal(t, true, ok)
-				assert.Equal(t, tc.expectedConfig, n.cfg)
-				assert.Equal(t, []string{"run", "shutdown"}, n.calls)
+				assert.Equal(t, true, ok)
+				assert.DeepEqual(t, tc.expectedConfig, n.cfg)
+				assert.DeepEqual(t, []string{"run", "shutdown"}, n.calls)
 			})
 		}
 	})
@@ -280,21 +279,21 @@ func quitTest() chan os.Signal {
 
 func tempCfgFile(t *testing.T, cfg string) (string, func()) {
 	f, err := ioutil.TempFile("", "junoCfg.*.yaml")
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	defer func() {
 		err = f.Close()
-		require.NoError(t, err)
+		assert.NilError(t, err)
 	}()
 
 	_, err = f.WriteString(cfg)
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	err = f.Sync()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	return f.Name(), func() {
 		err = os.Remove(f.Name())
-		require.NoError(t, err)
+		assert.NilError(t, err)
 	}
 }

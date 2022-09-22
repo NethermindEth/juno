@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/v3/assert"
 )
 
 type customError struct{}
@@ -239,7 +239,7 @@ func TestServer_Call(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			out := server.Call(tt.args)
 			if tt.want != nil {
-				assert.JSONEq(t, string(tt.want), string(out))
+				assert.DeepEqual(t, string(tt.want), string(out))
 			}
 		})
 	}

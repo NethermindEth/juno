@@ -6,8 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/internal/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/assert"
 )
 
 func TestNew(t *testing.T) {
@@ -23,9 +22,9 @@ func TestNew(t *testing.T) {
 				_, err := New(cfg)
 
 				if cfg.Network == utils.GOERLI || cfg.Network == utils.MAINNET {
-					assert.NoError(t, err)
+					assert.NilError(t, err)
 				} else {
-					assert.Error(t, err, ErrUnknownNetwork)
+					assert.Error(t, err, ErrUnknownNetwork.Error())
 				}
 			})
 		}
@@ -33,7 +32,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("default db-path", func(t *testing.T) {
 		defaultDataDir, err := utils.DefaultDataDir()
-		require.NoError(t, err)
+		assert.NilError(t, err)
 
 		networks := []utils.Network{utils.GOERLI, utils.MAINNET}
 
@@ -45,11 +44,11 @@ func TestNew(t *testing.T) {
 					DatabasePath: filepath.Join(defaultDataDir, n.String()),
 				}
 				node, err := New(cfg)
-				require.NoError(t, err)
+				assert.NilError(t, err)
 
 				junoN, ok := node.(*Node)
-				require.Equal(t, true, ok)
-				assert.Equal(t, expectedCfg, junoN.cfg)
+				assert.Equal(t, true, ok)
+				assert.DeepEqual(t, expectedCfg, junoN.cfg)
 			})
 		}
 	})
