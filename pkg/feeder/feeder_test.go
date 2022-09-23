@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 
@@ -160,7 +161,7 @@ func TestGetCode_ABICoverage(t *testing.T) {
 func TestGetCode_FailType(t *testing.T) {
 	a := feederfakes.ReturnAbiInfo_Fail()
 	err := fmt.Errorf("unexpected type %s", "unknown")
-	assert.Check(t, is.DeepEqual(err, a))
+	assert.Check(t, is.DeepEqual(err, a, cmpopts.EquateErrors()))
 }
 
 func TestGetTransaction(t *testing.T) {
