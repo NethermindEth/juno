@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/types"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/NethermindEth/juno/internal/db"
 )
