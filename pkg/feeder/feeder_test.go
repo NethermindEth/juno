@@ -14,10 +14,11 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/pkg/feeder"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 
 	"github.com/NethermindEth/juno/pkg/feeder/feederfakes"
 	"github.com/bxcodec/faker"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -75,7 +76,7 @@ func TestGetContractAddress(t *testing.T) {
 		t.Fatal()
 		return
 	}
-	assert.Equal(t, &cOrig, contractAddresses, "Contract Address does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, contractAddresses), "Contract Address does not match")
 }
 
 func TestCallContract(t *testing.T) {
@@ -87,7 +88,7 @@ func TestCallContract(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &a, contractResponse, "CallContract response does not match")
+	assert.Check(t, is.DeepEqual(&a, contractResponse), "CallContract response does not match")
 }
 
 func TestGetBlock(t *testing.T) {
@@ -103,7 +104,7 @@ func TestGetBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error when calling GetBlock")
 	}
-	assert.Equal(t, &a, starknetBlock, "StarknetBlock does not match")
+	assert.Check(t, is.DeepEqual(&a, starknetBlock), "StarknetBlock does not match")
 }
 
 func TestGetStateUpdate(t *testing.T) {
@@ -119,7 +120,7 @@ func TestGetStateUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, getStateUpdate, "state Update response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, getStateUpdate), "state Update response does not match")
 }
 
 func TestGetFullContract(t *testing.T) {
@@ -134,7 +135,7 @@ func TestGetFullContract(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, cOrig, getStateUpdate, "GetFullContract response does not match")
+	assert.Check(t, is.DeepEqual(cOrig, getStateUpdate), "GetFullContract response does not match")
 }
 
 func TestGetCode(t *testing.T) {
@@ -148,18 +149,18 @@ func TestGetCode(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &a, getCode, "GetCode response does not match")
+	assert.Check(t, is.DeepEqual(&a, getCode), "GetCode response does not match")
 }
 
 func TestGetCode_ABICoverage(t *testing.T) {
 	a := feederfakes.ReturnAbiInfo_Full()
-	assert.Equal(t, "Struct-custom", a.Structs[0].Name)
+	assert.Check(t, is.Equal("Struct-custom", a.Structs[0].Name))
 }
 
 func TestGetCode_FailType(t *testing.T) {
 	a := feederfakes.ReturnAbiInfo_Fail()
 	err := fmt.Errorf("unexpected type %s", "unknown")
-	assert.Equal(t, err, a)
+	assert.Check(t, is.DeepEqual(err, a))
 }
 
 func TestGetTransaction(t *testing.T) {
@@ -182,7 +183,7 @@ func TestGetTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionInfo, "GetTransaction response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionInfo), "GetTransaction response does not match")
 }
 
 func TestGetTransactionbyHash(t *testing.T) {
@@ -205,7 +206,7 @@ func TestGetTransactionbyHash(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionInfo, "GetTransaction response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionInfo), "GetTransaction response does not match")
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
@@ -228,7 +229,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionReceipt, "GetTransactionReceipt response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionReceipt), "GetTransactionReceipt response does not match")
 }
 
 func TestGetTransactionStatus(t *testing.T) {
@@ -251,7 +252,7 @@ func TestGetTransactionStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionStatus, "GetTransactionStatus response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionStatus), "GetTransactionStatus response does not match")
 }
 
 func TestGetTransactionTrace(t *testing.T) {
@@ -274,7 +275,7 @@ func TestGetTransactionTrace(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionTrace, "GetTransactionTrace response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionTrace), "GetTransactionTrace response does not match")
 }
 
 func TestGetBlockHashById(t *testing.T) {
@@ -289,7 +290,7 @@ func TestGetBlockHashById(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, blockHash, "GetBlockHashById response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, blockHash), "GetBlockHashById response does not match")
 }
 
 func TestGetBlockIdByHash(t *testing.T) {
@@ -306,7 +307,7 @@ func TestGetBlockIdByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, blockId, "GetBlockIdByHash response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, blockId), "GetBlockIdByHash response does not match")
 }
 
 func TestGetTransactionHashById(t *testing.T) {
@@ -321,7 +322,7 @@ func TestGetTransactionHashById(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionHash, "GetTransactionHashById response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionHash), "GetTransactionHashById response does not match")
 }
 
 func TestGetTransactionIdByHash(t *testing.T) {
@@ -336,7 +337,7 @@ func TestGetTransactionIdByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionId, "GetTransactionIdByHash response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionId), "GetTransactionIdByHash response does not match")
 }
 
 func TestGetStorageAt(t *testing.T) {
@@ -352,7 +353,7 @@ func TestGetStorageAt(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionId, "GetStorageAt response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionId), "GetStorageAt response does not match")
 }
 
 func TestEstimateTransactionFee(t *testing.T) {
@@ -375,5 +376,5 @@ func TestEstimateTransactionFee(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	assert.Equal(t, &cOrig, transactionFee, "GetTransactionTrace response does not match")
+	assert.Check(t, is.DeepEqual(&cOrig, transactionFee), "GetTransactionTrace response does not match")
 }

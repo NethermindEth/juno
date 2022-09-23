@@ -3,7 +3,8 @@ package utils
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestDataDir(t *testing.T) {
@@ -75,6 +76,6 @@ func TestDataDir(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		assert.Equal(t, tc.expectedDir, DataDir(tc.os, tc.userDataDir, tc.userHomeDir))
+		assert.Check(t, is.Equal(tc.expectedDir, DataDir(tc.os, tc.userDataDir, tc.userHomeDir)))
 	}
 }

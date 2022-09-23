@@ -3,7 +3,8 @@ package log
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestGlobalLoggerVerbosity(t *testing.T) {
@@ -33,9 +34,9 @@ func TestGlobalLoggerVerbosity(t *testing.T) {
 		t.Run(test.verbosity, func(t *testing.T) {
 			err := SetGlobalLogger(test.verbosity)
 			if test.err {
-				assert.Error(t, err)
+				assert.Check(t, is.ErrorContains(err, ""))
 			} else {
-				assert.NoError(t, err)
+				assert.Check(t, err)
 			}
 		})
 	}

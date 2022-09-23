@@ -3,7 +3,8 @@ package utils
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestNetwork(t *testing.T) {
@@ -12,11 +13,11 @@ func TestNetwork(t *testing.T) {
 		for _, n := range networks {
 			switch n {
 			case GOERLI:
-				assert.Equal(t, "goerli", n.String())
+				assert.Check(t, is.Equal("goerli", n.String()))
 			case MAINNET:
-				assert.Equal(t, "mainnet", n.String())
+				assert.Check(t, is.Equal("mainnet", n.String()))
 			default:
-				assert.Equal(t, "", n.String())
+				assert.Check(t, is.Equal("", n.String()))
 
 			}
 		}
@@ -25,11 +26,11 @@ func TestNetwork(t *testing.T) {
 		for _, n := range networks {
 			switch n {
 			case GOERLI:
-				assert.Equal(t, "https://alpha4.starknet.io", n.URL())
+				assert.Check(t, is.Equal("https://alpha4.starknet.io", n.URL()))
 			case MAINNET:
-				assert.Equal(t, "https://alpha-mainnet.starknet.io", n.URL())
+				assert.Check(t, is.Equal("https://alpha-mainnet.starknet.io", n.URL()))
 			default:
-				assert.Equal(t, "", n.URL())
+				assert.Check(t, is.Equal("", n.URL()))
 
 			}
 		}

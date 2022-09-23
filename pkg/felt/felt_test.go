@@ -29,8 +29,8 @@ import (
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
-
-	"github.com/stretchr/testify/require"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -2069,8 +2069,6 @@ func TestFeltFromMont(t *testing.T) {
 }
 
 func TestFeltJSON(t *testing.T) {
-	assert := require.New(t)
-
 	type S struct {
 		A Felt
 		B [3]Felt
@@ -2085,25 +2083,25 @@ func TestFeltJSON(t *testing.T) {
 	s.D = new(Felt).SetUint64(8000)
 
 	encoded, err := json.Marshal(&s)
-	assert.NoError(err)
+	assert.NilError(t, err)
 	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	assert.Equal(t, string(encoded), expected)
 
 	// decode valid
 	var decoded S
 	err = json.Unmarshal([]byte(expected), &decoded)
-	assert.NoError(err)
+	assert.NilError(t, err)
 
-	assert.Equal(s, decoded, "element -> json -> element round trip failed")
+	assert.Assert(t, is.DeepEqual(s, decoded), "element -> json -> element round trip failed")
 
 	// decode hex and string values
 	withHexValues := "{\"A\":\"-1\",\"B\":[0,\"0x00000\",\"0x2A\"],\"C\":null,\"D\":\"8000\"}"
 
 	var decodedS S
 	err = json.Unmarshal([]byte(withHexValues), &decodedS)
-	assert.NoError(err)
+	assert.NilError(t, err)
 
-	assert.Equal(s, decodedS, " json with strings  -> element  failed")
+	assert.Assert(t, is.DeepEqual(s, decodedS), " json with strings  -> element  failed")
 }
 
 type testPairFelt struct {
