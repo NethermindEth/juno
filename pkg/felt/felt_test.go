@@ -2069,7 +2069,6 @@ func TestFeltFromMont(t *testing.T) {
 }
 
 func TestFeltJSON(t *testing.T) {
-
 	type S struct {
 		A Felt
 		B [3]Felt
