@@ -19,13 +19,6 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - name: Install python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.7.13'
-          cache: 'pip'
-      - name: Install Python deps
-        run: pip install -r requirements.txt
       - name: Install deps
         run: make install-deps
       - name: Tests
