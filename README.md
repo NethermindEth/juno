@@ -33,7 +33,7 @@
 
 
 <p align="center">
-  <b>Juno</b> is a <a href="https://starknet.io/">StarkNet</a> node implementation written in <a href="https://go.dev/doc/">Golang</a> with ❤️ by <a href="https://nethermind.io/">Nethermind</a>. Designed to <b>ease</b> things up and <b>performance</b> in mind. We will bring decentralization to StarkNet.
+  <b>Juno</b> is a <a href="https://starknet.io/">StarkNet</a> node implementation written in <a href="https://go.dev/doc/">Golang</a> by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising StarkNet.
 </p>
 
 ## ⚙️ Installation
@@ -44,18 +44,9 @@
   [download](https://go.dev/doc/install) page.
 - Python 3.7
 
-For a detailed installation guide, please refer to the [installation guide](https://gojuno.xyz/docs/intro#installing) 
-page.
-
-For details about the configuration you can look at
-the [config file description](https://gojuno.xyz/docs/running/config).
-
-### 📦 Dockerized
-
-You can install the entire app using docker. Just check the
-[docker guide](https://gojuno.xyz/docs/running/docker).
-
-
+```
+make juno
+```
 ## 🛣 Roadmap
 
 In the future we plan to add a new set of features like:
@@ -76,26 +67,15 @@ In the future we plan to add a new set of features like:
 - Enhanced metrics
 - And more! Stay tuned! 🚀
 
-## 📜 Documentation
-
-For further details, you can watch the [documentation](https://gojuno.xyz).
-
 ## 👍 Contribute
 
 If you want to say **thank you** and/or support the active development of `Juno`:
 
 1. Run a node.
 2. Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
-3. Tweet about
-   `Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum)
-   .
-4. Contribute to use, make sure to
-   follow [Contributions Guidelines](https://gojuno.xyz/docs/contribution_guidelines/engineering-guidelines).
-5. Add a Github issue if you find
-   a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=)
-   , or you need or want a
-   new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=)
-   .
+3. Tweet about`Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum).
+4. Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
+5. Add Pull Request for a new feature.
 
 ## 🤝 Partnerships
 
