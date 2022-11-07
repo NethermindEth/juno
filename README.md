@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://gojuno.xyz">
-    <img alt="Juno Logo" height="125" src="./docs/static/img/juno_rounded.png">
+    <img alt="Juno Logo" height="125" src="./.github/juno_rounded.png">
   </a>
   <br>
 </p>
