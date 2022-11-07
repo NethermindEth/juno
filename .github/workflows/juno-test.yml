@@ -22,14 +22,12 @@ jobs:
       - name: Install deps
         run: make install-deps
       - name: Tests
-        run: make codecov-test
+        run: make test-cover
       - name: Benchmark
         run: make benchmarks
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
           fail_ci_if_error: true
           files: ./coverage/coverage.out
-          flags: unittests
-          name: codecov-umbrella
           verbose: true
