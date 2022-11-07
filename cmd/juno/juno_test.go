@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 )
 
 type spyJuno struct {
+	sync.RWMutex
 	cfg   *juno.Config
 	calls []string
 	exit  chan struct{}
@@ -26,13 +28,17 @@ func newSpyJuno(junoCfg *juno.Config) (juno.StarkNetNode, error) {
 }
 
 func (s *spyJuno) Run() error {
+	s.Lock()
 	s.calls = append(s.calls, "run")
+	s.Unlock()
 	<-s.exit
 	return nil
 }
 
 func (s *spyJuno) Shutdown() error {
+	s.Lock()
 	s.calls = append(s.calls, "shutdown")
+	s.Unlock()
 	s.exit <- struct{}{}
 	return nil
 }
