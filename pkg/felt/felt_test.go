@@ -24,7 +24,6 @@ import (
 	"math/bits"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/internal/field"
 	mrand "math/rand"
 
 	"github.com/leanovate/gopter"
@@ -2214,6 +2213,31 @@ func genFull() gopter.Gen {
 	}
 }
 
+// copied verbatim from https://github.com/ConsenSys/gnark-crypto/blob/master/internal/field/field.go (eb0db12)
+func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
+	words := aInt.Bits()
+
+	const steps = 64 / bits.UintSize
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+	for i := 0; i < len(a)*steps; i++ {
+
+		var wI big.Word
+
+		if i < len(words) {
+			wI = words[i]
+		}
+
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
+		aI &= filter
+
+		if uint64(wI) != aI {
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
+		}
+	}
+
+	return nil
+}
+
 func (z *Felt) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
@@ -2223,7 +2247,7 @@ func (z *Felt) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 
 	slice := append(z[:], aHi)
 
-	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+	return BigIntMatchUint64Slice(&aIntMod, slice)
 }
 
 // TODO: Phase out in favor of property based testing
