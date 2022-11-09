@@ -42,7 +42,7 @@ type InvokeTransaction struct {
 	// The address of the sender of this transaction.
 	SenderAddress *felt.Felt
 	// The transaction nonce.
-	nonce *felt.Felt
+	Nonce *felt.Felt
 
 	// The arguments that are passed to the validate and execute functions.
 	CallData []*felt.Felt
