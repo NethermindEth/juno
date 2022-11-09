@@ -103,8 +103,8 @@ func NewCmd(newNodeFn juno.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Comm
 		shutDownErrCh := make(chan error)
 		go func() {
 			<-quit
-			if err := StarkNetNode.Shutdown(); err != nil {
-				shutDownErrCh <- err
+			if shutdownErr := StarkNetNode.Shutdown(); shutdownErr != nil {
+				shutDownErrCh <- shutdownErr
 			}
 			close(shutDownErrCh)
 		}()
