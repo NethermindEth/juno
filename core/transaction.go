@@ -4,14 +4,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// Todo: define contract class
-type ContractClass struct{}
-
 type DeployTransaction struct {
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
 	// The object that defines the contract’s functionality.
-	ContractDef ContractClass
+	Class Class
 	// The arguments passed to the constructor during deployment.
 	ConstructorCalldata []*felt.Felt
 	// Who invoked the deployment. Set to 0 (in future: the deploying account contract).
@@ -69,7 +66,7 @@ func (i *InvokeTransaction) Hash() *felt.Felt {
 
 type DeclareTransaction struct {
 	// The class object.
-	ContractClass ContractClass
+	Class Class
 	// The address of the account initiating the transaction.
 	SenderAddress *felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction.
