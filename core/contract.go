@@ -18,7 +18,7 @@ type Class struct {
 	// An ascii-encoded array of builtin names imported by the class.
 	Builtins []string
 	// The starknet_keccak hash of the ".json" file compiler output.
-	ProgramHash []byte
+	ProgramHash *felt.Felt
 	Bytecode    []*felt.Felt
 }
 
