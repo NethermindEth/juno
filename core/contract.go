@@ -42,8 +42,8 @@ type Contract struct {
 
 // EntryPoint uniquely identifies a Cairo function to execute.
 type EntryPoint struct {
-	// Keccak hash of the function signature.
-	Selector []byte
+	// starknet_keccak hash of the function signature.
+	Selector *felt.Felt
 	// The offset of the instruction in the class's bytecode.
 	Offset uint
 }
