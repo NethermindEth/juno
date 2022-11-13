@@ -3,6 +3,7 @@ module github.com/NethermindEth/juno
 go 1.18
 
 require (
+	github.com/bits-and-blooms/bitset v1.4.0
 	github.com/leanovate/gopter v0.2.9
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
