@@ -101,3 +101,18 @@ func PathFromKey(k *TrieKey) *StoragePath {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(felt.Bits, regularK[:])
 }
+
+func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
+	divergentBit := uint(0)
+
+	for divergentBit <= shorterPath.Len() &&
+		longerPath.Test(longerPath.Len()-divergentBit) == shorterPath.Test(shorterPath.Len()-divergentBit) {
+		divergentBit++
+	}
+
+	commonPath := shorterPath.Clone()
+	for i := uint(0); i < shorterPath.Len()-divergentBit+1; i++ {
+		commonPath.DeleteAt(0)
+	}
+	return commonPath, divergentBit == shorterPath.Len()+1
+}

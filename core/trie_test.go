@@ -117,3 +117,44 @@ func (s *testTrieStorage) Get(key *StoragePath) (*StorageValue, error) {
 	err := v.UnmarshalBinary(decoded)
 	return v, err
 }
+
+func TestFindCommonPath(t *testing.T) {
+	tests := [...]struct {
+		path1  *StoragePath
+		path2  *StoragePath
+		common *StoragePath
+		subset bool
+	}{
+		{
+			path1:  bitset.New(16).Set(4).Set(3),
+			path2:  bitset.New(16).Set(4),
+			common: bitset.New(12).Set(0),
+			subset: false,
+		},
+		{
+			path1:  bitset.New(2).Set(1),
+			path2:  bitset.New(2),
+			common: bitset.New(0),
+			subset: false,
+		},
+		{
+			path1:  bitset.New(2).Set(1),
+			path2:  bitset.New(2).Set(1),
+			common: bitset.New(2).Set(1),
+			subset: true,
+		},
+		{
+			path1:  bitset.New(10),
+			path2:  bitset.New(8),
+			common: bitset.New(8),
+			subset: true,
+		},
+	}
+
+	for _, test := range tests {
+		if common, subset := FindCommonPath(test.path1, test.path2); !test.common.Equal(common) || subset != test.subset {
+			t.Errorf("TestFindCommonPath: Expected %s (%d) Got %s (%d)", test.common.DumpAsBits(),
+				test.common.Len(), common.DumpAsBits(), common.Len())
+		}
+	}
+}
