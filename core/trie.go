@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
@@ -93,7 +95,7 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 }
 
 type Trie struct {
-	root    StoragePath
+	root    *StoragePath
 	storage TrieStorage
 }
 
@@ -115,4 +117,119 @@ func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
 		commonPath.DeleteAt(0)
 	}
 	return commonPath, divergentBit == shorterPath.Len()+1
+}
+
+type step = struct {
+	path *StoragePath
+	node *StorageValue
+}
+
+func (t *Trie) stepsToRoot(path *StoragePath) ([]step, error) {
+	cur := t.root
+	steps := []step{}
+	for cur != nil {
+		node, err := t.storage.Get(cur)
+		if err != nil {
+			return nil, err
+		}
+
+		steps = append(steps, step{
+			path: cur,
+			node: node,
+		})
+
+		_, subset := FindCommonPath(path, cur)
+		if cur.Len() >= path.Len() || !subset {
+			return steps, nil
+		}
+
+		if path.Test(path.Len() - cur.Len() - 1) {
+			cur = node.right
+		} else {
+			cur = node.left
+		}
+	}
+
+	return steps, nil
+}
+
+func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
+	path := PathFromKey(key)
+	node := &TrieNode{
+		value: value,
+	}
+
+	if err := t.storage.Put(path, node); err != nil {
+		return err
+	}
+
+	// empty trie, make new value root
+	if t.root == nil {
+		t.root = path
+		return nil
+	}
+
+	stepsToRoot, err := t.stepsToRoot(path)
+	if err != nil {
+		return err
+	}
+	sibling := stepsToRoot[len(stepsToRoot)-1]
+
+	if path.Equal(sibling.path) {
+		return nil
+	}
+
+	commonPath, _ := FindCommonPath(path, sibling.path)
+	newParent := &TrieNode{
+		value: new(TrieValue),
+	}
+	if path.Test(path.Len() - commonPath.Len() - 1) {
+		newParent.left, newParent.right = sibling.path, path
+	} else {
+		newParent.left, newParent.right = path, sibling.path
+	}
+
+	if err := t.storage.Put(commonPath, newParent); err != nil {
+		return err
+	}
+
+	if len(stepsToRoot) > 1 { // sibling has a parent
+		siblingParent := stepsToRoot[len(stepsToRoot)-2]
+
+		// replace the link to our sibling with the new parent
+		if siblingParent.node.left.Equal(sibling.path) {
+			siblingParent.node.left = commonPath
+		} else {
+			siblingParent.node.right = commonPath
+		}
+		if err := t.storage.Put(siblingParent.path, siblingParent.node); err != nil {
+			return err
+		}
+	} else { // sibling was the root, make new parent the root
+		t.root = commonPath
+	}
+
+	return nil
+}
+
+func (t *Trie) dump(level int) {
+	if t.root == nil {
+		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
+		return
+	}
+
+	root, err := t.storage.Get(t.root)
+	dump := t.root.DumpAsBits()
+	fmt.Printf("%s\"%s\" %d found: %t \n", strings.Repeat("\t", level), dump[len(dump)-64:], t.root.Len(), err == nil)
+	if err != nil {
+		return
+	}
+	(&Trie{
+		root:    root.left,
+		storage: t.storage,
+	}).dump(level + 1)
+	(&Trie{
+		root:    root.right,
+		storage: t.storage,
+	}).dump(level + 1)
 }
