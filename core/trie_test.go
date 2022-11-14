@@ -158,3 +158,53 @@ func TestFindCommonPath(t *testing.T) {
 		}
 	}
 }
+
+func TestTriePut(t *testing.T) {
+	storage := &testTrieStorage{
+		storage: make(storage),
+	}
+	trie := &Trie{
+		root:    nil,
+		storage: storage,
+	}
+
+	tests := [...]struct {
+		key   *TrieKey
+		value *TrieValue
+		root  *StoragePath
+	}{
+		{
+			key:   new(felt.Felt).SetUint64(2),
+			value: new(felt.Felt).SetUint64(0),
+			root:  nil,
+		},
+		{
+			key:   new(felt.Felt).SetUint64(1),
+			value: new(felt.Felt).SetUint64(1),
+			root:  nil,
+		},
+		{
+			key:   new(felt.Felt).SetUint64(3),
+			value: new(felt.Felt).SetUint64(3),
+			root:  nil,
+		},
+		{
+			key:   new(felt.Felt).SetUint64(3),
+			value: new(felt.Felt).SetUint64(4),
+			root:  nil,
+		},
+		{
+			key:   new(felt.Felt).SetUint64(0),
+			value: new(felt.Felt).SetUint64(5),
+			root:  nil,
+		},
+	}
+	for idx, test := range tests {
+		if err := trie.Put(test.key, test.value); err != nil {
+			t.Errorf("TestTriePut: Put() failed at test #%d", idx)
+		}
+		if test.root != nil && !test.root.Equal(trie.root) {
+			t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
+		}
+	}
+}
