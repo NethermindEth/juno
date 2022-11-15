@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +30,35 @@ type TrieNode struct {
 	value *TrieValue
 	left  *StoragePath
 	right *StoragePath
+}
+
+func (n *TrieNode) Hash(specPath *StoragePath) *TrieValue {
+	if specPath.Len() == 0 {
+		return n.value
+	}
+
+	pathWords := specPath.Bytes()
+	if len(pathWords) > 4 {
+		panic("Path too long to fit in Felt")
+	}
+
+	var pathBytes [32]byte
+	for idx, word := range pathWords {
+		startBytes := 24 - (idx * 8)
+		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
+	}
+
+	pathFelt := felt.NewFelt(0)
+	(&pathFelt).SetBytes(pathBytes[:])
+
+	// https://docs.starknet.io/documentation/develop/State/starknet-state/
+	hash, err := Pedersen(n.value, &pathFelt)
+	if err != nil {
+		panic("Pedersen failed TrieNode.Hash")
+	}
+
+	pathFelt.SetUint64(uint64(specPath.Len()))
+	return hash.Add(hash, &pathFelt)
 }
 
 func (n *TrieNode) Equal(other *TrieNode) bool {
