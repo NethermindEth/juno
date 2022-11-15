@@ -203,6 +203,9 @@ func TestTriePut(t *testing.T) {
 		if err := trie.Put(test.key, test.value); err != nil {
 			t.Errorf("TestTriePut: Put() failed at test #%d", idx)
 		}
+		if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
+			t.Errorf("TestTriePut: Get() failed at test #%d", idx)
+		}
 		if test.root != nil && !test.root.Equal(trie.root) {
 			t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
 		}
