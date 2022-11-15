@@ -153,6 +153,14 @@ func (t *Trie) stepsToRoot(path *StoragePath) ([]step, error) {
 	return steps, nil
 }
 
+func (t *Trie) Get(key *TrieKey) (*TrieValue, error) {
+	value, err := t.storage.Get(PathFromKey(key))
+	if err != nil {
+		return nil, err
+	}
+	return value.value, nil
+}
+
 func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 	path := PathFromKey(key)
 	node := &TrieNode{
