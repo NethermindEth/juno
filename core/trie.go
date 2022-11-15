@@ -119,6 +119,19 @@ func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
 	return commonPath, divergentBit == shorterPath.Len()+1
 }
 
+// calculates node paths according to the [docs]
+//
+// [docs]: https://docs.starknet.io/documentation/develop/State/starknet-state/
+func GetSpecPath(path, parentPath *StoragePath) *StoragePath {
+	specPath := path.Clone()
+	// drop parent path, and one more MSB since left/right relation already encodes that information
+	if parentPath != nil {
+		specPath.Shrink(specPath.Len() - parentPath.Len() - 1)
+		specPath.DeleteAt(specPath.Len() - 1)
+	}
+	return specPath
+}
+
 type step = struct {
 	path *StoragePath
 	node *StorageValue
@@ -220,24 +233,24 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 	return nil
 }
 
-func (t *Trie) dump(level int) {
+func (t *Trie) dump(level int, parentP *StoragePath) {
 	if t.root == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
 		return
 	}
 
 	root, err := t.storage.Get(t.root)
-	dump := t.root.DumpAsBits()
-	fmt.Printf("%s\"%s\" %d found: %t \n", strings.Repeat("\t", level), dump[len(dump)-64:], t.root.Len(), err == nil)
+	specPath := GetSpecPath(t.root, parentP)
+	fmt.Printf("%s\"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), specPath.DumpAsBits(), specPath.Len(), root.value.Text(16))
 	if err != nil {
 		return
 	}
 	(&Trie{
 		root:    root.left,
 		storage: t.storage,
-	}).dump(level + 1)
+	}).dump(level+1, t.root)
 	(&Trie{
 		root:    root.right,
 		storage: t.storage,
-	}).dump(level + 1)
+	}).dump(level+1, t.root)
 }

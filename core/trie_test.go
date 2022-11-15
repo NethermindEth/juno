@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNode_Marshall(t *testing.T) {
@@ -210,4 +211,58 @@ func TestTriePut(t *testing.T) {
 			t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
 		}
 	}
+}
+
+func TestGetSpecPath(t *testing.T) {
+	storage := &testTrieStorage{
+		storage: make(storage),
+	}
+	trie := &Trie{
+		root:    nil,
+		storage: storage,
+	}
+
+	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
+	// and check paths
+	two := felt.NewFelt(2)
+	five := felt.NewFelt(5)
+	one := felt.One()
+	trie.Put(&two, &one)
+	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(PathFromKey(&two)))
+
+	trie.Put(&five, &one)
+	expectedRoot, _ := FindCommonPath(PathFromKey(&two), PathFromKey(&five))
+	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(expectedRoot))
+
+	rootNode, err := trie.storage.Get(trie.root)
+	if err != nil {
+		t.Error()
+	}
+
+	assert.Equal(t, true, rootNode.left != nil && rootNode.right != nil)
+
+	expectedLeftSpecPath := bitset.New(2).Set(1)
+	expectedRightSpecPath := bitset.New(2).Set(0)
+	assert.Equal(t, true, GetSpecPath(rootNode.left, trie.root).Equal(expectedLeftSpecPath))
+	assert.Equal(t, true, GetSpecPath(rootNode.right, trie.root).Equal(expectedRightSpecPath))
+}
+
+func TestGetSpecPath_ZeroRoot(t *testing.T) {
+	storage := &testTrieStorage{
+		storage: make(storage),
+	}
+	trie := &Trie{
+		root:    nil,
+		storage: storage,
+	}
+
+	zero := felt.NewFelt(0)
+	msbOne, _ := new(felt.Felt).SetString("0x800000000000000000000000000000000000000000000000000000000000000")
+	one := felt.One()
+	trie.Put(&zero, &one)
+	trie.Put(msbOne, &one)
+
+	zeroPath := bitset.New(0)
+	assert.Equal(t, true, trie.root.Equal(zeroPath))
+	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(zeroPath))
 }
