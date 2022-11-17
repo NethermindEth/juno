@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NethermindEth/juno/core/crypto"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
 )
@@ -52,7 +54,7 @@ func (n *TrieNode) Hash(specPath *StoragePath) *TrieValue {
 	(&pathFelt).SetBytes(pathBytes[:])
 
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
-	hash, err := Pedersen(n.value, &pathFelt)
+	hash, err := crypto.Pedersen(n.value, &pathFelt)
 	if err != nil {
 		panic("Pedersen failed TrieNode.Hash")
 	}
@@ -131,7 +133,7 @@ type Trie struct {
 
 func PathFromKey(k *TrieKey) *StoragePath {
 	regularK := k.ToRegular()
-	return bitset.FromWithLength(felt.Bits, regularK[:])
+	return bitset.FromWithLength(felt.Bits-1, regularK[:])
 }
 
 func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
@@ -210,12 +212,13 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 		value: value,
 	}
 
-	if err := t.storage.Put(path, node); err != nil {
-		return err
-	}
-
 	// empty trie, make new value root
 	if t.root == nil {
+		if err := t.propagateValues([]step{
+			{path: path, node: node},
+		}); err != nil {
+			return err
+		}
 		t.root = path
 		return nil
 	}
@@ -224,9 +227,13 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 	if err != nil {
 		return err
 	}
-	sibling := stepsToRoot[len(stepsToRoot)-1]
+	sibling := &stepsToRoot[len(stepsToRoot)-1]
 
 	if path.Equal(sibling.path) {
+		sibling.node = node
+		if err := t.propagateValues(stepsToRoot); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -240,12 +247,9 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 		newParent.left, newParent.right = path, sibling.path
 	}
 
-	if err := t.storage.Put(commonPath, newParent); err != nil {
-		return err
-	}
-
-	if len(stepsToRoot) > 1 { // sibling has a parent
-		siblingParent := stepsToRoot[len(stepsToRoot)-2]
+	makeRoot := len(stepsToRoot) == 1
+	if !makeRoot { // sibling has a parent
+		siblingParent := &stepsToRoot[len(stepsToRoot)-2]
 
 		// replace the link to our sibling with the new parent
 		if siblingParent.node.left.Equal(sibling.path) {
@@ -253,14 +257,71 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 		} else {
 			siblingParent.node.right = commonPath
 		}
-		if err := t.storage.Put(siblingParent.path, siblingParent.node); err != nil {
+	}
+
+	// replace sibling with new parent
+	stepsToRoot[len(stepsToRoot)-1] = step{
+		path: commonPath, node: newParent,
+	}
+	// add new node to steps
+	stepsToRoot = append(stepsToRoot, step{
+		path: path, node: node,
+	})
+
+	// push commitment changes
+	if err := t.propagateValues(stepsToRoot); err != nil {
+		return err
+	} else if makeRoot {
+		t.root = commonPath
+	}
+	return nil
+}
+
+func (t *Trie) propagateValues(affectedPath []step) error {
+	for idx := len(affectedPath) - 1; idx >= 0; idx-- {
+		cur := affectedPath[idx]
+
+		if (cur.node.left == nil) != (cur.node.right == nil) {
+			panic("should not happen")
+		}
+
+		if cur.node.left != nil || cur.node.right != nil {
+			// todo: one of the children is already in affectedPath, use that instead of fetching from storage
+			left, err := t.storage.Get(cur.node.left)
+			if err != nil {
+				return err
+			}
+
+			right, err := t.storage.Get(cur.node.right)
+			if err != nil {
+				return err
+			}
+
+			leftSpecPath := GetSpecPath(cur.node.left, cur.path)
+			rightSpecPath := GetSpecPath(cur.node.right, cur.path)
+
+			cur.node.value, err = crypto.Pedersen(left.Hash(leftSpecPath), right.Hash(rightSpecPath))
+			if err != nil {
+				return err
+			}
+		}
+
+		if err := t.storage.Put(cur.path, cur.node); err != nil {
 			return err
 		}
-	} else { // sibling was the root, make new parent the root
-		t.root = commonPath
 	}
 
 	return nil
+}
+
+func (t *Trie) Root() (*TrieValue, error) {
+	root, err := t.storage.Get(t.root)
+	if err != nil {
+		return nil, err
+	}
+
+	specPath := GetSpecPath(t.root, nil)
+	return root.Hash(specPath), nil
 }
 
 func (t *Trie) dump(level int, parentP *StoragePath) {
@@ -271,7 +332,7 @@ func (t *Trie) dump(level int, parentP *StoragePath) {
 
 	root, err := t.storage.Get(t.root)
 	specPath := GetSpecPath(t.root, parentP)
-	fmt.Printf("%s\"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), specPath.DumpAsBits(), specPath.Len(), root.value.Text(16))
+	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.root.String(), t.root.Len(), specPath.String(), specPath.Len(), root.value.Text(16))
 	if err != nil {
 		return
 	}
