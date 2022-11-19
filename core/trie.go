@@ -23,17 +23,20 @@ type (
 	TrieValue = felt.Felt
 )
 
+// Persistent storage backend for [Trie]
 type TrieStorage interface {
 	Put(key *StoragePath, value *StorageValue) error
 	Get(key *StoragePath) (*StorageValue, error)
 }
 
+// A [Trie] node
 type TrieNode struct {
 	value *TrieValue
 	left  *StoragePath
 	right *StoragePath
 }
 
+// Calculates hash of a [TrieNode]
 func (n *TrieNode) Hash(specPath *StoragePath) *TrieValue {
 	if specPath.Len() == 0 {
 		return n.value
@@ -63,10 +66,12 @@ func (n *TrieNode) Hash(specPath *StoragePath) *TrieValue {
 	return hash.Add(hash, &pathFelt)
 }
 
+// Equality check of 2 [TrieNode] objects
 func (n *TrieNode) Equal(other *TrieNode) bool {
 	return n.value.Equal(other.value) && n.left.Equal(other.left) && n.right.Equal(n.right)
 }
 
+// Serializes a [TrieNode] into a byte array
 func (n *TrieNode) MarshalBinary() ([]byte, error) {
 	var ret []byte
 	valueB := n.value.Bytes()
@@ -92,6 +97,7 @@ func (n *TrieNode) MarshalBinary() ([]byte, error) {
 	return ret, nil
 }
 
+// Deserializes a [TrieNode] from a byte array
 func (n *TrieNode) UnmarshalBinary(data []byte) error {
 	if len(data) < felt.Bytes {
 		return errors.New("Malformed TrieNode bytedata")
@@ -126,16 +132,29 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+// Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have
+// two children).
+//
+// This implementation allows for a "flat" storage by keying nodes on
+// their path rather than their hash, resulting in O(1) accesses and
+// O(lg n) insertions.
+//
+// The state trie [specification] describes a sparse Merkle Trie. Note
+// that this dense implementation results in an equivalent commitment.
+//
+// [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
 	root    *StoragePath
 	storage TrieStorage
 }
 
+// Converts a [TrieKey] to a [StoragePath] that, when followed on a [Trie], leads to the corresponding [TrieNode]
 func PathFromKey(k *TrieKey) *StoragePath {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(felt.Bits-1, regularK[:])
 }
 
+// Finds the set of common MSB bits in two [StoragePath] objects
 func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
 	divergentBit := uint(0)
 
@@ -151,9 +170,16 @@ func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
 	return commonPath, divergentBit == shorterPath.Len()+1
 }
 
-// calculates node paths according to the [docs]
+// GetSpecPath returns the suffix of path that diverges from
+// parentPath. For example, for a path 0b1011 and parentPath 0b10,
+// this function would return the StoragePath object for 0b0.
 //
-// [docs]: https://docs.starknet.io/documentation/develop/State/starknet-state/
+// This is the canonical representation for paths used in the
+// [specification]. Since this trie implementation stores nodes by
+// path, we need this function to convert paths to their canonical
+// representation.
+//
+// [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 func GetSpecPath(path, parentPath *StoragePath) *StoragePath {
 	specPath := path.Clone()
 	// drop parent path, and one more MSB since left/right relation already encodes that information
@@ -164,11 +190,17 @@ func GetSpecPath(path, parentPath *StoragePath) *StoragePath {
 	return specPath
 }
 
-type step = struct {
+// step is the on-disk representation of a [TrieNode], where path is the
+// key and node is the value.
+type step struct {
 	path *StoragePath
 	node *StorageValue
 }
 
+// stepsToRoot enumerates the set of [TrieNode] objects that are on a
+// given [StoragePath].
+//
+// The [step]s are returned in descending order beginning with the root.
 func (t *Trie) stepsToRoot(path *StoragePath) ([]step, error) {
 	cur := t.root
 	steps := []step{}
@@ -198,6 +230,7 @@ func (t *Trie) stepsToRoot(path *StoragePath) ([]step, error) {
 	return steps, nil
 }
 
+// Get the corresponding [TrieValue] for a [TrieKey]
 func (t *Trie) Get(key *TrieKey) (*TrieValue, error) {
 	value, err := t.storage.Get(PathFromKey(key))
 	if err != nil {
@@ -206,6 +239,7 @@ func (t *Trie) Get(key *TrieKey) (*TrieValue, error) {
 	return value.value, nil
 }
 
+// Update the corresponding [TrieValue] for a [TrieKey]
 func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 	path := PathFromKey(key)
 	node := &TrieNode{
@@ -277,6 +311,9 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 	return nil
 }
 
+// Recalculates [Trie] commitment by propagating `bottom` values as described in the [docs]
+//
+// [docs]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 func (t *Trie) propagateValues(affectedPath []step) error {
 	for idx := len(affectedPath) - 1; idx >= 0; idx-- {
 		cur := affectedPath[idx]
@@ -314,6 +351,7 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 	return nil
 }
 
+// Get commitment of a [Trie]
 func (t *Trie) Root() (*TrieValue, error) {
 	root, err := t.storage.Get(t.root)
 	if err != nil {
@@ -324,6 +362,7 @@ func (t *Trie) Root() (*TrieValue, error) {
 	return root.Hash(specPath), nil
 }
 
+// Try to print a [Trie] in a somewhat human-readable form
 func (t *Trie) dump(level int, parentP *StoragePath) {
 	if t.root == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
