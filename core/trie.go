@@ -13,31 +13,21 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-type (
-	StoragePath  = bitset.BitSet
-	StorageValue = TrieNode
-)
-
-type (
-	TrieKey   = felt.Felt
-	TrieValue = felt.Felt
-)
-
 // Persistent storage backend for [Trie]
 type TrieStorage interface {
-	Put(key *StoragePath, value *StorageValue) error
-	Get(key *StoragePath) (*StorageValue, error)
+	Put(key *bitset.BitSet, value *TrieNode) error
+	Get(key *bitset.BitSet) (*TrieNode, error)
 }
 
 // A [Trie] node
 type TrieNode struct {
-	value *TrieValue
-	left  *StoragePath
-	right *StoragePath
+	value *felt.Felt
+	left  *bitset.BitSet
+	right *bitset.BitSet
 }
 
 // Calculates hash of a [TrieNode]
-func (n *TrieNode) Hash(specPath *StoragePath) *TrieValue {
+func (n *TrieNode) Hash(specPath *bitset.BitSet) *felt.Felt {
 	if specPath.Len() == 0 {
 		return n.value
 	}
@@ -102,7 +92,7 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 	if len(data) < felt.Bytes {
 		return errors.New("Malformed TrieNode bytedata")
 	}
-	n.value = new(TrieValue).SetBytes(data[:felt.Bytes])
+	n.value = new(felt.Felt).SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
 
 	stream := bytes.NewReader(data)
@@ -112,7 +102,7 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 			return err
 		}
 
-		var pathP **StoragePath
+		var pathP **bitset.BitSet
 		switch head {
 		case 'l':
 			pathP = &(n.left)
@@ -122,7 +112,7 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 			return errors.New("Malformed TrieNode bytedata")
 		}
 
-		*pathP = new(StoragePath)
+		*pathP = new(bitset.BitSet)
 		_, err = (*pathP).ReadFrom(stream)
 		if err != nil {
 			return err
@@ -144,7 +134,7 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
-	root    *StoragePath
+	root    *bitset.BitSet
 	storage TrieStorage
 }
 
@@ -154,14 +144,14 @@ func NewTrie(storage TrieStorage) *Trie {
 	}
 }
 
-// Converts a [TrieKey] to a [StoragePath] that, when followed on a [Trie], leads to the corresponding [TrieNode]
-func PathFromKey(k *TrieKey) *StoragePath {
+// Converts a key to a path that, when followed on a [Trie], leads to the corresponding [TrieNode]
+func PathFromKey(k *felt.Felt) *bitset.BitSet {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(felt.Bits-1, regularK[:])
 }
 
 // Finds the set of common MSB bits in two [StoragePath] objects
-func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
+func FindCommonPath(longerPath, shorterPath *bitset.BitSet) (*bitset.BitSet, bool) {
 	divergentBit := uint(0)
 
 	for divergentBit <= shorterPath.Len() &&
@@ -186,7 +176,7 @@ func FindCommonPath(longerPath, shorterPath *StoragePath) (*StoragePath, bool) {
 // representation.
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func GetSpecPath(path, parentPath *StoragePath) *StoragePath {
+func GetSpecPath(path, parentPath *bitset.BitSet) *bitset.BitSet {
 	specPath := path.Clone()
 	// drop parent path, and one more MSB since left/right relation already encodes that information
 	if parentPath != nil {
@@ -199,15 +189,15 @@ func GetSpecPath(path, parentPath *StoragePath) *StoragePath {
 // step is the on-disk representation of a [TrieNode], where path is the
 // key and node is the value.
 type step struct {
-	path *StoragePath
-	node *StorageValue
+	path *bitset.BitSet
+	node *TrieNode
 }
 
 // stepsToRoot enumerates the set of [TrieNode] objects that are on a
 // given [StoragePath].
 //
 // The [step]s are returned in descending order beginning with the root.
-func (t *Trie) stepsToRoot(path *StoragePath) ([]step, error) {
+func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 	cur := t.root
 	steps := []step{}
 	for cur != nil {
@@ -236,8 +226,8 @@ func (t *Trie) stepsToRoot(path *StoragePath) ([]step, error) {
 	return steps, nil
 }
 
-// Get the corresponding [TrieValue] for a [TrieKey]
-func (t *Trie) Get(key *TrieKey) (*TrieValue, error) {
+// Get the corresponding `value` for a `key`
+func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	value, err := t.storage.Get(PathFromKey(key))
 	if err != nil {
 		return nil, err
@@ -245,8 +235,8 @@ func (t *Trie) Get(key *TrieKey) (*TrieValue, error) {
 	return value.value, nil
 }
 
-// Update the corresponding [TrieValue] for a [TrieKey]
-func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
+// Update the corresponding `value` for a `key`
+func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	path := PathFromKey(key)
 	node := &TrieNode{
 		value: value,
@@ -279,7 +269,7 @@ func (t *Trie) Put(key *TrieKey, value *TrieValue) error {
 
 	commonPath, _ := FindCommonPath(path, sibling.path)
 	newParent := &TrieNode{
-		value: new(TrieValue),
+		value: new(felt.Felt),
 	}
 	if path.Test(path.Len() - commonPath.Len() - 1) {
 		newParent.left, newParent.right = sibling.path, path
@@ -358,7 +348,7 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 }
 
 // Get commitment of a [Trie]
-func (t *Trie) Root() (*TrieValue, error) {
+func (t *Trie) Root() (*felt.Felt, error) {
 	root, err := t.storage.Get(t.root)
 	if err != nil {
 		return nil, err
@@ -369,7 +359,7 @@ func (t *Trie) Root() (*TrieValue, error) {
 }
 
 // Try to print a [Trie] in a somewhat human-readable form
-func (t *Trie) dump(level int, parentP *StoragePath) {
+func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	if t.root == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
 		return
