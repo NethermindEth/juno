@@ -993,7 +993,11 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	vv := bigIntPool.Get().(*big.Int)
 
 	if _, ok := vv.SetString(s, 0); !ok {
-		return errors.New("can't parse into a big.Int: " + s)
+		// feeder gateway sometimes omits the "0x" prefix
+		// if failed, try with forced base 16
+		if _, ok = vv.SetString(s, 16); !ok {
+			return errors.New("can't parse into a big.Int: " + s)
+		}
 	}
 
 	z.SetBigInt(vv)
