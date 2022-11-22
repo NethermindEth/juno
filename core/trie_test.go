@@ -167,10 +167,7 @@ func TestTriePut(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := &Trie{
-		root:    nil,
-		storage: storage,
-	}
+	trie := NewTrie(storage)
 
 	tests := [...]struct {
 		key   *TrieKey
@@ -414,19 +411,13 @@ func TestState(t *testing.T) {
 	stateStorage := &testTrieStorage{
 		storage: make(storage),
 	}
-	state := &Trie{
-		root:    nil,
-		storage: stateStorage,
-	}
+	state := NewTrie(stateStorage)
 
 	for addr, dif := range addresses {
 		contractStorage := &testTrieStorage{
 			storage: make(storage),
 		}
-		contractState := &Trie{
-			root:    nil,
-			storage: contractStorage,
-		}
+		contractState := NewTrie(contractStorage)
 		for _, slot := range dif {
 			key, _ := new(felt.Felt).SetString(slot.key)
 			val, _ := new(felt.Felt).SetString(slot.val)
