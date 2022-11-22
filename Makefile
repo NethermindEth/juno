@@ -15,7 +15,7 @@ test: ## tests
 	go test ./...
 
 benchmarks: ## benchmarking
-	go test ./... -bench=. -benchmem
+	go test ./... -run=^# -bench=. -benchmem
 
 test-cover: ## tests with coverage
 	mkdir -p coverage
