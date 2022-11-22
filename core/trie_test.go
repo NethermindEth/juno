@@ -96,7 +96,7 @@ type (
 	}
 )
 
-func (s *testTrieStorage) Put(key *StoragePath, value *StorageValue) error {
+func (s *testTrieStorage) Put(key *bitset.BitSet, value *TrieNode) error {
 	keyEnc, err := key.MarshalBinary()
 	if err != nil {
 		return err
@@ -109,14 +109,14 @@ func (s *testTrieStorage) Put(key *StoragePath, value *StorageValue) error {
 	return nil
 }
 
-func (s *testTrieStorage) Get(key *StoragePath) (*StorageValue, error) {
+func (s *testTrieStorage) Get(key *bitset.BitSet) (*TrieNode, error) {
 	keyEnc, _ := key.MarshalBinary()
 	value, found := s.storage[hex.EncodeToString(keyEnc)]
 	if !found {
 		panic("not found")
 	}
 
-	v := new(StorageValue)
+	v := new(TrieNode)
 	decoded, _ := hex.DecodeString(value)
 	err := v.UnmarshalBinary(decoded)
 	return v, err
@@ -124,9 +124,9 @@ func (s *testTrieStorage) Get(key *StoragePath) (*StorageValue, error) {
 
 func TestFindCommonPath(t *testing.T) {
 	tests := [...]struct {
-		path1  *StoragePath
-		path2  *StoragePath
-		common *StoragePath
+		path1  *bitset.BitSet
+		path2  *bitset.BitSet
+		common *bitset.BitSet
 		subset bool
 	}{
 		{
@@ -170,9 +170,9 @@ func TestTriePut(t *testing.T) {
 	trie := NewTrie(storage)
 
 	tests := [...]struct {
-		key   *TrieKey
-		value *TrieValue
-		root  *StoragePath
+		key   *felt.Felt
+		value *felt.Felt
+		root  *bitset.BitSet
 	}{
 		{
 			key:   new(felt.Felt).SetUint64(2),
@@ -215,9 +215,9 @@ func TestTriePut(t *testing.T) {
 
 func TestGetSpecPath(t *testing.T) {
 	tests := [...]struct {
-		parent *StoragePath
-		child  *StoragePath
-		want   *StoragePath
+		parent *bitset.BitSet
+		child  *bitset.BitSet
+		want   *bitset.BitSet
 	}{
 		{
 			parent: bitset.New(0),
