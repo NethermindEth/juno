@@ -148,6 +148,12 @@ type Trie struct {
 	storage TrieStorage
 }
 
+func NewTrie(storage TrieStorage) *Trie {
+	return &Trie{
+		storage: storage,
+	}
+}
+
 // Converts a [TrieKey] to a [StoragePath] that, when followed on a [Trie], leads to the corresponding [TrieNode]
 func PathFromKey(k *TrieKey) *StoragePath {
 	regularK := k.ToRegular()
