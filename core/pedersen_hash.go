@@ -3,7 +3,7 @@ package core
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/crypto/starkware"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -37,9 +37,9 @@ func PedersenArray(elems ...*felt.Felt) (*felt.Felt, error) {
 //
 // [Pedersen hash]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#pedersen_hash
 func Pedersen(a *felt.Felt, b *felt.Felt) (*felt.Felt, error) {
-	out := make([]byte, crypto.BufferSize)
-	if err := crypto.Hash(a.Marshal(), b.Marshal(), out); err != nil {
+	out := make([]byte, starkware.BufferSize)
+	if err := starkware.Hash(a.Marshal(), b.Marshal(), out); err != nil {
 		return nil, err
 	}
-	return new(felt.Felt).SetBytes(out[:crypto.FeltSize]), nil
+	return new(felt.Felt).SetBytes(out[:starkware.FeltSize]), nil
 }
