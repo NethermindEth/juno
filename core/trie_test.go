@@ -68,8 +68,9 @@ func TestNode_Marshall(t *testing.T) {
 }
 
 func TestPathFromKey(t *testing.T) {
+	trie := NewTrie(nil, 251)
 	key, _ := new(felt.Felt).SetRandom()
-	path := PathFromKey(key)
+	path := trie.PathFromKey(key)
 	keyRegular := key.ToRegular()
 	for bit := 0; bit < felt.Bits; bit++ {
 		if keyRegular.Bit(uint64(bit)) > 0 != path.Test(uint(bit)) {
@@ -167,7 +168,7 @@ func TestTriePut(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := NewTrie(storage)
+	trie := NewTrie(storage, 251)
 
 	tests := [...]struct {
 		key   *felt.Felt
@@ -247,10 +248,7 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := &Trie{
-		root:    nil,
-		storage: storage,
-	}
+	trie := NewTrie(storage, 251)
 
 	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
 	// and check paths
@@ -258,10 +256,10 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 	five := felt.NewFelt(5)
 	one := felt.One()
 	trie.Put(&two, &one)
-	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(PathFromKey(&two)))
+	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(trie.PathFromKey(&two)))
 
 	trie.Put(&five, &one)
-	expectedRoot, _ := FindCommonPath(PathFromKey(&two), PathFromKey(&five))
+	expectedRoot, _ := FindCommonPath(trie.PathFromKey(&two), trie.PathFromKey(&five))
 	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(expectedRoot))
 
 	rootNode, err := trie.storage.Get(trie.root)
@@ -281,10 +279,7 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := &Trie{
-		root:    nil,
-		storage: storage,
-	}
+	trie := NewTrie(storage, 251)
 
 	zero := felt.NewFelt(0)
 	msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
@@ -411,13 +406,13 @@ func TestState(t *testing.T) {
 	stateStorage := &testTrieStorage{
 		storage: make(storage),
 	}
-	state := NewTrie(stateStorage)
+	state := NewTrie(stateStorage, 251)
 
 	for addr, dif := range addresses {
 		contractStorage := &testTrieStorage{
 			storage: make(storage),
 		}
-		contractState := NewTrie(contractStorage)
+		contractState := NewTrie(contractStorage, 251)
 		for _, slot := range dif {
 			key, _ := new(felt.Felt).SetString(slot.key)
 			val, _ := new(felt.Felt).SetString(slot.val)

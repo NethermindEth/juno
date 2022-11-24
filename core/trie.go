@@ -134,20 +134,22 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
+	height  uint
 	root    *bitset.BitSet
 	storage TrieStorage
 }
 
-func NewTrie(storage TrieStorage) *Trie {
+func NewTrie(storage TrieStorage, height uint) *Trie {
 	return &Trie{
 		storage: storage,
+		height:  height,
 	}
 }
 
 // Converts a key to a path that, when followed on a [Trie], leads to the corresponding [TrieNode]
-func PathFromKey(k *felt.Felt) *bitset.BitSet {
+func (t *Trie) PathFromKey(k *felt.Felt) *bitset.BitSet {
 	regularK := k.ToRegular()
-	return bitset.FromWithLength(felt.Bits-1, regularK[:])
+	return bitset.FromWithLength(t.height, regularK[:])
 }
 
 // Finds the set of common MSB bits in two [StoragePath] objects
@@ -228,7 +230,7 @@ func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	value, err := t.storage.Get(PathFromKey(key))
+	value, err := t.storage.Get(t.PathFromKey(key))
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +239,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Update the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	path := PathFromKey(key)
+	path := t.PathFromKey(key)
 	node := &TrieNode{
 		value: value,
 	}
