@@ -38,6 +38,17 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 	return base.String()
 }
 
+// get performs a "GET" http request with the given URL and returns the response body
+func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
+	res, err := http.Get(queryUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	return body, err
+}
+
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash"`
@@ -64,16 +75,7 @@ func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error)
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	res, err := http.Get(queryUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
+	body, err := c.get(queryUrl)
 	update := new(StateUpdate)
 	if err = json.Unmarshal(body, update); err != nil {
 		return nil, err
