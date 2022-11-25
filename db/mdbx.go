@@ -25,9 +25,6 @@ func NewMdbxDb(path string, maxBuckets uint64) (*MdbxDb, error) {
 	// [2] https://blog.separateconcerns.com/2016-04-03-lmdb-format.html
 	env.SetOption(mdbx.OptMaxDB, maxBuckets)
 
-	// TODO more options?
-
-	// TODO which flags and mode?
 	if err := env.Open(path, 0 /* flags */, 0o664 /* FileMode */); err != nil {
 		env.Close()
 		return nil, err
@@ -56,57 +53,39 @@ func (db *MdbxDb) Close() error {
 }
 
 type mdbxTx struct {
-	tx *mdbx.Txn
+	tx          *mdbx.Txn
+	openBuckets map[string]mdbx.DBI
 }
 
 var _ Transaction = &mdbxTx{}
 
 func newMdbxTx(tx *mdbx.Txn) *mdbxTx {
 	return &mdbxTx{
-		tx: tx,
+		tx:          tx,
+		openBuckets: make(map[string]mdbx.DBI),
 	}
 }
 
-func (tx *mdbxTx) CreateBucketIfNotExists(name string) (Bucket, error) {
-	b, err := tx.tx.CreateDBI(name)
+func (tx *mdbxTx) CreateBucketIfNotExists(name string) error {
+	// CreateDBI will only create the bucket if it doesn't exist,
+	// which is what we want.
+	dbi, err := tx.tx.CreateDBI(name)
 	if err != nil {
-		return nil, err // TODO wrap error
+		return err
 	}
-	return newMdbxBucket(tx.tx, b), nil
+	tx.openBuckets[name] = dbi
+	return nil
 }
 
-func (tx *mdbxTx) Bucket(name string) (Bucket, error) {
-	b, err := tx.tx.OpenDBI(name, 0, nil, nil) // TODO params
-	if err != nil {
-		return nil, err // TODO wrap error
+func (tx *mdbxTx) Cursor(bucketName string) (Cursor, error) {
+	if _, ok := tx.openBuckets[bucketName]; !ok {
+		dbi, err := tx.tx.OpenDBI(bucketName, 0, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		tx.openBuckets[bucketName] = dbi
 	}
-	return newMdbxBucket(tx.tx, b), nil
-}
-
-type mdbxBucket struct {
-	tx *mdbx.Txn
-	b  mdbx.DBI
-}
-
-var _ Bucket = &mdbxBucket{}
-
-func newMdbxBucket(tx *mdbx.Txn, b mdbx.DBI) *mdbxBucket {
-	return &mdbxBucket{
-		tx: tx,
-		b:  b,
-	}
-}
-
-func (b *mdbxBucket) Get(key []byte) ([]byte, error) {
-	return b.tx.Get(b.b, key)
-}
-
-func (b *mdbxBucket) Put(key []byte, value []byte) error {
-	return b.tx.Put(b.b, key, value, 0 /* flags */) // TODO: flags
-}
-
-func (b *mdbxBucket) Cursor() (Cursor, error) {
-	c, err := b.tx.OpenCursor(b.b)
+	c, err := tx.tx.OpenCursor(tx.openBuckets[bucketName])
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +102,22 @@ func newMdbxCursor(c *mdbx.Cursor) *mdbxCursor {
 	return &mdbxCursor{
 		c: c,
 	}
+}
+
+func (c *mdbxCursor) Get(key []byte) ([]byte, error) {
+	_, v, err := c.get(key, nil, mdbx.SetKey)
+	return v, err
+}
+
+func (c *mdbxCursor) Put(key []byte, value []byte) error {
+	err := c.c.Put(key, value, mdbx.NoOverwrite)
+	if mdbx.IsKeyExists(err) {
+		// The key is present in the database. Mdbx has moved
+		// the cursor to the key's position, so all we need to
+		// do is overwrite the value.
+		err = c.c.Put(key, value, mdbx.Current)
+	}
+	return err
 }
 
 func (c *mdbxCursor) Seek(prefix []byte) ([]byte, []byte, error) {
@@ -158,7 +153,7 @@ func (c *mdbxCursor) Last() ([]byte, []byte, error) {
 
 func (c *mdbxCursor) get(prefix []byte, value []byte, op uint) ([]byte, []byte, error) {
 	k, v, err := c.c.Get(prefix, value, op)
-	// See TODO
+	// See https://github.com/ledgerwatch/erigon-lib/blob/07fa94278fc8785f9bae9c6f92f0aeade5df3dfb/kv/mdbx/kv_mdbx.go#L1141-L1147
 	if err != nil {
 		if mdbx.IsNotFound(err) {
 			return nil, nil, nil
