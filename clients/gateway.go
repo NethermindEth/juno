@@ -3,6 +3,7 @@ package clients
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -82,4 +83,46 @@ func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error)
 	}
 
 	return update, nil
+}
+
+// Transaction object returned by the gateway in JSON format for multiple endpoints
+type Transaction struct {
+	Hash                *felt.Felt   `json:"transaction_hash"`
+	Version             *felt.Felt   `json:"version"`
+	ContractAddress     *felt.Felt   `json:"contract_address"`
+	ContractAddressSalt *felt.Felt   `json:"contract_address_salt"`
+	ClassHash           *felt.Felt   `json:"class_hash"`
+	ConstructorCalldata []*felt.Felt `json:"constructor_calldata"`
+	Type                string       `json:"type"`
+	// invoke
+	MaxFee             *felt.Felt   `json:"max_fee"`
+	Signature          []*felt.Felt `json:"signature"`
+	Calldata           []*felt.Felt `json:"calldata"`
+	EntryPointSelector *felt.Felt   `json:"entry_point_selector"`
+	// declare/deploy_account
+	Nonce *felt.Felt `json:"nonce"`
+	// declare
+	SenderAddress *felt.Felt `json:"sender_address"`
+}
+
+type TransactionStatus struct {
+	Status           string       `json:"status"`
+	BlockHash        *felt.Felt   `json:"block_hash"`
+	BlockNumber      *big.Int     `json:"block_number"`
+	TransactionIndex *big.Int     `json:"transaction_index"`
+	Transaction      *Transaction `json:"transaction"`
+}
+
+func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*TransactionStatus, error) {
+	queryUrl := c.buildQueryString("get_transaction", map[string]string{
+		"transactionHash": "0x" + transactionHash.Text(16),
+	})
+
+	body, err := c.get(queryUrl)
+	txStatus := new(TransactionStatus)
+	if err = json.Unmarshal(body, txStatus); err != nil {
+		return nil, err
+	}
+
+	return txStatus, nil
 }
