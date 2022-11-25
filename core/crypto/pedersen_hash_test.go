@@ -178,9 +178,11 @@ func BenchmarkPedersen(b *testing.B) {
 	b.Run("Pedersen hash benchmark test", func(b *testing.B) {
 		var f *felt.Felt
 		var err error
-		f, err = Pedersen(e0, e1)
-		if err != nil {
-			b.Errorf("expected no error but got %s", err)
+		for n := 0; n < b.N; n++ {
+			f, err = Pedersen(e0, e1)
+			if err != nil {
+				b.Errorf("expected no error but got %s", err)
+			}
 		}
 		feltBench = f
 	})
