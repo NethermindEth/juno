@@ -126,3 +126,74 @@ func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*Transaction
 
 	return txStatus, nil
 }
+
+type Event struct {
+	From *felt.Felt   `json:"from_address"`
+	Data []*felt.Felt `json:"data"`
+	Keys []*felt.Felt `json:"keys"`
+}
+
+type L1ToL2Message struct {
+	From     string       `json:"from_address"`
+	Payload  []*felt.Felt `json:"payload"`
+	Selector *felt.Felt   `json:"selector"`
+	To       *felt.Felt   `json:"to_address"`
+	Nonce    *felt.Felt   `json:"nonce"`
+}
+
+type L2ToL1Message struct {
+	From    *felt.Felt   `json:"from_address"`
+	Payload []*felt.Felt `json:"payload"`
+	To      string       `json:"to_address"`
+}
+
+type ExecutionResources struct {
+	Steps                  uint64 `json:"n_steps"`
+	BuiltinInstanceCounter struct {
+		Pedersen   uint64 `json:"pedersen_builtin"`
+		RangeCheck uint64 `json:"range_check_builtin"`
+		Bitwise    uint64 `json:"bitwise_builtin"`
+		Output     uint64 `json:"output_builtin"`
+		Ecsda      uint64 `json:"ecdsa_builtin"`
+		EcOp       uint64 `json:"ec_op_builtin"`
+	} `json:"builtin_instance_counter"`
+	MemoryHoles uint64 `json:"n_memory_holes"`
+}
+
+type TransactionReceipt struct {
+	ActualFee          *felt.Felt          `json:"actual_fee"`
+	Events             []*Event            `json:"events"`
+	ExecutionResources *ExecutionResources `json:"execution_resources"`
+	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
+	L2ToL1Message      *[]L2ToL1Message    `json:"l2_to_l1_messages"`
+	TransactionHash    *felt.Felt          `json:"transaction_hash"`
+	TransactionIndex   *big.Int            `json:"transaction_index"`
+}
+
+// Block object returned by the gateway in JSON format for "get_block" endpoint
+type Block struct {
+	Hash         *felt.Felt            `json:"block_hash"`
+	ParentHash   *felt.Felt            `json:"parent_block_hash"`
+	Number       uint64                `json:"block_number"`
+	StateRoot    *felt.Felt            `json:"state_root"`
+	Status       string                `json:"status"`
+	GasPrice     *felt.Felt            `json:"gas_price"`
+	Transactions []*Transaction        `json:"transactions"`
+	Timestamp    uint64                `json:"timestamp"`
+	Version      string                `json:"starknet_version"`
+	Receipts     []*TransactionReceipt `json:"transaction_receipts"`
+}
+
+func (c *GatewayClient) GetBlock(blockNumber uint64) (*Block, error) {
+	queryUrl := c.buildQueryString("get_block", map[string]string{
+		"blockNumber": strconv.FormatUint(blockNumber, 10),
+	})
+
+	body, err := c.get(queryUrl)
+	block := new(Block)
+	if err = json.Unmarshal(body, block); err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
