@@ -2,6 +2,7 @@ package clients
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -239,4 +240,28 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "2386f26fc10000", handlerTx.Calldata[2].Text(16))
 	assert.Equal(t, "0", handlerTx.Calldata[3].Text(16))
 	assert.Equal(t, "L1_HANDLER", handlerTx.Type)
+}
+
+func TestBlockUnmarshal(t *testing.T) {
+	blockJson, err := os.ReadFile("block_11817.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var block Block
+	err = json.Unmarshal(blockJson, &block)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, "24c692acaed3b486990bd9d2b2fbbee802b37b3bd79c59f295bad3277200a83", block.Hash.Text(16))
+	assert.Equal(t, "3873ccb937f14429b169c654dda28886d2cc2d6ea17b3cff9748fe5cfdb67e0", block.ParentHash.Text(16))
+	assert.Equal(t, uint64(11817), block.Number)
+	assert.Equal(t, "3df24be7b5fed6b41de08d38686b6142944119ca2a345c38793590d6804bba4", block.StateRoot.Text(16))
+	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	assert.Equal(t, "27ad16775", block.GasPrice.Text(16))
+	assert.Equal(t, 52, len(block.Transactions))
+	assert.Equal(t, 52, len(block.Receipts))
+	assert.Equal(t, uint64(1669465009), block.Timestamp)
+	assert.Equal(t, "0.10.1", block.Version)
 }
