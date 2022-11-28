@@ -1,11 +1,8 @@
 package contract
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -27,9 +24,9 @@ type Contract struct {
 // EntryPoint uniquely identifies a Cairo function to execute.
 type EntryPoint struct {
 	// starknet_keccak hash of the function signature.
-	Selector *felt.Felt `json:"selector"`
+	Selector *felt.Felt
 	// The offset of the instruction in the class's bytecode.
-	Offset *felt.Felt `json:"offset"`
+	Offset uint
 }
 
 // Class unambiguously defines a [Contract]'s semantics.
@@ -50,7 +47,7 @@ type Class struct {
 	Bytecode    []*felt.Felt
 }
 
-// NewClass Creates new empty class instance
+// Creates new empty class instance
 func NewClass() *Class {
 	return &Class{
 		APIVersion:   0,
@@ -63,59 +60,67 @@ func NewClass() *Class {
 	}
 }
 
-// ClassHash computes the [Pedersen Hash] of the class.
+// Hash computes the [Pedersen Hash] of the class.
 //
 // [Pedersen Hash]: https://docs.starknet.io/documentation/develop/Contracts/contract-hash/#how_the_class_hash_is_computed
 func (c *Class) ClassHash() (*felt.Felt, error) {
 	var hashFelt []*felt.Felt
 
-	apiVersion := new(felt.Felt).SetUint64(uint64(c.APIVersion))
+	zeroNonce := new(felt.Felt).SetUint64(0)
+	hashFelt = append(hashFelt, zeroNonce)
+
+	apiVersion := zeroNonce.SetUint64(uint64(c.APIVersion))
 	hashFelt = append(hashFelt, apiVersion)
 
-	// Pedersen hash of the externals
-	externalsPedersen, err := EntryPointToFelt(c.Externals)
-	if err != nil {
-		return nil, err
-	}
-	hashFelt = append(hashFelt, externalsPedersen)
-
-	// Pedersen hash of the L1 handlers
-	l1HandlersPedersen, err := EntryPointToFelt(c.L1Handlers)
-	if err != nil {
-		return nil, err
-	}
-	hashFelt = append(hashFelt, l1HandlersPedersen)
-
-	// Pedersen hash of the constructors
-	constructorsPedersen, err := EntryPointToFelt(c.Constructors)
-	if err != nil {
-		return nil, err
-	}
-	hashFelt = append(hashFelt, constructorsPedersen)
-
-	// Pedersen hash of the builtins
-	//
-	// Convert []string to []*felt.Felt
-	var builtinFeltArray []*felt.Felt
-	if len(c.Builtins) > 0 {
-		for _, builtin := range c.Builtins {
-			builtinFelt := new(felt.Felt).SetBytes([]byte(builtin))
-			builtinFeltArray = append(builtinFeltArray, builtinFelt)
+	// Pederesen hash of the externals
+	if len(c.Externals) > 0 {
+		externalsPedersen, err := EntryPointToFelt(c.Externals)
+		if err != nil {
+			return nil, err
 		}
+		hashFelt = append(hashFelt, externalsPedersen)
 	}
-	builtinHash, err := crypto.PedersenArray(builtinFeltArray...)
-	if err != nil {
-		return nil, err
+
+	// Pederesen hash of the L1 handlers
+	if len(c.L1Handlers) > 0 {
+		l1HandlersPedersen, err := EntryPointToFelt(c.L1Handlers)
+		if err != nil {
+			return nil, err
+		}
+		hashFelt = append(hashFelt, l1HandlersPedersen)
 	}
-	hashFelt = append(hashFelt, builtinHash)
+
+	// Pederesen hash of the constructors
+	if len(c.Constructors) > 0 {
+		constructorsPedersen, err := EntryPointToFelt(c.Constructors)
+		if err != nil {
+			return nil, err
+		}
+		hashFelt = append(hashFelt, constructorsPedersen)
+	}
+
+	// Convert builtin array to felt
+	for _, builtin := range c.Builtins {
+		builtinFelt := new(felt.Felt).SetBytes([]byte(builtin))
+		hashFelt = append(hashFelt, builtinFelt)
+	}
+
 	hashFelt = append(hashFelt, c.ProgramHash)
 
-	// Pedersen hash of the bytecode
-	bytecodeHash, err := crypto.PedersenArray(c.Bytecode...)
-	if err != nil {
-		return nil, err
+	// Pederesen hash of the bytecode
+	if len(c.Bytecode) > 2 {
+		bytecodePedersen, err := crypto.PedersenArray(c.Bytecode...)
+		if err != nil {
+			return nil, err
+		}
+		hashFelt = append(hashFelt, bytecodePedersen)
+	} else if len(c.Bytecode) == 2 {
+		bytecodePedersen, err := crypto.Pedersen(c.Bytecode[0], c.Bytecode[1])
+		if err != nil {
+			return nil, err
+		}
+		hashFelt = append(hashFelt, bytecodePedersen)
 	}
-	hashFelt = append(hashFelt, bytecodeHash)
 
 	// Pedersen hash of all the above
 	classHash, err := crypto.PedersenArray(hashFelt...)
@@ -126,7 +131,7 @@ func (c *Class) ClassHash() (*felt.Felt, error) {
 	return classHash, nil
 }
 
-// Address computes the address of a StarkNet contract.
+// Hash computes the address of a StarkNet contract.
 func (c *Class) Address(callerAddress, salt *felt.Felt, constructorCalldata []*felt.Felt) (*felt.Felt, error) {
 	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
 	classHash, err := c.ClassHash()
@@ -150,355 +155,178 @@ func (c *Class) Address(callerAddress, salt *felt.Felt, constructorCalldata []*f
 func EntryPointToFelt(entryPoint []EntryPoint) (*felt.Felt, error) {
 	// Convert entry points to felt
 	var entryPointFeltArray []*felt.Felt
-	if len(entryPoint) > 0 {
-		for _, entry := range entryPoint {
-			entryPointFeltArray = append(entryPointFeltArray, entry.Selector)
-			entryPointFeltArray = append(entryPointFeltArray, entry.Offset)
+	for _, entry := range entryPoint {
+		entryPointFeltArray = append(entryPointFeltArray, entry.Selector)
+		entryPointFeltArray = append(entryPointFeltArray, new(felt.Felt).SetUint64(uint64(entry.Offset)))
+	}
+
+	var entryPointPedersen *felt.Felt
+	// Pederesen hash of the entry points
+	if len(entryPointFeltArray) == 2 {
+		pedersen, err := crypto.Pedersen(entryPointFeltArray[0], entryPointFeltArray[1])
+		if err != nil {
+			return nil, err
 		}
+		entryPointPedersen = pedersen
+	} else if len(entryPointFeltArray) > 2 {
+		pedersen, err := crypto.PedersenArray(entryPointFeltArray...)
+		if err != nil {
+			return nil, err
+		}
+		entryPointPedersen = pedersen
 	}
-
-	// Pedersen hash of the entry points
-	entryPointPedersen, err := crypto.PedersenArray(entryPointFeltArray...)
-	if err != nil {
-		return nil, err
-	}
-
 	return entryPointPedersen, nil
 }
 
-type Abi []struct {
-	Inputs []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	} `json:"inputs"`
-	Name    string        `json:"name"`
-	Outputs []interface{} `json:"outputs"`
-	Type    string        `json:"type"`
-}
-
-type (
-	Hints       map[uint64]interface{}
-	Identifiers map[string]struct {
-		CairoType   string        `json:"cairo_type,omitempty"`
-		Destination string        `json:"destination,omitempty"`
-		FullName    string        `json:"full_name,omitempty"`
-		Members     interface{}   `json:"members,omitempty"`
-		References  []interface{} `json:"references,omitempty"`
-		Size        uint64        `json:"size,omitempty"`
-		Type        string        `json:"type,omitempty"`
-		Value       json.Number   `json:"value,omitempty"`
-	}
-	Program struct {
-		Attributes       interface{} `json:"attributes,omitempty"`
-		Builtins         []string    `json:"builtins"`
-		CompilerVersion  string      `json:"compiler_version,omitempty"`
-		Data             []string    `json:"data"`
-		DebugInfo        interface{} `json:"debug_info"`
-		Hints            Hints       `json:"hints"`
-		Identifiers      interface{} `json:"identifiers,omitempty"`
-		MainScope        interface{} `json:"main_scope"`
-		Prime            string      `json:"prime"`
-		ReferenceManager interface{} `json:"reference_manager"`
-	}
-	TypedProgram struct {
-		Attributes       interface{} `json:"attributes,omitempty"`
-		Builtins         []string    `json:"builtins"`
-		CompilerVersion  string      `json:"compiler_version,omitempty"`
-		Data             []string    `json:"data"`
-		DebugInfo        interface{} `json:"debug_info"`
-		Hints            Hints       `json:"hints"`
-		Identifiers      Identifiers `json:"identifiers"`
-		MainScope        interface{} `json:"main_scope"`
-		Prime            string      `json:"prime"`
-		ReferenceManager interface{} `json:"reference_manager"`
-	}
-)
-
-type ClassDefinition struct {
-	Abi         interface{} `json:"abi"`
-	EntryPoints struct {
-		Constructor []EntryPoint `json:"CONSTRUCTOR"`
-		External    []EntryPoint `json:"EXTERNAL"`
-		L1Handler   []EntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program Program `json:"program"`
-}
-
-type TypedClassDefinition struct {
-	Abi         interface{} `json:"abi"`
-	EntryPoints struct {
-		Constructor []EntryPoint `json:"CONSTRUCTOR"`
-		External    []EntryPoint `json:"EXTERNAL"`
-		L1Handler   []EntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program TypedProgram `json:"program"`
-}
-
-type ContractCode struct {
-	Abi     interface{} `json:"abi"`
-	Program Program     `json:"program"`
-}
-
 func GenerateClass(contractDefinition []byte) (Class, error) {
-	definition := new(ClassDefinition)
-	err := json.Unmarshal(contractDefinition, &definition)
+	c := NewClass()
+	c.APIVersion = 0
+
+	var fullContract map[string]interface{}
+	err := json.Unmarshal(contractDefinition, &fullContract)
 	if err != nil {
-		fmt.Println("Error decoding contract definition")
 		return Class{}, err
 	}
 
-	class := new(Class)
-	class.APIVersion = 0
-
 	// Get Entry Points
-	class.Constructors = definition.EntryPoints.Constructor
-	class.L1Handlers = definition.EntryPoints.L1Handler
-	class.Externals = definition.EntryPoints.External
+	entryPoints := make(map[string][]EntryPoint)
+	entryPointsByType := fullContract["entry_points_by_type"].(map[string]interface{})
+	for key, entryPoint := range entryPointsByType {
+		entryPointsInterface := entryPoint.([]interface{})
+		var offsetsAndSelectors []EntryPoint
+		for _, entryPointInterface := range entryPointsInterface {
+			entryPointMap := entryPointInterface.(map[string]interface{})
+			offset := entryPointMap["offset"].(string)
+			offset = strings.Replace(offset, "0x", "", -1)
+			offsetUint, err := strconv.ParseInt(offset, 16, 64)
+			if err != nil {
+				return Class{}, err
+			}
+			selector := entryPointMap["selector"].(string)
+			offsetsAndSelectors = append(offsetsAndSelectors, EntryPoint{
+				Offset:   uint(offsetUint),
+				Selector: new(felt.Felt).SetBytes([]byte(selector)),
+			})
+		}
 
-	program := definition.Program
+		entryPoints[key] = offsetsAndSelectors
+	}
+
+	c.Constructors = entryPoints["CONSTRUCTOR"]
+	c.L1Handlers = entryPoints["L1_HANDLER"]
+	c.Externals = entryPoints["EXTERNAL"]
+
+	program := fullContract["program"].(map[string]interface{})
 
 	// Get Builtins
-	builtins := program.Builtins
-	class.Builtins = append(class.Builtins, builtins...)
+	builtins := program["builtins"].([]interface{})
+	for _, builtin := range builtins {
+		c.Builtins = append(c.Builtins, builtin.(string))
+	}
 
 	// make debug info None
-	program.DebugInfo = nil
+	program["debug_info"] = nil
 
 	// Cairo 0.8 added "accessible_scopes" and "flow_tracking_data" attribute fields, which were
 	// not present in older contracts. They present as null/empty for older contracts deployed
 	// prior to adding this feature and should not be included in the hash calculation in these cases.
 	//
 	// We therefore check and remove them from the definition before calculating the hash.
-	if program.Attributes != nil {
-		attributes := program.Attributes.([]interface{})
-		if len(attributes) == 0 {
-			program.Attributes = nil
-		} else {
-			for key, attribute := range attributes {
-				attributeInterface := attribute.(map[string]interface{})
-				if attributeInterface["accessible_scopes"] == nil || len(attributeInterface["accessible_scopes"].([]interface{})) == 0 {
-					delete(attributeInterface, "accessible_scopes")
-				}
+	attributes := program["attributes"].([]interface{})
 
-				if attributeInterface["flow_tracking_data"] == nil || len(attributeInterface["flow_tracking_data"].(map[string]interface{})) == 0 {
-					delete(attributeInterface, "flow_tracking_data")
-				}
-
-				attributes[key] = attributeInterface
+	if len(attributes) == 0 {
+		delete(program, "attributes")
+	} else {
+		for _, attribute := range attributes {
+			attributeInterface := attribute.(map[string]interface{})
+			if len(attributeInterface["accessible_scopes"].([]interface{})) == 0 {
+				delete(attributeInterface, "accessible_scopes")
 			}
 
-			program.Attributes = attributes
+			if len(attributeInterface["flow_tracking_data"].([]interface{})) == 0 {
+				delete(attributeInterface, "flow_tracking_data")
+			}
 		}
 	}
 
-	contractCode := new(ContractCode)
-	contractCode.Abi = definition.Abi
-	contractCode.Program = program
-
-	// Explanation of why we have contractDefinition and typedContractDefinition
+	// Compilers before version 0.10.0 use the "(a : felt)" syntax instead of the "(a: felt)" syntax.
+	// So, we need to add an extra space before the colon in these cases for backwards compatibility.
 	//
-	// contractDefinition uses interface{} to marshal Identifiers and therefore maintain the
-	// original order of the map[string]interface{}. However, it introduces a problem by
-	// converting big numbers (e.g. -106710729501573572985208420194530329073740042555888586719489)
-	// into floats (e.g. -1.0671072950157357e+59). This affects the computation.
-	//
-	// On the other hand, typedContractDefinition uses the Identifier type to marshal identifiers
-	// without converting big numbers to floats. It, however, does not maintain the orginal order
-	// of the objects. The order is important to generate the correct class hash.
-	typedContractDefinition := new(TypedClassDefinition)
-	err = json.Unmarshal(contractDefinition, &typedContractDefinition)
-	if err != nil {
-		fmt.Println("Error decoding contract definition")
-		return Class{}, err
+	// If compiler_version is not present, this was compiled with a compiler before version 0.10.0.
+	if program["compiler_version"] == nil {
+		identifiers := program["identifiers"]
+		if identifiers != nil {
+			identifiers, err := addExtraSpaceToCairoNamedTuples(identifiers)
+			if err != nil {
+				return Class{}, err
+			}
+			program["identifiers"] = identifiers
+		}
+
+		referenceManager := program["reference_manager"]
+		if referenceManager != nil {
+			referenceManager, err := addExtraSpaceToCairoNamedTuples(referenceManager)
+			if err != nil {
+				return Class{}, err
+			}
+			program["reference_manager"] = referenceManager
+		}
 	}
 
-	// Convert update program to bytes
-	programBytes, err := contractCode.MarshalsJSON(typedContractDefinition.Program.Identifiers)
-	if err != nil {
-		fmt.Println("Error encoding program")
-		return Class{}, err
-	}
+	// TODO: Implement https://github.com/eqlabs/pathfinder/blob/98cb3549f3b9fbb0010b984c2b9e33f15daa82dc/crates/pathfinder/src/state/class_hash.rs#L172-L182
 
-	programKeccak, err := crypto.StarkNetKeccak(programBytes)
+	programKeccak, err := crypto.StarkNetKeccak(contractDefinition)
 	if err != nil {
 		return Class{}, err
 	}
-
-	class.ProgramHash = programKeccak
+	c.ProgramHash = programKeccak
 
 	// Get Bytecode
-	var bytecode []*felt.Felt
-	for _, entry := range program.Data {
-		code, err := new(felt.Felt).SetString(entry)
+	bytecode := program["data"].([]interface{})
+	for _, code := range bytecode {
+		byteCodeFelt, err := new(felt.Felt).SetString((code.(string)))
 		if err != nil {
 			return Class{}, err
 		}
-		bytecode = append(bytecode, code)
+		c.Bytecode = append(c.Bytecode, byteCodeFelt)
 	}
-	class.Bytecode = bytecode
 
-	return *class, err
+	return *c, err
 }
 
-// Create custom json marshaller
-func (c ContractCode) MarshalsJSON(identifiers Identifiers) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	buf.Write([]byte("{"))
-	buf.Write([]byte("\"abi\": "))
-	err := formatter(buf, c.Abi, "", identifiers)
-	if err != nil {
-		return nil, err
-	}
-
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"program\": " + "{"))
-	program := c.Program
-	if program.Attributes != nil {
-		buf.Write([]byte("\"attributes\": "))
-		formatter(buf, program.Attributes, "", identifiers)
-		buf.Write([]byte(", "))
-	}
-	buf.Write([]byte("\"builtins\": "))
-	formatter(buf, program.Builtins, "", identifiers)
-	buf.Write([]byte(", "))
-	if program.CompilerVersion != "" {
-		buf.Write([]byte("\"compiler_version\": "))
-		formatter(buf, program.CompilerVersion, "", identifiers)
-		buf.Write([]byte(", "))
-	}
-	buf.Write([]byte("\"data\": "))
-	formatter(buf, program.Data, "", identifiers)
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"debug_info\": "))
-	formatter(buf, program.DebugInfo, "", identifiers)
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"hints\": "))
-	formatter(buf, program.Hints, "", identifiers)
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"identifiers\": "))
-	formatter(buf, program.Identifiers, "", identifiers)
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"main_scope\": "))
-	formatter(buf, program.MainScope, "", identifiers)
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"prime\": "))
-	formatter(buf, program.Prime, "", identifiers)
-	buf.Write([]byte(", "))
-	buf.Write([]byte("\"reference_manager\": "))
-	formatter(buf, program.ReferenceManager, "", identifiers)
-	buf.Write([]byte("}}"))
-
-	return buf.Bytes(), nil
-}
-
-func formatter(buf *bytes.Buffer, value interface{}, tree string, identifiers Identifiers) error {
-	switch v := value.(type) {
-	case string:
-		var result string
-		if strings.ContainsAny(v, "\n\\") {
-			result = strings.ReplaceAll(v, "\\", "\\\\")
-			result = strings.ReplaceAll(result, "\n", "\\n")
-		} else {
-			result = v
-		}
-		buf.WriteString("\"" + result + "\"")
-	case uint:
-		result := strconv.FormatUint(uint64(v), 10)
-		buf.WriteString(result)
-	case uint64:
-		result := strconv.FormatUint(v, 10)
-		buf.WriteString(result)
-	case float64:
-		result := strconv.FormatFloat(v, 'f', 0, 64)
-		buf.WriteString(result)
-	case json.Number:
-		result := string(v)
-		buf.WriteString(result)
-	case map[string]interface{}:
-		buf.Write([]byte{'{'})
-		// Arrange lexigraphically
-		keys := make([]string, 0, len(v))
-		for k := range v {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for i, k := range keys {
-			buf.Write([]byte{'"'})
-			buf.WriteString(k)
-			buf.Write([]byte{'"'})
-			buf.Write([]byte(": "))
-			if k == "value" && reflect.TypeOf(v[k]) == reflect.TypeOf(float64(0)) && v[k] != float64(0) {
-				value := identifiers[tree].Value
-				buf.Write([]byte(value))
-			} else {
-				if reflect.TypeOf(v[k]) == reflect.TypeOf(map[string]interface{}{}) {
-					tree = k
-				}
-				err := formatter(buf, v[k], tree, identifiers)
-				if err != nil {
-					return err
-				}
-			}
-			if i < len(keys)-1 {
-				buf.Write([]byte(", "))
-			}
-		}
-		buf.Write([]byte{'}'})
-	case Hints:
-		buf.Write([]byte{'{'})
-		// Arrange numerically
-		keys := make([]uint64, 0, len(v))
-		for k := range v {
-			keys = append(keys, k)
-		}
-		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-
-		for i, k := range keys {
-			buf.Write([]byte{'"'})
-			buf.WriteString(strconv.FormatUint(k, 10))
-			buf.Write([]byte{'"'})
-			buf.Write([]byte(": "))
-			err := formatter(buf, v[k], "", identifiers)
-			if err != nil {
-				return err
-			}
-			if i < len(keys)-1 {
-				buf.Write([]byte(", "))
-			}
-		}
-		buf.Write([]byte{'}'})
+// TODO: Confirm whether this is the correct way to update (a: felt)
+func addExtraSpaceToCairoNamedTuples(value interface{}) (interface{}, error) {
+	switch value.(type) {
 	case []interface{}:
-		buf.Write([]byte{'['})
-		count := 0
-		for _, value := range v {
-			err := formatter(buf, value, "", identifiers)
+		valueArray := value.([]interface{})
+		for i, v := range valueArray {
+			result, err := addExtraSpaceToCairoNamedTuples(v)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if count < len(v)-1 {
-				buf.Write([]byte(", "))
-			}
-			count++
+			valueArray[i] = result
 		}
-		buf.Write([]byte{']'})
-	case []string:
-		buf.Write([]byte{'['})
-		count := 0
-		for _, value := range v {
-			buf.WriteString(`"` + value + `"`)
-			if count < len(v)-1 {
-				buf.Write([]byte(", "))
+		return valueArray, nil
+	case map[string]interface{}:
+		valueMap := value.(map[string]interface{})
+		for k, v := range valueMap {
+			if reflect.TypeOf(v).Kind() == reflect.String {
+				if k == "value" || k == "cairo_type" {
+					v = strings.ReplaceAll(v.(string), ": ", " : ")
+					valueMap[k] = strings.ReplaceAll(v.(string), "  :", " :")
+				} else {
+					valueMap[k] = v
+				}
+			} else {
+				result, err := addExtraSpaceToCairoNamedTuples(v)
+				if err != nil {
+					return nil, err
+				}
+				valueMap[k] = result
 			}
-			count++
 		}
-		buf.Write([]byte{']'})
+		return valueMap, nil
 	default:
-		if value == nil {
-			buf.WriteString("null")
-		} else {
-			fmt.Println("Unknown type: ", reflect.TypeOf(value))
-			return fmt.Errorf("unknown type: %T", value)
-		}
+		return value, nil
 	}
-	return nil
 }
