@@ -1,0 +1,2278 @@
+{
+    "abi": [
+      {
+        "inputs": [
+          {
+            "name": "implementation",
+            "type": "felt"
+          },
+          {
+            "name": "selector",
+            "type": "felt"
+          },
+          {
+            "name": "calldata_len",
+            "type": "felt"
+          },
+          {
+            "name": "calldata",
+            "type": "felt*"
+          }
+        ],
+        "name": "constructor",
+        "outputs": [],
+        "type": "constructor"
+      },
+      {
+        "inputs": [
+          {
+            "name": "selector",
+            "type": "felt"
+          },
+          {
+            "name": "calldata_size",
+            "type": "felt"
+          },
+          {
+            "name": "calldata",
+            "type": "felt*"
+          }
+        ],
+        "name": "__default__",
+        "outputs": [
+          {
+            "name": "retdata_size",
+            "type": "felt"
+          },
+          {
+            "name": "retdata",
+            "type": "felt*"
+          }
+        ],
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "name": "selector",
+            "type": "felt"
+          },
+          {
+            "name": "calldata_size",
+            "type": "felt"
+          },
+          {
+            "name": "calldata",
+            "type": "felt*"
+          }
+        ],
+        "name": "__l1_default__",
+        "outputs": [],
+        "type": "l1_handler"
+      },
+      {
+        "inputs": [],
+        "name": "get_implementation",
+        "outputs": [
+          {
+            "name": "implementation",
+            "type": "felt"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    "entry_points_by_type": {
+      "CONSTRUCTOR": [
+        {
+          "selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+          "offset": "0x6c"
+        }
+      ],
+      "EXTERNAL": [
+        {
+          "selector": "0x0",
+          "offset": "0x9b"
+        },
+        {
+          "selector": "0x21691762da057c1b71f851f9b709e0c143628acf6e0cbc9735411a65663d747",
+          "offset": "0xd4"
+        }
+      ],
+      "L1_HANDLER": [
+        {
+          "selector": "0x0",
+          "offset": "0xb4"
+        }
+      ]
+    },
+    "program": {
+      "builtins": [
+        "pedersen",
+        "range_check"
+      ],
+      "prime": "0x800000000000011000000000000000000000000000000000000000000000001",
+      "reference_manager": {
+        "references": [
+          {
+            "ap_tracking_data": {
+              "group": 0,
+              "offset": 0
+            },
+            "value": "[cast(fp + (-3), felt*)]",
+            "pc": 0
+          },
+          {
+            "ap_tracking_data": {
+              "group": 1,
+              "offset": 0
+            },
+            "value": "[cast(fp + (-7), felt**)]",
+            "pc": 5
+          },
+          {
+            "ap_tracking_data": {
+              "group": 2,
+              "offset": 0
+            },
+            "value": "[cast(fp + (-7), felt**)]",
+            "pc": 17
+          },
+          {
+            "ap_tracking_data": {
+              "group": 3,
+              "offset": 0
+            },
+            "value": "[cast(fp + (-4), felt**)]",
+            "pc": 29
+          },
+          {
+            "ap_tracking_data": {
+              "group": 4,
+              "offset": 0
+            },
+            "value": "[cast(fp + (-5), felt**)]",
+            "pc": 37
+          }
+        ]
+      },
+      "identifiers": {
+        "__main__.HashBuiltin": {
+          "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+          "type": "alias"
+        },
+        "__main__.__default__": {
+          "pc": 137,
+          "decorators": [
+            "external",
+            "raw_input",
+            "raw_output"
+          ],
+          "type": "function"
+        },
+        "__main__.__default__.Args": {
+          "size": 3,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "calldata_size": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 2
+            }
+          },
+          "full_name": "__main__.__default__.Args",
+          "type": "struct"
+        },
+        "__main__.__default__.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "__main__.__default__.ImplicitArgs",
+          "type": "struct"
+        },
+        "__main__.__default__.Return": {
+          "cairo_type": "(retdata_size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "__main__.__default__.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__main__.__l1_default__": {
+          "pc": 164,
+          "decorators": [
+            "l1_handler",
+            "raw_input"
+          ],
+          "type": "function"
+        },
+        "__main__.__l1_default__.Args": {
+          "size": 3,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "calldata_size": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 2
+            }
+          },
+          "full_name": "__main__.__l1_default__.Args",
+          "type": "struct"
+        },
+        "__main__.__l1_default__.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "__main__.__l1_default__.ImplicitArgs",
+          "type": "struct"
+        },
+        "__main__.__l1_default__.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "__main__.__l1_default__.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__main__._get_implementation": {
+          "destination": "contracts.Upgradable._get_implementation",
+          "type": "alias"
+        },
+        "__main__._set_implementation": {
+          "destination": "contracts.Upgradable._set_implementation",
+          "type": "alias"
+        },
+        "__main__.constructor": {
+          "pc": 91,
+          "decorators": [
+            "constructor"
+          ],
+          "type": "function"
+        },
+        "__main__.constructor.Args": {
+          "size": 4,
+          "members": {
+            "implementation": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "calldata_len": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 3
+            }
+          },
+          "full_name": "__main__.constructor.Args",
+          "type": "struct"
+        },
+        "__main__.constructor.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "__main__.constructor.ImplicitArgs",
+          "type": "struct"
+        },
+        "__main__.constructor.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "__main__.constructor.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__main__.get_implementation": {
+          "pc": 197,
+          "decorators": [
+            "view"
+          ],
+          "type": "function"
+        },
+        "__main__.get_implementation.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "__main__.get_implementation.Args",
+          "type": "struct"
+        },
+        "__main__.get_implementation.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "__main__.get_implementation.ImplicitArgs",
+          "type": "struct"
+        },
+        "__main__.get_implementation.Return": {
+          "cairo_type": "(implementation: felt)",
+          "type": "type_definition"
+        },
+        "__main__.get_implementation.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__main__.library_call": {
+          "destination": "starkware.starknet.common.syscalls.library_call",
+          "type": "alias"
+        },
+        "__main__.library_call_l1_handler": {
+          "destination": "starkware.starknet.common.syscalls.library_call_l1_handler",
+          "type": "alias"
+        },
+        "__wrappers__.__default__": {
+          "pc": 155,
+          "decorators": [
+            "external",
+            "raw_input",
+            "raw_output"
+          ],
+          "type": "function"
+        },
+        "__wrappers__.__default__.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.__default__.Args",
+          "type": "struct"
+        },
+        "__wrappers__.__default__.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.__default__.ImplicitArgs",
+          "type": "struct"
+        },
+        "__wrappers__.__default__.Return": {
+          "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: starkware.cairo.common.cairo_builtins.HashBuiltin*, range_check_ptr: felt, size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "__wrappers__.__default__.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__wrappers__.__default__.__wrapped_func": {
+          "destination": "__main__.__default__",
+          "type": "alias"
+        },
+        "__wrappers__.__default___encode_return.memcpy": {
+          "destination": "starkware.cairo.common.memcpy.memcpy",
+          "type": "alias"
+        },
+        "__wrappers__.__l1_default__": {
+          "pc": 180,
+          "decorators": [
+            "l1_handler",
+            "raw_input"
+          ],
+          "type": "function"
+        },
+        "__wrappers__.__l1_default__.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.__l1_default__.Args",
+          "type": "struct"
+        },
+        "__wrappers__.__l1_default__.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.__l1_default__.ImplicitArgs",
+          "type": "struct"
+        },
+        "__wrappers__.__l1_default__.Return": {
+          "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: starkware.cairo.common.cairo_builtins.HashBuiltin*, range_check_ptr: felt, size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "__wrappers__.__l1_default__.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__wrappers__.__l1_default__.__wrapped_func": {
+          "destination": "__main__.__l1_default__",
+          "type": "alias"
+        },
+        "__wrappers__.__l1_default___encode_return.memcpy": {
+          "destination": "starkware.cairo.common.memcpy.memcpy",
+          "type": "alias"
+        },
+        "__wrappers__.constructor": {
+          "pc": 108,
+          "decorators": [
+            "constructor"
+          ],
+          "type": "function"
+        },
+        "__wrappers__.constructor.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.constructor.Args",
+          "type": "struct"
+        },
+        "__wrappers__.constructor.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.constructor.ImplicitArgs",
+          "type": "struct"
+        },
+        "__wrappers__.constructor.Return": {
+          "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: starkware.cairo.common.cairo_builtins.HashBuiltin*, range_check_ptr: felt, size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "__wrappers__.constructor.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__wrappers__.constructor.__wrapped_func": {
+          "destination": "__main__.constructor",
+          "type": "alias"
+        },
+        "__wrappers__.constructor_encode_return.memcpy": {
+          "destination": "starkware.cairo.common.memcpy.memcpy",
+          "type": "alias"
+        },
+        "__wrappers__.get_implementation": {
+          "pc": 212,
+          "decorators": [
+            "view"
+          ],
+          "type": "function"
+        },
+        "__wrappers__.get_implementation.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.get_implementation.Args",
+          "type": "struct"
+        },
+        "__wrappers__.get_implementation.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.get_implementation.ImplicitArgs",
+          "type": "struct"
+        },
+        "__wrappers__.get_implementation.Return": {
+          "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: starkware.cairo.common.cairo_builtins.HashBuiltin*, range_check_ptr: felt, size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "__wrappers__.get_implementation.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "__wrappers__.get_implementation.__wrapped_func": {
+          "destination": "__main__.get_implementation",
+          "type": "alias"
+        },
+        "__wrappers__.get_implementation_encode_return": {
+          "pc": 203,
+          "decorators": [],
+          "type": "function"
+        },
+        "__wrappers__.get_implementation_encode_return.Args": {
+          "size": 2,
+          "members": {
+            "ret_value": {
+              "cairo_type": "(implementation: felt)",
+              "offset": 0
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 1
+            }
+          },
+          "full_name": "__wrappers__.get_implementation_encode_return.Args",
+          "type": "struct"
+        },
+        "__wrappers__.get_implementation_encode_return.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "__wrappers__.get_implementation_encode_return.ImplicitArgs",
+          "type": "struct"
+        },
+        "__wrappers__.get_implementation_encode_return.Return": {
+          "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
+          "type": "type_definition"
+        },
+        "__wrappers__.get_implementation_encode_return.SIZEOF_LOCALS": {
+          "value": 1,
+          "type": "const"
+        },
+        "__wrappers__.get_implementation_encode_return.memcpy": {
+          "destination": "starkware.cairo.common.memcpy.memcpy",
+          "type": "alias"
+        },
+        "contracts.Upgradable.HashBuiltin": {
+          "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+          "type": "alias"
+        },
+        "contracts.Upgradable._get_implementation": {
+          "pc": 75,
+          "decorators": [],
+          "type": "function"
+        },
+        "contracts.Upgradable._get_implementation.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "contracts.Upgradable._get_implementation.Args",
+          "type": "struct"
+        },
+        "contracts.Upgradable._get_implementation.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "contracts.Upgradable._get_implementation.ImplicitArgs",
+          "type": "struct"
+        },
+        "contracts.Upgradable._get_implementation.Return": {
+          "cairo_type": "(implementation: felt)",
+          "type": "type_definition"
+        },
+        "contracts.Upgradable._get_implementation.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "contracts.Upgradable._implementation": {
+          "type": "namespace"
+        },
+        "contracts.Upgradable._implementation.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "contracts.Upgradable._implementation.Args",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.HashBuiltin": {
+          "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+          "type": "alias"
+        },
+        "contracts.Upgradable._implementation.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "contracts.Upgradable._implementation.ImplicitArgs",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "contracts.Upgradable._implementation.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "contracts.Upgradable._implementation.addr": {
+          "pc": 45,
+          "decorators": [],
+          "type": "function"
+        },
+        "contracts.Upgradable._implementation.addr.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "contracts.Upgradable._implementation.addr.Args",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.addr.ImplicitArgs": {
+          "size": 2,
+          "members": {
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 0
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 1
+            }
+          },
+          "full_name": "contracts.Upgradable._implementation.addr.ImplicitArgs",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.addr.Return": {
+          "cairo_type": "(res: felt)",
+          "type": "type_definition"
+        },
+        "contracts.Upgradable._implementation.addr.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "contracts.Upgradable._implementation.hash2": {
+          "destination": "starkware.cairo.common.hash.hash2",
+          "type": "alias"
+        },
+        "contracts.Upgradable._implementation.normalize_address": {
+          "destination": "starkware.starknet.common.storage.normalize_address",
+          "type": "alias"
+        },
+        "contracts.Upgradable._implementation.read": {
+          "pc": 50,
+          "decorators": [],
+          "type": "function"
+        },
+        "contracts.Upgradable._implementation.read.Args": {
+          "size": 0,
+          "members": {},
+          "full_name": "contracts.Upgradable._implementation.read.Args",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.read.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "contracts.Upgradable._implementation.read.ImplicitArgs",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.read.Return": {
+          "cairo_type": "(address: felt)",
+          "type": "type_definition"
+        },
+        "contracts.Upgradable._implementation.read.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "contracts.Upgradable._implementation.storage_read": {
+          "destination": "starkware.starknet.common.syscalls.storage_read",
+          "type": "alias"
+        },
+        "contracts.Upgradable._implementation.storage_write": {
+          "destination": "starkware.starknet.common.syscalls.storage_write",
+          "type": "alias"
+        },
+        "contracts.Upgradable._implementation.write": {
+          "pc": 63,
+          "decorators": [],
+          "type": "function"
+        },
+        "contracts.Upgradable._implementation.write.Args": {
+          "size": 1,
+          "members": {
+            "value": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "contracts.Upgradable._implementation.write.Args",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.write.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "contracts.Upgradable._implementation.write.ImplicitArgs",
+          "type": "struct"
+        },
+        "contracts.Upgradable._implementation.write.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "contracts.Upgradable._implementation.write.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "contracts.Upgradable._set_implementation": {
+          "pc": 81,
+          "decorators": [],
+          "type": "function"
+        },
+        "contracts.Upgradable._set_implementation.Args": {
+          "size": 1,
+          "members": {
+            "implementation": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "contracts.Upgradable._set_implementation.Args",
+          "type": "struct"
+        },
+        "contracts.Upgradable._set_implementation.ImplicitArgs": {
+          "size": 3,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            },
+            "pedersen_ptr": {
+              "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+              "offset": 1
+            },
+            "range_check_ptr": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "contracts.Upgradable._set_implementation.ImplicitArgs",
+          "type": "struct"
+        },
+        "contracts.Upgradable._set_implementation.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "contracts.Upgradable._set_implementation.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "contracts.Upgradable.assert_not_zero": {
+          "destination": "starkware.cairo.common.math.assert_not_zero",
+          "type": "alias"
+        },
+        "starkware.cairo.common.cairo_builtins.BitwiseBuiltin": {
+          "size": 5,
+          "members": {
+            "x": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "y": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "x_and_y": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "x_xor_y": {
+              "cairo_type": "felt",
+              "offset": 3
+            },
+            "x_or_y": {
+              "cairo_type": "felt",
+              "offset": 4
+            }
+          },
+          "full_name": "starkware.cairo.common.cairo_builtins.BitwiseBuiltin",
+          "type": "struct"
+        },
+        "starkware.cairo.common.cairo_builtins.EcOpBuiltin": {
+          "size": 7,
+          "members": {
+            "p": {
+              "cairo_type": "starkware.cairo.common.ec_point.EcPoint",
+              "offset": 0
+            },
+            "q": {
+              "cairo_type": "starkware.cairo.common.ec_point.EcPoint",
+              "offset": 2
+            },
+            "m": {
+              "cairo_type": "felt",
+              "offset": 4
+            },
+            "r": {
+              "cairo_type": "starkware.cairo.common.ec_point.EcPoint",
+              "offset": 5
+            }
+          },
+          "full_name": "starkware.cairo.common.cairo_builtins.EcOpBuiltin",
+          "type": "struct"
+        },
+        "starkware.cairo.common.cairo_builtins.EcPoint": {
+          "destination": "starkware.cairo.common.ec_point.EcPoint",
+          "type": "alias"
+        },
+        "starkware.cairo.common.cairo_builtins.HashBuiltin": {
+          "size": 3,
+          "members": {
+            "x": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "y": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "result": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+          "type": "struct"
+        },
+        "starkware.cairo.common.cairo_builtins.SignatureBuiltin": {
+          "size": 2,
+          "members": {
+            "pub_key": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "message": {
+              "cairo_type": "felt",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.cairo.common.cairo_builtins.SignatureBuiltin",
+          "type": "struct"
+        },
+        "starkware.cairo.common.dict_access.DictAccess": {
+          "size": 3,
+          "members": {
+            "key": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "prev_value": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "new_value": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "starkware.cairo.common.dict_access.DictAccess",
+          "type": "struct"
+        },
+        "starkware.cairo.common.ec_point.EcPoint": {
+          "size": 2,
+          "members": {
+            "x": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "y": {
+              "cairo_type": "felt",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.cairo.common.ec_point.EcPoint",
+          "type": "struct"
+        },
+        "starkware.cairo.common.hash.HashBuiltin": {
+          "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+          "type": "alias"
+        },
+        "starkware.cairo.common.math.assert_not_zero": {
+          "pc": 0,
+          "decorators": [],
+          "type": "function"
+        },
+        "starkware.cairo.common.math.assert_not_zero.Args": {
+          "size": 1,
+          "members": {
+            "value": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.cairo.common.math.assert_not_zero.Args",
+          "type": "struct"
+        },
+        "starkware.cairo.common.math.assert_not_zero.ImplicitArgs": {
+          "size": 0,
+          "members": {},
+          "full_name": "starkware.cairo.common.math.assert_not_zero.ImplicitArgs",
+          "type": "struct"
+        },
+        "starkware.cairo.common.math.assert_not_zero.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "starkware.cairo.common.math.assert_not_zero.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "starkware.cairo.common.math.assert_not_zero.value": {
+          "cairo_type": "felt",
+          "references": [
+            {
+              "ap_tracking_data": {
+                "group": 0,
+                "offset": 0
+              },
+              "value": "[cast(fp + (-3), felt*)]",
+              "pc": 0
+            }
+          ],
+          "full_name": "starkware.cairo.common.math.assert_not_zero.value",
+          "type": "reference"
+        },
+        "starkware.starknet.common.storage.ADDR_BOUND": {
+          "value": -1.0671072950157357e+59,
+          "type": "const"
+        },
+        "starkware.starknet.common.storage.MAX_STORAGE_ITEM_SIZE": {
+          "value": 256,
+          "type": "const"
+        },
+        "starkware.starknet.common.storage.assert_250_bit": {
+          "destination": "starkware.cairo.common.math.assert_250_bit",
+          "type": "alias"
+        },
+        "starkware.starknet.common.syscalls.CALL_CONTRACT_SELECTOR": {
+          "value": 2.0853273475220474e+28,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.CallContract": {
+          "size": 7,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.CallContractRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.CallContractResponse",
+              "offset": 5
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.CallContract",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.CallContractRequest": {
+          "size": 5,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "contract_address": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "function_selector": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "calldata_size": {
+              "cairo_type": "felt",
+              "offset": 3
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 4
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.CallContractRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.CallContractResponse": {
+          "size": 2,
+          "members": {
+            "retdata_size": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "retdata": {
+              "cairo_type": "felt*",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.CallContractResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.DELEGATE_CALL_SELECTOR": {
+          "value": 2.1167594061783206e+28,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.DELEGATE_L1_HANDLER_SELECTOR": {
+          "value": 2.3274015802972845e+40,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.DEPLOY_SELECTOR": {
+          "value": 75202468540281,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.Deploy": {
+          "size": 9,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.DeployRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.DeployResponse",
+              "offset": 6
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.Deploy",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.DeployRequest": {
+          "size": 6,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "class_hash": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "contract_address_salt": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "constructor_calldata_size": {
+              "cairo_type": "felt",
+              "offset": 3
+            },
+            "constructor_calldata": {
+              "cairo_type": "felt*",
+              "offset": 4
+            },
+            "reserved": {
+              "cairo_type": "felt",
+              "offset": 5
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.DeployRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.DeployResponse": {
+          "size": 3,
+          "members": {
+            "contract_address": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "constructor_retdata_size": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "constructor_retdata": {
+              "cairo_type": "felt*",
+              "offset": 2
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.DeployResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.DictAccess": {
+          "destination": "starkware.cairo.common.dict_access.DictAccess",
+          "type": "alias"
+        },
+        "starkware.starknet.common.syscalls.EMIT_EVENT_SELECTOR": {
+          "value": 1.2807093015503357e+21,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.EmitEvent": {
+          "size": 5,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "keys_len": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "keys": {
+              "cairo_type": "felt*",
+              "offset": 2
+            },
+            "data_len": {
+              "cairo_type": "felt",
+              "offset": 3
+            },
+            "data": {
+              "cairo_type": "felt*",
+              "offset": 4
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.EmitEvent",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GET_BLOCK_NUMBER_SELECTOR": {
+          "value": 1.448089106835523e+33,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GET_BLOCK_TIMESTAMP_SELECTOR": {
+          "value": 2.4294903732626647e+40,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GET_CALLER_ADDRESS_SELECTOR": {
+          "value": 9.490196778139308e+37,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GET_CONTRACT_ADDRESS_SELECTOR": {
+          "value": 6.219495360805491e+42,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GET_SEQUENCER_ADDRESS_SELECTOR": {
+          "value": 1.5921908335819916e+45,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GET_TX_INFO_SELECTOR": {
+          "value": 1.3170293902041122e+21,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GET_TX_SIGNATURE_SELECTOR": {
+          "value": 1.44808912865234e+33,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.GetBlockNumber": {
+          "size": 2,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetBlockNumberRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetBlockNumberResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetBlockNumber",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetBlockNumberRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetBlockNumberRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetBlockNumberResponse": {
+          "size": 1,
+          "members": {
+            "block_number": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetBlockNumberResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetBlockTimestamp": {
+          "size": 2,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetBlockTimestampRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetBlockTimestampResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetBlockTimestamp",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetBlockTimestampRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetBlockTimestampRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetBlockTimestampResponse": {
+          "size": 1,
+          "members": {
+            "block_timestamp": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetBlockTimestampResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetCallerAddress": {
+          "size": 2,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetCallerAddressRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetCallerAddressResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetCallerAddress",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetCallerAddressRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetCallerAddressRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetCallerAddressResponse": {
+          "size": 1,
+          "members": {
+            "caller_address": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetCallerAddressResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetContractAddress": {
+          "size": 2,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetContractAddressRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetContractAddressResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetContractAddress",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetContractAddressRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetContractAddressRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetContractAddressResponse": {
+          "size": 1,
+          "members": {
+            "contract_address": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetContractAddressResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetSequencerAddress": {
+          "size": 2,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetSequencerAddressRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetSequencerAddressResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetSequencerAddress",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetSequencerAddressRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetSequencerAddressRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetSequencerAddressResponse": {
+          "size": 1,
+          "members": {
+            "sequencer_address": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetSequencerAddressResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetTxInfo": {
+          "size": 2,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetTxInfoRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetTxInfoResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetTxInfo",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetTxInfoRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetTxInfoRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetTxInfoResponse": {
+          "size": 1,
+          "members": {
+            "tx_info": {
+              "cairo_type": "starkware.starknet.common.syscalls.TxInfo*",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetTxInfoResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetTxSignature": {
+          "size": 3,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetTxSignatureRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.GetTxSignatureResponse",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetTxSignature",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetTxSignatureRequest": {
+          "size": 1,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetTxSignatureRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.GetTxSignatureResponse": {
+          "size": 2,
+          "members": {
+            "signature_len": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "signature": {
+              "cairo_type": "felt*",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.GetTxSignatureResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.LIBRARY_CALL_L1_HANDLER_SELECTOR": {
+          "value": 4.362334527541981e+47,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.LIBRARY_CALL_SELECTOR": {
+          "value": 9.2376026794327e+25,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.LibraryCall": {
+          "size": 7,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.LibraryCallRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.CallContractResponse",
+              "offset": 5
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.LibraryCall",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.LibraryCallRequest": {
+          "size": 5,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "class_hash": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "function_selector": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "calldata_size": {
+              "cairo_type": "felt",
+              "offset": 3
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 4
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.LibraryCallRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.SEND_MESSAGE_TO_L1_SELECTOR": {
+          "value": 4.3301790876830345e+35,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.STORAGE_READ_SELECTOR": {
+          "value": 1.0089069337060175e+26,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.STORAGE_WRITE_SELECTOR": {
+          "value": 2.582801750287405e+28,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.SendMessageToL1SysCall": {
+          "size": 4,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "to_address": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "payload_size": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "payload_ptr": {
+              "cairo_type": "felt*",
+              "offset": 3
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.SendMessageToL1SysCall",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.StorageRead": {
+          "size": 3,
+          "members": {
+            "request": {
+              "cairo_type": "starkware.starknet.common.syscalls.StorageReadRequest",
+              "offset": 0
+            },
+            "response": {
+              "cairo_type": "starkware.starknet.common.syscalls.StorageReadResponse",
+              "offset": 2
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.StorageRead",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.StorageReadRequest": {
+          "size": 2,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "address": {
+              "cairo_type": "felt",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.StorageReadRequest",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.StorageReadResponse": {
+          "size": 1,
+          "members": {
+            "value": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.StorageReadResponse",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.StorageWrite": {
+          "size": 3,
+          "members": {
+            "selector": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "address": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "value": {
+              "cairo_type": "felt",
+              "offset": 2
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.StorageWrite",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.TxInfo": {
+          "size": 7,
+          "members": {
+            "version": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "account_contract_address": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "max_fee": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "signature_len": {
+              "cairo_type": "felt",
+              "offset": 3
+            },
+            "signature": {
+              "cairo_type": "felt*",
+              "offset": 4
+            },
+            "transaction_hash": {
+              "cairo_type": "felt",
+              "offset": 5
+            },
+            "chain_id": {
+              "cairo_type": "felt",
+              "offset": 6
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.TxInfo",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.library_call": {
+          "pc": 5,
+          "decorators": [],
+          "type": "function"
+        },
+        "starkware.starknet.common.syscalls.library_call.Args": {
+          "size": 4,
+          "members": {
+            "class_hash": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "function_selector": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "calldata_size": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 3
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.library_call.Args",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.library_call.ImplicitArgs": {
+          "size": 1,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.library_call.ImplicitArgs",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.library_call.Return": {
+          "cairo_type": "(retdata_size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "starkware.starknet.common.syscalls.library_call.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.library_call.syscall_ptr": {
+          "cairo_type": "felt*",
+          "references": [
+            {
+              "ap_tracking_data": {
+                "group": 1,
+                "offset": 0
+              },
+              "value": "[cast(fp + (-7), felt**)]",
+              "pc": 5
+            },
+            {
+              "ap_tracking_data": {
+                "group": 1,
+                "offset": 1
+              },
+              "value": "cast([fp + (-7)] + 7, felt*)",
+              "pc": 12
+            }
+          ],
+          "full_name": "starkware.starknet.common.syscalls.library_call.syscall_ptr",
+          "type": "reference"
+        },
+        "starkware.starknet.common.syscalls.library_call_l1_handler": {
+          "pc": 17,
+          "decorators": [],
+          "type": "function"
+        },
+        "starkware.starknet.common.syscalls.library_call_l1_handler.Args": {
+          "size": 4,
+          "members": {
+            "class_hash": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "function_selector": {
+              "cairo_type": "felt",
+              "offset": 1
+            },
+            "calldata_size": {
+              "cairo_type": "felt",
+              "offset": 2
+            },
+            "calldata": {
+              "cairo_type": "felt*",
+              "offset": 3
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.library_call_l1_handler.Args",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.library_call_l1_handler.ImplicitArgs": {
+          "size": 1,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.library_call_l1_handler.ImplicitArgs",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.library_call_l1_handler.Return": {
+          "cairo_type": "(retdata_size: felt, retdata: felt*)",
+          "type": "type_definition"
+        },
+        "starkware.starknet.common.syscalls.library_call_l1_handler.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.library_call_l1_handler.syscall_ptr": {
+          "cairo_type": "felt*",
+          "references": [
+            {
+              "ap_tracking_data": {
+                "group": 2,
+                "offset": 0
+              },
+              "value": "[cast(fp + (-7), felt**)]",
+              "pc": 17
+            },
+            {
+              "ap_tracking_data": {
+                "group": 2,
+                "offset": 1
+              },
+              "value": "cast([fp + (-7)] + 7, felt*)",
+              "pc": 24
+            }
+          ],
+          "full_name": "starkware.starknet.common.syscalls.library_call_l1_handler.syscall_ptr",
+          "type": "reference"
+        },
+        "starkware.starknet.common.syscalls.storage_read": {
+          "pc": 29,
+          "decorators": [],
+          "type": "function"
+        },
+        "starkware.starknet.common.syscalls.storage_read.Args": {
+          "size": 1,
+          "members": {
+            "address": {
+              "cairo_type": "felt",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.storage_read.Args",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.storage_read.ImplicitArgs": {
+          "size": 1,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.storage_read.ImplicitArgs",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.storage_read.Return": {
+          "cairo_type": "(value: felt)",
+          "type": "type_definition"
+        },
+        "starkware.starknet.common.syscalls.storage_read.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.storage_read.syscall_ptr": {
+          "cairo_type": "felt*",
+          "references": [
+            {
+              "ap_tracking_data": {
+                "group": 3,
+                "offset": 0
+              },
+              "value": "[cast(fp + (-4), felt**)]",
+              "pc": 29
+            },
+            {
+              "ap_tracking_data": {
+                "group": 3,
+                "offset": 1
+              },
+              "value": "cast([fp + (-4)] + 3, felt*)",
+              "pc": 33
+            }
+          ],
+          "full_name": "starkware.starknet.common.syscalls.storage_read.syscall_ptr",
+          "type": "reference"
+        },
+        "starkware.starknet.common.syscalls.storage_write": {
+          "pc": 37,
+          "decorators": [],
+          "type": "function"
+        },
+        "starkware.starknet.common.syscalls.storage_write.Args": {
+          "size": 2,
+          "members": {
+            "address": {
+              "cairo_type": "felt",
+              "offset": 0
+            },
+            "value": {
+              "cairo_type": "felt",
+              "offset": 1
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.storage_write.Args",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.storage_write.ImplicitArgs": {
+          "size": 1,
+          "members": {
+            "syscall_ptr": {
+              "cairo_type": "felt*",
+              "offset": 0
+            }
+          },
+          "full_name": "starkware.starknet.common.syscalls.storage_write.ImplicitArgs",
+          "type": "struct"
+        },
+        "starkware.starknet.common.syscalls.storage_write.Return": {
+          "cairo_type": "()",
+          "type": "type_definition"
+        },
+        "starkware.starknet.common.syscalls.storage_write.SIZEOF_LOCALS": {
+          "value": 0,
+          "type": "const"
+        },
+        "starkware.starknet.common.syscalls.storage_write.syscall_ptr": {
+          "cairo_type": "felt*",
+          "references": [
+            {
+              "ap_tracking_data": {
+                "group": 4,
+                "offset": 0
+              },
+              "value": "[cast(fp + (-5), felt**)]",
+              "pc": 37
+            },
+            {
+              "ap_tracking_data": {
+                "group": 4,
+                "offset": 1
+              },
+              "value": "cast([fp + (-5)] + 3, felt*)",
+              "pc": 42
+            }
+          ],
+          "full_name": "starkware.starknet.common.syscalls.storage_write.syscall_ptr",
+          "type": "reference"
+        }
+      },
+      "attributes": [],
+      "data": [
+        "0x20780017fff7ffd",
+        "0x4",
+        "0x400780017fff7ffd",
+        "0x1",
+        "0x208b7fff7fff7ffe",
+        "0x480680017fff8000",
+        "0x4c69627261727943616c6c",
+        "0x400280007ff97fff",
+        "0x400380017ff97ffa",
+        "0x400380027ff97ffb",
+        "0x400380037ff97ffc",
+        "0x400380047ff97ffd",
+        "0x482680017ff98000",
+        "0x7",
+        "0x480280057ff98000",
+        "0x480280067ff98000",
+        "0x208b7fff7fff7ffe",
+        "0x480680017fff8000",
+        "0x4c69627261727943616c6c4c3148616e646c6572",
+        "0x400280007ff97fff",
+        "0x400380017ff97ffa",
+        "0x400380027ff97ffb",
+        "0x400380037ff97ffc",
+        "0x400380047ff97ffd",
+        "0x482680017ff98000",
+        "0x7",
+        "0x480280057ff98000",
+        "0x480280067ff98000",
+        "0x208b7fff7fff7ffe",
+        "0x480680017fff8000",
+        "0x53746f7261676552656164",
+        "0x400280007ffc7fff",
+        "0x400380017ffc7ffd",
+        "0x482680017ffc8000",
+        "0x3",
+        "0x480280027ffc8000",
+        "0x208b7fff7fff7ffe",
+        "0x480680017fff8000",
+        "0x53746f726167655772697465",
+        "0x400280007ffb7fff",
+        "0x400380017ffb7ffc",
+        "0x400380027ffb7ffd",
+        "0x482680017ffb8000",
+        "0x3",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x480680017fff8000",
+        "0xf920571b9f85bdd92a867cfdc73319d0f8836f0e69e06e4c5566b6203f75cc",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffa",
+        "0x480a7ffb7fff8000",
+        "0x48127ffe7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe6",
+        "0x48127ffe7fff8000",
+        "0x48127ff57fff8000",
+        "0x48127ff57fff8000",
+        "0x48127ffc7fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffed",
+        "0x480a7ffa7fff8000",
+        "0x48127ffe7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe0",
+        "0x48127ff67fff8000",
+        "0x48127ff67fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe5",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffaf",
+        "0x480a7ffa7fff8000",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe8",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ff77fff8000",
+        "0x480a7ff87fff8000",
+        "0x480a7ff97fff8000",
+        "0x480a7ffa7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff3",
+        "0x48127ffd7fff8000",
+        "0x480a7ffa7fff8000",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffa0",
+        "0x48127ffd7fff8000",
+        "0x48127ff27fff8000",
+        "0x48127ff27fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480280027ffb8000",
+        "0x480280027ffd8000",
+        "0x400080007ffe7fff",
+        "0x482680017ffd8000",
+        "0x3",
+        "0x480280027ffd8000",
+        "0x48307fff7ffe8000",
+        "0x402a7ffd7ffc7fff",
+        "0x480280027ffb8000",
+        "0x480280007ffb8000",
+        "0x480280017ffb8000",
+        "0x482480017ffd8000",
+        "0x1",
+        "0x480280007ffd8000",
+        "0x480280017ffd8000",
+        "0x480280027ffd8000",
+        "0x482680017ffd8000",
+        "0x3",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffde",
+        "0x40780017fff7fff",
+        "0x1",
+        "0x48127ffc7fff8000",
+        "0x48127ffc7fff8000",
+        "0x48127ffc7fff8000",
+        "0x480680017fff8000",
+        "0x0",
+        "0x48127ffb7fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ff87fff8000",
+        "0x480a7ff97fff8000",
+        "0x480a7ffa7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffc0",
+        "0x48127ffc7fff8000",
+        "0x48127ffe7fff8000",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff73",
+        "0x48127ffd7fff8000",
+        "0x48127ff17fff8000",
+        "0x48127ff17fff8000",
+        "0x48127ffb7fff8000",
+        "0x48127ffb7fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480280007ffb8000",
+        "0x480280017ffb8000",
+        "0x480280027ffb8000",
+        "0x480a7ffa7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe9",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ff87fff8000",
+        "0x480a7ff97fff8000",
+        "0x480a7ffa7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffa5",
+        "0x48127ffc7fff8000",
+        "0x48127ffe7fff8000",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff64",
+        "0x48127ffd7fff8000",
+        "0x48127ff17fff8000",
+        "0x48127ff17fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480280007ffb8000",
+        "0x480280017ffb8000",
+        "0x480280027ffb8000",
+        "0x480a7ffa7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffeb",
+        "0x40780017fff7fff",
+        "0x1",
+        "0x48127ffc7fff8000",
+        "0x48127ffc7fff8000",
+        "0x48127ffc7fff8000",
+        "0x480680017fff8000",
+        "0x0",
+        "0x48127ffb7fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffb7fff8000",
+        "0x480a7ffc7fff8000",
+        "0x480a7ffd7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff84",
+        "0x208b7fff7fff7ffe",
+        "0x40780017fff7fff",
+        "0x1",
+        "0x4003800080007ffc",
+        "0x4826800180008000",
+        "0x1",
+        "0x480a7ffd7fff8000",
+        "0x4828800080007ffe",
+        "0x480a80007fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x402b7ffd7ffc7ffd",
+        "0x480280007ffb8000",
+        "0x480280017ffb8000",
+        "0x480280027ffb8000",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffee",
+        "0x48127ffe7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff1",
+        "0x48127ff47fff8000",
+        "0x48127ff47fff8000",
+        "0x48127ffb7fff8000",
+        "0x48127ffb7fff8000",
+        "0x48127ffb7fff8000",
+        "0x208b7fff7fff7ffe"
+      ],
+      "debug_info": null,
+      "main_scope": "__main__",
+      "hints": {
+        "0": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 0,
+                "offset": 0
+              },
+              "reference_ids": {
+                "starkware.cairo.common.math.assert_not_zero.value": 0
+              }
+            },
+            "code": "from starkware.cairo.common.math_utils import assert_integer\nassert_integer(ids.value)\nassert ids.value % PRIME != 0, f'assert_not_zero failed: {ids.value} = 0.'",
+            "accessible_scopes": [
+              "starkware.cairo.common.math",
+              "starkware.cairo.common.math.assert_not_zero"
+            ]
+          }
+        ],
+        "12": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 1,
+                "offset": 1
+              },
+              "reference_ids": {
+                "starkware.starknet.common.syscalls.library_call.syscall_ptr": 1
+              }
+            },
+            "code": "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
+            "accessible_scopes": [
+              "starkware.starknet.common.syscalls",
+              "starkware.starknet.common.syscalls.library_call"
+            ]
+          }
+        ],
+        "24": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 2,
+                "offset": 1
+              },
+              "reference_ids": {
+                "starkware.starknet.common.syscalls.library_call_l1_handler.syscall_ptr": 2
+              }
+            },
+            "code": "syscall_handler.library_call_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)",
+            "accessible_scopes": [
+              "starkware.starknet.common.syscalls",
+              "starkware.starknet.common.syscalls.library_call_l1_handler"
+            ]
+          }
+        ],
+        "33": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 3,
+                "offset": 1
+              },
+              "reference_ids": {
+                "starkware.starknet.common.syscalls.storage_read.syscall_ptr": 3
+              }
+            },
+            "code": "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
+            "accessible_scopes": [
+              "starkware.starknet.common.syscalls",
+              "starkware.starknet.common.syscalls.storage_read"
+            ]
+          }
+        ],
+        "42": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 4,
+                "offset": 1
+              },
+              "reference_ids": {
+                "starkware.starknet.common.syscalls.storage_write.syscall_ptr": 4
+              }
+            },
+            "code": "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)",
+            "accessible_scopes": [
+              "starkware.starknet.common.syscalls",
+              "starkware.starknet.common.syscalls.storage_write"
+            ]
+          }
+        ],
+        "128": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 11,
+                "offset": 60
+              },
+              "reference_ids": {}
+            },
+            "code": "memory[ap] = segments.add()",
+            "accessible_scopes": [
+              "__main__",
+              "__main__",
+              "__wrappers__",
+              "__wrappers__.constructor"
+            ]
+          }
+        ],
+        "188": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 15,
+                "offset": 50
+              },
+              "reference_ids": {}
+            },
+            "code": "memory[ap] = segments.add()",
+            "accessible_scopes": [
+              "__main__",
+              "__main__",
+              "__wrappers__",
+              "__wrappers__.__l1_default__"
+            ]
+          }
+        ],
+        "203": [
+          {
+            "flow_tracking_data": {
+              "ap_tracking": {
+                "group": 17,
+                "offset": 0
+              },
+              "reference_ids": {}
+            },
+            "code": "memory[ap] = segments.add()",
+            "accessible_scopes": [
+              "__main__",
+              "__main__",
+              "__wrappers__",
+              "__wrappers__.get_implementation_encode_return"
+            ]
+          }
+        ]
+      }
+    }
+  }
