@@ -45,13 +45,14 @@ func Pedersen(a *felt.Felt, b *felt.Felt) (*felt.Felt, error) {
 }
 
 func PedersenHash(elems ...*felt.Felt) (*felt.Felt, error) {
-	if len(elems) < 2 {
-		return nil, errors.New("number of elems must be 2 and above")
-	}
-
-	if len(elems) < 3 {
+	switch len(elems) {
+	case 0:
+		return nil, errors.New("number of elems must be more than 0")
+	case 1:
+		return Pedersen(new(felt.Felt).SetZero(), elems[0])
+	case 2:
 		return Pedersen(elems[0], elems[1])
-	} else {
+	default:
 		return PedersenArray(elems...)
 	}
 }

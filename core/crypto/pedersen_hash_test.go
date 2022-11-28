@@ -143,7 +143,7 @@ func TestPedersenHash(t *testing.T) {
 		},
 		{
 			elems:   []*felt.Felt{new(felt.Felt).SetOne()},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			elems:   []*felt.Felt{new(felt.Felt).SetOne(), new(felt.Felt).SetZero()},
