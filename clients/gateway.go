@@ -197,3 +197,53 @@ func (c *GatewayClient) GetBlock(blockNumber uint64) (*Block, error) {
 
 	return block, nil
 }
+
+type EntryPoint struct {
+	Selector *felt.Felt `json:"selector"`
+	Offset   *felt.Felt `json:"offset"`
+}
+
+type Abi []struct {
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Inputs []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"inputs"`
+	Outputs []interface{} `json:"outputs"`
+}
+
+type ClassDefinition struct {
+	Abi         Abi `json:"abi"`
+	EntryPoints struct {
+		Constructor []EntryPoint `json:"CONSTRUCTOR"`
+		External    []EntryPoint `json:"EXTERNAL"`
+		L1Handler   []EntryPoint `json:"L1_HANDLER"`
+	} `json:"entry_points_by_type"`
+	Program struct {
+		Builtins         []string     `json:"builtins"`
+		Prime            string       `json:"prime"`
+		ReferenceManager interface{}  `json:"reference_manager"`
+		Identifiers      interface{}  `json:"identifiers"`
+		Attributes       interface{}  `json:"attributes"`
+		Data             []*felt.Felt `json:"data"`
+		DebugInfo        interface{}  `json:"debug_info"`
+		MainScope        interface{}  `json:"main_scope"`
+		Hints            interface{}  `json:"hints"`
+		CompilerVersion  string       `json:"compiler_version"`
+	} `json:"program"`
+}
+
+func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefinition, error) {
+	queryUrl := c.buildQueryString("get_class_by_hash", map[string]string{
+		"classHash": "0x" + classHash.Text(16),
+	})
+
+	body, err := c.get(queryUrl)
+	class := new(ClassDefinition)
+	if err = json.Unmarshal(body, class); err != nil {
+		return nil, err
+	}
+
+	return class, nil
+}

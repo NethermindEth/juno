@@ -265,3 +265,25 @@ func TestBlockUnmarshal(t *testing.T) {
 	assert.Equal(t, uint64(1669465009), block.Timestamp)
 	assert.Equal(t, "0.10.1", block.Version)
 }
+
+func TestClassUnmarshal(t *testing.T) {
+	classJson, err := os.ReadFile("class_01efa8f8.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var class ClassDefinition
+	err = json.Unmarshal(classJson, &class)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, 1, len(class.EntryPoints.Constructor))
+	assert.Equal(t, "a1", class.EntryPoints.Constructor[0].Offset.Text(16))
+	assert.Equal(t, "28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.EntryPoints.Constructor[0].Selector.Text(16))
+	assert.Equal(t, 1, len(class.EntryPoints.L1Handler))
+	assert.Equal(t, 1, len(class.EntryPoints.External))
+	assert.Equal(t, 250, len(class.Program.Data))
+	assert.Equal(t, []string{"pedersen", "range_check"}, class.Program.Builtins)
+	assert.Equal(t, "0.10.1", class.Program.CompilerVersion)
+}
