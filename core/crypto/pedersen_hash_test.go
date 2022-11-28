@@ -131,6 +131,43 @@ func TestPedersenArray(t *testing.T) {
 	}
 }
 
+func TestPedersenHash(t *testing.T) {
+	tests := []struct {
+		elems   []*felt.Felt
+		wantErr bool
+	}{
+
+		{
+			elems:   []*felt.Felt{},
+			wantErr: true,
+		},
+		{
+			elems:   []*felt.Felt{new(felt.Felt).SetOne()},
+			wantErr: true,
+		},
+		{
+			elems:   []*felt.Felt{new(felt.Felt).SetOne(), new(felt.Felt).SetZero()},
+			wantErr: false,
+		},
+		{
+			elems:   []*felt.Felt{new(felt.Felt).SetOne(), new(felt.Felt).SetZero(), new(felt.Felt).SetZero()},
+			wantErr: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("Num of input %d", len(test.elems)), func(t *testing.T) {
+			_, err := PedersenHash(test.elems...)
+			if err != nil && !test.wantErr {
+				t.Errorf("PedersenHash(%x) = %v, want no error", test.elems, err)
+			}
+			if err == nil && test.wantErr {
+				t.Error("expected to get an error but got none")
+			}
+		})
+	}
+}
+
 var feltBench *felt.Felt
 
 // go test -bench=. -run=^# -cpu=1,2,4,8,16

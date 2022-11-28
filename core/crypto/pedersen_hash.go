@@ -43,3 +43,15 @@ func Pedersen(a *felt.Felt, b *felt.Felt) (*felt.Felt, error) {
 	}
 	return new(felt.Felt).SetBytes(out[:starkware.FeltSize]), nil
 }
+
+func PedersenHash(elems ...*felt.Felt) (*felt.Felt, error) {
+	if len(elems) < 2 {
+		return nil, errors.New("number of elems must be 2 and above")
+	}
+
+	if len(elems) < 3 {
+		return Pedersen(elems[0], elems[1])
+	} else {
+		return PedersenArray(elems...)
+	}
+}
