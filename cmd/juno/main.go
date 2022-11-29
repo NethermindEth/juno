@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/NethermindEth/juno/internal/node"
+	"github.com/NethermindEth/juno/node"
 )
 
 func main() {

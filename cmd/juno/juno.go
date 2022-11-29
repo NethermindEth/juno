@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/NethermindEth/juno/internal/node"
-	"github.com/NethermindEth/juno/internal/utils"
+	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
