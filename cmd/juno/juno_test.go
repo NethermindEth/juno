@@ -2,16 +2,15 @@ package main_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
-	junoCmd "github.com/NethermindEth/juno/cmd/juno"
-	"github.com/NethermindEth/juno/internal/node"
-	"github.com/NethermindEth/juno/internal/utils"
+	juno "github.com/NethermindEth/juno/cmd/juno"
+	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +57,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 `
 		b := new(bytes.Buffer)
 
-		cmd := junoCmd.NewCmd(newSpyJuno, quitTest())
+		cmd := juno.NewCmd(newSpyJuno, quitTest())
 		cmd.SetOut(b)
 		err := cmd.Execute()
 		require.NoError(t, err)
@@ -66,7 +65,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 		actual := b.String()
 		assert.Equal(t, expected, actual)
 
-		n, ok := junoCmd.StarkNetNode.(*spyJuno)
+		n, ok := juno.StarkNetNode.(*spyJuno)
 		require.Equal(t, true, ok)
 		assert.Equal(t, []string{"run", "shutdown"}, n.calls)
 	})
@@ -256,7 +255,7 @@ network: 1
 					tc.inputArgs = append(tc.inputArgs, []string{"--config", fileN}...)
 				}
 
-				cmd := junoCmd.NewCmd(newSpyJuno, quitTest())
+				cmd := juno.NewCmd(newSpyJuno, quitTest())
 				cmd.SetArgs(tc.inputArgs)
 
 				err := cmd.Execute()
@@ -266,7 +265,7 @@ network: 1
 				}
 				require.NoError(t, err)
 
-				n, ok := junoCmd.StarkNetNode.(*spyJuno)
+				n, ok := juno.StarkNetNode.(*spyJuno)
 				require.Equal(t, true, ok)
 				assert.Equal(t, tc.expectedConfig, n.cfg)
 				assert.Equal(t, []string{"run", "shutdown"}, n.calls)
@@ -285,7 +284,7 @@ func quitTest() chan os.Signal {
 }
 
 func tempCfgFile(t *testing.T, cfg string) (string, func()) {
-	f, err := ioutil.TempFile("", "junoCfg.*.yaml")
+	f, err := os.CreateTemp("", "junoCfg.*.yaml")
 	require.NoError(t, err)
 
 	defer func() {

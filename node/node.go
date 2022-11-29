@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/NethermindEth/juno/internal/utils"
+	"github.com/NethermindEth/juno/utils"
 )
 
 // notest
