@@ -10,7 +10,7 @@ import (
 	"time"
 
 	junoCmd "github.com/NethermindEth/juno/cmd/juno"
-	"github.com/NethermindEth/juno/internal/juno"
+	"github.com/NethermindEth/juno/internal/node"
 	"github.com/NethermindEth/juno/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,12 +18,12 @@ import (
 
 type spyJuno struct {
 	sync.RWMutex
-	cfg   *juno.Config
+	cfg   *node.Config
 	calls []string
 	exit  chan struct{}
 }
 
-func newSpyJuno(junoCfg *juno.Config) (juno.StarkNetNode, error) {
+func newSpyJuno(junoCfg *node.Config) (node.StarkNetNode, error) {
 	return &spyJuno{cfg: junoCfg, exit: make(chan struct{})}, nil
 }
 
@@ -90,11 +90,11 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			cfgFileContents string
 			expectErr       bool
 			inputArgs       []string
-			expectedConfig  *juno.Config
+			expectedConfig  *node.Config
 		}{
 			"default config with no flags": {
 				inputArgs: []string{""},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
 					RpcPort:      defaultRpcPort,
 					Metrics:      defaultMetrics,
@@ -104,7 +104,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			},
 			"config file path is empty string": {
 				inputArgs: []string{"--config", ""},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
 					RpcPort:      defaultRpcPort,
 					Metrics:      defaultMetrics,
@@ -119,7 +119,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			"config file contents are empty": {
 				cfgFile:         tempCfgFile,
 				cfgFileContents: "\n",
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity: defaultVerbosity,
 					RpcPort:   defaultRpcPort,
 					Metrics:   defaultMetrics,
@@ -135,7 +135,7 @@ db-path: /home/.juno
 network: 1
 eth-node: "https://some-ethnode:5673"
 `,
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -150,7 +150,7 @@ eth-node: "https://some-ethnode:5673"
 rpc-port: 4576
 metrics: true
 `,
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -165,7 +165,7 @@ metrics: true
 					"--metrics", "--db-path", "/home/.juno", "--network", "1",
 					"--eth-node", "https://some-ethnode:5673",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -179,7 +179,7 @@ metrics: true
 					"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
 					"--network", "1",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      defaultMetrics,
@@ -202,7 +202,7 @@ eth-node: "https://some-ethnode:5673"
 					"--metrics", "--db-path", "/home/flag/.juno", "--network", "1",
 					"--eth-node", "https://some-ethnode:5674",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "error",
 					RpcPort:      4577,
 					Metrics:      true,
@@ -221,7 +221,7 @@ network: 1
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 					"https://some-ethnode:5674",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "panic",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -237,7 +237,7 @@ network: 1
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 					"https://some-ethnode:5674",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
 					RpcPort:      defaultRpcPort,
 					Metrics:      true,

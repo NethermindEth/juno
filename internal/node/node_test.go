@@ -1,4 +1,4 @@
-package juno
+package node
 
 import (
 	"fmt"
