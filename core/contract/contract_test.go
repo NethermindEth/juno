@@ -2,15 +2,19 @@ package contract
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 func TestGenerateClass(t *testing.T) {
 	// Read json file, parse it and generate a class
-	contractDefinition, err := ioutil.ReadFile("contract_definition.json")
+	contractDefinition, err := os.ReadFile("contract_definition.json")
 	if err != nil {
 		t.Fatalf("expected no error but got %s", err)
 	}
+
 	t.Run("GenerateClass", func(t *testing.T) {
 		_, err := GenerateClass(contractDefinition)
 		if err != nil {
@@ -25,11 +29,10 @@ func TestClassHash(t *testing.T) {
 		file string
 	}{
 		{
-			want: "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			want: "0x0079e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
 			file: "contract_definition.json",
 		},
 	}
-
 	for _, tt := range tests {
 		// Read json file, parse it and generate a class
 		contractDefinition, err := ioutil.ReadFile(tt.file)
@@ -41,14 +44,14 @@ func TestClassHash(t *testing.T) {
 			t.Fatalf("expected no error but got %s", err)
 		}
 		t.Run("ClassHash", func(t *testing.T) {
-			_, err := c.ClassHash()
+			classHash, err := c.ClassHash()
 			if err != nil {
 				t.Fatalf("expected no error but got %s", err)
 			}
-			// want, _ := new(felt.Felt).SetString(tt.want)
-			// if !classHash.Equal(want) {
-			// 	t.Errorf("ClassHash got %s, want %s", classHash.Text(16), want.Text(16))
-			// }
+			want, _ := new(felt.Felt).SetString(tt.want)
+			if !classHash.Equal(want) {
+				t.Errorf("ClassHash got %s, want %s", classHash.Text(16), want.Text(16))
+			}
 		})
 	}
 }

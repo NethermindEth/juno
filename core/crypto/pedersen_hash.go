@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto/starkware"
 	"github.com/NethermindEth/juno/core/felt"
@@ -11,19 +11,18 @@ import (
 //
 // [Pedersen array hashing]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#pedersen_hash
 func PedersenArray(elems ...*felt.Felt) (*felt.Felt, error) {
-	if len(elems) < 3 {
-		return nil, errors.New("number of elems must be more than 2")
-	}
-
 	var err error
 	d := new(felt.Felt).SetZero()
 
-	for _, e := range elems {
-		d, err = Pedersen(d, e)
-		if err != nil {
-			return nil, err
+	if len(elems) > 0 {
+		for _, e := range elems {
+			d, err = Pedersen(d, e)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
+	fmt.Println("PedersenArray", d.String())
 
 	l, err := new(felt.Felt).SetInterface(len(elems))
 	if err != nil {
