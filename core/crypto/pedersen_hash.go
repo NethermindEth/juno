@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -65,6 +66,7 @@ func PedersenArray(elems ...*felt.Felt) (*felt.Felt, error) {
 			}
 		}
 	}
+	fmt.Println("PedersenArray", d.String())
 
 	l, err := new(felt.Felt).SetInterface(len(elems))
 	if err != nil {
