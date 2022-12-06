@@ -199,7 +199,19 @@ type (
 		Data             []string    `json:"data"`
 		DebugInfo        interface{} `json:"debug_info"`
 		Hints            Hints       `json:"hints"`
-		Identifiers      Identifiers `json:"identifiers,omitempty"`
+		Identifiers      interface{} `json:"identifiers,omitempty"`
+		MainScope        interface{} `json:"main_scope"`
+		Prime            string      `json:"prime"`
+		ReferenceManager interface{} `json:"reference_manager"`
+	}
+	TypedProgram struct {
+		Attributes       interface{} `json:"attributes,omitempty"`
+		Builtins         []string    `json:"builtins"`
+		CompilerVersion  string      `json:"compiler_version,omitempty"`
+		Data             []string    `json:"data"`
+		DebugInfo        interface{} `json:"debug_info"`
+		Hints            Hints       `json:"hints"`
+		Identifiers      Identifiers `json:"identifiers"`
 		MainScope        interface{} `json:"main_scope"`
 		Prime            string      `json:"prime"`
 		ReferenceManager interface{} `json:"reference_manager"`
@@ -214,6 +226,16 @@ type ClassDefinition struct {
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
 	Program Program `json:"program"`
+}
+
+type TypedClassDefinition struct {
+	Abi         interface{} `json:"abi"`
+	EntryPoints struct {
+		Constructor []EntryPoint `json:"CONSTRUCTOR"`
+		External    []EntryPoint `json:"EXTERNAL"`
+		L1Handler   []EntryPoint `json:"L1_HANDLER"`
+	} `json:"entry_points_by_type"`
+	Program TypedProgram `json:"program"`
 }
 
 type ContractCode struct {
@@ -302,8 +324,15 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 	contractCode.Abi = definition.Abi
 	contractCode.Program = program
 
+	typedContractDefinition := new(TypedClassDefinition)
+	err = json.Unmarshal(contractDefinition, &typedContractDefinition)
+	if err != nil {
+		fmt.Println("Error decoding contract definition")
+		return Class{}, err
+	}
+
 	// Convert update program to bytes
-	programBytes, err := contractCode.MarshalJSON()
+	programBytes, err := contractCode.MarshalsJSON(typedContractDefinition.Program.Identifiers)
 	if err != nil {
 		fmt.Println("Error encoding program")
 		return Class{}, err
@@ -332,11 +361,11 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 }
 
 // Create custom json marshaller
-func (c ContractCode) MarshalJSON() ([]byte, error) {
+func (c ContractCode) MarshalsJSON(identifiers Identifiers) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	buf.Write([]byte("{"))
 	buf.Write([]byte("\"abi\": "))
-	err := formatter(buf, c.Abi)
+	err := formatter(buf, c.Abi, "", identifiers)
 	if err != nil {
 		return nil, err
 	}
@@ -345,44 +374,41 @@ func (c ContractCode) MarshalJSON() ([]byte, error) {
 	buf.Write([]byte("\"program\": {"))
 	program := c.Program
 	if program.Attributes != nil {
-		formatter(buf, program.Attributes)
+		formatter(buf, program.Attributes, "", identifiers)
 		buf.Write([]byte(", "))
 	}
 	buf.Write([]byte("\"builtins\": "))
-	formatter(buf, program.Builtins)
+	formatter(buf, program.Builtins, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"compiler_version\": "))
-	formatter(buf, program.CompilerVersion)
+	formatter(buf, program.CompilerVersion, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"data\": "))
-	formatter(buf, program.Data)
+	formatter(buf, program.Data, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"debug_info\": "))
-	formatter(buf, program.DebugInfo)
+	formatter(buf, program.DebugInfo, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"hints\": "))
-	formatter(buf, program.Hints)
+	formatter(buf, program.Hints, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"identifiers\": "))
-	formatter(buf, program.Identifiers)
+	formatter(buf, program.Identifiers, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"main_scope\": "))
-	formatter(buf, program.MainScope)
+	formatter(buf, program.MainScope, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"prime\": "))
-	formatter(buf, program.Prime)
+	formatter(buf, program.Prime, "", identifiers)
 	buf.Write([]byte(", "))
 	buf.Write([]byte("\"reference_manager\": "))
-	formatter(buf, program.ReferenceManager)
+	formatter(buf, program.ReferenceManager, "", identifiers)
 	buf.Write([]byte("}}"))
-	// fmt.Println(buf.Bytes())
-
-	// fmt.Println(string(buf.Bytes()))
 
 	return buf.Bytes(), nil
 }
 
-func formatter(buf *bytes.Buffer, value interface{}) error {
+func formatter(buf *bytes.Buffer, value interface{}, tree string, identifiers Identifiers) error {
 	switch v := value.(type) {
 	case string:
 		result := `"` + v + `"`
@@ -412,9 +438,17 @@ func formatter(buf *bytes.Buffer, value interface{}) error {
 			buf.WriteString(k)
 			buf.Write([]byte{'"'})
 			buf.Write([]byte(": "))
-			err := formatter(buf, v[k])
-			if err != nil {
-				return err
+			if k == "value" && reflect.TypeOf(v[k]) == reflect.TypeOf(float64(0)) && v[k] != float64(0) {
+				value := identifiers[tree].Value
+				buf.Write([]byte(value))
+			} else {
+				if reflect.TypeOf(v[k]) == reflect.TypeOf(map[string]interface{}{}) {
+					tree = k
+				}
+				err := formatter(buf, v[k], tree, identifiers)
+				if err != nil {
+					return err
+				}
 			}
 			if i < len(keys)-1 {
 				buf.Write([]byte(", "))
@@ -435,7 +469,7 @@ func formatter(buf *bytes.Buffer, value interface{}) error {
 			buf.WriteString(strconv.FormatUint(k, 10))
 			buf.Write([]byte{'"'})
 			buf.Write([]byte(": "))
-			err := formatter(buf, v[k])
+			err := formatter(buf, v[k], "", identifiers)
 			if err != nil {
 				return err
 			}
@@ -444,13 +478,13 @@ func formatter(buf *bytes.Buffer, value interface{}) error {
 			}
 		}
 		buf.Write([]byte{'}'})
-	case Identifiers:
-		formatIdentifiers(buf, v)
+	// case Identifiers:
+	// 	formatIdentifiers(buf, v)
 	case []interface{}:
 		buf.Write([]byte{'['})
 		count := 0
 		for _, value := range v {
-			err := formatter(buf, value)
+			err := formatter(buf, value, "", identifiers)
 			if err != nil {
 				return err
 			}
@@ -480,88 +514,6 @@ func formatter(buf *bytes.Buffer, value interface{}) error {
 		}
 	}
 	return nil
-}
-
-func formatIdentifiers(buf *bytes.Buffer, value Identifiers) {
-	buf.Write([]byte{'{'})
-	count := 0
-	for i, v := range value {
-		beginning := true
-		buf.Write([]byte{'"'})
-		buf.WriteString(i)
-		buf.Write([]byte("\": {"))
-		if v.CairoType != "" {
-			if beginning {
-				beginning = false
-			}
-			buf.Write([]byte("\"cairo_type\": "))
-			formatter(buf, v.CairoType)
-		}
-		if v.Destination != "" {
-			if !beginning {
-				buf.Write([]byte(", "))
-			} else {
-				beginning = false
-			}
-			buf.Write([]byte("\"destination\": "))
-			formatter(buf, v.Destination)
-		}
-		if v.FullName != "" {
-			if !beginning {
-				buf.Write([]byte(", "))
-			} else {
-				beginning = false
-			}
-			buf.Write([]byte("\"full_name\": "))
-			formatter(buf, v.FullName)
-		}
-		if v.Members != nil {
-			if !beginning {
-				buf.Write([]byte(", "))
-			} else {
-				beginning = false
-			}
-			buf.Write([]byte("\"members\": "))
-			formatter(buf, v.Members)
-		}
-		if len(v.References) != 0 {
-			if !beginning {
-				buf.Write([]byte(", "))
-			}
-			buf.Write([]byte("\"references\": "))
-			formatter(buf, v.References)
-		}
-		if v.Members != nil {
-			if !beginning {
-				buf.Write([]byte(", "))
-			} else {
-				beginning = false
-			}
-			buf.Write([]byte("\"size\": "))
-			formatter(buf, v.Size)
-		}
-		if v.Type != "" {
-			if !beginning {
-				buf.Write([]byte(", "))
-			} else {
-				beginning = false
-			}
-			buf.Write([]byte("\"type\": "))
-			formatter(buf, v.Type)
-		}
-		if v.Value != "" {
-			buf.Write([]byte("\"value\": "))
-			formatter(buf, v.Value)
-		}
-
-		buf.Write([]byte("}"))
-		count++
-
-		if count != len(value) {
-			buf.Write([]byte(", "))
-		}
-	}
-	buf.Write([]byte{'}'})
 }
 
 // TODO: Confirm whether this is the correct way to update (a: felt)
