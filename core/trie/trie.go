@@ -87,8 +87,9 @@ func (n *Node) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary deserializes a [Node] from a byte array
 func (n *Node) UnmarshalBinary(data []byte) error {
+	malformedErr := errors.New("malformed Node byte-data")
 	if len(data) < felt.Bytes {
-		return errors.New("Malformed Node bytedata")
+		return malformedErr
 	}
 	n.value = new(felt.Felt).SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
@@ -107,7 +108,7 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 		case 'r':
 			pathP = &(n.right)
 		default:
-			return errors.New("Malformed Node bytedata")
+			return malformedErr
 		}
 
 		*pathP = new(bitset.BitSet)
@@ -214,8 +215,8 @@ type step struct {
 //
 // The [step]s are returned in descending order beginning with the root.
 func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
+	var steps []step
 	cur := t.root
-	steps := []step{}
 	for cur != nil {
 		node, err := t.storage.Get(cur)
 		if err != nil {
