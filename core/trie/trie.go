@@ -15,20 +15,20 @@ import (
 
 // Persistent storage backend for [Trie]
 type TrieStorage interface {
-	Put(key *bitset.BitSet, value *TrieNode) error
-	Get(key *bitset.BitSet) (*TrieNode, error)
+	Put(key *bitset.BitSet, value *Node) error
+	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
 }
 
 // A [Trie] node
-type TrieNode struct {
+type Node struct {
 	value *felt.Felt
 	left  *bitset.BitSet
 	right *bitset.BitSet
 }
 
-// Calculates hash of a [TrieNode]
-func (n *TrieNode) Hash(specPath *bitset.BitSet) *felt.Felt {
+// Calculates hash of a [Node]
+func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
 	if specPath.Len() == 0 {
 		return n.value
 	}
@@ -54,13 +54,13 @@ func (n *TrieNode) Hash(specPath *bitset.BitSet) *felt.Felt {
 	return hash.Add(hash, &pathFelt)
 }
 
-// Equality check of 2 [TrieNode] objects
-func (n *TrieNode) Equal(other *TrieNode) bool {
+// Equality check of 2 [Node] objects
+func (n *Node) Equal(other *Node) bool {
 	return n.value.Equal(other.value) && n.left.Equal(other.left) && n.right.Equal(n.right)
 }
 
-// Serializes a [TrieNode] into a byte array
-func (n *TrieNode) MarshalBinary() ([]byte, error) {
+// Serializes a [Node] into a byte array
+func (n *Node) MarshalBinary() ([]byte, error) {
 	var ret []byte
 	valueB := n.value.Bytes()
 	ret = append(ret, valueB[:]...)
@@ -85,10 +85,10 @@ func (n *TrieNode) MarshalBinary() ([]byte, error) {
 	return ret, nil
 }
 
-// Deserializes a [TrieNode] from a byte array
-func (n *TrieNode) UnmarshalBinary(data []byte) error {
+// Deserializes a [Node] from a byte array
+func (n *Node) UnmarshalBinary(data []byte) error {
 	if len(data) < felt.Bytes {
-		return errors.New("Malformed TrieNode bytedata")
+		return errors.New("Malformed Node bytedata")
 	}
 	n.value = new(felt.Felt).SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
@@ -107,7 +107,7 @@ func (n *TrieNode) UnmarshalBinary(data []byte) error {
 		case 'r':
 			pathP = &(n.right)
 		default:
-			return errors.New("Malformed TrieNode bytedata")
+			return errors.New("Malformed Node bytedata")
 		}
 
 		*pathP = new(bitset.BitSet)
@@ -159,7 +159,7 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	return do(NewTrie(trieTxn, height))
 }
 
-// Converts a key to a path that, when followed on a [Trie], leads to the corresponding [TrieNode]
+// Converts a key to a path that, when followed on a [Trie], leads to the corresponding [Node]
 func (t *Trie) PathFromKey(k *felt.Felt) *bitset.BitSet {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(t.height, regularK.Impl()[:])
@@ -201,14 +201,14 @@ func GetSpecPath(path, parentPath *bitset.BitSet) *bitset.BitSet {
 	return specPath
 }
 
-// step is the on-disk representation of a [TrieNode], where path is the
+// step is the on-disk representation of a [Node], where path is the
 // key and node is the value.
 type step struct {
 	path *bitset.BitSet
-	node *TrieNode
+	node *Node
 }
 
-// stepsToRoot enumerates the set of [TrieNode] objects that are on a
+// stepsToRoot enumerates the set of [Node] objects that are on a
 // given [StoragePath].
 //
 // The [step]s are returned in descending order beginning with the root.
@@ -253,7 +253,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 // Update the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	path := t.PathFromKey(key)
-	node := &TrieNode{
+	node := &Node{
 		value: value,
 	}
 
@@ -296,7 +296,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	}
 
 	commonPath, _ := FindCommonPath(path, sibling.path)
-	newParent := &TrieNode{
+	newParent := &Node{
 		value: new(felt.Felt),
 	}
 	if path.Test(path.Len() - commonPath.Len() - 1) {

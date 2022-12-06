@@ -18,7 +18,7 @@ func TestNode_Marshall(t *testing.T) {
 	path1 := bitset.FromWithLength(44, []uint64{44})
 	path2 := bitset.FromWithLength(22, []uint64{22})
 
-	tests := [...]TrieNode{
+	tests := [...]Node{
 		{
 			value: value,
 			left:  nil,
@@ -47,7 +47,7 @@ func TestNode_Marshall(t *testing.T) {
 	}
 	for _, test := range tests {
 		data, _ := test.MarshalBinary()
-		unmarshaled := new(TrieNode)
+		unmarshaled := new(Node)
 		_ = unmarshaled.UnmarshalBinary(data)
 		if !test.Equal(unmarshaled) {
 			t.Error("TestNode_Marshall failed")
@@ -56,14 +56,14 @@ func TestNode_Marshall(t *testing.T) {
 
 	malformed := new([felt.Bytes + 1]byte)
 	malformed[felt.Bytes] = 'l'
-	if err := new(TrieNode).UnmarshalBinary(malformed[2:]); err == nil {
+	if err := new(Node).UnmarshalBinary(malformed[2:]); err == nil {
 		t.Error("TestNode_Marshall failed")
 	}
-	if err := new(TrieNode).UnmarshalBinary(malformed[:]); err == nil {
+	if err := new(Node).UnmarshalBinary(malformed[:]); err == nil {
 		t.Error("TestNode_Marshall failed")
 	}
 	malformed[felt.Bytes] = 'z'
-	if err := new(TrieNode).UnmarshalBinary(malformed[:]); err == nil {
+	if err := new(Node).UnmarshalBinary(malformed[:]); err == nil {
 		t.Error("TestNode_Marshall failed")
 	}
 }
@@ -264,7 +264,7 @@ func TestTrieNode_Hash(t *testing.T) {
 	valueBytes, _ := hex.DecodeString("1234ABCD")
 	expected, _ := new(felt.Felt).SetString("0x1d937094c09b5f8e26a662d21911871e3cbc6858d55cc49af9848ea6fed4e9")
 
-	node := TrieNode{
+	node := Node{
 		value: new(felt.Felt).SetBytes(valueBytes),
 	}
 	path := bitset.FromWithLength(6, []uint64{42})
