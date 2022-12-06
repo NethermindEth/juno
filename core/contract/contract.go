@@ -1,9 +1,12 @@
 package contract
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -116,7 +119,6 @@ func (c *Class) ClassHash() (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(bytecodeHash)
 	hashFelt = append(hashFelt, bytecodeHash)
 
 	// Pedersen hash of all the above
@@ -169,36 +171,54 @@ func EntryPointToFelt(entryPoint []EntryPoint) (*felt.Felt, error) {
 }
 
 type Abi []struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
 	Inputs []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"inputs"`
+	Name    string        `json:"name"`
 	Outputs []interface{} `json:"outputs"`
+	Type    string        `json:"type"`
 }
 
-type Program struct {
-	Builtins         []string     `json:"builtins"`
-	Prime            string       `json:"prime"`
-	ReferenceManager interface{}  `json:"reference_manager"`
-	Identifiers      interface{}  `json:"identifiers"`
-	Attributes       interface{}  `json:"attributes"`
-	Data             []*felt.Felt `json:"data"`
-	DebugInfo        interface{}  `json:"debug_info"`
-	MainScope        interface{}  `json:"main_scope"`
-	Hints            interface{}  `json:"hints"`
-	CompilerVersion  string       `json:"compiler_version"`
-}
+type (
+	Hints       map[uint64]interface{}
+	Identifiers map[string]struct {
+		CairoType   string        `json:"cairo_type,omitempty"`
+		Destination string        `json:"destination,omitempty"`
+		FullName    string        `json:"full_name,omitempty"`
+		Members     interface{}   `json:"members,omitempty"`
+		References  []interface{} `json:"references,omitempty"`
+		Size        uint64        `json:"size,omitempty"`
+		Type        string        `json:"type,omitempty"`
+		Value       json.Number   `json:"value,omitempty"`
+	}
+	Program struct {
+		Attributes       interface{} `json:"attributes,omitempty"`
+		Builtins         []string    `json:"builtins"`
+		CompilerVersion  string      `json:"compiler_version,omitempty"`
+		Data             []string    `json:"data"`
+		DebugInfo        interface{} `json:"debug_info"`
+		Hints            Hints       `json:"hints"`
+		Identifiers      Identifiers `json:"identifiers,omitempty"`
+		MainScope        interface{} `json:"main_scope"`
+		Prime            string      `json:"prime"`
+		ReferenceManager interface{} `json:"reference_manager"`
+	}
+)
 
 type ClassDefinition struct {
-	Abi         Abi `json:"abi"`
+	Abi         interface{} `json:"abi"`
 	EntryPoints struct {
 		Constructor []EntryPoint `json:"CONSTRUCTOR"`
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
 	Program Program `json:"program"`
+}
+
+type ContractCode struct {
+	Abi     interface{} `json:"abi"`
+	Program Program     `json:"program"`
 }
 
 func GenerateClass(contractDefinition []byte) (Class, error) {
@@ -217,20 +237,49 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 	class.L1Handlers = definition.EntryPoints.L1Handler
 	class.Externals = definition.EntryPoints.External
 
+	program := definition.Program
+
 	// Get Builtins
-	class.Builtins = definition.Program.Builtins
+	builtins := program.Builtins
+	class.Builtins = append(class.Builtins, builtins...)
 
 	// make debug info None
-	definition.Program.DebugInfo = nil
+	program.DebugInfo = nil
+
+	// Compilers before version 0.10.0 use the "(a : felt)" syntax instead of the "(a: felt)" syntax.
+	// So, we need to add an extra space before the colon in these cases for backwards compatibility.
+	//
+	// If compiler_version is not present, this was compiled with a compiler before version 0.10.0.
+	if program.CompilerVersion == "" { // TODO: Fix
+		identifiers := program.Identifiers
+		if identifiers != nil {
+			_identifiers, err := addExtraSpaceToCairoNamedTuples(identifiers)
+			if err != nil {
+				return Class{}, err
+			}
+			// convert interface to Identifiers
+			json.Marshal(_identifiers)
+			program.Identifiers = identifiers
+		}
+
+		referenceManager := program.ReferenceManager.(map[string]interface{})
+		if referenceManager != nil {
+			referenceManager, err := addExtraSpaceToCairoNamedTuples(referenceManager)
+			if err != nil {
+				return Class{}, err
+			}
+			program.ReferenceManager = referenceManager
+		}
+	}
 
 	// Cairo 0.8 added "accessible_scopes" and "flow_tracking_data" attribute fields, which were
 	// not present in older contracts. They present as null/empty for older contracts deployed
 	// prior to adding this feature and should not be included in the hash calculation in these cases.
 	//
 	// We therefore check and remove them from the definition before calculating the hash.
-	attributes := definition.Program.Attributes.([]interface{})
+	attributes := program.Attributes.([]interface{})
 	if len(attributes) == 0 {
-		definition.Program.Attributes = nil
+		program.Attributes = nil
 	} else {
 		for key, attribute := range attributes {
 			attributeInterface := attribute.(map[string]interface{})
@@ -245,37 +294,16 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 			attributes[key] = attributeInterface
 		}
 
-		definition.Program.Attributes = attributes
+		program.Attributes = attributes
 	}
 
-	// Compilers before version 0.10.0 use the "(a : felt)" syntax instead of the "(a: felt)" syntax.
-	// So, we need to add an extra space before the colon in these cases for backwards compatibility.
-	//
-	// If compiler_version is not present, this was compiled with a compiler before version 0.10.0.
-	if definition.Program.CompilerVersion == "" {
-		identifiers := definition.Program.Identifiers.(map[string]interface{})
-		if identifiers != nil {
-			identifiers, err := addExtraSpaceToCairoNamedTuples(identifiers)
-			if err != nil {
-				return Class{}, err
-			}
-			definition.Program.Identifiers = identifiers
-		}
-
-		referenceManager := definition.Program.ReferenceManager.(map[string]interface{})
-		if referenceManager != nil {
-			referenceManager, err := addExtraSpaceToCairoNamedTuples(referenceManager)
-			if err != nil {
-				return Class{}, err
-			}
-			definition.Program.ReferenceManager = referenceManager
-		}
-	}
-
-	// TODO: Implement https://github.com/eqlabs/pathfinder/blob/98cb3549f3b9fbb0010b984c2b9e33f15daa82dc/crates/pathfinder/src/state/class_hash.rs#L172-L182
+	// program.Hints = a
+	contractCode := new(ContractCode)
+	contractCode.Abi = definition.Abi
+	contractCode.Program = program
 
 	// Convert update program to bytes
-	programBytes, err := json.Marshal(definition.Program)
+	programBytes, err := contractCode.MarshalJSON()
 	if err != nil {
 		fmt.Println("Error encoding program")
 		return Class{}, err
@@ -285,20 +313,262 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 	if err != nil {
 		return Class{}, err
 	}
+	fmt.Println("Program Keccak: ", programKeccak)
 
 	class.ProgramHash = programKeccak
 
 	// Get Bytecode
-	class.Bytecode = definition.Program.Data
+	var bytecode []*felt.Felt
+	for _, entry := range program.Data {
+		code, err := new(felt.Felt).SetString(entry)
+		if err != nil {
+			return Class{}, err
+		}
+		bytecode = append(bytecode, code)
+	}
+	class.Bytecode = bytecode
 
 	return *class, err
 }
 
+// Create custom json marshaller
+func (c ContractCode) MarshalJSON() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	buf.Write([]byte("{"))
+	buf.Write([]byte("\"abi\": "))
+	err := formatter(buf, c.Abi)
+	if err != nil {
+		return nil, err
+	}
+
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"program\": {"))
+	program := c.Program
+	if program.Attributes != nil {
+		formatter(buf, program.Attributes)
+		buf.Write([]byte(", "))
+	}
+	buf.Write([]byte("\"builtins\": "))
+	formatter(buf, program.Builtins)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"compiler_version\": "))
+	formatter(buf, program.CompilerVersion)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"data\": "))
+	formatter(buf, program.Data)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"debug_info\": "))
+	formatter(buf, program.DebugInfo)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"hints\": "))
+	formatter(buf, program.Hints)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"identifiers\": "))
+	formatter(buf, program.Identifiers)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"main_scope\": "))
+	formatter(buf, program.MainScope)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"prime\": "))
+	formatter(buf, program.Prime)
+	buf.Write([]byte(", "))
+	buf.Write([]byte("\"reference_manager\": "))
+	formatter(buf, program.ReferenceManager)
+	buf.Write([]byte("}}"))
+	// fmt.Println(buf.Bytes())
+
+	// fmt.Println(string(buf.Bytes()))
+
+	return buf.Bytes(), nil
+}
+
+func formatter(buf *bytes.Buffer, value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		result := `"` + v + `"`
+		buf.WriteString(result)
+	case uint:
+		result := strconv.FormatUint(uint64(v), 10)
+		buf.WriteString(result)
+	case uint64:
+		result := strconv.FormatUint(v, 10)
+		buf.WriteString(result)
+	case float64:
+		result := strconv.FormatFloat(v, 'f', 0, 64)
+		buf.WriteString(result)
+	case json.Number:
+		result := string(v)
+		buf.WriteString(result)
+	case map[string]interface{}:
+		buf.Write([]byte{'{'})
+		// Arrange lexigraphically
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for i, k := range keys {
+			buf.Write([]byte{'"'})
+			buf.WriteString(k)
+			buf.Write([]byte{'"'})
+			buf.Write([]byte(": "))
+			err := formatter(buf, v[k])
+			if err != nil {
+				return err
+			}
+			if i < len(keys)-1 {
+				buf.Write([]byte(", "))
+			}
+		}
+		buf.Write([]byte{'}'})
+	case Hints:
+		buf.Write([]byte{'{'})
+		// Arrange numerically
+		keys := make([]uint64, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+
+		for i, k := range keys {
+			buf.Write([]byte{'"'})
+			buf.WriteString(strconv.FormatUint(k, 10))
+			buf.Write([]byte{'"'})
+			buf.Write([]byte(": "))
+			err := formatter(buf, v[k])
+			if err != nil {
+				return err
+			}
+			if i < len(keys)-1 {
+				buf.Write([]byte(", "))
+			}
+		}
+		buf.Write([]byte{'}'})
+	case Identifiers:
+		formatIdentifiers(buf, v)
+	case []interface{}:
+		buf.Write([]byte{'['})
+		count := 0
+		for _, value := range v {
+			err := formatter(buf, value)
+			if err != nil {
+				return err
+			}
+			if count < len(v)-1 {
+				buf.Write([]byte(", "))
+			}
+			count++
+		}
+		buf.Write([]byte{']'})
+	case []string:
+		buf.Write([]byte{'['})
+		count := 0
+		for _, value := range v {
+			buf.WriteString(`"` + value + `"`)
+			if count < len(v)-1 {
+				buf.Write([]byte(", "))
+			}
+			count++
+		}
+		buf.Write([]byte{']'})
+	default:
+		if value == nil {
+			buf.WriteString("null")
+		} else {
+			fmt.Println("Unknown type: ", reflect.TypeOf(value))
+			return fmt.Errorf("unknown type: %T", value)
+		}
+	}
+	return nil
+}
+
+func formatIdentifiers(buf *bytes.Buffer, value Identifiers) {
+	buf.Write([]byte{'{'})
+	count := 0
+	for i, v := range value {
+		beginning := true
+		buf.Write([]byte{'"'})
+		buf.WriteString(i)
+		buf.Write([]byte("\": {"))
+		if v.CairoType != "" {
+			if beginning {
+				beginning = false
+			}
+			buf.Write([]byte("\"cairo_type\": "))
+			formatter(buf, v.CairoType)
+		}
+		if v.Destination != "" {
+			if !beginning {
+				buf.Write([]byte(", "))
+			} else {
+				beginning = false
+			}
+			buf.Write([]byte("\"destination\": "))
+			formatter(buf, v.Destination)
+		}
+		if v.FullName != "" {
+			if !beginning {
+				buf.Write([]byte(", "))
+			} else {
+				beginning = false
+			}
+			buf.Write([]byte("\"full_name\": "))
+			formatter(buf, v.FullName)
+		}
+		if v.Members != nil {
+			if !beginning {
+				buf.Write([]byte(", "))
+			} else {
+				beginning = false
+			}
+			buf.Write([]byte("\"members\": "))
+			formatter(buf, v.Members)
+		}
+		if len(v.References) != 0 {
+			if !beginning {
+				buf.Write([]byte(", "))
+			}
+			buf.Write([]byte("\"references\": "))
+			formatter(buf, v.References)
+		}
+		if v.Members != nil {
+			if !beginning {
+				buf.Write([]byte(", "))
+			} else {
+				beginning = false
+			}
+			buf.Write([]byte("\"size\": "))
+			formatter(buf, v.Size)
+		}
+		if v.Type != "" {
+			if !beginning {
+				buf.Write([]byte(", "))
+			} else {
+				beginning = false
+			}
+			buf.Write([]byte("\"type\": "))
+			formatter(buf, v.Type)
+		}
+		if v.Value != "" {
+			buf.Write([]byte("\"value\": "))
+			formatter(buf, v.Value)
+		}
+
+		buf.Write([]byte("}"))
+		count++
+
+		if count != len(value) {
+			buf.Write([]byte(", "))
+		}
+	}
+	buf.Write([]byte{'}'})
+}
+
 // TODO: Confirm whether this is the correct way to update (a: felt)
 func addExtraSpaceToCairoNamedTuples(value interface{}) (interface{}, error) {
-	switch value.(type) {
+	switch v := value.(type) {
 	case []interface{}:
-		valueArray := value.([]interface{})
+		valueArray := v
 		for i, v := range valueArray {
 			result, err := addExtraSpaceToCairoNamedTuples(v)
 			if err != nil {
@@ -308,7 +578,7 @@ func addExtraSpaceToCairoNamedTuples(value interface{}) (interface{}, error) {
 		}
 		return valueArray, nil
 	case map[string]interface{}:
-		valueMap := value.(map[string]interface{})
+		valueMap := v
 		for k, v := range valueMap {
 			if reflect.TypeOf(v).Kind() == reflect.String {
 				if k == "value" || k == "cairo_type" {
