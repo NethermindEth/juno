@@ -13,21 +13,21 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-// Persistent storage backend for [Trie]
+// Storage is the Persistent storage for the [Trie]
 type Storage interface {
 	Put(key *bitset.BitSet, value *Node) error
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
 }
 
-// A [Trie] node
+// A Node represents a node in the [Trie]
 type Node struct {
 	value *felt.Felt
 	left  *bitset.BitSet
 	right *bitset.BitSet
 }
 
-// Calculates hash of a [Node]
+// Hash calculates the hash of a [Node]
 func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
 	if specPath.Len() == 0 {
 		return n.value
@@ -54,12 +54,12 @@ func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
 	return hash.Add(hash, &pathFelt)
 }
 
-// Equality check of 2 [Node] objects
+// Equal checks for equality of two [Node]s
 func (n *Node) Equal(other *Node) bool {
 	return n.value.Equal(other.value) && n.left.Equal(other.left) && n.right.Equal(n.right)
 }
 
-// Serializes a [Node] into a byte array
+// MarshalBinary serializes a [Node] into a byte array
 func (n *Node) MarshalBinary() ([]byte, error) {
 	var ret []byte
 	valueB := n.value.Bytes()
@@ -85,7 +85,7 @@ func (n *Node) MarshalBinary() ([]byte, error) {
 	return ret, nil
 }
 
-// Deserializes a [Node] from a byte array
+// UnmarshalBinary deserializes a [Node] from a byte array
 func (n *Node) UnmarshalBinary(data []byte) error {
 	if len(data) < felt.Bytes {
 		return errors.New("Malformed Node bytedata")
@@ -159,13 +159,14 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	return do(NewTrie(trieTxn, height))
 }
 
-// Converts a key to a path that, when followed on a [Trie], leads to the corresponding [Node]
+// PathFromKey Converts a key to a path that, when followed on a [Trie],
+// leads to the corresponding [Node]
 func (t *Trie) PathFromKey(k *felt.Felt) *bitset.BitSet {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(t.height, regularK.Impl()[:])
 }
 
-// Finds the set of common MSB bits in two [StoragePath] objects
+// FindCommonPath finds the set of common MSB bits in two [StoragePath] objects
 func FindCommonPath(longerPath, shorterPath *bitset.BitSet) (*bitset.BitSet, bool) {
 	divergentBit := uint(0)
 
@@ -250,7 +251,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return value.value, nil
 }
 
-// Update the corresponding `value` for a `key`
+// Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	path := t.PathFromKey(key)
 	node := &Node{
@@ -426,7 +427,7 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 	return nil
 }
 
-// Get commitment of a [Trie]
+// Root returns the commitment of a [Trie]
 func (t *Trie) Root() (*felt.Felt, error) {
 	if t.root == nil {
 		return new(felt.Felt), nil
