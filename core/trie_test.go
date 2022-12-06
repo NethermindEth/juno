@@ -123,6 +123,12 @@ func (s *testTrieStorage) Get(key *bitset.BitSet) (*TrieNode, error) {
 	return v, err
 }
 
+func (s *testTrieStorage) Delete(key *bitset.BitSet) error {
+	keyEnc, _ := key.MarshalBinary()
+	delete(s.storage, hex.EncodeToString(keyEnc))
+	return nil
+}
+
 func TestFindCommonPath(t *testing.T) {
 	tests := [...]struct {
 		path1  *bitset.BitSet
@@ -177,7 +183,7 @@ func TestTriePut(t *testing.T) {
 	}{
 		{
 			key:   new(felt.Felt).SetUint64(2),
-			value: new(felt.Felt).SetUint64(0),
+			value: new(felt.Felt).SetUint64(2),
 			root:  nil,
 		},
 		{
@@ -445,4 +451,75 @@ func TestState(t *testing.T) {
 	if want.Cmp(got) != 0 {
 		t.Errorf("state.RootHash() = %s, want = %s", got.Text(16), want.Text(16))
 	}
+}
+
+func TestPutZero(t *testing.T) {
+	storage := &testTrieStorage{
+		storage: make(storage),
+	}
+	trie := NewTrie(storage, 251)
+	emptyRoot, err := trie.Root()
+	if err != nil {
+		t.Error(err)
+	}
+
+	roots := []*felt.Felt{}
+	keys := []*felt.Felt{}
+	// put random 64 keys and record roots
+	for i := 0; i < 64; i++ {
+		key, err := new(felt.Felt).SetRandom()
+		if err != nil {
+			t.Error(err)
+		}
+		value, err := new(felt.Felt).SetRandom()
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err = trie.Put(key, value); err != nil {
+			t.Error(err)
+		}
+
+		keys = append(keys, key)
+		root, err := trie.Root()
+		if err != nil {
+			t.Error(err)
+		}
+
+		roots = append(roots, root)
+	}
+
+	key, err := new(felt.Felt).SetRandom()
+	if err != nil {
+		t.Error(err)
+	}
+	// adding a zero value should not change Trie
+	if err = trie.Put(key, new(felt.Felt)); err != nil {
+		t.Error(err)
+	}
+	root, err := trie.Root()
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+
+	// put zero in reverse order and check roots still match
+	for i := 0; i < 64; i++ {
+		root := roots[len(roots)-1-i]
+		actual, err := trie.Root()
+		if err != nil {
+			t.Error(err)
+		}
+		assert.Equal(t, true, actual.Equal(root))
+
+		key := keys[len(keys)-1-i]
+		trie.Put(key, new(felt.Felt))
+	}
+
+	actualEmptyRoot, err := trie.Root()
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
+	assert.Equal(t, 0, len(storage.storage)) // storage should be empty
 }

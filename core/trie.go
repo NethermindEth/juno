@@ -17,6 +17,7 @@ import (
 type TrieStorage interface {
 	Put(key *bitset.BitSet, value *TrieNode) error
 	Get(key *bitset.BitSet) (*TrieNode, error)
+	Delete(key *bitset.BitSet) error
 }
 
 // A [Trie] node
@@ -246,6 +247,10 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	// empty trie, make new value root
 	if t.root == nil {
+		if value.IsZero() {
+			return nil // no-op
+		}
+
 		if err := t.propagateValues([]step{
 			{path: path, node: node},
 		}); err != nil {
@@ -263,10 +268,19 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	if path.Equal(sibling.path) {
 		sibling.node = node
-		if err := t.propagateValues(stepsToRoot); err != nil {
+		if value.IsZero() {
+			if err = t.deleteLast(stepsToRoot); err != nil {
+				return err
+			}
+		} else if err = t.propagateValues(stepsToRoot); err != nil {
 			return err
 		}
 		return nil
+	}
+
+	// trying to insert 0 to a key that does not exist
+	if value.IsZero() {
+		return nil // no-op
 	}
 
 	commonPath, _ := FindCommonPath(path, sibling.path)
@@ -301,11 +315,65 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	})
 
 	// push commitment changes
-	if err := t.propagateValues(stepsToRoot); err != nil {
+	if err = t.propagateValues(stepsToRoot); err != nil {
 		return err
 	} else if makeRoot {
 		t.root = commonPath
 	}
+	return nil
+}
+
+// deleteLast deletes the last node in the given list and recalculates commitment
+func (t *Trie) deleteLast(affectedPath []step) error {
+	last := affectedPath[len(affectedPath)-1]
+	if err := t.storage.Delete(last.path); err != nil {
+		return err
+	}
+
+	if len(affectedPath) == 1 { // deleted node was root
+		t.root = nil
+	} else {
+		// parent now has only a single child, so delete
+		parent := affectedPath[len(affectedPath)-2]
+		if err := t.storage.Delete(parent.path); err != nil {
+			return err
+		}
+
+		var siblingPath *bitset.BitSet
+		if parent.node.left.Equal(last.path) {
+			siblingPath = parent.node.right
+		} else {
+			siblingPath = parent.node.left
+		}
+
+		if len(affectedPath) == 2 { // sibling should become root
+			t.root = siblingPath
+		} else { // sibling should link to grandparent (len(affectedPath) > 2)
+			grandParent := &affectedPath[len(affectedPath)-3]
+			// replace link to parent with a link to sibling
+			if grandParent.node.left.Equal(parent.path) {
+				grandParent.node.left = siblingPath
+			} else {
+				grandParent.node.right = siblingPath
+			}
+
+			if sibling, err := t.storage.Get(siblingPath); err != nil {
+				return err
+			} else {
+				// rebuild the list of affected nodes
+				affectedPath = affectedPath[:len(affectedPath)-2] // drop last and parent
+				// add sibling
+				affectedPath = append(affectedPath, step{
+					path: siblingPath,
+					node: sibling,
+				})
+
+				// finally recalculate commitment
+				return t.propagateValues(affectedPath)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -351,6 +419,10 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 
 // Get commitment of a [Trie]
 func (t *Trie) Root() (*felt.Felt, error) {
+	if t.root == nil {
+		return new(felt.Felt), nil
+	}
+
 	root, err := t.storage.Get(t.root)
 	if err != nil {
 		return nil, err
