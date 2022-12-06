@@ -14,7 +14,7 @@ import (
 )
 
 // Persistent storage backend for [Trie]
-type TrieStorage interface {
+type Storage interface {
 	Put(key *bitset.BitSet, value *Node) error
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
@@ -134,10 +134,10 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 type Trie struct {
 	height  uint
 	root    *bitset.BitSet
-	storage TrieStorage
+	storage Storage
 }
 
-func NewTrie(storage TrieStorage, height uint) *Trie {
+func NewTrie(storage Storage, height uint) *Trie {
 	return &Trie{
 		storage: storage,
 		height:  height,
