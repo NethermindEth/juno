@@ -47,30 +47,6 @@ func TestPedersen(t *testing.T) {
 	}
 }
 
-func TestPedersenArrayLessThanThree(t *testing.T) {
-	tests := [...]struct {
-		elems []*felt.Felt
-	}{
-		{
-			elems: []*felt.Felt{},
-		},
-		{
-			elems: []*felt.Felt{new(felt.Felt).SetOne()},
-		},
-		{
-			elems: []*felt.Felt{new(felt.Felt).SetOne(), new(felt.Felt).SetZero()},
-		},
-	}
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("Num of input %d", len(test.elems)), func(t *testing.T) {
-			_, err := PedersenArray(test.elems...)
-			if err == nil {
-				t.Error("expected to get an error but got none")
-			}
-		})
-	}
-}
-
 func TestPedersenArray(t *testing.T) {
 	tests := [...]struct {
 		input []string
