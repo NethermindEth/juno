@@ -21,7 +21,7 @@ import (
 //   - Add more test cases with different heights
 //   - Add more complicated Put and Delete scenarios
 func TestPathFromKey(t *testing.T) {
-	trie := NewTrie(nil, 251)
+	trie := NewTrie(nil, 251, nil)
 	key, _ := new(felt.Felt).SetRandom()
 	path := trie.FeltToBitSet(key)
 	keyRegular := key.ToRegular()
@@ -360,7 +360,7 @@ func TestPutZero(t *testing.T) {
 	defer txn.Discard()
 
 	trieTxn := NewTrieBadgerTxn(txn, nil)
-	trie := NewTrie(trieTxn, 251)
+	trie := NewTrie(trieTxn, 251, nil)
 	emptyRoot, err := trie.Root()
 	if err != nil {
 		t.Error(err)
