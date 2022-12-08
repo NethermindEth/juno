@@ -42,11 +42,12 @@ type Trie struct {
 	storage Storage
 }
 
-func NewTrie(storage Storage, height uint) *Trie {
+func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
 	// Todo: set max height to 251 and set max key value accordingly
 	return &Trie{
 		storage: storage,
 		height:  height,
+		rootKey: rootKey,
 	}
 }
 
@@ -62,7 +63,7 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	defer txn.Discard()
 
 	trieTxn := NewTrieBadgerTxn(txn, nil)
-	return do(NewTrie(trieTxn, height))
+	return do(NewTrie(trieTxn, height, nil))
 }
 
 // FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
@@ -343,6 +344,11 @@ func (t *Trie) Root() (*felt.Felt, error) {
 
 	path := Path(t.rootKey, nil)
 	return root.Hash(path), nil
+}
+
+// RootKey returns db key of the [Trie] root node
+func (t *Trie) RootKey() *bitset.BitSet {
+	return t.rootKey
 }
 
 func (t *Trie) Dump() {
