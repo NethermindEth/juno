@@ -10,6 +10,7 @@ const (
 	StateTrie         byte = 1 // state trie
 	ContractRootPath  byte = 2 // contract storage roots
 	ContractClassHash byte = 3 // mapping between contract addresses and class hashes
+	ContractStorage   byte = 5 // contract storages
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte

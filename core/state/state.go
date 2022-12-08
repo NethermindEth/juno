@@ -5,16 +5,15 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/bits-and-blooms/bitset"
-
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/dgraph-io/badger/v3"
 )
 
 const (
-	stateTrieHeight = 251
-
+	stateTrieHeight           = 251
+	contractStorageTrieHeight = 251
 	// fields of state metadata table
 	stateRootKey = "rootPath"
 )
@@ -146,4 +145,116 @@ func (s *State) putStateStorage(state *core.Trie, txn *badger.Txn) error {
 	}
 
 	return nil
+}
+
+// Update applies a StateUpdate to the State object
+// State is not updated if an error is encountered during the operation
+func (s *State) Update(update *core.StateUpdate) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		currentRoot, err := s.root(txn)
+		if err != nil {
+			return err
+		}
+		if !update.OldRoot.Equal(currentRoot) {
+			return errors.New("mismatched old root")
+		}
+
+		// register deployed contracts
+		for _, contract := range update.StateDiff.DeployedContracts {
+			if err := s.putNewContract(contract.Address, contract.ClassHash, txn); err != nil {
+				return err
+			}
+		}
+
+		// update contract storages
+		for addrStr, diff := range update.StateDiff.StorageDiffs {
+			addr, err := new(felt.Felt).SetString(addrStr)
+			if err != nil {
+				return err
+			}
+			if err = s.updateContractStorage(addr, diff, txn); err != nil {
+				return err
+			}
+		}
+
+		newRoot, err := s.root(txn)
+		if err != nil {
+			return err
+		}
+		if !update.NewRoot.Equal(newRoot) {
+			return errors.New("mismatched new root")
+		} else {
+			return nil
+		}
+	})
+}
+
+// getContractStorage returns the Trie that represents the storage of the contract at the given address
+// in the given Txn context
+func (s *State) getContractStorage(addr *felt.Felt, txn *badger.Txn) (*core.Trie, error) {
+	addrBytes := addr.Marshal()
+	var contractRootKey *bitset.BitSet
+
+	if item, err := txn.Get(db.Key(db.ContractRootPath, addrBytes)); err == nil {
+		if err = item.Value(func(val []byte) error {
+			contractRootKey = new(bitset.BitSet)
+			return contractRootKey.UnmarshalBinary(val)
+		}); err != nil {
+			return nil, err
+		}
+	}
+	trieTxn := &TrieTxn{
+		badgerTxn: txn,
+		prefix:    db.Key(db.ContractStorage, addrBytes),
+	}
+	return core.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey), nil
+}
+
+// updateContractStorage applies the diff set to the Trie of the contract at the given address in the given Txn context
+func (s *State) updateContractStorage(addr *felt.Felt, diff []core.KVPair, txn *badger.Txn) error {
+	classHash, err := s.getContractClass(addr, txn)
+	if err != nil {
+		return err
+	}
+
+	storage, err := s.getContractStorage(addr, txn)
+	if err != nil {
+		return err
+	}
+
+	// apply the diff
+	for _, pair := range diff {
+		if err = storage.Put(pair.Key, pair.Value); err != nil {
+			return err
+		}
+	}
+
+	// update contract storage root in the database
+	if rootKeyBytes, err := storage.RootKey().MarshalBinary(); err != nil {
+		return err
+	} else if err = txn.Set(db.Key(db.ContractRootPath, addr.Marshal()), rootKeyBytes); err != nil {
+		return err
+	}
+
+	// recalculate commitment to be put in the global state
+	storageRoot, err := storage.Root()
+	if err != nil {
+		return err
+	}
+
+	commitment, err := GetContractCommitment(storageRoot, classHash)
+	if err != nil {
+		return err
+	}
+
+	state, err := s.getStateStorage(txn)
+	if err != nil {
+		return err
+	}
+
+	if err = state.Put(addr, commitment); err != nil {
+		return err
+	}
+
+	return s.putStateStorage(state, txn)
 }
