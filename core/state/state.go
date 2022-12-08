@@ -2,7 +2,9 @@ package state
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -12,11 +14,25 @@ import (
 )
 
 const (
-	stateTrieHeight = 251
-
+	stateTrieHeight           = 251
+	contractStorageTrieHeight = 251
 	// fields of state metadata table
 	stateRootKey = "rootPath"
 )
+
+type ErrMismatchedRoot struct {
+	Want  *felt.Felt
+	Got   *felt.Felt
+	IsOld bool
+}
+
+func (e *ErrMismatchedRoot) Error() string {
+	newOld := " new "
+	if e.IsOld {
+		newOld = " old "
+	}
+	return fmt.Sprintf("mismatched %s root: want %s, got %s", newOld, e.Want.Text(16), e.Got.Text(16))
+}
 
 type State struct {
 	db *badger.DB
@@ -146,4 +162,128 @@ func (s *State) putStateStorage(state *trie.Trie, txn *badger.Txn) error {
 	}
 
 	return nil
+}
+
+// Update applies a StateUpdate to the State object. State is not
+// updated if an error is encountered during the operation. If update's
+// old or new root does not match the state's old or new roots,
+// [ErrMismatchedRoot] is returned.
+func (s *State) Update(update *core.StateUpdate) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		currentRoot, err := s.root(txn)
+		if err != nil {
+			return err
+		}
+		if !update.OldRoot.Equal(currentRoot) {
+			return &ErrMismatchedRoot{
+				Want:  update.OldRoot,
+				Got:   currentRoot,
+				IsOld: true,
+			}
+		}
+
+		// register deployed contracts
+		for _, contract := range update.StateDiff.DeployedContracts {
+			if err := s.putNewContract(contract.Address, contract.ClassHash, txn); err != nil {
+				return err
+			}
+		}
+
+		// update contract storages
+		for addr, diff := range update.StateDiff.StorageDiffs {
+			if err != nil {
+				return err
+			}
+			if err = s.updateContractStorage(&addr, diff, txn); err != nil {
+				return err
+			}
+		}
+
+		newRoot, err := s.root(txn)
+		if err != nil {
+			return err
+		}
+		if !update.NewRoot.Equal(newRoot) {
+			return &ErrMismatchedRoot{
+				Want:  update.NewRoot,
+				Got:   newRoot,
+				IsOld: false,
+			}
+		}
+		return nil
+	})
+}
+
+// getContractStorage returns the [core.Trie] that represents the
+// storage of the contract at the given address in the given Txn
+// context.
+func (s *State) getContractStorage(addr *felt.Felt, txn *badger.Txn) (*trie.Trie, error) {
+	addrBytes := addr.Marshal()
+	var contractRootKey *bitset.BitSet
+
+	if item, err := txn.Get(db.ContractRootPath.Key(addrBytes)); err == nil {
+		if err = item.Value(func(val []byte) error {
+			contractRootKey = new(bitset.BitSet)
+			return contractRootKey.UnmarshalBinary(val)
+		}); err != nil {
+			return nil, err
+		}
+	} else if !errors.Is(err, badger.ErrKeyNotFound) {
+		// Don't continue normal operation with arbitrary
+		// database error.
+		return nil, err
+	}
+	trieTxn := trie.NewTrieBadgerTxn(txn, db.ContractStorage.Key(addrBytes))
+	return trie.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey), nil
+}
+
+// updateContractStorage applies the diff set to the Trie of the
+// contract at the given address in the given Txn context.
+func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff, txn *badger.Txn) error {
+	classHash, err := s.getContractClass(addr, txn)
+	if err != nil {
+		return err
+	}
+
+	storage, err := s.getContractStorage(addr, txn)
+	if err != nil {
+		return err
+	}
+
+	// apply the diff
+	for _, pair := range diff {
+		if err = storage.Put(pair.Key, pair.Value); err != nil {
+			return err
+		}
+	}
+
+	// update contract storage root in the database
+	rootKeyDbKey := db.ContractRootPath.Key(addr.Marshal())
+	if rootKey := storage.RootKey(); rootKey != nil {
+		if rootKeyBytes, err := storage.RootKey().MarshalBinary(); err != nil {
+			return err
+		} else if err = txn.Set(rootKeyDbKey, rootKeyBytes); err != nil {
+			return err
+		}
+	} else if err = txn.Delete(rootKeyDbKey); err != nil {
+		return err
+	}
+
+	// recalculate commitment to be put in the global state
+	storageRoot, err := storage.Root()
+	if err != nil {
+		return err
+	}
+
+	commitment := CalculateContractCommitment(storageRoot, classHash)
+	state, err := s.getStateStorage(txn)
+	if err != nil {
+		return err
+	}
+
+	if err = state.Put(addr, commitment); err != nil {
+		return err
+	}
+
+	return s.putStateStorage(state, txn)
 }
