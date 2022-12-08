@@ -68,7 +68,7 @@ func TestNode_Marshall(t *testing.T) {
 }
 
 func TestPathFromKey(t *testing.T) {
-	trie := NewTrie(nil, 251)
+	trie := NewTrie(nil, 251, nil)
 	key, _ := new(felt.Felt).SetRandom()
 	path := trie.PathFromKey(key)
 	keyRegular := key.ToRegular()
@@ -174,7 +174,7 @@ func TestTriePut(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := NewTrie(storage, 251)
+	trie := NewTrie(storage, 251, nil)
 
 	tests := [...]struct {
 		key   *felt.Felt
@@ -254,7 +254,7 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := NewTrie(storage, 251)
+	trie := NewTrie(storage, 251, nil)
 
 	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
 	// and check paths
@@ -285,7 +285,7 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := NewTrie(storage, 251)
+	trie := NewTrie(storage, 251, nil)
 
 	zero := felt.NewFelt(0)
 	msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
@@ -412,13 +412,13 @@ func TestState(t *testing.T) {
 	stateStorage := &testTrieStorage{
 		storage: make(storage),
 	}
-	state := NewTrie(stateStorage, 251)
+	state := NewTrie(stateStorage, 251, nil)
 
 	for addr, dif := range addresses {
 		contractStorage := &testTrieStorage{
 			storage: make(storage),
 		}
-		contractState := NewTrie(contractStorage, 251)
+		contractState := NewTrie(contractStorage, 251, nil)
 		for _, slot := range dif {
 			key, _ := new(felt.Felt).SetString(slot.key)
 			val, _ := new(felt.Felt).SetString(slot.val)
@@ -457,7 +457,7 @@ func TestPutZero(t *testing.T) {
 	storage := &testTrieStorage{
 		storage: make(storage),
 	}
-	trie := NewTrie(storage, 251)
+	trie := NewTrie(storage, 251, nil)
 	emptyRoot, err := trie.Root()
 	if err != nil {
 		t.Error(err)

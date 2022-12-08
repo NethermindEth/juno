@@ -140,10 +140,11 @@ type Trie struct {
 	storage TrieStorage
 }
 
-func NewTrie(storage TrieStorage, height uint) *Trie {
+func NewTrie(storage TrieStorage, height uint, root *bitset.BitSet) *Trie {
 	return &Trie{
 		storage: storage,
 		height:  height,
+		root:    root,
 	}
 }
 
@@ -430,6 +431,11 @@ func (t *Trie) Root() (*felt.Felt, error) {
 
 	specPath := GetSpecPath(t.root, nil)
 	return root.Hash(specPath), nil
+}
+
+// Get db key of a [Trie] root node
+func (t *Trie) RootKey() *bitset.BitSet {
+	return t.root
 }
 
 // Try to print a [Trie] in a somewhat human-readable form
