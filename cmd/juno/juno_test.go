@@ -2,28 +2,27 @@ package main_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
-	junoCmd "github.com/NethermindEth/juno/cmd/juno"
-	"github.com/NethermindEth/juno/internal/juno"
-	"github.com/NethermindEth/juno/internal/utils"
+	juno "github.com/NethermindEth/juno/cmd/juno"
+	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type spyJuno struct {
 	sync.RWMutex
-	cfg   *juno.Config
+	cfg   *node.Config
 	calls []string
 	exit  chan struct{}
 }
 
-func newSpyJuno(junoCfg *juno.Config) (juno.StarkNetNode, error) {
+func newSpyJuno(junoCfg *node.Config) (node.StarkNetNode, error) {
 	return &spyJuno{cfg: junoCfg, exit: make(chan struct{})}, nil
 }
 
@@ -58,7 +57,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 `
 		b := new(bytes.Buffer)
 
-		cmd := junoCmd.NewCmd(newSpyJuno, quitTest())
+		cmd := juno.NewCmd(newSpyJuno, quitTest())
 		cmd.SetOut(b)
 		err := cmd.Execute()
 		require.NoError(t, err)
@@ -66,7 +65,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 		actual := b.String()
 		assert.Equal(t, expected, actual)
 
-		n, ok := junoCmd.StarkNetNode.(*spyJuno)
+		n, ok := juno.StarkNetNode.(*spyJuno)
 		require.Equal(t, true, ok)
 		assert.Equal(t, []string{"run", "shutdown"}, n.calls)
 	})
@@ -90,11 +89,11 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			cfgFileContents string
 			expectErr       bool
 			inputArgs       []string
-			expectedConfig  *juno.Config
+			expectedConfig  *node.Config
 		}{
 			"default config with no flags": {
 				inputArgs: []string{""},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
 					RpcPort:      defaultRpcPort,
 					Metrics:      defaultMetrics,
@@ -104,7 +103,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			},
 			"config file path is empty string": {
 				inputArgs: []string{"--config", ""},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
 					RpcPort:      defaultRpcPort,
 					Metrics:      defaultMetrics,
@@ -119,7 +118,7 @@ Juno is a Go implementation of a StarkNet full node client made with ❤️ by N
 			"config file contents are empty": {
 				cfgFile:         tempCfgFile,
 				cfgFileContents: "\n",
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity: defaultVerbosity,
 					RpcPort:   defaultRpcPort,
 					Metrics:   defaultMetrics,
@@ -135,7 +134,7 @@ db-path: /home/.juno
 network: 1
 eth-node: "https://some-ethnode:5673"
 `,
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -150,7 +149,7 @@ eth-node: "https://some-ethnode:5673"
 rpc-port: 4576
 metrics: true
 `,
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -165,7 +164,7 @@ metrics: true
 					"--metrics", "--db-path", "/home/.juno", "--network", "1",
 					"--eth-node", "https://some-ethnode:5673",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -179,7 +178,7 @@ metrics: true
 					"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
 					"--network", "1",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      defaultMetrics,
@@ -202,7 +201,7 @@ eth-node: "https://some-ethnode:5673"
 					"--metrics", "--db-path", "/home/flag/.juno", "--network", "1",
 					"--eth-node", "https://some-ethnode:5674",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "error",
 					RpcPort:      4577,
 					Metrics:      true,
@@ -221,7 +220,7 @@ network: 1
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 					"https://some-ethnode:5674",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    "panic",
 					RpcPort:      4576,
 					Metrics:      true,
@@ -237,7 +236,7 @@ network: 1
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 					"https://some-ethnode:5674",
 				},
-				expectedConfig: &juno.Config{
+				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
 					RpcPort:      defaultRpcPort,
 					Metrics:      true,
@@ -256,7 +255,7 @@ network: 1
 					tc.inputArgs = append(tc.inputArgs, []string{"--config", fileN}...)
 				}
 
-				cmd := junoCmd.NewCmd(newSpyJuno, quitTest())
+				cmd := juno.NewCmd(newSpyJuno, quitTest())
 				cmd.SetArgs(tc.inputArgs)
 
 				err := cmd.Execute()
@@ -266,7 +265,7 @@ network: 1
 				}
 				require.NoError(t, err)
 
-				n, ok := junoCmd.StarkNetNode.(*spyJuno)
+				n, ok := juno.StarkNetNode.(*spyJuno)
 				require.Equal(t, true, ok)
 				assert.Equal(t, tc.expectedConfig, n.cfg)
 				assert.Equal(t, []string{"run", "shutdown"}, n.calls)
@@ -285,7 +284,7 @@ func quitTest() chan os.Signal {
 }
 
 func tempCfgFile(t *testing.T, cfg string) (string, func()) {
-	f, err := ioutil.TempFile("", "junoCfg.*.yaml")
+	f, err := os.CreateTemp("", "junoCfg.*.yaml")
 	require.NoError(t, err)
 
 	defer func() {

@@ -1,11 +1,11 @@
-package juno
+package node
 
 import (
 	"fmt"
 	"path/filepath"
 	"testing"
 
-	"github.com/NethermindEth/juno/internal/utils"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

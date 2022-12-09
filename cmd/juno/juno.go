@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/NethermindEth/juno/internal/juno"
-	"github.com/NethermindEth/juno/internal/utils"
+	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -52,11 +52,11 @@ const (
 )
 
 var (
-	StarkNetNode juno.StarkNetNode
+	StarkNetNode node.StarkNetNode
 	cfgFile      string
 )
 
-func NewCmd(newNodeFn juno.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Command {
+func NewCmd(newNodeFn node.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:   "juno [flags]",
 		Short: "StarkNet client implementation in Go.",
@@ -89,7 +89,7 @@ func NewCmd(newNodeFn juno.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Comm
 		}
 
 		var err error
-		junoCfg := new(juno.Config)
+		junoCfg := new(node.Config)
 
 		if err = v.Unmarshal(junoCfg); err != nil {
 			return err

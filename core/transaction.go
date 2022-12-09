@@ -5,6 +5,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+type Transaction interface {
+	Hash() *felt.Felt
+}
+
 type DeployTransaction struct {
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
