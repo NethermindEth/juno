@@ -32,6 +32,10 @@ func TestClassHash(t *testing.T) {
 			want: "0x0079e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
 			file: "contract_definition.json",
 		},
+		{
+			want: "0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+			file: "genesis_contract.json",
+		},
 	}
 	for _, tt := range tests {
 		// Read json file, parse it and generate a class

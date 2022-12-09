@@ -108,11 +108,7 @@ func (c *Class) ClassHash() (*felt.Felt, error) {
 		return nil, err
 	}
 	hashFelt = append(hashFelt, builtinHash)
-	fmt.Println(c.ProgramHash)
 	hashFelt = append(hashFelt, c.ProgramHash)
-	a, _ := new(felt.Felt).SetString("0x88562ac88adfc7760ff452d048d39d72978bcc0f8d7b0fcfb34f33970b3df3")
-	// b, _ := crypto.PedersenArray(hashFelt...)
-	fmt.Println(a.Text(10))
 
 	// Pedersen hash of the bytecode
 	bytecodeHash, err := crypto.PedersenArray(c.Bytecode...)
@@ -125,6 +121,16 @@ func (c *Class) ClassHash() (*felt.Felt, error) {
 	classHash, err := crypto.PedersenArray(hashFelt...)
 	if err != nil {
 		return nil, err
+	}
+
+	textClassHash, err := new(felt.Felt).SetString("0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3")
+	if err != nil {
+		return nil, err
+	}
+
+	if !reflect.DeepEqual(classHash, textClassHash) {
+		fmt.Println("class hash mismatch: ", classHash, " != ", textClassHash, "")
+		return nil, fmt.Errorf("class hash mismatch: %s != %s", classHash, textClassHash)
 	}
 
 	return classHash, nil
@@ -268,62 +274,47 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 	// make debug info None
 	program.DebugInfo = nil
 
-	// Compilers before version 0.10.0 use the "(a : felt)" syntax instead of the "(a: felt)" syntax.
-	// So, we need to add an extra space before the colon in these cases for backwards compatibility.
-	//
-	// If compiler_version is not present, this was compiled with a compiler before version 0.10.0.
-	if program.CompilerVersion == "" { // TODO: Fix
-		identifiers := program.Identifiers
-		if identifiers != nil {
-			_identifiers, err := addExtraSpaceToCairoNamedTuples(identifiers)
-			if err != nil {
-				return Class{}, err
-			}
-			// convert interface to Identifiers
-			json.Marshal(_identifiers)
-			program.Identifiers = identifiers
-		}
-
-		referenceManager := program.ReferenceManager.(map[string]interface{})
-		if referenceManager != nil {
-			referenceManager, err := addExtraSpaceToCairoNamedTuples(referenceManager)
-			if err != nil {
-				return Class{}, err
-			}
-			program.ReferenceManager = referenceManager
-		}
-	}
-
 	// Cairo 0.8 added "accessible_scopes" and "flow_tracking_data" attribute fields, which were
 	// not present in older contracts. They present as null/empty for older contracts deployed
 	// prior to adding this feature and should not be included in the hash calculation in these cases.
 	//
 	// We therefore check and remove them from the definition before calculating the hash.
-	attributes := program.Attributes.([]interface{})
-	if len(attributes) == 0 {
-		program.Attributes = nil
-	} else {
-		for key, attribute := range attributes {
-			attributeInterface := attribute.(map[string]interface{})
-			if len(attributeInterface["accessible_scopes"].([]interface{})) == 0 {
-				delete(attributeInterface, "accessible_scopes")
+	if program.Attributes != nil {
+		attributes := program.Attributes.([]interface{})
+		if len(attributes) == 0 {
+			program.Attributes = nil
+		} else {
+			for key, attribute := range attributes {
+				attributeInterface := attribute.(map[string]interface{})
+				if len(attributeInterface["accessible_scopes"].([]interface{})) == 0 {
+					delete(attributeInterface, "accessible_scopes")
+				}
+
+				if attributeInterface["flow_tracking_data"] == nil {
+					delete(attributeInterface, "flow_tracking_data")
+				}
+
+				attributes[key] = attributeInterface
 			}
 
-			if len(attributeInterface["flow_tracking_data"].(map[string]interface{})) == 0 {
-				delete(attributeInterface, "flow_tracking_data")
-			}
-
-			attributes[key] = attributeInterface
+			program.Attributes = attributes
 		}
-
-		program.Attributes = attributes
 	}
 
-	// program.Hints = a
 	contractCode := new(ContractCode)
 	contractCode.Abi = definition.Abi
 	contractCode.Program = program
 
+	// Explanation of why we have contractDefinition and typedContractDefinition
+	//
+	// contractDefinition uses interface{} to marshal Identifiers and therefore maintain the
+	// original order of the map[string]interface{}. However, it introduces a problem by
+	// converting big numbers (e.g. -106710729501573572985208420194530329073740042555888586719489)
+	// into floats (e.g. -1.0671072950157357e+59). This affects the computation.
+	//
+	// On the other hand, typedContractDefinition uses the Identifier type to marshal identifiers
+	// without converting big numbers to floats. It, however, does not maintain the orginal order
+	// of the objects. The order is important to generate the correct class hash.
 	typedContractDefinition := new(TypedClassDefinition)
 	err = json.Unmarshal(contractDefinition, &typedContractDefinition)
 	if err != nil {
@@ -342,7 +333,6 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 	if err != nil {
 		return Class{}, err
 	}
-	fmt.Println("Program Keccak: ", programKeccak)
 
 	class.ProgramHash = programKeccak
 
@@ -371,18 +361,21 @@ func (c ContractCode) MarshalsJSON(identifiers Identifiers) ([]byte, error) {
 	}
 
 	buf.Write([]byte(", "))
-	buf.Write([]byte("\"program\": {"))
+	buf.Write([]byte("\"program\": " + "{"))
 	program := c.Program
 	if program.Attributes != nil {
+		buf.Write([]byte("\"attributes\": "))
 		formatter(buf, program.Attributes, "", identifiers)
 		buf.Write([]byte(", "))
 	}
 	buf.Write([]byte("\"builtins\": "))
 	formatter(buf, program.Builtins, "", identifiers)
 	buf.Write([]byte(", "))
-	buf.Write([]byte("\"compiler_version\": "))
-	formatter(buf, program.CompilerVersion, "", identifiers)
-	buf.Write([]byte(", "))
+	if program.CompilerVersion != "" {
+		buf.Write([]byte("\"compiler_version\": "))
+		formatter(buf, program.CompilerVersion, "", identifiers)
+		buf.Write([]byte(", "))
+	}
 	buf.Write([]byte("\"data\": "))
 	formatter(buf, program.Data, "", identifiers)
 	buf.Write([]byte(", "))
@@ -411,8 +404,14 @@ func (c ContractCode) MarshalsJSON(identifiers Identifiers) ([]byte, error) {
 func formatter(buf *bytes.Buffer, value interface{}, tree string, identifiers Identifiers) error {
 	switch v := value.(type) {
 	case string:
-		result := `"` + v + `"`
-		buf.WriteString(result)
+		var result string
+		if strings.ContainsAny(v, "\n\\") {
+			result = strings.ReplaceAll(v, "\\", "\\\\")
+			result = strings.ReplaceAll(result, "\n", "\\n")
+		} else {
+			result = v
+		}
+		buf.WriteString("\"" + result + "\"")
 	case uint:
 		result := strconv.FormatUint(uint64(v), 10)
 		buf.WriteString(result)
@@ -478,8 +477,6 @@ func formatter(buf *bytes.Buffer, value interface{}, tree string, identifiers Id
 			}
 		}
 		buf.Write([]byte{'}'})
-	// case Identifiers:
-	// 	formatIdentifiers(buf, v)
 	case []interface{}:
 		buf.Write([]byte{'['})
 		count := 0
@@ -514,41 +511,4 @@ func formatter(buf *bytes.Buffer, value interface{}, tree string, identifiers Id
 		}
 	}
 	return nil
-}
-
-// TODO: Confirm whether this is the correct way to update (a: felt)
-func addExtraSpaceToCairoNamedTuples(value interface{}) (interface{}, error) {
-	switch v := value.(type) {
-	case []interface{}:
-		valueArray := v
-		for i, v := range valueArray {
-			result, err := addExtraSpaceToCairoNamedTuples(v)
-			if err != nil {
-				return nil, err
-			}
-			valueArray[i] = result
-		}
-		return valueArray, nil
-	case map[string]interface{}:
-		valueMap := v
-		for k, v := range valueMap {
-			if reflect.TypeOf(v).Kind() == reflect.String {
-				if k == "value" || k == "cairo_type" {
-					v = strings.ReplaceAll(v.(string), ": ", " : ")
-					valueMap[k] = strings.ReplaceAll(v.(string), "  :", " :")
-				} else {
-					valueMap[k] = v
-				}
-			} else {
-				result, err := addExtraSpaceToCairoNamedTuples(v)
-				if err != nil {
-					return nil, err
-				}
-				valueMap[k] = result
-			}
-		}
-		return valueMap, nil
-	default:
-		return value, nil
-	}
 }
