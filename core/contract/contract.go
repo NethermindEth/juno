@@ -123,16 +123,6 @@ func (c *Class) ClassHash() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	textClassHash, err := new(felt.Felt).SetString("0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3")
-	if err != nil {
-		return nil, err
-	}
-
-	if !reflect.DeepEqual(classHash, textClassHash) {
-		fmt.Println("class hash mismatch: ", classHash, " != ", textClassHash, "")
-		return nil, fmt.Errorf("class hash mismatch: %s != %s", classHash, textClassHash)
-	}
-
 	return classHash, nil
 }
 
@@ -286,11 +276,11 @@ func GenerateClass(contractDefinition []byte) (Class, error) {
 		} else {
 			for key, attribute := range attributes {
 				attributeInterface := attribute.(map[string]interface{})
-				if len(attributeInterface["accessible_scopes"].([]interface{})) == 0 {
+				if attributeInterface["accessible_scopes"] == nil || len(attributeInterface["accessible_scopes"].([]interface{})) == 0 {
 					delete(attributeInterface, "accessible_scopes")
 				}
 
-				if attributeInterface["flow_tracking_data"] == nil {
+				if attributeInterface["flow_tracking_data"] == nil || len(attributeInterface["flow_tracking_data"].(map[string]interface{})) == 0 {
 					delete(attributeInterface, "flow_tracking_data")
 				}
 
