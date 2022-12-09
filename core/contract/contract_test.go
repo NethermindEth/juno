@@ -10,7 +10,7 @@ import (
 
 func TestGenerateClass(t *testing.T) {
 	// Read json file, parse it and generate a class
-	contractDefinition, err := os.ReadFile("contract_definition.json")
+	contractDefinition, err := os.ReadFile("examples/contract_definition.json")
 	if err != nil {
 		t.Fatalf("expected no error but got %s", err)
 	}
@@ -30,11 +30,15 @@ func TestClassHash(t *testing.T) {
 	}{
 		{
 			want: "0x0079e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
-			file: "contract_definition.json",
+			file: "examples/contract_definition.json", // Cairo 0.10
 		},
 		{
 			want: "0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
-			file: "genesis_contract.json",
+			file: "examples/genesis_contract.json", // Genesis contract
+		},
+		{
+			want: "0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
+			file: "examples/contract_0_8.json", // Cairo 0.8
 		},
 	}
 	for _, tt := range tests {
