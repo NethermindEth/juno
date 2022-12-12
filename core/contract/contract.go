@@ -166,16 +166,6 @@ func EntryPointToFelt(entryPoint []EntryPoint) (*felt.Felt, error) {
 	return entryPointPedersen, nil
 }
 
-type Abi []struct {
-	Inputs []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	} `json:"inputs"`
-	Name    string        `json:"name"`
-	Outputs []interface{} `json:"outputs"`
-	Type    string        `json:"type"`
-}
-
 type (
 	Hints       map[uint64]interface{}
 	Identifiers map[string]struct {
@@ -416,7 +406,7 @@ func formatter(buf *bytes.Buffer, value interface{}, tree string, identifiers Id
 		buf.WriteString(result)
 	case map[string]interface{}:
 		buf.Write([]byte{'{'})
-		// Arrange lexigraphically
+		// Arrange lexicographically
 		keys := make([]string, 0, len(v))
 		for k := range v {
 			keys = append(keys, k)
