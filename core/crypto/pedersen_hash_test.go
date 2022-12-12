@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 func TestPedersen(t *testing.T) {
@@ -25,16 +25,16 @@ func TestPedersen(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("TestHash %d", i), func(t *testing.T) {
-			a, err := new(felt.Felt).SetString(tt.a)
+			a, err := new(fp.Element).SetString(tt.a)
 			if err != nil {
 				t.Errorf("expected no error but got %s", err)
 			}
-			b, err := new(felt.Felt).SetString(tt.b)
+			b, err := new(fp.Element).SetString(tt.b)
 			if err != nil {
 				t.Errorf("expected no error but got %s", err)
 			}
 
-			want, err := new(felt.Felt).SetString(tt.want)
+			want, err := new(fp.Element).SetString(tt.want)
 			if err != nil {
 				t.Errorf("expected no error but got %s", err)
 			}
@@ -101,12 +101,12 @@ func TestPedersenArray(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		var data []*felt.Felt
+		var data []*fp.Element
 		for _, item := range test.input {
-			elem, _ := new(felt.Felt).SetString(item)
+			elem, _ := new(fp.Element).SetString(item)
 			data = append(data, elem)
 		}
-		want, _ := new(felt.Felt).SetString(test.want)
+		want, _ := new(fp.Element).SetString(test.want)
 		got, err := PedersenArray(data...)
 		if err != nil || got.Cmp(want) != 0 {
 			t.Errorf("PedersenArray(%x) = %x, want %x", data, got, want)
@@ -114,15 +114,15 @@ func TestPedersenArray(t *testing.T) {
 	}
 }
 
-var feltBench *felt.Felt
+var feltBench *fp.Element
 
 // go test -bench=. -run=^# -cpu=1,2,4,8,16
 func BenchmarkPedersenArray(b *testing.B) {
 	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
-	createRandomFelts := func(n int) []*felt.Felt {
-		var felts []*felt.Felt
+	createRandomFelts := func(n int) []*fp.Element {
+		var felts []*fp.Element
 		for i := 0; i < n; i++ {
-			f, err := new(felt.Felt).SetRandom()
+			f, err := new(fp.Element).SetRandom()
 			if err != nil {
 				b.Fatalf("error while generating random felt: %x", err)
 			}
@@ -133,7 +133,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
-			var f *felt.Felt
+			var f *fp.Element
 			var err error
 			randomFelts := createRandomFelts(i)
 			for n := 0; n < b.N; n++ {
@@ -148,17 +148,17 @@ func BenchmarkPedersenArray(b *testing.B) {
 }
 
 func BenchmarkPedersen(b *testing.B) {
-	e0, err := new(felt.Felt).SetString("0x3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb")
+	e0, err := new(fp.Element).SetString("0x3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb")
 	if err != nil {
 		b.Errorf("Error occured %s", err)
 	}
 
-	e1, err := new(felt.Felt).SetString("0x208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a")
+	e1, err := new(fp.Element).SetString("0x208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a")
 	if err != nil {
 		b.Errorf("Error occured %s", err)
 	}
 
-	var f *felt.Felt
+	var f *fp.Element
 	for n := 0; n < b.N; n++ {
 		f, err = Pedersen(e0, e1)
 		if err != nil {

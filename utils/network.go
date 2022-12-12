@@ -1,6 +1,6 @@
 package utils
 
-import "github.com/NethermindEth/juno/core/felt"
+import "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 
 type Network uint8
 
@@ -41,16 +41,16 @@ func (n Network) URL() string {
 	}
 }
 
-func (n Network) ChainId() *felt.Felt {
+func (n Network) ChainId() *fp.Element {
 	switch n {
 	case GOERLI:
-		return new(felt.Felt).SetBytes([]byte("SN_GOERLI"))
+		return new(fp.Element).SetBytes([]byte("SN_GOERLI"))
 	case MAINNET:
-		return new(felt.Felt).SetBytes([]byte("SN_MAINNET"))
+		return new(fp.Element).SetBytes([]byte("SN_MAINNET"))
 	case GOERLI2:
-		return new(felt.Felt).SetBytes([]byte("SN_GOERLI2"))
+		return new(fp.Element).SetBytes([]byte("SN_GOERLI2"))
 	case INTEGRATION:
-		return new(felt.Felt).SetBytes([]byte("SN_INTEGRATION"))
+		return new(fp.Element).SetBytes([]byte("SN_INTEGRATION"))
 	default:
 		return nil
 	}

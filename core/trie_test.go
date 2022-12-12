@@ -7,13 +7,13 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNode_Marshall(t *testing.T) {
-	value, _ := new(felt.Felt).SetRandom()
+	value, _ := new(fp.Element).SetRandom()
 	path1 := bitset.FromWithLength(44, []uint64{44})
 	path2 := bitset.FromWithLength(22, []uint64{22})
 
@@ -53,15 +53,15 @@ func TestNode_Marshall(t *testing.T) {
 		}
 	}
 
-	malformed := new([felt.Bytes + 1]byte)
-	malformed[felt.Bytes] = 'l'
+	malformed := new([fp.Bytes + 1]byte)
+	malformed[fp.Bytes] = 'l'
 	if err := new(TrieNode).UnmarshalBinary(malformed[2:]); err == nil {
 		t.Error("TestNode_Marshall failed")
 	}
 	if err := new(TrieNode).UnmarshalBinary(malformed[:]); err == nil {
 		t.Error("TestNode_Marshall failed")
 	}
-	malformed[felt.Bytes] = 'z'
+	malformed[fp.Bytes] = 'z'
 	if err := new(TrieNode).UnmarshalBinary(malformed[:]); err == nil {
 		t.Error("TestNode_Marshall failed")
 	}
@@ -69,10 +69,10 @@ func TestNode_Marshall(t *testing.T) {
 
 func TestPathFromKey(t *testing.T) {
 	trie := NewTrie(nil, 251)
-	key, _ := new(felt.Felt).SetRandom()
+	key, _ := new(fp.Element).SetRandom()
 	path := trie.PathFromKey(key)
 	keyRegular := key.ToRegular()
-	for bit := 0; bit < felt.Bits; bit++ {
+	for bit := 0; bit < fp.Bits; bit++ {
 		if keyRegular.Bit(uint64(bit)) > 0 != path.Test(uint(bit)) {
 			t.Error("TestPathFromKey failed")
 			break
@@ -82,7 +82,7 @@ func TestPathFromKey(t *testing.T) {
 	// Make sure they dont share the same underlying memory
 	key.Halve()
 	keyRegular = key.ToRegular()
-	for bit := 0; bit < felt.Bits; bit++ {
+	for bit := 0; bit < fp.Bits; bit++ {
 		if keyRegular.Bit(uint64(bit)) > 0 != path.Test(uint(bit)) {
 			return
 		}
@@ -177,33 +177,33 @@ func TestTriePut(t *testing.T) {
 	trie := NewTrie(storage, 251)
 
 	tests := [...]struct {
-		key   *felt.Felt
-		value *felt.Felt
+		key   *fp.Element
+		value *fp.Element
 		root  *bitset.BitSet
 	}{
 		{
-			key:   new(felt.Felt).SetUint64(2),
-			value: new(felt.Felt).SetUint64(2),
+			key:   new(fp.Element).SetUint64(2),
+			value: new(fp.Element).SetUint64(2),
 			root:  nil,
 		},
 		{
-			key:   new(felt.Felt).SetUint64(1),
-			value: new(felt.Felt).SetUint64(1),
+			key:   new(fp.Element).SetUint64(1),
+			value: new(fp.Element).SetUint64(1),
 			root:  nil,
 		},
 		{
-			key:   new(felt.Felt).SetUint64(3),
-			value: new(felt.Felt).SetUint64(3),
+			key:   new(fp.Element).SetUint64(3),
+			value: new(fp.Element).SetUint64(3),
 			root:  nil,
 		},
 		{
-			key:   new(felt.Felt).SetUint64(3),
-			value: new(felt.Felt).SetUint64(4),
+			key:   new(fp.Element).SetUint64(3),
+			value: new(fp.Element).SetUint64(4),
 			root:  nil,
 		},
 		{
-			key:   new(felt.Felt).SetUint64(0),
-			value: new(felt.Felt).SetUint64(5),
+			key:   new(fp.Element).SetUint64(0),
+			value: new(fp.Element).SetUint64(5),
 			root:  nil,
 		},
 	}
@@ -258,9 +258,9 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 
 	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
 	// and check paths
-	two := felt.NewFelt(2)
-	five := felt.NewFelt(5)
-	one := felt.One()
+	two := fp.NewElement(2)
+	five := fp.NewElement(5)
+	one := fp.One()
 	trie.Put(&two, &one)
 	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(trie.PathFromKey(&two)))
 
@@ -287,9 +287,9 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 	}
 	trie := NewTrie(storage, 251)
 
-	zero := felt.NewFelt(0)
-	msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
-	one := felt.One()
+	zero := fp.NewElement(0)
+	msbOne, _ := new(fp.Element).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
+	one := fp.One()
 	trie.Put(&zero, &one)
 	trie.Put(msbOne, &one)
 
@@ -301,10 +301,10 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 func TestTrieNode_Hash(t *testing.T) {
 	// https://github.com/eqlabs/pathfinder/blob/5e0f4423ed9e9385adbe8610643140e1a82eaef6/crates/pathfinder/src/state/merkle_node.rs#L350-L374
 	valueBytes, _ := hex.DecodeString("1234ABCD")
-	expected, _ := new(felt.Felt).SetString("0x1d937094c09b5f8e26a662d21911871e3cbc6858d55cc49af9848ea6fed4e9")
+	expected, _ := new(fp.Element).SetString("0x1d937094c09b5f8e26a662d21911871e3cbc6858d55cc49af9848ea6fed4e9")
 
 	node := TrieNode{
-		value: new(felt.Felt).SetBytes(valueBytes),
+		value: new(fp.Element).SetBytes(valueBytes),
 	}
 	path := bitset.FromWithLength(6, []uint64{42})
 
@@ -405,8 +405,8 @@ func TestState(t *testing.T) {
 			},
 		}
 
-		want, _         = new(felt.Felt).SetString("0x021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6")
-		contractHash, _ = new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
+		want, _         = new(fp.Element).SetString("0x021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6")
+		contractHash, _ = new(fp.Element).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
 	stateStorage := &testTrieStorage{
@@ -420,8 +420,8 @@ func TestState(t *testing.T) {
 		}
 		contractState := NewTrie(contractStorage, 251)
 		for _, slot := range dif {
-			key, _ := new(felt.Felt).SetString(slot.key)
-			val, _ := new(felt.Felt).SetString(slot.val)
+			key, _ := new(fp.Element).SetString(slot.key)
+			val, _ := new(fp.Element).SetString(slot.val)
 			if err := contractState.Put(key, val); err != nil {
 				t.Fatal(err)
 			}
@@ -434,13 +434,13 @@ func TestState(t *testing.T) {
 		   31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280  :  6fe0662f4be66647b4508a53a08e13e7d1ffb2b19e93fa9dc991153f3a447d
 		*/
 
-		key, _ := new(felt.Felt).SetString(addr)
+		key, _ := new(fp.Element).SetString(addr)
 		contractRoot, _ := contractState.Root()
 		fmt.Println(addr, " : ", contractRoot.Text(16))
 
 		val, _ := crypto.Pedersen(contractHash, contractRoot)
-		val, _ = crypto.Pedersen(val, new(felt.Felt))
-		val, _ = crypto.Pedersen(val, new(felt.Felt))
+		val, _ = crypto.Pedersen(val, new(fp.Element))
+		val, _ = crypto.Pedersen(val, new(fp.Element))
 
 		if err := state.Put(key, val); err != nil {
 			t.Fatal(err)
@@ -463,15 +463,15 @@ func TestPutZero(t *testing.T) {
 		t.Error(err)
 	}
 
-	roots := []*felt.Felt{}
-	keys := []*felt.Felt{}
+	roots := []*fp.Element{}
+	keys := []*fp.Element{}
 	// put random 64 keys and record roots
 	for i := 0; i < 64; i++ {
-		key, err := new(felt.Felt).SetRandom()
+		key, err := new(fp.Element).SetRandom()
 		if err != nil {
 			t.Error(err)
 		}
-		value, err := new(felt.Felt).SetRandom()
+		value, err := new(fp.Element).SetRandom()
 		if err != nil {
 			t.Error(err)
 		}
@@ -489,12 +489,12 @@ func TestPutZero(t *testing.T) {
 		roots = append(roots, root)
 	}
 
-	key, err := new(felt.Felt).SetRandom()
+	key, err := new(fp.Element).SetRandom()
 	if err != nil {
 		t.Error(err)
 	}
 	// adding a zero value should not change Trie
-	if err = trie.Put(key, new(felt.Felt)); err != nil {
+	if err = trie.Put(key, new(fp.Element)); err != nil {
 		t.Error(err)
 	}
 	root, err := trie.Root()
@@ -513,7 +513,7 @@ func TestPutZero(t *testing.T) {
 		assert.Equal(t, true, actual.Equal(root))
 
 		key := keys[len(keys)-1-i]
-		trie.Put(key, new(felt.Felt))
+		trie.Put(key, new(fp.Element))
 	}
 
 	actualEmptyRoot, err := trie.Root()

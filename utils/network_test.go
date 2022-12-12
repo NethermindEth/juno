@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,15 +46,15 @@ func TestNetwork(t *testing.T) {
 		for _, n := range networks {
 			switch n {
 			case GOERLI:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainId())
+				assert.Equal(t, new(fp.Element).SetBytes([]byte("SN_GOERLI")), n.ChainId())
 			case MAINNET:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAINNET")), n.ChainId())
+				assert.Equal(t, new(fp.Element).SetBytes([]byte("SN_MAINNET")), n.ChainId())
 			case GOERLI2:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainId())
+				assert.Equal(t, new(fp.Element).SetBytes([]byte("SN_GOERLI2")), n.ChainId())
 			case INTEGRATION:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION")), n.ChainId())
+				assert.Equal(t, new(fp.Element).SetBytes([]byte("SN_INTEGRATION")), n.ChainId())
 			default:
-				assert.Equal(t, (*felt.Felt)(nil), n.ChainId())
+				assert.Equal(t, (*fp.Element)(nil), n.ChainId())
 			}
 		}
 	})

@@ -1,23 +1,23 @@
 package core
 
-import "github.com/NethermindEth/juno/core/felt"
+import "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 
 type StateUpdate struct {
-	BlockHash *felt.Felt
-	NewRoot   *felt.Felt
-	OldRoot   *felt.Felt
+	BlockHash *fp.Element
+	NewRoot   *fp.Element
+	OldRoot   *fp.Element
 
 	StateDiff struct {
 		StorageDiffs map[string][]struct {
-			Key   *felt.Felt
-			Value *felt.Felt
+			Key   *fp.Element
+			Value *fp.Element
 		}
 
-		Nonces            map[string]*felt.Felt
+		Nonces            map[string]*fp.Element
 		DeployedContracts []struct {
-			Address   *felt.Felt
-			ClassHash *felt.Felt
+			Address   *fp.Element
+			ClassHash *fp.Element
 		}
-		DeclaredContracts []*felt.Felt
+		DeclaredContracts []*fp.Element
 	}
 }
