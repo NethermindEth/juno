@@ -196,9 +196,8 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	var data []*felt.Felt
 
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
-	fmt.Println("Declare felt: ", declareFelt)
 	data = append(data, declareFelt)
-	fmt.Println("Version: ", d.Version)
+
 	data = append(data, d.Version)
 
 	// Sender Address
@@ -271,3 +270,8 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	}
 	return nil, errors.New("invalid transaction version")
 }
+
+// func GenerateTransaction(transactionDefinition []byte) (DeployTransaction, error) {
+// 	deploy := new(DeployTransaction)
+
+// }
