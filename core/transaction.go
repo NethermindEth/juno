@@ -1,7 +1,11 @@
 package core
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/NethermindEth/juno/core/contract"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -27,10 +31,51 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeployTransaction) Hash() *felt.Felt {
+func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	// Todo: implement pedersen hash as defined here:
 	// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_deploy_transaction
-	return nil
+	var data []*felt.Felt
+
+	deployFelt := new(felt.Felt).SetBytes([]byte("deploy"))
+	data = append(data, deployFelt)
+
+	data = append(data, d.Version)
+
+	// Address of the contract
+	zero := felt.NewFelt(0)
+	contractAddress, err := d.Class.Address(&zero, d.ContractAddressSalt, d.ConstructorCalldata)
+	fmt.Println("address: ", contractAddress)
+	if err != nil {
+		return nil, err
+	}
+	data = append(data, contractAddress)
+
+	// sn_keccak("constructor")
+	constructorByte := []byte("constructor")
+	snKeccakContructor, err := crypto.StarkNetKeccak(constructorByte)
+	if err != nil {
+		return nil, err
+	}
+	data = append(data, snKeccakContructor)
+
+	// Pedersen Hash of Constructor Calldata
+	pedersenConstructorCalldata, err := crypto.PedersenArray(d.ConstructorCalldata...)
+	if err != nil {
+		return nil, err
+	}
+	data = append(data, pedersenConstructorCalldata)
+
+	zeroFelt := new(felt.Felt).SetBytes([]byte("0"))
+	data = append(data, zeroFelt)
+
+	chainIdFelt := new(felt.Felt).SetBytes(chainId)
+	data = append(data, chainIdFelt)
+
+	deployTransactionHash, err := crypto.PedersenArray(data...)
+	if err != nil {
+		return nil, err
+	}
+	return deployTransactionHash, nil
 }
 
 type InvokeTransaction struct {
@@ -58,15 +103,75 @@ type InvokeTransaction struct {
 	Version *felt.Felt
 }
 
-func (i *InvokeTransaction) Hash() *felt.Felt {
+func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+	var data []*felt.Felt
+
+	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
+	data = append(data, invokeFelt)
+
+	data = append(data, i.Version)
 	if i.Version.IsZero() {
-		// Todo: implement pedersen hash as defined here:
+		// Implement pedersen hash as defined here:
 		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_invoke_transaction
+		// Address of the contract
+		contractAddress := i.ContractAddress
+		data = append(data, contractAddress)
+
+		// EntryPointSelector
+		entryPointSelector := i.EntryPointSelector
+		data = append(data, entryPointSelector)
+
+		// Pedersen Hash of the Calldata
+		pedersenHashCalldata, err := crypto.PedersenArray(i.CallData...)
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, pedersenHashCalldata)
+
+		data = append(data, i.MaxFee)
+
+		chainIdFelt := new(felt.Felt).SetBytes(chainId)
+		data = append(data, chainIdFelt)
+
+		invokeTransactionHash, err := crypto.PedersenArray(data...)
+		if err != nil {
+			return nil, err
+		}
+
+		return invokeTransactionHash, nil
 	} else if i.Version.IsOne() {
-		// Todo: implement pedersen hash as defined here:
+		// Implement pedersen hash as defined here:
 		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v0_invoke_transaction
+		// Transaction sender address
+		senderAddress := i.SenderAddress
+		data = append(data, senderAddress)
+
+		// Zero Felt
+		zeroFelt := new(felt.Felt).SetBytes([]byte("0"))
+		data = append(data, zeroFelt)
+
+		// Pedersen Hash of the Calldata
+		pedersenHashCalldata, err := crypto.PedersenArray(i.CallData...)
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, pedersenHashCalldata)
+
+		data = append(data, i.MaxFee)
+
+		chainIdFelt := new(felt.Felt).SetBytes(chainId)
+		data = append(data, chainIdFelt)
+
+		data = append(data, i.Nonce)
+
+		invokeTransactionHash, err := crypto.PedersenArray(data...)
+		if err != nil {
+			return nil, err
+		}
+
+		return invokeTransactionHash, nil
 	}
-	return nil
+	return nil, errors.New("invalid transaction version")
 }
 
 type DeclareTransaction struct {
@@ -88,13 +193,55 @@ type DeclareTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeclareTransaction) Hash() *felt.Felt {
+func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+	var data []*felt.Felt
+
+	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
+	data = append(data, declareFelt)
+
+	data = append(data, d.Version)
+
+	// Sender Address
+	senderAddress := d.SenderAddress
+	data = append(data, senderAddress)
+
+	// Zero Felt
+	zeroFelt := new(felt.Felt).SetBytes([]byte("0"))
+	data = append(data, zeroFelt)
 	if d.Version.IsZero() {
-		// Todo: implement pedersen hash as defined here:
+		// Implement pedersen hash as defined here:
 		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v0_declare_transaction
+		// Zero Felt
+		data = append(data, zeroFelt)
+
+		// Max Fee
+		data = append(data, d.MaxFee)
+
+		// Chain Id
+		chainIdFelt := new(felt.Felt).SetBytes(chainId)
+		data = append(data, chainIdFelt)
+
+		// Class Hash
+		classHash, err := d.Class.ClassHash()
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, classHash)
+
+		declareTransactionHash, err := crypto.PedersenArray(data...)
+		if err != nil {
+			return nil, err
+		}
+
+		return declareTransactionHash, nil
 	} else if d.Version.IsOne() {
 		// Todo: implement pedersen hash as defined here:
 		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_declare_transaction
 	}
-	return nil
+	return nil, errors.New("invalid transaction version")
 }
+
+// func GenerateTransaction(transactionDefinition []byte) (DeployTransaction, error) {
+// 	deploy := new(DeployTransaction)
+
+// }
