@@ -9,8 +9,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 // Persistent storage backend for [Trie]
@@ -22,13 +22,13 @@ type TrieStorage interface {
 
 // A [Trie] node
 type TrieNode struct {
-	value *felt.Felt
+	value *fp.Element
 	left  *bitset.BitSet
 	right *bitset.BitSet
 }
 
 // Calculates hash of a [TrieNode]
-func (n *TrieNode) Hash(specPath *bitset.BitSet) *felt.Felt {
+func (n *TrieNode) Hash(specPath *bitset.BitSet) *fp.Element {
 	if specPath.Len() == 0 {
 		return n.value
 	}
@@ -44,7 +44,7 @@ func (n *TrieNode) Hash(specPath *bitset.BitSet) *felt.Felt {
 		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
 	}
 
-	pathFelt := felt.NewFelt(0)
+	pathFelt := fp.NewElement(0)
 	(&pathFelt).SetBytes(pathBytes[:])
 
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
@@ -90,11 +90,11 @@ func (n *TrieNode) MarshalBinary() ([]byte, error) {
 
 // Deserializes a [TrieNode] from a byte array
 func (n *TrieNode) UnmarshalBinary(data []byte) error {
-	if len(data) < felt.Bytes {
+	if len(data) < fp.Bytes {
 		return errors.New("Malformed TrieNode bytedata")
 	}
-	n.value = new(felt.Felt).SetBytes(data[:felt.Bytes])
-	data = data[felt.Bytes:]
+	n.value = new(fp.Element).SetBytes(data[:fp.Bytes])
+	data = data[fp.Bytes:]
 
 	stream := bytes.NewReader(data)
 	for stream.Len() > 0 {
@@ -148,7 +148,7 @@ func NewTrie(storage TrieStorage, height uint) *Trie {
 }
 
 // Converts a key to a path that, when followed on a [Trie], leads to the corresponding [TrieNode]
-func (t *Trie) PathFromKey(k *felt.Felt) *bitset.BitSet {
+func (t *Trie) PathFromKey(k *fp.Element) *bitset.BitSet {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(t.height, regularK[:])
 }
@@ -230,7 +230,7 @@ func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 }
 
 // Get the corresponding `value` for a `key`
-func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) Get(key *fp.Element) (*fp.Element, error) {
 	value, err := t.storage.Get(t.PathFromKey(key))
 	if err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 }
 
 // Update the corresponding `value` for a `key`
-func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
+func (t *Trie) Put(key *fp.Element, value *fp.Element) error {
 	path := t.PathFromKey(key)
 	node := &TrieNode{
 		value: value,
@@ -285,7 +285,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	commonPath, _ := FindCommonPath(path, sibling.path)
 	newParent := &TrieNode{
-		value: new(felt.Felt),
+		value: new(fp.Element),
 	}
 	if path.Test(path.Len() - commonPath.Len() - 1) {
 		newParent.left, newParent.right = sibling.path, path
@@ -418,9 +418,9 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 }
 
 // Get commitment of a [Trie]
-func (t *Trie) Root() (*felt.Felt, error) {
+func (t *Trie) Root() (*fp.Element, error) {
 	if t.root == nil {
-		return new(felt.Felt), nil
+		return new(fp.Element), nil
 	}
 
 	root, err := t.storage.Get(t.root)

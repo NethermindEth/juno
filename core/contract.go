@@ -2,13 +2,13 @@ package core
 
 import (
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 // Class unambiguously defines a [Contract]'s semantics.
 type Class struct {
 	// The version of the class, currently always 0.
-	APIVersion *felt.Felt
+	APIVersion *fp.Element
 	// External functions defined in the class.
 	Externals []EntryPoint
 	// Functions that receive L1 messages. See
@@ -17,13 +17,13 @@ type Class struct {
 	// Constructors for the class. Currently, only one is allowed.
 	Constructors []EntryPoint
 	// An ascii-encoded array of builtin names imported by the class.
-	Builtins []*felt.Felt
+	Builtins []*fp.Element
 	// The starknet_keccak hash of the ".json" file compiler output.
-	ProgramHash *felt.Felt
-	Bytecode    []*felt.Felt
+	ProgramHash *fp.Element
+	Bytecode    []*fp.Element
 }
 
-func (c *Class) Hash() (*felt.Felt, error) {
+func (c *Class) Hash() (*fp.Element, error) {
 	externalsHash, err := crypto.PedersenArray(flatten(c.Externals)...)
 	if err != nil {
 		return nil, err
@@ -55,8 +55,8 @@ func (c *Class) Hash() (*felt.Felt, error) {
 	)
 }
 
-func flatten(entryPoints []EntryPoint) []*felt.Felt {
-	result := make([]*felt.Felt, len(entryPoints)*2)
+func flatten(entryPoints []EntryPoint) []*fp.Element {
+	result := make([]*fp.Element, len(entryPoints)*2)
 	for i, entryPoint := range entryPoints {
 		// It is important that Selector is first because it
 		// influences the class hash.
@@ -69,9 +69,9 @@ func flatten(entryPoints []EntryPoint) []*felt.Felt {
 // EntryPoint uniquely identifies a Cairo function to execute.
 type EntryPoint struct {
 	// starknet_keccak hash of the function signature.
-	Selector *felt.Felt
+	Selector *fp.Element
 	// The offset of the instruction in the class's bytecode.
-	Offset *felt.Felt
+	Offset *fp.Element
 }
 
 // Contract is an instance of a [Class].
@@ -80,7 +80,7 @@ type Contract struct {
 	// Only account contracts can have a non-zero nonce.
 	Nonce uint
 	// Hash of the class that this contract instantiates.
-	ClassHash *felt.Felt
+	ClassHash *fp.Element
 	// Root of the contract's storage trie.
-	StorageRoot *felt.Felt // TODO: is this field necessary?
+	StorageRoot *fp.Element // TODO: is this field necessary?
 }

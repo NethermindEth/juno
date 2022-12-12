@@ -4,39 +4,39 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 type Block struct {
 	// The hash of this block’s parent
-	ParentHash *felt.Felt
+	ParentHash *fp.Element
 	// The number (height) of this block
 	Number uint64
 	// The state commitment after this block
-	GlobalStateRoot *felt.Felt
+	GlobalStateRoot *fp.Element
 	// The StarkNet address of the sequencer who created this block
-	SequencerAddress *felt.Felt
+	SequencerAddress *fp.Element
 	// The time the sequencer created this block before executing transactions
-	Timestamp *felt.Felt
+	Timestamp *fp.Element
 	// The number of transactions in a block
-	TransactionCount *felt.Felt
+	TransactionCount *fp.Element
 	// A commitment to the transactions included in the block
-	TransactionCommitment *felt.Felt
+	TransactionCommitment *fp.Element
 	// The number of events
-	EventCount *felt.Felt
+	EventCount *fp.Element
 	// A commitment to the events produced in this block
-	EventCommitment *felt.Felt
+	EventCommitment *fp.Element
 	// The version of the StarkNet protocol used when creating this block
-	ProtocolVersion *felt.Felt
+	ProtocolVersion *fp.Element
 	// Extraneous data that might be useful for running transactions
-	ExtraData *felt.Felt
+	ExtraData *fp.Element
 }
 
 type blockHashMetaInfo struct {
-	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
-	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
-	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
+	First07Block             uint64      // First block that uses the post-0.7.0 block hash algorithm
+	UnverifiableRange        []uint64    // Range of blocks that are not verifiable
+	FallBackSequencerAddress *fp.Element // The sequencer address to use for blocks that do not have one
 }
 
 type UnverifiableBlockError struct {
@@ -50,26 +50,26 @@ func (e *UnverifiableBlockError) Error() string {
 func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	switch network {
 	case utils.MAINNET:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
+		fallBackSequencerAddress, _ := new(fp.Element).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
 		return &blockHashMetaInfo{
 			First07Block:             883,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.GOERLI:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+		fallBackSequencerAddress, _ := new(fp.Element).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.GOERLI2:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+		fallBackSequencerAddress, _ := new(fp.Element).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.INTEGRATION:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+		fallBackSequencerAddress, _ := new(fp.Element).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
@@ -83,7 +83,7 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 
 // Hash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
 // verifiable hashes. In that case, an [UnverifiableBlockError] is returned.
-func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
+func (b *Block) Hash(network utils.Network) (*fp.Element, error) {
 	blockHashMetaInfo := getBlockHashMetaInfo(network)
 
 	unverifiableRange := blockHashMetaInfo.UnverifiableRange
@@ -104,9 +104,9 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
-	blockNumber := new(felt.Felt).SetUint64(b.Number)
-	zeroFelt := new(felt.Felt)
+func (b *Block) pre07Hash(chain *fp.Element) (*fp.Element, error) {
+	blockNumber := new(fp.Element).SetUint64(b.Number)
+	zeroFelt := new(fp.Element)
 
 	return crypto.PedersenArray(
 		blockNumber,             // block number
@@ -125,9 +125,9 @@ func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func (b *Block) post07Hash() (*felt.Felt, error) {
-	blockNumber := new(felt.Felt).SetUint64(b.Number)
-	zeroFelt := new(felt.Felt)
+func (b *Block) post07Hash() (*fp.Element, error) {
+	blockNumber := new(fp.Element).SetUint64(b.Number)
+	zeroFelt := new(fp.Element)
 
 	// Unlike the pre07Hash computation, we exclude the chain
 	// id and replace the zero felt with the actual values for:

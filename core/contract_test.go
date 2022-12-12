@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 var (
@@ -18,33 +18,33 @@ var (
 )
 
 func TestClassHash(t *testing.T) {
-	var bytecodeGenesis []*felt.Felt
+	var bytecodeGenesis []*fp.Element
 	if err := json.Unmarshal(bytecodeGenesisBytes, &bytecodeGenesis); err != nil {
 		t.Fatalf("unexpected error while unmarshalling bytecodeGenesisBytes: %s", err)
 	}
-	var bytecodeCairo08 []*felt.Felt
+	var bytecodeCairo08 []*fp.Element
 	if err := json.Unmarshal(bytecodeCairo08Bytes, &bytecodeCairo08); err != nil {
 		t.Fatalf("unexpected error while unmarshalling bytecodeCairo08Bytes: %s", err)
 	}
-	var bytecodeCairo10 []*felt.Felt
+	var bytecodeCairo10 []*fp.Element
 	if err := json.Unmarshal(bytecodeCairo10Bytes, &bytecodeCairo10); err != nil {
 		t.Fatalf("unexpected error while unmarshalling bytecodeBytes: %s", err)
 	}
 
 	// We know our test hex values are valid, so we'll ignore the potential error
-	hexToFelt := func(hex string) *felt.Felt {
-		f, _ := new(felt.Felt).SetString(hex)
+	hexToFelt := func(hex string) *fp.Element {
+		f, _ := new(fp.Element).SetString(hex)
 		return f
 	}
 
 	tests := []struct {
 		class *Class
-		want  *felt.Felt
+		want  *fp.Element
 	}{
 		{
 			// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8
 			class: &Class{
-				APIVersion: new(felt.Felt),
+				APIVersion: new(fp.Element),
 				Externals: []EntryPoint{
 					{
 						Offset:   hexToFelt("0x40a"),
@@ -139,10 +139,10 @@ func TestClassHash(t *testing.T) {
 						Selector: hexToFelt("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
 					},
 				},
-				Builtins: []*felt.Felt{
-					new(felt.Felt).SetBytes([]byte("pedersen")),
-					new(felt.Felt).SetBytes([]byte("range_check")),
-					new(felt.Felt).SetBytes([]byte("bitwise")),
+				Builtins: []*fp.Element{
+					new(fp.Element).SetBytes([]byte("pedersen")),
+					new(fp.Element).SetBytes([]byte("range_check")),
+					new(fp.Element).SetBytes([]byte("bitwise")),
 				},
 				ProgramHash: hexToFelt("0x1e87d79be8c8146494b5c54318f7d194481c3959752659a1e1bce158649a670"),
 				Bytecode:    bytecodeGenesis,
@@ -152,7 +152,7 @@ func TestClassHash(t *testing.T) {
 		{
 			// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3
 			class: &Class{
-				APIVersion: new(felt.Felt),
+				APIVersion: new(fp.Element),
 				Externals: []EntryPoint{
 					{
 						Offset:   hexToFelt("0xed"),
@@ -186,10 +186,10 @@ func TestClassHash(t *testing.T) {
 						Selector: hexToFelt("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
 					},
 				},
-				Builtins: []*felt.Felt{
-					new(felt.Felt).SetBytes([]byte("pedersen")),
-					new(felt.Felt).SetBytes([]byte("range_check")),
-					new(felt.Felt).SetBytes([]byte("ecdsa")),
+				Builtins: []*fp.Element{
+					new(fp.Element).SetBytes([]byte("pedersen")),
+					new(fp.Element).SetBytes([]byte("range_check")),
+					new(fp.Element).SetBytes([]byte("ecdsa")),
 				},
 				ProgramHash: hexToFelt("0x359145fc6207854bfbbeadae4c6e289024400a5af87090ed18073200fef6213"),
 				Bytecode:    bytecodeCairo08,
@@ -199,7 +199,7 @@ func TestClassHash(t *testing.T) {
 		{
 			// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x0079e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118
 			class: &Class{
-				APIVersion: new(felt.Felt),
+				APIVersion: new(fp.Element),
 				Externals: []EntryPoint{
 					{
 						Offset:   hexToFelt("0x3a"),
@@ -217,9 +217,9 @@ func TestClassHash(t *testing.T) {
 						Selector: hexToFelt("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
 					},
 				},
-				Builtins: []*felt.Felt{
-					new(felt.Felt).SetBytes([]byte("pedersen")),
-					new(felt.Felt).SetBytes([]byte("range_check")),
+				Builtins: []*fp.Element{
+					new(fp.Element).SetBytes([]byte("pedersen")),
+					new(fp.Element).SetBytes([]byte("range_check")),
 				},
 				ProgramHash: hexToFelt("0x88562ac88adfc7760ff452d048d39d72978bcc0f8d7b0fcfb34f33970b3df3"),
 				Bytecode:    bytecodeCairo10,

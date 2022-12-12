@@ -3,18 +3,18 @@ package core
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 func TestBlockHash(t *testing.T) {
-	hexToFelt := func(hex string) *felt.Felt {
-		f, _ := new(felt.Felt).SetString(hex)
+	hexToFelt := func(hex string) *fp.Element {
+		f, _ := new(fp.Element).SetString(hex)
 		return f
 	}
 
-	uintToFelt := func(uint uint) *felt.Felt {
-		f := new(felt.Felt).SetUint64(uint64(uint))
+	uintToFelt := func(uint uint) *fp.Element {
+		f := new(fp.Element).SetUint64(uint64(uint))
 		return f
 	}
 
