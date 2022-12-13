@@ -42,8 +42,8 @@ func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	data = append(data, d.Version)
 
 	// Address of the contract
-	zero := felt.NewFelt(0)
-	contractAddress, err := d.Class.Address(&zero, d.ContractAddressSalt, d.ConstructorCalldata)
+	zeroFelt := new(felt.Felt).SetZero()
+	contractAddress, err := d.Class.Address(zeroFelt, d.ContractAddressSalt, d.ConstructorCalldata)
 	fmt.Println("address: ", contractAddress)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,6 @@ func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	}
 	data = append(data, pedersenConstructorCalldata)
 
-	zeroFelt := new(felt.Felt).SetBytes([]byte("0"))
 	data = append(data, zeroFelt)
 
 	chainIdFelt := new(felt.Felt).SetBytes(chainId)

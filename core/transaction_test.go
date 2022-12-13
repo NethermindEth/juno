@@ -39,12 +39,15 @@ func TestDeployTransactions(t *testing.T) {
 		CallerAddress: new(felt.Felt).SetUint64(0),
 		Version:       new(felt.Felt).SetUint64(0),
 	}
-	fmt.Println(c.ClassHash())
+	// fmt.Println(c.ClassHash())
+	// temp, _ := new(felt.Felt).SetString("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3")
+	// fmt.Println("Contract Address ", temp)
 	t.Run("DeployTransactionHash", func(t *testing.T) {
-		transactionHash, err := DeployTransactionObj.Hash([]byte("1"))
+		transactionHash, err := DeployTransactionObj.Hash([]byte("SN_MAIN"))
 		if err != nil {
 			t.Fatalf("expected no error but got %s", err)
 		}
+		fmt.Println("Transaction Hash: ", transactionHash.Text(16))
 		expectedHash, _ := new(felt.Felt).SetString("0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0")
 		if !transactionHash.Equal(expectedHash) {
 			t.Errorf("Transaction Hash got %s, want %s", transactionHash.Text(16), expectedHash.Text(16))
