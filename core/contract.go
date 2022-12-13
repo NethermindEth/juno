@@ -1,4 +1,4 @@
-package contract
+package core
 
 import (
 	"bytes"
