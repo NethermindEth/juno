@@ -12,6 +12,12 @@ type Felt struct {
 	val fp.Element
 }
 
+func NewFelt(element *fp.Element) *Felt {
+	return &Felt{
+		val: *element,
+	}
+}
+
 const (
 	Limbs = fp.Limbs // number of 64 bits words needed to represent a Element
 	Bits  = fp.Bits  // number of bits needed to represent a Element

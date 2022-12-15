@@ -96,15 +96,15 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 	}
 
 	if b.Number < blockHashMetaInfo.First07Block {
-		return b.pre07Hash(network.ChainId())
+		return b.pre07Hash(network.ChainId()), nil
 	} else if b.SequencerAddress == nil {
 		b.SequencerAddress = blockHashMetaInfo.FallBackSequencerAddress
 	}
-	return b.post07Hash()
+	return b.post07Hash(), nil
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
+func (b *Block) pre07Hash(chain *felt.Felt) *felt.Felt {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
 
@@ -125,7 +125,7 @@ func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func (b *Block) post07Hash() (*felt.Felt, error) {
+func (b *Block) post07Hash() *felt.Felt {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
 
