@@ -438,9 +438,9 @@ func TestState(t *testing.T) {
 		contractRoot, _ := contractState.Root()
 		fmt.Println(addr, " : ", contractRoot.Text(16))
 
-		val, _ := crypto.Pedersen(contractHash, contractRoot)
-		val, _ = crypto.Pedersen(val, new(fp.Element))
-		val, _ = crypto.Pedersen(val, new(fp.Element))
+		val := crypto.Pedersen(contractHash, contractRoot)
+		val = crypto.Pedersen(val, new(fp.Element))
+		val = crypto.Pedersen(val, new(fp.Element))
 
 		if err := state.Put(key, val); err != nil {
 			t.Fatal(err)

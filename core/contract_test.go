@@ -230,10 +230,7 @@ func TestClassHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			classHash, err := tt.class.Hash()
-			if err != nil {
-				t.Fatalf("unexpected error while computing class hash: %s", err)
-			}
+			classHash := tt.class.Hash()
 			if !classHash.Equal(tt.want) {
 				t.Errorf("wrong hash: got %s, want %s", classHash.Text(16), tt.want.Text(16))
 			}

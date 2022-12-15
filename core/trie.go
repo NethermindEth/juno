@@ -48,10 +48,7 @@ func (n *TrieNode) Hash(specPath *bitset.BitSet) *fp.Element {
 	(&pathFelt).SetBytes(pathBytes[:])
 
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
-	hash, err := crypto.Pedersen(n.value, &pathFelt)
-	if err != nil {
-		panic("Pedersen failed TrieNode.Hash")
-	}
+	hash := crypto.Pedersen(n.value, &pathFelt)
 
 	pathFelt.SetUint64(uint64(specPath.Len()))
 	return hash.Add(hash, &pathFelt)
@@ -403,10 +400,7 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 			leftSpecPath := GetSpecPath(cur.node.left, cur.path)
 			rightSpecPath := GetSpecPath(cur.node.right, cur.path)
 
-			cur.node.value, err = crypto.Pedersen(left.Hash(leftSpecPath), right.Hash(rightSpecPath))
-			if err != nil {
-				return err
-			}
+			cur.node.value = crypto.Pedersen(left.Hash(leftSpecPath), right.Hash(rightSpecPath))
 		}
 
 		if err := t.storage.Put(cur.path, cur.node); err != nil {
