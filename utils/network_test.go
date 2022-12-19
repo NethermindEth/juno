@@ -3,6 +3,7 @@ package utils
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,16 +46,15 @@ func TestNetwork(t *testing.T) {
 		for _, n := range networks {
 			switch n {
 			case GOERLI:
-				assert.Equal(t, "SN_GOERLI", n.ChainId())
+				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainId())
 			case MAINNET:
-				assert.Equal(t, "SN_MAINNET", n.ChainId())
+				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAINNET")), n.ChainId())
 			case GOERLI2:
-				assert.Equal(t, "SN_GOERLI2", n.ChainId())
+				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainId())
 			case INTEGRATION:
-				assert.Equal(t, "SN_INTEGRATION", n.ChainId())
+				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION")), n.ChainId())
 			default:
-				assert.Equal(t, "", n.ChainId())
-
+				assert.Equal(t, (*felt.Felt)(nil), n.ChainId())
 			}
 		}
 	})

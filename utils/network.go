@@ -1,5 +1,7 @@
 package utils
 
+import "github.com/NethermindEth/juno/core/felt"
+
 type Network uint8
 
 const (
@@ -39,17 +41,17 @@ func (n Network) URL() string {
 	}
 }
 
-func (n Network) ChainId() string {
+func (n Network) ChainId() *felt.Felt {
 	switch n {
 	case GOERLI:
-		return "SN_GOERLI"
+		return new(felt.Felt).SetBytes([]byte("SN_GOERLI"))
 	case MAINNET:
-		return "SN_MAINNET"
+		return new(felt.Felt).SetBytes([]byte("SN_MAINNET"))
 	case GOERLI2:
-		return "SN_GOERLI2"
+		return new(felt.Felt).SetBytes([]byte("SN_GOERLI2"))
 	case INTEGRATION:
-		return "SN_INTEGRATION"
+		return new(felt.Felt).SetBytes([]byte("SN_INTEGRATION"))
 	default:
-		return ""
+		return nil
 	}
 }
