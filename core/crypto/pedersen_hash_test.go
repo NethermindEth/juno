@@ -92,6 +92,13 @@ func TestPedersenArray(t *testing.T) {
 			},
 			want: "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
 		},
+		// Hash of an empty array is defined to be h(0, 0).
+		{
+			input: make([]string, 0),
+			// The value below was found using the reference implementation. See:
+			// https://github.com/starkware-libs/cairo-lang/blob/de741b92657f245a50caab99cfaef093152fd8be/src/starkware/crypto/signature/fast_pedersen_hash.py#L34
+			want: "0x49ee3eba8c1600700ee1b87eb599f16716b0b1022947733551fde4050ca6804",
+		},
 	}
 	for _, test := range tests {
 		var data []*felt.Felt
