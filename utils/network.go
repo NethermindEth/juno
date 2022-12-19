@@ -39,25 +39,16 @@ func (n Network) URL() string {
 	}
 }
 
-type Chain string
-
-const (
-	Goerli      Chain = "SN_GOERLI"
-	Mainnet     Chain = "SN_MAINNET"
-	Goerli2     Chain = "SN_GOERLI2"
-	Integration Chain = "SN_INTEGRATION"
-)
-
-func (n Network) ChainId() Chain {
+func (n Network) ChainId() string {
 	switch n {
 	case GOERLI:
-		return Goerli
+		return "SN_GOERLI"
 	case MAINNET:
-		return Mainnet
+		return "SN_MAINNET"
 	case GOERLI2:
-		return Goerli2
+		return "SN_GOERLI2"
 	case INTEGRATION:
-		return Integration
+		return "SN_INTEGRATION"
 	default:
 		return ""
 	}

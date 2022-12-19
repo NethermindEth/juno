@@ -45,15 +45,15 @@ func TestNetwork(t *testing.T) {
 		for _, n := range networks {
 			switch n {
 			case GOERLI:
-				assert.Equal(t, Goerli, n.ChainId())
+				assert.Equal(t, "SN_GOERLI", n.ChainId())
 			case MAINNET:
-				assert.Equal(t, Mainnet, n.ChainId())
+				assert.Equal(t, "SN_MAINNET", n.ChainId())
 			case GOERLI2:
-				assert.Equal(t, Goerli2, n.ChainId())
+				assert.Equal(t, "SN_GOERLI2", n.ChainId())
 			case INTEGRATION:
-				assert.Equal(t, Integration, n.ChainId())
+				assert.Equal(t, "SN_INTEGRATION", n.ChainId())
 			default:
-				assert.Equal(t, Chain(""), n.ChainId())
+				assert.Equal(t, "", n.ChainId())
 
 			}
 		}
