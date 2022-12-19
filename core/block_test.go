@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 func TestBlockHash(t *testing.T) {
@@ -19,7 +20,7 @@ func TestBlockHash(t *testing.T) {
 
 	tests := []struct {
 		block *Block
-		chain string
+		chain utils.Network
 		want  string
 	}{
 		{
@@ -38,7 +39,7 @@ func TestBlockHash(t *testing.T) {
 				uintToFelt(0),
 				hexToFelt(""),
 			},
-			"SN_GOERLI",
+			0,
 			"0x40ffdbd9abbc4fc64652c50db94a29bce65c183316f304a95df624de708e746",
 		},
 		{
@@ -57,7 +58,7 @@ func TestBlockHash(t *testing.T) {
 				uintToFelt(0),
 				hexToFelt(""),
 			},
-			"SN_GOERLI",
+			0,
 			"0x1288267b119adefd52795c3421f8fabba78f49e911f39c1fb2f4e5eb8fb771",
 		},
 		{
@@ -76,7 +77,7 @@ func TestBlockHash(t *testing.T) {
 				uintToFelt(0),
 				hexToFelt(""),
 			},
-			"SN_GOERLI",
+			0,
 			"0x75e00250d4343326f322e370df4c9c73c7be105ad9f532eeb97891a34d9e4a5",
 		},
 	}

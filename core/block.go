@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type Block struct {
@@ -39,47 +40,44 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
-func getBlockHashMetaInfo(chain string) (*blockHashMetaInfo, error) {
-	switch chain {
-	case "SN_MAIN":
+func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
+	switch network {
+	case utils.MAINNET:
 		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
 		return &blockHashMetaInfo{
 			First07Block:             883,
 			UnverifiableRange:        nil,
 			FallBackSequencerAddress: fallBackSequencerAddress,
-		}, nil
-	case "SN_GOERLI":
+		}
+	case utils.GOERLI:
 		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
 			FallBackSequencerAddress: fallBackSequencerAddress,
-		}, nil
-	case "SN_GOERLI2":
+		}
+	case utils.GOERLI2:
 		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             0,
 			UnverifiableRange:        nil,
 			FallBackSequencerAddress: fallBackSequencerAddress,
-		}, nil
-	case "SN_INTEGRATION":
+		}
+	case utils.INTEGRATION:
 		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
 			FallBackSequencerAddress: fallBackSequencerAddress,
-		}, nil
+		}
 	default:
-		return nil, errors.New("unknown chain: " + chain)
+		return nil
 	}
 }
 
 // Block hash computation according to https://docs.starknet.io/documentation/develop/Blocks/header/#block_hash
-func (b *Block) Hash(chain string) (*felt.Felt, error) {
-	blockHashMetaInfo, err := getBlockHashMetaInfo(chain)
-	if err != nil {
-		return nil, err
-	}
+func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
+	blockHashMetaInfo := getBlockHashMetaInfo(network)
 
 	unverifiableRange := blockHashMetaInfo.UnverifiableRange
 	if unverifiableRange != nil {
@@ -91,7 +89,7 @@ func (b *Block) Hash(chain string) (*felt.Felt, error) {
 	}
 
 	if b.Number < blockHashMetaInfo.First07Block {
-		return b.pre07Hash(chain)
+		return b.pre07Hash(network.ChainId())
 	} else if b.SequencerAddress == nil {
 		b.SequencerAddress = blockHashMetaInfo.FallBackSequencerAddress
 	}
@@ -108,12 +106,10 @@ func (b *Block) Hash(chain string) (*felt.Felt, error) {
 // - block timestamp
 // - number of events
 // - event commitment
-func (b *Block) pre07Hash(chain string) (*felt.Felt, error) {
+func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 
 	zeroFelt := new(felt.Felt)
-
-	chainId := new(felt.Felt).SetBytes([]byte(chain))
 
 	return crypto.PedersenArray(
 		blockNumber,             // block number
@@ -126,7 +122,7 @@ func (b *Block) pre07Hash(chain string) (*felt.Felt, error) {
 		zeroFelt,                // reserved: event commitment
 		zeroFelt,                // reserved: protocol version
 		zeroFelt,                // reserved: extra data
-		chainId,                 // extra data: chain id
+		chain,                   // extra data: chain id
 		b.ParentHash,            // parent hash
 	)
 }
