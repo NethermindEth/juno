@@ -1,10 +1,14 @@
 package utils
 
+import "github.com/NethermindEth/juno/core/felt"
+
 type Network uint8
 
 const (
 	GOERLI Network = iota
 	MAINNET
+	GOERLI2
+	INTEGRATION
 )
 
 func (n Network) String() string {
@@ -13,6 +17,10 @@ func (n Network) String() string {
 		return "goerli"
 	case MAINNET:
 		return "mainnet"
+	case GOERLI2:
+		return "goerli2"
+	case INTEGRATION:
+		return "integration"
 	default:
 		return ""
 	}
@@ -24,7 +32,26 @@ func (n Network) URL() string {
 		return "https://alpha4.starknet.io"
 	case MAINNET:
 		return "https://alpha-mainnet.starknet.io"
+	case GOERLI2:
+		return "https://alpha4.starknet.io"
+	case INTEGRATION:
+		return "https://external.integration.starknet.io"
 	default:
 		return ""
+	}
+}
+
+func (n Network) ChainId() *felt.Felt {
+	switch n {
+	case GOERLI:
+		return new(felt.Felt).SetBytes([]byte("SN_GOERLI"))
+	case MAINNET:
+		return new(felt.Felt).SetBytes([]byte("SN_MAINNET"))
+	case GOERLI2:
+		return new(felt.Felt).SetBytes([]byte("SN_GOERLI2"))
+	case INTEGRATION:
+		return new(felt.Felt).SetBytes([]byte("SN_INTEGRATION"))
+	default:
+		return nil
 	}
 }
