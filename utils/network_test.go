@@ -33,7 +33,7 @@ func TestNetwork(t *testing.T) {
 			case MAINNET:
 				assert.Equal(t, "https://alpha-mainnet.starknet.io", n.URL())
 			case GOERLI2:
-				assert.Equal(t, "https://alpha4.starknet.io", n.URL())
+				assert.Equal(t, "https://alpha4-2.starknet.io", n.URL())
 			case INTEGRATION:
 				assert.Equal(t, "https://external.integration.starknet.io", n.URL())
 			default:
