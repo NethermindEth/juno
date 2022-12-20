@@ -214,8 +214,10 @@ type BlockTransactionTraces struct {
 	Traces []*BlockSingleTransactionTrace `json:"traces"`
 }
 
-type CallType string
-type EntryPointType string
+type (
+	CallType       string
+	EntryPointType string
+)
 
 // FunctionInvocation
 type FunctionInvocation struct {

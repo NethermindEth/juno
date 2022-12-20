@@ -35,10 +35,10 @@ import (
 //
 // Modulus q =
 //
-// 	q[base10] = 3618502788666131213697322783095070105623107215331596699973092056135872020481
-// 	q[base16] = 0x800000000000011000000000000000000000000000000000000000000000001
+//	q[base10] = 3618502788666131213697322783095070105623107215331596699973092056135872020481
+//	q[base16] = 0x800000000000011000000000000000000000000000000000000000000000001
 //
-// Warning
+// # Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type Felt [4]uint64
@@ -68,8 +68,8 @@ var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
-// 	q[base10] = 3618502788666131213697322783095070105623107215331596699973092056135872020481
-// 	q[base16] = 0x800000000000011000000000000000000000000000000000000000000000001
+//	q[base10] = 3618502788666131213697322783095070105623107215331596699973092056135872020481
+//	q[base16] = 0x800000000000011000000000000000000000000000000000000000000000001
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
@@ -91,8 +91,9 @@ func init() {
 // NewFelt returns a new Felt from a uint64 value
 //
 // it is equivalent to
-// 		var v Felt
-// 		v.SetUint64(...)
+//
+//	var v Felt
+//	v.SetUint64(...)
 func NewFelt(v uint64) Felt {
 	z := Felt{v}
 	z.Mul(&z, &rSquare)
@@ -132,14 +133,15 @@ func (z *Felt) Set(x *Felt) *Felt {
 // SetInterface converts provided interface into Felt
 // returns an error if provided type is not supported
 // supported types:
-//  Felt
-//  *Felt
-//  uint64
-//  int
-//  string (see SetString for valid formats)
-//  *big.Int
-//  big.Int
-//  []byte
+//
+//	Felt
+//	*Felt
+//	uint64
+//	int
+//	string (see SetString for valid formats)
+//	*big.Int
+//	big.Int
+//	[]byte
 func (z *Felt) SetInterface(i1 interface{}) (*Felt, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set felt.Felt with <nil>")
@@ -269,10 +271,9 @@ func (z *Felt) FitsOnOneWord() bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *Felt) Cmp(x *Felt) int {
 	_z := *z
 	_x := *x
@@ -925,14 +926,14 @@ func (z *Felt) setBigInt(v *big.Int) *Felt {
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
-// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
+// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
+// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character ''_'' may appear between a base
+// An underscore character ”_” may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there
