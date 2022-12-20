@@ -33,7 +33,7 @@ func (n Network) URL() string {
 	case MAINNET:
 		return "https://alpha-mainnet.starknet.io"
 	case GOERLI2:
-		return "https://alpha4.starknet.io"
+		return "https://alpha4-2.starknet.io"
 	case INTEGRATION:
 		return "https://external.integration.starknet.io"
 	default:
