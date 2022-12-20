@@ -1,18 +1,20 @@
 package core
 
 import (
+	_ "embed"
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
 
-func TestBlockHash(t *testing.T) {
-	hexToFelt := func(hex string) *felt.Felt {
-		f, _ := new(felt.Felt).SetString(hex)
-		return f
-	}
+func hexToFelt(hex string) *felt.Felt {
+	f, _ := new(felt.Felt).SetString(hex)
+	return f
+}
 
+func TestBlockHash(t *testing.T) {
 	uintToFelt := func(uint uint) *felt.Felt {
 		f := new(felt.Felt).SetUint64(uint64(uint))
 		return f
@@ -183,6 +185,206 @@ func TestBlockHash(t *testing.T) {
 			if !tt.wantErr && ("0x"+(got.Text(16)) != tt.want) {
 				t.Errorf("got %s, want %s", "0x"+got.Text(16), tt.want)
 			}
+		})
+	}
+}
+
+var (
+	//go:embed testdata/block_156000.json
+	block156000 []byte
+	//go:embed testdata/block_1.json
+	block1Goerli []byte
+	//go:embed testdata/block_1_integration.json
+	block1Integration []byte
+	//go:embed testdata/block_16789_main.json
+	blocks16789Main []byte
+)
+
+var receipts [][]*TransactionReceipt
+
+func getTransactionReceipts(t *testing.T) {
+	// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=156000
+	var blck156000 map[string]interface{}
+	if err := json.Unmarshal(block156000, &blck156000); err != nil {
+		t.Fatal(err)
+	}
+	receiptsInterface := blck156000["transaction_receipts"].([]interface{})
+	txns := blck156000["transactions"].([]interface{})
+	receipt156000 := generateReceipt(t, txns, receiptsInterface)
+
+	// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=1
+	var blck1Goerli map[string]interface{}
+	if err := json.Unmarshal(block1Goerli, &blck1Goerli); err != nil {
+		t.Fatal(err)
+	}
+	receiptsInterface = blck1Goerli["transaction_receipts"].([]interface{})
+	txns = blck1Goerli["transactions"].([]interface{})
+	receipt1Goerli := generateReceipt(t, txns, receiptsInterface)
+
+	// https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=1
+	var blck1Integration map[string]interface{}
+	if err := json.Unmarshal(block1Integration, &blck1Integration); err != nil {
+		t.Fatal(err)
+	}
+	receiptsInterface = blck1Integration["transaction_receipts"].([]interface{})
+	txns = blck1Integration["transactions"].([]interface{})
+	receipt1Integration := generateReceipt(t, txns, receiptsInterface)
+
+	// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=16789
+	var blck16789Main map[string]interface{}
+	if err := json.Unmarshal(blocks16789Main, &blck16789Main); err != nil {
+		t.Fatal(err)
+	}
+	receiptsInterface = blck16789Main["transaction_receipts"].([]interface{})
+	txns = blck16789Main["transactions"].([]interface{})
+	receipt16789Main := generateReceipt(t, txns, receiptsInterface)
+
+	receipts = [][]*TransactionReceipt{
+		receipt156000,
+		receipt1Goerli,
+		receipt1Integration,
+		receipt16789Main,
+	}
+}
+
+func generateReceipt(t *testing.T, txns []interface{}, receiptsInterface []interface{}) []*TransactionReceipt {
+	receipts := make([]*TransactionReceipt, len(txns))
+
+	transactionType := func(t string) TransactionType {
+		switch t {
+		case "DECLARE":
+			return Declare
+		case "DEPLOY":
+			return Deploy
+		case "DEPLOY_ACCOUNT":
+			return DeployAccount
+		case "INVOKE_FUNCTION":
+			return Invoke
+		case "L1_HANDLER":
+			return L1Handler
+		default:
+			return -1
+		}
+	}
+
+	for i, r := range receiptsInterface {
+		receipt := r.(map[string]interface{})
+		txn := txns[i].(map[string]interface{})
+		var events []*Event
+		for _, e := range receipt["events"].([]interface{}) {
+			event := e.(map[string]interface{})
+			var data []*felt.Felt
+			for _, d := range event["data"].([]interface{}) {
+				data = append(data, hexToFelt(d.(string)))
+			}
+			var keys []*felt.Felt
+			for _, k := range event["keys"].([]interface{}) {
+				keys = append(keys, hexToFelt(k.(string)))
+			}
+			events = append(events, &Event{
+				Data: data,
+				From: hexToFelt(event["from_address"].(string)),
+				Keys: keys,
+			})
+		}
+		var signatures []*felt.Felt
+		if txn["signature"] != nil {
+			for _, s := range txn["signature"].([]interface{}) {
+				signatures = append(signatures, hexToFelt(s.(string)))
+			}
+		}
+		// Some of these values are set to nil since they are not required to calculate the commitment.
+		transactionReceipt := TransactionReceipt{
+			Events:          events,
+			Signatures:      signatures,
+			TransactionHash: hexToFelt(receipt["transaction_hash"].(string)),
+			Type:            transactionType(txn["type"].(string)),
+		}
+		receipts[i] = &transactionReceipt
+	}
+	return receipts
+}
+
+func init() {
+	var t *testing.T
+	getTransactionReceipts(t)
+}
+
+func assertCorrectCommitment(t *testing.T, got *felt.Felt, want string) {
+	t.Helper()
+	if "0x"+got.Text(16) != want {
+		t.Errorf("got %s, want %s", "0x"+got.Text(16), want)
+	}
+}
+
+func TestTransactionCommitment(t *testing.T) {
+	tests := []struct {
+		description string
+		receipts    []*TransactionReceipt
+		want        string
+	}{
+		{
+			"receipt 1 (goerli)",
+			receipts[0],
+			"0x24638e0ca122d0260d54e901dc0942ea68bd1fc40a96b5da765985c47c92500",
+		},
+		{
+			"receipt 2 (goerli)",
+			receipts[1],
+			"0x18bb7d6c1c558aa0a025f08a7d723a44b13008ffb444c432077f319a7f4897c",
+		},
+		{
+			"receipt 1 (integration)",
+			receipts[2],
+			"0xbf11745df434cbd284e13ca36354139a4bca2f6722e737c6136590990c8619",
+		},
+		{
+			"receipt 1 (mainnet)",
+			receipts[3],
+			"0x580a06bfc8c3fe39bbb7c5d16298b8928bf7c28f4c31b8e6b48fc25cd644fc1",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			commitment, _ := TransactionCommitment(test.receipts)
+			assertCorrectCommitment(t, commitment, test.want)
+		})
+	}
+}
+
+func TestEventCommitment(t *testing.T) {
+	tests := []struct {
+		description string
+		receipts    []*TransactionReceipt
+		want        string
+	}{
+		{
+			"receipt 1 (goerli)",
+			receipts[0],
+			"0x5d25e41d43b00681cc63ed4e13a82efe3e02f47e03173efbd737dd52ba88c7e",
+		},
+		{
+			"receipt 2 (goerli)",
+			receipts[1],
+			"0x0",
+		},
+		{
+			"receipt 3 (integration)",
+			receipts[2],
+			"0x0",
+		},
+		{
+			"receipt 4 (mainnet)",
+			receipts[3],
+			"0x6f499789aabb31935810ce89d6ea9e9d37c5921c0d7fae2bd68f2fff5b7b93f",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			commitment, _, _ := EventData(test.receipts)
+			assertCorrectCommitment(t, commitment, test.want)
 		})
 	}
 }

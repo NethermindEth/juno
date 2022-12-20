@@ -1,8 +1,66 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/ethereum/go-ethereum/common"
 )
+
+type Event struct {
+	Data []*felt.Felt
+	From *felt.Felt
+	Keys []*felt.Felt
+}
+
+type L1ToL2Message struct {
+	From     common.Address
+	Nonce    *felt.Felt
+	Payload  []*felt.Felt
+	Selector *felt.Felt
+	To       *felt.Felt
+}
+
+type L2ToL1Message struct {
+	From    *felt.Felt
+	Payload []*felt.Felt
+	To      common.Address
+}
+
+type ExecutionResources struct {
+	BuiltinInstanceCounter struct {
+		Bitwise    uint64
+		EcOp       uint64
+		Ecsda      uint64
+		Output     uint64
+		Pedersen   uint64
+		RangeCheck uint64
+	}
+	MemoryHoles uint64
+	Steps       uint64
+}
+
+type TransactionType int
+
+const (
+	Declare TransactionType = iota
+	Deploy
+	DeployAccount
+	Invoke
+	L1Handler
+)
+
+type TransactionReceipt struct {
+	ActualFee          *felt.Felt
+	Events             []*Event
+	ExecutionResources *ExecutionResources
+	L1ToL2Message      *L1ToL2Message
+	L2ToL1Message      *[]L2ToL1Message
+	Signatures         []*felt.Felt
+	TransactionHash    *felt.Felt
+	TransactionIndex   *big.Int
+	Type               TransactionType
+}
 
 type Transaction interface {
 	Hash() *felt.Felt
