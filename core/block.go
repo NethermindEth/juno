@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -41,11 +40,11 @@ type blockHashMetaInfo struct {
 }
 
 type UnverifiableBlockError struct {
-	input string
+	blockNumber uint64
 }
 
 func (e *UnverifiableBlockError) Error() string {
-	return fmt.Sprintf("block is unverifiable: %s", e.input)
+	return fmt.Sprintf("block is unverifiable: %d", e.blockNumber)
 }
 
 func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
@@ -90,7 +89,7 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 		// Check if the block number is in the unverifiable range
 		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
 			// If so, return unverifiable block error
-			return nil, &UnverifiableBlockError{strconv.FormatUint(b.Number, 10)}
+			return nil, &UnverifiableBlockError{blockNumber: b.Number}
 		}
 	}
 
