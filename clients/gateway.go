@@ -50,6 +50,7 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 	return body, err
 }
 
+// BlockStateUpdate
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash"`
@@ -85,6 +86,11 @@ func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error)
 	return update, nil
 }
 
+// DeclareSpecificInfo
+// DeploySpecificInfo
+// InvokeSpecificInfo
+// L1HandlerSpecificInfo
+// DeployAccountSpecificInfo
 // Transaction object returned by the gateway in JSON format for multiple endpoints
 type Transaction struct {
 	Hash                *felt.Felt   `json:"transaction_hash"`
@@ -105,12 +111,19 @@ type Transaction struct {
 	SenderAddress *felt.Felt `json:"sender_address"`
 }
 
+type TransactionFailureReason struct {
+	Code         string `json:"code"`
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+// TransactionInfo
 type TransactionStatus struct {
-	Status           string       `json:"status"`
-	BlockHash        *felt.Felt   `json:"block_hash"`
-	BlockNumber      *big.Int     `json:"block_number"`
-	TransactionIndex *big.Int     `json:"transaction_index"`
-	Transaction      *Transaction `json:"transaction"`
+	Status                   string                    `json:"status"`
+	BlockHash                *felt.Felt                `json:"block_hash"`
+	BlockNumber              *big.Int                  `json:"block_number"`
+	TransactionIndex         *big.Int                  `json:"transaction_index"`
+	Transaction              *Transaction              `json:"transaction"`
+	TransactionFailureReason *TransactionFailureReason `json:"transaction_failure_reason"`
 }
 
 func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*TransactionStatus, error) {
@@ -127,6 +140,7 @@ func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*Transaction
 	return txStatus, nil
 }
 
+// Event
 type Event struct {
 	From *felt.Felt   `json:"from_address"`
 	Data []*felt.Felt `json:"data"`
@@ -147,6 +161,7 @@ type L2ToL1Message struct {
 	To      string       `json:"to_address"`
 }
 
+// ExecutionResources
 type ExecutionResources struct {
 	Steps                  uint64 `json:"n_steps"`
 	BuiltinInstanceCounter struct {
@@ -160,28 +175,92 @@ type ExecutionResources struct {
 	MemoryHoles uint64 `json:"n_memory_holes"`
 }
 
+// TransactionReceipt(TransactionExecution, TransactionInBlockInfo)
+// NOTE: should blockNumber and TransactionIndex be felt?
 type TransactionReceipt struct {
-	ActualFee          *felt.Felt          `json:"actual_fee"`
-	Events             []*Event            `json:"events"`
-	ExecutionResources *ExecutionResources `json:"execution_resources"`
-	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
-	L2ToL1Message      *[]L2ToL1Message    `json:"l2_to_l1_messages"`
-	TransactionHash    *felt.Felt          `json:"transaction_hash"`
-	TransactionIndex   *big.Int            `json:"transaction_index"`
+	ActualFee                *felt.Felt                `json:"actual_fee"`
+	Events                   []*Event                  `json:"events"`
+	ExecutionResources       *ExecutionResources       `json:"execution_resources"`
+	L1ToL2Message            *L1ToL2Message            `json:"l1_to_l2_consumed_message"`
+	L2ToL1Message            *[]L2ToL1Message          `json:"l2_to_l1_messages"`
+	TransactionHash          *felt.Felt                `json:"transaction_hash"`
+	TransactionIndex         *big.Int                  `json:"transaction_index"`
+	Status                   string                    `json:"status"`
+	BlockHash                *felt.Felt                `json:"block_hash"`
+	BlockNumber              *big.Int                  `json:"block_number"`
+	TransactionFailureReason *TransactionFailureReason `json:"transaction_failure_reason"`
 }
 
+// TransactionTrace
+type TransactionTrace struct {
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation"`
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation"`
+	Signature             []*felt.Felt        `json:"signature"`
+}
+
+// BlockSingleTransactionTrace
+type BlockSingleTransactionTrace struct {
+	TransactionHash       *felt.Felt          `json:"transaction_hash"`
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation"`
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation"`
+	Signature             []*felt.Felt        `json:"signature"`
+}
+
+// BlockTransactionTraces
+// get_block_traces
+type BlockTransactionTraces struct {
+	Traces []*BlockSingleTransactionTrace `json:"traces"`
+}
+
+type CallType string
+type EntryPointType string
+
+// FunctionInvocation
+type FunctionInvocation struct {
+	CallerAddress      *felt.Felt              `json:"caller_address"`
+	ContractAddress    *felt.Felt              `json:"contract_address"`
+	CallData           []*felt.Felt            `json:"calldata"`
+	CallType           *CallType               `json:"call_type"`
+	ClassHash          *felt.Felt              `json:"class_hash"`
+	Selector           *felt.Felt              `json:"selector"`
+	EntryPointType     *EntryPointType         `json:"entry_point_type"`
+	Result             []*felt.Felt            `json:"result"`
+	ExecutionResources *ExecutionResources     `json:"execution_resources"`
+	InternalCalls      []*FunctionInvocation   `json:"internal_calls"`
+	Events             []*OrderedEvent         `json:"events"`
+	Messages           []*OrderedL2ToL1Message `json:"messages"`
+}
+
+// OrderedEventResponse
+type OrderedEvent struct {
+	Order *felt.Felt   `json:"order"`
+	Keys  []*felt.Felt `json:"keys"`
+	Data  []*felt.Felt `json:"data"`
+}
+
+// OrderedL2ToL1MessageResponse
+type OrderedL2ToL1Message struct {
+	Order   *felt.Felt   `json:"order"`
+	To      string       `json:"to_address"`
+	Payload []*felt.Felt `json:"payload"`
+}
+
+// StarknetBlock
 // Block object returned by the gateway in JSON format for "get_block" endpoint
 type Block struct {
-	Hash         *felt.Felt            `json:"block_hash"`
-	ParentHash   *felt.Felt            `json:"parent_block_hash"`
-	Number       uint64                `json:"block_number"`
-	StateRoot    *felt.Felt            `json:"state_root"`
-	Status       string                `json:"status"`
-	GasPrice     *felt.Felt            `json:"gas_price"`
-	Transactions []*Transaction        `json:"transactions"`
-	Timestamp    uint64                `json:"timestamp"`
-	Version      string                `json:"starknet_version"`
-	Receipts     []*TransactionReceipt `json:"transaction_receipts"`
+	Hash             *felt.Felt            `json:"block_hash"`
+	ParentHash       *felt.Felt            `json:"parent_block_hash"`
+	Number           uint64                `json:"block_number"`
+	StateRoot        *felt.Felt            `json:"state_root"`
+	Status           string                `json:"status"`
+	GasPrice         *felt.Felt            `json:"gas_price"`
+	Transactions     []*Transaction        `json:"transactions"`
+	Timestamp        uint64                `json:"timestamp"`
+	Version          string                `json:"starknet_version"`
+	Receipts         []*TransactionReceipt `json:"transaction_receipts"`
+	SequencerAddress *felt.Felt            `json:"sequencer_address"`
 }
 
 func (c *GatewayClient) GetBlock(blockNumber uint64) (*Block, error) {
@@ -210,9 +289,39 @@ type Abi []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"inputs"`
-	Outputs []interface{} `json:"outputs"`
+	Outputs []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"outputs"`
+	StateMutability string `json:"stateMutability"`
+	Data            []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
+	Keys []interface{} `json:"keys"`
 }
 
+// get_code
+type CodeDefinition struct {
+	Bytecode []*felt.Felt `json:"bytecode"`
+	Abi      Abi          `json:"abi"`
+}
+
+type Program struct {
+	Builtins         []string      `json:"builtins"`
+	Prime            string        `json:"prime"`
+	ReferenceManager interface{}   `json:"reference_manager"`
+	Identifiers      interface{}   `json:"identifiers"`
+	Attributes       []interface{} `json:"attributes"`
+	Data             []*felt.Felt  `json:"data"`
+	DebugInfo        interface{}   `json:"debug_info"`
+	MainScope        interface{}   `json:"main_scope"`
+	Hints            interface{}   `json:"hints"`
+	CompilerVersion  string        `json:"compiler_version"`
+}
+
+// get_full_contract
+// get_class_by_hash
 type ClassDefinition struct {
 	Abi         Abi `json:"abi"`
 	EntryPoints struct {
@@ -220,18 +329,7 @@ type ClassDefinition struct {
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
-	Program struct {
-		Builtins         []string     `json:"builtins"`
-		Prime            string       `json:"prime"`
-		ReferenceManager interface{}  `json:"reference_manager"`
-		Identifiers      interface{}  `json:"identifiers"`
-		Attributes       interface{}  `json:"attributes"`
-		Data             []*felt.Felt `json:"data"`
-		DebugInfo        interface{}  `json:"debug_info"`
-		MainScope        interface{}  `json:"main_scope"`
-		Hints            interface{}  `json:"hints"`
-		CompilerVersion  string       `json:"compiler_version"`
-	} `json:"program"`
+	Program *Program `json:"program"`
 }
 
 func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefinition, error) {
@@ -246,4 +344,23 @@ func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefiniti
 	}
 
 	return class, nil
+}
+
+// FeeEstimationInfo
+type FeeEstimation struct {
+	OverallFee uint64 `json:"overall_fee"`
+	GasPrice   uint64 `json:"gas_price"`
+	GasUsage   uint64 `json:"gas_usage"`
+	Unit       string `json:"unit"`
+}
+
+type TransactionSimulationInfo struct {
+	Trace         *TransactionTrace `json:"trace"`
+	FeeEstimation *FeeEstimation    `json:"fee_estimation"`
+}
+
+// get_transaction_status
+type GetTransactionStatus struct {
+	TxStatus  string     `json:"tx_status"`
+	BlockHash *felt.Felt `json:"block_hash"`
 }
