@@ -1,7 +1,7 @@
 package core
 
 import (
-	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -40,13 +40,20 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
+type UnverifiableBlockError struct {
+	input string
+}
+
+func (e *UnverifiableBlockError) Error() string {
+	return fmt.Sprintf("block is unverifiable: %s", e.input)
+}
+
 func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	switch network {
 	case utils.MAINNET:
 		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
 		return &blockHashMetaInfo{
 			First07Block:             883,
-			UnverifiableRange:        nil,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.GOERLI:
@@ -60,7 +67,6 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             0,
-			UnverifiableRange:        nil,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.INTEGRATION:
@@ -84,7 +90,7 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 		// Check if the block number is in the unverifiable range
 		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
 			// If so, return unverifiable block error
-			return nil, errors.New("block is unverifiable" + strconv.FormatUint(b.Number, 10))
+			return nil, &UnverifiableBlockError{strconv.FormatUint(b.Number, 10)}
 		}
 	}
 
@@ -108,7 +114,6 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 // - event commitment
 func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
-
 	zeroFelt := new(felt.Felt)
 
 	return crypto.PedersenArray(
@@ -129,7 +134,6 @@ func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 
 func (b *Block) post07Hash() (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
-
 	zeroFelt := new(felt.Felt)
 
 	return crypto.PedersenArray(
