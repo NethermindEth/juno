@@ -144,6 +144,26 @@ func TestBlockHash(t *testing.T) {
 			"0x62483d7a29a2aae440c4418e5ddf5acdbacc391af959d681e2dc9441b2895b6",
 			true,
 		},
+		{
+			// block 10: Goerli2
+			// https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=10
+			&Block{
+				hexToFelt("0x57467bd9f04b75e138357376d1f705604e0044fd677f7c12bbdfb9819d31b51"),
+				10,
+				hexToFelt("0x0097a5aa9bef614afc2f5f2b7fa1849f384be4bcc4e987b97e7640254eef0d7c"),
+				hexToFelt("0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
+				uintToFelt(1666883141),
+				uintToFelt(1),
+				hexToFelt("0x66dba4a3fa3b67af8f0469e58a064b837728f33328331b242c21bce5af03140"),
+				uintToFelt(1),
+				hexToFelt("0x160e8a530c118d3266447d46d29c7e9263ee59cf2da494d8339b0af9aae9427"),
+				uintToFelt(1),
+				hexToFelt(""),
+			},
+			2,
+			"0x6902dad2e7ad976c59e032825b43474097396ad4a323d3782ede467540085f5",
+			false,
+		},
 	}
 
 	for _, tt := range tests {
