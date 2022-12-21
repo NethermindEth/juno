@@ -76,11 +76,13 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	default:
-		return nil
+		// This should never happen
+		panic(fmt.Sprintf("unknown network: %d", network))
 	}
 }
 
-// Block hash computation according to https://docs.starknet.io/documentation/develop/Blocks/header/#block_hash
+// Hash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
+// verifiable hashes. In that case, an [UnverifiableBlockError] is returned.
 func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 	blockHashMetaInfo := getBlockHashMetaInfo(network)
 
@@ -101,16 +103,7 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 	return b.post07Hash()
 }
 
-// Computes the block hash for blocks generated before Cairo 0.7.0
-//
-// The major difference between the pre-0.7.0 and post-0.7.0 block hashes is that
-// the pre-0.7.0 block hash includes the chain id in the hash computation.
-//
-// Also, for these blocks, we use zeroes for:
-// - sequencer address
-// - block timestamp
-// - number of events
-// - event commitment
+// pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
@@ -131,10 +124,17 @@ func (b *Block) pre07Hash(chain *felt.Felt) (*felt.Felt, error) {
 	)
 }
 
+// post07Hash computes the block hash for blocks generated after Cairo 0.7.0
 func (b *Block) post07Hash() (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
 
+	// Unlike the pre07Hash computation, we exclude the chain
+	// id and replace the zero felt with the actual values for:
+	// - sequencer address
+	// - block timestamp
+	// - number of events
+	// - event commitment
 	return crypto.PedersenArray(
 		blockNumber,             // block number
 		b.GlobalStateRoot,       // global state root
