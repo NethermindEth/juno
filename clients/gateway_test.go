@@ -243,7 +243,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockUnmarshal(t *testing.T) {
-	blockJson, err := os.ReadFile("block_11817.json")
+	blockJson, err := os.ReadFile("testdata/block_11817.json")
 	if err != nil {
 		t.Error(err)
 	}
@@ -267,7 +267,7 @@ func TestBlockUnmarshal(t *testing.T) {
 }
 
 func TestClassUnmarshal(t *testing.T) {
-	classJson, err := os.ReadFile("class_01efa8f8.json")
+	classJson, err := os.ReadFile("testdata/class_01efa8f8.json")
 	if err != nil {
 		t.Error(err)
 	}
