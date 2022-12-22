@@ -196,16 +196,19 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	var data []*felt.Felt
 
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
+	fmt.Println("Declare felt: ", declareFelt)
 	data = append(data, declareFelt)
-
+	fmt.Println("Version: ", d.Version)
 	data = append(data, d.Version)
 
 	// Sender Address
 	senderAddress := d.SenderAddress
+	fmt.Println("Sender Address: ", d.SenderAddress)
 	data = append(data, senderAddress)
 
 	// Zero Felt
 	zeroFelt := new(felt.Felt).SetZero()
+	fmt.Println("Zero felt: ", zeroFelt)
 	data = append(data, zeroFelt)
 	if d.Version.IsZero() {
 		// Implement pedersen hash as defined here:
@@ -235,24 +238,28 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		return declareTransactionHash, nil
 	} else if d.Version.IsOne() {
 		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_declare_transaction
+
 		// Class Hash
 		classHash, err := d.Class.ClassHash()
 		if err != nil {
 			return nil, err
 		}
-		// fmt.Println("Class Hash", classHash)
-		// temp, _ := new(felt.Felt).SetString("0x7aed6898458c4ed1d720d43e342381b25668ec7c3e8837f761051bf4d655e54")
-		// fmt.Println(temp)
+
+		// Calculate pedersen hash on class hash elements
+		classHash, _ = crypto.PedersenArray(classHash)
 		data = append(data, classHash)
 
 		//Max Fee
+		fmt.Println("Max Fee: ", d.MaxFee)
 		data = append(data, d.MaxFee)
 
 		// Chain Id
 		chainIdFelt := new(felt.Felt).SetBytes(chainId)
+		fmt.Println("Chain ID: ", chainIdFelt)
 		data = append(data, chainIdFelt)
 
 		// Nonce
+		fmt.Println("Nonce: ", d.Nonce)
 		data = append(data, d.Nonce)
 
 		declareTransactionHash, err := crypto.PedersenArray(data...)

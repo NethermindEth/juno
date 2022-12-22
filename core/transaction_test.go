@@ -138,14 +138,13 @@ func TestDeclareTransaction(t *testing.T) {
 		t.Fatalf("expected no error but got %s", err)
 	}
 
-	senderAddress, _ := new(felt.Felt).SetString("0x0039291faa79897de1fd6fb1a531d144daa1590d058358171b83eadb3ceafed8")
+	senderAddress, _ := new(felt.Felt).SetString("0x39291faa79897de1fd6fb1a531d144daa1590d058358171b83eadb3ceafed8")
 	maxFee, _ := new(felt.Felt).SetString("0xf6dbd653833")
 	nonce, _ := new(felt.Felt).SetString("0x5")
-	// senderAddress, _ := new(felt.Felt).SetString("0x1fc039de")
 	signature1, _ := new(felt.Felt).SetString("0x221b9576c4f7b46d900a331d89146dbb95a7b03d2eb86b4cdcf11331e4df7f2")
 	signature2, _ := new(felt.Felt).SetString("0x667d8062f3574ba9b4965871eec1444f80dacfa7114e1d9c74662f5672c0620")
-	version, _ := new(felt.Felt).SetString("0x1")
 
+	version, _ := new(felt.Felt).SetString("0x1")
 	DeclareTransactionObj := DeclareTransaction{
 		Class:         c,
 		SenderAddress: senderAddress,
