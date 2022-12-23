@@ -191,64 +191,6 @@ type TransactionReceipt struct {
 	TransactionFailureReason *TransactionFailureReason `json:"transaction_failure_reason"`
 }
 
-// TransactionTrace
-type TransactionTrace struct {
-	ValidateInvocation    *FunctionInvocation `json:"validate_invocation"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation"`
-	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation"`
-	Signature             []*felt.Felt        `json:"signature"`
-}
-
-// BlockSingleTransactionTrace
-type BlockSingleTransactionTrace struct {
-	TransactionHash       *felt.Felt          `json:"transaction_hash"`
-	ValidateInvocation    *FunctionInvocation `json:"validate_invocation"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation"`
-	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation"`
-	Signature             []*felt.Felt        `json:"signature"`
-}
-
-// BlockTransactionTraces
-// get_block_traces
-type BlockTransactionTraces struct {
-	Traces []*BlockSingleTransactionTrace `json:"traces"`
-}
-
-type (
-	CallType       string
-	EntryPointType string
-)
-
-// FunctionInvocation
-type FunctionInvocation struct {
-	CallerAddress      *felt.Felt              `json:"caller_address"`
-	ContractAddress    *felt.Felt              `json:"contract_address"`
-	CallData           []*felt.Felt            `json:"calldata"`
-	CallType           *CallType               `json:"call_type"`
-	ClassHash          *felt.Felt              `json:"class_hash"`
-	Selector           *felt.Felt              `json:"selector"`
-	EntryPointType     *EntryPointType         `json:"entry_point_type"`
-	Result             []*felt.Felt            `json:"result"`
-	ExecutionResources *ExecutionResources     `json:"execution_resources"`
-	InternalCalls      []*FunctionInvocation   `json:"internal_calls"`
-	Events             []*OrderedEvent         `json:"events"`
-	Messages           []*OrderedL2ToL1Message `json:"messages"`
-}
-
-// OrderedEventResponse
-type OrderedEvent struct {
-	Order *felt.Felt   `json:"order"`
-	Keys  []*felt.Felt `json:"keys"`
-	Data  []*felt.Felt `json:"data"`
-}
-
-// OrderedL2ToL1MessageResponse
-type OrderedL2ToL1Message struct {
-	Order   *felt.Felt   `json:"order"`
-	To      string       `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
-}
-
 // StarknetBlock
 // Block object returned by the gateway in JSON format for "get_block" endpoint
 type Block struct {
@@ -303,24 +245,24 @@ type Abi []struct {
 	Keys []interface{} `json:"keys"`
 }
 
-// get_code
-type CodeDefinition struct {
-	Bytecode []*felt.Felt `json:"bytecode"`
-	Abi      Abi          `json:"abi"`
-}
+// // get_code
+// type CodeDefinition struct {
+// 	Bytecode []*felt.Felt `json:"bytecode"`
+// 	Abi      Abi          `json:"abi"`
+// }
 
-type Program struct {
-	Builtins         []string      `json:"builtins"`
-	Prime            string        `json:"prime"`
-	ReferenceManager interface{}   `json:"reference_manager"`
-	Identifiers      interface{}   `json:"identifiers"`
-	Attributes       []interface{} `json:"attributes"`
-	Data             []*felt.Felt  `json:"data"`
-	DebugInfo        interface{}   `json:"debug_info"`
-	MainScope        interface{}   `json:"main_scope"`
-	Hints            interface{}   `json:"hints"`
-	CompilerVersion  string        `json:"compiler_version"`
-}
+// type Program struct {
+// 	Builtins         []string      `json:"builtins"`
+// 	Prime            string        `json:"prime"`
+// 	ReferenceManager interface{}   `json:"reference_manager"`
+// 	Identifiers      interface{}   `json:"identifiers"`
+// 	Attributes       []interface{} `json:"attributes"`
+// 	Data             []*felt.Felt  `json:"data"`
+// 	DebugInfo        interface{}   `json:"debug_info"`
+// 	MainScope        interface{}   `json:"main_scope"`
+// 	Hints            interface{}   `json:"hints"`
+// 	CompilerVersion  string        `json:"compiler_version"`
+// }
 
 // get_full_contract
 // get_class_by_hash
@@ -331,7 +273,18 @@ type ClassDefinition struct {
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
-	Program *Program `json:"program"`
+	Program struct {
+		Builtins         []string     `json:"builtins"`
+		Prime            string       `json:"prime"`
+		ReferenceManager interface{}  `json:"reference_manager"`
+		Identifiers      interface{}  `json:"identifiers"`
+		Attributes       interface{}  `json:"attributes"`
+		Data             []*felt.Felt `json:"data"`
+		DebugInfo        interface{}  `json:"debug_info"`
+		MainScope        interface{}  `json:"main_scope"`
+		Hints            interface{}  `json:"hints"`
+		CompilerVersion  string       `json:"compiler_version"`
+	} `json:"program"`
 }
 
 func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefinition, error) {
@@ -346,23 +299,4 @@ func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefiniti
 	}
 
 	return class, nil
-}
-
-// FeeEstimationInfo
-type FeeEstimation struct {
-	OverallFee uint64 `json:"overall_fee"`
-	GasPrice   uint64 `json:"gas_price"`
-	GasUsage   uint64 `json:"gas_usage"`
-	Unit       string `json:"unit"`
-}
-
-type TransactionSimulationInfo struct {
-	Trace         *TransactionTrace `json:"trace"`
-	FeeEstimation *FeeEstimation    `json:"fee_estimation"`
-}
-
-// get_transaction_status
-type GetTransactionStatus struct {
-	TxStatus  string     `json:"tx_status"`
-	BlockHash *felt.Felt `json:"block_hash"`
 }
