@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -453,4 +454,46 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 		root:    root.right,
 		storage: t.storage,
 	}).dump(level+1, t.root)
+}
+
+type (
+	Storage           map[string]string
+	GlobalTrieStorage struct {
+		storage Storage
+	}
+)
+
+// Put updates the [TrieNode] for a given key in the storage
+func (s *GlobalTrieStorage) Put(key *bitset.BitSet, value *TrieNode) error {
+	keyEnc, err := key.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	vEnc, err := value.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	s.storage[hex.EncodeToString(keyEnc)] = hex.EncodeToString(vEnc)
+	return nil
+}
+
+// Get returns the corresponding [TrieNode] for a given key from the storage
+func (s *GlobalTrieStorage) Get(key *bitset.BitSet) (*TrieNode, error) {
+	keyEnc, _ := key.MarshalBinary()
+	value, found := s.storage[hex.EncodeToString(keyEnc)]
+	if !found {
+		panic("not found")
+	}
+
+	v := new(TrieNode)
+	decoded, _ := hex.DecodeString(value)
+	err := v.UnmarshalBinary(decoded)
+	return v, err
+}
+
+// Delete deletes the [TrieNode] for a given key from the storage
+func (s *GlobalTrieStorage) Delete(key *bitset.BitSet) error {
+	keyEnc, _ := key.MarshalBinary()
+	delete(s.storage, hex.EncodeToString(keyEnc))
+	return nil
 }

@@ -90,45 +90,6 @@ func TestPathFromKey(t *testing.T) {
 	t.Error("TestPathFromKey failed")
 }
 
-type (
-	storage         map[string]string
-	testTrieStorage struct {
-		storage storage
-	}
-)
-
-func (s *testTrieStorage) Put(key *bitset.BitSet, value *TrieNode) error {
-	keyEnc, err := key.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	vEnc, err := value.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	s.storage[hex.EncodeToString(keyEnc)] = hex.EncodeToString(vEnc)
-	return nil
-}
-
-func (s *testTrieStorage) Get(key *bitset.BitSet) (*TrieNode, error) {
-	keyEnc, _ := key.MarshalBinary()
-	value, found := s.storage[hex.EncodeToString(keyEnc)]
-	if !found {
-		panic("not found")
-	}
-
-	v := new(TrieNode)
-	decoded, _ := hex.DecodeString(value)
-	err := v.UnmarshalBinary(decoded)
-	return v, err
-}
-
-func (s *testTrieStorage) Delete(key *bitset.BitSet) error {
-	keyEnc, _ := key.MarshalBinary()
-	delete(s.storage, hex.EncodeToString(keyEnc))
-	return nil
-}
-
 func TestFindCommonPath(t *testing.T) {
 	tests := [...]struct {
 		path1  *bitset.BitSet
@@ -171,8 +132,8 @@ func TestFindCommonPath(t *testing.T) {
 }
 
 func TestTriePut(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
+	storage := &GlobalTrieStorage{
+		storage: make(Storage),
 	}
 	trie := NewTrie(storage, 251)
 
@@ -251,8 +212,8 @@ func TestGetSpecPath(t *testing.T) {
 }
 
 func TestGetSpecPathOnTrie(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
+	storage := &GlobalTrieStorage{
+		storage: make(Storage),
 	}
 	trie := NewTrie(storage, 251)
 
@@ -282,8 +243,8 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 }
 
 func TestGetSpecPath_ZeroRoot(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
+	storage := &GlobalTrieStorage{
+		storage: make(Storage),
 	}
 	trie := NewTrie(storage, 251)
 
@@ -409,14 +370,14 @@ func TestState(t *testing.T) {
 		contractHash, _ = new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
-	stateStorage := &testTrieStorage{
-		storage: make(storage),
+	stateStorage := &GlobalTrieStorage{
+		storage: make(Storage),
 	}
 	state := NewTrie(stateStorage, 251)
 
 	for addr, dif := range addresses {
-		contractStorage := &testTrieStorage{
-			storage: make(storage),
+		contractStorage := &GlobalTrieStorage{
+			storage: make(Storage),
 		}
 		contractState := NewTrie(contractStorage, 251)
 		for _, slot := range dif {
@@ -454,8 +415,8 @@ func TestState(t *testing.T) {
 }
 
 func TestPutZero(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
+	storage := &GlobalTrieStorage{
+		storage: make(Storage),
 	}
 	trie := NewTrie(storage, 251)
 	emptyRoot, err := trie.Root()
