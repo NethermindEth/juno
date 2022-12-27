@@ -245,25 +245,6 @@ type Abi []struct {
 	Keys []interface{} `json:"keys"`
 }
 
-// // get_code
-// type CodeDefinition struct {
-// 	Bytecode []*felt.Felt `json:"bytecode"`
-// 	Abi      Abi          `json:"abi"`
-// }
-
-// type Program struct {
-// 	Builtins         []string      `json:"builtins"`
-// 	Prime            string        `json:"prime"`
-// 	ReferenceManager interface{}   `json:"reference_manager"`
-// 	Identifiers      interface{}   `json:"identifiers"`
-// 	Attributes       []interface{} `json:"attributes"`
-// 	Data             []*felt.Felt  `json:"data"`
-// 	DebugInfo        interface{}   `json:"debug_info"`
-// 	MainScope        interface{}   `json:"main_scope"`
-// 	Hints            interface{}   `json:"hints"`
-// 	CompilerVersion  string        `json:"compiler_version"`
-// }
-
 // get_full_contract
 // get_class_by_hash
 type ClassDefinition struct {
