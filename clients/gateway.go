@@ -227,22 +227,22 @@ type EntryPoint struct {
 }
 
 type Abi []struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
+	Data []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
 	Inputs []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"inputs"`
+	Keys    []interface{} `json:"keys"`
+	Name    string        `json:"name"`
 	Outputs []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"outputs"`
 	StateMutability string `json:"stateMutability"`
-	Data            []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	}
-	Keys []interface{} `json:"keys"`
+	Type            string `json:"type"`
 }
 
 // get_full_contract
