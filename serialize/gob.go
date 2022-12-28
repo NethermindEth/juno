@@ -27,3 +27,20 @@ func UnMarshalGob[T any](b bytes.Buffer) T {
 
 	return t
 }
+
+func MarshalGob2(enc *gob.Encoder, in any) {
+	err := enc.Encode(in)
+	if err != nil {
+		log.Fatal("encode error:", err)
+	}
+}
+
+func UnMarshalGob2[T any](dec *gob.Decoder) T {
+	var t T
+	err := dec.Decode(&t)
+	if err != nil {
+		log.Fatal("decode error:", err)
+	}
+
+	return t
+}
