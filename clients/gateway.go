@@ -255,16 +255,16 @@ type ClassDefinition struct {
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
 	Program struct {
-		Builtins         []string     `json:"builtins"`
-		Prime            string       `json:"prime"`
-		ReferenceManager interface{}  `json:"reference_manager"`
-		Identifiers      interface{}  `json:"identifiers"`
-		Attributes       interface{}  `json:"attributes"`
-		Data             []*felt.Felt `json:"data"`
-		DebugInfo        interface{}  `json:"debug_info"`
-		MainScope        interface{}  `json:"main_scope"`
-		Hints            interface{}  `json:"hints"`
-		CompilerVersion  string       `json:"compiler_version"`
+		Attributes       interface{}            `json:"attributes"`
+		Builtins         []string               `json:"builtins"`
+		CompilerVersion  string                 `json:"compiler_version"`
+		Data             []*felt.Felt           `json:"data"`
+		DebugInfo        interface{}            `json:"debug_info"`
+		Hints            map[uint64]interface{} `json:"hints"`
+		Identifiers      interface{}            `json:"identifiers"`
+		MainScope        interface{}            `json:"main_scope"`
+		Prime            string                 `json:"prime"`
+		ReferenceManager interface{}            `json:"reference_manager"`
 	} `json:"program"`
 }
 
