@@ -43,8 +43,9 @@ func MulBy13(x *Felt) {
 }
 
 // Butterfly sets
-//  a = a + b (mod q)
-//  b = a - b (mod q)
+//
+//	a = a + b (mod q)
+//	b = a - b (mod q)
 func Butterfly(a, b *Felt) {
 	_butterflyGeneric(a, b)
 }
