@@ -9,4 +9,6 @@ type TestMarshal struct {
 	B string
 	C bool
 	D TestInner
+	E map[uint64]string
+	F []string
 }

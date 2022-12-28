@@ -6,7 +6,11 @@ import (
 )
 
 func TestGob(t *testing.T) {
-	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}}
+	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}, map[uint64]string{
+		0: "zero",
+		1: "one",
+		2: "two",
+	}, []string{"hello", "world"}}
 	encoded := MarshalGob(test)
 	unmarshalTest := UnMarshalGob[TestMarshal](encoded)
 
@@ -16,7 +20,11 @@ func TestGob(t *testing.T) {
 }
 
 func BenchmarkGob(b *testing.B) {
-	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}}
+	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}, map[uint64]string{
+		0: "zero",
+		1: "one",
+		2: "two",
+	}, []string{"hello", "world"}}
 	encoded := MarshalGob(test)
 
 	b.Run("Marshalling", func(b *testing.B) {

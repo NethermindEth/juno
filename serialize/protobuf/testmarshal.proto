@@ -2,18 +2,6 @@ syntax = "proto3";
 package main;
 option go_package = "./";
 
-
-// type TestInner struct {
-// 	InnerA string
-// }
-
-// type TestMarshal struct {
-// 	A int64
-// 	B string
-// 	C bool
-// 	D TestInner
-// }
-
 message TestInner {
     string innerA = 1;
 }
@@ -23,6 +11,8 @@ message TestMarshal {
     string b = 2;
     bool c = 3;
     TestInner d = 4;
+    map<uint64, string> e = 5;
+    repeated string f = 6;
 }
 
 // protoc -I=$SRC_DIR --go_out=$DST_DIR $SRC_DIR/addressbook.proto

@@ -6,7 +6,11 @@ import (
 )
 
 func TestJson(t *testing.T) {
-	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}}
+	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}, map[uint64]string{
+		0: "zero",
+		1: "one",
+		2: "two",
+	}, []string{"hello", "world"}}
 	encoded, _ := MarshalJson(test)
 	decodedTest, _ := UnMarshalJson[TestMarshal](encoded)
 
@@ -16,7 +20,11 @@ func TestJson(t *testing.T) {
 }
 
 func BenchmarkJson(b *testing.B) {
-	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}}
+	test := TestMarshal{5, "Test", true, TestInner{"Test Inner"}, map[uint64]string{
+		0: "zero",
+		1: "one",
+		2: "two",
+	}, []string{"hello", "world"}}
 	encoded, _ := MarshalJson(test)
 
 	b.Run("Marshalling", func(b *testing.B) {
