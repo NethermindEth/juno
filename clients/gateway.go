@@ -50,13 +50,31 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 	return body, err
 }
 
+type StateDiff struct {
+	StorageDiffs map[felt.Felt][]struct {
+		Key   *felt.Felt `json:"key"`
+		Value *felt.Felt `json:"value"`
+	} `json:"storage_diffs"`
+
+	Nonces            interface{} `json:"nonces"` // todo: define
+	DeployedContracts []struct {
+		Address   *felt.Felt `json:"address"`
+		ClassHash *felt.Felt `json:"class_hash"`
+	} `json:"deployed_contracts"`
+	DeclaredContracts interface{} `json:"declared_contracts"` // todo: define
+}
+
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash"`
 	NewRoot   *felt.Felt `json:"new_root"`
 	OldRoot   *felt.Felt `json:"old_root"`
 
-	StateDiff struct {
+	StateDiff StateDiff `json:"state_diff"`
+}
+
+func (s *StateDiff) UnmarshalJSON(data []byte) error {
+	var t struct {
 		StorageDiffs map[string][]struct {
 			Key   *felt.Felt `json:"key"`
 			Value *felt.Felt `json:"value"`
@@ -68,7 +86,32 @@ type StateUpdate struct {
 			ClassHash *felt.Felt `json:"class_hash"`
 		} `json:"deployed_contracts"`
 		DeclaredContracts interface{} `json:"declared_contracts"` // todo: define
-	} `json:"state_diff"`
+	}
+
+	err := json.Unmarshal(data, &t)
+	if err != nil {
+		return err
+	}
+
+	s.StorageDiffs = make(map[felt.Felt][]struct {
+		Key   *felt.Felt "json:\"key\""
+		Value *felt.Felt "json:\"value\""
+	}, 0)
+
+	s.Nonces = t.Nonces
+	s.DeployedContracts = t.DeployedContracts
+	s.DeclaredContracts = t.DeclaredContracts
+
+	for k, v := range t.StorageDiffs {
+		felt, err := new(felt.Felt).SetString(k)
+
+		if err != nil {
+			return err
+		}
+		s.StorageDiffs[*felt] = v
+	}
+
+	return nil
 }
 
 func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error) {

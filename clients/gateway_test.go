@@ -45,7 +45,8 @@ func TestStateUpdateUnmarshal(t *testing.T) {
 	assert.Equal(t, true, update.OldRoot.Equal(expected))
 	assert.Equal(t, 1, len(update.StateDiff.StorageDiffs))
 
-	diffs, found := update.StateDiff.StorageDiffs["0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6"]
+	key, _ := new(felt.Felt).SetString("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+	diffs, found := update.StateDiff.StorageDiffs[*key]
 	assert.Equal(t, true, found)
 	assert.Equal(t, 1, len(diffs))
 
