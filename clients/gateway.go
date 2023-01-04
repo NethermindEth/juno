@@ -104,7 +104,6 @@ func (s *StateDiff) UnmarshalJSON(data []byte) error {
 
 	for k, v := range t.StorageDiffs {
 		felt, err := new(felt.Felt).SetString(k)
-
 		if err != nil {
 			return err
 		}
