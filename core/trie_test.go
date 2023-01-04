@@ -6,11 +6,18 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
-
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 )
+
+func newTestTrie() (*Trie, *badger.Txn) {
+	db := newTestDb()
+	txn := db.NewTransaction(true)
+	storage := NewTrieTxn(txn, []byte{1, 2})
+	return NewTrie(storage, 251), txn
+}
 
 func TestNode_Marshall(t *testing.T) {
 	value, _ := new(felt.Felt).SetRandom()
@@ -90,45 +97,6 @@ func TestPathFromKey(t *testing.T) {
 	t.Error("TestPathFromKey failed")
 }
 
-type (
-	storage         map[string]string
-	testTrieStorage struct {
-		storage storage
-	}
-)
-
-func (s *testTrieStorage) Put(key *bitset.BitSet, value *TrieNode) error {
-	keyEnc, err := key.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	vEnc, err := value.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	s.storage[hex.EncodeToString(keyEnc)] = hex.EncodeToString(vEnc)
-	return nil
-}
-
-func (s *testTrieStorage) Get(key *bitset.BitSet) (*TrieNode, error) {
-	keyEnc, _ := key.MarshalBinary()
-	value, found := s.storage[hex.EncodeToString(keyEnc)]
-	if !found {
-		panic("not found")
-	}
-
-	v := new(TrieNode)
-	decoded, _ := hex.DecodeString(value)
-	err := v.UnmarshalBinary(decoded)
-	return v, err
-}
-
-func (s *testTrieStorage) Delete(key *bitset.BitSet) error {
-	keyEnc, _ := key.MarshalBinary()
-	delete(s.storage, hex.EncodeToString(keyEnc))
-	return nil
-}
-
 func TestFindCommonPath(t *testing.T) {
 	tests := [...]struct {
 		path1  *bitset.BitSet
@@ -171,10 +139,8 @@ func TestFindCommonPath(t *testing.T) {
 }
 
 func TestTriePut(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
+	trie, txn := newTestTrie()
+	defer txn.Discard()
 
 	tests := [...]struct {
 		key   *felt.Felt
@@ -184,39 +150,33 @@ func TestTriePut(t *testing.T) {
 		{
 			key:   new(felt.Felt).SetUint64(2),
 			value: new(felt.Felt).SetUint64(2),
-			root:  nil,
 		},
 		{
 			key:   new(felt.Felt).SetUint64(1),
 			value: new(felt.Felt).SetUint64(1),
-			root:  nil,
 		},
 		{
 			key:   new(felt.Felt).SetUint64(3),
 			value: new(felt.Felt).SetUint64(3),
-			root:  nil,
 		},
 		{
 			key:   new(felt.Felt).SetUint64(3),
 			value: new(felt.Felt).SetUint64(4),
-			root:  nil,
 		},
 		{
 			key:   new(felt.Felt).SetUint64(0),
 			value: new(felt.Felt).SetUint64(5),
-			root:  nil,
 		},
 	}
-	for idx, test := range tests {
-		if err := trie.Put(test.key, test.value); err != nil {
-			t.Errorf("TestTriePut: Put() failed at test #%d", idx)
-		}
-		if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
-			t.Errorf("TestTriePut: Get() failed at test #%d", idx)
-		}
-		if test.root != nil && !test.root.Equal(trie.root) {
-			t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
-		}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("key: %s, value: %s", test.key.String(), test.value.String()), func(t *testing.T) {
+			if err := trie.Put(test.key, test.value); err != nil {
+				t.Errorf("unexpected error: %s", err)
+			}
+			if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
+				t.Errorf("values are not equal: want %s, got %s", test.value.String(), value.String())
+			}
+		})
 	}
 }
 
@@ -251,10 +211,8 @@ func TestGetSpecPath(t *testing.T) {
 }
 
 func TestGetSpecPathOnTrie(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
+	trie, txn := newTestTrie()
+	defer txn.Discard()
 
 	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
 	// and check paths
@@ -282,9 +240,10 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 }
 
 func TestGetSpecPath_ZeroRoot(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
+	db := newTestDb()
+	txn := db.NewTransaction(true)
+	defer txn.Discard()
+	storage := NewTrieTxn(txn, []byte{1, 2})
 	trie := NewTrie(storage, 251)
 
 	zero := felt.NewFelt(0)
@@ -409,16 +368,12 @@ func TestState(t *testing.T) {
 		contractHash, _ = new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
-	stateStorage := &testTrieStorage{
-		storage: make(storage),
-	}
-	state := NewTrie(stateStorage, 251)
+	state, txn := newTestTrie()
+	defer txn.Discard()
 
 	for addr, dif := range addresses {
-		contractStorage := &testTrieStorage{
-			storage: make(storage),
-		}
-		contractState := NewTrie(contractStorage, 251)
+		contractState, txn := newTestTrie()
+		defer txn.Discard()
 		for _, slot := range dif {
 			key, _ := new(felt.Felt).SetString(slot.key)
 			val, _ := new(felt.Felt).SetString(slot.val)
@@ -454,10 +409,9 @@ func TestState(t *testing.T) {
 }
 
 func TestPutZero(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
+	trie, txn := newTestTrie()
+	defer txn.Discard()
+
 	emptyRoot, err := trie.Root()
 	if err != nil {
 		t.Error(err)
@@ -521,5 +475,5 @@ func TestPutZero(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
-	assert.Equal(t, 0, len(storage.storage)) // storage should be empty
+	assert.Equal(t, true, trie.IsEmpty()) // storage should be empty
 }

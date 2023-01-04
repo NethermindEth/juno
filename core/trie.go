@@ -18,6 +18,7 @@ type TrieStorage interface {
 	Put(key *bitset.BitSet, value *TrieNode) error
 	Get(key *bitset.BitSet) (*TrieNode, error)
 	Delete(key *bitset.BitSet) error
+	IsEmpty() bool
 }
 
 // A [Trie] node
@@ -430,6 +431,10 @@ func (t *Trie) Root() (*felt.Felt, error) {
 
 	specPath := GetSpecPath(t.root, nil)
 	return root.Hash(specPath), nil
+}
+
+func (t *Trie) IsEmpty() bool {
+	return t.storage.IsEmpty()
 }
 
 // Try to print a [Trie] in a somewhat human-readable form
