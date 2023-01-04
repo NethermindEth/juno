@@ -50,7 +50,6 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 	return body, err
 }
 
-// BlockStateUpdate
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash"`
@@ -86,11 +85,6 @@ func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error)
 	return update, nil
 }
 
-// DeclareSpecificInfo
-// DeploySpecificInfo
-// InvokeSpecificInfo
-// L1HandlerSpecificInfo
-// DeployAccountSpecificInfo
 // Transaction object returned by the gateway in JSON format for multiple endpoints
 type Transaction struct {
 	Hash                *felt.Felt   `json:"transaction_hash"`
@@ -116,7 +110,6 @@ type TransactionFailureReason struct {
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 
-// TransactionInfo
 type TransactionStatus struct {
 	Status                   string                    `json:"status"`
 	BlockHash                *felt.Felt                `json:"block_hash"`
@@ -140,7 +133,6 @@ func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*Transaction
 	return txStatus, nil
 }
 
-// Event
 type Event struct {
 	From *felt.Felt   `json:"from_address"`
 	Data []*felt.Felt `json:"data"`
@@ -161,7 +153,6 @@ type L2ToL1Message struct {
 	To      string       `json:"to_address"`
 }
 
-// ExecutionResources
 type ExecutionResources struct {
 	Steps                  uint64 `json:"n_steps"`
 	BuiltinInstanceCounter struct {
@@ -175,8 +166,6 @@ type ExecutionResources struct {
 	MemoryHoles uint64 `json:"n_memory_holes"`
 }
 
-// TransactionReceipt(TransactionExecution, TransactionInBlockInfo)
-// NOTE: should blockNumber and TransactionIndex be felt?
 type TransactionReceipt struct {
 	ActualFee                *felt.Felt                `json:"actual_fee"`
 	Events                   []*Event                  `json:"events"`
@@ -191,7 +180,6 @@ type TransactionReceipt struct {
 	TransactionFailureReason *TransactionFailureReason `json:"transaction_failure_reason"`
 }
 
-// StarknetBlock
 // Block object returned by the gateway in JSON format for "get_block" endpoint
 type Block struct {
 	Hash             *felt.Felt            `json:"block_hash"`
@@ -245,8 +233,7 @@ type Abi []struct {
 	Type            string `json:"type"`
 }
 
-// get_full_contract
-// get_class_by_hash
+// ClassDefinition object returned by the gateway in JSON format for "get_full_contract" or "get_class_by_hash" endpoint
 type ClassDefinition struct {
 	Abi         Abi `json:"abi"`
 	EntryPoints struct {
