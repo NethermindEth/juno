@@ -3,12 +3,20 @@ package trie
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
 )
+
+type ErrMalformedNode struct {
+	reason string
+}
+
+func (e ErrMalformedNode) Error() string {
+	return fmt.Sprintf("malformed node: %s", e.reason)
+}
 
 // A Node represents a node in the [Trie]
 type Node struct {
@@ -25,7 +33,7 @@ func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
 
 	pathWords := specPath.Bytes()
 	if len(pathWords) > 4 {
-		panic("Path too long to fit in Felt")
+		panic("path too long to fit in Felt")
 	}
 
 	var pathBytes [32]byte
@@ -54,6 +62,10 @@ func (n *Node) Equal(other *Node) bool {
 
 // MarshalBinary serializes a [Node] into a byte array
 func (n *Node) MarshalBinary() ([]byte, error) {
+	if n.value == nil {
+		return nil, ErrMalformedNode{"cannot marshal node with nil value"}
+	}
+
 	var ret []byte
 	valueB := n.value.Bytes()
 	ret = append(ret, valueB[:]...)
@@ -80,9 +92,8 @@ func (n *Node) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary deserializes a [Node] from a byte array
 func (n *Node) UnmarshalBinary(data []byte) error {
-	malformedErr := errors.New("malformed Node byte-data")
 	if len(data) < felt.Bytes {
-		return malformedErr
+		return ErrMalformedNode{"size of input data is less than felt size"}
 	}
 	n.value = new(felt.Felt).SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
@@ -101,7 +112,7 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 		case 'r':
 			pathP = &(n.right)
 		default:
-			return malformedErr
+			return ErrMalformedNode{"unknown child node prefix"}
 		}
 
 		*pathP = new(bitset.BitSet)
