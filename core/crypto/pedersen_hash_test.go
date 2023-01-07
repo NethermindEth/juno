@@ -108,7 +108,7 @@ func TestPedersenArray(t *testing.T) {
 		}
 		want, _ := new(felt.Felt).SetString(test.want)
 		got, err := PedersenArray(data...)
-		if err != nil || got.Cmp(want) != 0 {
+		if err != nil || !got.Equal(want) {
 			t.Errorf("PedersenArray(%x) = %x, want %x", data, got, want)
 		}
 	}

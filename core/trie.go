@@ -44,7 +44,7 @@ func (n *TrieNode) Hash(specPath *bitset.BitSet) *felt.Felt {
 		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
 	}
 
-	pathFelt := felt.NewFelt(0)
+	var pathFelt felt.Felt
 	(&pathFelt).SetBytes(pathBytes[:])
 
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
@@ -150,7 +150,7 @@ func NewTrie(storage TrieStorage, height uint) *Trie {
 // Converts a key to a path that, when followed on a [Trie], leads to the corresponding [TrieNode]
 func (t *Trie) PathFromKey(k *felt.Felt) *bitset.BitSet {
 	regularK := k.ToRegular()
-	return bitset.FromWithLength(t.height, regularK[:])
+	return bitset.FromWithLength(t.height, regularK.Impl()[:])
 }
 
 // Finds the set of common MSB bits in two [StoragePath] objects
