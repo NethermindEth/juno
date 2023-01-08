@@ -117,8 +117,8 @@ func TestTriePut(t *testing.T) {
 			if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
 				t.Errorf("TestTriePut: Get() failed at test #%d", idx)
 			}
-			if test.root != nil && !test.root.Equal(trie.root) {
-				t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
+			if test.root != nil && !test.root.Equal(trie.rootKey) {
+				t.Errorf("TestTriePut: Unexpected rootKey at test #%d", idx)
 			}
 		}
 
@@ -167,13 +167,13 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 		var one felt.Felt
 		one.SetUint64(1)
 		trie.Put(&two, &one)
-		assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(trie.PathFromKey(&two)))
+		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(trie.PathFromKey(&two)))
 
 		trie.Put(&five, &one)
 		expectedRoot, _ := FindCommonPath(trie.PathFromKey(&two), trie.PathFromKey(&five))
-		assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(expectedRoot))
+		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(expectedRoot))
 
-		rootNode, err := trie.storage.Get(trie.root)
+		rootNode, err := trie.storage.Get(trie.rootKey)
 		if err != nil {
 			t.Error()
 		}
@@ -182,8 +182,8 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 
 		expectedLeftSpecPath := bitset.New(2).Set(1)
 		expectedRightSpecPath := bitset.New(2).Set(0)
-		assert.Equal(t, true, GetSpecPath(rootNode.left, trie.root).Equal(expectedLeftSpecPath))
-		assert.Equal(t, true, GetSpecPath(rootNode.right, trie.root).Equal(expectedRightSpecPath))
+		assert.Equal(t, true, GetSpecPath(rootNode.left, trie.rootKey).Equal(expectedLeftSpecPath))
+		assert.Equal(t, true, GetSpecPath(rootNode.right, trie.rootKey).Equal(expectedRightSpecPath))
 		return nil
 	})
 }
@@ -198,8 +198,8 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 		trie.Put(msbOne, &one)
 
 		zeroPath := bitset.New(0)
-		assert.Equal(t, true, trie.root.Equal(zeroPath))
-		assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(zeroPath))
+		assert.Equal(t, true, trie.rootKey.Equal(zeroPath))
+		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(zeroPath))
 		return nil
 	})
 }
