@@ -30,7 +30,7 @@ type Storage interface {
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
 	height  uint
-	root    *bitset.BitSet
+	rootKey *bitset.BitSet
 	storage Storage
 }
 
@@ -112,7 +112,7 @@ type step struct {
 // The [step]s are returned in descending order beginning with the root.
 func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 	var steps []step
-	cur := t.root
+	cur := t.rootKey
 	for cur != nil {
 		node, err := t.storage.Get(cur)
 		if err != nil {
@@ -156,7 +156,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	}
 
 	// empty trie, make new value root
-	if t.root == nil {
+	if t.rootKey == nil {
 		if value.IsZero() {
 			return nil // no-op
 		}
@@ -166,7 +166,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		}); err != nil {
 			return err
 		}
-		t.root = path
+		t.rootKey = path
 		return nil
 	}
 
@@ -228,7 +228,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	if err = t.propagateValues(stepsToRoot); err != nil {
 		return err
 	} else if makeRoot {
-		t.root = commonPath
+		t.rootKey = commonPath
 	}
 	return nil
 }
@@ -241,7 +241,7 @@ func (t *Trie) deleteLast(affectedPath []step) error {
 	}
 
 	if len(affectedPath) == 1 { // deleted node was root
-		t.root = nil
+		t.rootKey = nil
 	} else {
 		// parent now has only a single child, so delete
 		parent := affectedPath[len(affectedPath)-2]
@@ -257,7 +257,7 @@ func (t *Trie) deleteLast(affectedPath []step) error {
 		}
 
 		if len(affectedPath) == 2 { // sibling should become root
-			t.root = siblingPath
+			t.rootKey = siblingPath
 		} else { // sibling should link to grandparent (len(affectedPath) > 2)
 			grandParent := &affectedPath[len(affectedPath)-3]
 			// replace link to parent with a link to sibling
@@ -326,16 +326,16 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 
 // Root returns the commitment of a [Trie]
 func (t *Trie) Root() (*felt.Felt, error) {
-	if t.root == nil {
+	if t.rootKey == nil {
 		return new(felt.Felt), nil
 	}
 
-	root, err := t.storage.Get(t.root)
+	root, err := t.storage.Get(t.rootKey)
 	if err != nil {
 		return nil, err
 	}
 
-	specPath := GetSpecPath(t.root, nil)
+	specPath := GetSpecPath(t.rootKey, nil)
 	return root.Hash(specPath), nil
 }
 
@@ -358,23 +358,23 @@ The following can be printed:
 The spacing to represent the levels of the trie can remain the same.
 */
 func (t *Trie) dump(level int, parentP *bitset.BitSet) {
-	if t.root == nil {
+	if t.rootKey == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
 		return
 	}
 
-	root, err := t.storage.Get(t.root)
-	specPath := GetSpecPath(t.root, parentP)
-	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.root.String(), t.root.Len(), specPath.String(), specPath.Len(), root.value.Text(16))
+	root, err := t.storage.Get(t.rootKey)
+	specPath := GetSpecPath(t.rootKey, parentP)
+	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), specPath.String(), specPath.Len(), root.value.Text(16))
 	if err != nil {
 		return
 	}
 	(&Trie{
-		root:    root.left,
+		rootKey: root.left,
 		storage: t.storage,
-	}).dump(level+1, t.root)
+	}).dump(level+1, t.rootKey)
 	(&Trie{
-		root:    root.right,
+		rootKey: root.right,
 		storage: t.storage,
-	}).dump(level+1, t.root)
+	}).dump(level+1, t.rootKey)
 }
