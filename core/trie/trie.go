@@ -339,7 +339,24 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	return root.Hash(specPath), nil
 }
 
+func (t *Trie) Dump() {
+	t.dump(0, nil)
+}
+
 // Try to print a [Trie] in a somewhat human-readable form
+/*
+Todo: create more meaningful representation of trie. In the current format string, storage is being
+printed but the value that is printed is the bitset of the trie node this is different from the
+storage of the trie. Also, consider renaming the function name to something other than dump.
+
+The following can be printed:
+- key (which represents the storage key)
+- path (as specified in the documentation)
+- len (as specified in the documentation)
+- bottom (as specified in the documentation)
+
+The spacing to represent the levels of the trie can remain the same.
+*/
 func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	if t.root == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
