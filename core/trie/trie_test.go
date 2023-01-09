@@ -150,7 +150,7 @@ func TestGetSpecPath(t *testing.T) {
 	}
 
 	for idx, test := range tests {
-		if got := GetSpecPath(test.child, test.parent); !got.Equal(test.want) {
+		if got := Path(test.child, test.parent); !got.Equal(test.want) {
 			t.Error("TestGetSpecPath failing #", idx)
 		}
 	}
@@ -167,11 +167,11 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 		var one felt.Felt
 		one.SetUint64(1)
 		trie.Put(&two, &one)
-		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(trie.FeltToBitSet(&two)))
+		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(trie.FeltToBitSet(&two)))
 
 		trie.Put(&five, &one)
 		expectedRoot, _ := FindCommonPath(trie.FeltToBitSet(&two), trie.FeltToBitSet(&five))
-		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(expectedRoot))
+		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(expectedRoot))
 
 		rootNode, err := trie.storage.Get(trie.rootKey)
 		if err != nil {
@@ -182,8 +182,8 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 
 		expectedLeftSpecPath := bitset.New(2).Set(1)
 		expectedRightSpecPath := bitset.New(2).Set(0)
-		assert.Equal(t, true, GetSpecPath(rootNode.left, trie.rootKey).Equal(expectedLeftSpecPath))
-		assert.Equal(t, true, GetSpecPath(rootNode.right, trie.rootKey).Equal(expectedRightSpecPath))
+		assert.Equal(t, true, Path(rootNode.left, trie.rootKey).Equal(expectedLeftSpecPath))
+		assert.Equal(t, true, Path(rootNode.right, trie.rootKey).Equal(expectedRightSpecPath))
 		return nil
 	})
 }
@@ -199,7 +199,7 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 
 		zeroPath := bitset.New(0)
 		assert.Equal(t, true, trie.rootKey.Equal(zeroPath))
-		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(zeroPath))
+		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(zeroPath))
 		return nil
 	})
 }
