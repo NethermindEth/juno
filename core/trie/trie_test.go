@@ -16,7 +16,7 @@ import (
 func TestPathFromKey(t *testing.T) {
 	trie := NewTrie(nil, 251)
 	key, _ := new(felt.Felt).SetRandom()
-	path := trie.PathFromKey(key)
+	path := trie.FeltToBitSet(key)
 	keyRegular := key.ToRegular()
 	for bit := 0; bit < felt.Bits; bit++ {
 		if keyRegular.Bit(uint64(bit)) > 0 != path.Test(uint(bit)) {
@@ -167,10 +167,10 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 		var one felt.Felt
 		one.SetUint64(1)
 		trie.Put(&two, &one)
-		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(trie.PathFromKey(&two)))
+		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(trie.FeltToBitSet(&two)))
 
 		trie.Put(&five, &one)
-		expectedRoot, _ := FindCommonPath(trie.PathFromKey(&two), trie.PathFromKey(&five))
+		expectedRoot, _ := FindCommonPath(trie.FeltToBitSet(&two), trie.FeltToBitSet(&five))
 		assert.Equal(t, true, GetSpecPath(trie.rootKey, nil).Equal(expectedRoot))
 
 		rootNode, err := trie.storage.Get(trie.rootKey)
