@@ -99,10 +99,10 @@ func Path(path, parentPath *bitset.BitSet) *bitset.BitSet {
 	return specPath
 }
 
-// storageNode is the on-disk representation of a [Node], where path is the
-// key and node is the value.
+// storageNode is the on-disk representation of a [Node],
+// where key is the storage key and node is the value.
 type storageNode struct {
-	path *bitset.BitSet
+	key  *bitset.BitSet
 	node *Node
 }
 
@@ -119,7 +119,7 @@ func (t *Trie) nodesFromRoot(path *bitset.BitSet) ([]storageNode, error) {
 		}
 
 		nodes = append(nodes, storageNode{
-			path: cur,
+			key:  cur,
 			node: node,
 		})
 
@@ -161,7 +161,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		}
 
 		if err := t.propagateValues([]storageNode{
-			{path: path, node: node},
+			{key: path, node: node},
 		}); err != nil {
 			return err
 		}
@@ -173,9 +173,10 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	if err != nil {
 		return err
 	}
-	sibling := &nodes[len(nodes)-1]
 
-	if path.Equal(sibling.path) {
+	// Replace if key already exist
+	sibling := &nodes[len(nodes)-1]
+	if path.Equal(sibling.key) {
 		sibling.node = node
 		if value.IsZero() {
 			if err = t.deleteLast(nodes); err != nil {
@@ -192,14 +193,14 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		return nil // no-op
 	}
 
-	commonPath, _ := FindCommonPath(path, sibling.path)
+	commonPath, _ := FindCommonPath(path, sibling.key)
 	newParent := &Node{
 		value: new(felt.Felt),
 	}
 	if path.Test(path.Len() - commonPath.Len() - 1) {
-		newParent.left, newParent.right = sibling.path, path
+		newParent.left, newParent.right = sibling.key, path
 	} else {
-		newParent.left, newParent.right = path, sibling.path
+		newParent.left, newParent.right = path, sibling.key
 	}
 
 	makeRoot := len(nodes) == 1
@@ -207,7 +208,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		siblingParent := &nodes[len(nodes)-2]
 
 		// replace the link to our sibling with the new parent
-		if siblingParent.node.left.Equal(sibling.path) {
+		if siblingParent.node.left.Equal(sibling.key) {
 			siblingParent.node.left = commonPath
 		} else {
 			siblingParent.node.right = commonPath
@@ -216,11 +217,11 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	// replace sibling with new parent
 	nodes[len(nodes)-1] = storageNode{
-		path: commonPath, node: newParent,
+		key: commonPath, node: newParent,
 	}
 	// add new node to steps
 	nodes = append(nodes, storageNode{
-		path: path, node: node,
+		key: path, node: node,
 	})
 
 	// push commitment changes
@@ -235,7 +236,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 // deleteLast deletes the last node in the given list and recalculates commitment
 func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 	last := affectedNodes[len(affectedNodes)-1]
-	if err := t.storage.Delete(last.path); err != nil {
+	if err := t.storage.Delete(last.key); err != nil {
 		return err
 	}
 
@@ -244,12 +245,12 @@ func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 	} else {
 		// parent now has only a single child, so delete
 		parent := affectedNodes[len(affectedNodes)-2]
-		if err := t.storage.Delete(parent.path); err != nil {
+		if err := t.storage.Delete(parent.key); err != nil {
 			return err
 		}
 
 		var siblingPath *bitset.BitSet
-		if parent.node.left.Equal(last.path) {
+		if parent.node.left.Equal(last.key) {
 			siblingPath = parent.node.right
 		} else {
 			siblingPath = parent.node.left
@@ -260,7 +261,7 @@ func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 		} else { // sibling should link to grandparent (len(affectedNodes) > 2)
 			grandParent := &affectedNodes[len(affectedNodes)-3]
 			// replace link to parent with a link to sibling
-			if grandParent.node.left.Equal(parent.path) {
+			if grandParent.node.left.Equal(parent.key) {
 				grandParent.node.left = siblingPath
 			} else {
 				grandParent.node.right = siblingPath
@@ -273,7 +274,7 @@ func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 				affectedNodes = affectedNodes[:len(affectedNodes)-2] // drop last and parent
 				// add sibling
 				affectedNodes = append(affectedNodes, storageNode{
-					path: siblingPath,
+					key:  siblingPath,
 					node: sibling,
 				})
 
@@ -309,13 +310,13 @@ func (t *Trie) propagateValues(affectedNodes []storageNode) error {
 				return err
 			}
 
-			leftSpecPath := Path(cur.node.left, cur.path)
-			rightSpecPath := Path(cur.node.right, cur.path)
+			leftSpecPath := Path(cur.node.left, cur.key)
+			rightSpecPath := Path(cur.node.right, cur.key)
 
 			cur.node.value = crypto.Pedersen(left.Hash(leftSpecPath), right.Hash(rightSpecPath))
 		}
 
-		if err := t.storage.Put(cur.path, cur.node); err != nil {
+		if err := t.storage.Put(cur.key, cur.node); err != nil {
 			return err
 		}
 	}

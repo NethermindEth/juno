@@ -33,7 +33,7 @@ func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
 
 	pathWords := specPath.Bytes()
 	if len(pathWords) > 4 {
-		panic("path too long to fit in Felt")
+		panic("key too long to fit in Felt")
 	}
 
 	var pathBytes [32]byte
