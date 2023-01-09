@@ -1,0 +1,50 @@
+{
+    "status": "ACCEPTED_ON_L1",
+    "block_hash": "0x1f06e1b81983c367980afae4058bf557d328b248d7a3c300844a66047eb7a14",
+    "block_number": 414222,
+    "transaction_index": 10,
+    "transaction_hash": "0x3a4c33f7ae312f1a7cbef030eebb15f3ec42e0a889e622aac83e96b07a7dc25",
+    "l2_to_l1_messages": [],
+    "events": [
+        {
+            "from_address": "0x7a0d2f2535753e269d6f9cd9c505a97e791986ae6f49ac755cf5a50948687c1",
+            "keys": [
+                "0x1b72f5458ad1fbe340a47b5b8aa953d105fe3b269affcf38fa8703f31194bf"
+            ],
+            "data": [
+                "0x234330f915ff0e9e5ea264a544e053272114fad64b1968d22e25630403bdc88"
+            ]
+        },
+        {
+            "from_address": "0xff98a04b55c50ec97b3e5848cec3e2a646b3d9a011d5e17c0fb387c747991d",
+            "keys": [
+                "0x5ad857f66a5b55f1301ff1ed7e098ac6d4433148f0b72ebc4a2945ab85ad53"
+            ],
+            "data": [
+                "0x3a4c33f7ae312f1a7cbef030eebb15f3ec42e0a889e622aac83e96b07a7dc25",
+                "0x0"
+            ]
+        },
+        {
+            "from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+            "keys": [
+                "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+            ],
+            "data": [
+                "0xff98a04b55c50ec97b3e5848cec3e2a646b3d9a011d5e17c0fb387c747991d",
+                "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+                "0x30e15940",
+                "0x0"
+            ]
+        }
+    ],
+    "execution_resources": {
+        "n_steps": 596,
+        "builtin_instance_counter": {
+            "range_check_builtin": 4,
+            "ecdsa_builtin": 1
+        },
+        "n_memory_holes": 5
+    },
+    "actual_fee": "0x30e15940"
+}

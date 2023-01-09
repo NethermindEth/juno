@@ -2,7 +2,9 @@ package clients
 
 import (
 	"encoding/json"
+	"math/big"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -264,6 +266,7 @@ func TestBlockUnmarshal(t *testing.T) {
 	assert.Equal(t, 52, len(block.Receipts))
 	assert.Equal(t, uint64(1669465009), block.Timestamp)
 	assert.Equal(t, "0.10.1", block.Version)
+	assert.Equal(t, "5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9", block.SequencerAddress.Text(16))
 }
 
 func TestClassUnmarshal(t *testing.T) {
@@ -286,4 +289,103 @@ func TestClassUnmarshal(t *testing.T) {
 	assert.Equal(t, 250, len(class.Program.Data))
 	assert.Equal(t, []string{"pedersen", "range_check"}, class.Program.Builtins)
 	assert.Equal(t, "0.10.1", class.Program.CompilerVersion)
+}
+
+func TestTransactionReceiptUnmarshal(t *testing.T) {
+	receiptJson, err := os.ReadFile("transactionReceipt_0x3a4c33f7ae312f1a7cbef030eebb15f3ec42e0a889e622aac83e96b07a7dc25.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var txReceipt TransactionReceipt
+	err = json.Unmarshal(receiptJson, &txReceipt)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, "ACCEPTED_ON_L1", txReceipt.Status)
+	assert.Equal(t, "1f06e1b81983c367980afae4058bf557d328b248d7a3c300844a66047eb7a14", txReceipt.BlockHash.Text(16))
+	assert.Equal(t, new(big.Int).SetUint64(414222), txReceipt.BlockNumber)
+	assert.Equal(t, new(big.Int).SetUint64(10), txReceipt.TransactionIndex)
+	assert.Equal(t, "3a4c33f7ae312f1a7cbef030eebb15f3ec42e0a889e622aac83e96b07a7dc25", txReceipt.TransactionHash.Text(16))
+	assert.Equal(t, 0, len(txReceipt.L2ToL1Message))
+	assert.Equal(t, 3, len(txReceipt.Events))
+
+	eventFromAddress, _ := new(felt.Felt).SetString("0x7a0d2f2535753e269d6f9cd9c505a97e791986ae6f49ac755cf5a50948687c1")
+	eventKey, _ := new(felt.Felt).SetString("0x1b72f5458ad1fbe340a47b5b8aa953d105fe3b269affcf38fa8703f31194bf")
+	eventData, _ := new(felt.Felt).SetString(("0x234330f915ff0e9e5ea264a544e053272114fad64b1968d22e25630403bdc88"))
+
+	eventExpected := Event{eventFromAddress, []*felt.Felt{eventData}, []*felt.Felt{eventKey}}
+	assert.Equal(t, eventExpected, *txReceipt.Events[0])
+
+	type builtIn struct {
+		Pedersen   uint64 `json:"pedersen_builtin"`
+		RangeCheck uint64 `json:"range_check_builtin"`
+		Bitwise    uint64 `json:"bitwise_builtin"`
+		Output     uint64 `json:"output_builtin"`
+		Ecsda      uint64 `json:"ecdsa_builtin"`
+		EcOp       uint64 `json:"ec_op_builtin"`
+	}
+
+	executionResourceExpected := ExecutionResources{596, builtIn{0, 4, 0, 0, 1, 0}, 5}
+	executionResourceActual := *txReceipt.ExecutionResources
+
+	assert.Equal(t, executionResourceExpected, executionResourceActual)
+	assert.Equal(t, "30e15940", txReceipt.ActualFee.Text(16))
+}
+
+func TestClassDefinitionUnmarshal(t *testing.T) {
+	classJson, err := os.ReadFile("classDefinition_0x05b8ed9ac0c16cfa75e1541813217e791e04daee4647f3f34dc9746b2d341866.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var class ClassDefinition
+	err = json.Unmarshal(classJson, &class)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, 15, len(class.Abi))
+	assert.Equal(t, 1, len(class.EntryPoints.Constructor))
+	assert.Equal(t, 11, len(class.EntryPoints.External))
+	assert.Equal(t, 0, len(class.EntryPoints.L1Handler))
+
+	assert.Equal(t, 17, len(class.Program.Attributes))
+	assert.Equal(t, []string{"pedersen", "range_check"}, class.Program.Builtins)
+	assert.Equal(t, "0.10.1", class.Program.CompilerVersion)
+	assert.Equal(t, 1369, len(class.Program.Data))
+	assert.Equal(t, nil, class.Program.DebugInfo)
+	assert.Equal(t, 29, len(class.Program.Hints))
+
+	hints := class.Program.Hints[0].([]any)
+	assert.Equal(t, 1, len(hints))
+	assert.Equal(t, "0x800000000000011000000000000000000000000000000000000000000000001", class.Program.Prime)
+
+	assert.Equal(t, 15, len(class.Abi))
+}
+
+func TestClassDefinitionFieldOrder(t *testing.T) {
+	var class ClassDefinition
+	c := reflect.ValueOf(class)
+	typeOfClass := c.Type()
+
+	prevField := ""
+	for i := 0; i < c.NumField(); i++ {
+		fieldName := typeOfClass.Field(i).Name
+		assert.Equal(t, true, fieldName > prevField)
+		prevField = fieldName
+	}
+}
+
+func TestAbiFieldOrder(t *testing.T) {
+	var abi Abi
+	c := reflect.ValueOf(abi)
+	typeOfClass := c.Type()
+
+	prevField := ""
+	for i := 0; i < c.NumField(); i++ {
+		fieldName := typeOfClass.Field(i).Name
+		assert.Equal(t, true, fieldName > prevField)
+		prevField = fieldName
+	}
 }

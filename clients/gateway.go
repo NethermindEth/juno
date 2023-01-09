@@ -171,7 +171,7 @@ type TransactionReceipt struct {
 	Events                   []*Event                  `json:"events"`
 	ExecutionResources       *ExecutionResources       `json:"execution_resources"`
 	L1ToL2Message            *L1ToL2Message            `json:"l1_to_l2_consumed_message"`
-	L2ToL1Message            *[]L2ToL1Message          `json:"l2_to_l1_messages"`
+	L2ToL1Message            []*L2ToL1Message          `json:"l2_to_l1_messages"`
 	TransactionHash          *felt.Felt                `json:"transaction_hash"`
 	TransactionIndex         *big.Int                  `json:"transaction_index"`
 	Status                   string                    `json:"status"`
@@ -214,16 +214,17 @@ type EntryPoint struct {
 	Offset   *felt.Felt `json:"offset"`
 }
 
-type Abi []struct {
+type Abi struct {
 	Data []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
-	}
+	} `json:"data"`
 	Inputs []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"inputs"`
 	Keys    []interface{} `json:"keys"`
+	Members []interface{} `json:"members"`
 	Name    string        `json:"name"`
 	Outputs []struct {
 		Name string `json:"name"`
@@ -235,14 +236,14 @@ type Abi []struct {
 
 // ClassDefinition object returned by the gateway in JSON format for "get_full_contract" or "get_class_by_hash" endpoint
 type ClassDefinition struct {
-	Abi         Abi `json:"abi"`
+	Abi         []Abi `json:"abi"`
 	EntryPoints struct {
 		Constructor []EntryPoint `json:"CONSTRUCTOR"`
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
 	Program struct {
-		Attributes       interface{}            `json:"attributes"`
+		Attributes       []interface{}          `json:"attributes"`
 		Builtins         []string               `json:"builtins"`
 		CompilerVersion  string                 `json:"compiler_version"`
 		Data             []*felt.Felt           `json:"data"`
