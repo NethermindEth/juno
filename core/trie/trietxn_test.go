@@ -1,4 +1,4 @@
-package core
+package trie
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ func TestTrieTxn(t *testing.T) {
 	prefix := []byte{37, 44}
 
 	key := bitset.New(44)
-	node := new(TrieNode)
+	node := new(Node)
 	value, _ := new(felt.Felt).SetRandom()
 	assert.NoError(t, node.UnmarshalBinary(value.Marshal()))
 

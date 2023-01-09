@@ -42,17 +42,13 @@ func (n *Node) Hash(path *bitset.BitSet) *felt.Felt {
 		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
 	}
 
-	pathFelt := felt.NewFelt(0)
-	(&pathFelt).SetBytes(pathBytes[:])
+	pathFelt := new(felt.Felt).SetBytes(pathBytes[:])
 
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
-	hash, err := crypto.Pedersen(n.value, &pathFelt)
-	if err != nil {
-		panic("Pedersen failed Node.Hash")
-	}
+	hash := crypto.Pedersen(n.value, pathFelt)
 
 	pathFelt.SetUint64(uint64(path.Len()))
-	return hash.Add(hash, &pathFelt)
+	return hash.Add(hash, pathFelt)
 }
 
 // Equal checks for equality of two [Node]s
