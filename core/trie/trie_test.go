@@ -13,6 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Todo: Refactor:
+//   - Test names should not have "_"
+//   - Table test are being used incorrectly: they should be separated into subsets, see node_test.go
+//   - Functions such as Path and FindCommonKey don't need to be public. Thus,
+//     they don't need to be tested explicitly.
+//   - There are warning which ignore returned errors, returned errors should not be ignored.
+//   - Add more test cases with different heights
+//   - Add more complicated Put and Delete scenarios
 func TestPathFromKey(t *testing.T) {
 	trie := NewTrie(nil, 251)
 	key, _ := new(felt.Felt).SetRandom()
@@ -70,7 +78,7 @@ func TestFindCommonPath(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if common, subset := FindCommonPath(test.path1, test.path2); !test.common.Equal(common) || subset != test.subset {
+		if common, subset := FindCommonKey(test.path1, test.path2); !test.common.Equal(common) || subset != test.subset {
 			t.Errorf("TestFindCommonPath: Expected %s (%d) Got %s (%d)", test.common.DumpAsBits(),
 				test.common.Len(), common.DumpAsBits(), common.Len())
 		}
@@ -126,7 +134,7 @@ func TestTriePut(t *testing.T) {
 	})
 }
 
-func TestGetSpecPath(t *testing.T) {
+func TestPath(t *testing.T) {
 	tests := [...]struct {
 		parent *bitset.BitSet
 		child  *bitset.BitSet
@@ -151,12 +159,12 @@ func TestGetSpecPath(t *testing.T) {
 
 	for idx, test := range tests {
 		if got := Path(test.child, test.parent); !got.Equal(test.want) {
-			t.Error("TestGetSpecPath failing #", idx)
+			t.Error("TestPath failing #", idx)
 		}
 	}
 }
 
-func TestGetSpecPathOnTrie(t *testing.T) {
+func TestPathOnTrie(t *testing.T) {
 	RunOnTempTrie(251, func(trie *Trie) error {
 		// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
 		// and check paths
@@ -170,7 +178,7 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(trie.FeltToBitSet(&two)))
 
 		trie.Put(&five, &one)
-		expectedRoot, _ := FindCommonPath(trie.FeltToBitSet(&two), trie.FeltToBitSet(&five))
+		expectedRoot, _ := FindCommonKey(trie.FeltToBitSet(&two), trie.FeltToBitSet(&five))
 		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(expectedRoot))
 
 		rootNode, err := trie.storage.Get(trie.rootKey)
@@ -180,15 +188,15 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 
 		assert.Equal(t, true, rootNode.left != nil && rootNode.right != nil)
 
-		expectedLeftSpecPath := bitset.New(2).Set(1)
-		expectedRightSpecPath := bitset.New(2).Set(0)
-		assert.Equal(t, true, Path(rootNode.left, trie.rootKey).Equal(expectedLeftSpecPath))
-		assert.Equal(t, true, Path(rootNode.right, trie.rootKey).Equal(expectedRightSpecPath))
+		expectedLeftPath := bitset.New(2).Set(1)
+		expectedRightPath := bitset.New(2).Set(0)
+		assert.Equal(t, true, Path(rootNode.left, trie.rootKey).Equal(expectedLeftPath))
+		assert.Equal(t, true, Path(rootNode.right, trie.rootKey).Equal(expectedRightPath))
 		return nil
 	})
 }
 
-func TestGetSpecPath_ZeroRoot(t *testing.T) {
+func TestGetPath_ZeroRoot(t *testing.T) {
 	RunOnTempTrie(251, func(trie *Trie) error {
 		var zero felt.Felt
 		msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")

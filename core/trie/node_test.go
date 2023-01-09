@@ -109,11 +109,6 @@ func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
 			})
 		}
 	})
-	// TODO: Implement and test the following edge cases:
-	//	- Unmarshalling a node with multiple left and right children.
-	//		Currently the assumption is that the node will only have at max 1 left and/or right
-	//		child. However if the UnmarshalBinary is called with multiple left and/or right child
-	//		in any order then UnmarshalBinary will still succeed.
 }
 
 func TestNodeHash(t *testing.T) {

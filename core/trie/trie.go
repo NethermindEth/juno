@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	// Todo: Go.19 introduced math/bits library. Replace bits-and-blooms/bitset with the math/bits.
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -17,16 +18,31 @@ type Storage interface {
 	Delete(key *bitset.BitSet) error
 }
 
-// Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have
-// two children).
+// Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
-// This implementation allows for a "flat" storage by keying nodes on
-// their path rather than their hash, resulting in O(1) accesses and
-// O(lg n) insertions.
+// This implementation allows for a "flat" storage by keying nodes on their path rather than
+// their hash, resulting in O(1) accesses and O(log n) insertions.
 //
-// The state trie [specification] describes a sparse Merkle Trie. Note
-// that this dense implementation results in an equivalent commitment.
+// The state trie [specification] describes a sparse Merkle Trie.
+// Note that this dense implementation results in an equivalent commitment.
 //
+// Terminology:
+// - path: represents the path as mentioned in the specification
+// - len: represents the len as mentioned in the specification
+// - key: represents the storage key for trie [Node]s.
+//
+// Conceptually path of a node represents the route along the Trie to a non-empty node.
+// While len represents how many bits to interpret to traverse the trie to the non-empty node.
+// This is important especially when the path has multiple 0s in its most significant bits.
+//
+// The key serves multiple purposes:
+//   - It defines the route from the root of the trie node,
+//     where the len of the key defines how many bits to interpret for traversal.
+//   - It is the storage key for persistent storage.
+//
+// For a dense implementation of Merkle Trie key is required to maintain the Trie.
+// While path is used for commitment calculations. Path can be derived from the key, however,
+// key cannot be derived from path.
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
 	height  uint
@@ -35,6 +51,7 @@ type Trie struct {
 }
 
 func NewTrie(storage Storage, height uint) *Trie {
+	// Todo: set max height to 251 and set max key value accordingly
 	return &Trie{
 		storage: storage,
 		height:  height,
@@ -63,40 +80,35 @@ func (t *Trie) FeltToBitSet(k *felt.Felt) *bitset.BitSet {
 	return bitset.FromWithLength(t.height, regularK.Impl()[:])
 }
 
-// FindCommonPath finds the set of common MSB bits in two [StoragePath] objects
-func FindCommonPath(longerPath, shorterPath *bitset.BitSet) (*bitset.BitSet, bool) {
+// FindCommonKey finds the set of common MSB bits in two key bitsets.
+func FindCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) {
 	divergentBit := uint(0)
 
-	for divergentBit <= shorterPath.Len() &&
-		longerPath.Test(longerPath.Len()-divergentBit) == shorterPath.Test(shorterPath.Len()-divergentBit) {
+	for divergentBit <= shorterKey.Len() &&
+		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
 		divergentBit++
 	}
 
-	commonPath := shorterPath.Clone()
-	for i := uint(0); i < shorterPath.Len()-divergentBit+1; i++ {
-		commonPath.DeleteAt(0)
+	commonKey := shorterKey.Clone()
+	for i := uint(0); i < shorterKey.Len()-divergentBit+1; i++ {
+		commonKey.DeleteAt(0)
 	}
-	return commonPath, divergentBit == shorterPath.Len()+1
+	return commonKey, divergentBit == shorterKey.Len()+1
 }
 
-// Path returns the suffix of path that diverges from
-// parentPath. For example, for a path 0b1011 and parentPath 0b10,
-// this function would return the StoragePath object for 0b0.
-//
-// This is the canonical representation for paths used in the
-// [specification]. Since this trie implementation stores nodes by
-// path, we need this function to convert paths to their canonical
-// representation.
+// Path returns the path as mentioned in the [specification] for commitment calculations.
+// Path is suffix of key that diverges from parentKey. For example,
+// for a key 0b1011 and parentKey 0b10, this function would return the Path object of 0b0.
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func Path(path, parentPath *bitset.BitSet) *bitset.BitSet {
-	specPath := path.Clone()
-	// drop parent path, and one more MSB since left/right relation already encodes that information
-	if parentPath != nil {
-		specPath.Shrink(specPath.Len() - parentPath.Len() - 1)
-		specPath.DeleteAt(specPath.Len() - 1)
+func Path(key, parentKey *bitset.BitSet) *bitset.BitSet {
+	path := key.Clone()
+	// drop parent key, and one more MSB since left/right relation already encodes that information
+	if parentKey != nil {
+		path.Shrink(path.Len() - parentKey.Len() - 1)
+		path.DeleteAt(path.Len() - 1)
 	}
-	return specPath
+	return path
 }
 
 // storageNode is the on-disk representation of a [Node],
@@ -106,10 +118,10 @@ type storageNode struct {
 	node *Node
 }
 
-// nodesFromRoot enumerates the set of [Node] objects that are on a given key.
-//
+// nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
+// of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(path *bitset.BitSet) ([]storageNode, error) {
+func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 	var nodes []storageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -123,12 +135,12 @@ func (t *Trie) nodesFromRoot(path *bitset.BitSet) ([]storageNode, error) {
 			node: node,
 		})
 
-		_, subset := FindCommonPath(path, cur)
-		if cur.Len() >= path.Len() || !subset {
+		_, subset := FindCommonKey(key, cur)
+		if cur.Len() >= key.Len() || !subset {
 			return nodes, nil
 		}
 
-		if path.Test(path.Len() - cur.Len() - 1) {
+		if key.Test(key.Len() - cur.Len() - 1) {
 			cur = node.right
 		} else {
 			cur = node.left
@@ -149,7 +161,9 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	path := t.FeltToBitSet(key)
+	// Todo: check key is not bigger than max key value for a trie height.
+
+	nodeKey := t.FeltToBitSet(key)
 	node := &Node{
 		value: value,
 	}
@@ -161,22 +175,22 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		}
 
 		if err := t.propagateValues([]storageNode{
-			{key: path, node: node},
+			{key: nodeKey, node: node},
 		}); err != nil {
 			return err
 		}
-		t.rootKey = path
+		t.rootKey = nodeKey
 		return nil
 	}
 
-	nodes, err := t.nodesFromRoot(path)
+	nodes, err := t.nodesFromRoot(nodeKey)
 	if err != nil {
 		return err
 	}
 
 	// Replace if key already exist
 	sibling := &nodes[len(nodes)-1]
-	if path.Equal(sibling.key) {
+	if nodeKey.Equal(sibling.key) {
 		sibling.node = node
 		if value.IsZero() {
 			if err = t.deleteLast(nodes); err != nil {
@@ -193,14 +207,14 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		return nil // no-op
 	}
 
-	commonPath, _ := FindCommonPath(path, sibling.key)
+	commonKey, _ := FindCommonKey(nodeKey, sibling.key)
 	newParent := &Node{
 		value: new(felt.Felt),
 	}
-	if path.Test(path.Len() - commonPath.Len() - 1) {
-		newParent.left, newParent.right = sibling.key, path
+	if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+		newParent.left, newParent.right = sibling.key, nodeKey
 	} else {
-		newParent.left, newParent.right = path, sibling.key
+		newParent.left, newParent.right = nodeKey, sibling.key
 	}
 
 	makeRoot := len(nodes) == 1
@@ -209,26 +223,26 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 		// replace the link to our sibling with the new parent
 		if siblingParent.node.left.Equal(sibling.key) {
-			siblingParent.node.left = commonPath
+			siblingParent.node.left = commonKey
 		} else {
-			siblingParent.node.right = commonPath
+			siblingParent.node.right = commonKey
 		}
 	}
 
 	// replace sibling with new parent
 	nodes[len(nodes)-1] = storageNode{
-		key: commonPath, node: newParent,
+		key: commonKey, node: newParent,
 	}
 	// add new node to steps
 	nodes = append(nodes, storageNode{
-		key: path, node: node,
+		key: nodeKey, node: node,
 	})
 
 	// push commitment changes
 	if err = t.propagateValues(nodes); err != nil {
 		return err
 	} else if makeRoot {
-		t.rootKey = commonPath
+		t.rootKey = commonKey
 	}
 	return nil
 }
@@ -249,32 +263,32 @@ func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 			return err
 		}
 
-		var siblingPath *bitset.BitSet
+		var siblingKey *bitset.BitSet
 		if parent.node.left.Equal(last.key) {
-			siblingPath = parent.node.right
+			siblingKey = parent.node.right
 		} else {
-			siblingPath = parent.node.left
+			siblingKey = parent.node.left
 		}
 
 		if len(affectedNodes) == 2 { // sibling should become root
-			t.rootKey = siblingPath
+			t.rootKey = siblingKey
 		} else { // sibling should link to grandparent (len(affectedNodes) > 2)
 			grandParent := &affectedNodes[len(affectedNodes)-3]
 			// replace link to parent with a link to sibling
 			if grandParent.node.left.Equal(parent.key) {
-				grandParent.node.left = siblingPath
+				grandParent.node.left = siblingKey
 			} else {
-				grandParent.node.right = siblingPath
+				grandParent.node.right = siblingKey
 			}
 
-			if sibling, err := t.storage.Get(siblingPath); err != nil {
+			if sibling, err := t.storage.Get(siblingKey); err != nil {
 				return err
 			} else {
 				// rebuild the list of affected nodes
 				affectedNodes = affectedNodes[:len(affectedNodes)-2] // drop last and parent
 				// add sibling
 				affectedNodes = append(affectedNodes, storageNode{
-					key:  siblingPath,
+					key:  siblingKey,
 					node: sibling,
 				})
 
@@ -310,10 +324,10 @@ func (t *Trie) propagateValues(affectedNodes []storageNode) error {
 				return err
 			}
 
-			leftSpecPath := Path(cur.node.left, cur.key)
-			rightSpecPath := Path(cur.node.right, cur.key)
+			leftPath := Path(cur.node.left, cur.key)
+			rightPath := Path(cur.node.right, cur.key)
 
-			cur.node.value = crypto.Pedersen(left.Hash(leftSpecPath), right.Hash(rightSpecPath))
+			cur.node.value = crypto.Pedersen(left.Hash(leftPath), right.Hash(rightPath))
 		}
 
 		if err := t.storage.Put(cur.key, cur.node); err != nil {
@@ -335,8 +349,8 @@ func (t *Trie) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	specPath := Path(t.rootKey, nil)
-	return root.Hash(specPath), nil
+	path := Path(t.rootKey, nil)
+	return root.Hash(path), nil
 }
 
 func (t *Trie) Dump() {
@@ -364,8 +378,8 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	}
 
 	root, err := t.storage.Get(t.rootKey)
-	specPath := Path(t.rootKey, parentP)
-	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), specPath.String(), specPath.Len(), root.value.Text(16))
+	path := Path(t.rootKey, parentP)
+	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), path.String(), path.Len(), root.value.Text(16))
 	if err != nil {
 		return
 	}

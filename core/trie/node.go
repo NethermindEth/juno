@@ -26,12 +26,12 @@ type Node struct {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
-	if specPath.Len() == 0 {
+func (n *Node) Hash(path *bitset.BitSet) *felt.Felt {
+	if path.Len() == 0 {
 		return n.value
 	}
 
-	pathWords := specPath.Bytes()
+	pathWords := path.Bytes()
 	if len(pathWords) > 4 {
 		panic("key too long to fit in Felt")
 	}
@@ -51,7 +51,7 @@ func (n *Node) Hash(specPath *bitset.BitSet) *felt.Felt {
 		panic("Pedersen failed Node.Hash")
 	}
 
-	pathFelt.SetUint64(uint64(specPath.Len()))
+	pathFelt.SetUint64(uint64(path.Len()))
 	return hash.Add(hash, &pathFelt)
 }
 
@@ -92,6 +92,11 @@ func (n *Node) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary deserializes a [Node] from a byte array
 func (n *Node) UnmarshalBinary(data []byte) error {
+	// TODO: Implement and test the following edge cases:
+	//	- Unmarshalling a node with multiple left and right children.
+	//		Currently the assumption is that the node will only have at max 1 left and/or right
+	//		child. However if the UnmarshalBinary is called with multiple left and/or right child
+	//		in any order then UnmarshalBinary will still succeed.
 	if len(data) < felt.Bytes {
 		return ErrMalformedNode{"size of input data is less than felt size"}
 	}
