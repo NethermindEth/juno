@@ -1,4 +1,4 @@
-package core
+package trie
 
 import (
 	"github.com/bits-and-blooms/bitset"
@@ -29,7 +29,7 @@ func (t *TrieBadgerTxn) dbKey(key *bitset.BitSet) ([]byte, error) {
 	return append(t.prefix, keyBytes...), nil
 }
 
-func (t *TrieBadgerTxn) Put(key *bitset.BitSet, value *TrieNode) error {
+func (t *TrieBadgerTxn) Put(key *bitset.BitSet, value *Node) error {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (t *TrieBadgerTxn) Put(key *bitset.BitSet, value *TrieNode) error {
 	return t.badgerTxn.Set(dbKey, valueBytes)
 }
 
-func (t *TrieBadgerTxn) Get(key *bitset.BitSet) (*TrieNode, error) {
+func (t *TrieBadgerTxn) Get(key *bitset.BitSet) (*Node, error) {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (t *TrieBadgerTxn) Get(key *bitset.BitSet) (*TrieNode, error) {
 	if item, err := t.badgerTxn.Get(dbKey); err != nil {
 		return nil, err
 	} else {
-		node := new(TrieNode)
+		node := new(Node)
 		return node, item.Value(func(val []byte) error {
 			return node.UnmarshalBinary(val)
 		})

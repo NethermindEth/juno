@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"encoding/hex"
 	"fmt"
 	"testing"
 
