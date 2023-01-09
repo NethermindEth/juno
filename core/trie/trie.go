@@ -106,11 +106,10 @@ type storageNode struct {
 	node *Node
 }
 
-// stepsToRoot enumerates the set of [Node] objects that are on a
-// given [StoragePath].
+// nodesFromRoot enumerates the set of [Node] objects that are on a given key.
 //
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]storageNode, error) {
+func (t *Trie) nodesFromRoot(path *bitset.BitSet) ([]storageNode, error) {
 	var nodes []storageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -170,7 +169,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		return nil
 	}
 
-	nodes, err := t.stepsToRoot(path)
+	nodes, err := t.nodesFromRoot(path)
 	if err != nil {
 		return err
 	}
