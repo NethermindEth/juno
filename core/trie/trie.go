@@ -56,9 +56,9 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	return do(NewTrie(trieTxn, height))
 }
 
-// PathFromKey Converts a key to a path that, when followed on a [Trie],
+// FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) PathFromKey(k *felt.Felt) *bitset.BitSet {
+func (t *Trie) FeltToBitSet(k *felt.Felt) *bitset.BitSet {
 	regularK := k.ToRegular()
 	return bitset.FromWithLength(t.height, regularK.Impl()[:])
 }
@@ -141,7 +141,7 @@ func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	value, err := t.storage.Get(t.PathFromKey(key))
+	value, err := t.storage.Get(t.FeltToBitSet(key))
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	path := t.PathFromKey(key)
+	path := t.FeltToBitSet(key)
 	node := &Node{
 		value: value,
 	}
