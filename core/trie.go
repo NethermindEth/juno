@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -142,6 +142,21 @@ func NewTrie(storage TrieStorage, height uint) *Trie {
 		storage: storage,
 		height:  height,
 	}
+}
+
+// RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
+func RunOnTempTrie(height uint, do func(*Trie) error) error {
+	db, err := db.NewInMemoryDb()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	txn := db.NewTransaction(true)
+	defer txn.Discard()
+
+	trieTxn := NewTrieBadgerTxn(txn, nil)
+	return do(NewTrie(trieTxn, height))
 }
 
 // Converts a key to a path that, when followed on a [Trie], leads to the corresponding [TrieNode]

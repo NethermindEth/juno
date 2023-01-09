@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -90,45 +91,6 @@ func TestPathFromKey(t *testing.T) {
 	t.Error("TestPathFromKey failed")
 }
 
-type (
-	storage         map[string]string
-	testTrieStorage struct {
-		storage storage
-	}
-)
-
-func (s *testTrieStorage) Put(key *bitset.BitSet, value *TrieNode) error {
-	keyEnc, err := key.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	vEnc, err := value.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	s.storage[hex.EncodeToString(keyEnc)] = hex.EncodeToString(vEnc)
-	return nil
-}
-
-func (s *testTrieStorage) Get(key *bitset.BitSet) (*TrieNode, error) {
-	keyEnc, _ := key.MarshalBinary()
-	value, found := s.storage[hex.EncodeToString(keyEnc)]
-	if !found {
-		panic("not found")
-	}
-
-	v := new(TrieNode)
-	decoded, _ := hex.DecodeString(value)
-	err := v.UnmarshalBinary(decoded)
-	return v, err
-}
-
-func (s *testTrieStorage) Delete(key *bitset.BitSet) error {
-	keyEnc, _ := key.MarshalBinary()
-	delete(s.storage, hex.EncodeToString(keyEnc))
-	return nil
-}
-
 func TestFindCommonPath(t *testing.T) {
 	tests := [...]struct {
 		path1  *bitset.BitSet
@@ -171,11 +133,6 @@ func TestFindCommonPath(t *testing.T) {
 }
 
 func TestTriePut(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
-
 	tests := [...]struct {
 		key   *felt.Felt
 		value *felt.Felt
@@ -207,17 +164,21 @@ func TestTriePut(t *testing.T) {
 			root:  nil,
 		},
 	}
-	for idx, test := range tests {
-		if err := trie.Put(test.key, test.value); err != nil {
-			t.Errorf("TestTriePut: Put() failed at test #%d", idx)
+	RunOnTempTrie(251, func(trie *Trie) error {
+		for idx, test := range tests {
+			if err := trie.Put(test.key, test.value); err != nil {
+				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
+			}
+			if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
+				t.Errorf("TestTriePut: Get() failed at test #%d", idx)
+			}
+			if test.root != nil && !test.root.Equal(trie.root) {
+				t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
+			}
 		}
-		if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
-			t.Errorf("TestTriePut: Get() failed at test #%d", idx)
-		}
-		if test.root != nil && !test.root.Equal(trie.root) {
-			t.Errorf("TestTriePut: Unexpected root at test #%d", idx)
-		}
-	}
+
+		return nil
+	})
 }
 
 func TestGetSpecPath(t *testing.T) {
@@ -251,55 +212,51 @@ func TestGetSpecPath(t *testing.T) {
 }
 
 func TestGetSpecPathOnTrie(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
+	RunOnTempTrie(251, func(trie *Trie) error {
+		// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
+		// and check paths
+		var two felt.Felt
+		two.SetUint64(2)
+		var five felt.Felt
+		five.SetUint64(5)
+		var one felt.Felt
+		one.SetUint64(1)
+		trie.Put(&two, &one)
+		assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(trie.PathFromKey(&two)))
 
-	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
-	// and check paths
-	var two felt.Felt
-	two.SetUint64(2)
-	var five felt.Felt
-	five.SetUint64(5)
-	var one felt.Felt
-	one.SetUint64(1)
-	trie.Put(&two, &one)
-	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(trie.PathFromKey(&two)))
+		trie.Put(&five, &one)
+		expectedRoot, _ := FindCommonPath(trie.PathFromKey(&two), trie.PathFromKey(&five))
+		assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(expectedRoot))
 
-	trie.Put(&five, &one)
-	expectedRoot, _ := FindCommonPath(trie.PathFromKey(&two), trie.PathFromKey(&five))
-	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(expectedRoot))
+		rootNode, err := trie.storage.Get(trie.root)
+		if err != nil {
+			t.Error()
+		}
 
-	rootNode, err := trie.storage.Get(trie.root)
-	if err != nil {
-		t.Error()
-	}
+		assert.Equal(t, true, rootNode.left != nil && rootNode.right != nil)
 
-	assert.Equal(t, true, rootNode.left != nil && rootNode.right != nil)
-
-	expectedLeftSpecPath := bitset.New(2).Set(1)
-	expectedRightSpecPath := bitset.New(2).Set(0)
-	assert.Equal(t, true, GetSpecPath(rootNode.left, trie.root).Equal(expectedLeftSpecPath))
-	assert.Equal(t, true, GetSpecPath(rootNode.right, trie.root).Equal(expectedRightSpecPath))
+		expectedLeftSpecPath := bitset.New(2).Set(1)
+		expectedRightSpecPath := bitset.New(2).Set(0)
+		assert.Equal(t, true, GetSpecPath(rootNode.left, trie.root).Equal(expectedLeftSpecPath))
+		assert.Equal(t, true, GetSpecPath(rootNode.right, trie.root).Equal(expectedRightSpecPath))
+		return nil
+	})
 }
 
 func TestGetSpecPath_ZeroRoot(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
+	RunOnTempTrie(251, func(trie *Trie) error {
+		var zero felt.Felt
+		msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
+		var one felt.Felt
+		one.SetUint64(1)
+		trie.Put(&zero, &one)
+		trie.Put(msbOne, &one)
 
-	var zero felt.Felt
-	msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
-	var one felt.Felt
-	one.SetUint64(1)
-	trie.Put(&zero, &one)
-	trie.Put(msbOne, &one)
-
-	zeroPath := bitset.New(0)
-	assert.Equal(t, true, trie.root.Equal(zeroPath))
-	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(zeroPath))
+		zeroPath := bitset.New(0)
+		assert.Equal(t, true, trie.root.Equal(zeroPath))
+		assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(zeroPath))
+		return nil
+	})
 }
 
 func TestTrieNode_Hash(t *testing.T) {
@@ -413,55 +370,58 @@ func TestState(t *testing.T) {
 		contractHash, _ = new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	)
 
-	stateStorage := &testTrieStorage{
-		storage: make(storage),
-	}
-	state := NewTrie(stateStorage, 251)
+	RunOnTempTrie(251, func(state *Trie) error {
+		for addr, dif := range addresses {
+			RunOnTempTrie(251, func(contractState *Trie) error {
+				for _, slot := range dif {
+					key, _ := new(felt.Felt).SetString(slot.key)
+					val, _ := new(felt.Felt).SetString(slot.val)
+					if err := contractState.Put(key, val); err != nil {
+						t.Fatal(err)
+					}
+				}
+				/*
+				   735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c  :  15c52969f4ae2ad48bf324e21b8c06ce8abcbc492263072a8de9c7f0bfa3c81
+				   20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6  :  4532b9a656bd6074c2ddb1b884fb976eb055cd4d37e093448ce3f223864ccc4
+				   6ee3440b08a9c805305449ec7f7003f27e9f7e287b83610952ec36bdc5a6bae  :  51c6b823cbf53c47ab7b34cddf1d9c0286fbb9d72ab29f2b577da0308cb1a07
+				   31c887d82502ceb218c06ebb46198da3f7b92864a8223746bc836dda3e34b52  :  2eb33f71cbf096ea6b3a55ba19fb31efc31184caca6482bc89c7708c2cbb420
+				   31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280  :  6fe0662f4be66647b4508a53a08e13e7d1ffb2b19e93fa9dc991153f3a447d
+				*/
 
-	for addr, dif := range addresses {
-		contractStorage := &testTrieStorage{
-			storage: make(storage),
+				key, _ := new(felt.Felt).SetString(addr)
+				contractRoot, _ := contractState.Root()
+				fmt.Println(addr, " : ", contractRoot.Text(16))
+
+				val := crypto.Pedersen(contractHash, contractRoot)
+				val = crypto.Pedersen(val, new(felt.Felt))
+				val = crypto.Pedersen(val, new(felt.Felt))
+
+				if err := state.Put(key, val); err != nil {
+					t.Fatal(err)
+				}
+
+				return nil
+			})
 		}
-		contractState := NewTrie(contractStorage, 251)
-		for _, slot := range dif {
-			key, _ := new(felt.Felt).SetString(slot.key)
-			val, _ := new(felt.Felt).SetString(slot.val)
-			if err := contractState.Put(key, val); err != nil {
-				t.Fatal(err)
-			}
+
+		got, _ := state.Root()
+		if !want.Equal(got) {
+			t.Errorf("state.RootHash() = %s, want = %s", got.Text(16), want.Text(16))
 		}
-		/*
-		   735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c  :  15c52969f4ae2ad48bf324e21b8c06ce8abcbc492263072a8de9c7f0bfa3c81
-		   20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6  :  4532b9a656bd6074c2ddb1b884fb976eb055cd4d37e093448ce3f223864ccc4
-		   6ee3440b08a9c805305449ec7f7003f27e9f7e287b83610952ec36bdc5a6bae  :  51c6b823cbf53c47ab7b34cddf1d9c0286fbb9d72ab29f2b577da0308cb1a07
-		   31c887d82502ceb218c06ebb46198da3f7b92864a8223746bc836dda3e34b52  :  2eb33f71cbf096ea6b3a55ba19fb31efc31184caca6482bc89c7708c2cbb420
-		   31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280  :  6fe0662f4be66647b4508a53a08e13e7d1ffb2b19e93fa9dc991153f3a447d
-		*/
 
-		key, _ := new(felt.Felt).SetString(addr)
-		contractRoot, _ := contractState.Root()
-		fmt.Println(addr, " : ", contractRoot.Text(16))
-
-		val := crypto.Pedersen(contractHash, contractRoot)
-		val = crypto.Pedersen(val, new(felt.Felt))
-		val = crypto.Pedersen(val, new(felt.Felt))
-
-		if err := state.Put(key, val); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	got, _ := state.Root()
-	if !want.Equal(got) {
-		t.Errorf("state.RootHash() = %s, want = %s", got.Text(16), want.Text(16))
-	}
+		return nil
+	})
 }
 
 func TestPutZero(t *testing.T) {
-	storage := &testTrieStorage{
-		storage: make(storage),
-	}
-	trie := NewTrie(storage, 251)
+	db, _ := db.NewInMemoryDb()
+	defer db.Close()
+
+	txn := db.NewTransaction(true)
+	defer txn.Discard()
+
+	trieTxn := NewTrieBadgerTxn(txn, nil)
+	trie := NewTrie(trieTxn, 251)
 	emptyRoot, err := trie.Root()
 	if err != nil {
 		t.Error(err)
@@ -525,5 +485,9 @@ func TestPutZero(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
-	assert.Equal(t, 0, len(storage.storage)) // storage should be empty
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+	it.Rewind()
+	assert.Equal(t, false, it.Valid()) // storage should be empty
 }
