@@ -79,7 +79,7 @@ func FindCommonPath(longerPath, shorterPath *bitset.BitSet) (*bitset.BitSet, boo
 	return commonPath, divergentBit == shorterPath.Len()+1
 }
 
-// GetSpecPath returns the suffix of path that diverges from
+// Path returns the suffix of path that diverges from
 // parentPath. For example, for a path 0b1011 and parentPath 0b10,
 // this function would return the StoragePath object for 0b0.
 //
@@ -89,7 +89,7 @@ func FindCommonPath(longerPath, shorterPath *bitset.BitSet) (*bitset.BitSet, boo
 // representation.
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func GetSpecPath(path, parentPath *bitset.BitSet) *bitset.BitSet {
+func Path(path, parentPath *bitset.BitSet) *bitset.BitSet {
 	specPath := path.Clone()
 	// drop parent path, and one more MSB since left/right relation already encodes that information
 	if parentPath != nil {
@@ -310,8 +310,8 @@ func (t *Trie) propagateValues(affectedPath []step) error {
 				return err
 			}
 
-			leftSpecPath := GetSpecPath(cur.node.left, cur.path)
-			rightSpecPath := GetSpecPath(cur.node.right, cur.path)
+			leftSpecPath := Path(cur.node.left, cur.path)
+			rightSpecPath := Path(cur.node.right, cur.path)
 
 			cur.node.value = crypto.Pedersen(left.Hash(leftSpecPath), right.Hash(rightSpecPath))
 		}
@@ -335,7 +335,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	specPath := GetSpecPath(t.rootKey, nil)
+	specPath := Path(t.rootKey, nil)
 	return root.Hash(specPath), nil
 }
 
@@ -364,7 +364,7 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	}
 
 	root, err := t.storage.Get(t.rootKey)
-	specPath := GetSpecPath(t.rootKey, parentP)
+	specPath := Path(t.rootKey, parentP)
 	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), specPath.String(), specPath.Len(), root.value.Text(16))
 	if err != nil {
 		return
