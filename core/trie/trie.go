@@ -99,9 +99,9 @@ func Path(path, parentPath *bitset.BitSet) *bitset.BitSet {
 	return specPath
 }
 
-// step is the on-disk representation of a [Node], where path is the
+// storageNode is the on-disk representation of a [Node], where path is the
 // key and node is the value.
-type step struct {
+type storageNode struct {
 	path *bitset.BitSet
 	node *Node
 }
@@ -109,9 +109,9 @@ type step struct {
 // stepsToRoot enumerates the set of [Node] objects that are on a
 // given [StoragePath].
 //
-// The [step]s are returned in descending order beginning with the root.
-func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
-	var steps []step
+// The [storageNode]s are returned in descending order beginning with the root.
+func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]storageNode, error) {
+	var nodes []storageNode
 	cur := t.rootKey
 	for cur != nil {
 		node, err := t.storage.Get(cur)
@@ -119,14 +119,14 @@ func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 			return nil, err
 		}
 
-		steps = append(steps, step{
+		nodes = append(nodes, storageNode{
 			path: cur,
 			node: node,
 		})
 
 		_, subset := FindCommonPath(path, cur)
 		if cur.Len() >= path.Len() || !subset {
-			return steps, nil
+			return nodes, nil
 		}
 
 		if path.Test(path.Len() - cur.Len() - 1) {
@@ -136,7 +136,7 @@ func (t *Trie) stepsToRoot(path *bitset.BitSet) ([]step, error) {
 		}
 	}
 
-	return steps, nil
+	return nodes, nil
 }
 
 // Get the corresponding `value` for a `key`
@@ -161,7 +161,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 			return nil // no-op
 		}
 
-		if err := t.propagateValues([]step{
+		if err := t.propagateValues([]storageNode{
 			{path: path, node: node},
 		}); err != nil {
 			return err
@@ -170,19 +170,19 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		return nil
 	}
 
-	stepsToRoot, err := t.stepsToRoot(path)
+	nodes, err := t.stepsToRoot(path)
 	if err != nil {
 		return err
 	}
-	sibling := &stepsToRoot[len(stepsToRoot)-1]
+	sibling := &nodes[len(nodes)-1]
 
 	if path.Equal(sibling.path) {
 		sibling.node = node
 		if value.IsZero() {
-			if err = t.deleteLast(stepsToRoot); err != nil {
+			if err = t.deleteLast(nodes); err != nil {
 				return err
 			}
-		} else if err = t.propagateValues(stepsToRoot); err != nil {
+		} else if err = t.propagateValues(nodes); err != nil {
 			return err
 		}
 		return nil
@@ -203,9 +203,9 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 		newParent.left, newParent.right = path, sibling.path
 	}
 
-	makeRoot := len(stepsToRoot) == 1
+	makeRoot := len(nodes) == 1
 	if !makeRoot { // sibling has a parent
-		siblingParent := &stepsToRoot[len(stepsToRoot)-2]
+		siblingParent := &nodes[len(nodes)-2]
 
 		// replace the link to our sibling with the new parent
 		if siblingParent.node.left.Equal(sibling.path) {
@@ -216,16 +216,16 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	}
 
 	// replace sibling with new parent
-	stepsToRoot[len(stepsToRoot)-1] = step{
+	nodes[len(nodes)-1] = storageNode{
 		path: commonPath, node: newParent,
 	}
 	// add new node to steps
-	stepsToRoot = append(stepsToRoot, step{
+	nodes = append(nodes, storageNode{
 		path: path, node: node,
 	})
 
 	// push commitment changes
-	if err = t.propagateValues(stepsToRoot); err != nil {
+	if err = t.propagateValues(nodes); err != nil {
 		return err
 	} else if makeRoot {
 		t.rootKey = commonPath
@@ -234,17 +234,17 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 }
 
 // deleteLast deletes the last node in the given list and recalculates commitment
-func (t *Trie) deleteLast(affectedPath []step) error {
-	last := affectedPath[len(affectedPath)-1]
+func (t *Trie) deleteLast(affectedNodes []storageNode) error {
+	last := affectedNodes[len(affectedNodes)-1]
 	if err := t.storage.Delete(last.path); err != nil {
 		return err
 	}
 
-	if len(affectedPath) == 1 { // deleted node was root
+	if len(affectedNodes) == 1 { // deleted node was root
 		t.rootKey = nil
 	} else {
 		// parent now has only a single child, so delete
-		parent := affectedPath[len(affectedPath)-2]
+		parent := affectedNodes[len(affectedNodes)-2]
 		if err := t.storage.Delete(parent.path); err != nil {
 			return err
 		}
@@ -256,10 +256,10 @@ func (t *Trie) deleteLast(affectedPath []step) error {
 			siblingPath = parent.node.left
 		}
 
-		if len(affectedPath) == 2 { // sibling should become root
+		if len(affectedNodes) == 2 { // sibling should become root
 			t.rootKey = siblingPath
-		} else { // sibling should link to grandparent (len(affectedPath) > 2)
-			grandParent := &affectedPath[len(affectedPath)-3]
+		} else { // sibling should link to grandparent (len(affectedNodes) > 2)
+			grandParent := &affectedNodes[len(affectedNodes)-3]
 			// replace link to parent with a link to sibling
 			if grandParent.node.left.Equal(parent.path) {
 				grandParent.node.left = siblingPath
@@ -271,15 +271,15 @@ func (t *Trie) deleteLast(affectedPath []step) error {
 				return err
 			} else {
 				// rebuild the list of affected nodes
-				affectedPath = affectedPath[:len(affectedPath)-2] // drop last and parent
+				affectedNodes = affectedNodes[:len(affectedNodes)-2] // drop last and parent
 				// add sibling
-				affectedPath = append(affectedPath, step{
+				affectedNodes = append(affectedNodes, storageNode{
 					path: siblingPath,
 					node: sibling,
 				})
 
 				// finally recalculate commitment
-				return t.propagateValues(affectedPath)
+				return t.propagateValues(affectedNodes)
 			}
 		}
 	}
@@ -290,16 +290,16 @@ func (t *Trie) deleteLast(affectedPath []step) error {
 // Recalculates [Trie] commitment by propagating `bottom` values as described in the [docs]
 //
 // [docs]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func (t *Trie) propagateValues(affectedPath []step) error {
-	for idx := len(affectedPath) - 1; idx >= 0; idx-- {
-		cur := affectedPath[idx]
+func (t *Trie) propagateValues(affectedNodes []storageNode) error {
+	for idx := len(affectedNodes) - 1; idx >= 0; idx-- {
+		cur := affectedNodes[idx]
 
 		if (cur.node.left == nil) != (cur.node.right == nil) {
 			panic("should not happen")
 		}
 
 		if cur.node.left != nil || cur.node.right != nil {
-			// todo: one of the children is already in affectedPath, use that instead of fetching from storage
+			// todo: one of the children is already in affectedNodes, use that instead of fetching from storage
 			left, err := t.storage.Get(cur.node.left)
 			if err != nil {
 				return err
