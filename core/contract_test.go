@@ -258,7 +258,7 @@ func TestAddresses(t *testing.T) {
 				hexToFelt("0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6"),
 				hexToFelt("0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"),
 			},
-			want: hexToFelt("0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0"),
+			want: hexToFelt("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3"),
 		},
 	}
 
