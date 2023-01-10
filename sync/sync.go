@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/core/blockchain"
-	"github.com/NethermindEth/juno/internal/data_source"
+	"github.com/NethermindEth/juno/data_source"
 )
 
 // SyncLoop manages a list of DataSources to fetch the latest blockchain updates
