@@ -45,24 +45,28 @@ func NewState(db *badger.DB) *State {
 	return state
 }
 
-func CalculateContractCommitment(storageRoot, classHash *felt.Felt) *felt.Felt {
+func CalculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
 	commitment := crypto.Pedersen(classHash, storageRoot)
-	commitment = crypto.Pedersen(commitment, new(felt.Felt))
-	return crypto.Pedersen(commitment, new(felt.Felt))
+	commitment = crypto.Pedersen(commitment, nonce)
+	return crypto.Pedersen(commitment, &felt.Zero)
 }
 
 // putNewContract creates a contract storage instance in the state and
 // stores the relation between contract address and class hash to be
 // queried later on with [GetContractClass].
 func (s *State) putNewContract(addr, classHash *felt.Felt, txn *badger.Txn) error {
-	key := db.ContractClassHash.Key(addr.Marshal())
-	if _, err := txn.Get(key); err == nil {
+	addrBytes := addr.Marshal()
+	classHashKey := db.ContractClassHash.Key(addrBytes)
+	nonceKey := db.ContractNonce.Key(addrBytes)
+	if _, err := txn.Get(classHashKey); err == nil {
 		// Should not happen.
 		return errors.New("existing contract")
-	} else if err = txn.Set(key, classHash.Marshal()); err != nil {
+	} else if err = txn.Set(classHashKey, classHash.Marshal()); err != nil {
+		return err
+	} else if err = txn.Set(nonceKey, felt.Zero.Marshal()); err != nil {
 		return err
 	} else {
-		commitment := CalculateContractCommitment(new(felt.Felt), classHash)
+		commitment := CalculateContractCommitment(&felt.Zero, classHash, &felt.Zero)
 		if state, err := s.getStateStorage(txn); err != nil {
 			return err
 		} else if err = state.Put(addr, commitment); err != nil {
@@ -96,6 +100,33 @@ func (s *State) getContractClass(addr *felt.Felt, txn *badger.Txn) (*felt.Felt, 
 	}
 	return classHash, item.Value(func(val []byte) error {
 		classHash = new(felt.Felt).SetBytes(val)
+		return nil
+	})
+}
+
+// GetContractNonce returns nonce of a contract at a given address.
+func (s *State) GetContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+	var nonce *felt.Felt
+
+	return nonce, s.db.View(func(txn *badger.Txn) error {
+		var err error
+		nonce, err = s.getContractNonce(addr, txn)
+		return err
+	})
+}
+
+// getContractNonce returns nonce of a contract at a given address
+// in the given Txn context.
+func (s *State) getContractNonce(addr *felt.Felt, txn *badger.Txn) (*felt.Felt, error) {
+	var nonce *felt.Felt
+
+	key := db.ContractNonce.Key(addr.Marshal())
+	item, err := txn.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	return nonce, item.Value(func(val []byte) error {
+		nonce = new(felt.Felt).SetBytes(val)
 		return nil
 	})
 }
@@ -189,6 +220,16 @@ func (s *State) Update(update *core.StateUpdate) error {
 			}
 		}
 
+		// update contract nonces
+		for addr, nonce := range update.StateDiff.Nonces {
+			if err != nil {
+				return err
+			}
+			if err = s.updateContractNonce(&addr, nonce, txn); err != nil {
+				return err
+			}
+		}
+
 		// update contract storages
 		for addr, diff := range update.StateDiff.StorageDiffs {
 			if err != nil {
@@ -250,6 +291,11 @@ func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff, 
 		return err
 	}
 
+	nonce, err := s.getContractNonce(addr, txn)
+	if err != nil {
+		return err
+	}
+
 	// apply the diff
 	for _, pair := range diff {
 		if err = storage.Put(pair.Key, pair.Value); err != nil {
@@ -275,7 +321,44 @@ func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff, 
 		return err
 	}
 
-	commitment := CalculateContractCommitment(storageRoot, classHash)
+	commitment := CalculateContractCommitment(storageRoot, classHash, nonce)
+	state, err := s.getStateStorage(txn)
+	if err != nil {
+		return err
+	}
+
+	if err = state.Put(addr, commitment); err != nil {
+		return err
+	}
+
+	return s.putStateStorage(state, txn)
+}
+
+// updateContractNonce updates nonce of the contract at the
+// given address in the given Txn context.
+func (s *State) updateContractNonce(addr, nonce *felt.Felt, txn *badger.Txn) error {
+	classHash, err := s.getContractClass(addr, txn)
+	if err != nil {
+		return err
+	}
+
+	storage, err := s.getContractStorage(addr, txn)
+	if err != nil {
+		return err
+	}
+
+	// update nonce in the database
+	if err = txn.Set(db.ContractNonce.Key(addr.Marshal()), nonce.Marshal()); err != nil {
+		return err
+	}
+
+	// calculate commitment to be put in the global state
+	storageRoot, err := storage.Root()
+	if err != nil {
+		return err
+	}
+
+	commitment := CalculateContractCommitment(storageRoot, classHash, nonce)
 	state, err := s.getStateStorage(txn)
 	if err != nil {
 		return err
