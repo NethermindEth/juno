@@ -8,12 +8,12 @@ type StateUpdate struct {
 	OldRoot   *felt.Felt
 
 	StateDiff struct {
-		StorageDiffs map[string][]struct {
+		StorageDiffs map[felt.Felt][]struct {
 			Key   *felt.Felt
 			Value *felt.Felt
 		}
 
-		Nonces            map[string]*felt.Felt
+		Nonces            map[felt.Felt]*felt.Felt
 		DeployedContracts []struct {
 			Address   *felt.Felt
 			ClassHash *felt.Felt
