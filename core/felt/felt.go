@@ -24,6 +24,9 @@ const (
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
 )
 
+// zero felt constant
+var Zero = Felt{}
+
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
 		return new(big.Int)

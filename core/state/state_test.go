@@ -232,3 +232,40 @@ func TestUpdate(t *testing.T) {
 
 	assert.Equal(t, nil, state.Update(coreUpdate))
 }
+
+func TestUpdateNonce(t *testing.T) {
+	coreUpdate := new(core.StateUpdate)
+	coreUpdate.OldRoot = new(felt.Felt)
+	coreUpdate.NewRoot, _ = new(felt.Felt).SetString("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
+	addr, _ := new(felt.Felt).SetString("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+	classHash, _ := new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
+
+	coreUpdate.StateDiff = new(core.StateDiff)
+	coreUpdate.StateDiff.DeployedContracts = []core.DeployedContract{
+		{
+			Address: addr, ClassHash: classHash,
+		},
+	}
+	testDb := db.NewTestDb()
+	state := NewState(testDb)
+
+	assert.NoError(t, state.Update(coreUpdate))
+
+	nonce, err := state.GetContractNonce(addr)
+	assert.NoError(t, err)
+	assert.Equal(t, true, nonce.Equal(&felt.Zero))
+
+	coreUpdate = new(core.StateUpdate)
+	coreUpdate.OldRoot, _ = new(felt.Felt).SetString("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
+	coreUpdate.NewRoot, _ = new(felt.Felt).SetString("0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1")
+	coreUpdate.StateDiff = new(core.StateDiff)
+	coreUpdate.StateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
+
+	nonce.SetUint64(1)
+	coreUpdate.StateDiff.Nonces[*addr] = nonce
+	assert.NoError(t, state.Update(coreUpdate))
+
+	newNonce, err := state.GetContractNonce(addr)
+	assert.NoError(t, err)
+	assert.Equal(t, true, nonce.Equal(newNonce))
+}

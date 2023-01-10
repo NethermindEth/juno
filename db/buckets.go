@@ -13,6 +13,7 @@ const (
 	ContractRootPath  // contract storage roots
 	ContractClassHash // maps contract addresses and class hashes
 	ContractStorage   // contract storages
+	ContractNonce     // contract nonce
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
