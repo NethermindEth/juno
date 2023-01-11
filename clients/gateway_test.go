@@ -294,7 +294,7 @@ func TestClassUnmarshal(t *testing.T) {
 func TestNewGatewayClient(t *testing.T) {
 	baseUrl := "https://mock_gateway.io"
 	gatewayClient := NewGatewayClient(baseUrl)
-	assert.Equal(t, baseUrl, gatewayClient.baseUrl)
+	assert.Equal(t, baseUrl+feederGatewayPath, gatewayClient.baseUrl)
 }
 
 func TestBuildQueryString(t *testing.T) {
@@ -304,8 +304,9 @@ func TestBuildQueryString(t *testing.T) {
 	args := make(map[string]string)
 	args["a"] = "b"
 	query := gatewayClient.buildQueryString(endpoint, args)
-	assert.Equal(t, baseUrl, gatewayClient.baseUrl)
-	assert.Equal(t, baseUrl+"?a=b", query)
+	feederGatewayUrl := baseUrl + feederGatewayPath
+	assert.Equal(t, feederGatewayUrl, gatewayClient.baseUrl)
+	assert.Equal(t, feederGatewayUrl+"?a=b", query)
 }
 
 func TestBuildQueryString_WithErrorUrl(t *testing.T) {
@@ -350,7 +351,7 @@ func TestGetStateUpdate(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/get_state_update":
+		case feederGatewayPath + "get_state_update":
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -442,7 +443,7 @@ func TestGetTransaction(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/get_transaction":
+		case feederGatewayPath + "get_transaction":
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -490,7 +491,7 @@ func TestGetBlock(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/get_block":
+		case feederGatewayPath + "get_block":
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -538,7 +539,7 @@ func TestGetClassDefinition(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/get_class_by_hash":
+		case feederGatewayPath + "get_class_by_hash":
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
