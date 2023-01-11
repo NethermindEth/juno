@@ -258,9 +258,12 @@ func TestGetSpecPathOnTrie(t *testing.T) {
 
 	// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
 	// and check paths
-	two := felt.NewFelt(2)
-	five := felt.NewFelt(5)
-	one := felt.One()
+	var two felt.Felt
+	two.SetUint64(2)
+	var five felt.Felt
+	five.SetUint64(5)
+	var one felt.Felt
+	one.SetUint64(1)
 	trie.Put(&two, &one)
 	assert.Equal(t, true, GetSpecPath(trie.root, nil).Equal(trie.PathFromKey(&two)))
 
@@ -287,9 +290,10 @@ func TestGetSpecPath_ZeroRoot(t *testing.T) {
 	}
 	trie := NewTrie(storage, 251)
 
-	zero := felt.NewFelt(0)
+	var zero felt.Felt
 	msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
-	one := felt.One()
+	var one felt.Felt
+	one.SetUint64(1)
 	trie.Put(&zero, &one)
 	trie.Put(msbOne, &one)
 
@@ -438,9 +442,9 @@ func TestState(t *testing.T) {
 		contractRoot, _ := contractState.Root()
 		fmt.Println(addr, " : ", contractRoot.Text(16))
 
-		val, _ := crypto.Pedersen(contractHash, contractRoot)
-		val, _ = crypto.Pedersen(val, new(felt.Felt))
-		val, _ = crypto.Pedersen(val, new(felt.Felt))
+		val := crypto.Pedersen(contractHash, contractRoot)
+		val = crypto.Pedersen(val, new(felt.Felt))
+		val = crypto.Pedersen(val, new(felt.Felt))
 
 		if err := state.Put(key, val); err != nil {
 			t.Fatal(err)
@@ -448,7 +452,7 @@ func TestState(t *testing.T) {
 	}
 
 	got, _ := state.Root()
-	if want.Cmp(got) != 0 {
+	if !want.Equal(got) {
 		t.Errorf("state.RootHash() = %s, want = %s", got.Text(16), want.Text(16))
 	}
 }

@@ -39,8 +39,8 @@ func TestPedersen(t *testing.T) {
 				t.Errorf("expected no error but got %s", err)
 			}
 
-			ans, err := Pedersen(a, b)
-			if err != nil || !ans.Equal(want) {
+			ans := Pedersen(a, b)
+			if !ans.Equal(want) {
 				t.Errorf("TestHash got %s, want %s", ans.Text(16), want.Text(16))
 			}
 		})
@@ -107,8 +107,8 @@ func TestPedersenArray(t *testing.T) {
 			data = append(data, elem)
 		}
 		want, _ := new(felt.Felt).SetString(test.want)
-		got, err := PedersenArray(data...)
-		if err != nil || got.Cmp(want) != 0 {
+		got := PedersenArray(data...)
+		if !got.Equal(want) {
 			t.Errorf("PedersenArray(%x) = %x, want %x", data, got, want)
 		}
 	}
@@ -134,13 +134,9 @@ func BenchmarkPedersenArray(b *testing.B) {
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
 			var f *felt.Felt
-			var err error
 			randomFelts := createRandomFelts(i)
 			for n := 0; n < b.N; n++ {
-				f, err = PedersenArray(randomFelts...)
-				if err != nil {
-					b.Errorf("expected no error but got %s", err)
-				}
+				f = PedersenArray(randomFelts...)
 			}
 			feltBench = f
 		})
@@ -160,10 +156,7 @@ func BenchmarkPedersen(b *testing.B) {
 
 	var f *felt.Felt
 	for n := 0; n < b.N; n++ {
-		f, err = Pedersen(e0, e1)
-		if err != nil {
-			b.Errorf("expected no error but got %s", err)
-		}
+		f = Pedersen(e0, e1)
 	}
 	feltBench = f
 }
