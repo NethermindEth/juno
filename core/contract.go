@@ -66,12 +66,9 @@ type Contract struct {
 }
 
 // ContractAddress computes the address of a StarkNet contract.
-func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCalldata []*felt.Felt) (*felt.Felt, error) {
+func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCalldata []*felt.Felt) *felt.Felt {
 	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
-	calldataHash, err := crypto.PedersenArray(constructorCalldata...)
-	if err != nil {
-		return nil, err
-	}
+	calldataHash := crypto.PedersenArray(constructorCalldata...)
 
 	// https://docs.starknet.io/documentation/architecture_and_concepts/Contracts/contract-address
 	return crypto.PedersenArray(

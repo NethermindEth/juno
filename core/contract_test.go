@@ -238,7 +238,7 @@ func TestClassHash(t *testing.T) {
 	}
 }
 
-func TestAddresses(t *testing.T) {
+func TestContractAddress(t *testing.T) {
 	tests := []struct {
 		callerAddress       *felt.Felt
 		classHash           *felt.Felt
@@ -264,10 +264,7 @@ func TestAddresses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("Address", func(t *testing.T) {
-			address, err := ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCalldata)
-			if err != nil {
-				t.Fatalf("unexpected error while computing address: %s", err)
-			}
+			address := ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCalldata)
 			if !address.Equal(tt.want) {
 				t.Errorf("wrong address: got %s, want %s", address.Text(16), tt.want.Text(16))
 			}
