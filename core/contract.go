@@ -23,35 +23,15 @@ type Class struct {
 	Bytecode    []*felt.Felt
 }
 
-func (c *Class) Hash() (*felt.Felt, error) {
-	externalsHash, err := crypto.PedersenArray(flatten(c.Externals)...)
-	if err != nil {
-		return nil, err
-	}
-	l1HandlersHash, err := crypto.PedersenArray(flatten(c.L1Handlers)...)
-	if err != nil {
-		return nil, err
-	}
-	constructorsHash, err := crypto.PedersenArray(flatten(c.Constructors)...)
-	if err != nil {
-		return nil, err
-	}
-	builtinsHash, err := crypto.PedersenArray(c.Builtins...)
-	if err != nil {
-		return nil, err
-	}
-	bytecodeHash, err := crypto.PedersenArray(c.Bytecode...)
-	if err != nil {
-		return nil, err
-	}
+func (c *Class) Hash() *felt.Felt {
 	return crypto.PedersenArray(
 		c.APIVersion,
-		externalsHash,
-		l1HandlersHash,
-		constructorsHash,
-		builtinsHash,
+		crypto.PedersenArray(flatten(c.Externals)...),
+		crypto.PedersenArray(flatten(c.L1Handlers)...),
+		crypto.PedersenArray(flatten(c.Constructors)...),
+		crypto.PedersenArray(c.Builtins...),
 		c.ProgramHash,
-		bytecodeHash,
+		crypto.PedersenArray(c.Bytecode...),
 	)
 }
 

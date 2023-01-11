@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/contract"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -16,8 +15,10 @@ type Transaction interface {
 type DeployTransaction struct {
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
+	// The address of the contract.
+	ContractAddress *felt.Felt
 	// The object that defines the contract’s functionality.
-	Class contract.Class
+	Class Class
 	// The arguments passed to the constructor during deployment.
 	ConstructorCalldata []*felt.Felt
 	// Who invoked the deployment. Set to 0 (in future: the deploying account contract).
@@ -32,7 +33,7 @@ type DeployTransaction struct {
 }
 
 func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
-	// Todo: implement pedersen hash as defined here:
+	// Implemented pedersen hash as defined here:
 	// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_deploy_transaction
 	var data []*felt.Felt
 
@@ -42,13 +43,7 @@ func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	data = append(data, d.Version)
 
 	// Address of the contract
-	zeroFelt := new(felt.Felt).SetZero()
-	contractAddress, err := d.Class.Address(zeroFelt, d.ContractAddressSalt, d.ConstructorCalldata)
-	fmt.Println("address: ", contractAddress)
-	if err != nil {
-		return nil, err
-	}
-	data = append(data, contractAddress)
+	data = append(data, d.ContractAddress)
 
 	// sn_keccak("constructor")
 	constructorByte := []byte("constructor")
@@ -59,21 +54,17 @@ func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	data = append(data, snKeccakContructor)
 
 	// Pedersen Hash of Constructor Calldata
-	pedersenConstructorCalldata, err := crypto.PedersenArray(d.ConstructorCalldata...)
-	if err != nil {
-		return nil, err
-	}
+	pedersenConstructorCalldata := crypto.PedersenArray(d.ConstructorCalldata...)
+
 	data = append(data, pedersenConstructorCalldata)
 
+	zeroFelt := new(felt.Felt).SetBytes([]byte{0})
 	data = append(data, zeroFelt)
 
 	chainIdFelt := new(felt.Felt).SetBytes(chainId)
 	data = append(data, chainIdFelt)
 
-	deployTransactionHash, err := crypto.PedersenArray(data...)
-	if err != nil {
-		return nil, err
-	}
+	deployTransactionHash := crypto.PedersenArray(data...)
 	return deployTransactionHash, nil
 }
 
@@ -121,10 +112,8 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		data = append(data, entryPointSelector)
 
 		// Pedersen Hash of the Calldata
-		pedersenHashCalldata, err := crypto.PedersenArray(i.CallData...)
-		if err != nil {
-			return nil, err
-		}
+		pedersenHashCalldata := crypto.PedersenArray(i.CallData...)
+
 		data = append(data, pedersenHashCalldata)
 
 		data = append(data, i.MaxFee)
@@ -132,10 +121,7 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		chainIdFelt := new(felt.Felt).SetBytes(chainId)
 		data = append(data, chainIdFelt)
 
-		invokeTransactionHash, err := crypto.PedersenArray(data...)
-		if err != nil {
-			return nil, err
-		}
+		invokeTransactionHash := crypto.PedersenArray(data...)
 
 		return invokeTransactionHash, nil
 	} else if i.Version.IsOne() {
@@ -146,14 +132,11 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		data = append(data, senderAddress)
 
 		// Zero Felt
-		zeroFelt := new(felt.Felt).SetZero()
+		zeroFelt := new(felt.Felt).SetBytes([]byte{0})
 		data = append(data, zeroFelt)
 
 		// Pedersen Hash of the Calldata
-		pedersenHashCalldata, err := crypto.PedersenArray(i.CallData...)
-		if err != nil {
-			return nil, err
-		}
+		pedersenHashCalldata := crypto.PedersenArray(i.CallData...)
 		data = append(data, pedersenHashCalldata)
 
 		data = append(data, i.MaxFee)
@@ -163,10 +146,7 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 
 		data = append(data, i.Nonce)
 
-		invokeTransactionHash, err := crypto.PedersenArray(data...)
-		if err != nil {
-			return nil, err
-		}
+		invokeTransactionHash := crypto.PedersenArray(data...)
 
 		return invokeTransactionHash, nil
 	}
@@ -175,7 +155,7 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 
 type DeclareTransaction struct {
 	// The class object.
-	Class contract.Class
+	Class Class
 	// The address of the account initiating the transaction.
 	SenderAddress *felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction.
@@ -207,7 +187,7 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	data = append(data, senderAddress)
 
 	// Zero Felt
-	zeroFelt := new(felt.Felt).SetZero()
+	zeroFelt := new(felt.Felt).SetBytes([]byte{0})
 	fmt.Println("Zero felt: ", zeroFelt)
 	data = append(data, zeroFelt)
 	if d.Version.IsZero() {
@@ -224,29 +204,21 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		data = append(data, chainIdFelt)
 
 		// Class Hash
-		classHash, err := d.Class.ClassHash()
-		if err != nil {
-			return nil, err
-		}
+		classHash := d.Class.Hash()
 		data = append(data, classHash)
 
-		declareTransactionHash, err := crypto.PedersenArray(data...)
-		if err != nil {
-			return nil, err
-		}
+		declareTransactionHash := crypto.PedersenArray(data...)
 
 		return declareTransactionHash, nil
 	} else if d.Version.IsOne() {
 		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_declare_transaction
 
 		// Class Hash
-		classHash, err := d.Class.ClassHash()
-		if err != nil {
-			return nil, err
-		}
+		classHash := d.Class.Hash()
+		fmt.Println("Calculated Class Hash: ", classHash)
 
 		// Calculate pedersen hash on class hash elements
-		classHash, _ = crypto.PedersenArray(classHash)
+		classHash = crypto.PedersenArray(classHash)
 		data = append(data, classHash)
 
 		//Max Fee
@@ -262,10 +234,7 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		fmt.Println("Nonce: ", d.Nonce)
 		data = append(data, d.Nonce)
 
-		declareTransactionHash, err := crypto.PedersenArray(data...)
-		if err != nil {
-			return nil, err
-		}
+		declareTransactionHash := crypto.PedersenArray(data...)
 
 		return declareTransactionHash, nil
 	}

@@ -52,26 +52,13 @@ func init() {
 
 // PedersenArray implements [Pedersen array hashing].
 //
-// [Pedersen array hashing]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#pedersen_hash
-func PedersenArray(elems ...*felt.Felt) (*felt.Felt, error) {
-	var err error
-	d := new(felt.Felt).SetZero()
-
-	if len(elems) > 0 {
-		for _, e := range elems {
-			d, err = Pedersen(d, e)
-			if err != nil {
-				return nil, err
-			}
-		}
+// [Pedersen array hashing]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#array_hashing
+func PedersenArray(elems ...*felt.Felt) *felt.Felt {
+	d := new(felt.Felt)
+	for _, e := range elems {
+		d = Pedersen(d, e)
 	}
-
-	l, err := new(felt.Felt).SetInterface(len(elems))
-	if err != nil {
-		return nil, err
-	}
-
-	return Pedersen(d, l)
+	return Pedersen(d, new(felt.Felt).SetUint64(uint64(len(elems))))
 }
 
 // Pedersen implements the [Pedersen hash] based on the [reference implementation].

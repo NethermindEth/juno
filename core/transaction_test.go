@@ -1,34 +1,34 @@
 package core
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/contract"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var (
+	//go:embed testdata/bytecode_declare.json
+	bytecodeDeclareTransBytes []byte
+)
+
 func TestDeployTransactions(t *testing.T) {
-	// Read json file, parse it and generate a class
-	contractDefinition, err := ioutil.ReadFile("TestData/class_definition_deploy.json")
-	if err != nil {
-		t.Fatalf("expected no error but got %s", err)
-	}
-	c, err := contract.GenerateClass(contractDefinition)
-	if err != nil {
-		t.Fatalf("expected no error but got %s", err)
-	}
+	class := Class{}
 
 	contractAddressSalt, _ := new(felt.Felt).SetString("0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b")
+	contractAddress, _ := new(felt.Felt).SetString("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3")
 	callData1, _ := new(felt.Felt).SetString("0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4")
 	callData2, _ := new(felt.Felt).SetString("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463")
 	callData3, _ := new(felt.Felt).SetString("0x2")
 	callData4, _ := new(felt.Felt).SetString("0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6")
 	callData5, _ := new(felt.Felt).SetString("0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328")
+
 	DeployTransactionObj := DeployTransaction{
 		ContractAddressSalt: contractAddressSalt,
-		Class:               c,
+		ContractAddress:     contractAddress,
+		Class:               class,
 		ConstructorCalldata: [](*felt.Felt){
 			callData1,
 			callData2,
@@ -39,9 +39,7 @@ func TestDeployTransactions(t *testing.T) {
 		CallerAddress: new(felt.Felt).SetUint64(0),
 		Version:       new(felt.Felt).SetUint64(0),
 	}
-	// fmt.Println(c.ClassHash())
-	// temp, _ := new(felt.Felt).SetString("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3")
-	// fmt.Println("Contract Address ", temp)
+
 	t.Run("DeployTransactionHash", func(t *testing.T) {
 		transactionHash, err := DeployTransactionObj.Hash([]byte("SN_MAIN"))
 		if err != nil {
@@ -128,14 +126,64 @@ func TestInvokeTransactions(t *testing.T) {
 }
 
 func TestDeclareTransaction(t *testing.T) {
-	// Read json file, parse it and generate a class
-	contractDefinition, err := ioutil.ReadFile("TestData/class_definition_declare.json")
-	if err != nil {
-		t.Fatalf("expected no error but got %s", err)
+	var bytecodeGenesis []*felt.Felt
+	if err := json.Unmarshal(bytecodeGenesisBytes, &bytecodeGenesis); err != nil {
+		t.Fatalf("unexpected error while unmarshalling bytecodeGenesisBytes: %s", err)
 	}
-	c, err := contract.GenerateClass(contractDefinition)
-	if err != nil {
-		t.Fatalf("expected no error but got %s", err)
+	var bytecodeCairo08 []*felt.Felt
+	if err := json.Unmarshal(bytecodeCairo08Bytes, &bytecodeCairo08); err != nil {
+		t.Fatalf("unexpected error while unmarshalling bytecodeCairo08Bytes: %s", err)
+	}
+	var bytecodeCairo10 []*felt.Felt
+	if err := json.Unmarshal(bytecodeCairo10Bytes, &bytecodeCairo10); err != nil {
+		t.Fatalf("unexpected error while unmarshalling bytecodeBytes: %s", err)
+	}
+	var bytecodeDeclare []*felt.Felt
+	if err := json.Unmarshal(bytecodeDeclareTransBytes, &bytecodeDeclare); err != nil {
+		t.Fatalf("unexpected error while unmarshalling bytecodeBytes: %s", err)
+	}
+
+	// We know our test hex values are valid, so we'll ignore the potential error
+	hexToFelt := func(hex string) *felt.Felt {
+		f, _ := new(felt.Felt).SetString(hex)
+		return f
+	}
+
+	class := Class{
+		APIVersion: new(felt.Felt),
+		Externals: []EntryPoint{
+			{Selector: hexToFelt("0x4bc30b413bff05d0c5a841b495efaa7136b1150650a6d50b5125348ef247b7"), Offset: hexToFelt("0x8cc")},
+			{Selector: hexToFelt("0xd399e873cde9f1130182a2b70db45e021df5a2f404fa14e8b2f7481c10f1d3"), Offset: hexToFelt("0x636")},
+			{Selector: hexToFelt("0xe323be32563ff4ec7eb6dbb44de6f462fe50d4347d2a5ed97b8000b01fae0f"), Offset: hexToFelt("0x96e")},
+			{Selector: hexToFelt("0x1746ba88936c89803398e3d705b7c60b975ba95ed8309170af08a50cfd76034"), Offset: hexToFelt("0x887")},
+			{Selector: hexToFelt("0x1a5b9e3dbe4d6bd046be696b63482af53d74488393698b847f9fdba7ab3eb84"), Offset: hexToFelt("0x564")},
+			{Selector: hexToFelt("0x1d481eb4b63b94bb55e6b98aabb06c3b8484f82a4d656d6bca0b0cf9b446be0"), Offset: hexToFelt("0x5be")},
+			{Selector: hexToFelt("0x1fecea0123deaf1ec6b125dfb3ebb67d43ae1820f1cfddfd04748c2bb8723f2"), Offset: hexToFelt("0x93c")},
+			{Selector: hexToFelt("0x1ff283d9ff7e020d53bd8df3046dbc2f9844949ba7aca7f74053ac71f270ffb"), Offset: hexToFelt("0x672")},
+			{Selector: hexToFelt("0x2016836a56b71f0d02689e69e326f4f4c1b9057164ef592671cf0d37c8040c0"), Offset: hexToFelt("0x690")},
+			{Selector: hexToFelt("0x2635814066a61a91118251ce2c36965c1c8bd482f624471790044f16545fd67"), Offset: hexToFelt("0x800")},
+			{Selector: hexToFelt("0x2be9875f83b420d4b53991a231f8c1b1e97f63799a9518d9fa4714e1a194c62"), Offset: hexToFelt("0x902")},
+			{Selector: hexToFelt("0x2dd76e7ad84dbed81c314ffe5e7a7cacfb8f4836f01af4e913f275f89a3de1a"), Offset: hexToFelt("0x539")},
+			{Selector: hexToFelt("0x33b9f6abf0b529613680afe2a00fa663cc95cbdc47d726d85a044462eabbf02"), Offset: hexToFelt("0x654")},
+			{Selector: hexToFelt("0x3430195ba4c8865b3e4ece998a22147a09e701161f2e28c0e3b6fd48f22238d"), Offset: hexToFelt("0x99d")},
+			{Selector: hexToFelt("0x357029217c9f3f982fdd88896cec398a11c800ec3008aae973b40c056b6162f"), Offset: hexToFelt("0x74b")},
+			{Selector: hexToFelt("0x35d7d17c374504dc9e7e19f5d8202b1c11bc59642d4abc65b2373426bea2105"), Offset: hexToFelt("0x9df")},
+			{Selector: hexToFelt("0x366a98476020cb9ff8cc566d0cdeac414e546d2e7ede445f4e7032a4272c771"), Offset: hexToFelt("0x582")},
+			{Selector: hexToFelt("0x36a0899cf87fd4dc1049f3ec4d9d2ab52bbb0c9a3fcdd483f6c38a906da8f51"), Offset: hexToFelt("0x788")},
+			{Selector: hexToFelt("0x39b0454cadcb5884dd3faa6ba975da4d2459aa3f11d31291a25a8358f84946d"), Offset: hexToFelt("0x5fa")},
+			{Selector: hexToFelt("0x39db8947b7337181fb15cc84373df7e708a276840ebe0927e9a12b86ff38aa3"), Offset: hexToFelt("0x6ec")},
+			{Selector: hexToFelt("0x3b904aa5afc486c58c0b51ae01374c1c29068417feb59eaeecf86ac46c1fef9"), Offset: hexToFelt("0x5a0")},
+			{Selector: hexToFelt("0x3da9c62205655e202173ec115b91229a1afafeb0329c0797d4a94c5d5de80fa"), Offset: hexToFelt("0x618")},
+			{Selector: hexToFelt("0x3e75033db4684c97865a0e4372cf714e5bad6437ec2e2d7b693019d0661f9ee"), Offset: hexToFelt("0x5dc")},
+		},
+		L1Handlers:   []EntryPoint{},
+		Constructors: []EntryPoint{},
+		Builtins: []*felt.Felt{
+			new(felt.Felt).SetBytes([]byte("pedersen")),
+			new(felt.Felt).SetBytes([]byte("range_check")),
+		},
+		ProgramHash: new(felt.Felt).SetBytes([]byte("0x1f2c4b0f3fb0e1e30308b0d1dc58131d4f82b2a0df1bf637179f5754abee13a")),
+		Bytecode:    bytecodeDeclare,
 	}
 
 	senderAddress, _ := new(felt.Felt).SetString("0x39291faa79897de1fd6fb1a531d144daa1590d058358171b83eadb3ceafed8")
@@ -143,10 +191,11 @@ func TestDeclareTransaction(t *testing.T) {
 	nonce, _ := new(felt.Felt).SetString("0x5")
 	signature1, _ := new(felt.Felt).SetString("0x221b9576c4f7b46d900a331d89146dbb95a7b03d2eb86b4cdcf11331e4df7f2")
 	signature2, _ := new(felt.Felt).SetString("0x667d8062f3574ba9b4965871eec1444f80dacfa7114e1d9c74662f5672c0620")
-
+	classHash, _ := new(felt.Felt).SetString("0x7aed6898458c4ed1d720d43e342381b25668ec7c3e8837f761051bf4d655e54")
+	fmt.Println("Expected class hash:", classHash)
 	version, _ := new(felt.Felt).SetString("0x1")
 	DeclareTransactionObj := DeclareTransaction{
-		Class:         c,
+		Class:         class,
 		SenderAddress: senderAddress,
 		MaxFee:        maxFee,
 		Signature: [](*felt.Felt){
