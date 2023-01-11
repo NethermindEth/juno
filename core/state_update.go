@@ -6,18 +6,22 @@ type StateUpdate struct {
 	BlockHash *felt.Felt
 	NewRoot   *felt.Felt
 	OldRoot   *felt.Felt
+	StateDiff *StateDiff
+}
 
-	StateDiff struct {
-		StorageDiffs map[felt.Felt][]struct {
-			Key   *felt.Felt
-			Value *felt.Felt
-		}
+type StateDiff struct {
+	StorageDiffs      map[felt.Felt][]StorageDiff
+	Nonces            map[felt.Felt]*felt.Felt
+	DeployedContracts []DeployedContract
+	DeclaredContracts []*felt.Felt
+}
 
-		Nonces            map[felt.Felt]*felt.Felt
-		DeployedContracts []struct {
-			Address   *felt.Felt
-			ClassHash *felt.Felt
-		}
-		DeclaredContracts []*felt.Felt
-	}
+type StorageDiff struct {
+	Key   *felt.Felt
+	Value *felt.Felt
+}
+
+type DeployedContract struct {
+	Address   *felt.Felt
+	ClassHash *felt.Felt
 }

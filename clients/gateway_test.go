@@ -26,14 +26,18 @@ func TestStateUpdateUnmarshal(t *testing.T) {
         }
       ]
     },
-    "nonces": {},
+    "nonces": { 
+		"0x37" : "0x44"
+	},
     "deployed_contracts": [
       {
         "address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
         "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
       }
 	],
-    "declared_contracts": []
+    "declared_contracts": [
+		"0x3744"
+	]
   }
 }`)
 
@@ -62,6 +66,16 @@ func TestStateUpdateUnmarshal(t *testing.T) {
 	assert.Equal(t, true, update.StateDiff.DeployedContracts[0].Address.Equal(expected))
 	expected, _ = new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	assert.Equal(t, true, update.StateDiff.DeployedContracts[0].ClassHash.Equal(expected))
+
+	assert.Equal(t, 1, len(update.StateDiff.DeclaredContracts))
+	expected, _ = new(felt.Felt).SetString("0x3744")
+	assert.Equal(t, true, update.StateDiff.DeclaredContracts[0].Equal(expected))
+
+	assert.Equal(t, 1, len(update.StateDiff.Nonces))
+	expected, _ = new(felt.Felt).SetString("0x44")
+	value, ok := update.StateDiff.Nonces["0x37"]
+	assert.Equal(t, true, ok)
+	assert.Equal(t, true, value.Equal(expected))
 }
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
@@ -334,14 +348,18 @@ func TestGetStateUpdate(t *testing.T) {
 			  }
 			]
 		  },
-		  "nonces": {},
+		  "nonces": {
+			"0x37" : "0x44"
+		  },
 		  "deployed_contracts": [
 			{
 			  "address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 			  "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
 			}
 		  ],
-		  "declared_contracts": []
+		  "declared_contracts": [
+				"0x3744"
+		  ]
 		}
 	  }`)
 
