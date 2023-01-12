@@ -1,4 +1,4 @@
-package starknetdata
+package gateway
 
 import (
 	"encoding/json"
