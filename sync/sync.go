@@ -8,8 +8,8 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
-// SyncLoop manages a list of DataSources to fetch the latest blockchain updates
-type SyncLoop struct {
+// Synchronizer manages a list of DataSources to fetch the latest blockchain updates
+type Synchronizer struct {
 	running uint64
 
 	Blockchain  *blockchain.Blockchain
@@ -18,8 +18,8 @@ type SyncLoop struct {
 	ExitChn chan struct{}
 }
 
-func NewSyncLoop(bc *blockchain.Blockchain, sources []*starknetdata.StarkNetData) *SyncLoop {
-	return &SyncLoop{
+func NewSynchronizer(bc *blockchain.Blockchain, sources []*starknetdata.StarkNetData) *Synchronizer {
+	return &Synchronizer{
 		running: 0,
 
 		Blockchain:  bc,
@@ -28,11 +28,11 @@ func NewSyncLoop(bc *blockchain.Blockchain, sources []*starknetdata.StarkNetData
 	}
 }
 
-// Run starts the SyncLoop, returns an error if the loop is already running
-func (l *SyncLoop) Run() error {
+// Run starts the Synchronizer, returns an error if the loop is already running
+func (l *Synchronizer) Run() error {
 	running := atomic.CompareAndSwapUint64(&l.running, 0, 1)
 	if !running {
-		return errors.New("SyncLoop is already running")
+		return errors.New("synchronizer is already running")
 	}
 	defer atomic.CompareAndSwapUint64(&l.running, 1, 0)
 
@@ -40,8 +40,8 @@ func (l *SyncLoop) Run() error {
 	return nil
 }
 
-// Shutdown attempts to stop the SyncLoop, should block until loop acknowledges the request
-func (l *SyncLoop) Shutdown() error {
+// Shutdown attempts to stop the Synchronizer, should block until loop acknowledges the request
+func (l *Synchronizer) Shutdown() error {
 	l.ExitChn <- struct{}{}
 	return nil
 }
