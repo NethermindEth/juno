@@ -91,37 +91,19 @@ type DeployTransaction struct {
 func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	// Implemented pedersen hash as defined here:
 	// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_deploy_transaction
-	var data []*felt.Felt
-
-	deployFelt := new(felt.Felt).SetBytes([]byte("deploy"))
-	data = append(data, deployFelt)
-
-	data = append(data, d.Version)
-
-	// Address of the contract
-	data = append(data, d.ContractAddress)
-
-	// sn_keccak("constructor")
-	constructorByte := []byte("constructor")
-	snKeccakContructor, err := crypto.StarkNetKeccak(constructorByte)
+	snKeccakContructor, err := crypto.StarkNetKeccak([]byte("constructor"))
 	if err != nil {
 		return nil, err
 	}
-	data = append(data, snKeccakContructor)
-
-	// Pedersen Hash of Constructor Calldata
-	pedersenConstructorCalldata := crypto.PedersenArray(d.ConstructorCalldata...)
-
-	data = append(data, pedersenConstructorCalldata)
-
-	zeroFelt := new(felt.Felt).SetBytes([]byte{0})
-	data = append(data, zeroFelt)
-
-	chainIdFelt := new(felt.Felt).SetBytes(chainId)
-	data = append(data, chainIdFelt)
-
-	deployTransactionHash := crypto.PedersenArray(data...)
-	return deployTransactionHash, nil
+	return crypto.PedersenArray(
+		new(felt.Felt).SetBytes([]byte("deploy")),
+		d.Version,
+		d.ContractAddress,
+		snKeccakContructor,
+		crypto.PedersenArray(d.ConstructorCalldata...),
+		new(felt.Felt),
+		new(felt.Felt).SetBytes(chainId),
+	), nil
 }
 
 type InvokeTransaction struct {
@@ -150,61 +132,28 @@ type InvokeTransaction struct {
 }
 
 func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
-	var data []*felt.Felt
-
 	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
-	data = append(data, invokeFelt)
-
-	data = append(data, i.Version)
 	if i.Version.IsZero() {
-		// Implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_invoke_transaction
-		// Address of the contract
-		contractAddress := i.ContractAddress
-		data = append(data, contractAddress)
-
-		// EntryPointSelector
-		entryPointSelector := i.EntryPointSelector
-		data = append(data, entryPointSelector)
-
-		// Pedersen Hash of the Calldata
-		pedersenHashCalldata := crypto.PedersenArray(i.CallData...)
-
-		data = append(data, pedersenHashCalldata)
-
-		data = append(data, i.MaxFee)
-
-		chainIdFelt := new(felt.Felt).SetBytes(chainId)
-		data = append(data, chainIdFelt)
-
-		invokeTransactionHash := crypto.PedersenArray(data...)
-
-		return invokeTransactionHash, nil
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.Version,
+			i.ContractAddress,
+			i.EntryPointSelector,
+			crypto.PedersenArray(i.CallData...),
+			i.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+		), nil
 	} else if i.Version.IsOne() {
-		// Implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v0_invoke_transaction
-		// Transaction sender address
-		senderAddress := i.SenderAddress
-		data = append(data, senderAddress)
-
-		// Zero Felt
-		zeroFelt := new(felt.Felt).SetBytes([]byte{0})
-		data = append(data, zeroFelt)
-
-		// Pedersen Hash of the Calldata
-		pedersenHashCalldata := crypto.PedersenArray(i.CallData...)
-		data = append(data, pedersenHashCalldata)
-
-		data = append(data, i.MaxFee)
-
-		chainIdFelt := new(felt.Felt).SetBytes(chainId)
-		data = append(data, chainIdFelt)
-
-		data = append(data, i.Nonce)
-
-		invokeTransactionHash := crypto.PedersenArray(data...)
-
-		return invokeTransactionHash, nil
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.Version,
+			i.SenderAddress,
+			new(felt.Felt),
+			crypto.PedersenArray(i.CallData...),
+			i.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+			i.Nonce,
+		), nil
 	}
 	return nil, errors.New("invalid transaction version")
 }
@@ -229,65 +178,30 @@ type DeclareTransaction struct {
 }
 
 func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
-	var data []*felt.Felt
-
 	// Declare Felt
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
-	data = append(data, declareFelt)
-
-	// Version Felt
-	data = append(data, d.Version)
-
-	// Sender Address
-	senderAddress := d.SenderAddress
-	data = append(data, senderAddress)
-
-	// Zero Felt
-	zeroFelt := new(felt.Felt).SetBytes([]byte{0})
-	data = append(data, zeroFelt)
 	if d.Version.IsZero() {
-		// Implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v0_declare_transaction
-		// Zero Felt
-		data = append(data, zeroFelt)
-
-		// Max Fee
-		data = append(data, d.MaxFee)
-
-		// Chain Id
-		chainIdFelt := new(felt.Felt).SetBytes(chainId)
-		data = append(data, chainIdFelt)
-
-		// Class Hash
-		classHash := d.Class.Hash()
-		data = append(data, classHash)
-
-		declareTransactionHash := crypto.PedersenArray(data...)
-
-		return declareTransactionHash, nil
+		return crypto.PedersenArray(
+			declareFelt,
+			d.Version,
+			d.SenderAddress,
+			new(felt.Felt),
+			new(felt.Felt),
+			d.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+			d.Class.Hash(),
+		), nil
 	} else if d.Version.IsOne() {
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_declare_transaction
-
-		// Class Hash
-		classHash := d.Class.Hash()
-
-		// Calculate pedersen hash on class hash elements
-		classHash = crypto.PedersenArray(classHash)
-		data = append(data, classHash)
-
-		// Max Fee
-		data = append(data, d.MaxFee)
-
-		// Chain Id
-		chainIdFelt := new(felt.Felt).SetBytes(chainId)
-		data = append(data, chainIdFelt)
-
-		// Nonce
-		data = append(data, d.Nonce)
-
-		declareTransactionHash := crypto.PedersenArray(data...)
-
-		return declareTransactionHash, nil
+		return crypto.PedersenArray(
+			declareFelt,
+			d.Version,
+			d.SenderAddress,
+			new(felt.Felt),
+			crypto.PedersenArray(d.Class.Hash()),
+			d.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+			d.Nonce,
+		), nil
 	}
 	return nil, errors.New("invalid transaction version")
 }
