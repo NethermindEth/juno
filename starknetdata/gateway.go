@@ -19,27 +19,27 @@ func NewGateway(n utils.Network) *Gateway {
 	}
 }
 
-// GetBlockByNumber gets the block for a given block number from the feeder gateway,
+// BlockByNumber gets the block for a given block number from the feeder gateway,
 // then adapts it to the core.Block type.
-func (g *Gateway) GetBlockByNumber(blockNumber uint64) (*core.Block, error) {
+func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
 	return nil, errors.New("not implemented")
 }
 
-// GetTransaction gets the transaction for a given transaction hash from the feeder gateway,
+// Transaction gets the transaction for a given transaction hash from the feeder gateway,
 // then adapts it to the appropriate core.Transaction types.
-func (g *Gateway) GetTransaction(transactionHash *felt.Felt) (*core.Transaction, error) {
+func (g *Gateway) Transaction(transactionHash *felt.Felt) (*core.Transaction, error) {
 	return nil, errors.New("not implemented")
 }
 
-// GetClass gets the class for a given class hash from the feeder gateway,
+// Class gets the class for a given class hash from the feeder gateway,
 // then adapts it to the core.Class type.
-func (g *Gateway) GetClass(classHash *felt.Felt) (*core.Class, error) {
+func (g *Gateway) Class(classHash *felt.Felt) (*core.Class, error) {
 	return nil, errors.New("not implemented")
 }
 
-// GetStateUpdate gets the state update for a given block number from the feeder gateway,
+// StateUpdate gets the state update for a given block number from the feeder gateway,
 // then adapts it to the core.StateUpdate type.
-func (g *Gateway) GetStateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
+func (g *Gateway) StateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
 	response, err := g.client.GetStateUpdate(blockNumber)
 	if err != nil {
 		return nil, err
