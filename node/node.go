@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/NethermindEth/juno/core/blockchain"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/sync"
-
 	"github.com/NethermindEth/juno/utils"
 )
 

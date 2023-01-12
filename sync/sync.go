@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/NethermindEth/juno/core/blockchain"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
