@@ -2,6 +2,7 @@ package clients
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -46,6 +47,8 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 	res, err := http.Get(queryUrl)
 	if err != nil {
 		return nil, err
+	} else if res.StatusCode != http.StatusOK {
+		return nil, errors.New(res.Status)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -78,13 +81,15 @@ func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error)
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	body, err := c.get(queryUrl)
-	update := new(StateUpdate)
-	if err = json.Unmarshal(body, update); err != nil {
+	if body, err := c.get(queryUrl); err != nil {
 		return nil, err
+	} else {
+		update := new(StateUpdate)
+		if err = json.Unmarshal(body, update); err != nil {
+			return nil, err
+		}
+		return update, nil
 	}
-
-	return update, nil
 }
 
 // Transaction object returned by the gateway in JSON format for multiple endpoints
@@ -120,13 +125,15 @@ func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*Transaction
 		"transactionHash": "0x" + transactionHash.Text(16),
 	})
 
-	body, err := c.get(queryUrl)
-	txStatus := new(TransactionStatus)
-	if err = json.Unmarshal(body, txStatus); err != nil {
+	if body, err := c.get(queryUrl); err != nil {
 		return nil, err
+	} else {
+		txStatus := new(TransactionStatus)
+		if err = json.Unmarshal(body, txStatus); err != nil {
+			return nil, err
+		}
+		return txStatus, nil
 	}
-
-	return txStatus, nil
 }
 
 type Event struct {
@@ -191,13 +198,15 @@ func (c *GatewayClient) GetBlock(blockNumber uint64) (*Block, error) {
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	body, err := c.get(queryUrl)
-	block := new(Block)
-	if err = json.Unmarshal(body, block); err != nil {
+	if body, err := c.get(queryUrl); err != nil {
 		return nil, err
+	} else {
+		block := new(Block)
+		if err = json.Unmarshal(body, block); err != nil {
+			return nil, err
+		}
+		return block, nil
 	}
-
-	return block, nil
 }
 
 type EntryPoint struct {
@@ -241,11 +250,13 @@ func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefiniti
 		"classHash": "0x" + classHash.Text(16),
 	})
 
-	body, err := c.get(queryUrl)
-	class := new(ClassDefinition)
-	if err = json.Unmarshal(body, class); err != nil {
+	if body, err := c.get(queryUrl); err != nil {
 		return nil, err
+	} else {
+		class := new(ClassDefinition)
+		if err = json.Unmarshal(body, class); err != nil {
+			return nil, err
+		}
+		return class, nil
 	}
-
-	return class, nil
 }
