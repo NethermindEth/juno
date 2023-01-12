@@ -5,9 +5,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// StarkNetData defines the function which are required to retrieve StarkNet's state
+// Todo: consider splitting the following interface into smaller chunks for modularity
 type StarkNetData interface {
-	GetBlockByNumber(blockNumber uint64) (*core.Block, error)
-	GetTransaction(transactionHash *felt.Felt) (*core.Transaction, error)
-	GetClass(classHash *felt.Felt) (*core.Class, error)
-	GetStateUpdate(blockNumber uint64) (*core.StateUpdate, error)
+	BlockByNumber(blockNumber uint64) (*core.Block, error)
+	Transaction(transactionHash *felt.Felt) (*core.Transaction, error)
+	Class(classHash *felt.Felt) (*core.Class, error)
+	StateUpdate(blockNumber uint64) (*core.StateUpdate, error)
 }
