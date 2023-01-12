@@ -275,7 +275,7 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		classHash = crypto.PedersenArray(classHash)
 		data = append(data, classHash)
 
-		//Max Fee
+		// Max Fee
 		data = append(data, d.MaxFee)
 
 		// Chain Id

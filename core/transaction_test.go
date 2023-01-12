@@ -9,10 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-var (
-	//go:embed testdata/bytecode_declare.json
-	bytecodeDeclareTransBytes []byte
-)
+//go:embed testdata/bytecode_declare.json
+var bytecodeDeclareTransBytes []byte
 
 func TestDeployTransactions(t *testing.T) {
 	class := Class{}
