@@ -15,7 +15,7 @@ type Synchronizer struct {
 	Blockchain  *blockchain.Blockchain
 	DataSources []*starknetdata.StarkNetData
 
-	ExitChn chan struct{}
+	quit chan struct{}
 }
 
 func NewSynchronizer(bc *blockchain.Blockchain, sources []*starknetdata.StarkNetData) *Synchronizer {
@@ -24,7 +24,7 @@ func NewSynchronizer(bc *blockchain.Blockchain, sources []*starknetdata.StarkNet
 
 		Blockchain:  bc,
 		DataSources: sources,
-		ExitChn:     make(chan struct{}),
+		quit:        make(chan struct{}),
 	}
 }
 
@@ -36,12 +36,12 @@ func (l *Synchronizer) Run() error {
 	}
 	defer atomic.CompareAndSwapUint64(&l.running, 1, 0)
 
-	<-l.ExitChn // todo: work
+	<-l.quit
 	return nil
 }
 
 // Shutdown attempts to stop the Synchronizer, should block until loop acknowledges the request
 func (l *Synchronizer) Shutdown() error {
-	l.ExitChn <- struct{}{}
+	l.quit <- struct{}{}
 	return nil
 }
