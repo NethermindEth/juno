@@ -29,19 +29,19 @@ func NewSynchronizer(bc *blockchain.Blockchain, sources []*starknetdata.StarkNet
 }
 
 // Run starts the Synchronizer, returns an error if the loop is already running
-func (l *Synchronizer) Run() error {
-	running := atomic.CompareAndSwapUint64(&l.running, 0, 1)
+func (s *Synchronizer) Run() error {
+	running := atomic.CompareAndSwapUint64(&s.running, 0, 1)
 	if !running {
 		return errors.New("synchronizer is already running")
 	}
-	defer atomic.CompareAndSwapUint64(&l.running, 1, 0)
+	defer atomic.CompareAndSwapUint64(&s.running, 1, 0)
 
-	<-l.quit
+	<-s.quit
 	return nil
 }
 
 // Shutdown attempts to stop the Synchronizer, should block until loop acknowledges the request
-func (l *Synchronizer) Shutdown() error {
-	close(l.quit)
+func (s *Synchronizer) Shutdown() error {
+	close(s.quit)
 	return nil
 }
