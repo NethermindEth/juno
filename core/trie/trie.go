@@ -1,3 +1,4 @@
+// Package trie implements a dense Merkle Patricia Trie. See the documentation on [Trie] for details.
 package trie
 
 import (
@@ -27,22 +28,13 @@ type Storage interface {
 // Note that this dense implementation results in an equivalent commitment.
 //
 // Terminology:
-// - path: represents the path as mentioned in the specification
-// - len: represents the len as mentioned in the specification
-// - key: represents the storage key for trie [Node]s.
+//   - path: represents the path as defined in the specification. Together with len,
+//     represents a relative path from the current node to the node's nearest non-empty child.
+//   - len: represents the len as defined in the specification. The number of bits to take
+//     from the fixed-length path to reach the nearest non-empty child.
+//   - key: represents the storage key for trie [Node]s. It is the full path to the node from the
+//     root.
 //
-// Conceptually path of a node represents the route along the Trie to a non-empty node.
-// While len represents how many bits to interpret to traverse the trie to the non-empty node.
-// This is important especially when the path has multiple 0s in its most significant bits.
-//
-// The key serves multiple purposes:
-//   - It defines the route from the root of the trie node,
-//     where the len of the key defines how many bits to interpret for traversal.
-//   - It is the storage key for persistent storage.
-//
-// For a dense implementation of Merkle Trie key is required to maintain the Trie.
-// While path is used for commitment calculations. Path can be derived from the key, however,
-// key cannot be derived from path.
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
 	height  uint
