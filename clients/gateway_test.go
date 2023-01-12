@@ -592,3 +592,31 @@ func TestGetClassDefinition(t *testing.T) {
 		assert.NotNil(t, err)
 	})
 }
+
+func TestHttpError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	gatewayClient := NewGatewayClient(srv.URL)
+
+	t.Run("HTTP err in GetBlock", func(t *testing.T) {
+		_, err := gatewayClient.GetBlock(0)
+		assert.EqualError(t, err, "500 Internal Server Error")
+	})
+
+	t.Run("HTTP err in GetTransaction", func(t *testing.T) {
+		_, err := gatewayClient.GetTransaction(new(felt.Felt))
+		assert.EqualError(t, err, "500 Internal Server Error")
+	})
+
+	t.Run("HTTP err in GetClassDefinition", func(t *testing.T) {
+		_, err := gatewayClient.GetClassDefinition(new(felt.Felt))
+		assert.EqualError(t, err, "500 Internal Server Error")
+	})
+
+	t.Run("HTTP err in GetStateUpdate", func(t *testing.T) {
+		_, err := gatewayClient.GetStateUpdate(0)
+		assert.EqualError(t, err, "500 Internal Server Error")
+	})
+}
