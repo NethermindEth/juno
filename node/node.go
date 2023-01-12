@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-// notest
 type StarkNetNode interface {
 	Run() error
 	Shutdown() error
@@ -45,8 +44,8 @@ type Config struct {
 type Node struct {
 	cfg *Config
 
-	blockchain *blockchain.Blockchain
-	syncLoop   *sync.SyncLoop
+	blockchain   *blockchain.Blockchain
+	synchronizer *sync.Synchronizer
 }
 
 func New(cfg *Config) (StarkNetNode, error) {
@@ -63,20 +62,20 @@ func New(cfg *Config) (StarkNetNode, error) {
 
 	bc := blockchain.NewBlockchain()
 	return &Node{
-		cfg:        cfg,
-		blockchain: bc,
-		syncLoop:   sync.NewSyncLoop(bc, nil),
+		cfg:          cfg,
+		blockchain:   bc,
+		synchronizer: sync.NewSynchronizer(bc, nil),
 	}, nil
 }
 
 func (n *Node) Run() error {
 	log.Println("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
 
-	return n.syncLoop.Run()
+	return n.synchronizer.Run()
 }
 
 func (n *Node) Shutdown() error {
 	log.Println("Shutting down Juno...")
 
-	return n.syncLoop.Shutdown()
+	return n.synchronizer.Shutdown()
 }
