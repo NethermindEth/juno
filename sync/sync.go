@@ -42,6 +42,6 @@ func (l *Synchronizer) Run() error {
 
 // Shutdown attempts to stop the Synchronizer, should block until loop acknowledges the request
 func (l *Synchronizer) Shutdown() error {
-	l.quit <- struct{}{}
+	close(l.quit)
 	return nil
 }
