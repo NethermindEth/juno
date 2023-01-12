@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/core/blockchain"
-	"github.com/NethermindEth/juno/data_source"
+	"github.com/NethermindEth/juno/starknetdata"
 )
 
 // SyncLoop manages a list of DataSources to fetch the latest blockchain updates
@@ -13,12 +13,12 @@ type SyncLoop struct {
 	running uint64
 
 	Blockchain  *blockchain.Blockchain
-	DataSources []*datasource.DataSource
+	DataSources []*starknetdata.StarkNetData
 
 	ExitChn chan struct{}
 }
 
-func NewSyncLoop(bc *blockchain.Blockchain, sources []*datasource.DataSource) *SyncLoop {
+func NewSyncLoop(bc *blockchain.Blockchain, sources []*starknetdata.StarkNetData) *SyncLoop {
 	return &SyncLoop{
 		running: 0,
 
