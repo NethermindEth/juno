@@ -1,4 +1,4 @@
-package datasource
+package starknetdata
 
 import (
 	"errors"
