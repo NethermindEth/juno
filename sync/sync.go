@@ -8,23 +8,23 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
-// Synchronizer manages a list of DataSources to fetch the latest blockchain updates
+// Synchronizer manages a list of StarkNetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	running uint64
 
-	Blockchain  *blockchain.Blockchain
-	DataSources []*starknetdata.StarkNetData
+	Blockchain   *blockchain.Blockchain
+	StarkNetData starknetdata.StarkNetData
 
 	quit chan struct{}
 }
 
-func NewSynchronizer(bc *blockchain.Blockchain, sources []*starknetdata.StarkNetData) *Synchronizer {
+func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarkNetData) *Synchronizer {
 	return &Synchronizer{
 		running: 0,
 
-		Blockchain:  bc,
-		DataSources: sources,
-		quit:        make(chan struct{}),
+		Blockchain:   bc,
+		StarkNetData: starkNetData,
+		quit:         make(chan struct{}),
 	}
 }
 
