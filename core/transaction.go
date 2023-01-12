@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -175,20 +174,19 @@ type DeclareTransaction struct {
 func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	var data []*felt.Felt
 
+	// Declare Felt
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
-	fmt.Println("Declare felt: ", declareFelt)
 	data = append(data, declareFelt)
-	fmt.Println("Version: ", d.Version)
+
+	// Version Felt
 	data = append(data, d.Version)
 
 	// Sender Address
 	senderAddress := d.SenderAddress
-	fmt.Println("Sender Address: ", d.SenderAddress)
 	data = append(data, senderAddress)
 
 	// Zero Felt
 	zeroFelt := new(felt.Felt).SetBytes([]byte{0})
-	fmt.Println("Zero felt: ", zeroFelt)
 	data = append(data, zeroFelt)
 	if d.Version.IsZero() {
 		// Implement pedersen hash as defined here:
@@ -215,23 +213,19 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 
 		// Class Hash
 		classHash := d.Class.Hash()
-		fmt.Println("Calculated Class Hash: ", classHash)
 
 		// Calculate pedersen hash on class hash elements
 		classHash = crypto.PedersenArray(classHash)
 		data = append(data, classHash)
 
 		//Max Fee
-		fmt.Println("Max Fee: ", d.MaxFee)
 		data = append(data, d.MaxFee)
 
 		// Chain Id
 		chainIdFelt := new(felt.Felt).SetBytes(chainId)
-		fmt.Println("Chain ID: ", chainIdFelt)
 		data = append(data, chainIdFelt)
 
 		// Nonce
-		fmt.Println("Nonce: ", d.Nonce)
 		data = append(data, d.Nonce)
 
 		declareTransactionHash := crypto.PedersenArray(data...)

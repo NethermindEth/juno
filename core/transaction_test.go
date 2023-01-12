@@ -126,18 +126,6 @@ func TestInvokeTransactions(t *testing.T) {
 }
 
 func TestDeclareTransaction(t *testing.T) {
-	var bytecodeGenesis []*felt.Felt
-	if err := json.Unmarshal(bytecodeGenesisBytes, &bytecodeGenesis); err != nil {
-		t.Fatalf("unexpected error while unmarshalling bytecodeGenesisBytes: %s", err)
-	}
-	var bytecodeCairo08 []*felt.Felt
-	if err := json.Unmarshal(bytecodeCairo08Bytes, &bytecodeCairo08); err != nil {
-		t.Fatalf("unexpected error while unmarshalling bytecodeCairo08Bytes: %s", err)
-	}
-	var bytecodeCairo10 []*felt.Felt
-	if err := json.Unmarshal(bytecodeCairo10Bytes, &bytecodeCairo10); err != nil {
-		t.Fatalf("unexpected error while unmarshalling bytecodeBytes: %s", err)
-	}
 	var bytecodeDeclare []*felt.Felt
 	if err := json.Unmarshal(bytecodeDeclareTransBytes, &bytecodeDeclare); err != nil {
 		t.Fatalf("unexpected error while unmarshalling bytecodeBytes: %s", err)
@@ -176,13 +164,13 @@ func TestDeclareTransaction(t *testing.T) {
 			{Selector: hexToFelt("0x3da9c62205655e202173ec115b91229a1afafeb0329c0797d4a94c5d5de80fa"), Offset: hexToFelt("0x618")},
 			{Selector: hexToFelt("0x3e75033db4684c97865a0e4372cf714e5bad6437ec2e2d7b693019d0661f9ee"), Offset: hexToFelt("0x5dc")},
 		},
-		L1Handlers:   []EntryPoint{},
-		Constructors: []EntryPoint{},
+		L1Handlers:   make([]EntryPoint, 0),
+		Constructors: make([]EntryPoint, 0),
 		Builtins: []*felt.Felt{
 			new(felt.Felt).SetBytes([]byte("pedersen")),
 			new(felt.Felt).SetBytes([]byte("range_check")),
 		},
-		ProgramHash: new(felt.Felt).SetBytes([]byte("0x1f2c4b0f3fb0e1e30308b0d1dc58131d4f82b2a0df1bf637179f5754abee13a")),
+		ProgramHash: hexToFelt("0x1f2c4b0f3fb0e1e30308b0d1dc58131d4f82b2a0df1bf637179f5754abee13a"),
 		Bytecode:    bytecodeDeclare,
 	}
 
