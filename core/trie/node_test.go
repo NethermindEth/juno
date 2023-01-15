@@ -88,6 +88,64 @@ func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
 			})
 		}
 	})
+	t.Run("Test edge case with multiple left andor right node", func(t *testing.T) {
+		value, err := new(felt.Felt).SetRandom()
+		if err != nil {
+			t.Fatalf("expected no error but got %s", err)
+		}
+		path1 := bitset.FromWithLength(44, []uint64{11})
+		path2 := bitset.FromWithLength(22, []uint64{22})
+		path3 := bitset.FromWithLength(22, []uint64{33})
+		path4 := bitset.FromWithLength(22, []uint64{44})
+		flexiableMarshal := func(val *felt.Felt, left []bitset.BitSet, right []bitset.BitSet) []byte {
+			var ret []byte
+			valueB := val.Bytes()
+			ret = append(ret, valueB[:]...)
+			for _, ele := range left {
+				ret = append(ret, 'l')
+				leftB, _ := ele.MarshalBinary()
+				ret = append(ret, leftB...)
+			}
+
+			for _, ele := range right {
+				ret = append(ret, 'r')
+				rightB, _ := ele.MarshalBinary()
+				ret = append(ret, rightB...)
+			}
+			return ret
+		}
+
+		tests := [...]struct {
+			name       string
+			marshalBin []byte
+			errStr     string
+		}{
+			{
+				name:       "node with only 2 left child",
+				marshalBin: flexiableMarshal(value, []bitset.BitSet{*path1, *path2}, []bitset.BitSet{}),
+				errStr:     "malformed node: multiple left childs are not support",
+			},
+			{
+				name:       "node with only 2 right child",
+				marshalBin: flexiableMarshal(value, []bitset.BitSet{}, []bitset.BitSet{*path3, *path4}),
+				errStr:     "malformed node: multiple right childs are not support",
+			},
+			{
+				name:       "node with 2 left and 2 right child",
+				marshalBin: flexiableMarshal(value, []bitset.BitSet{*path1, *path2}, []bitset.BitSet{*path3, *path4}),
+				errStr:     "malformed node: multiple left childs are not support",
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				unmarshalled := new(Node)
+				err = unmarshalled.UnmarshalBinary(test.marshalBin)
+				if err.Error() != test.errStr {
+					t.Fatalf("expected error not right")
+				}
+			})
+		}
+	})
 	t.Run("error when unmarshalling malformed node", func(t *testing.T) {
 		malformedNode1 := new([felt.Bytes + 1]byte)
 		malformedNode1[felt.Bytes] = 'l'
