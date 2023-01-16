@@ -100,11 +100,7 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	data = data[felt.Bytes:]
 
 	stream := bytes.NewReader(data)
-	type Slot struct {
-		leftSlot  bool
-		rightSlot bool
-	}
-	slot := Slot{false, false}
+
 	for stream.Len() > 0 {
 		head, err := stream.ReadByte()
 		if err != nil {
@@ -114,16 +110,14 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 		var pathP **bitset.BitSet
 		switch head {
 		case 'l':
-			if !slot.leftSlot {
+			if n.left == nil {
 				pathP = &(n.left)
-				slot.leftSlot = true
 			} else {
 				return ErrMalformedNode{"multiple left childs are not support"}
 			}
 		case 'r':
-			if !slot.rightSlot {
+			if n.right == nil {
 				pathP = &(n.right)
-				slot.rightSlot = true
 			} else {
 				return ErrMalformedNode{"multiple right childs are not support"}
 			}
