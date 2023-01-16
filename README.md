@@ -49,23 +49,39 @@ make juno
 ```
 ## 🛣 Roadmap
 
-In the future we plan to add a new set of features like:
+### Phase 1
 
-- [Get and Sync state from Layer 1](https://gojuno.xyz/docs/features/sync) (Ethereum).
-- [Get and Sync state from API](https://gojuno.xyz/docs/features/sync) (Feeder Gateway).
-- Store [StarkNet State](https://gojuno.xyz/docs/features/sync) locally.
-- Store StarkNet Transactions.
-- Store StarkNet Blocks.
-- Store the ABI and full code of StarkNet contracts.
-- Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
-  [the v0.1.0 spec](https://github.com/starkware-libs/starknet-specs/blob/v0.1.0/api/starknet_api_openrpc.json).
-- [Prometheus Metrics](https://gojuno.xyz/docs/features/metrics).
-- [Dockerized app](https://gojuno.xyz/docs/running/docker).
-- P2P between all nodes on the network.
-- Complete support for v0.2.0 of the [RPC spec](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.1.0)
-- Faster sync
-- Enhanced metrics
-- And more! Stay tuned! 🚀
+* [X] Flat DB implementation of trie
+* [X] Go implementation of crypto primitives
+    * [X] Pedersen hash
+    * [X] StarkNet_Keccak
+    * [X] Felt
+* [ ] Feeder gateway synchronisation (in progress)
+    * [ ] State Update
+    * [ ] Blocks
+    * [ ] Transactions
+    * [ ] Class
+* [ ] Implement the following core data structures and their Hash calculations (in progress)
+    * [ ] Blocks
+    * [ ] Transactions and Transaction Receipts
+    * [ ] Contracts and Classes
+* [ ] Storing blocks, transactions, and State updates in local DB (in progress)
+* [ ] Basic RPC (in progress)
+    * [ ] `getBlockWithTxHashes`
+    * [ ] `getBlockWithTxs`
+    * [ ] `getBlockTransactionCount`
+    * [ ] `getTransactionByHash`
+    * [ ] `getTransactionByBlockIdAndIndex`
+
+### Phase 2
+
+* [ ] Integrate cairo rust-vm (discuss with lambda class, integrate starknet logic)
+* [ ] Verification
+    * [ ] L1 verification
+    * [ ] Execution of all transactions from feeder gateway
+* [ ] Full RPC (according to 0.11.0)
+* [ ] Start p2p discussions
+* [ ] Infura and Alchemy integrations
 
 ## 👍 Contribute
 
