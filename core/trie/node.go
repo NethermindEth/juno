@@ -88,11 +88,6 @@ func (n *Node) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary deserializes a [Node] from a byte array
 func (n *Node) UnmarshalBinary(data []byte) error {
-	// TODO: Implement and test the following edge cases:
-	//	- Unmarshalling a node with multiple left and right children.
-	//		Currently the assumption is that the node will only have at max 1 left and/or right
-	//		child. However if the UnmarshalBinary is called with multiple left and/or right child
-	//		in any order then UnmarshalBinary will still succeed.
 	if len(data) < felt.Bytes {
 		return ErrMalformedNode{"size of input data is less than felt size"}
 	}
@@ -114,6 +109,9 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 			pathP = &(n.right)
 		default:
 			return ErrMalformedNode{"unknown child node prefix"}
+		}
+		if *pathP != nil {
+			return ErrMalformedNode{"multiple children are not supported"}
 		}
 
 		*pathP = new(bitset.BitSet)
