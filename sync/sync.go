@@ -13,12 +13,12 @@ type SyncLoop struct {
 	running uint64
 
 	Blockchain  *blockchain.Blockchain
-	DataSources []*dataSource.DataSource
+	DataSources []*datasource.DataSource
 
 	ExitChn chan struct{}
 }
 
-func NewSyncLoop(bc *blockchain.Blockchain, sources []*dataSource.DataSource) *SyncLoop {
+func NewSyncLoop(bc *blockchain.Blockchain, sources []*datasource.DataSource) *SyncLoop {
 	return &SyncLoop{
 		running: 0,
 

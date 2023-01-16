@@ -1,4 +1,4 @@
-package dataSource
+package datasource
 
 import (
 	"encoding/json"
