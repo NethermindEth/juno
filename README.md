@@ -33,16 +33,12 @@
 
 
 <p align="center">
-  <b>Juno</b> is a <a href="https://starknet.io/">StarkNet</a> node implementation written in <a href="https://go.dev/doc/">Golang</a> by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising StarkNet.
+  <b>Juno</b> is a golang <a href="https://starknet.io/">StarkNet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising StarkNet.
 </p>
 
 ## ⚙️ Installation
 
-### Dependencies
-
-- Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang
-  [download](https://go.dev/doc/install) page.
-- Python 3.7
+Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang [download](https://go.dev/doc/install) page.
 
 ```
 make juno
@@ -85,13 +81,14 @@ make juno
 
 ## 👍 Contribute
 
-If you want to say **thank you** and/or support the active development of `Juno`:
+We welcome PRs from external contributors and would love to help you get up to speed.
+Let us know you're interested in the [Discord server](https://discord.gg/TcHbSZ9ATd) and we can discuss good first issues.
+There are also many other ways to contribute. Here are some ideas:
 
-1. Run a node.
-2. Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
-3. Tweet about`Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum).
-4. Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
-5. Add Pull Request for a new feature.
+* Run a node.
+* Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
+* [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
+* Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
 
 ## 🤝 Partnerships
 
@@ -100,7 +97,6 @@ via [email](mailto:juno@nethermind.io).
 
 ## ⚠️ License
 
-Copyright (c) 2022-present, with the following [contributors](https://github.com/NethermindEth/juno/graphs/contributors)
-.
-`Juno` is open-source software licensed under
-the [Apache-2.0 License](https://github.com/NethermindEth/juno/blob/main/LICENSE).
+Copyright (c) 2022-present, with the following [contributors](https://github.com/NethermindEth/juno/graphs/contributors).
+
+Juno is open-source software licensed under the [Apache-2.0 License](https://github.com/NethermindEth/juno/blob/main/LICENSE).
