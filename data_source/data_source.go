@@ -1,4 +1,4 @@
-package dataSource
+package datasource
 
 import (
 	"github.com/NethermindEth/juno/core"
