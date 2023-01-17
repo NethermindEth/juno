@@ -7,8 +7,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
-=======
->>>>>>> develop
 
 type Felt struct {
 	val fp.Element
