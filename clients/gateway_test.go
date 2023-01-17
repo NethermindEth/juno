@@ -3,6 +3,9 @@ package clients
 import (
 	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"reflect"
 	"testing"
@@ -25,14 +28,18 @@ func TestStateUpdateUnmarshal(t *testing.T) {
         }
       ]
     },
-    "nonces": {},
+    "nonces": { 
+		"0x37" : "0x44"
+	},
     "deployed_contracts": [
       {
         "address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
         "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
       }
 	],
-    "declared_contracts": []
+    "declared_contracts": [
+		"0x3744"
+	]
   }
 }`)
 
@@ -61,6 +68,16 @@ func TestStateUpdateUnmarshal(t *testing.T) {
 	assert.Equal(t, true, update.StateDiff.DeployedContracts[0].Address.Equal(expected))
 	expected, _ = new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	assert.Equal(t, true, update.StateDiff.DeployedContracts[0].ClassHash.Equal(expected))
+
+	assert.Equal(t, 1, len(update.StateDiff.DeclaredContracts))
+	expected, _ = new(felt.Felt).SetString("0x3744")
+	assert.Equal(t, true, update.StateDiff.DeclaredContracts[0].Equal(expected))
+
+	assert.Equal(t, 1, len(update.StateDiff.Nonces))
+	expected, _ = new(felt.Felt).SetString("0x44")
+	value, ok := update.StateDiff.Nonces["0x37"]
+	assert.Equal(t, true, ok)
+	assert.Equal(t, true, value.Equal(expected))
 }
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
@@ -245,7 +262,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockUnmarshal(t *testing.T) {
-	blockJson, err := os.ReadFile("block_11817.json")
+	blockJson, err := os.ReadFile("testdata/block_11817.json")
 	if err != nil {
 		t.Error(err)
 	}
@@ -270,7 +287,7 @@ func TestBlockUnmarshal(t *testing.T) {
 }
 
 func TestClassUnmarshal(t *testing.T) {
-	classJson, err := os.ReadFile("class_01efa8f8.json")
+	classJson, err := os.ReadFile("testdata/class_01efa8f8.json")
 	if err != nil {
 		t.Error(err)
 	}
@@ -289,6 +306,294 @@ func TestClassUnmarshal(t *testing.T) {
 	assert.Equal(t, 250, len(class.Program.Data))
 	assert.Equal(t, []string{"pedersen", "range_check"}, class.Program.Builtins)
 	assert.Equal(t, "0.10.1", class.Program.CompilerVersion)
+}
+
+func TestNewGatewayClient(t *testing.T) {
+	baseUrl := "https://mock_gateway.io"
+	gatewayClient := NewGatewayClient(baseUrl)
+	assert.Equal(t, baseUrl+feederGatewayPath, gatewayClient.baseUrl)
+}
+
+func TestBuildQueryString(t *testing.T) {
+	baseUrl := "https://mock_gateway.io"
+	gatewayClient := NewGatewayClient(baseUrl)
+	endpoint := ""
+	args := make(map[string]string)
+	args["a"] = "b"
+	query := gatewayClient.buildQueryString(endpoint, args)
+	feederGatewayUrl := baseUrl + feederGatewayPath
+	assert.Equal(t, feederGatewayUrl, gatewayClient.baseUrl)
+	assert.Equal(t, feederGatewayUrl+"?a=b", query)
+}
+
+func TestBuildQueryString_WithErrorUrl(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	baseUrl := "https\t://mock_gateway.io"
+	gatewayClient := NewGatewayClient(baseUrl)
+	gatewayClient.buildQueryString("/test_fail", map[string]string{})
+}
+
+func TestGetStateUpdate(t *testing.T) {
+	jsonData := []byte(`{
+		"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+		"new_root": "021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6",
+		"old_root": "0000000000000000000000000000000000000000000000000000000000000000",
+		"state_diff": {
+		  "storage_diffs": {
+			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6": [
+			  {
+				"key": "0x5",
+				"value": "0x22b"
+			  }
+			]
+		  },
+		  "nonces": {
+			"0x37" : "0x44"
+		  },
+		  "deployed_contracts": [
+			{
+			  "address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+			  "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
+			}
+		  ],
+		  "declared_contracts": [
+				"0x3744"
+		  ]
+		}
+	  }`)
+
+	var update StateUpdate
+	err := json.Unmarshal(jsonData, &update)
+	assert.Equal(t, nil, err, "Unexpected error")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case feederGatewayPath + "get_state_update":
+			{
+				queryMap, err := url.ParseQuery(r.URL.RawQuery)
+				assert.Equal(t, nil, err, "No Query value")
+				queryBlockNumebr := queryMap["blockNumber"]
+				t.Log(queryBlockNumebr[0])
+				if queryBlockNumebr[0] == "10" {
+					w.WriteHeader(200)
+					marshedUpdate, _ := json.Marshal(update)
+					w.Write(marshedUpdate)
+				} else {
+					w.WriteHeader(404)
+				}
+			}
+		}
+	}))
+	defer srv.Close()
+	gatewayClient := NewGatewayClient(srv.URL)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		stateUpdate, err := gatewayClient.GetStateUpdate(10)
+		assert.Equal(t, nil, err, "Unexpected error")
+		assert.Equal(t, update, *stateUpdate)
+	})
+	t.Run("Test block number out of boundary", func(t *testing.T) {
+		stateUpdate, err := gatewayClient.GetStateUpdate(1000000)
+		assert.Nil(t, stateUpdate, "Unexpected error")
+		assert.NotNil(t, err)
+	})
+}
+
+func TestGet(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/normal_get" {
+			w.WriteHeader(200)
+			w.Write([]byte(r.URL.Path))
+		} else {
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	t.Run("Test normal get", func(t *testing.T) {
+		gatewayClient := NewGatewayClient(srv.URL)
+		expectPath := "/normal_get"
+		path, err := gatewayClient.get(srv.URL + expectPath)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, expectPath, string(path))
+	})
+	t.Run("Test unnormal get", func(t *testing.T) {
+		gatewayClient := NewGatewayClient(srv.URL)
+		expectPath := "/unnormal_get"
+		path, err := gatewayClient.get("https\t://" + expectPath)
+		assert.Nil(t, path)
+		assert.NotNil(t, err)
+	})
+}
+
+func TestGetTransaction(t *testing.T) {
+	jsonTransactionStatus := []byte(`{
+		"block_hash": "0x0",
+		"block_number": 0,
+		"status": "ACCEPTED_ON_L2",
+		"transaction": {
+			"calldata": [
+				"0x1",
+				"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+				"0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320",
+				"0x0",
+				"0x1",
+				"0x1",
+				"0x4d2"
+			],
+			"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+			"max_fee": "0x0",
+			"nonce": "0x3",
+			"signature": [
+				"0x26ee1f973def2e6d5c7f32aaad96c84dab32df6a62ee0e8b530a72bc5478fe6",
+				"0x502b15e440cc2a8a1966f0c973015096715e366fde36a4659c56f84249688e"
+			],
+			"transaction_hash": "0x69d743891f69d758928e163eff1e3d7256752f549f134974d4aa8d26d5d7da8",
+			"type": "INVOKE_FUNCTION",
+			"version": "0x1"
+		},
+		"transaction_index": 1
+	}
+	`)
+	var transactionStatus TransactionStatus
+	err := json.Unmarshal(jsonTransactionStatus, &transactionStatus)
+	assert.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case feederGatewayPath + "get_transaction":
+			{
+				queryMap, err := url.ParseQuery(r.URL.RawQuery)
+				assert.Equal(t, nil, err, "No Query value")
+				transactionHash := queryMap["transactionHash"]
+				t.Log(transactionHash[0])
+				if transactionHash[0] == "0x0" {
+					w.WriteHeader(200)
+					marshaledStr, _ := json.Marshal(transactionStatus)
+					w.Write(marshaledStr)
+
+				} else {
+					w.WriteHeader(404)
+				}
+			}
+		}
+	}))
+	defer srv.Close()
+	t.Run("Test normal case", func(t *testing.T) {
+		transaction_hash, _ := new(felt.Felt).SetString("0x00")
+		gatewayClient := NewGatewayClient(srv.URL)
+		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
+		assert.Equal(t, nil, err, "Unexpected error")
+		assert.Equal(t, *actualStatus, transactionStatus)
+	})
+	t.Run("Test case when transaction_hash not exit", func(t *testing.T) {
+		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
+		gatewayClient := NewGatewayClient(srv.URL)
+		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
+		assert.Nil(t, actualStatus, "Unexpected error")
+		assert.NotNil(t, err)
+	})
+}
+
+func TestGetBlock(t *testing.T) {
+	blockJson, err := os.ReadFile("testdata/block_11817.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var block Block
+	err = json.Unmarshal(blockJson, &block)
+	if err != nil {
+		t.Error(err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case feederGatewayPath + "get_block":
+			{
+				queryMap, err := url.ParseQuery(r.URL.RawQuery)
+				assert.Equal(t, nil, err, "No Query value")
+				queryBlockNumebr := queryMap["blockNumber"]
+				t.Log(queryBlockNumebr[0])
+				if queryBlockNumebr[0] == "11817" {
+					w.WriteHeader(200)
+					marshaledStr, _ := json.Marshal(block)
+					w.Write(marshaledStr)
+				} else {
+					w.WriteHeader(404)
+				}
+			}
+		}
+	}))
+	defer srv.Close()
+	gatewayClient := NewGatewayClient(srv.URL)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		blcokNumber := uint64(11817)
+		actualBlock, err := gatewayClient.GetBlock(blcokNumber)
+		assert.Equal(t, nil, err, "Unexpected error")
+		assert.Equal(t, *actualBlock, block)
+	})
+	t.Run("Test block number out of boundary", func(t *testing.T) {
+		blcokNumber := uint64(1000000)
+
+		actualBlock, err := gatewayClient.GetBlock(blcokNumber)
+		assert.Nil(t, actualBlock, "Unexpected error")
+		assert.NotNil(t, err)
+	})
+}
+
+func TestGetClassDefinition(t *testing.T) {
+	classJson, err := os.ReadFile("testdata/class_01efa8f8.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	var class ClassDefinition
+	err = json.Unmarshal(classJson, &class)
+	if err != nil {
+		t.Error(err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case feederGatewayPath + "get_class_by_hash":
+			{
+				queryMap, err := url.ParseQuery(r.URL.RawQuery)
+				assert.Equal(t, nil, err, "No Query value")
+				classHash := queryMap["classHash"]
+				t.Log(classHash[0])
+				inputClassFelt, _ := new(felt.Felt).SetString(classHash[0])
+				serverClassFelt, _ := new(felt.Felt).SetString("0x01efa8f8")
+				if inputClassFelt.Equal(serverClassFelt) {
+					w.WriteHeader(200)
+					marshaledStr, _ := json.Marshal(class)
+					w.Write(marshaledStr)
+				} else {
+					w.WriteHeader(404)
+				}
+			}
+		}
+	}))
+	defer srv.Close()
+	gatewayClient := NewGatewayClient(srv.URL)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		classHash, _ := new(felt.Felt).SetString("0x01efa8f8")
+
+		actualClass, err := gatewayClient.GetClassDefinition(classHash)
+		assert.Equal(t, nil, err, "Unexpected error")
+		assert.Equal(t, *actualClass, class)
+	})
+	t.Run("Test classHash not find", func(t *testing.T) {
+		classHash, _ := new(felt.Felt).SetString("0x000")
+		actualClass, err := gatewayClient.GetClassDefinition(classHash)
+		assert.Nil(t, actualClass, "Unexpected error")
+		assert.NotNil(t, err)
+	})
 }
 
 func TestTransactionReceiptUnmarshal(t *testing.T) {

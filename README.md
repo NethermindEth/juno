@@ -33,49 +33,62 @@
 
 
 <p align="center">
-  <b>Juno</b> is a <a href="https://starknet.io/">StarkNet</a> node implementation written in <a href="https://go.dev/doc/">Golang</a> by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising StarkNet.
+  <b>Juno</b> is a golang <a href="https://starknet.io/">StarkNet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising StarkNet.
 </p>
 
 ## ⚙️ Installation
 
-### Dependencies
-
-- Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang
-  [download](https://go.dev/doc/install) page.
-- Python 3.7
+Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang [download](https://go.dev/doc/install) page.
 
 ```
 make juno
 ```
 ## 🛣 Roadmap
 
-In the future we plan to add a new set of features like:
+### Phase 1
 
-- [Get and Sync state from Layer 1](https://gojuno.xyz/docs/features/sync) (Ethereum).
-- [Get and Sync state from API](https://gojuno.xyz/docs/features/sync) (Feeder Gateway).
-- Store [StarkNet State](https://gojuno.xyz/docs/features/sync) locally.
-- Store StarkNet Transactions.
-- Store StarkNet Blocks.
-- Store the ABI and full code of StarkNet contracts.
-- Ethereum-like [Json RPC Server](https://gojuno.xyz/docs/features/rpc) following
-  [the v0.1.0 spec](https://github.com/starkware-libs/starknet-specs/blob/v0.1.0/api/starknet_api_openrpc.json).
-- [Prometheus Metrics](https://gojuno.xyz/docs/features/metrics).
-- [Dockerized app](https://gojuno.xyz/docs/running/docker).
-- P2P between all nodes on the network.
-- Complete support for v0.2.0 of the [RPC spec](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.1.0)
-- Faster sync
-- Enhanced metrics
-- And more! Stay tuned! 🚀
+* [X] Flat DB implementation of trie
+* [X] Go implementation of crypto primitives
+    * [X] Pedersen hash
+    * [X] StarkNet_Keccak
+    * [X] Felt
+* [ ] Feeder gateway synchronisation (in progress)
+    * [ ] State Update
+    * [ ] Blocks
+    * [ ] Transactions
+    * [ ] Class
+* [ ] Implement the following core data structures and their Hash calculations (in progress)
+    * [ ] Blocks
+    * [ ] Transactions and Transaction Receipts
+    * [ ] Contracts and Classes
+* [ ] Storing blocks, transactions, and State updates in local DB (in progress)
+* [ ] Basic RPC (in progress)
+    * [ ] `getBlockWithTxHashes`
+    * [ ] `getBlockWithTxs`
+    * [ ] `getBlockTransactionCount`
+    * [ ] `getTransactionByHash`
+    * [ ] `getTransactionByBlockIdAndIndex`
+
+### Phase 2
+
+* [ ] Integrate cairo rust-vm (discuss with lambda class, integrate starknet logic)
+* [ ] Verification
+    * [ ] L1 verification
+    * [ ] Execution of all transactions from feeder gateway
+* [ ] Full RPC (according to 0.11.0)
+* [ ] Start p2p discussions
+* [ ] Infura and Alchemy integrations
 
 ## 👍 Contribute
 
-If you want to say **thank you** and/or support the active development of `Juno`:
+We welcome PRs from external contributors and would love to help you get up to speed.
+Let us know you're interested in the [Discord server](https://discord.gg/TcHbSZ9ATd) and we can discuss good first issues.
+There are also many other ways to contribute. Here are some ideas:
 
-1. Run a node.
-2. Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
-3. Tweet about`Juno` [on your Twitter](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum).
-4. Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
-5. Add Pull Request for a new feature.
+* Run a node.
+* Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
+* [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
+* Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
 
 ## 🤝 Partnerships
 
@@ -84,7 +97,6 @@ via [email](mailto:juno@nethermind.io).
 
 ## ⚠️ License
 
-Copyright (c) 2022-present, with the following [contributors](https://github.com/NethermindEth/juno/graphs/contributors)
-.
-`Juno` is open-source software licensed under
-the [Apache-2.0 License](https://github.com/NethermindEth/juno/blob/main/LICENSE).
+Copyright (c) 2022-present, with the following [contributors](https://github.com/NethermindEth/juno/graphs/contributors).
+
+Juno is open-source software licensed under the [Apache-2.0 License](https://github.com/NethermindEth/juno/blob/main/LICENSE).

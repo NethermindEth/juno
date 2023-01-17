@@ -11,13 +11,15 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+const feederGatewayPath = "/feeder_gateway/"
+
 type GatewayClient struct {
 	baseUrl string
 }
 
 func NewGatewayClient(baseUrl string) *GatewayClient {
 	return &GatewayClient{
-		baseUrl: baseUrl,
+		baseUrl: baseUrl + feederGatewayPath,
 	}
 }
 
@@ -62,12 +64,12 @@ type StateUpdate struct {
 			Value *felt.Felt `json:"value"`
 		} `json:"storage_diffs"`
 
-		Nonces            interface{} `json:"nonces"` // todo: define
+		Nonces            map[string]*felt.Felt `json:"nonces"`
 		DeployedContracts []struct {
 			Address   *felt.Felt `json:"address"`
 			ClassHash *felt.Felt `json:"class_hash"`
 		} `json:"deployed_contracts"`
-		DeclaredContracts interface{} `json:"declared_contracts"` // todo: define
+		DeclaredContracts []*felt.Felt `json:"declared_contracts"`
 	} `json:"state_diff"`
 }
 
