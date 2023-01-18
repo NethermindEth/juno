@@ -21,11 +21,12 @@ func TestBlockHash(t *testing.T) {
 	tests := []struct {
 		block   *Block
 		chain   utils.Network
+		name    string
 		want    string
 		wantErr bool
 	}{
 		{
-			// Post 0.7.0 with sequencer address
+			// block 231579: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x40ffdbd9abbc4fc64652c50db94a29bce65c183316f304a95df624de708e746",
 			&Block{
 				hexToFelt("0x2e304af9a165977b79298abe812607a2d5044d278bd784f245e3cb21d7a77e8"),
@@ -41,11 +42,12 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			0,
+			"goerli network (post 0.7.0 with sequencer address)",
 			"0x40ffdbd9abbc4fc64652c50db94a29bce65c183316f304a95df624de708e746",
 			false,
 		},
 		{
-			// Post 0.7.0 without sequencer address
+			// block 156000: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=156000",
 			&Block{
 				hexToFelt("0x331e6b9d99341aba27113ff30bd211b84194e87f2a8fe41f3485ca91b3e047b"),
@@ -61,17 +63,18 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			0,
+			"goerli network (post 0.7.0 without sequencer address)",
 			"0x1288267b119adefd52795c3421f8fabba78f49e911f39c1fb2f4e5eb8fb771",
 			false,
 		},
 		{
-			// block 1: pre 0.7.0
+			// block 1: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=1",
 			&Block{
 				hexToFelt("0x7d328a71faf48c5c3857e99f20a77b18522480956d1cd5bff1ff2df3c8b427b"),
 				1,
 				hexToFelt("0x3f04ffa63e188d602796505a2ee4f6e1f294ee29a914b057af8e75b17259d9f"),
-				hexToFelt(""),
+				nil,
 				uintToFelt(1636989916),
 				uintToFelt(4),
 				hexToFelt("0x18bb7d6c1c558aa0a025f08a7d723a44b13008ffb444c432077f319a7f4897c"),
@@ -81,6 +84,7 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			0,
+			"goerli network (pre 0.7.0 without sequencer address)",
 			"0x75e00250d4343326f322e370df4c9c73c7be105ad9f532eeb97891a34d9e4a5",
 			false,
 		},
@@ -101,6 +105,7 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			1,
+			"mainnet (post 0.7.0 with sequencer address)",
 			"0x157b9e756f15e002e63580dddb8c8e342b9336c6d69a8cd6dc8eb8a75644040",
 			false,
 		},
@@ -111,7 +116,7 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt("0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279"),
 				1,
 				hexToFelt("0x074abfb3f55d3f9c3967014e1a5ec7205949130ff8912dba0565daf70299144c"),
-				hexToFelt(""),
+				nil,
 				uintToFelt(1638978017),
 				uintToFelt(4),
 				hexToFelt("0xbf11745df434cbd284e13ca36354139a4bca2f6722e737c6136590990c8619"),
@@ -121,17 +126,18 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			3,
+			"integration network (pre 0.7.0 without sequencer address)",
 			"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
 			true,
 		},
 		{
-			// block 119802: Goerli
+			// block 119802: goerli
 			// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=119802
 			&Block{
 				hexToFelt("0x3947adfc82697eaff29275eb4dba13c8e9d606d24246507d9c2faf8321f3c6b"),
 				119802,
 				hexToFelt("0x12c1e72707cd8a1226728aa8dee7fe70d281b482da5997c13db7c8746f9e8c0"),
-				hexToFelt(""),
+				nil,
 				uintToFelt(1647251113),
 				uintToFelt(24),
 				hexToFelt("0x3d31908e135bac6a6cea1eba760e845ba8e78b4970a5f7265b7792fb5a19470"),
@@ -141,11 +147,12 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			0,
+			"goerli network (post 0.7.0 without sequencer address)",
 			"0x62483d7a29a2aae440c4418e5ddf5acdbacc391af959d681e2dc9441b2895b6",
 			true,
 		},
 		{
-			// block 10: Goerli2
+			// block 10: goerli2
 			// https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=10
 			&Block{
 				hexToFelt("0x57467bd9f04b75e138357376d1f705604e0044fd677f7c12bbdfb9819d31b51"),
@@ -161,19 +168,21 @@ func TestBlockHash(t *testing.T) {
 				hexToFelt(""),
 			},
 			2,
+			"goerli2 network (post 0.7.0 with sequencer address)",
 			"0x6902dad2e7ad976c59e032825b43474097396ad4a323d3782ede467540085f5",
 			false,
 		},
 	}
 
 	for _, tt := range tests {
-		got, err := tt.block.Hash(tt.chain)
-		if (err != nil) != tt.wantErr {
-			t.Errorf("got error %v, want error %v", err, tt.wantErr)
-		}
-		if !tt.wantErr && ("0x"+(got.Text(16)) != tt.want) {
-			t.Errorf("got %s, want %s", "0x"+got.Text(16), tt.want)
-		}
-
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.block.Hash(tt.chain)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("got error %v, want error %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && ("0x"+(got.Text(16)) != tt.want) {
+				t.Errorf("got %s, want %s", "0x"+got.Text(16), tt.want)
+			}
+		})
 	}
 }
