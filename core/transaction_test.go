@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/test-go/testify/assert"
 )
 
 var (
@@ -40,13 +39,18 @@ func TestDeployTransactions(t *testing.T) {
 			},
 			CallerAddress: new(felt.Felt).SetUint64(0),
 			Version:       new(felt.Felt).SetUint64(0),
-		}, want: hexToFelt("0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0")}}
+		}, want: hexToFelt("0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0")},
+	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			transactionHash, err := test.input.Hash([]byte("SN_MAIN"))
-			assert.Nil(t, err, "expected no error but got %s", err)
-			assert.Equal(t, test.want, transactionHash, "Transaction Hash got %s, want %s", transactionHash.Text(16), test.want.Text(16))
+			if err != nil {
+				t.Errorf("no error expected but got %v", err)
+			}
+			if !transactionHash.Equal(test.want) {
+				t.Errorf("wrong hash: got %s, want %s", transactionHash.Text(16), test.want.Text(16))
+			}
 		})
 	}
 }
@@ -109,8 +113,12 @@ func TestInvokeTransactions(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			transactionHash, err := test.input.Hash([]byte("SN_MAIN"))
-			assert.Nil(t, err, "expected no error but got %s", err)
-			assert.Equal(t, test.want, transactionHash, "Transaction Hash got %s, want %s", transactionHash.Text(16), test.want.Text(16))
+			if err != nil {
+				t.Errorf("no error expected but got %v", err)
+			}
+			if !transactionHash.Equal(test.want) {
+				t.Errorf("wrong hash: got %s, want %s", transactionHash.Text(16), test.want.Text(16))
+			}
 		})
 	}
 }
@@ -217,14 +225,19 @@ func TestDeclareTransaction(t *testing.T) {
 				MaxFee:        hexToFelt("0xf6dbd653833"),
 				Version:       new(felt.Felt).SetUint64(1),
 			},
-			want: hexToFelt("0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")},
+			want: hexToFelt("0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae"),
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			transactionHash, err := test.input.Hash([]byte("SN_MAIN"))
-			assert.Nil(t, err, "expected no error but got %s", err)
-			assert.Equal(t, test.want, transactionHash, "Transaction Hash got %s, want %s", transactionHash.Text(16), test.want.Text(16))
+			if err != nil {
+				t.Errorf("no error expected but got %v", err)
+			}
+			if !transactionHash.Equal(test.want) {
+				t.Errorf("wrong hash: got %s, want %s", transactionHash.Text(16), test.want.Text(16))
+			}
 		})
 	}
 }
