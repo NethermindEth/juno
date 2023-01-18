@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -135,25 +134,12 @@ type InvokeTransaction struct {
 func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
 	if i.Version.IsZero() {
-		fmt.Println("InvokeFelt: ", invokeFelt)
-		fmt.Println("Version: ", i.Version)
-		fmt.Println("ContractAddress: ", i.ContractAddress)
-		fmt.Println("EntryPoint: ", i.EntryPointSelector)
-		fmt.Println("CallData: ", i.CallData)
-		fmt.Println("CallDataHash: ", crypto.PedersenArray(i.CallData...))
-		fmt.Println("MaxFee: ", i.MaxFee)
-		fmt.Println("chainId: ", new(felt.Felt).SetBytes(chainId))
-		fmt.Println("Additional Data: ", crypto.PedersenArray())
 		return crypto.PedersenArray(
 			invokeFelt,
-			i.Version,
 			i.ContractAddress,
 			i.EntryPointSelector,
 			crypto.PedersenArray(i.CallData...),
-			i.MaxFee,
 			new(felt.Felt).SetBytes(chainId),
-			// crypto.PedersenArray(make([]*felt.Felt, 0)...),
-			// new(felt.Felt),
 		), nil
 	} else if i.Version.IsOne() {
 		return crypto.PedersenArray(

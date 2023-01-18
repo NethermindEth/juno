@@ -58,15 +58,18 @@ func TestInvokeTransactions(t *testing.T) {
 	}{
 		"Invoke transaction version 0": {
 			input: InvokeTransaction{
-				ContractAddress:    hexToFelt("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6"),
-				EntryPointSelector: hexToFelt("0x12ead94ae9d3f9d2bdb6b847cf255f1f398193a1f88884a0ae8e18f24a037b6"),
+				ContractAddress:    hexToFelt("0x43324c97e376d7d164abded1af1e73e9ce8214249f711edb7059c1ca34560e8"),
+				EntryPointSelector: hexToFelt("0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f"),
 				CallData: [](*felt.Felt){
-					hexToFelt("0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba"),
+					hexToFelt("0x1b654cb59f978da2eee76635158e5ff1399bf607cb2d05e3e3b4e41d7660ca2"),
+					hexToFelt("0x2"),
+					hexToFelt("0x5f743efdb29609bfc2002041bdd5c72257c0c6b5c268fc929a3e516c171c731"),
+					hexToFelt("0x635afb0ea6c4cdddf93f42287b45b67acee4f08c6f6c53589e004e118491546"),
 				},
 				MaxFee:  hexToFelt("0x0"),
 				Version: new(felt.Felt).SetUint64(0),
 			},
-			want: hexToFelt("0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624"),
+			want: hexToFelt("0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 		},
 		"Invoke transaction version 1": {
 			input: InvokeTransaction{
@@ -107,7 +110,7 @@ func TestInvokeTransactions(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			transactionHash, err := test.input.Hash([]byte("SN_MAIN"))
 			assert.Nil(t, err, "expected no error but got %s", err)
-			assert.Equal(t, test.want, transactionHash, "Transaction Hash got %s, want %s", transactionHash, test.want)
+			assert.Equal(t, test.want, transactionHash, "Transaction Hash got %s, want %s", transactionHash.Text(16), test.want.Text(16))
 		})
 	}
 }
