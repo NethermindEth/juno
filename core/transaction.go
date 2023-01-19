@@ -76,7 +76,7 @@ type DeployTransaction struct {
 	// The object that defines the contract’s functionality.
 	Class Class
 	// The arguments passed to the constructor during deployment.
-	ConstructorCalldata []*felt.Felt
+	ConstructorCallData []*felt.Felt
 	// Who invoked the deployment. Set to 0 (in future: the deploying account contract).
 	CallerAddress *felt.Felt
 	// The transaction’s version. Possible values are 1 or 0.
@@ -89,9 +89,7 @@ type DeployTransaction struct {
 }
 
 func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
-	// Implemented pedersen hash as defined here:
-	// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_deploy_transaction
-	snKeccakContructor, err := crypto.StarkNetKeccak([]byte("constructor"))
+	snKeccakConstructor, err := crypto.StarkNetKeccak([]byte("constructor"))
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +97,8 @@ func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		new(felt.Felt).SetBytes([]byte("deploy")),
 		d.Version,
 		d.ContractAddress,
-		snKeccakContructor,
-		crypto.PedersenArray(d.ConstructorCalldata...),
+		snKeccakConstructor,
+		crypto.PedersenArray(d.ConstructorCallData...),
 		new(felt.Felt),
 		new(felt.Felt).SetBytes(chainId),
 	), nil
@@ -118,8 +116,7 @@ type InvokeTransaction struct {
 	SenderAddress *felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
-
-	// The arguments that are passed to the validate and execute functions.
+	// The arguments that are passed to the validated and execute functions.
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	Signature []*felt.Felt
@@ -176,7 +173,6 @@ type DeclareTransaction struct {
 }
 
 func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
-	// Declare Felt
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
 	if d.Version.IsZero() {
 		return crypto.PedersenArray(

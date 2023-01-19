@@ -25,7 +25,7 @@ func TestDeployTransactions(t *testing.T) {
 			ContractAddress:     hexToFelt("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3"),
 			ContractAddressSalt: hexToFelt("0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b"),
 			Class:               Class{},
-			ConstructorCalldata: [](*felt.Felt){
+			ConstructorCallData: [](*felt.Felt){
 				hexToFelt("0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4"),
 				hexToFelt("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
 				hexToFelt("0x2"),
