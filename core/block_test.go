@@ -9,11 +9,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func hexToFelt(hex string) *felt.Felt {
-	f, _ := new(felt.Felt).SetString(hex)
-	return f
-}
-
 func TestBlockHash(t *testing.T) {
 	uintToFelt := func(uint uint) *felt.Felt {
 		f := new(felt.Felt).SetUint64(uint64(uint))
