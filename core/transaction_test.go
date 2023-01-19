@@ -15,12 +15,6 @@ var (
 	bytecodeV1DeclareTransBytes []byte
 )
 
-// We know our test hex values are valid, so we'll ignore the potential error
-func hexToFelt(hex string) *felt.Felt {
-	f, _ := new(felt.Felt).SetString(hex)
-	return f
-}
-
 func TestDeployTransactions(t *testing.T) {
 	tests := map[string]struct {
 		input DeployTransaction
