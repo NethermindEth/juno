@@ -26,6 +26,7 @@ func TestDeployTransactions(t *testing.T) {
 		input DeployTransaction
 		want  *felt.Felt
 	}{
+		// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0
 		"Deploy transaction": {input: DeployTransaction{
 			ContractAddress:     hexToFelt("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3"),
 			ContractAddressSalt: hexToFelt("0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b"),
@@ -60,6 +61,7 @@ func TestInvokeTransactions(t *testing.T) {
 		input InvokeTransaction
 		want  *felt.Felt
 	}{
+		// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e
 		"Invoke transaction version 0": {
 			input: InvokeTransaction{
 				ContractAddress:    hexToFelt("0x43324c97e376d7d164abded1af1e73e9ce8214249f711edb7059c1ca34560e8"),
@@ -75,6 +77,7 @@ func TestInvokeTransactions(t *testing.T) {
 			},
 			want: hexToFelt("0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 		},
+		// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497
 		"Invoke transaction version 1": {
 			input: InvokeTransaction{
 				ContractAddress: hexToFelt("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3"),
@@ -138,8 +141,10 @@ func TestDeclareTransaction(t *testing.T) {
 		input DeclareTransaction
 		want  *felt.Felt
 	}{
+		// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4
 		"Declare transaction version 0": {
 			input: DeclareTransaction{
+				// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0
 				Class: Class{
 					APIVersion: new(felt.Felt),
 					Externals: []EntryPoint{
@@ -178,8 +183,10 @@ func TestDeclareTransaction(t *testing.T) {
 			},
 			want: hexToFelt("0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4"),
 		},
+		// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae
 		"Declare transaction version 1": {
 			input: DeclareTransaction{
+				// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x7aed6898458c4ed1d720d43e342381b25668ec7c3e8837f761051bf4d655e54
 				Class: Class{
 					APIVersion: new(felt.Felt),
 					Externals: []EntryPoint{
