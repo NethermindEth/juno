@@ -1,10 +1,12 @@
 package datasource
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -28,13 +30,134 @@ func (g *Gateway) GetBlockByNumber(blockNumber uint64) (*core.Block, error) {
 // GetTransaction gets the transaction for a given transaction hash from the feeder gateway,
 // then adapts it to the appropriate core.Transaction types.
 func (g *Gateway) GetTransaction(transactionHash *felt.Felt) (*core.Transaction, error) {
-	return nil, errors.New("not implemented")
+	response, err := g.client.GetTransaction(transactionHash)
+	if err != nil {
+		return nil, err
+	}
+
+	adaptTransaction
+}
+
+func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeclareTransaction, *core.DeployTransaction, *core.InvokeTransaction, error) {
+	txType := response.Transaction.Type
+	switch txType {
+	case "DECLARE":
+		declareTx, err := adaptDeclareTransaction(response, g)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return declareTx, nil, nil, nil
+	case "DEPLOY":
+		deployTx, err := adaptDeployTransaction(response, g)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return nil, deployTx, nil, nil
+	case "INVOKE":
+		invokeTx := adaptInvokeTransaction(response)
+		return nil, nil, invokeTx, nil
+	default:
+		return nil, nil, nil, nil
+	}
+}
+
+func adaptDeclareTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeclareTransaction, error) {
+	declareTx := new(core.DeclareTransaction)
+	declareTx.SenderAddress = response.Transaction.SenderAddress
+	declareTx.MaxFee = response.Transaction.MaxFee
+	declareTx.Signature = response.Transaction.Signature
+	declareTx.Nonce = response.Transaction.Nonce
+	declareTx.Version = response.Transaction.Version
+
+	class, err := g.GetClass(response.Transaction.ClassHash)
+
+	// declareTx.Class
+
+	return declareTx, nil
+}
+
+func adaptDeployTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeployTransaction, error) {
+
+	deployTx := new(core.DeployTransaction)
+	deployTx.ContractAddressSalt = response.Transaction.ContractAddressSalt
+	deployTx.ConstructorCalldata = response.Transaction.ConstructorCalldata
+	deployTx.CallerAddress = response.Transaction.ContractAddress
+	deployTx.Version = response.Transaction.Version
+	// deployTx.Class =
+
+	return deployTx, nil
+}
+
+func adaptInvokeTransaction(response *clients.TransactionStatus) *core.InvokeTransaction {
+	invokeTx := new(core.InvokeTransaction)
+	invokeTx.ContractAddress = response.Transaction.ContractAddress
+	invokeTx.EntryPointSelector = response.Transaction.EntryPointSelector
+	invokeTx.SenderAddress = response.Transaction.SenderAddress
+	invokeTx.Nonce = response.Transaction.Nonce
+	invokeTx.CallData = response.Transaction.Calldata
+	invokeTx.Signature = response.Transaction.Signature
+	invokeTx.MaxFee = response.Transaction.MaxFee
+	invokeTx.Version = response.Transaction.Version
+
+	return invokeTx
 }
 
 // GetClass gets the class for a given class hash from the feeder gateway,
 // then adapts it to the core.Class type.
 func (g *Gateway) GetClass(classHash *felt.Felt) (*core.Class, error) {
-	return nil, errors.New("not implemented")
+	response, err := g.client.GetClassDefinition(classHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return adaptClass(response)
+}
+
+func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
+	class := new(core.Class)
+	class.APIVersion = new(felt.Felt).SetUint64(0)
+
+	var externals []core.EntryPoint
+	for _, v := range response.EntryPoints.External {
+		externals = append(externals, core.EntryPoint{v.Selector, v.Offset})
+	}
+	class.Externals = externals
+
+	var l1Handlers []core.EntryPoint
+	for _, v := range response.EntryPoints.L1Handler {
+		l1Handlers = append(l1Handlers, core.EntryPoint{v.Selector, v.Offset})
+	}
+	class.L1Handlers = l1Handlers
+
+	var constructors []core.EntryPoint
+	for _, v := range response.EntryPoints.Constructor {
+		constructors = append(constructors, core.EntryPoint{v.Selector, v.Offset})
+	}
+	class.Constructors = constructors
+
+	var builtins []*felt.Felt
+	for _, v := range response.Program.Builtins {
+		builtin, err := new(felt.Felt).SetString(v)
+		if err != nil {
+			return nil, err
+		}
+		builtins = append(builtins, builtin)
+	}
+	class.Builtins = builtins
+
+	programJson, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+	programHash, err := crypto.StarkNetKeccak(programJson)
+	if err != nil {
+		return nil, err
+	}
+
+	class.ProgramHash = programHash
+	class.Bytecode = response.Program.Data
+
+	return class, nil
 }
 
 // GetStateUpdate gets the state update for a given block number from the feeder gateway,
