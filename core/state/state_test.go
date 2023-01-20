@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +23,7 @@ func TestState_PutNewContract(t *testing.T) {
 	_, err := state.GetContractClass(addr)
 	assert.EqualError(t, err, "Key not found")
 
-	testDb.Update(func(txn *badger.Txn) error {
+	testDb.Update(func(txn db.Transaction) error {
 		assert.Equal(t, nil, state.putNewContract(addr, classHash, txn))
 		assert.EqualError(t, state.putNewContract(addr, classHash, txn), "existing contract")
 		return nil
@@ -46,7 +45,7 @@ func TestState_Root(t *testing.T) {
 	var newRootPath *bitset.BitSet
 
 	// add a value and update db
-	if err := testDb.Update(func(txn *badger.Txn) error {
+	if err := testDb.Update(func(txn db.Transaction) error {
 		storage, err := state.getStateStorage(txn)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, nil, storage.Put(key, value))

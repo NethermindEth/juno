@@ -62,7 +62,7 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	txn := db.NewTransaction(true)
 	defer txn.Discard()
 
-	trieTxn := NewTrieBadgerTxn(txn, nil)
+	trieTxn := NewTrieTxn(txn, nil)
 	return do(NewTrie(trieTxn, height, nil))
 }
 
