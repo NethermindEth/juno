@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -270,4 +272,51 @@ func TestContractAddress(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestContract(t *testing.T) {
+	testDb := db.NewTestDb()
+	defer testDb.Close()
+
+	txn := testDb.NewTransaction(true)
+	addr := new(felt.Felt).SetUint64(44)
+	class := new(felt.Felt).SetUint64(37)
+
+	contract := NewContract(addr, txn)
+	assert.NoError(t, contract.Deploy(class))
+	assert.Error(t, contract.Deploy(class))
+
+	assert.Equal(t, addr, contract.Address)
+	got, err := contract.ClassHash()
+	assert.NoError(t, err)
+	assert.Equal(t, class, got)
+	got, err = contract.Nonce()
+	assert.NoError(t, err)
+	assert.Equal(t, new(felt.Felt), got)
+
+	storage, err := contract.Storage()
+
+	assert.NoError(t, storage.Put(addr, class))
+	root, err := storage.Root()
+	assert.NoError(t, err)
+
+	contract.UpdateStorage([]StorageDiff{{addr, class}})
+
+	sRoot, err := contract.StorageRoot()
+	assert.NoError(t, err)
+	assert.Equal(t, root, sRoot)
+
+	assert.NoError(t, contract.UpdateNonce(class))
+	got, err = contract.Nonce()
+	assert.NoError(t, err)
+	assert.Equal(t, class, got)
+
+	contract.UpdateStorage([]StorageDiff{{addr, new(felt.Felt)}})
+	sRoot, err = contract.StorageRoot()
+	assert.NoError(t, err)
+	assert.Equal(t, new(felt.Felt), sRoot)
+
+	assert.NoError(t, txn.Commit())
+	got, err = contract.Nonce()
+	assert.Error(t, err)
 }
