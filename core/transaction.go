@@ -1,8 +1,10 @@
 package core
 
 import (
+	"errors"
 	"math/big"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -69,10 +71,12 @@ type Transaction interface {
 type DeployTransaction struct {
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
+	// The address of the contract.
+	ContractAddress *felt.Felt
 	// The object that defines the contract’s functionality.
 	Class Class
 	// The arguments passed to the constructor during deployment.
-	ConstructorCalldata []*felt.Felt
+	ConstructorCallData []*felt.Felt
 	// Who invoked the deployment. Set to 0 (in future: the deploying account contract).
 	CallerAddress *felt.Felt
 	// The transaction’s version. Possible values are 1 or 0.
@@ -84,10 +88,20 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeployTransaction) Hash() *felt.Felt {
-	// Todo: implement pedersen hash as defined here:
-	// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_deploy_transaction
-	return nil
+func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+	snKeccakConstructor, err := crypto.StarkNetKeccak([]byte("constructor"))
+	if err != nil {
+		return nil, err
+	}
+	return crypto.PedersenArray(
+		new(felt.Felt).SetBytes([]byte("deploy")),
+		d.Version,
+		d.ContractAddress,
+		snKeccakConstructor,
+		crypto.PedersenArray(d.ConstructorCallData...),
+		new(felt.Felt),
+		new(felt.Felt).SetBytes(chainId),
+	), nil
 }
 
 type InvokeTransaction struct {
@@ -102,8 +116,7 @@ type InvokeTransaction struct {
 	SenderAddress *felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
-
-	// The arguments that are passed to the validate and execute functions.
+	// The arguments that are passed to the validated and execute functions.
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	Signature []*felt.Felt
@@ -115,15 +128,29 @@ type InvokeTransaction struct {
 	Version *felt.Felt
 }
 
-func (i *InvokeTransaction) Hash() *felt.Felt {
+func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
 	if i.Version.IsZero() {
-		// Todo: implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_invoke_transaction
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.ContractAddress,
+			i.EntryPointSelector,
+			crypto.PedersenArray(i.CallData...),
+			new(felt.Felt).SetBytes(chainId),
+		), nil
 	} else if i.Version.IsOne() {
-		// Todo: implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v0_invoke_transaction
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.Version,
+			i.SenderAddress,
+			new(felt.Felt),
+			crypto.PedersenArray(i.CallData...),
+			i.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+			i.Nonce,
+		), nil
 	}
-	return nil
+	return nil, errors.New("invalid transaction version")
 }
 
 type DeclareTransaction struct {
@@ -145,13 +172,30 @@ type DeclareTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeclareTransaction) Hash() *felt.Felt {
+func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
 	if d.Version.IsZero() {
-		// Todo: implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v0_declare_transaction
+		return crypto.PedersenArray(
+			declareFelt,
+			d.Version,
+			d.SenderAddress,
+			new(felt.Felt),
+			crypto.PedersenArray(make([]*felt.Felt, 0)...),
+			d.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+			d.Class.Hash(),
+		), nil
 	} else if d.Version.IsOne() {
-		// Todo: implement pedersen hash as defined here:
-		// https://docs.starknet.io/documentation/develop/Blocks/transactions/#calculating_the_hash_of_a_v1_declare_transaction
+		return crypto.PedersenArray(
+			declareFelt,
+			d.Version,
+			d.SenderAddress,
+			new(felt.Felt),
+			crypto.PedersenArray(d.Class.Hash()),
+			d.MaxFee,
+			new(felt.Felt).SetBytes(chainId),
+			d.Nonce,
+		), nil
 	}
-	return nil
+	return nil, errors.New("invalid transaction version")
 }
