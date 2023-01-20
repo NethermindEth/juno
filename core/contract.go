@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/dgraph-io/badger/v3"
 )
 
 const (
@@ -69,12 +68,12 @@ type Contract struct {
 	// Address that this contract instance is deployed to
 	Address *felt.Felt
 	// txn to access the database
-	txn *badger.Txn
+	txn db.Transaction
 }
 
 // NewContract creates a contract instance at the given address.
 // Deploy should be called for contracts that were just deployed to the network.
-func NewContract(addr *felt.Felt, txn *badger.Txn) *Contract {
+func NewContract(addr *felt.Felt, txn db.Transaction) *Contract {
 	return &Contract{
 		Address: addr,
 		txn:     txn,
@@ -99,17 +98,12 @@ func (c *Contract) Deploy(classHash *felt.Felt) error {
 // Nonce returns the number of transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
 func (c *Contract) Nonce() (*felt.Felt, error) {
-	var nonce *felt.Felt
-
 	key := db.ContractNonce.Key(c.Address.Marshal())
-	item, err := c.txn.Get(key)
+	val, err := c.txn.Get(key)
 	if err != nil {
 		return nil, err
 	}
-	return nonce, item.Value(func(val []byte) error {
-		nonce = new(felt.Felt).SetBytes(val)
-		return nil
-	})
+	return new(felt.Felt).SetBytes(val), nil
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -120,17 +114,12 @@ func (c *Contract) UpdateNonce(nonce *felt.Felt) error {
 
 // ClassHash returns hash of the class that this contract instantiates.
 func (c *Contract) ClassHash() (*felt.Felt, error) {
-	var classHash *felt.Felt
-
 	key := db.ContractClassHash.Key(c.Address.Marshal())
-	item, err := c.txn.Get(key)
+	val, err := c.txn.Get(key)
 	if err != nil {
 		return nil, err
 	}
-	return classHash, item.Value(func(val []byte) error {
-		classHash = new(felt.Felt).SetBytes(val)
-		return nil
-	})
+	return new(felt.Felt).SetBytes(val), nil
 }
 
 // Storage returns the [core.Trie] that represents the
@@ -139,19 +128,17 @@ func (c *Contract) Storage() (*trie.Trie, error) {
 	addrBytes := c.Address.Marshal()
 	var contractRootKey *bitset.BitSet
 
-	if item, err := c.txn.Get(db.ContractRootKey.Key(addrBytes)); err == nil {
-		if err = item.Value(func(val []byte) error {
-			contractRootKey = new(bitset.BitSet)
-			return contractRootKey.UnmarshalBinary(val)
-		}); err != nil {
+	if val, err := c.txn.Get(db.ContractRootKey.Key(addrBytes)); err == nil {
+		contractRootKey = new(bitset.BitSet)
+		if err = contractRootKey.UnmarshalBinary(val); err != nil {
 			return nil, err
 		}
-	} else if !errors.Is(err, badger.ErrKeyNotFound) {
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
 		// Don't continue normal operation with arbitrary
 		// database error.
 		return nil, err
 	}
-	trieTxn := trie.NewTrieBadgerTxn(c.txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := trie.NewTrieTxn(c.txn, db.ContractStorage.Key(addrBytes))
 	return trie.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey), nil
 }
 

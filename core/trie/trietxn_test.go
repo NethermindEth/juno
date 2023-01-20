@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,25 +20,26 @@ func TestTrieTxn(t *testing.T) {
 	assert.NoError(t, node.UnmarshalBinary(value.Marshal()))
 
 	// put a node
-	assert.NoError(t, testDb.Update(func(txn *badger.Txn) error {
-		tTxn := &TrieBadgerTxn{txn, prefix}
+	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		tTxn := &TrieTxn{txn, prefix}
 
 		return tTxn.Put(key, node)
 	}))
 
 	// get node
-	assert.NoError(t, testDb.View(func(txn *badger.Txn) error {
-		tTxn := &TrieBadgerTxn{txn, prefix}
+	assert.NoError(t, testDb.View(func(txn db.Transaction) error {
+		tTxn := &TrieTxn{txn, prefix}
 
 		got, err := tTxn.Get(key)
+		assert.NoError(t, err)
 		assert.Equal(t, true, got.Equal(node))
 
 		return err
 	}))
 
 	// in case of an error, tx should roll back
-	assert.Error(t, testDb.Update(func(txn *badger.Txn) error {
-		tTxn := &TrieBadgerTxn{txn, prefix}
+	assert.Error(t, testDb.Update(func(txn db.Transaction) error {
+		tTxn := &TrieTxn{txn, prefix}
 
 		if err := tTxn.Delete(key); err != nil {
 			t.Error(err)
@@ -49,8 +49,8 @@ func TestTrieTxn(t *testing.T) {
 	}))
 
 	// should still be able to get the node
-	assert.NoError(t, testDb.View(func(txn *badger.Txn) error {
-		tTxn := &TrieBadgerTxn{txn, prefix}
+	assert.NoError(t, testDb.View(func(txn db.Transaction) error {
+		tTxn := &TrieTxn{txn, prefix}
 
 		got, err := tTxn.Get(key)
 		assert.Equal(t, true, got.Equal(node))
@@ -59,14 +59,14 @@ func TestTrieTxn(t *testing.T) {
 	}))
 
 	// successful delete
-	assert.NoError(t, testDb.Update(func(txn *badger.Txn) error {
-		tTxn := &TrieBadgerTxn{txn, prefix}
+	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		tTxn := &TrieTxn{txn, prefix}
 		return tTxn.Delete(key)
 	}))
 
 	// should error with key not found
-	assert.EqualError(t, testDb.View(func(txn *badger.Txn) error {
-		tTxn := &TrieBadgerTxn{txn, prefix}
+	assert.EqualError(t, testDb.View(func(txn db.Transaction) error {
+		tTxn := &TrieTxn{txn, prefix}
 		_, err := tTxn.Get(key)
 		return err
 	}), "Key not found")

@@ -359,7 +359,7 @@ func TestPutZero(t *testing.T) {
 	txn := db.NewTransaction(true)
 	defer txn.Discard()
 
-	trieTxn := NewTrieBadgerTxn(txn, nil)
+	trieTxn := NewTrieTxn(txn, nil)
 	trie := NewTrie(trieTxn, 251, nil)
 	emptyRoot, err := trie.Root()
 	if err != nil {
@@ -425,7 +425,7 @@ func TestPutZero(t *testing.T) {
 	}
 	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
 
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	it := txn.Impl().(*badger.Txn).NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 	it.Rewind()
 	assert.Equal(t, false, it.Valid()) // storage should be empty
