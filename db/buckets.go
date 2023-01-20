@@ -10,7 +10,7 @@ type Bucket byte
 const (
 	State Bucket = iota // state metadata (e.g., the state root)
 	StateTrie
-	ContractRootPath  // contract storage roots
+	ContractRootKey   // contract storage roots
 	ContractClassHash // maps contract addresses and class hashes
 	ContractStorage   // contract storages
 	ContractNonce     // contract nonce

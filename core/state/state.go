@@ -17,7 +17,7 @@ const (
 	stateTrieHeight           = 251
 	contractStorageTrieHeight = 251
 	// fields of state metadata table
-	stateRootKey = "rootPath"
+	stateRootKey = "rootKey"
 )
 
 type ErrMismatchedRoot struct {
@@ -262,7 +262,7 @@ func (s *State) getContractStorage(addr *felt.Felt, txn *badger.Txn) (*trie.Trie
 	addrBytes := addr.Marshal()
 	var contractRootKey *bitset.BitSet
 
-	if item, err := txn.Get(db.ContractRootPath.Key(addrBytes)); err == nil {
+	if item, err := txn.Get(db.ContractRootKey.Key(addrBytes)); err == nil {
 		if err = item.Value(func(val []byte) error {
 			contractRootKey = new(bitset.BitSet)
 			return contractRootKey.UnmarshalBinary(val)
@@ -304,7 +304,7 @@ func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff, 
 	}
 
 	// update contract storage root in the database
-	rootKeyDbKey := db.ContractRootPath.Key(addr.Marshal())
+	rootKeyDbKey := db.ContractRootKey.Key(addr.Marshal())
 	if rootKey := storage.RootKey(); rootKey != nil {
 		if rootKeyBytes, err := storage.RootKey().MarshalBinary(); err != nil {
 			return err
