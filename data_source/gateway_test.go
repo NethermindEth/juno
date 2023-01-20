@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
@@ -100,4 +101,56 @@ func TestAdaptStateUpdate(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestAdaptClass(t *testing.T) {
+	classJson, err := os.ReadFile("testdata/class.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	response := new(clients.ClassDefinition)
+	err = json.Unmarshal(classJson, response)
+	if err != nil {
+		t.Error(err)
+	}
+
+	class, err := adaptClass(response)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, new(felt.Felt).SetUint64(0), class.APIVersion)
+
+	for i, v := range response.EntryPoints.External {
+		assert.Equal(t, v.Selector, class.Externals[i].Selector)
+		assert.Equal(t, v.Offset, class.Externals[i].Offset)
+	}
+	assert.Equal(t, len(response.EntryPoints.External), len(class.Externals))
+
+	for i, v := range response.EntryPoints.L1Handler {
+		assert.Equal(t, v.Selector, class.L1Handlers[i].Selector)
+		assert.Equal(t, v.Offset, class.L1Handlers[i].Offset)
+	}
+	assert.Equal(t, len(response.EntryPoints.L1Handler), len(class.L1Handlers))
+
+	for i, v := range response.EntryPoints.Constructor {
+		assert.Equal(t, v.Selector, class.Constructors[i].Selector)
+		assert.Equal(t, v.Offset, class.Constructors[i].Offset)
+	}
+	assert.Equal(t, len(response.EntryPoints.Constructor), len(class.Constructors))
+
+	for i, v := range response.Program.Builtins {
+		assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), class.Builtins[i])
+	}
+	assert.Equal(t, len(response.Program.Builtins), len(class.Builtins))
+
+	for i, v := range response.Program.Data {
+		assert.Equal(t, v, class.Bytecode[i])
+	}
+	assert.Equal(t, len(response.Program.Data), len(class.Bytecode))
+
+	// TODO:
+	// programHash :=
+	// assert.Equal(t, programHash, class.ProgramHash)
+
 }

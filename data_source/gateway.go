@@ -1,12 +1,10 @@
 package datasource
 
 import (
-	"encoding/json"
 	"errors"
 
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -141,42 +139,41 @@ func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 
 	var externals []core.EntryPoint
 	for _, v := range response.EntryPoints.External {
-		externals = append(externals, core.EntryPoint{v.Selector, v.Offset})
+		externals = append(externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 	class.Externals = externals
 
 	var l1Handlers []core.EntryPoint
 	for _, v := range response.EntryPoints.L1Handler {
-		l1Handlers = append(l1Handlers, core.EntryPoint{v.Selector, v.Offset})
+		l1Handlers = append(l1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 	class.L1Handlers = l1Handlers
 
 	var constructors []core.EntryPoint
 	for _, v := range response.EntryPoints.Constructor {
-		constructors = append(constructors, core.EntryPoint{v.Selector, v.Offset})
+		constructors = append(constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 	class.Constructors = constructors
 
 	var builtins []*felt.Felt
 	for _, v := range response.Program.Builtins {
-		builtin, err := new(felt.Felt).SetString(v)
-		if err != nil {
-			return nil, err
-		}
+		builtin := new(felt.Felt).SetBytes([]byte(v))
 		builtins = append(builtins, builtin)
 	}
 	class.Builtins = builtins
 
-	programJson, err := json.Marshal(response)
-	if err != nil {
-		return nil, err
-	}
-	programHash, err := crypto.StarkNetKeccak(programJson)
-	if err != nil {
-		return nil, err
-	}
+	// TODO: programHash
+	// programJson, err := json.Marshal(response)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// programHash, err := crypto.StarkNetKeccak(programJson)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	class.ProgramHash = programHash
+	// class.ProgramHash = programHash
+
 	class.Bytecode = response.Program.Data
 
 	return class, nil
