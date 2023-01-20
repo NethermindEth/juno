@@ -29,13 +29,26 @@ func (g *Gateway) GetBlockByNumber(blockNumber uint64) (*core.Block, error) {
 
 // GetTransaction gets the transaction for a given transaction hash from the feeder gateway,
 // then adapts it to the appropriate core.Transaction types.
-func (g *Gateway) GetTransaction(transactionHash *felt.Felt) (*core.Transaction, error) {
+func (g *Gateway) GetTransaction(transactionHash *felt.Felt) (core.Transaction, error) {
 	response, err := g.client.GetTransaction(transactionHash)
 	if err != nil {
 		return nil, err
 	}
 
-	adaptTransaction
+	declareTx, deployTx, invokeTx, err := adaptTransaction(response, g)
+	if err != nil {
+		return nil, err
+	}
+
+	if declareTx != nil {
+		return declareTx, nil
+	}
+
+	if deployTx != nil {
+		return deployTx, nil
+	}
+
+	return invokeTx, nil
 }
 
 func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeclareTransaction, *core.DeployTransaction, *core.InvokeTransaction, error) {
@@ -70,8 +83,11 @@ func adaptDeclareTransaction(response *clients.TransactionStatus, g *Gateway) (*
 	declareTx.Version = response.Transaction.Version
 
 	class, err := g.GetClass(response.Transaction.ClassHash)
+	if err != nil {
+		return nil, err
+	}
 
-	// declareTx.Class
+	declareTx.Class = *class
 
 	return declareTx, nil
 }
@@ -83,7 +99,13 @@ func adaptDeployTransaction(response *clients.TransactionStatus, g *Gateway) (*c
 	deployTx.ConstructorCalldata = response.Transaction.ConstructorCalldata
 	deployTx.CallerAddress = response.Transaction.ContractAddress
 	deployTx.Version = response.Transaction.Version
-	// deployTx.Class =
+
+	class, err := g.GetClass(response.Transaction.ClassHash)
+	if err != nil {
+		return nil, err
+	}
+
+	deployTx.Class = *class
 
 	return deployTx, nil
 }
