@@ -43,7 +43,13 @@ type Trie struct {
 }
 
 func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
-	// Todo: set max height to 251 and set max key value accordingly
+	if height > 251 {
+		fmt.Println("Height is over 251. Select a height under 251 to create a new trie.")
+		return
+	}
+	
+	// Todo: Set max key value for height 251	
+	
 	return &Trie{
 		storage: storage,
 		height:  height,
