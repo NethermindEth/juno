@@ -214,35 +214,42 @@ type EntryPoint struct {
 	Offset   *felt.Felt `json:"offset"`
 }
 
-type Abi []struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Inputs []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	} `json:"inputs"`
-	Outputs []interface{} `json:"outputs"`
-}
+type (
+	Hints       map[uint64]interface{}
+	Identifiers map[string]struct {
+		CairoType   string         `json:"cairo_type,omitempty"`
+		Decorators  *[]interface{} `json:"decorators,omitempty"`
+		Destination string         `json:"destination,omitempty"`
+		FullName    string         `json:"full_name,omitempty"`
+		Members     *interface{}   `json:"members,omitempty"`
+		Pc          *uint64        `json:"pc,omitempty"`
+		References  *[]interface{} `json:"references,omitempty"`
+		Size        *uint64        `json:"size,omitempty"`
+		Type        string         `json:"type,omitempty"`
+		Value       json.Number    `json:"value,omitempty"`
+	}
+	Program struct {
+		Attributes       interface{} `json:"attributes,omitempty"`
+		Builtins         []string    `json:"builtins"`
+		CompilerVersion  string      `json:"compiler_version,omitempty"`
+		Data             []string    `json:"data"`
+		DebugInfo        interface{} `json:"debug_info"`
+		Hints            Hints       `json:"hints"`
+		Identifiers      Identifiers `json:"identifiers"`
+		MainScope        interface{} `json:"main_scope"`
+		Prime            string      `json:"prime"`
+		ReferenceManager interface{} `json:"reference_manager"`
+	}
+)
 
 type ClassDefinition struct {
-	Abi         Abi `json:"abi"`
+	Abi         interface{} `json:"abi"`
 	EntryPoints struct {
 		Constructor []EntryPoint `json:"CONSTRUCTOR"`
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
-	Program struct {
-		Builtins         []string     `json:"builtins"`
-		Prime            string       `json:"prime"`
-		ReferenceManager interface{}  `json:"reference_manager"`
-		Identifiers      interface{}  `json:"identifiers"`
-		Attributes       interface{}  `json:"attributes"`
-		Data             []*felt.Felt `json:"data"`
-		DebugInfo        interface{}  `json:"debug_info"`
-		MainScope        interface{}  `json:"main_scope"`
-		Hints            interface{}  `json:"hints"`
-		CompilerVersion  string       `json:"compiler_version"`
-	} `json:"program"`
+	Program Program `json:"program"`
 }
 
 func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefinition, error) {
