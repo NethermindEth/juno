@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Gateway struct {
@@ -27,20 +28,129 @@ func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
 		return nil, err
 	}
 
-	return adaptBlock(response), nil
+	return adaptBlock(response)
 }
 
-func adaptBlock(response *clients.Block) *core.Block {
+func adaptBlock(response *clients.Block) (*core.Block, error) {
+	if response == nil {
+		return nil, nil
+	}
+
+	// Receipts
+	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
+	for i, receipt := range response.Receipts {
+		receipts[i] = adaptTransactionReceipt(receipt)
+	}
+
+	// Events
+	_, eventCount, err := core.EventData(receipts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Transaction Commitment
+	txCommitment, err := core.TransactionCommitment(receipts)
+	if err != nil {
+		return nil, err
+	}
+
 	return &core.Block{
-		ParentHash: response.ParentHash,
-		Number: response.Number,
-		GlobalStateRoot: response.StateRoot,
-		Timestamp: new(felt.Felt).SetUint64(response.Timestamp),
-		TransactionCount: new(felt.Felt).SetUint64(uint64(len(response.Transactions))),
-		TransactionCommitment: nil, // TODO need adaptTransaction for this...
-		EventCount: nil, // TODO need adaptTransactionReceipt for this...
-		ProtocolVersion: new(felt.Felt),
-		ExtraData: nil,
+		ParentHash:            response.ParentHash,
+		Number:                response.Number,
+		GlobalStateRoot:       response.StateRoot,
+		Timestamp:             new(felt.Felt).SetUint64(response.Timestamp),
+		TransactionCount:      new(felt.Felt).SetUint64(uint64(len(response.Transactions))),
+		TransactionCommitment: txCommitment,
+		EventCount:            new(felt.Felt).SetUint64(eventCount),
+		ProtocolVersion:       new(felt.Felt),
+		ExtraData:             nil,
+	}, nil
+}
+
+func adaptTransactionReceipt(response *clients.TransactionReceipt) *core.TransactionReceipt {
+	if response == nil {
+		return nil
+	}
+
+	events := make([]*core.Event, len(response.Events))
+	for i, event := range response.Events {
+		events[i] = adaptEvent(event)
+	}
+
+	l2ToL1Messages := make([]*core.L2ToL1Message, len(response.L2ToL1Message))
+	for i, msg := range response.L2ToL1Message {
+		l2ToL1Messages[i] = adaptL2ToL1Message(msg)
+	}
+
+	return &core.TransactionReceipt{
+		ActualFee:          response.ActualFee,
+		TransactionHash:    response.TransactionHash,
+		TransactionIndex:   response.TransactionIndex,
+		Events:             events,
+		ExecutionResources: adaptExecutionResources(response.ExecutionResources),
+		L1ToL2Message:      adaptL1ToL2Message(response.L1ToL2Message),
+		L2ToL1Message:      l2ToL1Messages,
+	}
+}
+
+func adaptEvent(response *clients.Event) *core.Event {
+	if response == nil {
+		return nil
+	}
+
+	return &core.Event{
+		Data: response.Data,
+		From: response.From,
+		Keys: response.Keys,
+	}
+}
+
+func adaptExecutionResources(response *clients.ExecutionResources) *core.ExecutionResources {
+	if response == nil {
+		return nil
+	}
+
+	return &core.ExecutionResources{
+		BuiltinInstanceCounter: adaptBuiltinInstanceCounter(response.BuiltinInstanceCounter),
+		MemoryHoles:            response.MemoryHoles,
+		Steps:                  response.Steps,
+	}
+}
+
+func adaptBuiltinInstanceCounter(response clients.BuiltinInstanceCounter) core.BuiltinInstanceCounter {
+	return core.BuiltinInstanceCounter{
+		Bitwise:    response.Bitwise,
+		EcOp:       response.EcOp,
+		Ecsda:      response.Ecsda,
+		Output:     response.Output,
+		Pedersen:   response.Pedersen,
+		RangeCheck: response.RangeCheck,
+	}
+}
+
+func adaptL1ToL2Message(response *clients.L1ToL2Message) *core.L1ToL2Message {
+	if response == nil {
+		return nil
+	}
+
+	return &core.L1ToL2Message{
+		From:     common.HexToAddress(response.From),
+		Nonce:    response.Nonce,
+		Payload:  response.Payload,
+		Selector: response.Selector,
+		To:       response.To,
+	}
+}
+
+func adaptL2ToL1Message(response *clients.L2ToL1Message) *core.L2ToL1Message {
+	if response == nil {
+		return nil
+	}
+
+	return &core.L2ToL1Message{
+		From:    response.From,
+		Payload: response.Payload,
+		To:      common.HexToAddress(response.To),
 	}
 }
 
