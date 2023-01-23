@@ -1,8 +1,8 @@
 package gateway
 
 import (
-	"os"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
@@ -22,7 +22,10 @@ func TestAdaptBlock(t *testing.T) {
 		t.Fatalf("unexpected unmarshal error: %s", err)
 	}
 
-	block := adaptBlock(response)
+	block, err := adaptBlock(response)
+	if !assert.NoError(t, err) {
+		t.Errorf("unexpected error on adaptBlock: %s", err)
+	}
 	assert.True(t, block.ParentHash.Equal(response.ParentHash))
 	assert.Equal(t, block.Number, response.Number)
 	assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
@@ -31,8 +34,8 @@ func TestAdaptBlock(t *testing.T) {
 	assert.Equal(t, block.ProtocolVersion, new(felt.Felt))
 	var extraData *felt.Felt
 	assert.Equal(t, block.ExtraData, extraData)
-	// TODO test transaction commitment equality once implemented
-	// TODO test event count equality once implemented
+	// TODO test transaction commitment...?
+	// TODO test event count
 }
 
 func TestAdaptStateUpdate(t *testing.T) {
