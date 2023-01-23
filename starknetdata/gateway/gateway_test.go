@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"os"
 	"encoding/json"
 	"testing"
 
@@ -8,6 +9,31 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestAdaptBlock(t *testing.T) {
+	blockJson, err := os.ReadFile("testdata/block_11817.json")
+	if err != nil {
+		t.Fatalf("unexpected error reading from testdata file: %s", err)
+	}
+
+	var response *clients.Block
+	err = json.Unmarshal(blockJson, &response)
+	if err != nil {
+		t.Fatalf("unexpected unmarshal error: %s", err)
+	}
+
+	block := adaptBlock(response)
+	assert.True(t, block.ParentHash.Equal(response.ParentHash))
+	assert.Equal(t, block.Number, response.Number)
+	assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
+	assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
+	assert.Equal(t, block.TransactionCount, new(felt.Felt).SetUint64(uint64(len(response.Transactions))))
+	assert.Equal(t, block.ProtocolVersion, new(felt.Felt))
+	var extraData *felt.Felt
+	assert.Equal(t, block.ExtraData, extraData)
+	// TODO test transaction commitment equality once implemented
+	// TODO test event count equality once implemented
+}
 
 func TestAdaptStateUpdate(t *testing.T) {
 	jsonData := []byte(`{
