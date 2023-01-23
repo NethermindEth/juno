@@ -22,7 +22,26 @@ func NewGateway(n utils.Network) *Gateway {
 // BlockByNumber gets the block for a given block number from the feeder gateway,
 // then adapts it to the core.Block type.
 func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
-	return nil, errors.New("not implemented")
+	response, err := g.client.GetBlock(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return adaptBlock(response), nil
+}
+
+func adaptBlock(response *clients.Block) *core.Block {
+	return &core.Block{
+		ParentHash: response.ParentHash,
+		Number: response.Number,
+		GlobalStateRoot: response.StateRoot,
+		Timestamp: new(felt.Felt).SetUint64(response.Timestamp),
+		TransactionCount: new(felt.Felt).SetUint64(uint64(len(response.Transactions))),
+		TransactionCommitment: nil, // TODO need adaptTransaction for this...
+		EventCount: nil, // TODO need adaptTransactionReceipt for this...
+		ProtocolVersion: new(felt.Felt),
+		ExtraData: nil,
+	}
 }
 
 // Transaction gets the transaction for a given transaction hash from the feeder gateway,
