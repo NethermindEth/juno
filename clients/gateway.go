@@ -176,7 +176,7 @@ type TransactionReceipt struct {
 	Events             []*Event            `json:"events"`
 	ExecutionResources *ExecutionResources `json:"execution_resources"`
 	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
-	L2ToL1Message      *[]L2ToL1Message    `json:"l2_to_l1_messages"`
+	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages"`
 	TransactionHash    *felt.Felt          `json:"transaction_hash"`
 	TransactionIndex   *big.Int            `json:"transaction_index"`
 }
