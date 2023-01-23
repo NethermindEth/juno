@@ -31,8 +31,8 @@ type L2ToL1Message struct {
 
 type ExecutionResources struct {
 	BuiltinInstanceCounter BuiltinInstanceCounter
-	MemoryHoles uint64
-	Steps       uint64
+	MemoryHoles            uint64
+	Steps                  uint64
 }
 
 type BuiltinInstanceCounter struct {
