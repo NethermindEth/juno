@@ -157,9 +157,9 @@ type L2ToL1Message struct {
 }
 
 type ExecutionResources struct {
-	Steps                  uint64 `json:"n_steps"`
+	Steps                  uint64                 `json:"n_steps"`
 	BuiltinInstanceCounter BuiltinInstanceCounter `json:"builtin_instance_counter"`
-	MemoryHoles uint64 `json:"n_memory_holes"`
+	MemoryHoles            uint64                 `json:"n_memory_holes"`
 }
 
 type BuiltinInstanceCounter struct {
