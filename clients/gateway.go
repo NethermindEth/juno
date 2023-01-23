@@ -158,15 +158,17 @@ type L2ToL1Message struct {
 
 type ExecutionResources struct {
 	Steps                  uint64 `json:"n_steps"`
-	BuiltinInstanceCounter struct {
-		Pedersen   uint64 `json:"pedersen_builtin"`
-		RangeCheck uint64 `json:"range_check_builtin"`
-		Bitwise    uint64 `json:"bitwise_builtin"`
-		Output     uint64 `json:"output_builtin"`
-		Ecsda      uint64 `json:"ecdsa_builtin"`
-		EcOp       uint64 `json:"ec_op_builtin"`
-	} `json:"builtin_instance_counter"`
+	BuiltinInstanceCounter BuiltinInstanceCounter `json:"builtin_instance_counter"`
 	MemoryHoles uint64 `json:"n_memory_holes"`
+}
+
+type BuiltinInstanceCounter struct {
+	Pedersen   uint64 `json:"pedersen_builtin"`
+	RangeCheck uint64 `json:"range_check_builtin"`
+	Bitwise    uint64 `json:"bitwise_builtin"`
+	Output     uint64 `json:"output_builtin"`
+	Ecsda      uint64 `json:"ecdsa_builtin"`
+	EcOp       uint64 `json:"ec_op_builtin"`
 }
 
 type TransactionReceipt struct {
