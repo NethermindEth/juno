@@ -30,16 +30,18 @@ type L2ToL1Message struct {
 }
 
 type ExecutionResources struct {
-	BuiltinInstanceCounter struct {
-		Bitwise    uint64
-		EcOp       uint64
-		Ecsda      uint64
-		Output     uint64
-		Pedersen   uint64
-		RangeCheck uint64
-	}
+	BuiltinInstanceCounter BuiltinInstanceCounter
 	MemoryHoles uint64
 	Steps       uint64
+}
+
+type BuiltinInstanceCounter struct {
+	Bitwise    uint64
+	EcOp       uint64
+	Ecsda      uint64
+	Output     uint64
+	Pedersen   uint64
+	RangeCheck uint64
 }
 
 // Todo: Having both TransactionType and DeployTransaction,
