@@ -1,0 +1,31 @@
+{
+    "status": "ACCEPTED_ON_L2",
+    "block_hash": "0x556a2b9a97e9a98eedf7cb50e89a070fa38dca85b2df3414d3d0b5c52edfacf",
+    "block_number": 637906,
+    "transaction_index": 17,
+    "transaction": {
+        "transaction_hash": "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9",
+        "version": "0x1",
+        "max_fee": "0x75f7d7977e2",
+        "signature": [
+            "0x260431c1732424155b8679390e2c74ea92e30bc8c8c87012c6f910b886aabb5",
+            "0x212662654f6348d7fb03861e0d03bc43031c6a8a983633a82675dc93664da8f"
+        ],
+        "nonce": "0xa",
+        "contract_address": "0x129bba3acd6e303901a778594108e529d5e67f26d514384c3899db44e537010",
+        "calldata": [
+            "0x1",
+            "0x5dc687af554664861727c909269dbc339e876bc70352efd64b8d057ddfb285",
+            "0x152cd4b259505a6a714c2ad0327f82b18084b3bc5e264451a52193d972c2a5a",
+            "0x0",
+            "0x5",
+            "0x5",
+            "0xc",
+            "0x3cda",
+            "0x0",
+            "0x6181de92c3254a69273400645b8691b49a0036532c9562f1fc9dc8b2c83f288",
+            "0x11b56f2dfbfa7e76749f5c6ef163fa07526a88ea489585fc82c17331b2bbc57"
+        ],
+        "type": "INVOKE_FUNCTION"
+    }
+}

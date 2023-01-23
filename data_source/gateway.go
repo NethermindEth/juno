@@ -53,13 +53,21 @@ func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (*core.De
 	txType := response.Transaction.Type
 	switch txType {
 	case "DECLARE":
-		declareTx, err := adaptDeclareTransaction(response, g)
+		class, err := g.GetClass(response.Transaction.ClassHash)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		declareTx, err := adaptDeclareTransaction(response, class)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		return declareTx, nil, nil, nil
 	case "DEPLOY":
-		deployTx, err := adaptDeployTransaction(response, g)
+		class, err := g.GetClass(response.Transaction.ClassHash)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		deployTx, err := adaptDeployTransaction(response, class)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -72,7 +80,7 @@ func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (*core.De
 	}
 }
 
-func adaptDeclareTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeclareTransaction, error) {
+func adaptDeclareTransaction(response *clients.TransactionStatus, class *core.Class) (*core.DeclareTransaction, error) {
 	declareTx := new(core.DeclareTransaction)
 	declareTx.SenderAddress = response.Transaction.SenderAddress
 	declareTx.MaxFee = response.Transaction.MaxFee
@@ -80,28 +88,17 @@ func adaptDeclareTransaction(response *clients.TransactionStatus, g *Gateway) (*
 	declareTx.Nonce = response.Transaction.Nonce
 	declareTx.Version = response.Transaction.Version
 
-	class, err := g.GetClass(response.Transaction.ClassHash)
-	if err != nil {
-		return nil, err
-	}
-
 	declareTx.Class = *class
 
 	return declareTx, nil
 }
 
-func adaptDeployTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeployTransaction, error) {
-
+func adaptDeployTransaction(response *clients.TransactionStatus, class *core.Class) (*core.DeployTransaction, error) {
 	deployTx := new(core.DeployTransaction)
 	deployTx.ContractAddressSalt = response.Transaction.ContractAddressSalt
 	deployTx.ConstructorCalldata = response.Transaction.ConstructorCalldata
 	deployTx.CallerAddress = response.Transaction.ContractAddress
 	deployTx.Version = response.Transaction.Version
-
-	class, err := g.GetClass(response.Transaction.ClassHash)
-	if err != nil {
-		return nil, err
-	}
 
 	deployTx.Class = *class
 

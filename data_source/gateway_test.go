@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
@@ -105,18 +106,13 @@ func TestAdaptStateUpdate(t *testing.T) {
 
 func TestAdaptClass(t *testing.T) {
 	classJson, err := os.ReadFile("testdata/class.json")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	response := new(clients.ClassDefinition)
 	err = json.Unmarshal(classJson, response)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	class, err := adaptClass(response)
-
 	assert.NoError(t, err)
 
 	assert.Equal(t, new(felt.Felt).SetUint64(0), class.APIVersion)
@@ -152,5 +148,106 @@ func TestAdaptClass(t *testing.T) {
 	// TODO:
 	// programHash :=
 	// assert.Equal(t, programHash, class.ProgramHash)
+}
 
+func TestAdaptInvokeTransaction(t *testing.T) {
+	txJson, err := os.ReadFile("testdata/invokeTx.json")
+	assert.NoError(t, err)
+
+	response := new(clients.TransactionStatus)
+	err = json.Unmarshal(txJson, response)
+	assert.NoError(t, err)
+
+	invokeTx := adaptInvokeTransaction(response)
+	assert.Equal(t, response.Transaction.ContractAddress, invokeTx.ContractAddress)
+	assert.Equal(t, response.Transaction.EntryPointSelector, invokeTx.EntryPointSelector)
+	assert.Equal(t, response.Transaction.SenderAddress, invokeTx.SenderAddress)
+	assert.Equal(t, response.Transaction.Nonce, invokeTx.Nonce)
+	assert.Equal(t, response.Transaction.Calldata, invokeTx.CallData)
+	assert.Equal(t, response.Transaction.Signature, invokeTx.Signature)
+	assert.Equal(t, response.Transaction.MaxFee, invokeTx.MaxFee)
+	assert.Equal(t, response.Transaction.Version, invokeTx.Version)
+}
+
+func getMockClass() (*clients.ClassDefinition, *core.Class) {
+	classJson, _ := os.ReadFile("testdata/class.json")
+
+	response := new(clients.ClassDefinition)
+	json.Unmarshal(classJson, response)
+	class, _ := adaptClass(response)
+
+	return response, class
+}
+
+func TestAdaptDeployTransaction(t *testing.T) {
+	txJson, err := os.ReadFile("testdata/deployTx.json")
+	assert.NoError(t, err)
+
+	response := new(clients.TransactionStatus)
+	err = json.Unmarshal(txJson, response)
+	assert.NoError(t, err)
+
+	responseClass, class := getMockClass()
+	deployTx, err := adaptDeployTransaction(response, class)
+	assert.NoError(t, err)
+
+	assert.Equal(t, response.Transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
+	assert.Equal(t, response.Transaction.ConstructorCalldata, deployTx.ConstructorCalldata)
+	assert.Equal(t, response.Transaction.ContractAddress, deployTx.CallerAddress)
+	assert.Equal(t, response.Transaction.Version, deployTx.Version)
+
+	testTransactionClass(t, responseClass, &deployTx.Class)
+}
+
+func TestAdaptDeclareTransaction(t *testing.T) {
+	txJson, err := os.ReadFile("testdata/declareTx.json")
+	assert.NoError(t, err)
+
+	response := new(clients.TransactionStatus)
+	err = json.Unmarshal(txJson, response)
+	assert.NoError(t, err)
+
+	responseClass, class := getMockClass()
+	declareTx, err := adaptDeclareTransaction(response, class)
+	assert.NoError(t, err)
+
+	assert.Equal(t, response.Transaction.SenderAddress, declareTx.SenderAddress)
+	assert.Equal(t, response.Transaction.Version, declareTx.Version)
+	assert.Equal(t, response.Transaction.Nonce, declareTx.Nonce)
+	assert.Equal(t, response.Transaction.MaxFee, declareTx.MaxFee)
+	assert.Equal(t, response.Transaction.Signature, declareTx.Signature)
+
+	testTransactionClass(t, responseClass, &declareTx.Class)
+}
+
+func testTransactionClass(t *testing.T, expected *clients.ClassDefinition, actual *core.Class) {
+	assert.Equal(t, new(felt.Felt).SetUint64(0), actual.APIVersion)
+
+	for i, v := range expected.EntryPoints.External {
+		assert.Equal(t, v.Selector, actual.Externals[i].Selector)
+		assert.Equal(t, v.Offset, actual.Externals[i].Offset)
+	}
+	assert.Equal(t, len(expected.EntryPoints.External), len(actual.Externals))
+
+	for i, v := range expected.EntryPoints.L1Handler {
+		assert.Equal(t, v.Selector, actual.L1Handlers[i].Selector)
+		assert.Equal(t, v.Offset, actual.L1Handlers[i].Offset)
+	}
+	assert.Equal(t, len(expected.EntryPoints.L1Handler), len(actual.L1Handlers))
+
+	for i, v := range expected.EntryPoints.Constructor {
+		assert.Equal(t, v.Selector, actual.Constructors[i].Selector)
+		assert.Equal(t, v.Offset, actual.Constructors[i].Offset)
+	}
+	assert.Equal(t, len(expected.EntryPoints.Constructor), len(actual.Constructors))
+
+	for i, v := range expected.Program.Builtins {
+		assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), actual.Builtins[i])
+	}
+	assert.Equal(t, len(expected.Program.Builtins), len(actual.Builtins))
+
+	for i, v := range expected.Program.Data {
+		assert.Equal(t, v, actual.Bytecode[i])
+	}
+	assert.Equal(t, len(expected.Program.Data), len(actual.Bytecode))
 }
