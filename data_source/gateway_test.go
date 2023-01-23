@@ -1,6 +1,7 @@
 package datasource
 
 import (
+	_ "embed"
 	"encoding/json"
 	"os"
 	"testing"
@@ -9,6 +10,17 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	//go:embed testdata/class.json
+	classJson []byte
+	//go:embed testdata/invokeTx.json
+	invokeJson []byte
+	//go:embed testdata/deployTx.json
+	deployJson []byte
+	//go:embed testdata/declareTx.json
+	declareJson []byte
 )
 
 func TestAdaptStateUpdate(t *testing.T) {
@@ -105,11 +117,8 @@ func TestAdaptStateUpdate(t *testing.T) {
 }
 
 func TestAdaptClass(t *testing.T) {
-	classJson, err := os.ReadFile("testdata/class.json")
-	assert.NoError(t, err)
-
 	response := new(clients.ClassDefinition)
-	err = json.Unmarshal(classJson, response)
+	err := json.Unmarshal(classJson, response)
 	assert.NoError(t, err)
 
 	class, err := adaptClass(response)
@@ -151,11 +160,8 @@ func TestAdaptClass(t *testing.T) {
 }
 
 func TestAdaptInvokeTransaction(t *testing.T) {
-	txJson, err := os.ReadFile("testdata/invokeTx.json")
-	assert.NoError(t, err)
-
 	response := new(clients.TransactionStatus)
-	err = json.Unmarshal(txJson, response)
+	err := json.Unmarshal(invokeJson, response)
 	assert.NoError(t, err)
 
 	invokeTx := adaptInvokeTransaction(response)
@@ -180,11 +186,8 @@ func getMockClass() (*clients.ClassDefinition, *core.Class) {
 }
 
 func TestAdaptDeployTransaction(t *testing.T) {
-	txJson, err := os.ReadFile("testdata/deployTx.json")
-	assert.NoError(t, err)
-
 	response := new(clients.TransactionStatus)
-	err = json.Unmarshal(txJson, response)
+	err := json.Unmarshal(deployJson, response)
 	assert.NoError(t, err)
 
 	responseClass, class := getMockClass()
@@ -200,11 +203,8 @@ func TestAdaptDeployTransaction(t *testing.T) {
 }
 
 func TestAdaptDeclareTransaction(t *testing.T) {
-	txJson, err := os.ReadFile("testdata/declareTx.json")
-	assert.NoError(t, err)
-
 	response := new(clients.TransactionStatus)
-	err = json.Unmarshal(txJson, response)
+	err := json.Unmarshal(declareJson, response)
 	assert.NoError(t, err)
 
 	responseClass, class := getMockClass()
