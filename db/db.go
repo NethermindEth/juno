@@ -27,6 +27,12 @@ type DB interface {
 	Impl() any
 }
 
+// Entry is a database entry consisting of a Key and Value
+type Entry struct {
+	Key   []byte
+	Value []byte
+}
+
 // Transaction provides an interface to access the database's state at the point the transaction was created
 // Updates done to the database with a transaction should be only visible to other newly created transaction after
 // the transaction is committed.
@@ -43,6 +49,9 @@ type Transaction interface {
 	Delete(key []byte) error
 	// Get fetches the value for the given key, should return ErrKeyNotFound if key is not present
 	Get(key []byte) ([]byte, error)
+	// Seek would seek to the provided key if present. If absent, it would seek to the next
+	// key in lexicographic order
+	Seek(key []byte) (*Entry, error)
 
 	// Impl returns the underlying transaction object
 	Impl() any
