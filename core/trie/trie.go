@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	// Todo: Go.19 introduced math/bits library. Replace bits-and-blooms/bitset with the math/bits.
 	"github.com/bits-and-blooms/bitset"
 )
 

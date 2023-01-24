@@ -181,22 +181,6 @@ func (c *Contract) UpdateStorage(diff []StorageDiff) error {
 }
 
 // ContractAddress computes the address of a StarkNet contract.
-// Todo: [Contract] should have all the information it needs to calculate its address therefore we
-// should add callerAddress, salt and constructorCallData to [Contract]'s fields.
-// Then we have two options to the address of the contract:
-//
-//  1. Keep the following function and at [Contract] instantiation time calculate the address and
-//     store it as a field of [Class].
-//
-//  2. Add ContractAddress as a method on the Contract object. The ContractAddress would calculate
-//     the address as follows (when contract.Address() is called):
-//
-//     func (c *Contract) Address(...) *felt.Felt{
-//     if c.Address != nil {
-//     return c.Address
-//     } else {
-//     // Calculate the Address and Store it in c.Address
-//     }
 func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallData []*felt.Felt) *felt.Felt {
 	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
 	callDataHash := crypto.PedersenArray(constructorCallData...)
