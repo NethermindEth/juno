@@ -31,6 +31,7 @@ type Block struct {
 	// A commitment to the events produced in this block
 	EventCommitment *felt.Felt
 	// The version of the StarkNet protocol used when creating this block
+	// Todo: change ProtocolVersion type  to string
 	ProtocolVersion *felt.Felt
 	// Extraneous data that might be useful for running transactions
 	ExtraData *felt.Felt
@@ -180,6 +181,7 @@ func TransactionCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 }
 
 // EventData computes the event commitment and event count for a block.
+// Todo: Rename to EventCommitmentAndCount
 func EventData(receipts []*TransactionReceipt) (*felt.Felt, uint64, error) {
 	var eventCommitment *felt.Felt // root of a height 64 binary Merkle Patricia tree of the events in a block.
 	var eventCount uint64          // number of events in a block.
