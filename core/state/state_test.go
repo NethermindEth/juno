@@ -44,7 +44,8 @@ func TestState_Root(t *testing.T) {
 	// add a value and update db
 	storage, err := state.getStateStorage()
 	assert.Equal(t, nil, err)
-	assert.Equal(t, nil, storage.Put(key, value))
+	_, err = storage.Put(key, value)
+	assert.Equal(t, nil, err)
 
 	err = state.putStateStorage(storage)
 	assert.Equal(t, nil, err)

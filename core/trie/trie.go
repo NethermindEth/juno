@@ -153,9 +153,9 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
+func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 	// Todo: check key is not bigger than max key value for a trie height.
-
+	old := new(felt.Felt)
 	nodeKey := t.FeltToBitSet(key)
 	node := &Node{
 		value: value,
@@ -164,40 +164,41 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	// empty trie, make new value root
 	if t.rootKey == nil {
 		if value.IsZero() {
-			return nil // no-op
+			return nil, nil // no-op
 		}
 
 		if err := t.propagateValues([]storageNode{
 			{key: nodeKey, node: node},
 		}); err != nil {
-			return err
+			return nil, err
 		}
 		t.rootKey = nodeKey
-		return nil
+		return old, nil
 	}
 
 	nodes, err := t.nodesFromRoot(nodeKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Replace if key already exist
 	sibling := &nodes[len(nodes)-1]
 	if nodeKey.Equal(sibling.key) {
+		old = sibling.node.value // record old value to return to caller
 		sibling.node = node
 		if value.IsZero() {
 			if err = t.deleteLast(nodes); err != nil {
-				return err
+				return nil, err
 			}
 		} else if err = t.propagateValues(nodes); err != nil {
-			return err
+			return nil, err
 		}
-		return nil
+		return old, nil
 	}
 
 	// trying to insert 0 to a key that does not exist
 	if value.IsZero() {
-		return nil // no-op
+		return nil, nil // no-op
 	}
 
 	commonKey, _ := FindCommonKey(nodeKey, sibling.key)
@@ -233,11 +234,11 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	// push commitment changes
 	if err = t.propagateValues(nodes); err != nil {
-		return err
+		return nil, err
 	} else if makeRoot {
 		t.rootKey = commonKey
 	}
-	return nil
+	return old, nil
 }
 
 // deleteLast deletes the last node in the given list and recalculates commitment
