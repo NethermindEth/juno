@@ -3,7 +3,6 @@ package gateway
 import (
 	_ "embed"
 	"encoding/json"
-	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
@@ -176,8 +175,6 @@ func TestAdaptInvokeTransaction(t *testing.T) {
 }
 
 func getMockClass() (*clients.ClassDefinition, *core.Class) {
-	classJson, _ := os.ReadFile("testdata/class.json")
-
 	response := new(clients.ClassDefinition)
 	json.Unmarshal(classJson, response)
 	class, _ := adaptClass(response)
