@@ -57,9 +57,6 @@ func (s *Synchronizer) SyncBlocks() error {
 			if err != nil {
 				return err
 			}
-			if err = s.Blockchain.Verify(block); err != nil {
-				return err
-			}
 			stateUpdate, err := s.StarkNetData.StateUpdate(nextHeight)
 			if err != nil {
 				return err

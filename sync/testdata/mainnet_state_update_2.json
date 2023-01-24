@@ -1,0 +1,53 @@
+{
+  "block_hash": "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+  "new_root": "03ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9",
+  "old_root": "0525aed4da9cc6cce2de31ba79059546b0828903279e4eaa38768de33e2cac32",
+  "state_diff": {
+    "storage_diffs": {
+      "0x1fb4457f3fe8a976bdb9c04dd21549beeeb87d3867b10effe0c4bd4064a8e4": [
+        {
+          "key": "0x56c060e7902b3d4ec5a327f1c6e083497e586937db00af37fe803025955678f",
+          "value": "0x75495b43f53bd4b9c9179db113626af7b335be5744d68c6552e3d36a16a747c"
+        }
+      ],
+      "0x5790719f16afe1450b67a92461db7d0e36298d6a5f8bab4f7fd282050e02f4f": [
+        {
+          "key": "0x772c29fae85f8321bb38c9c3f6edb0957379abedc75c17f32bcef4e9657911a",
+          "value": "0x6d4ca0f72b553f5338a95625782a939a49b98f82f449c20f49b42ec60ed891c"
+        }
+      ],
+      "0x57b973bf2eb26ebb28af5d6184b4a044b24a8dcbf724feb95782c4d1aef1ca9": [
+        {
+          "key": "0x4f2c206f3f2f1380beeb9fe4302900701e1cb48b9b33cbe1a84a175d7ce8b50",
+          "value": "0x2a614ae71faa2bcdacc5fd66965429c57c4520e38ebc6344f7cf2e78b21bd2f"
+        }
+      ],
+      "0x2d6c9569dea5f18628f1ef7c15978ee3093d2d3eec3b893aac08004e678ead3": [
+        {
+          "key": "0x7f93985c1baa5bd9b2200dd2151821bd90abb87186d0be295d7d4b9bc8ca41f",
+          "value": "0x127cd00a078199381403a33d315061123ce246c8e5f19aa7f66391a9d3bf7c6"
+        }
+      ]
+    },
+    "nonces": {},
+    "deployed_contracts": [
+      {
+        "address": "0x1fb4457f3fe8a976bdb9c04dd21549beeeb87d3867b10effe0c4bd4064a8e4",
+        "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
+      },
+      {
+        "address": "0x5790719f16afe1450b67a92461db7d0e36298d6a5f8bab4f7fd282050e02f4f",
+        "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
+      },
+      {
+        "address": "0x57b973bf2eb26ebb28af5d6184b4a044b24a8dcbf724feb95782c4d1aef1ca9",
+        "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
+      },
+      {
+        "address": "0x2d6c9569dea5f18628f1ef7c15978ee3093d2d3eec3b893aac08004e678ead3",
+        "class_hash": "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
+      }
+    ],
+    "declared_contracts": []
+  }
+}
