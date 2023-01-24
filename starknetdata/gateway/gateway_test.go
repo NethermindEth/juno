@@ -12,6 +12,8 @@ import (
 )
 
 var (
+	//go:embed testdata/block_11817.json
+	blockJson []byte
 	//go:embed testdata/class_0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json
 	classJson []byte
 	//go:embed testdata/invokeTx_0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json
@@ -21,6 +23,30 @@ var (
 	//go:embed testdata/declareTx_0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json
 	declareJson []byte
 )
+
+func TestAdaptBlock(t *testing.T) {
+	var response *clients.Block
+	err := json.Unmarshal(blockJson, &response)
+	if err != nil {
+		t.Fatalf("unexpected unmarshal error: %s", err)
+	}
+
+	block, err := AdaptBlock(response)
+	if !assert.NoError(t, err) {
+		t.Errorf("unexpected error on AdaptBlock: %s", err)
+	}
+	assert.True(t, block.Hash.Equal(response.Hash))
+	assert.True(t, block.ParentHash.Equal(response.ParentHash))
+	assert.Equal(t, block.Number, response.Number)
+	assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
+	assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
+	assert.Equal(t, block.TransactionCount, new(felt.Felt).SetUint64(uint64(len(response.Transactions))))
+	assert.Equal(t, block.ProtocolVersion, new(felt.Felt))
+	var extraData *felt.Felt
+	assert.Equal(t, block.ExtraData, extraData)
+	// TODO test transaction commitment...?
+	// TODO test event commitment and count
+}
 
 func TestAdaptStateUpdate(t *testing.T) {
 	jsonData := []byte(`{

@@ -71,7 +71,8 @@ type TransactionReceipt struct {
 }
 
 type Transaction interface {
-	Hash(chainId []byte) (*felt.Felt, error)
+	// Todo: Add Hash as a field to all the Transaction Objects
+	Hash(utils.Network) (*felt.Felt, error)
 }
 
 type DeployTransaction struct {
