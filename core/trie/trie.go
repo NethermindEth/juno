@@ -4,6 +4,7 @@ package trie
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -165,7 +166,10 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	trieHeightFelt, err := new(felt.Felt).SetInterface(t.height)
+	var x big.Int
+	x.SetInt64(1).Lsh(&x, t.height)
+	fmt.Println(x.String())
+	trieHeightFelt, err := new(felt.Felt).SetInterface(x.String())
 	if err != nil {
 		return err
 	}

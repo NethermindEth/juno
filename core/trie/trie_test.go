@@ -12,6 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func hexToFelt(hex string) *felt.Felt {
+	// We know our test hex values are valid, so we'll ignore the potential error
+	f, _ := new(felt.Felt).SetString(hex)
+	return f
+}
+
 // Todo: Refactor:
 //   - Test names should not have "_"
 //   - Table test are being used incorrectly: they should be separated into subsets, see node_test.go
@@ -140,12 +146,12 @@ func TestTriePutError(t *testing.T) {
 		root  *bitset.BitSet
 	}{
 		{
-			key:   new(felt.Felt).SetUint64(252),
+			key:   hexToFelt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
 			value: new(felt.Felt).SetUint64(10),
 			root:  nil,
 		},
 	}
-	RunOnTempTrie(251, func(trie *Trie) error {
+	RunOnTempTrie(201, func(trie *Trie) error {
 		for idx, test := range tests {
 			if err := trie.Put(test.key, test.value); err.Error() != "key is bigger than the trie height" {
 				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
