@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -59,18 +60,18 @@ func New(cfg *Config) (StarkNetNode, error) {
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-
-	bc := blockchain.NewBlockchain()
-	return &Node{
-		cfg:          cfg,
-		blockchain:   bc,
-		synchronizer: sync.NewSynchronizer(bc, gateway.NewGateway(cfg.Network)),
-	}, nil
+	return &Node{cfg: cfg}, nil
 }
 
 func (n *Node) Run() error {
 	log.Println("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
 
+	database, err := db.NewDb(n.cfg.DatabasePath)
+	if err != nil {
+		return err
+	}
+	n.blockchain = blockchain.NewBlockchain(database)
+	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network))
 	return n.synchronizer.Run()
 }
 
