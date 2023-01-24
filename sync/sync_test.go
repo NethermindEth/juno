@@ -19,14 +19,6 @@ Todo:
 	- Then get it to store in the fake db
 	- Write todos for the verify and Store function
 	- Decide what to do for
-
-Todo:
-- Create a Gateway Client Interfacde
-- Create a FakeGatewayClient for testing purposes
-- Rename the Gateway to Feeder Gateway to make it more specific
-- Make the StarkNetData accept GatewayClient Interface
-	- Pass the Gateway To the Synchronizer
-
 */
 
 func TestSyncBlocks(t *testing.T) {
@@ -66,7 +58,7 @@ func (f *fakeStarkNetData) BlockByNumber(blockNumber uint64) (*core.Block, error
 func (f *fakeStarkNetData) StateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
 	u := f.stateUpdate[blockNumber]
 	if u == nil {
-		return nil, errors.New("unknown block")
+		return nil, errors.New("unknown state update")
 	}
 	return u, nil
 }

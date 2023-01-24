@@ -28,10 +28,10 @@ func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
 		return nil, err
 	}
 
-	return adaptBlock(response)
+	return AdaptBlock(response)
 }
 
-func adaptBlock(response *clients.Block) (*core.Block, error) {
+func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	if response == nil {
 		return nil, nil
 	}
@@ -175,10 +175,10 @@ func (g *Gateway) StateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
 		return nil, err
 	}
 
-	return adaptStateUpdate(response)
+	return AdaptStateUpdate(response)
 }
 
-func adaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) {
+func AdaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredContracts = response.StateDiff.DeclaredContracts
 	for _, deployedContract := range response.StateDiff.DeployedContracts {
