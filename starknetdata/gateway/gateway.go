@@ -44,7 +44,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 
 	// Events
 	// Todo: Add EventCommitment to Block which is returned.
-	_, eventCount, err := core.EventData(receipts)
+	eventCommitment, eventCount, err := core.EventData(receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +63,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 		TransactionCount:      new(felt.Felt).SetUint64(uint64(len(response.Transactions))),
 		TransactionCommitment: txCommitment,
 		EventCount:            new(felt.Felt).SetUint64(eventCount),
+		EventCommitment:       eventCommitment,
 		ProtocolVersion:       new(felt.Felt),
 		ExtraData:             nil,
 	}, nil
