@@ -163,7 +163,7 @@ func TransactionCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 				signaturesHash = crypto.PedersenArray(receipt.Signatures...)
 			}
 			transactionAndSignatureHash := crypto.Pedersen(receipt.TransactionHash, signaturesHash)
-			if err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), transactionAndSignatureHash); err != nil {
+			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), transactionAndSignatureHash); err != nil {
 				return err
 			}
 		}
@@ -189,7 +189,7 @@ func EventData(receipts []*TransactionReceipt) (*felt.Felt, uint64, error) {
 					crypto.PedersenArray(event.Data...),
 				)
 
-				if err := trie.Put(new(felt.Felt).SetUint64(eventCount), eventHash); err != nil {
+				if _, err := trie.Put(new(felt.Felt).SetUint64(eventCount), eventHash); err != nil {
 					return err
 				}
 				eventCount++

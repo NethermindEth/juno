@@ -118,7 +118,7 @@ func TestTriePut(t *testing.T) {
 	}
 	RunOnTempTrie(251, func(trie *Trie) error {
 		for idx, test := range tests {
-			if err := trie.Put(test.key, test.value); err != nil {
+			if _, err := trie.Put(test.key, test.value); err != nil {
 				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
 			}
 			if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
@@ -315,7 +315,7 @@ func TestState(t *testing.T) {
 				for _, slot := range dif {
 					key, _ := new(felt.Felt).SetString(slot.key)
 					val, _ := new(felt.Felt).SetString(slot.val)
-					if err := contractState.Put(key, val); err != nil {
+					if _, err := contractState.Put(key, val); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -335,7 +335,7 @@ func TestState(t *testing.T) {
 				val = crypto.Pedersen(val, new(felt.Felt))
 				val = crypto.Pedersen(val, new(felt.Felt))
 
-				if err := state.Put(key, val); err != nil {
+				if _, err := state.Put(key, val); err != nil {
 					t.Fatal(err)
 				}
 
@@ -379,7 +379,7 @@ func TestPutZero(t *testing.T) {
 			t.Error(err)
 		}
 
-		if err = trie.Put(key, value); err != nil {
+		if _, err = trie.Put(key, value); err != nil {
 			t.Error(err)
 		}
 
@@ -397,7 +397,7 @@ func TestPutZero(t *testing.T) {
 		t.Error(err)
 	}
 	// adding a zero value should not change Trie
-	if err = trie.Put(key, new(felt.Felt)); err != nil {
+	if _, err = trie.Put(key, new(felt.Felt)); err != nil {
 		t.Error(err)
 	}
 	root, err := trie.Root()
@@ -429,4 +429,37 @@ func TestPutZero(t *testing.T) {
 	defer it.Close()
 	it.Rewind()
 	assert.Equal(t, false, it.Valid()) // storage should be empty
+}
+
+func TestOldData(t *testing.T) {
+	RunOnTempTrie(251, func(trie *Trie) error {
+		key := new(felt.Felt).SetUint64(12)
+		old := new(felt.Felt)
+
+		was, err := trie.Put(key, old)
+		assert.NoError(t, err)
+		assert.Nil(t, was) // no change
+
+		was, err = trie.Put(key, new(felt.Felt).SetUint64(1))
+		assert.NoError(t, err)
+		assert.Equal(t, old, was)
+
+		old.SetUint64(1)
+
+		was, err = trie.Put(key, new(felt.Felt).SetUint64(2))
+		assert.NoError(t, err)
+		assert.Equal(t, old, was)
+
+		old.SetUint64(2)
+
+		was, err = trie.Put(key, new(felt.Felt))
+		assert.NoError(t, err)
+		assert.Equal(t, old, was)
+
+		was, err = trie.Put(key, new(felt.Felt))
+		assert.NoError(t, err)
+		assert.Nil(t, was) // no change
+
+		return nil
+	})
 }

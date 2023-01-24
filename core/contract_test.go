@@ -296,7 +296,8 @@ func TestContract(t *testing.T) {
 
 	storage, err := contract.Storage()
 
-	assert.NoError(t, storage.Put(addr, class))
+	_, err = storage.Put(addr, class)
+	assert.NoError(t, err)
 	root, err := storage.Root()
 	assert.NoError(t, err)
 

@@ -214,7 +214,7 @@ func (s *State) updateContractCommitment(contract *core.Contract) error {
 			return err
 		}
 
-		if err = state.Put(contract.Address, commitment); err != nil {
+		if _, err = state.Put(contract.Address, commitment); err != nil {
 			return err
 		}
 

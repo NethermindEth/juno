@@ -160,7 +160,7 @@ func (c *Contract) UpdateStorage(diff []StorageDiff) error {
 
 	// apply the diff
 	for _, pair := range diff {
-		if err = storage.Put(pair.Key, pair.Value); err != nil {
+		if _, err = storage.Put(pair.Key, pair.Value); err != nil {
 			return err
 		}
 	}
