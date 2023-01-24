@@ -81,6 +81,26 @@ func (t *badgerTxn) Get(key []byte) ([]byte, error) {
 	})
 }
 
+// Seek : see db.Transaction.Seek
+func (t *badgerTxn) Seek(key []byte) (*Entry, error) {
+	it := t.badger.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	it.Seek(key)
+	if it.Valid() {
+		item := it.Item()
+		next := &Entry{
+			Key: item.Key(),
+		}
+		return next, item.Value(func(val []byte) error {
+			next.Value = append([]byte{}, val...)
+			return nil
+		})
+	}
+
+	return nil, nil
+}
+
 // Impl : see db.Transaction.Impl
 func (t *badgerTxn) Impl() any {
 	return t.badger

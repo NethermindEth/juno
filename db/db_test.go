@@ -175,3 +175,39 @@ func TestNilValue(t *testing.T) {
 	})
 	assert.Nil(t, err)
 }
+
+func TestSeek(t *testing.T) {
+	db := NewTestDb()
+	defer db.Close()
+
+	err := db.Update(func(txn Transaction) error {
+		err := txn.Set([]byte{1}, []byte{1})
+		assert.NoError(t, err)
+		err = txn.Set([]byte{3}, []byte{3})
+		assert.NoError(t, err)
+		return nil
+	})
+	assert.NoError(t, err)
+
+	db.View(func(txn Transaction) error {
+		next, err := txn.Seek([]byte{0})
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{1}, next.Key)
+		assert.Equal(t, []byte{1}, next.Value)
+
+		next, err = txn.Seek([]byte{2})
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{3}, next.Key)
+		assert.Equal(t, []byte{3}, next.Value)
+
+		next, err = txn.Seek([]byte{3})
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{3}, next.Key)
+		assert.Equal(t, []byte{3}, next.Value)
+
+		next, err = txn.Seek([]byte{4})
+		assert.NoError(t, err)
+		assert.Nil(t, next)
+		return nil
+	})
+}
