@@ -21,7 +21,7 @@ import (
 //   - Add more test cases with different heights
 //   - Add more complicated Put and Delete scenarios
 func TestPathFromKey(t *testing.T) {
-	trie := NewTrie(nil, 251, nil)
+	trie, _ := NewTrie(nil, 251, nil)
 	key, _ := new(felt.Felt).SetRandom()
 	path := trie.FeltToBitSet(key)
 	keyRegular := key.ToRegular()
@@ -116,7 +116,7 @@ func TestTriePut(t *testing.T) {
 			root:  nil,
 		},
 	}
-	RunOnTempTrie(251, func(trie *Trie) error {
+	RunOnTempTrie(21, func(trie *Trie) error {
 		for idx, test := range tests {
 			if err := trie.Put(test.key, test.value); err != nil {
 				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
@@ -360,7 +360,7 @@ func TestPutZero(t *testing.T) {
 	defer txn.Discard()
 
 	trieTxn := NewTrieTxn(txn, nil)
-	trie := NewTrie(trieTxn, 251, nil)
+	trie, _ := NewTrie(trieTxn, 251, nil)
 	emptyRoot, err := trie.Root()
 	if err != nil {
 		t.Error(err)

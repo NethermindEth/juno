@@ -2,15 +2,20 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+
 	// Todo: Go.19 introduced math/bits library. Replace bits-and-blooms/bitset with the math/bits.
 	"github.com/bits-and-blooms/bitset"
 )
+
+// Max height of a [Trie] is 251.
+var maxTrieHeight uint = 251
 
 // Storage is the Persistent storage for the [Trie]
 type Storage interface {
@@ -42,13 +47,16 @@ type Trie struct {
 	storage Storage
 }
 
-func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
 	// Todo: set max height to 251 and set max key value accordingly
+	if height > maxTrieHeight {
+		return nil, errors.New("trie height must be less than 251")
+	}
 	return &Trie{
 		storage: storage,
 		height:  height,
 		rootKey: rootKey,
-	}
+	}, nil
 }
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
@@ -62,8 +70,11 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	txn := db.NewTransaction(true)
 	defer txn.Discard()
 
-	trieTxn := NewTrieTxn(txn, nil)
-	return do(NewTrie(trieTxn, height, nil))
+	trie, err := NewTrie(NewTrieTxn(txn, nil), height, nil)
+	if err != nil {
+		return err
+	}
+	return do(trie)
 }
 
 // FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
@@ -183,6 +194,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	// Replace if key already exist
 	sibling := &nodes[len(nodes)-1]
+	fmt.Println(nodeKey.Equal(sibling.key))
 	if nodeKey.Equal(sibling.key) {
 		sibling.node = node
 		if value.IsZero() {
