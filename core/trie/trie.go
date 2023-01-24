@@ -165,7 +165,14 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	// Todo: check key is not bigger than max key value for a trie height.
+	trieHeightFelt, err := new(felt.Felt).SetInterface(t.height)
+	if err != nil {
+		return err
+	}
+
+	if key.Impl().Cmp(trieHeightFelt.Impl()) == 1 {
+		return errors.New("key is bigger than the trie height")
+	}
 
 	nodeKey := t.FeltToBitSet(key)
 	node := &Node{
@@ -194,7 +201,6 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 
 	// Replace if key already exist
 	sibling := &nodes[len(nodes)-1]
-	fmt.Println(nodeKey.Equal(sibling.key))
 	if nodeKey.Equal(sibling.key) {
 		sibling.node = node
 		if value.IsZero() {

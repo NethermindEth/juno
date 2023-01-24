@@ -139,7 +139,11 @@ func (c *Contract) Storage() (*trie.Trie, error) {
 		return nil, err
 	}
 	trieTxn := trie.NewTrieTxn(c.txn, db.ContractStorage.Key(addrBytes))
-	return trie.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey), nil
+	newTrie, err := trie.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey)
+	if err != nil {
+		return nil, err
+	}
+	return newTrie, nil
 }
 
 // StorageRoot returns the root of the contract storage.

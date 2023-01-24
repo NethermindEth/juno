@@ -114,8 +114,11 @@ func (s *State) getStateStorage(txn db.Transaction) (*trie.Trie, error) {
 	if err != nil {
 		rootKey = nil
 	}
-
-	return trie.NewTrie(tTxn, stateTrieHeight, rootKey), nil
+	newTrie, err := trie.NewTrie(tTxn, stateTrieHeight, rootKey)
+	if err != nil {
+		return nil, err
+	}
+	return newTrie, nil
 }
 
 // rootKey returns key to the root node in the given Txn context.

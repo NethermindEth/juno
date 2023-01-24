@@ -116,12 +116,41 @@ func TestTriePut(t *testing.T) {
 			root:  nil,
 		},
 	}
-	RunOnTempTrie(21, func(trie *Trie) error {
+	RunOnTempTrie(251, func(trie *Trie) error {
 		for idx, test := range tests {
 			if err := trie.Put(test.key, test.value); err != nil {
 				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
 			}
 			if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
+				t.Errorf("TestTriePut: Get() failed at test #%d", idx)
+			}
+			if test.root != nil && !test.root.Equal(trie.rootKey) {
+				t.Errorf("TestTriePut: Unexpected rootKey at test #%d", idx)
+			}
+		}
+
+		return nil
+	})
+}
+
+func TestTriePutError(t *testing.T) {
+	tests := [...]struct {
+		key   *felt.Felt
+		value *felt.Felt
+		root  *bitset.BitSet
+	}{
+		{
+			key:   new(felt.Felt).SetUint64(252),
+			value: new(felt.Felt).SetUint64(10),
+			root:  nil,
+		},
+	}
+	RunOnTempTrie(251, func(trie *Trie) error {
+		for idx, test := range tests {
+			if err := trie.Put(test.key, test.value); err.Error() != "key is bigger than the trie height" {
+				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
+			}
+			if value, err := trie.Get(test.key); err.Error() == "key not found" && value != nil {
 				t.Errorf("TestTriePut: Get() failed at test #%d", idx)
 			}
 			if test.root != nil && !test.root.Equal(trie.rootKey) {
