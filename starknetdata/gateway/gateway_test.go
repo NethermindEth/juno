@@ -22,9 +22,9 @@ func TestAdaptBlock(t *testing.T) {
 		t.Fatalf("unexpected unmarshal error: %s", err)
 	}
 
-	block, err := adaptBlock(response)
+	block, err := AdaptBlock(response)
 	if !assert.NoError(t, err) {
-		t.Errorf("unexpected error on adaptBlock: %s", err)
+		t.Errorf("unexpected error on AdaptBlock: %s", err)
 	}
 	assert.True(t, block.ParentHash.Equal(response.ParentHash))
 	assert.Equal(t, block.Number, response.Number)
@@ -90,7 +90,7 @@ func TestAdaptStateUpdate(t *testing.T) {
 	err := json.Unmarshal(jsonData, &gatewayStateUpdate)
 	assert.Equal(t, nil, err, "Unexpected error")
 
-	coreStateUpdate, err := adaptStateUpdate(&gatewayStateUpdate)
+	coreStateUpdate, err := AdaptStateUpdate(&gatewayStateUpdate)
 	if assert.NoError(t, err) {
 		assert.Equal(t, true, gatewayStateUpdate.NewRoot.Equal(coreStateUpdate.NewRoot))
 		assert.Equal(t, true, gatewayStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
