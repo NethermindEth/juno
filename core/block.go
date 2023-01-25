@@ -9,6 +9,14 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+type ErrUnverifiableBlock struct {
+	blockNumber uint64
+}
+
+func (e *ErrUnverifiableBlock) Error() string {
+	return fmt.Sprintf("block is unverifiable: %d", e.blockNumber)
+}
+
 type Block struct {
 	// TODO: Add Transactions and TransactionReceipts
 	// TODO: Remove TransactionCount and EventCount
@@ -41,15 +49,6 @@ type blockHashMetaInfo struct {
 	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
 	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
-}
-
-// Todo: Rename to ErrUnverifiableBlock
-type UnverifiableBlockError struct {
-	blockNumber uint64
-}
-
-func (e *UnverifiableBlockError) Error() string {
-	return fmt.Sprintf("block is unverifiable: %d", e.blockNumber)
 }
 
 func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
@@ -87,7 +86,7 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 }
 
 // Hash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
-// verifiable hashes. In that case, an [UnverifiableBlockError] is returned.
+// verifiable hashes. In that case, an [ErrUnverifiableBlock] is returned.
 func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 	blockHashMetaInfo := getBlockHashMetaInfo(network)
 
@@ -96,7 +95,7 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 		// Check if the block number is in the unverifiable range
 		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
 			// If so, return unverifiable block error
-			return nil, &UnverifiableBlockError{blockNumber: b.Number}
+			return nil, &ErrUnverifiableBlock{blockNumber: b.Number}
 		}
 	}
 
