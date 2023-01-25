@@ -6,6 +6,8 @@ import (
 	"github.com/dgraph-io/badger/v3"
 )
 
+// Todo: there is no reason to create badgerDb since interfaces implementations are implicit in
+// golang
 type badgerDb struct {
 	badger *badger.DB
 }
@@ -39,6 +41,8 @@ func (db *badgerDb) Impl() any {
 	return db.badger
 }
 
+// Todo: badgerTxn should be made public and only Get needs to have a definition since it is
+// "overriding" the badger txn Get function.
 type badgerTxn struct {
 	badger *badger.Txn
 }
