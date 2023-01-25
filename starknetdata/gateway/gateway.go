@@ -43,8 +43,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	}
 
 	// Events
-	// Todo: Add EventCommitment to Block which is returned.
-	eventCommitment, eventCount, err := core.EventData(receipts)
+	eventCommitment, eventCount, err := core.EventCommitmentAndCount(receipts)
 	if err != nil {
 		return nil, err
 	}
