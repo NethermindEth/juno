@@ -88,9 +88,9 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 // Hash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
 // verifiable hashes. In that case, an [ErrUnverifiableBlock] is returned.
 func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
-	blockHashMetaInfo := getBlockHashMetaInfo(network)
+	metaInfo := getBlockHashMetaInfo(network)
 
-	unverifiableRange := blockHashMetaInfo.UnverifiableRange
+	unverifiableRange := metaInfo.UnverifiableRange
 	if unverifiableRange != nil {
 		// Check if the block number is in the unverifiable range
 		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
@@ -99,10 +99,10 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 		}
 	}
 
-	if b.Number < blockHashMetaInfo.First07Block {
+	if b.Number < metaInfo.First07Block {
 		return b.pre07Hash(network.ChainId()), nil
 	} else if b.SequencerAddress == nil {
-		b.SequencerAddress = blockHashMetaInfo.FallBackSequencerAddress
+		b.SequencerAddress = metaInfo.FallBackSequencerAddress
 	}
 	return b.post07Hash(), nil
 }
