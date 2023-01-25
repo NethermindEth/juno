@@ -15,7 +15,7 @@ import (
 
 func TestState_PutNewContract(t *testing.T) {
 	testDb := db.NewTestDb()
-	state := NewState(testDb)
+	state := NewState(testDb.NewTransaction(true))
 
 	addr, _ := new(felt.Felt).SetRandom()
 	classHash, _ := new(felt.Felt).SetRandom()
@@ -23,11 +23,8 @@ func TestState_PutNewContract(t *testing.T) {
 	_, err := state.GetContractClass(addr)
 	assert.EqualError(t, err, "Key not found")
 
-	testDb.Update(func(txn db.Transaction) error {
-		assert.Equal(t, nil, state.putNewContract(addr, classHash, txn))
-		assert.EqualError(t, state.putNewContract(addr, classHash, txn), "existing contract")
-		return nil
-	})
+	assert.Equal(t, nil, state.putNewContract(addr, classHash))
+	assert.EqualError(t, state.putNewContract(addr, classHash), "existing contract")
 
 	got, err := state.GetContractClass(addr)
 	assert.Equal(t, nil, err)
@@ -37,7 +34,7 @@ func TestState_PutNewContract(t *testing.T) {
 func TestState_Root(t *testing.T) {
 	testDb := db.NewTestDb()
 
-	state := NewState(testDb)
+	state := NewState(testDb.NewTransaction(true))
 
 	key, _ := new(felt.Felt).SetRandom()
 	value, _ := new(felt.Felt).SetRandom()
@@ -45,19 +42,13 @@ func TestState_Root(t *testing.T) {
 	var newRootPath *bitset.BitSet
 
 	// add a value and update db
-	if err := testDb.Update(func(txn db.Transaction) error {
-		storage, err := state.getStateStorage(txn)
-		assert.Equal(t, nil, err)
-		assert.Equal(t, nil, storage.Put(key, value))
+	storage, err := state.getStateStorage()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nil, storage.Put(key, value))
 
-		err = state.putStateStorage(storage, txn)
-		assert.Equal(t, nil, err)
-		newRootPath = storage.FeltToBitSet(key)
-
-		return err
-	}); err != nil {
-		t.Error(err)
-	}
+	err = state.putStateStorage(storage)
+	assert.Equal(t, nil, err)
+	newRootPath = storage.FeltToBitSet(key)
 
 	expectedRootNode := new(trie.Node)
 	if err := expectedRootNode.UnmarshalBinary(value.Marshal()); err != nil {
@@ -227,7 +218,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	testDb := db.NewTestDb()
-	state := NewState(testDb)
+	state := NewState(testDb.NewTransaction(true))
 
 	assert.Equal(t, nil, state.Update(coreUpdate))
 }
@@ -246,7 +237,7 @@ func TestUpdateNonce(t *testing.T) {
 		},
 	}
 	testDb := db.NewTestDb()
-	state := NewState(testDb)
+	state := NewState(testDb.NewTransaction(true))
 
 	assert.NoError(t, state.Update(coreUpdate))
 
