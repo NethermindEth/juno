@@ -3,12 +3,15 @@ package blockchain
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/fxamacker/cbor/v2"
 )
 
 // Blockchain is responsible for keeping track of all things related to the StarkNet blockchain
@@ -16,17 +19,18 @@ type Blockchain struct {
 	sync.RWMutex
 
 	head     *core.Block
+	network  utils.Network
 	database db.DB
 	state    *state.State
 	// todo: much more
 }
 
-func NewBlockchain(database db.DB) *Blockchain {
+func NewBlockchain(database db.DB, network utils.Network) *Blockchain {
 	// Todo: get the latest block from db using the prefix created in db/buckets.go
 	return &Blockchain{
 		RWMutex:  sync.RWMutex{},
 		database: database,
-		state:    state.NewState(database),
+		network:  network,
 	}
 }
 

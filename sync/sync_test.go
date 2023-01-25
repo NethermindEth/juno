@@ -6,13 +6,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NethermindEth/juno/db"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
+	"github.com/NethermindEth/juno/utils"
 )
 
 /*
@@ -31,7 +31,7 @@ Test Cases to enumerate:
 */
 
 func testSyncBlocks(t *testing.T) {
-	bc := blockchain.NewBlockchain(db.NewTestDb())
+	bc := blockchain.NewBlockchain(db.NewTestDb(), utils.MAINNET)
 	fakeData := newFakeStarkNetData()
 	synchronizer := NewSynchronizer(bc, fakeData)
 	synchronizer.SyncBlocks()
