@@ -33,12 +33,12 @@ func (e *ErrMismatchedRoot) Error() string {
 }
 
 type State struct {
-	database db.DB
+	txn db.Transaction
 }
 
-func NewState(database db.DB) *State {
+func NewState(txn db.Transaction) *State {
 	state := &State{
-		database: database,
+		txn: txn,
 	}
 	return state
 }
@@ -52,53 +52,28 @@ func CalculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 // putNewContract creates a contract storage instance in the state and
 // stores the relation between contract address and class hash to be
 // queried later on with [GetContractClass].
-func (s *State) putNewContract(addr, classHash *felt.Felt, txn db.Transaction) error {
-	contract := core.NewContract(addr, txn)
+func (s *State) putNewContract(addr, classHash *felt.Felt) error {
+	contract := core.NewContract(addr, s.txn)
 	if err := contract.Deploy(classHash); err != nil {
 		return err
 	} else {
-		return s.updateContractCommitment(contract, txn)
+		return s.updateContractCommitment(contract)
 	}
 }
 
 // GetContractClass returns class hash of a contract at a given address.
 func (s *State) GetContractClass(addr *felt.Felt) (*felt.Felt, error) {
-	var classHash *felt.Felt
-
-	return classHash, s.database.View(func(txn db.Transaction) error {
-		var err error
-		contract := core.NewContract(addr, txn)
-		classHash, err = contract.ClassHash()
-		return err
-	})
+	return core.NewContract(addr, s.txn).ClassHash()
 }
 
 // GetContractNonce returns nonce of a contract at a given address.
 func (s *State) GetContractNonce(addr *felt.Felt) (*felt.Felt, error) {
-	var nonce *felt.Felt
-
-	return nonce, s.database.View(func(txn db.Transaction) error {
-		var err error
-		contract := core.NewContract(addr, txn)
-		nonce, err = contract.Nonce()
-		return err
-	})
+	return core.NewContract(addr, s.txn).Nonce()
 }
 
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
-	var root *felt.Felt
-	return root, s.database.View(func(txn db.Transaction) error {
-		read, err := s.root(txn)
-
-		root = read
-		return err
-	})
-}
-
-// root returns the state commitment in the given Txn context.
-func (s *State) root(txn db.Transaction) (*felt.Felt, error) {
-	storage, err := s.getStateStorage(txn)
+	storage, err := s.getStateStorage()
 	if err != nil {
 		return nil, err
 	}
@@ -107,10 +82,10 @@ func (s *State) root(txn db.Transaction) (*felt.Felt, error) {
 
 // getStateStorage returns a [core.Trie] that represents the StarkNet
 // global state in the given Txn context
-func (s *State) getStateStorage(txn db.Transaction) (*trie.Trie, error) {
-	tTxn := trie.NewTrieTxn(txn, []byte{byte(db.StateTrie)})
+func (s *State) getStateStorage() (*trie.Trie, error) {
+	tTxn := trie.NewTrieTxn(s.txn, []byte{byte(db.StateTrie)})
 
-	rootKey, err := s.rootKey(txn)
+	rootKey, err := s.rootKey()
 	if err != nil {
 		rootKey = nil
 	}
@@ -119,10 +94,10 @@ func (s *State) getStateStorage(txn db.Transaction) (*trie.Trie, error) {
 }
 
 // rootKey returns key to the root node in the given Txn context.
-func (s *State) rootKey(txn db.Transaction) (*bitset.BitSet, error) {
+func (s *State) rootKey() (*bitset.BitSet, error) {
 	key := new(bitset.BitSet)
 
-	val, err := txn.Get(db.State.Key([]byte(stateRootKey)))
+	val, err := s.txn.Get(db.State.Key([]byte(stateRootKey)))
 	if err != nil {
 		return nil, err
 	}
@@ -132,15 +107,15 @@ func (s *State) rootKey(txn db.Transaction) (*bitset.BitSet, error) {
 
 // putStateStorage updates the fields related to the state trie root in
 // the given Txn context.
-func (s *State) putStateStorage(state *trie.Trie, txn db.Transaction) error {
+func (s *State) putStateStorage(state *trie.Trie) error {
 	rootKeyDbKey := db.State.Key([]byte(stateRootKey))
 	if rootKey := state.RootKey(); rootKey != nil {
 		if rootKeyBytes, err := rootKey.MarshalBinary(); err != nil {
 			return err
-		} else if err = txn.Set(rootKeyDbKey, rootKeyBytes); err != nil {
+		} else if err = s.txn.Set(rootKeyDbKey, rootKeyBytes); err != nil {
 			return err
 		}
-	} else if err := txn.Delete(rootKeyDbKey); err != nil {
+	} else if err := s.txn.Delete(rootKeyDbKey); err != nil {
 		return err
 	}
 
@@ -152,82 +127,80 @@ func (s *State) putStateStorage(state *trie.Trie, txn db.Transaction) error {
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
 func (s *State) Update(update *core.StateUpdate) error {
-	return s.database.Update(func(txn db.Transaction) error {
-		currentRoot, err := s.root(txn)
+	currentRoot, err := s.Root()
+	if err != nil {
+		return err
+	}
+	if !update.OldRoot.Equal(currentRoot) {
+		return &ErrMismatchedRoot{
+			Want:  update.OldRoot,
+			Got:   currentRoot,
+			IsOld: true,
+		}
+	}
+
+	// register deployed contracts
+	for _, contract := range update.StateDiff.DeployedContracts {
+		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
+			return err
+		}
+	}
+
+	// update contract nonces
+	for addr, nonce := range update.StateDiff.Nonces {
+		if err = s.updateContractNonce(&addr, nonce); err != nil {
+			return err
+		}
+	}
+
+	// update contract storages
+	for addr, diff := range update.StateDiff.StorageDiffs {
 		if err != nil {
 			return err
 		}
-		if !update.OldRoot.Equal(currentRoot) {
-			return &ErrMismatchedRoot{
-				Want:  update.OldRoot,
-				Got:   currentRoot,
-				IsOld: true,
-			}
-		}
-
-		// register deployed contracts
-		for _, contract := range update.StateDiff.DeployedContracts {
-			if err := s.putNewContract(contract.Address, contract.ClassHash, txn); err != nil {
-				return err
-			}
-		}
-
-		// update contract nonces
-		for addr, nonce := range update.StateDiff.Nonces {
-			if err = s.updateContractNonce(&addr, nonce, txn); err != nil {
-				return err
-			}
-		}
-
-		// update contract storages
-		for addr, diff := range update.StateDiff.StorageDiffs {
-			if err != nil {
-				return err
-			}
-			if err = s.updateContractStorage(&addr, diff, txn); err != nil {
-				return err
-			}
-		}
-
-		newRoot, err := s.root(txn)
-		if err != nil {
+		if err = s.updateContractStorage(&addr, diff); err != nil {
 			return err
 		}
-		if !update.NewRoot.Equal(newRoot) {
-			return &ErrMismatchedRoot{
-				Want:  update.NewRoot,
-				Got:   newRoot,
-				IsOld: false,
-			}
+	}
+
+	newRoot, err := s.Root()
+	if err != nil {
+		return err
+	}
+	if !update.NewRoot.Equal(newRoot) {
+		return &ErrMismatchedRoot{
+			Want:  update.NewRoot,
+			Got:   newRoot,
+			IsOld: false,
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff, txn db.Transaction) error {
-	contract := core.NewContract(addr, txn)
+func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff) error {
+	contract := core.NewContract(addr, s.txn)
 	if err := contract.UpdateStorage(diff); err != nil {
 		return err
 	}
 
-	return s.updateContractCommitment(contract, txn)
+	return s.updateContractCommitment(contract)
 }
 
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
-func (s *State) updateContractNonce(addr, nonce *felt.Felt, txn db.Transaction) error {
-	contract := core.NewContract(addr, txn)
+func (s *State) updateContractNonce(addr, nonce *felt.Felt) error {
+	contract := core.NewContract(addr, s.txn)
 	if err := contract.UpdateNonce(nonce); err != nil {
 		return err
 	}
 
-	return s.updateContractCommitment(contract, txn)
+	return s.updateContractCommitment(contract)
 }
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
-func (s *State) updateContractCommitment(contract *core.Contract, txn db.Transaction) error {
+func (s *State) updateContractCommitment(contract *core.Contract) error {
 	if storageRoot, err := contract.StorageRoot(); err != nil {
 		return err
 	} else if classHash, err := contract.ClassHash(); err != nil {
@@ -236,7 +209,7 @@ func (s *State) updateContractCommitment(contract *core.Contract, txn db.Transac
 		return err
 	} else {
 		commitment := CalculateContractCommitment(storageRoot, classHash, nonce)
-		state, err := s.getStateStorage(txn)
+		state, err := s.getStateStorage()
 		if err != nil {
 			return err
 		}
@@ -245,6 +218,6 @@ func (s *State) updateContractCommitment(contract *core.Contract, txn db.Transac
 			return err
 		}
 
-		return s.putStateStorage(state, txn)
+		return s.putStateStorage(state)
 	}
 }
