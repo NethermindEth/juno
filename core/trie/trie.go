@@ -43,20 +43,27 @@ type Storage interface {
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
-	height  uint
-	rootKey *bitset.BitSet
-	storage Storage
+	height      uint
+	rootKey     *bitset.BitSet
+	storage     Storage
+	maxKeyValue *felt.Felt
 }
 
 func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
-	// Todo: set max height to 251 and set max key value accordingly
 	if height > maxTrieHeight {
 		return nil, errors.New("trie height must be less than 251")
 	}
+	var x big.Int
+	x.SetInt64(1).Lsh(&x, height)
+	maxKeyValue, err := new(felt.Felt).SetInterface(&x)
+	if err != nil {
+		return nil, err
+	}
 	return &Trie{
-		storage: storage,
-		height:  height,
-		rootKey: rootKey,
+		storage:     storage,
+		height:      height,
+		rootKey:     rootKey,
+		maxKeyValue: maxKeyValue,
 	}, nil
 }
 
@@ -166,15 +173,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	var x big.Int
-	x.SetInt64(1).Lsh(&x, t.height)
-	fmt.Println(x.String())
-	trieHeightFelt, err := new(felt.Felt).SetInterface(x.String())
-	if err != nil {
-		return err
-	}
-
-	if key.Impl().Cmp(trieHeightFelt.Impl()) == 1 {
+	if key.Cmp(t.maxKeyValue) == 1 {
 		return errors.New("key is bigger than the trie height")
 	}
 

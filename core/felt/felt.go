@@ -165,3 +165,8 @@ func (z *Felt) Add(x, y *Felt) *Felt {
 func (z *Felt) Halve() {
 	z.val.Halve()
 }
+
+// Cmp forwards the call to underlying field element implementation
+func (z *Felt) Cmp(x *Felt) int {
+	return z.val.Cmp(&x.val)
+}
