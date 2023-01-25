@@ -13,7 +13,7 @@ type ErrUnverifiableBlock struct {
 	blockNumber uint64
 }
 
-func (e *ErrUnverifiableBlock) Error() string {
+func (e ErrUnverifiableBlock) Error() string {
 	return fmt.Sprintf("block is unverifiable: %d", e.blockNumber)
 }
 
