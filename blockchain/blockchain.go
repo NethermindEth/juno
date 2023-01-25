@@ -14,56 +14,36 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// Blockchain is responsible for keeping track of all things related to the StarkNet blockchain
-type Blockchain struct {
-	sync.RWMutex
-
-	head     *core.Block
-	network  utils.Network
-	database db.DB
-	state    *state.State
-	// todo: much more
+type ErrIncompatibleBlockAndStateUpdate struct {
+	reason string
 }
 
-func NewBlockchain(database db.DB, network utils.Network) *Blockchain {
-	// Todo: get the latest block from db using the prefix created in db/buckets.go
-	return &Blockchain{
-		RWMutex:  sync.RWMutex{},
-		database: database,
-		network:  network,
-	}
+func (e ErrIncompatibleBlockAndStateUpdate) Error() string {
+	return fmt.Sprintf("incompatible block and state update: %v", e.reason)
 }
 
-// Height returns the latest block height
-func (b *Blockchain) Height() uint64 {
-	b.RLock()
-	defer b.RUnlock()
-	return b.head.Number
+type ErrIncompatibleBlock struct {
+	reason string
 }
 
-// NextHeight returns the current height plus 1
-func (b *Blockchain) NextHeight() uint64 {
-	b.RLock()
-	defer b.RUnlock()
-
-	if b.head == nil {
-		return 0
-	}
-	return b.head.Number + 1
+func (e ErrIncompatibleBlock) Error() string {
+	return fmt.Sprintf("incompatible block: %v", e.reason)
 }
 
-type blockDbKey struct {
+// BlockDbKey appends hash to block number to create a db key.
+// Todo: make private after Blockchain.BlockByNumber & BlockchainBlockByHash are implemented.
+type BlockDbKey struct {
 	Number uint64
 	Hash   *felt.Felt
 }
 
-func (k *blockDbKey) MarshalBinary() ([]byte, error) {
+func (k *BlockDbKey) MarshalBinary() ([]byte, error) {
 	var numB [8]byte
 	binary.BigEndian.PutUint64(numB[:], k.Number)
 	return db.Blocks.Key(numB[:], k.Hash.Marshal()), nil
 }
 
-func (k *blockDbKey) UnmarshalBinary(data []byte) error {
+func (k *BlockDbKey) UnmarshalBinary(data []byte) error {
 	if len(data) != 41 {
 		return errors.New("key should be 41 bytes long")
 	}
@@ -77,46 +57,141 @@ func (k *blockDbKey) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
-	b.Lock()
-	defer b.Unlock()
+// Blockchain is responsible for keeping track of all things related to the StarkNet blockchain
+type Blockchain struct {
+	l *sync.RWMutex
 
-	/*
-		Todo (tentative plan):
-		- Call verifyBlockAndStateUpdate()
-		- Apply the StateDiff and if the State.Update
-		- Store the block using either Cbor
-			- prefix for block hash has been created in bucket.go
-		- Update the head
-	*/
+	head     *core.Block
+	network  utils.Network
+	database db.DB
+}
 
-	b.head = block
+func NewBlockchain(database db.DB, network utils.Network) (*Blockchain, error) {
+	chain := &Blockchain{
+		l:        &sync.RWMutex{},
+		database: database,
+		network:  network,
+	}
+	txn := chain.database.NewTransaction(false)
+	defer txn.Discard()
+	headBlockBin, err := txn.Get(db.HeadBlock.Key())
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return chain, nil
+	}
+
+	headBlock := new(core.Block)
+	if err = cbor.Unmarshal(headBlockBin, headBlock); err != nil {
+		return nil, err
+	}
+	chain.head = headBlock
+	return chain, nil
+}
+
+// Height returns the latest block height. If blockchain is empty nil is returned.
+func (b *Blockchain) Height() *uint64 {
+	b.l.RLock()
+	defer b.l.RUnlock()
+	if b.head != nil {
+		h := b.head.Number
+		return &h
+	}
 	return nil
 }
 
-func (b *Blockchain) verifyBlockAndStateUpdate(block *core.Block,
-	stateUpdate *core.StateUpdate,
-) error {
-	/*
-			Todo (tentative plan):
-			- Sanity checks:
-				- Check parent hash matches head hash
-				- Check the block hash in block matches the block hash in state update
-				- Check the GlobalStateRoot matches the the NewRoot in StateUpdate
-			- Block Checks:
-				- Check block hash contained in the Block matches the block hash when it is computed
-		          manually
-					- Currently, There is no Hash field on the block this needs to be added.
-					- BlockHash function should be made Static
-						- These static functions which includes TransactionCommitment,
-						  EventCommitment and BlockHash should be moved to utils package
-			- Transaction and TransactionReceipts:
-				- When Block is changed to include a list of Transaction and TransactionReceipts
-					- Further checks would need to be added to ensure Transaction Hash has been
-					  computed properly.
-					- Sanity check would need to include checks which ensure there is same number
-					  of Transactions and TransactionReceipts.
+// Store takes a block and state update and performs sanity checks before putting in the database.
+func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
+	if err := b.database.Update(func(txn db.Transaction) error {
+		if err := b.VerifyBlock(block, stateUpdate); err != nil {
+			return err
+		}
+		key := &BlockDbKey{block.Number, block.Hash}
+		bKey, err := key.MarshalBinary()
+		if err != nil {
+			return err
+		}
 
+		blockBinary, err := cbor.Marshal(block)
+		if err != nil {
+			return err
+		}
+
+		if err = state.NewState(txn).Update(stateUpdate); err != nil {
+			return err
+		}
+
+		if err = txn.Set(db.HeadBlock.Key(), blockBinary); err != nil {
+			return err
+		}
+		return txn.Set(bKey, blockBinary)
+	}); err != nil {
+		return err
+	}
+
+	b.l.Lock()
+	b.head = block
+	b.l.Unlock()
+	return nil
+}
+
+func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdate) error {
+	/*
+		Todo: Transaction and TransactionReceipts
+			- When Block is changed to include a list of Transaction and TransactionReceipts
+			- Further checks would need to be added to ensure Transaction Hash has been computed
+				properly.
+			- Sanity check would need to include checks which ensure there is same number of
+				Transactions and TransactionReceipts.
 	*/
+	var head *core.Block
+	b.l.RLock()
+	head = b.head
+	b.l.RUnlock()
+
+	if head == nil {
+		if block.Number != 0 {
+			return &ErrIncompatibleBlock{
+				"cannot insert a block with number more than 0 in an empty blockchain",
+			}
+		}
+		if !block.ParentHash.Equal(new(felt.Felt).SetUint64(0)) {
+			return &ErrIncompatibleBlock{
+				"cannot insert a block with non-zero parent hash in an empty blockchain",
+			}
+		}
+	} else {
+		if head.Number+1 != block.Number {
+			return &ErrIncompatibleBlock{
+				"block number difference between head and incoming block is not 1",
+			}
+		}
+		if !block.ParentHash.Equal(head.Hash) {
+			return &ErrIncompatibleBlock{
+				"block's parent hash does not match head block hash",
+			}
+		}
+	}
+
+	if !block.Hash.Equal(stateUpdate.BlockHash) {
+		return ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
+	}
+	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
+		return ErrIncompatibleBlockAndStateUpdate{
+			"block's GlobalStateRoot does not match state update's NewRoot",
+		}
+	}
+
+	// Todo: Fix BlockHash. For blocks 0 and 1 on mainnet the block hash which is calculated is
+	// 	different from what is given by the feeder gateway.
+	//	We may need to extend the unverifiable block range to account for this.
+	//	There is a test for this in blockchain_test.go, once this it fixed it should be uncommented.
+	//h, err := core.BlockHash(block, b.network)
+	//if err != nil && !errors.As(err, new(*core.ErrUnverifiableBlock)) {
+	//	return err
+	//}
+	//
+	//if h != nil && !block.Hash.Equal(h) {
+	//	return &ErrIncompatibleBlock{"incorrect block hash"}
+	//}
+
 	return nil
 }
