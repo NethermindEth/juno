@@ -18,8 +18,8 @@ func (e *ErrUnverifiableBlock) Error() string {
 }
 
 type Block struct {
-	// TODO: Add Transactions and TransactionReceipts
-	// TODO: Remove TransactionCount and EventCount
+	// The hash of this block
+	Hash *felt.Felt
 	// The hash of this block’s parent
 	ParentHash *felt.Felt
 	// The number (height) of this block
@@ -30,6 +30,8 @@ type Block struct {
 	SequencerAddress *felt.Felt
 	// The time the sequencer created this block before executing transactions
 	Timestamp *felt.Felt
+	// TODO: Add Transactions and TransactionReceipts
+	// TODO: Remove TransactionCount and EventCount
 	// The number of transactions in a block
 	TransactionCount *felt.Felt
 	// A commitment to the transactions included in the block
@@ -85,9 +87,9 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
-// Hash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
+// BlockHash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
 // verifiable hashes. In that case, an [ErrUnverifiableBlock] is returned.
-func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
+func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
 	metaInfo := getBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
@@ -100,15 +102,15 @@ func (b *Block) Hash(network utils.Network) (*felt.Felt, error) {
 	}
 
 	if b.Number < metaInfo.First07Block {
-		return b.pre07Hash(network.ChainId()), nil
+		return pre07Hash(b, network.ChainId()), nil
 	} else if b.SequencerAddress == nil {
 		b.SequencerAddress = metaInfo.FallBackSequencerAddress
 	}
-	return b.post07Hash(), nil
+	return post07Hash(b), nil
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func (b *Block) pre07Hash(chain *felt.Felt) *felt.Felt {
+func pre07Hash(b *Block, chain *felt.Felt) *felt.Felt {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
 
@@ -129,7 +131,7 @@ func (b *Block) pre07Hash(chain *felt.Felt) *felt.Felt {
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func (b *Block) post07Hash() *felt.Felt {
+func post07Hash(b *Block) *felt.Felt {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
 

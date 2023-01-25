@@ -55,6 +55,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	}
 
 	return &core.Block{
+		Hash:                  response.Hash,
 		ParentHash:            response.ParentHash,
 		Number:                response.Number,
 		GlobalStateRoot:       response.StateRoot,

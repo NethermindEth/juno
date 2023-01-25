@@ -26,6 +26,7 @@ func TestAdaptBlock(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.Errorf("unexpected error on AdaptBlock: %s", err)
 	}
+	assert.True(t, block.Hash.Equal(response.Hash))
 	assert.True(t, block.ParentHash.Equal(response.ParentHash))
 	assert.Equal(t, block.Number, response.Number)
 	assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
