@@ -1,9 +1,12 @@
 package blockchain
 
 import (
+	"encoding/binary"
+	"errors"
 	"sync"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 )
@@ -43,6 +46,31 @@ func (b *Blockchain) NextHeight() uint64 {
 		return 0
 	}
 	return b.head.Number + 1
+}
+
+type blockDbKey struct {
+	Number uint64
+	Hash   *felt.Felt
+}
+
+func (k *blockDbKey) MarshalBinary() ([]byte, error) {
+	var numB [8]byte
+	binary.BigEndian.PutUint64(numB[:], k.Number)
+	return db.Blocks.Key(numB[:], k.Hash.Marshal()), nil
+}
+
+func (k *blockDbKey) UnmarshalBinary(data []byte) error {
+	if len(data) != 41 {
+		return errors.New("key should be 41 bytes long")
+	}
+
+	if data[0] != byte(db.Blocks) {
+		return errors.New("wrong prefix")
+	}
+
+	k.Number = binary.BigEndian.Uint64(data[1:9])
+	k.Hash = new(felt.Felt).SetBytes(data[9:41])
+	return nil
 }
 
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
