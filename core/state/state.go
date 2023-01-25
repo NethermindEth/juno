@@ -37,10 +37,7 @@ type State struct {
 }
 
 func NewState(txn db.Transaction) *State {
-	state := &State{
-		txn: txn,
-	}
-	return state
+	return &State{txn: txn}
 }
 
 func CalculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
