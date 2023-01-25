@@ -35,7 +35,7 @@ func TestAdaptBlock(t *testing.T) {
 	var extraData *felt.Felt
 	assert.Equal(t, block.ExtraData, extraData)
 	// TODO test transaction commitment...?
-	// TODO test event count
+	// TODO test event commitment and count
 }
 
 func TestAdaptStateUpdate(t *testing.T) {
