@@ -10,6 +10,8 @@ import (
 )
 
 type Block struct {
+	// TODO: Add Transactions and TransactionReceipts
+	// TODO: Remove TransactionCount and EventCount
 	// The hash of this block’s parent
 	ParentHash *felt.Felt
 	// The number (height) of this block
@@ -40,6 +42,7 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
+// Todo: Rename to ErrUnverifiableBlock
 type UnverifiableBlockError struct {
 	blockNumber uint64
 }
