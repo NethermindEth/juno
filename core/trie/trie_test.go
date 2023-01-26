@@ -7,16 +7,11 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 )
-
-func hexToFelt(hex string) *felt.Felt {
-	// We know our test hex values are valid, so we'll ignore the potential error
-	f, _ := new(felt.Felt).SetString(hex)
-	return f
-}
 
 // Todo: Refactor:
 //   - Test names should not have "_"
@@ -146,7 +141,7 @@ func TestTriePutError(t *testing.T) {
 		root  *bitset.BitSet
 	}{
 		{
-			key:   hexToFelt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
+			key:   utils.HexToFelt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
 			value: new(felt.Felt).SetUint64(10),
 			root:  nil,
 		},

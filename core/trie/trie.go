@@ -173,7 +173,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
-	if key.Cmp(t.maxKeyValue) == 1 {
+	if key.Cmp(t.maxKeyValue) != -1 {
 		return errors.New("key is bigger than the trie height")
 	}
 
