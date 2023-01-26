@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -63,7 +64,7 @@ func New(cfg *Config) (StarkNetNode, error) {
 	return &Node{
 		cfg:          cfg,
 		blockchain:   bc,
-		synchronizer: sync.NewSynchronizer(bc, nil),
+		synchronizer: sync.NewSynchronizer(bc, gateway.NewGateway(cfg.Network)),
 	}, nil
 }
 
