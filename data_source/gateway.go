@@ -33,50 +33,42 @@ func (g *Gateway) GetTransaction(transactionHash *felt.Felt) (core.Transaction, 
 		return nil, err
 	}
 
-	declareTx, deployTx, invokeTx, err := adaptTransaction(response, g)
+	tx, err := adaptTransaction(response, g)
 	if err != nil {
 		return nil, err
 	}
 
-	if declareTx != nil {
-		return declareTx, nil
-	}
-
-	if deployTx != nil {
-		return deployTx, nil
-	}
-
-	return invokeTx, nil
+	return tx, nil
 }
 
-func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (*core.DeclareTransaction, *core.DeployTransaction, *core.InvokeTransaction, error) {
+func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (core.Transaction, error) {
 	txType := response.Transaction.Type
 	switch txType {
 	case "DECLARE":
 		class, err := g.GetClass(response.Transaction.ClassHash)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		declareTx, err := adaptDeclareTransaction(response, class)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		return declareTx, nil, nil, nil
+		return declareTx, nil
 	case "DEPLOY":
 		class, err := g.GetClass(response.Transaction.ClassHash)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		deployTx, err := adaptDeployTransaction(response, class)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		return nil, deployTx, nil, nil
+		return deployTx, nil
 	case "INVOKE":
 		invokeTx := adaptInvokeTransaction(response)
-		return nil, nil, invokeTx, nil
+		return invokeTx, nil
 	default:
-		return nil, nil, nil, nil
+		return nil, nil
 	}
 }
 
