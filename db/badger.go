@@ -96,6 +96,7 @@ func NewDb(path string) (DB, error) {
 // NewInMemoryDb opens a new in-memory database
 func NewInMemoryDb() (DB, error) {
 	opt := badger.DefaultOptions("").WithInMemory(true)
+	opt.Logger = nil
 	db, err := badger.Open(opt)
 	return &badgerDb{db}, err
 }
