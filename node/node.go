@@ -43,8 +43,8 @@ type Config struct {
 }
 
 type Node struct {
-	cfg *Config
-
+	cfg          *Config
+	db           db.DB
 	blockchain   *blockchain.Blockchain
 	synchronizer *sync.Synchronizer
 }
@@ -66,16 +66,18 @@ func New(cfg *Config) (StarkNetNode, error) {
 func (n *Node) Run() error {
 	log.Println("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
 
-	database, err := db.NewDb(n.cfg.DatabasePath)
+	var err error
+	n.db, err = db.NewDb(n.cfg.DatabasePath)
 	if err != nil {
 		return err
 	}
-	n.blockchain = blockchain.NewBlockchain(database)
+	n.blockchain = blockchain.NewBlockchain(n.db)
 	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network))
 	return n.synchronizer.Run()
 }
 
 func (n *Node) Shutdown() error {
+	defer n.db.Close()
 	log.Println("Shutting down Juno...")
 
 	return n.synchronizer.Shutdown()
