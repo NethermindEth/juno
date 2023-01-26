@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,7 +13,6 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	if err := NewCmd(node.New, quit).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 }
