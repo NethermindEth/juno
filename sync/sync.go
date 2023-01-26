@@ -2,6 +2,7 @@ package sync
 
 import (
 	"errors"
+	"log"
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -60,13 +61,21 @@ func (s *Synchronizer) SyncBlocks() error {
 			if err != nil {
 				return err
 			}
+			log.Println()
+			log.Printf("Fetched Block: Number: %d, Hash: %s", block.Number, block.Hash.Text(16))
 			stateUpdate, err := s.StarkNetData.StateUpdate(nextHeight)
 			if err != nil {
 				return err
 			}
+			log.Printf("Fetched StateUpdate: Hash: %s, NewRoot: %s", stateUpdate.BlockHash.Text(16),
+				stateUpdate.NewRoot.Text(16))
 			if err = s.Blockchain.Store(block, stateUpdate); err != nil {
 				return err
 			}
+			log.Printf("Stored Block: Number: %d, Hash: %s", block.Number, block.Hash.Text(16))
+			log.Printf("Applied StateUpdate: Hash: %s, NewRoot: %s",
+				stateUpdate.BlockHash.Text(16),
+				stateUpdate.NewRoot.Text(16))
 		}
 	}
 }
