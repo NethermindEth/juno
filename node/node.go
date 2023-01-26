@@ -71,6 +71,7 @@ func (n *Node) Run() error {
 	if err != nil {
 		return err
 	}
+	defer n.db.Close()
 	n.blockchain, err = blockchain.NewBlockchain(n.db, n.cfg.Network)
 	if err != nil {
 		return err
@@ -80,7 +81,6 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) Shutdown() error {
-	defer n.db.Close()
 	log.Println("Shutting down Juno...")
 
 	return n.synchronizer.Shutdown()
