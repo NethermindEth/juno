@@ -259,7 +259,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "L1_HANDLER", handlerTx.Type)
 }
 
-func TestBlockUnmarshal(t *testing.T) {
+func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	blockJson, err := os.ReadFile("testdata/block_11817.json")
 	if err != nil {
 		t.Error(err)
@@ -281,6 +281,31 @@ func TestBlockUnmarshal(t *testing.T) {
 	assert.Equal(t, 52, len(block.Receipts))
 	assert.Equal(t, uint64(1669465009), block.Timestamp)
 	assert.Equal(t, "0.10.1", block.Version)
+}
+
+func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
+	// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=19199
+	blockJson, err := os.ReadFile("testdata/block_19199_mainnet.json")
+	if err != nil {
+		t.Errorf("read json from file: %s", err)
+	}
+
+	var block Block
+	if err = json.Unmarshal(blockJson, &block); err != nil {
+		t.Errorf("unmarshal json: %s", err)
+	}
+
+	assert.Equal(t, "41811b69473f26503e0375806ee97d05951ccc7840e3d2bbe14ffb2522e5be1", block.Hash.Text(16))
+	assert.Equal(t, "68427fb6f1f5e687fbd779b3cc0d4ee31b49575ed0f8c749f827e4a45611efc", block.ParentHash.Text(16))
+	assert.Equal(t, uint64(19199), block.Number)
+	assert.Equal(t, "0541b796ea02703d02ff31459815f65f410ceefe80a4e3499f7ef9ccc36d26ee", "0"+block.StateRoot.Text(16))
+	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	assert.Equal(t, "31c4e2d75", block.GasPrice.Text(16))
+	assert.Equal(t, 324, len(block.Transactions))
+	assert.Equal(t, 324, len(block.Receipts))
+	assert.Equal(t, uint64(1674728186), block.Timestamp)
+	assert.Equal(t, "0.10.3", block.Version)
+	assert.Equal(t, "5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9", block.SequencerAddress.Text(16))
 }
 
 func TestClassUnmarshal(t *testing.T) {
