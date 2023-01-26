@@ -42,6 +42,8 @@ type ExecutionResources struct {
 	Steps       uint64
 }
 
+// Todo: Having both TransactionType and DeployTransaction,
+// InvokeTransaction and DeclareTransaction is redundant
 type TransactionType int
 
 const (
@@ -61,10 +63,12 @@ type TransactionReceipt struct {
 	Signatures         []*felt.Felt
 	TransactionHash    *felt.Felt
 	TransactionIndex   *big.Int
-	Type               TransactionType
+	// Todo: Do we need to have this?
+	Type TransactionType
 }
 
 type Transaction interface {
+	// Todo: Add Hash as a field to all the Transaction Objects
 	Hash() *felt.Felt
 }
 
