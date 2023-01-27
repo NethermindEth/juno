@@ -52,7 +52,7 @@ func TestNewCmd(t *testing.T) {
  | |__| | |_| | | | | (_) |  
   \____/ \__,_|_| |_|\___/  
 
-Juno is a Go implementation of a StarkNet full node client made with ❤️ by Nethermind.
+Juno is a Go implementation of a StarkNet full node client created by Nethermind.
 
 `
 		b := new(bytes.Buffer)
