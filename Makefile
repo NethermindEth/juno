@@ -19,7 +19,7 @@ benchmarks: ## benchmarking
 
 test-cover: ## tests with coverage
 	mkdir -p coverage
-	go test -coverprofile=coverage/coverage.out -covermode=atomic ./...
+	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: | install-gofumpt ## install some project dependencies
