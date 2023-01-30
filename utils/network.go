@@ -46,7 +46,7 @@ func (n Network) ChainId() *felt.Felt {
 	case GOERLI:
 		return new(felt.Felt).SetBytes([]byte("SN_GOERLI"))
 	case MAINNET:
-		return new(felt.Felt).SetBytes([]byte("SN_MAINNET"))
+		return new(felt.Felt).SetBytes([]byte("SN_MAIN"))
 	case GOERLI2:
 		return new(felt.Felt).SetBytes([]byte("SN_GOERLI2"))
 	case INTEGRATION:

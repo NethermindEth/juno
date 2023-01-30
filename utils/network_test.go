@@ -48,7 +48,7 @@ func TestNetwork(t *testing.T) {
 			case GOERLI:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainId())
 			case MAINNET:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAINNET")), n.ChainId())
+				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.ChainId())
 			case GOERLI2:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainId())
 			case INTEGRATION:

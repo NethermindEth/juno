@@ -169,6 +169,27 @@ func TestBlockHash(t *testing.T) {
 			"0x6902dad2e7ad976c59e032825b43474097396ad4a323d3782ede467540085f5",
 			false,
 		},
+		{
+			// block 0: main
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=0
+			&Block{
+				hexToFelt("0x0"),
+				0,
+				hexToFelt("0x021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6"),
+				nil,
+				uintToFelt(1637069048),
+				uintToFelt(18),
+				hexToFelt("0x27821704010baa1479045e0063dcebca597d3a0d4fe5fe44a6edbbe68225bf2"),
+				uintToFelt(0),
+				hexToFelt("0x0"),
+				uintToFelt(0),
+				hexToFelt(""),
+			},
+			1,
+			"mainnet (pre 0.7.0 without sequencer address)",
+			"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+			false,
+		},
 	}
 
 	for _, tt := range tests {
