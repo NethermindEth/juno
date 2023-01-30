@@ -61,8 +61,7 @@ func TestSyncBlocks(t *testing.T) {
 	}
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := db.NewTestDb()
-		bc, err := blockchain.NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, err)
+		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
 		fakeData := newFakeStarkNetData()
 		synchronizer := NewSynchronizer(bc, fakeData)
 		assert.Error(t, synchronizer.SyncBlocks())
@@ -71,8 +70,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := db.NewTestDb()
-		bc, err := blockchain.NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, err)
+		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
 		fakeData := newFakeStarkNetData()
 		b0, err := fakeData.BlockByNumber(0)
 		assert.NoError(t, err)

@@ -30,10 +30,11 @@ var (
 
 func TestNewBlockchain(t *testing.T) {
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
-		chain, err := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		assert.NoError(t, err)
+		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
 		assert.Equal(t, utils.MAINNET, chain.network)
-		assert.Nil(t, chain.head)
+		b, err := chain.Head()
+		assert.Nil(t, b)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("non-empty blockchain gets head from db", func(t *testing.T) {
 		clientBlock0, clientStateUpdate0 := new(clients.Block), new(clients.StateUpdate)
@@ -52,20 +53,19 @@ func TestNewBlockchain(t *testing.T) {
 			t.Fatal(err)
 		}
 		testDB := db.NewTestDb()
-		chain, err := NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, err)
+		chain := NewBlockchain(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
-		chain, err = NewBlockchain(testDB, utils.MAINNET)
+		chain = NewBlockchain(testDB, utils.MAINNET)
+		b, err := chain.Head()
 		assert.NoError(t, err)
-		assert.Equal(t, block0, chain.head)
+		assert.Equal(t, block0, b)
 	})
 }
 
 func TestHeight(t *testing.T) {
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain, err := NewBlockchain(db.NewTestDb(), utils.GOERLI)
-		assert.NoError(t, err)
+		chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
 		assert.Nil(t, chain.Height())
 	})
 	t.Run("return height of the blockchain's head", func(t *testing.T) {
@@ -85,12 +85,10 @@ func TestHeight(t *testing.T) {
 			t.Fatal(err)
 		}
 		testDB := db.NewTestDb()
-		chain, err := NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, err)
+		chain := NewBlockchain(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
-		chain, err = NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, err)
+		chain = NewBlockchain(testDB, utils.MAINNET)
 		assert.Equal(t, block0.Number, *chain.Height())
 	})
 }
@@ -139,8 +137,7 @@ func TestVerifyBlock(t *testing.T) {
 	sr2, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain, err := NewBlockchain(db.NewTestDb(), utils.GOERLI)
-	assert.NoError(t, err)
+	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Number: 10}
@@ -158,7 +155,14 @@ func TestVerifyBlock(t *testing.T) {
 		func(t *testing.T) {
 			headBlock := &core.Block{Number: 2, Hash: h1}
 			incomingBlock := &core.Block{Number: 10, ParentHash: h2}
-			chain.head = headBlock
+
+			assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+				blockBinary, err := cbor.Marshal(headBlock)
+				if err != nil {
+					return err
+				}
+				return txn.Set(db.HeadBlock.Key(), blockBinary)
+			}))
 			expectedErr := &ErrIncompatibleBlock{
 				"block number difference between head and incoming block is not 1",
 			}
@@ -168,7 +172,13 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
 		headBlock := &core.Block{Hash: h1, Number: 1}
 		incomingBlock := &core.Block{ParentHash: h2, Number: 2}
-		chain.head = headBlock
+		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+			blockBinary, err := cbor.Marshal(headBlock)
+			if err != nil {
+				return err
+			}
+			return txn.Set(db.HeadBlock.Key(), blockBinary)
+		}))
 		expectedErr := &ErrIncompatibleBlock{
 			"block's parent hash does not match head block hash",
 		}
@@ -179,7 +189,13 @@ func TestVerifyBlock(t *testing.T) {
 		headBlock := &core.Block{Hash: h1}
 		block := &core.Block{Number: 1, ParentHash: h1, Hash: h2}
 		stateUpdate := &core.StateUpdate{BlockHash: h3}
-		chain.head = headBlock
+		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+			blockBinary, err := cbor.Marshal(headBlock)
+			if err != nil {
+				return err
+			}
+			return txn.Set(db.HeadBlock.Key(), blockBinary)
+		}))
 		expectedErr := ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
 		assert.EqualError(t, chain.VerifyBlock(block, stateUpdate), expectedErr.Error())
 	})
@@ -189,7 +205,13 @@ func TestVerifyBlock(t *testing.T) {
 			headBlock := &core.Block{Hash: h1}
 			block := &core.Block{Number: 1, ParentHash: h1, Hash: h2, GlobalStateRoot: sr1}
 			stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr2}
-			chain.head = headBlock
+			assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+				blockBinary, err := cbor.Marshal(headBlock)
+				if err != nil {
+					return err
+				}
+				return txn.Set(db.HeadBlock.Key(), blockBinary)
+			}))
 			expectedErr := ErrIncompatibleBlockAndStateUpdate{
 				"block's GlobalStateRoot does not match state update's NewRoot",
 			}
@@ -199,7 +221,13 @@ func TestVerifyBlock(t *testing.T) {
 		headBlock := &core.Block{Number: 119801, Hash: h1}
 		block := &core.Block{Number: 119802, ParentHash: h1, Hash: h2, GlobalStateRoot: sr1}
 		stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr1}
-		chain.head = headBlock
+		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+			blockBinary, err := cbor.Marshal(headBlock)
+			if err != nil {
+				return err
+			}
+			return txn.Set(db.HeadBlock.Key(), blockBinary)
+		}))
 		assert.NoError(t, chain.VerifyBlock(block, stateUpdate))
 	})
 	//t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
@@ -237,11 +265,12 @@ func TestStore(t *testing.T) {
 	}
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
-		chain, err := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		assert.NoError(t, err)
+		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
-		assert.Equal(t, chain.head, block0)
+		headBlock, err := chain.Head()
+		assert.NoError(t, err)
+		assert.Equal(t, headBlock, block0)
 
 		txn := chain.database.NewTransaction(false)
 		defer txn.Discard()
@@ -297,12 +326,13 @@ func TestStore(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		chain, err := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		assert.NoError(t, err)
+		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 		assert.NoError(t, chain.Store(block1, stateUpdate1))
 
-		assert.Equal(t, chain.head, block1)
+		headBlock, err := chain.Head()
+		assert.NoError(t, err)
+		assert.Equal(t, headBlock, block1)
 
 		txn := chain.database.NewTransaction(false)
 		defer txn.Discard()

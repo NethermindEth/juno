@@ -72,10 +72,7 @@ func (n *Node) Run() error {
 		return err
 	}
 	defer n.db.Close()
-	n.blockchain, err = blockchain.NewBlockchain(n.db, n.cfg.Network)
-	if err != nil {
-		return err
-	}
+	n.blockchain = blockchain.NewBlockchain(n.db, n.cfg.Network)
 	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network))
 	return n.synchronizer.Run()
 }
