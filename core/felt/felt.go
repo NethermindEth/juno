@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/fxamacker/cbor/v2"
+
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -164,4 +166,14 @@ func (z *Felt) Add(x, y *Felt) *Felt {
 // Halve forwards the call to underlying field element implementation
 func (z *Felt) Halve() {
 	z.val.Halve()
+}
+
+// MarshalCBOR lets Felt be encoded in CBOR format with private `val`
+func (z *Felt) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal(z.val)
+}
+
+// UnmarshalCBOR lets Felt be decoded from CBOR format with private `val`
+func (z *Felt) UnmarshalCBOR(data []byte) error {
+	return cbor.Unmarshal(data, &z.val)
 }
