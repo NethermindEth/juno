@@ -7,6 +7,7 @@ require (
 	github.com/consensys/gnark-crypto v0.8.1-0.20221209144717-f585adf5f61e
 	github.com/dgraph-io/badger/v3 v3.2103.4
 	github.com/ethereum/go-ethereum v1.10.26
+	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
@@ -44,6 +45,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/sys v0.2.0 // indirect
