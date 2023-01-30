@@ -84,7 +84,10 @@ func (b *Blockchain) Height() *uint64 {
 func (b *Blockchain) Head() (*core.Block, error) {
 	txn := b.database.NewTransaction(false)
 	defer txn.Discard()
+	return b.head(txn)
+}
 
+func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 	headBlockBin, err := txn.Get(db.HeadBlock.Key())
 	if err != nil {
 		return nil, err
@@ -100,7 +103,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := b.VerifyBlock(block, stateUpdate); err != nil {
+		if err := b.verifyBlock(txn, block, stateUpdate); err != nil {
 			return err
 		}
 		key := &BlockDbKey{block.Number, block.Hash}
@@ -126,6 +129,14 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 }
 
 func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdate) error {
+	txn := b.database.NewTransaction(false)
+	defer txn.Discard()
+	return b.verifyBlock(txn, block, stateUpdate)
+}
+
+func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block,
+	stateUpdate *core.StateUpdate,
+) error {
 	/*
 		Todo: Transaction and TransactionReceipts
 			- When Block is changed to include a list of Transaction and TransactionReceipts
@@ -134,7 +145,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdat
 			- Sanity check would need to include checks which ensure there is same number of
 				Transactions and TransactionReceipts.
 	*/
-	head, err := b.Head()
+	head, err := b.head(txn)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
