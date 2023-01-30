@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -59,48 +58,48 @@ func (k *BlockDbKey) UnmarshalBinary(data []byte) error {
 
 // Blockchain is responsible for keeping track of all things related to the StarkNet blockchain
 type Blockchain struct {
-	l *sync.RWMutex
-
-	head     *core.Block
 	network  utils.Network
 	database db.DB
 }
 
-func NewBlockchain(database db.DB, network utils.Network) (*Blockchain, error) {
-	chain := &Blockchain{
-		l:        &sync.RWMutex{},
+func NewBlockchain(database db.DB, network utils.Network) *Blockchain {
+	return &Blockchain{
 		database: database,
 		network:  network,
 	}
-	txn := chain.database.NewTransaction(false)
+}
+
+// Height returns the latest block height. If blockchain is empty nil is returned.
+func (b *Blockchain) Height() *uint64 {
+	headBlock, err := b.Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		panic(fmt.Sprintf("failed to retrieved head block: %v", err))
+	}
+	if headBlock != nil {
+		return &headBlock.Number
+	}
+	return nil
+}
+
+func (b *Blockchain) Head() (*core.Block, error) {
+	txn := b.database.NewTransaction(false)
 	defer txn.Discard()
+
 	headBlockBin, err := txn.Get(db.HeadBlock.Key())
-	if errors.Is(err, db.ErrKeyNotFound) {
-		return chain, nil
+	if err != nil {
+		return nil, err
 	}
 
 	headBlock := new(core.Block)
 	if err = cbor.Unmarshal(headBlockBin, headBlock); err != nil {
 		return nil, err
 	}
-	chain.head = headBlock
-	return chain, nil
-}
-
-// Height returns the latest block height. If blockchain is empty nil is returned.
-func (b *Blockchain) Height() *uint64 {
-	b.l.RLock()
-	defer b.l.RUnlock()
-	if b.head != nil {
-		h := b.head.Number
-		return &h
-	}
-	return nil
+	return headBlock, nil
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
-	if err := b.database.Update(func(txn db.Transaction) error {
+	return b.database.Update(func(txn db.Transaction) error {
 		if err := b.VerifyBlock(block, stateUpdate); err != nil {
 			return err
 		}
@@ -123,14 +122,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 			return err
 		}
 		return txn.Set(bKey, blockBinary)
-	}); err != nil {
-		return err
-	}
-
-	b.l.Lock()
-	b.head = block
-	b.l.Unlock()
-	return nil
+	})
 }
 
 func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdate) error {
@@ -142,10 +134,10 @@ func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdat
 			- Sanity check would need to include checks which ensure there is same number of
 				Transactions and TransactionReceipts.
 	*/
-	var head *core.Block
-	b.l.RLock()
-	head = b.head
-	b.l.RUnlock()
+	head, err := b.Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	}
 
 	if head == nil {
 		if block.Number != 0 {
