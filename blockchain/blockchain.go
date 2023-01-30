@@ -172,18 +172,16 @@ func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdat
 		}
 	}
 
-	// Todo: Fix BlockHash. For blocks 0 and 1 on mainnet the block hash which is calculated is
-	// 	different from what is given by the feeder gateway.
-	//	We may need to extend the unverifiable block range to account for this.
-	//	There is a test for this in blockchain_test.go, once this it fixed it should be uncommented.
-	//h, err := core.BlockHash(block, b.network)
-	//if err != nil && !errors.As(err, new(*core.ErrUnverifiableBlock)) {
-	//	return err
-	//}
-	//
-	//if h != nil && !block.Hash.Equal(h) {
-	//	return &ErrIncompatibleBlock{"incorrect block hash"}
-	//}
+	h, err := core.BlockHash(block, b.network)
+	if err != nil && !errors.As(err, new(*core.ErrUnverifiableBlock)) {
+		return err
+	}
+
+	if h != nil && !block.Hash.Equal(h) {
+		return &ErrIncompatibleBlock{fmt.Sprintf(
+			"incorrect block hash: block.Hash = %v and BlockHash(block) = %v",
+			block.Hash.Text(16), h.Text(16))}
+	}
 
 	return nil
 }

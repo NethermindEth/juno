@@ -3,6 +3,7 @@ package blockchain
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
@@ -230,21 +231,31 @@ func TestVerifyBlock(t *testing.T) {
 		}))
 		assert.NoError(t, chain.VerifyBlock(block, stateUpdate))
 	})
-	//t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
-	//	headBlock := &core.Block{Number: 999, Hash: h1}
-	//	block := &core.Block{
-	//		Hash:                  h2,
-	//		Number:                1000,
-	//		ParentHash:            h1,
-	//		TransactionCount:      new(felt.Felt).SetUint64(10),
-	//		TransactionCommitment: new(felt.Felt).SetUint64(1009485),
-	//		GlobalStateRoot:       sr1,
-	//	}
-	//	stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr1}
-	//	chain.head = headBlock
-	//	expectedErr := &ErrIncompatibleBlock{"incorrect block hash"}
-	//	assert.EqualError(t, chain.VerifyBlock(block, stateUpdate), expectedErr.Error())
-	//})
+	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
+		headBlock := &core.Block{Number: 999, Hash: h1}
+		block := &core.Block{
+			Hash:                  h2,
+			Number:                1000,
+			ParentHash:            h1,
+			TransactionCount:      new(felt.Felt).SetUint64(10),
+			TransactionCommitment: new(felt.Felt).SetUint64(1009485),
+			GlobalStateRoot:       sr1,
+		}
+		stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr1}
+		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+			blockBinary, err := cbor.Marshal(headBlock)
+			if err != nil {
+				return err
+			}
+			return txn.Set(db.HeadBlock.Key(), blockBinary)
+		}))
+		h, err := core.BlockHash(block, utils.GOERLI)
+		assert.NoError(t, err)
+		expectedErr := &ErrIncompatibleBlock{fmt.Sprintf(
+			"incorrect block hash: block.Hash = %v and BlockHash(block) = %v",
+			block.Hash.Text(16), h.Text(16))}
+		assert.EqualError(t, chain.VerifyBlock(block, stateUpdate), expectedErr.Error())
+	})
 }
 
 func TestStore(t *testing.T) {
