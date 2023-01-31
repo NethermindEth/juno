@@ -14,8 +14,9 @@ const (
 	ContractClassHash // maps contract addresses and class hashes
 	ContractStorage   // contract storages
 	ContractNonce     // contract nonce
-	HeadBlock         // Head of the blockchain
-	Blocks
+	ChainHeight       // Latest height of the blockchain
+	BlockNumbersByHash
+	BlocksByNumber
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

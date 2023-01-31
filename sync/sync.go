@@ -53,9 +53,9 @@ func (s *Synchronizer) SyncBlocks() error {
 			return nil
 		default:
 			// Call the gateway to get blocks and state update
-			var nextHeight uint64
-			if h := s.Blockchain.Height(); h != nil {
-				nextHeight = *h + 1
+			nextHeight := uint64(0)
+			if h, err := s.Blockchain.Height(); err == nil {
+				nextHeight = h + 1
 			}
 			block, err := s.StarkNetData.BlockByNumber(nextHeight)
 			if err != nil {

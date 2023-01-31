@@ -88,6 +88,13 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 			UnverifiableRange:        []uint64{0, 110511},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
+	case utils.UNITTEST:
+		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+		return &blockHashMetaInfo{
+			First07Block:             5,
+			UnverifiableRange:        []uint64{2, 3},
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
 	default:
 		// This should never happen
 		panic(fmt.Sprintf("unknown network: %d", network))
