@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -71,7 +72,7 @@ type TransactionReceipt struct {
 
 type Transaction interface {
 	// Todo: Add Hash as a field to all the Transaction Objects
-	Hash() *felt.Felt
+	Hash(utils.Network) *felt.Felt
 }
 
 type DeployTransaction struct {
@@ -94,7 +95,7 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+func (d *DeployTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 	snKeccakConstructor, err := crypto.StarkNetKeccak([]byte("constructor"))
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func (d *DeployTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 		snKeccakConstructor,
 		crypto.PedersenArray(d.ConstructorCallData...),
 		new(felt.Felt),
-		new(felt.Felt).SetBytes(chainId),
+		network.ChainId(),
 	), nil
 }
 
@@ -134,7 +135,7 @@ type InvokeTransaction struct {
 	Version *felt.Felt
 }
 
-func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+func (i *InvokeTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
 	if i.Version.IsZero() {
 		return crypto.PedersenArray(
@@ -142,7 +143,7 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 			i.ContractAddress,
 			i.EntryPointSelector,
 			crypto.PedersenArray(i.CallData...),
-			new(felt.Felt).SetBytes(chainId),
+			network.ChainId(),
 		), nil
 	} else if i.Version.IsOne() {
 		return crypto.PedersenArray(
@@ -152,7 +153,7 @@ func (i *InvokeTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			new(felt.Felt).SetBytes(chainId),
+			network.ChainId(),
 			i.Nonce,
 		), nil
 	}
@@ -178,7 +179,7 @@ type DeclareTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
+func (d *DeclareTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
 	if d.Version.IsZero() {
 		return crypto.PedersenArray(
@@ -188,7 +189,7 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 			new(felt.Felt),
 			crypto.PedersenArray(make([]*felt.Felt, 0)...),
 			d.MaxFee,
-			new(felt.Felt).SetBytes(chainId),
+			network.ChainId(),
 			d.Class.Hash(),
 		), nil
 	} else if d.Version.IsOne() {
@@ -199,7 +200,7 @@ func (d *DeclareTransaction) Hash(chainId []byte) (*felt.Felt, error) {
 			new(felt.Felt),
 			crypto.PedersenArray(d.Class.Hash()),
 			d.MaxFee,
-			new(felt.Felt).SetBytes(chainId),
+			network.ChainId(),
 			d.Nonce,
 		), nil
 	}
