@@ -11,24 +11,16 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSyncBlocks(t *testing.T) {
-	testBlockchain := func(t *testing.T, testDB db.DB, fakeData *fakeStarkNetData) bool {
-		return assert.NoError(t, testDB.View(func(txn db.Transaction) error {
-			headBlockBinary, err := txn.Get(db.HeadBlock.Key())
-			if err != nil {
-				return err
-			}
-
-			headBlock := new(core.Block)
-			if err = encoder.Unmarshal(headBlockBinary, headBlock); err != nil {
-				return err
-			}
+	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain, fakeData *fakeStarkNetData) bool {
+		return assert.NoError(t, func() error {
+			headBlock, err := bc.Head()
+			assert.NoError(t, err)
 
 			height := int(headBlock.Number)
 			for height >= 0 {
@@ -37,27 +29,14 @@ func TestSyncBlocks(t *testing.T) {
 					return err
 				}
 
-				dbKey := blockchain.BlockDbKey{Number: b.Number, Hash: b.Hash}
-				key, err := dbKey.MarshalBinary()
-				if err != nil {
-					return err
-				}
-
-				blockBinary, err := txn.Get(key)
-				if err != nil {
-					return err
-				}
-
-				block := new(core.Block)
-				if err = encoder.Unmarshal(blockBinary, block); err != nil {
-					return err
-				}
+				block, err := bc.GetBlockByNumber(uint64(height))
+				assert.NoError(t, err)
 
 				assert.Equal(t, b, block)
 				height--
 			}
 			return nil
-		}))
+		}())
 	}
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := db.NewTestDb()
@@ -66,7 +45,7 @@ func TestSyncBlocks(t *testing.T) {
 		synchronizer := NewSynchronizer(bc, fakeData)
 		assert.Error(t, synchronizer.SyncBlocks())
 
-		testBlockchain(t, testDB, fakeData)
+		testBlockchain(t, bc, fakeData)
 	})
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := db.NewTestDb()
@@ -81,7 +60,7 @@ func TestSyncBlocks(t *testing.T) {
 		synchronizer := NewSynchronizer(bc, fakeData)
 		assert.Error(t, synchronizer.SyncBlocks())
 
-		testBlockchain(t, testDB, fakeData)
+		testBlockchain(t, bc, fakeData)
 	})
 }
 

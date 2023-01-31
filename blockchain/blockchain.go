@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -29,33 +28,6 @@ func (e ErrIncompatibleBlock) Error() string {
 	return fmt.Sprintf("incompatible block: %v", e.reason)
 }
 
-// BlockDbKey appends hash to block number to create a db key.
-// Todo: make private after Blockchain.BlockByNumber & BlockchainBlockByHash are implemented.
-type BlockDbKey struct {
-	Number uint64
-	Hash   *felt.Felt
-}
-
-func (k *BlockDbKey) MarshalBinary() ([]byte, error) {
-	var numB [8]byte
-	binary.BigEndian.PutUint64(numB[:], k.Number)
-	return db.Blocks.Key(numB[:], k.Hash.Marshal()), nil
-}
-
-func (k *BlockDbKey) UnmarshalBinary(data []byte) error {
-	if len(data) != 41 {
-		return errors.New("key should be 41 bytes long")
-	}
-
-	if data[0] != byte(db.Blocks) {
-		return errors.New("wrong prefix")
-	}
-
-	k.Number = binary.BigEndian.Uint64(data[1:9])
-	k.Hash = new(felt.Felt).SetBytes(data[9:41])
-	return nil
-}
-
 // Blockchain is responsible for keeping track of all things related to the StarkNet blockchain
 type Blockchain struct {
 	network  utils.Network
@@ -70,34 +42,61 @@ func NewBlockchain(database db.DB, network utils.Network) *Blockchain {
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
-func (b *Blockchain) Height() *uint64 {
-	headBlock, err := b.Head()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		panic(fmt.Sprintf("failed to retrieved head block: %v", err))
+func (b *Blockchain) Height() (uint64, error) {
+	var height uint64
+
+	return height, b.database.View(func(txn db.Transaction) error {
+		dbHeight, err := b.height(txn)
+		height = dbHeight
+		return err
+	})
+}
+
+func (b *Blockchain) height(txn db.Transaction) (uint64, error) {
+	heightBin, err := txn.Get(db.ChainHeight.Key())
+	if err != nil {
+		return 0, err
 	}
-	if headBlock != nil {
-		return &headBlock.Number
-	}
-	return nil
+
+	return binary.BigEndian.Uint64(heightBin), err
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
-	txn := b.database.NewTransaction(false)
-	defer txn.Discard()
-	return b.head(txn)
+	var head *core.Block
+
+	return head, b.database.View(func(txn db.Transaction) error {
+		dbHead, err := b.head(txn)
+		head = dbHead
+		return err
+	})
 }
 
 func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
-	headBlockBin, err := txn.Get(db.HeadBlock.Key())
-	if err != nil {
+	if height, err := b.height(txn); err != nil {
 		return nil, err
+	} else {
+		return NewBlockStorage(txn).GetByNumber(height)
 	}
+}
 
-	headBlock := new(core.Block)
-	if err = encoder.Unmarshal(headBlockBin, headBlock); err != nil {
-		return nil, err
-	}
-	return headBlock, nil
+func (b *Blockchain) GetBlockByNumber(number uint64) (*core.Block, error) {
+	var block *core.Block
+
+	return block, b.database.View(func(txn db.Transaction) error {
+		dbBlock, err := NewBlockStorage(txn).GetByNumber(number)
+		block = dbBlock
+		return err
+	})
+}
+
+func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (*core.Block, error) {
+	var block *core.Block
+
+	return block, b.database.View(func(txn db.Transaction) error {
+		dbBlock, err := NewBlockStorage(txn).GetByHash(hash)
+		block = dbBlock
+		return err
+	})
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
@@ -106,25 +105,16 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 		if err := b.verifyBlock(txn, block, stateUpdate); err != nil {
 			return err
 		}
-		key := &BlockDbKey{block.Number, block.Hash}
-		bKey, err := key.MarshalBinary()
-		if err != nil {
+		if err := state.NewState(txn).Update(stateUpdate); err != nil {
+			return err
+		}
+		if err := NewBlockStorage(txn).Put(block); err != nil {
 			return err
 		}
 
-		blockBinary, err := encoder.Marshal(block)
-		if err != nil {
-			return err
-		}
-
-		if err = state.NewState(txn).Update(stateUpdate); err != nil {
-			return err
-		}
-
-		if err = txn.Set(db.HeadBlock.Key(), blockBinary); err != nil {
-			return err
-		}
-		return txn.Set(bKey, blockBinary)
+		var heightBin [8]byte
+		binary.BigEndian.PutUint64(heightBin[:], block.Number)
+		return txn.Set(db.ChainHeight.Key(), heightBin[:])
 	})
 }
 
