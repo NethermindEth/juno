@@ -139,20 +139,25 @@ func TestPath(t *testing.T) {
 		child  *bitset.BitSet
 		want   *bitset.BitSet
 	}{
+		// {
+		// 	parent: bitset.New(0),
+		// 	child:  bitset.New(251).Set(250).Set(249),
+		// 	want:   bitset.New(250).Set(249),
+		// },
+		// {
+		// 	parent: bitset.New(0),
+		// 	child:  bitset.New(251).Set(249),
+		// 	want:   bitset.New(250).Set(249),
+		// },
+		// {
+		// 	parent: bitset.New(1).Set(0),
+		// 	child:  bitset.New(251).Set(250).Set(249),
+		// 	want:   bitset.New(249),
+		// },
 		{
-			parent: bitset.New(0),
-			child:  bitset.New(251).Set(250).Set(249),
-			want:   bitset.New(250).Set(249),
-		},
-		{
-			parent: bitset.New(0),
-			child:  bitset.New(251).Set(249),
-			want:   bitset.New(250).Set(249),
-		},
-		{
-			parent: bitset.New(1).Set(0),
-			child:  bitset.New(251).Set(250).Set(249),
-			want:   bitset.New(249),
+			parent: bitset.New(4).Set(1).Set(3),               //0b 0101
+			child:  bitset.New(8).Set(1).Set(3).Set(4).Set(5), //0b 0101 1100
+			want:   bitset.New(3).Set(0),                      //0b       100
 		},
 	}
 
