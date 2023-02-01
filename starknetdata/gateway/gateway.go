@@ -162,7 +162,7 @@ func (g *Gateway) Transaction(transactionHash *felt.Felt) (core.Transaction, err
 		return nil, err
 	}
 
-	tx, err := adaptTransaction(response, g)
+	tx, err := adaptTransaction(response.Transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -170,62 +170,62 @@ func (g *Gateway) Transaction(transactionHash *felt.Felt) (core.Transaction, err
 	return tx, nil
 }
 
-func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (core.Transaction, error) {
-	txType := response.Transaction.Type
+func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error) {
+	txType := transaction.Type
 	switch txType {
 	case "DECLARE":
-		declareTx, err := adaptDeclareTransaction(response)
+		declareTx, err := adaptDeclareTransaction(transaction)
 		if err != nil {
 			return nil, err
 		}
 		return declareTx, nil
 	case "DEPLOY":
-		deployTx, err := adaptDeployTransaction(response)
+		deployTx, err := adaptDeployTransaction(transaction)
 		if err != nil {
 			return nil, err
 		}
 		return deployTx, nil
 	case "INVOKE":
-		invokeTx := adaptInvokeTransaction(response)
+		invokeTx := adaptInvokeTransaction(transaction)
 		return invokeTx, nil
 	default:
 		return nil, nil
 	}
 }
 
-func adaptDeclareTransaction(response *clients.TransactionStatus) (*core.DeclareTransaction, error) {
+func adaptDeclareTransaction(transaction *clients.Transaction) (*core.DeclareTransaction, error) {
 	declareTx := new(core.DeclareTransaction)
-	declareTx.SenderAddress = response.Transaction.SenderAddress
-	declareTx.MaxFee = response.Transaction.MaxFee
-	declareTx.Signature = response.Transaction.Signature
-	declareTx.Nonce = response.Transaction.Nonce
-	declareTx.Version = response.Transaction.Version
-	declareTx.ClassHash = response.Transaction.ClassHash
+	declareTx.SenderAddress = transaction.SenderAddress
+	declareTx.MaxFee = transaction.MaxFee
+	declareTx.Signature = transaction.Signature
+	declareTx.Nonce = transaction.Nonce
+	declareTx.Version = transaction.Version
+	declareTx.ClassHash = transaction.ClassHash
 
 	return declareTx, nil
 }
 
-func adaptDeployTransaction(response *clients.TransactionStatus) (*core.DeployTransaction, error) {
+func adaptDeployTransaction(transaction *clients.Transaction) (*core.DeployTransaction, error) {
 	deployTx := new(core.DeployTransaction)
-	deployTx.ContractAddressSalt = response.Transaction.ContractAddressSalt
-	deployTx.ConstructorCallData = response.Transaction.ConstructorCalldata
-	deployTx.CallerAddress = response.Transaction.ContractAddress
-	deployTx.Version = response.Transaction.Version
-	deployTx.ClassHash = response.Transaction.ClassHash
+	deployTx.ContractAddressSalt = transaction.ContractAddressSalt
+	deployTx.ConstructorCallData = transaction.ConstructorCalldata
+	deployTx.CallerAddress = transaction.ContractAddress
+	deployTx.Version = transaction.Version
+	deployTx.ClassHash = transaction.ClassHash
 
 	return deployTx, nil
 }
 
-func adaptInvokeTransaction(response *clients.TransactionStatus) *core.InvokeTransaction {
+func adaptInvokeTransaction(transaction *clients.Transaction) *core.InvokeTransaction {
 	invokeTx := new(core.InvokeTransaction)
-	invokeTx.ContractAddress = response.Transaction.ContractAddress
-	invokeTx.EntryPointSelector = response.Transaction.EntryPointSelector
-	invokeTx.SenderAddress = response.Transaction.SenderAddress
-	invokeTx.Nonce = response.Transaction.Nonce
-	invokeTx.CallData = response.Transaction.Calldata
-	invokeTx.Signature = response.Transaction.Signature
-	invokeTx.MaxFee = response.Transaction.MaxFee
-	invokeTx.Version = response.Transaction.Version
+	invokeTx.ContractAddress = transaction.ContractAddress
+	invokeTx.EntryPointSelector = transaction.EntryPointSelector
+	invokeTx.SenderAddress = transaction.SenderAddress
+	invokeTx.Nonce = transaction.Nonce
+	invokeTx.CallData = transaction.Calldata
+	invokeTx.Signature = transaction.Signature
+	invokeTx.MaxFee = transaction.MaxFee
+	invokeTx.Version = transaction.Version
 
 	return invokeTx
 }

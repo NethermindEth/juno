@@ -189,7 +189,7 @@ func TestAdaptInvokeTransaction(t *testing.T) {
 	err := json.Unmarshal(invokeJson, response)
 	assert.NoError(t, err)
 
-	invokeTx := adaptInvokeTransaction(response)
+	invokeTx := adaptInvokeTransaction(response.Transaction)
 	assert.Equal(t, response.Transaction.ContractAddress, invokeTx.ContractAddress)
 	assert.Equal(t, response.Transaction.EntryPointSelector, invokeTx.EntryPointSelector)
 	assert.Equal(t, response.Transaction.SenderAddress, invokeTx.SenderAddress)
@@ -213,7 +213,7 @@ func TestAdaptDeployTransaction(t *testing.T) {
 	err := json.Unmarshal(deployJson, response)
 	assert.NoError(t, err)
 
-	deployTx, err := adaptDeployTransaction(response)
+	deployTx, err := adaptDeployTransaction(response.Transaction)
 	assert.NoError(t, err)
 
 	assert.Equal(t, response.Transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
@@ -228,7 +228,7 @@ func TestAdaptDeclareTransaction(t *testing.T) {
 	err := json.Unmarshal(declareJson, response)
 	assert.NoError(t, err)
 
-	declareTx, err := adaptDeclareTransaction(response)
+	declareTx, err := adaptDeclareTransaction(response.Transaction)
 	assert.NoError(t, err)
 
 	assert.Equal(t, response.Transaction.SenderAddress, declareTx.SenderAddress)
