@@ -95,7 +95,6 @@ func newFakeStarkNetData() *fakeStarkNetData {
 	return &fakeStarkNetData{blocksM, stateUpdateM}
 }
 
-// Todo: consider not using embed since it drastically increase compiled binary size.
 // As mentioned here: https://dariodip.medium.com/go-embed-unleashed-1eab8b4b1ba6.
 // It is possible that file are excluded from when go build is run. This needs to be investigated.
 var (
