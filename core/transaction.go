@@ -88,17 +88,15 @@ type TransactionReceipt struct {
 	Type TransactionType
 }
 
-type Transaction interface {
-	// Todo: Add Hash as a field to all the Transaction Objects
-	Hash(utils.Network) (*felt.Felt, error)
-}
+type Transaction interface{}
 
 type DeployTransaction struct {
+	Hash *felt.Felt
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
 	// The address of the contract.
 	ContractAddress *felt.Felt
-	// The class that defines the contract’s functionality.
+	// The hash of the class which defines the contract’s functionality.
 	ClassHash *felt.Felt
 	// The arguments passed to the constructor during deployment.
 	ConstructorCallData []*felt.Felt
@@ -113,23 +111,8 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeployTransaction) Hash(network utils.Network) (*felt.Felt, error) {
-	snKeccakConstructor, err := crypto.StarkNetKeccak([]byte("constructor"))
-	if err != nil {
-		return nil, err
-	}
-	return crypto.PedersenArray(
-		new(felt.Felt).SetBytes([]byte("deploy")),
-		d.Version,
-		d.ContractAddress,
-		snKeccakConstructor,
-		crypto.PedersenArray(d.ConstructorCallData...),
-		new(felt.Felt),
-		network.ChainId(),
-	), nil
-}
-
 type InvokeTransaction struct {
+	Hash *felt.Felt
 	// Version 0 fields
 	// The address of the contract invoked by this transaction.
 	ContractAddress *felt.Felt
@@ -153,7 +136,56 @@ type InvokeTransaction struct {
 	Version *felt.Felt
 }
 
-func (i *InvokeTransaction) Hash(network utils.Network) (*felt.Felt, error) {
+type DeclareTransaction struct {
+	Hash *felt.Felt
+	// The class hash
+	ClassHash *felt.Felt
+	// The address of the account initiating the transaction.
+	SenderAddress *felt.Felt
+	// The maximum fee that the sender is willing to pay for the transaction.
+	MaxFee *felt.Felt
+	// Additional information given by the sender, used to validate the transaction.
+	Signature []*felt.Felt
+	// The transaction nonce.
+	Nonce *felt.Felt
+	// The transaction’s version. Possible values are 1 or 0.
+	// When the fields that comprise a transaction change,
+	// either with the addition of a new field or the removal of an existing field,
+	// then the transaction version increases.
+	// Transaction version 0 is deprecated and will be removed in a future version of StarkNet.
+	Version *felt.Felt
+}
+
+func TransactionHash(transaction Transaction, network utils.Network) (*felt.Felt, error) {
+	switch transaction.(type) {
+	case *DeclareTransaction:
+		return declareTransactionHash(transaction.(*DeclareTransaction), network)
+	case *InvokeTransaction:
+		return invokeTransactionHash(transaction.(*InvokeTransaction), network)
+	case *DeployTransaction:
+		return deployTransactionHash(transaction.(*DeployTransaction), network)
+	default:
+		return nil, errors.New("unknown transaction type")
+	}
+}
+
+func deployTransactionHash(d *DeployTransaction, network utils.Network) (*felt.Felt, error) {
+	snKeccakConstructor, err := crypto.StarkNetKeccak([]byte("constructor"))
+	if err != nil {
+		return nil, err
+	}
+	return crypto.PedersenArray(
+		new(felt.Felt).SetBytes([]byte("deploy")),
+		d.Version,
+		d.ContractAddress,
+		snKeccakConstructor,
+		crypto.PedersenArray(d.ConstructorCallData...),
+		new(felt.Felt),
+		network.ChainId(),
+	), nil
+}
+
+func invokeTransactionHash(i *InvokeTransaction, network utils.Network) (*felt.Felt, error) {
 	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
 	if i.Version.IsZero() {
 		return crypto.PedersenArray(
@@ -178,26 +210,7 @@ func (i *InvokeTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 	return nil, errors.New("invalid transaction version")
 }
 
-type DeclareTransaction struct {
-	// The class hash
-	ClassHash *felt.Felt
-	// The address of the account initiating the transaction.
-	SenderAddress *felt.Felt
-	// The maximum fee that the sender is willing to pay for the transaction.
-	MaxFee *felt.Felt
-	// Additional information given by the sender, used to validate the transaction.
-	Signature []*felt.Felt
-	// The transaction nonce.
-	Nonce *felt.Felt
-	// The transaction’s version. Possible values are 1 or 0.
-	// When the fields that comprise a transaction change,
-	// either with the addition of a new field or the removal of an existing field,
-	// then the transaction version increases.
-	// Transaction version 0 is deprecated and will be removed in a future version of StarkNet.
-	Version *felt.Felt
-}
-
-func (d *DeclareTransaction) Hash(network utils.Network) (*felt.Felt, error) {
+func declareTransactionHash(d *DeclareTransaction, network utils.Network) (*felt.Felt, error) {
 	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
 	if d.Version.IsZero() {
 		return crypto.PedersenArray(
