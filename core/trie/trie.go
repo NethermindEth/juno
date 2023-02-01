@@ -68,8 +68,8 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 // FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) FeltToBitSet(k *felt.Felt) *bitset.BitSet {
-	regularK := k.ToRegular()
-	return bitset.FromWithLength(t.height, regularK.Impl()[:])
+	kBits := k.Bits()
+	return bitset.FromWithLength(t.height, kBits[:])
 }
 
 // FindCommonKey finds the set of common MSB bits in two key bitsets.
