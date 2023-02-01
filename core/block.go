@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -191,56 +190,4 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		&felt.Zero,                           // reserved: extra data
 		b.ParentHash,                         // parent block hash
 	), nil
-}
-
-// TransactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
-// transaction hashes and signatures in a block.
-func TransactionCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
-	var transactionCommitment *felt.Felt
-	return transactionCommitment, trie.RunOnTempTrie(64, func(trie *trie.Trie) error {
-		for i, receipt := range receipts {
-			signaturesHash := crypto.PedersenArray()
-			if receipt.Type == Invoke {
-				signaturesHash = crypto.PedersenArray(receipt.Signatures...)
-			}
-			transactionAndSignatureHash := crypto.Pedersen(receipt.TransactionHash, signaturesHash)
-			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), transactionAndSignatureHash); err != nil {
-				return err
-			}
-		}
-		root, err := trie.Root()
-		if err != nil {
-			return err
-		}
-		transactionCommitment = root
-		return nil
-	})
-}
-
-// EventCommitmentAndCount computes the event commitment and event count for a block.
-func EventCommitmentAndCount(receipts []*TransactionReceipt) (*felt.Felt, uint64, error) {
-	var eventCommitment *felt.Felt // root of a height 64 binary Merkle Patricia tree of the events in a block.
-	var eventCount uint64          // number of events in a block.
-	return eventCommitment, eventCount, trie.RunOnTempTrie(64, func(trie *trie.Trie) error {
-		for _, receipt := range receipts {
-			for _, event := range receipt.Events {
-				eventHash := crypto.PedersenArray(
-					event.From,
-					crypto.PedersenArray(event.Keys...),
-					crypto.PedersenArray(event.Data...),
-				)
-
-				if _, err := trie.Put(new(felt.Felt).SetUint64(eventCount), eventHash); err != nil {
-					return err
-				}
-				eventCount++
-			}
-		}
-		root, err := trie.Root()
-		if err != nil {
-			return err
-		}
-		eventCommitment = root
-		return nil
-	})
 }
