@@ -158,7 +158,7 @@ func adaptL2ToL1Message(response *clients.L2ToL1Message) *core.L2ToL1Message {
 
 // Transaction gets the transaction for a given transaction hash from the feeder gateway,
 // then adapts it to the appropriate core.Transaction types.
-func (g *Gateway) Transaction(transactionHash *felt.Felt) (*core.Transaction, error) {
+func (g *Gateway) Transaction(transactionHash *felt.Felt) (any, error) {
 	return nil, errors.New("not implemented")
 }
 

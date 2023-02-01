@@ -157,7 +157,7 @@ func (f *fakeStarkNetData) StateUpdate(blockNumber uint64) (*core.StateUpdate, e
 	return u, nil
 }
 
-func (f *fakeStarkNetData) Transaction(_ *felt.Felt) (*core.Transaction, error) {
+func (f *fakeStarkNetData) Transaction(_ *felt.Felt) (any, error) {
 	return nil, nil
 }
 

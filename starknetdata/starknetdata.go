@@ -8,7 +8,7 @@ import (
 // StarkNetData defines the function which are required to retrieve StarkNet's state
 type StarkNetData interface {
 	BlockByNumber(blockNumber uint64) (*core.Block, error)
-	Transaction(transactionHash *felt.Felt) (*core.Transaction, error)
+	Transaction(transactionHash *felt.Felt) (any, error)
 	Class(classHash *felt.Felt) (*core.Class, error)
 	StateUpdate(blockNumber uint64) (*core.StateUpdate, error)
 }
