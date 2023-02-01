@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
@@ -189,23 +188,16 @@ func TestAdaptInvokeTransaction(t *testing.T) {
 	err := json.Unmarshal(invokeJson, response)
 	assert.NoError(t, err)
 
-	invokeTx := adaptInvokeTransaction(response.Transaction)
-	assert.Equal(t, response.Transaction.ContractAddress, invokeTx.ContractAddress)
-	assert.Equal(t, response.Transaction.EntryPointSelector, invokeTx.EntryPointSelector)
-	assert.Equal(t, response.Transaction.SenderAddress, invokeTx.SenderAddress)
-	assert.Equal(t, response.Transaction.Nonce, invokeTx.Nonce)
-	assert.Equal(t, response.Transaction.Calldata, invokeTx.CallData)
-	assert.Equal(t, response.Transaction.Signature, invokeTx.Signature)
-	assert.Equal(t, response.Transaction.MaxFee, invokeTx.MaxFee)
-	assert.Equal(t, response.Transaction.Version, invokeTx.Version)
-}
-
-func getMockClass() (*clients.ClassDefinition, *core.Class) {
-	response := new(clients.ClassDefinition)
-	json.Unmarshal(classJson, response)
-	class, _ := adaptClass(response)
-
-	return response, class
+	transaction := response.Transaction
+	invokeTx := adaptInvokeTransaction(transaction)
+	assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
+	assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
+	assert.Equal(t, transaction.SenderAddress, invokeTx.SenderAddress)
+	assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
+	assert.Equal(t, transaction.Calldata, invokeTx.CallData)
+	assert.Equal(t, transaction.Signature, invokeTx.Signature)
+	assert.Equal(t, transaction.MaxFee, invokeTx.MaxFee)
+	assert.Equal(t, transaction.Version, invokeTx.Version)
 }
 
 func TestAdaptDeployTransaction(t *testing.T) {
@@ -213,14 +205,15 @@ func TestAdaptDeployTransaction(t *testing.T) {
 	err := json.Unmarshal(deployJson, response)
 	assert.NoError(t, err)
 
-	deployTx, err := adaptDeployTransaction(response.Transaction)
+	transaction := response.Transaction
+	deployTx, err := adaptDeployTransaction(transaction)
 	assert.NoError(t, err)
 
-	assert.Equal(t, response.Transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
-	assert.Equal(t, response.Transaction.ConstructorCalldata, deployTx.ConstructorCallData)
-	assert.Equal(t, response.Transaction.ContractAddress, deployTx.CallerAddress)
-	assert.Equal(t, response.Transaction.Version, deployTx.Version)
-	assert.Equal(t, response.Transaction.ClassHash, deployTx.ClassHash)
+	assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
+	assert.Equal(t, transaction.ConstructorCalldata, deployTx.ConstructorCallData)
+	assert.Equal(t, transaction.ContractAddress, deployTx.CallerAddress)
+	assert.Equal(t, transaction.Version, deployTx.Version)
+	assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
 }
 
 func TestAdaptDeclareTransaction(t *testing.T) {
@@ -228,45 +221,14 @@ func TestAdaptDeclareTransaction(t *testing.T) {
 	err := json.Unmarshal(declareJson, response)
 	assert.NoError(t, err)
 
-	declareTx, err := adaptDeclareTransaction(response.Transaction)
+	transaction := response.Transaction
+	declareTx, err := adaptDeclareTransaction(transaction)
 	assert.NoError(t, err)
 
-	assert.Equal(t, response.Transaction.SenderAddress, declareTx.SenderAddress)
-	assert.Equal(t, response.Transaction.Version, declareTx.Version)
-	assert.Equal(t, response.Transaction.Nonce, declareTx.Nonce)
-	assert.Equal(t, response.Transaction.MaxFee, declareTx.MaxFee)
-	assert.Equal(t, response.Transaction.Signature, declareTx.Signature)
-	assert.Equal(t, response.Transaction.ClassHash, declareTx.ClassHash)
-}
-
-func testTransactionClass(t *testing.T, expected *clients.ClassDefinition, actual *core.Class) {
-	assert.Equal(t, new(felt.Felt).SetUint64(0), actual.APIVersion)
-
-	for i, v := range expected.EntryPoints.External {
-		assert.Equal(t, v.Selector, actual.Externals[i].Selector)
-		assert.Equal(t, v.Offset, actual.Externals[i].Offset)
-	}
-	assert.Equal(t, len(expected.EntryPoints.External), len(actual.Externals))
-
-	for i, v := range expected.EntryPoints.L1Handler {
-		assert.Equal(t, v.Selector, actual.L1Handlers[i].Selector)
-		assert.Equal(t, v.Offset, actual.L1Handlers[i].Offset)
-	}
-	assert.Equal(t, len(expected.EntryPoints.L1Handler), len(actual.L1Handlers))
-
-	for i, v := range expected.EntryPoints.Constructor {
-		assert.Equal(t, v.Selector, actual.Constructors[i].Selector)
-		assert.Equal(t, v.Offset, actual.Constructors[i].Offset)
-	}
-	assert.Equal(t, len(expected.EntryPoints.Constructor), len(actual.Constructors))
-
-	for i, v := range expected.Program.Builtins {
-		assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), actual.Builtins[i])
-	}
-	assert.Equal(t, len(expected.Program.Builtins), len(actual.Builtins))
-
-	for i, v := range expected.Program.Data {
-		assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), actual.Bytecode[i])
-	}
-	assert.Equal(t, len(expected.Program.Data), len(actual.Bytecode))
+	assert.Equal(t, transaction.SenderAddress, declareTx.SenderAddress)
+	assert.Equal(t, transaction.Version, declareTx.Version)
+	assert.Equal(t, transaction.Nonce, declareTx.Nonce)
+	assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
+	assert.Equal(t, transaction.Signature, declareTx.Signature)
+	assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
 }
