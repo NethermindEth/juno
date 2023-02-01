@@ -3,6 +3,7 @@ package trie
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -85,52 +86,296 @@ func TestFindCommonPath(t *testing.T) {
 }
 
 func TestTriePut(t *testing.T) {
+	t.Run("put to empty tree", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			keyNum, _ := strconv.ParseUint("1101", 2, 64)
+			key := new(felt.Felt).SetUint64(keyNum)
+			val := new(felt.Felt).SetUint64(11)
+			if _, err := trie.Put(key, val); err != nil {
+				t.Errorf("Put() failed")
+			}
+
+			if value, err := trie.Get(key); err != nil || !value.Equal(val) {
+				t.Errorf("key-val not match")
+			}
+			assert.Equal(t, trie.FeltToBitSet(key), trie.rootKey)
+			return nil
+		})
+	})
+
+	t.Run("put zero value", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			keyNum, _ := strconv.ParseUint("1101", 2, 64)
+			key := new(felt.Felt).SetUint64(keyNum)
+			val := new(felt.Felt).SetUint64(0)
+			if _, err := trie.Put(key, val); err != nil {
+				t.Errorf("Put() failed")
+			}
+
+			value, err := trie.Get(key)
+			assert.Error(t, err)
+			assert.Nil(t, value)
+			assert.Nil(t, trie.rootKey)
+			return nil
+		})
+	})
+	t.Run("put to replace an existed value", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			keyNum, _ := strconv.ParseUint("1101", 2, 64)
+			key := new(felt.Felt).SetUint64(keyNum)
+			val := new(felt.Felt).SetUint64(1)
+			if _, err := trie.Put(key, val); err != nil {
+				t.Errorf("Put() failed")
+			}
+			newVal := new(felt.Felt).SetUint64(2)
+			if _, err := trie.Put(key, newVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+
+			value, err := trie.Get(key)
+			assert.Nil(t, err)
+			assert.Equal(t, newVal, value)
+			return nil
+		})
+	})
+	t.Run("put a left then a right node", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			// First put a left node
+			leftKeyNum, _ := strconv.ParseUint("10001", 2, 64)
+			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+			leftVal := new(felt.Felt).SetUint64(12)
+			if _, err := trie.Put(leftKey, leftVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			// Then put a right node
+			rightKeyNum, _ := strconv.ParseUint("10011", 2, 64)
+			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+			rightVal := new(felt.Felt).SetUint64(22)
+			if _, err := trie.Put(rightKey, rightVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			// Check parent and its left right children
+			commonKey, isSame := FindCommonKey(trie.FeltToBitSet(leftKey), trie.FeltToBitSet(rightKey))
+			assert.False(t, isSame)
+			// Common key should be 0b100, length 251-2;
+			expectKey := bitset.New(251 - 2).Set(2)
+			assert.Equal(t, expectKey, commonKey)
+			// Current rootKey should be the common key
+			assert.Equal(t, expectKey, trie.rootKey)
+
+			parentNode, err := trie.storage.Get(commonKey)
+			assert.Nil(t, err)
+			assert.Equal(t, trie.FeltToBitSet(leftKey), parentNode.left)
+			assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.right)
+			return nil
+		})
+	})
+	t.Run("put a right node then a left node", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			// First put a right node
+			rightKeyNum, _ := strconv.ParseUint("10011", 2, 64)
+			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+			rightVal := new(felt.Felt).SetUint64(22)
+			if _, err := trie.Put(rightKey, rightVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			// Then put a left node
+			leftKeyNum, _ := strconv.ParseUint("10001", 2, 64)
+			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+			leftVal := new(felt.Felt).SetUint64(12)
+			if _, err := trie.Put(leftKey, leftVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			// Check parent and its left right children
+			commonKey, isSame := FindCommonKey(trie.FeltToBitSet(leftKey), trie.FeltToBitSet(rightKey))
+			assert.False(t, isSame)
+			expectKey := bitset.New(251 - 2).Set(2)
+			assert.Equal(t, expectKey, commonKey)
+
+			parentNode, err := trie.storage.Get(commonKey)
+			assert.Nil(t, err)
+			assert.Equal(t, trie.FeltToBitSet(leftKey), parentNode.left)
+			assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.right)
+			return nil
+		})
+	})
+	t.Run("Add new key to different branches", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			// left branch
+			leftKeyNum, _ := strconv.ParseUint("100", 2, 64)
+			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+			leftVal := new(felt.Felt).SetUint64(12)
+
+			// right branch
+			rightKeyNum, _ := strconv.ParseUint("111", 2, 64)
+			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+			rightVal := new(felt.Felt).SetUint64(22)
+			// Build a basic trie
+			if _, err := trie.Put(leftKey, leftVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			if _, err := trie.Put(rightKey, rightVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			t.Run("Add to left branch", func(t *testing.T) {
+				newKeyNum, _ := strconv.ParseUint("101", 2, 64)
+				newKey := new(felt.Felt).SetUint64(newKeyNum)
+				newVal := new(felt.Felt).SetUint64(12)
+				if _, err := trie.Put(newKey, newVal); err != nil {
+					t.Errorf("Put() failed")
+				}
+				commonKey := bitset.New(251 - 1).Set(1)
+				parentNode, err := trie.storage.Get(commonKey)
+				assert.Nil(t, err)
+				assert.Equal(t, trie.FeltToBitSet(leftKey), parentNode.left)
+				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.right)
+			})
+			t.Run("Add to right branch", func(t *testing.T) {
+				newKeyNum, _ := strconv.ParseUint("110", 2, 64)
+				newKey := new(felt.Felt).SetUint64(newKeyNum)
+				newVal := new(felt.Felt).SetUint64(12)
+				if _, err := trie.Put(newKey, newVal); err != nil {
+					t.Errorf("Put() failed")
+				}
+				commonKey := bitset.New(251 - 1).Set(0).Set(1)
+				parentNode, err := trie.storage.Get(commonKey)
+				assert.Nil(t, err)
+				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.left)
+				assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.right)
+			})
+			t.Run("Add new node as parent sibling", func(t *testing.T) {
+				newKeyNum, _ := strconv.ParseUint("000", 2, 64)
+				newKey := new(felt.Felt).SetUint64(newKeyNum)
+				newVal := new(felt.Felt).SetUint64(12)
+				if _, err := trie.Put(newKey, newVal); err != nil {
+					t.Errorf("Put() failed")
+				}
+				commonKey := bitset.New(251 - 3)
+				parentNode, err := trie.storage.Get(commonKey)
+				assert.Nil(t, err)
+				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.left)
+				expectRightKey := bitset.New(251 - 2).Set(0)
+				assert.Equal(t, expectRightKey, parentNode.right)
+			})
+			return nil
+		})
+	})
+}
+
+func TestTrieDeleteBasic(t *testing.T) {
+	// left branch
+	leftKeyNum, _ := strconv.ParseUint("100", 2, 64)
+	leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+	leftVal := new(felt.Felt).SetUint64(12)
+	// right branch
+	rightKeyNum, _ := strconv.ParseUint("111", 2, 64)
+	rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+	rightVal := new(felt.Felt).SetUint64(22)
+	// Zero value
+	zeroVal := new(felt.Felt).SetUint64(0)
 	tests := [...]struct {
-		key   *felt.Felt
-		value *felt.Felt
-		root  *bitset.BitSet
+		deleteKeys []*felt.Felt
+		assertFun  func(trie *Trie)
 	}{
 		{
-			key:   new(felt.Felt).SetUint64(2),
-			value: new(felt.Felt).SetUint64(2),
-			root:  nil,
+			deleteKeys: []*felt.Felt{leftKey},
+			assertFun: func(trie *Trie) {
+				assert.Equal(t, trie.FeltToBitSet(rightKey), trie.rootKey)
+				val, err := trie.Get(leftKey)
+				assert.Nil(t, val)
+				assert.Error(t, err)
+			},
 		},
 		{
-			key:   new(felt.Felt).SetUint64(1),
-			value: new(felt.Felt).SetUint64(1),
-			root:  nil,
+			deleteKeys: []*felt.Felt{rightKey},
+			assertFun: func(trie *Trie) {
+				assert.Equal(t, trie.FeltToBitSet(leftKey), trie.rootKey)
+				val, err := trie.Get(rightKey)
+				assert.Nil(t, val)
+				assert.Error(t, err)
+			},
 		},
 		{
-			key:   new(felt.Felt).SetUint64(3),
-			value: new(felt.Felt).SetUint64(3),
-			root:  nil,
-		},
-		{
-			key:   new(felt.Felt).SetUint64(3),
-			value: new(felt.Felt).SetUint64(4),
-			root:  nil,
-		},
-		{
-			key:   new(felt.Felt).SetUint64(0),
-			value: new(felt.Felt).SetUint64(5),
-			root:  nil,
+			deleteKeys: []*felt.Felt{leftKey, rightKey},
+			assertFun: func(trie *Trie) {
+				assert.Nil(t, trie.rootKey)
+			},
 		},
 	}
-	RunOnTempTrie(251, func(trie *Trie) error {
-		for idx, test := range tests {
-			if _, err := trie.Put(test.key, test.value); err != nil {
-				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
+	for _, test := range tests {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			// Build a basic trie
+			if _, err := trie.Put(leftKey, leftVal); err != nil {
+				t.Errorf("Put() failed")
 			}
-			if value, err := trie.Get(test.key); err != nil || !value.Equal(test.value) {
-				t.Errorf("TestTriePut: Get() failed at test #%d", idx)
+			if _, err := trie.Put(rightKey, rightVal); err != nil {
+				t.Errorf("Put() failed")
 			}
-			if test.root != nil && !test.root.Equal(trie.rootKey) {
-				t.Errorf("TestTriePut: Unexpected rootKey at test #%d", idx)
+			for _, key := range test.deleteKeys {
+				if _, err := trie.Put(key, zeroVal); err != nil {
+					t.Errorf("Put() failed")
+				}
 			}
-		}
+			test.assertFun(trie)
+			return nil
+		})
+	}
+}
 
-		return nil
-	})
+func TestTrieDeleteSubtree(t *testing.T) {
+	// left branch
+	leftKeyNum, _ := strconv.ParseUint("100", 2, 64)
+	leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+	leftVal := new(felt.Felt).SetUint64(11)
+	// left sub branch
+	leftSubKeyNum, _ := strconv.ParseUint("101", 2, 64)
+	leftSubKey := new(felt.Felt).SetUint64(leftSubKeyNum)
+	leftSubVal := new(felt.Felt).SetUint64(22)
+	// right branch
+	rightKeyNum, _ := strconv.ParseUint("111", 2, 64)
+	rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+	rightVal := new(felt.Felt).SetUint64(33)
+	// Zero value
+	zeroVal := new(felt.Felt).SetUint64(0)
+	tests := [...]struct {
+		deleteKeys []*felt.Felt
+		expectLeft *felt.Felt
+	}{
+		{
+			deleteKeys: []*felt.Felt{leftKey},
+			expectLeft: leftSubKey,
+		},
+		{
+			deleteKeys: []*felt.Felt{leftSubKey},
+			expectLeft: leftKey,
+		},
+	}
+	for _, test := range tests {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			// Build a basic trie
+			if _, err := trie.Put(leftKey, leftVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			if _, err := trie.Put(leftSubKey, leftSubVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			if _, err := trie.Put(rightKey, rightVal); err != nil {
+				t.Errorf("Put() failed")
+			}
+			for _, key := range test.deleteKeys {
+				if _, err := trie.Put(key, zeroVal); err != nil {
+					t.Errorf("Put() failed")
+				}
+			}
+			newRootKey := bitset.New(251 - 2).Set(0)
+			assert.Equal(t, newRootKey, trie.rootKey)
+			rootNode, err := trie.storage.Get(newRootKey)
+			assert.Nil(t, err)
+			assert.Equal(t, trie.FeltToBitSet(rightKey), rootNode.right)
+			assert.Equal(t, trie.FeltToBitSet(test.expectLeft), rootNode.left)
+			return nil
+		})
+	}
 }
 
 func TestPath(t *testing.T) {
