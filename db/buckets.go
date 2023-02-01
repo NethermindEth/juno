@@ -18,6 +18,8 @@ const (
 	BlockNumbersByHash
 	BlocksByNumber
 	TransactionsIndexByHash // maps transaction hashes to block number and index
+	Transactions            // maps block number and index to transaction
+	TransactionReceipts     // maps block number and index to transaction receipt
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
