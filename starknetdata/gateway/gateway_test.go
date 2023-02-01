@@ -213,16 +213,14 @@ func TestAdaptDeployTransaction(t *testing.T) {
 	err := json.Unmarshal(deployJson, response)
 	assert.NoError(t, err)
 
-	responseClass, class := getMockClass()
-	deployTx, err := adaptDeployTransaction(response, class)
+	deployTx, err := adaptDeployTransaction(response)
 	assert.NoError(t, err)
 
 	assert.Equal(t, response.Transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
 	assert.Equal(t, response.Transaction.ConstructorCalldata, deployTx.ConstructorCallData)
 	assert.Equal(t, response.Transaction.ContractAddress, deployTx.CallerAddress)
 	assert.Equal(t, response.Transaction.Version, deployTx.Version)
-
-	testTransactionClass(t, responseClass, &deployTx.Class)
+	assert.Equal(t, response.Transaction.ClassHash, deployTx.ClassHash)
 }
 
 func TestAdaptDeclareTransaction(t *testing.T) {
@@ -230,8 +228,7 @@ func TestAdaptDeclareTransaction(t *testing.T) {
 	err := json.Unmarshal(declareJson, response)
 	assert.NoError(t, err)
 
-	responseClass, class := getMockClass()
-	declareTx, err := adaptDeclareTransaction(response, class)
+	declareTx, err := adaptDeclareTransaction(response)
 	assert.NoError(t, err)
 
 	assert.Equal(t, response.Transaction.SenderAddress, declareTx.SenderAddress)
@@ -239,8 +236,7 @@ func TestAdaptDeclareTransaction(t *testing.T) {
 	assert.Equal(t, response.Transaction.Nonce, declareTx.Nonce)
 	assert.Equal(t, response.Transaction.MaxFee, declareTx.MaxFee)
 	assert.Equal(t, response.Transaction.Signature, declareTx.Signature)
-
-	testTransactionClass(t, responseClass, &declareTx.Class)
+	assert.Equal(t, response.Transaction.ClassHash, declareTx.ClassHash)
 }
 
 func testTransactionClass(t *testing.T, expected *clients.ClassDefinition, actual *core.Class) {

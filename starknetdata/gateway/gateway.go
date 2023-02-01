@@ -174,21 +174,13 @@ func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (core.Tra
 	txType := response.Transaction.Type
 	switch txType {
 	case "DECLARE":
-		class, err := g.Class(response.Transaction.ClassHash)
-		if err != nil {
-			return nil, err
-		}
-		declareTx, err := adaptDeclareTransaction(response, class)
+		declareTx, err := adaptDeclareTransaction(response)
 		if err != nil {
 			return nil, err
 		}
 		return declareTx, nil
 	case "DEPLOY":
-		class, err := g.Class(response.Transaction.ClassHash)
-		if err != nil {
-			return nil, err
-		}
-		deployTx, err := adaptDeployTransaction(response, class)
+		deployTx, err := adaptDeployTransaction(response)
 		if err != nil {
 			return nil, err
 		}
@@ -201,27 +193,25 @@ func adaptTransaction(response *clients.TransactionStatus, g *Gateway) (core.Tra
 	}
 }
 
-func adaptDeclareTransaction(response *clients.TransactionStatus, class *core.Class) (*core.DeclareTransaction, error) {
+func adaptDeclareTransaction(response *clients.TransactionStatus) (*core.DeclareTransaction, error) {
 	declareTx := new(core.DeclareTransaction)
 	declareTx.SenderAddress = response.Transaction.SenderAddress
 	declareTx.MaxFee = response.Transaction.MaxFee
 	declareTx.Signature = response.Transaction.Signature
 	declareTx.Nonce = response.Transaction.Nonce
 	declareTx.Version = response.Transaction.Version
-
-	declareTx.Class = *class
+	declareTx.ClassHash = response.Transaction.ClassHash
 
 	return declareTx, nil
 }
 
-func adaptDeployTransaction(response *clients.TransactionStatus, class *core.Class) (*core.DeployTransaction, error) {
+func adaptDeployTransaction(response *clients.TransactionStatus) (*core.DeployTransaction, error) {
 	deployTx := new(core.DeployTransaction)
 	deployTx.ContractAddressSalt = response.Transaction.ContractAddressSalt
 	deployTx.ConstructorCallData = response.Transaction.ConstructorCalldata
 	deployTx.CallerAddress = response.Transaction.ContractAddress
 	deployTx.Version = response.Transaction.Version
-
-	deployTx.Class = *class
+	deployTx.ClassHash = response.Transaction.ClassHash
 
 	return deployTx, nil
 }
