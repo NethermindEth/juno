@@ -57,6 +57,10 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 // FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) FeltToBitSet(k *felt.Felt) *bitset.BitSet {
+	if k == (*felt.Felt)(nil) {
+		return (*bitset.BitSet)(nil)
+	}
+
 	kBits := k.Bits()
 	return bitset.FromWithLength(t.height, kBits[:])
 }
