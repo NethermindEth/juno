@@ -131,7 +131,7 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	transactionCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
-	transactionCommitment, err := TransactionCommitment(b.Receipts)
+	transactionCommitment, err := TransactionCommitment(b.Transactions)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	}
 
 	transactionCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
-	transactionCommitment, err := TransactionCommitment(b.Receipts)
+	transactionCommitment, err := TransactionCommitment(b.Transactions)
 	if err != nil {
 		return nil, err
 	}

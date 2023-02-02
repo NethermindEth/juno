@@ -10,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var ErrUnknownTransaction = errors.New("unknown transaction")
-
 type Gateway struct {
 	client *clients.GatewayClient
 }
@@ -41,41 +39,18 @@ func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
 
 func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	if response == nil {
-		return nil, nil
+		return nil, errors.New("nil client block")
 	}
 
 	txns := make([]core.Transaction, len(response.Transactions))
+	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
 	for i, txn := range response.Transactions {
 		var err error
 		txns[i], err = adaptTransaction(txn)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// Receipts
-	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
-	var txType core.TransactionType
-	for i, receipt := range response.Receipts {
-		// Todo: TransactionReceipt's Type and Signature will be removed in future,
-		// which is why explict test for AdaptTransactionReceipt is not being added.
-		t := response.Transactions[i]
-		switch t.Type {
-		case "DEPLOY":
-			txType = core.Deploy
-		case "DEPLOY_ACCOUNT":
-			txType = core.DeployAccount
-		case "INVOKE_FUNCTION":
-			txType = core.Invoke
-		case "DECLARE":
-			txType = core.Declare
-		case "L1_HANDLER":
-			txType = core.L1Handler
-		default:
-			return nil, ErrUnknownTransaction
-
-		}
-		receipts[i] = adaptTransactionReceipt(receipt, txType, t.Signature)
+		receipts[i] = adaptTransactionReceipt(response.Receipts[i])
 	}
 
 	return &core.Block{
@@ -94,9 +69,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	}, nil
 }
 
-func adaptTransactionReceipt(response *clients.TransactionReceipt,
-	txType core.TransactionType, signature []*felt.Felt,
-) *core.TransactionReceipt {
+func adaptTransactionReceipt(response *clients.TransactionReceipt) *core.TransactionReceipt {
 	if response == nil {
 		return nil
 	}
@@ -118,8 +91,6 @@ func adaptTransactionReceipt(response *clients.TransactionReceipt,
 		ExecutionResources: adaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      adaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
-		Type:               txType,
-		Signatures:         signature,
 	}
 }
 
@@ -210,11 +181,11 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 	case "INVOKE_FUNCTION":
 		return adaptInvokeTransaction(transaction), nil
 	case "DEPLOY_ACCOUNT":
-		return &core.DeployAccountTransaction{}, nil // todo
+		return adaptDeployAccountTransaction(transaction), nil // todo
 	case "L1_HANDLER":
-		return &core.L1HandlerTransaction{}, nil // todo
+		return adaptL1HandlerTransaction(transaction), nil // todo
 	default:
-		return nil, ErrUnknownTransaction
+		return nil, core.ErrUnknownTransaction
 	}
 }
 
@@ -223,7 +194,7 @@ func adaptDeclareTransaction(t *clients.Transaction) *core.DeclareTransaction {
 		Hash:          t.Hash,
 		SenderAddress: t.SenderAddress,
 		MaxFee:        t.MaxFee,
-		Signatures:    t.Signature,
+		Signature:     t.Signature,
 		Nonce:         t.Nonce,
 		Version:       t.Version,
 		ClassHash:     t.ClassHash,
@@ -246,16 +217,28 @@ func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
 		Hash:               t.Hash,
 		ContractAddress:    t.ContractAddress,
 		EntryPointSelector: t.EntryPointSelector,
-		SenderAddress:      t.SenderAddress,
 		Nonce:              t.Nonce,
 		CallData:           t.Calldata,
-		Signatures:         t.Signature,
+		Signature:          t.Signature,
 		MaxFee:             t.MaxFee,
 		Version:            t.Version,
 	}
 }
 
-// GetClass gets the class for a given class hash from the feeder gateway,
+func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransaction {
+	return &core.L1HandlerTransaction{
+		Hash: t.Hash,
+	}
+}
+
+func adaptDeployAccountTransaction(t *clients.Transaction) *core.DeployAccountTransaction {
+	return &core.DeployAccountTransaction{
+		Hash:      t.Hash,
+		Signature: t.Signature,
+	}
+}
+
+// Class gets the class for a given class hash from the feeder gateway,
 // then adapts it to the core.Class type.
 func (g *Gateway) Class(classHash *felt.Felt) (*core.Class, error) {
 	response, err := g.client.GetClassDefinition(classHash)
