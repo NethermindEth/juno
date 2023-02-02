@@ -72,7 +72,7 @@ type TransactionReceipt struct {
 
 type Transaction interface {
 	// Todo: Add Hash as a field to all the Transaction Objects
-	Hash(utils.Network) *felt.Felt
+	Hash(utils.Network) (*felt.Felt, error)
 }
 
 type DeployTransaction struct {
@@ -80,8 +80,8 @@ type DeployTransaction struct {
 	ContractAddressSalt *felt.Felt
 	// The address of the contract.
 	ContractAddress *felt.Felt
-	// The object that defines the contract’s functionality.
-	Class Class
+	// The class that defines the contract’s functionality.
+	ClassHash *felt.Felt
 	// The arguments passed to the constructor during deployment.
 	ConstructorCallData []*felt.Felt
 	// Who invoked the deployment. Set to 0 (in future: the deploying account contract).
@@ -161,8 +161,8 @@ func (i *InvokeTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 }
 
 type DeclareTransaction struct {
-	// The class object.
-	Class Class
+	// The class hash
+	ClassHash *felt.Felt
 	// The address of the account initiating the transaction.
 	SenderAddress *felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction.
@@ -190,7 +190,7 @@ func (d *DeclareTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 			crypto.PedersenArray(make([]*felt.Felt, 0)...),
 			d.MaxFee,
 			network.ChainId(),
-			d.Class.Hash(),
+			d.ClassHash,
 		), nil
 	} else if d.Version.IsOne() {
 		return crypto.PedersenArray(
@@ -198,7 +198,7 @@ func (d *DeclareTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 			d.Version,
 			d.SenderAddress,
 			new(felt.Felt),
-			crypto.PedersenArray(d.Class.Hash()),
+			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
 			network.ChainId(),
 			d.Nonce,
