@@ -100,8 +100,6 @@ type DeployTransaction struct {
 	ClassHash *felt.Felt
 	// The arguments passed to the constructor during deployment.
 	ConstructorCallData []*felt.Felt
-	// Who invoked the deployment. Set to 0 (in future: the deploying account contract).
-	CallerAddress *felt.Felt
 	// The transaction’s version. Possible values are 1 or 0.
 	//
 	// When the fields that comprise a transaction change,

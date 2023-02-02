@@ -205,20 +205,11 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 	txType := transaction.Type
 	switch txType {
 	case "DECLARE":
-		declareTx, err := adaptDeclareTransaction(transaction)
-		if err != nil {
-			return nil, err
-		}
-		return declareTx, nil
+		return adaptDeclareTransaction(transaction), nil
 	case "DEPLOY":
-		deployTx, err := adaptDeployTransaction(transaction)
-		if err != nil {
-			return nil, err
-		}
-		return deployTx, nil
+		return adaptDeployTransaction(transaction), nil
 	case "INVOKE_FUNCTION":
-		invokeTx := adaptInvokeTransaction(transaction)
-		return invokeTx, nil
+		return adaptInvokeTransaction(transaction), nil
 	case "DEPLOY_ACCOUNT":
 		return &core.DeployAccountTransaction{}, nil // todo
 	case "L1_HANDLER":
@@ -228,42 +219,41 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 	}
 }
 
-func adaptDeclareTransaction(transaction *clients.Transaction) (*core.DeclareTransaction, error) {
-	declareTx := new(core.DeclareTransaction)
-	declareTx.SenderAddress = transaction.SenderAddress
-	declareTx.MaxFee = transaction.MaxFee
-	declareTx.Signature = transaction.Signature
-	declareTx.Nonce = transaction.Nonce
-	declareTx.Version = transaction.Version
-	declareTx.ClassHash = transaction.ClassHash
-
-	return declareTx, nil
+func adaptDeclareTransaction(t *clients.Transaction) *core.DeclareTransaction {
+	return &core.DeclareTransaction{
+		Hash:          t.Hash,
+		SenderAddress: t.SenderAddress,
+		MaxFee:        t.MaxFee,
+		Signatures:    t.Signature,
+		Nonce:         t.Nonce,
+		Version:       t.Version,
+		ClassHash:     t.ClassHash,
+	}
 }
 
-func adaptDeployTransaction(transaction *clients.Transaction) (*core.DeployTransaction, error) {
-	deployTx := new(core.DeployTransaction)
-	deployTx.ContractAddressSalt = transaction.ContractAddressSalt
-	deployTx.ConstructorCallData = transaction.ConstructorCalldata
-	deployTx.CallerAddress = new(felt.Felt)
-	deployTx.Version = transaction.Version
-	deployTx.ClassHash = transaction.ClassHash
-	deployTx.ContractAddress = core.ContractAddress(deployTx.CallerAddress,
-		deployTx.ClassHash, deployTx.ContractAddressSalt, deployTx.ConstructorCallData)
-	return deployTx, nil
+func adaptDeployTransaction(t *clients.Transaction) *core.DeployTransaction {
+	return &core.DeployTransaction{
+		Hash:                t.Hash,
+		ContractAddressSalt: t.ContractAddressSalt,
+		ContractAddress:     t.ContractAddress,
+		ClassHash:           t.ClassHash,
+		ConstructorCallData: t.ConstructorCalldata,
+		Version:             t.Version,
+	}
 }
 
-func adaptInvokeTransaction(transaction *clients.Transaction) *core.InvokeTransaction {
-	invokeTx := new(core.InvokeTransaction)
-	invokeTx.ContractAddress = transaction.ContractAddress
-	invokeTx.EntryPointSelector = transaction.EntryPointSelector
-	invokeTx.SenderAddress = transaction.ContractAddress // todo
-	invokeTx.Nonce = transaction.Nonce
-	invokeTx.CallData = transaction.Calldata
-	invokeTx.Signature = transaction.Signature
-	invokeTx.MaxFee = transaction.MaxFee
-	invokeTx.Version = transaction.Version
-
-	return invokeTx
+func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		Hash:               t.Hash,
+		ContractAddress:    t.ContractAddress,
+		EntryPointSelector: t.EntryPointSelector,
+		SenderAddress:      t.SenderAddress,
+		Nonce:              t.Nonce,
+		CallData:           t.Calldata,
+		Signatures:         t.Signature,
+		MaxFee:             t.MaxFee,
+		Version:            t.Version,
+	}
 }
 
 // GetClass gets the class for a given class hash from the feeder gateway,
