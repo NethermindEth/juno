@@ -206,62 +206,70 @@ func TestAdaptClass(t *testing.T) {
 	assert.Equal(t, programHash, class.ProgramHash)
 }
 
-func TestAdaptInvokeTransaction(t *testing.T) {
-	invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
-	assert.NoError(t, err)
+func TestAdaptTransaction(t *testing.T) {
+	t.Run("invoke transaction", func(t *testing.T) {
+		invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
+	assert.NoError(t, err)response := new(clients.TransactionStatus)
+		err = json.Unmarshal(invokeJson, response)
+		require.NoError(t, err)
 
-	response := new(clients.TransactionStatus)
-	err = json.Unmarshal(invokeJson, response)
-	assert.NoError(t, err)
+		transaction := response.Transaction
+		txn, err := adaptTransaction(transaction)
+		invokeTx, ok := txn.(*core.InvokeTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-	transaction := response.Transaction
-	invokeTx := adaptInvokeTransaction(transaction)
-	assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
-	assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
-	assert.Equal(t, transaction.ContractAddress, invokeTx.SenderAddress)
-	assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
-	assert.Equal(t, transaction.Calldata, invokeTx.CallData)
-	assert.Equal(t, transaction.Signature, invokeTx.Signature)
-	assert.Equal(t, transaction.MaxFee, invokeTx.MaxFee)
-	assert.Equal(t, transaction.Version, invokeTx.Version)
-}
-
-func TestAdaptDeployTransaction(t *testing.T) {
+		assert.Equal(t, transaction.Hash, invokeTx.Hash)
+		assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
+		assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
+		assert.Equal(t, transaction.ContractAddress, invokeTx.SenderAddress)
+		assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
+		assert.Equal(t, transaction.Calldata, invokeTx.CallData)
+		assert.Equal(t, transaction.Signature, invokeTx.Signatures)
+		assert.Equal(t, transaction.MaxFee, invokeTx.MaxFee)
+		assert.Equal(t, transaction.Version, invokeTx.Version)
+	})
+	t.Run("deploy transaction", func(t *testing.T) {
 	deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
 	assert.NoError(t, err)
 
-	response := new(clients.TransactionStatus)
-	err = json.Unmarshal(deployJson, response)
-	assert.NoError(t, err)
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(deployJson, response)
+		require.NoError(t, err)
 
-	transaction := response.Transaction
-	deployTx, err := adaptDeployTransaction(transaction)
-	assert.NoError(t, err)
+		transaction := response.Transaction
+		txn, err := adaptTransaction(transaction)
+		deployTx, ok := txn.(*core.DeployTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-	assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
-	assert.Equal(t, transaction.ConstructorCalldata, deployTx.ConstructorCallData)
-	assert.Equal(t, &felt.Zero, deployTx.CallerAddress)
-	assert.NotEqual(t, &felt.Zero, deployTx.ContractAddress)
-	assert.Equal(t, transaction.Version, deployTx.Version)
-	assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
-}
+		assert.Equal(t, transaction.Hash, deployTx.Hash)
+		assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
+		assert.Equal(t, transaction.ContractAddress, deployTx.ContractAddress)
+		assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
+		assert.Equal(t, transaction.ConstructorCalldata, deployTx.ConstructorCallData)
+		assert.Equal(t, transaction.Version, deployTx.Version)
+	})
+	t.Run("declare transaction", func(t *testing.T) {
+		declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
+		assert.NoError(t, err)
 
-func TestAdaptDeclareTransaction(t *testing.T) {
-	declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
-	assert.NoError(t, err)
+		response := new(clients.TransactionStatus)
+		err := json.Unmarshal(declareJson, response)
+		require.NoError(t, err)
 
-	response := new(clients.TransactionStatus)
-	err = json.Unmarshal(declareJson, response)
-	assert.NoError(t, err)
+		transaction := response.Transaction
+		txn, err := adaptTransaction(transaction)
+		declareTx, ok := txn.(*core.DeclareTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-	transaction := response.Transaction
-	declareTx, err := adaptDeclareTransaction(transaction)
-	assert.NoError(t, err)
-
-	assert.Equal(t, transaction.SenderAddress, declareTx.SenderAddress)
-	assert.Equal(t, transaction.Version, declareTx.Version)
-	assert.Equal(t, transaction.Nonce, declareTx.Nonce)
-	assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
-	assert.Equal(t, transaction.Signature, declareTx.Signature)
-	assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
+		assert.Equal(t, transaction.Hash, declareTx.Hash)
+		assert.Equal(t, transaction.SenderAddress, declareTx.SenderAddress)
+		assert.Equal(t, transaction.Version, declareTx.Version)
+		assert.Equal(t, transaction.Nonce, declareTx.Nonce)
+		assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
+		assert.Equal(t, transaction.Signature, declareTx.Signatures)
+		assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
+	})
 }
