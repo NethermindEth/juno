@@ -35,13 +35,13 @@ func (n Network) String() string {
 func (n Network) URL() string {
 	switch n {
 	case GOERLI:
-		return "https://alpha4.starknet.io"
+		return "https://alpha4.starknet.io/feeder_gateway/"
 	case MAINNET:
-		return "https://alpha-mainnet.starknet.io"
+		return "https://alpha-mainnet.starknet.io/feeder_gateway/"
 	case GOERLI2:
-		return "https://alpha4-2.starknet.io"
+		return "https://alpha4-2.starknet.io/feeder_gateway/"
 	case INTEGRATION:
-		return "https://external.integration.starknet.io"
+		return "https://external.integration.starknet.io/feeder_gateway/"
 	default:
 		return ""
 	}
