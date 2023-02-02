@@ -20,7 +20,7 @@ func (c *srvCloser) Close() error {
 
 func NewTestClient(network utils.Network) (*clients.GatewayClient, io.Closer) {
 	srv := newTestGatewayServer(network)
-	client := clients.NewGatewayClient(srv.URL)
+	client := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(0)
 
 	return client, &srvCloser{srv}
 }

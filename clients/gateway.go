@@ -8,23 +8,57 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+type Backoff func(wait time.Duration) time.Duration
+
 type GatewayClient struct {
-	baseUrl string
+	url        string
+	backoff    Backoff
+	maxRetries int
+	minWait    time.Duration
 }
 
-func NewGatewayClient(baseUrl string) *GatewayClient {
+func (c *GatewayClient) WithBackoff(b Backoff) *GatewayClient {
+	c.backoff = b
+	return c
+}
+
+func (c *GatewayClient) WithMaxRetries(num int) *GatewayClient {
+	c.maxRetries = num
+	return c
+}
+
+func (c *GatewayClient) WithMinWait(d time.Duration) *GatewayClient {
+	c.minWait = d
+	return c
+}
+
+// https://cloud.google.com/iot/docs/how-tos/exponential-backoff
+func ExponentialBackoff(wait time.Duration) time.Duration {
+	time.Sleep(wait)
+	return wait * 2
+}
+
+func NopBackoff(d time.Duration) time.Duration {
+	return 0
+}
+
+func NewGatewayClient(url string) *GatewayClient {
 	return &GatewayClient{
-		baseUrl: baseUrl,
+		url:        url,
+		backoff:    ExponentialBackoff,
+		maxRetries: 11, // ~34 minutes with ExponentialBackoff (block time on mainnet is 20-30 minutes)
+		minWait:    1 * time.Second,
 	}
 }
 
-// `buildQueryString` builds the query url with encoded parameters
+// buildQueryString builds the query url with encoded parameters
 func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string) string {
-	base, err := url.Parse(c.baseUrl)
+	base, err := url.Parse(c.url)
 	if err != nil {
 		panic("Malformed feeder gateway base URL")
 	}
@@ -42,7 +76,16 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 
 // get performs a "GET" http request with the given URL and returns the response body
 func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
-	res, err := http.Get(queryUrl)
+	var res *http.Response
+	var err error
+	wait := c.minWait
+	for i := 0; i <= c.maxRetries; i++ {
+		res, err = http.Get(queryUrl)
+		if res != nil && res.StatusCode == http.StatusOK {
+			break
+		}
+		wait = c.backoff(wait)
+	}
 	if err != nil {
 		return nil, err
 	} else if res.StatusCode != http.StatusOK {

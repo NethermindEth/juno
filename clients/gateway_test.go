@@ -17,6 +17,10 @@ import (
 
 const mockUrl = "https://mock_gateway.io/"
 
+func testClient(url string) *clients.GatewayClient {
+	return clients.NewGatewayClient(url).WithBackoff(clients.NopBackoff).WithMaxRetries(0)
+}
+
 func TestStateUpdateUnmarshal(t *testing.T) {
 	jsonData := []byte(`{
   "block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
@@ -390,7 +394,7 @@ func TestGetStateUpdate(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	gatewayClient := clients.NewGatewayClient(srv.URL)
+	gatewayClient := testClient(srv.URL)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		stateUpdate, err := gatewayClient.GetStateUpdate(10)
@@ -459,14 +463,14 @@ func TestGetTransaction(t *testing.T) {
 	defer srv.Close()
 	t.Run("Test normal case", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0x00")
-		gatewayClient := clients.NewGatewayClient(srv.URL)
+		gatewayClient := testClient(srv.URL)
 		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, *actualStatus, transactionStatus)
 	})
 	t.Run("Test case when transaction_hash not exit", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
-		gatewayClient := clients.NewGatewayClient(srv.URL)
+		gatewayClient := testClient(srv.URL)
 		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
 		assert.Nil(t, actualStatus, "Unexpected error")
 		assert.NotNil(t, err)
@@ -516,7 +520,7 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	gatewayClient := clients.NewGatewayClient(srv.URL)
+	gatewayClient := testClient(srv.URL)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := gatewayClient.GetBlock(0)
@@ -537,4 +541,20 @@ func TestHttpError(t *testing.T) {
 		_, err := gatewayClient.GetStateUpdate(0)
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
+}
+
+func TestBackoffFailure(t *testing.T) {
+	maxRetries := 5
+	try := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		try += 1
+	}))
+	defer srv.Close()
+
+	c := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(maxRetries)
+
+	_, err := c.GetBlock(0)
+	assert.EqualError(t, err, "500 Internal Server Error")
+	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
