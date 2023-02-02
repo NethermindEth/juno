@@ -16,8 +16,7 @@ func TestTrieTxn(t *testing.T) {
 
 	key := bitset.New(44)
 	node := new(Node)
-	value, _ := new(felt.Felt).SetRandom()
-	assert.NoError(t, node.UnmarshalBinary(value.Marshal()))
+	node.Value, _ = new(felt.Felt).SetRandom()
 
 	// put a node
 	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {

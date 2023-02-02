@@ -11,9 +11,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +26,7 @@ func TestSyncBlocks(t *testing.T) {
 			}
 
 			headBlock := new(core.Block)
-			if err = cbor.Unmarshal(headBlockBinary, headBlock); err != nil {
+			if err = encoder.Unmarshal(headBlockBinary, headBlock); err != nil {
 				return err
 			}
 
@@ -49,7 +49,7 @@ func TestSyncBlocks(t *testing.T) {
 				}
 
 				block := new(core.Block)
-				if err = cbor.Unmarshal(blockBinary, block); err != nil {
+				if err = encoder.Unmarshal(blockBinary, block); err != nil {
 					return err
 				}
 

@@ -187,12 +187,12 @@ func TestPathOnTrie(t *testing.T) {
 			t.Error()
 		}
 
-		assert.Equal(t, true, rootNode.left != nil && rootNode.right != nil)
+		assert.Equal(t, true, rootNode.Left != nil && rootNode.Right != nil)
 
 		expectedLeftPath := bitset.New(2).Set(1)
 		expectedRightPath := bitset.New(2).Set(0)
-		assert.Equal(t, true, Path(rootNode.left, trie.rootKey).Equal(expectedLeftPath))
-		assert.Equal(t, true, Path(rootNode.right, trie.rootKey).Equal(expectedRightPath))
+		assert.Equal(t, true, Path(rootNode.Left, trie.rootKey).Equal(expectedLeftPath))
+		assert.Equal(t, true, Path(rootNode.Right, trie.rootKey).Equal(expectedRightPath))
 		return nil
 	})
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/fxamacker/cbor/v2"
 )
 
 type ErrIncompatibleBlockAndStateUpdate struct {
@@ -94,7 +94,7 @@ func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 	}
 
 	headBlock := new(core.Block)
-	if err = cbor.Unmarshal(headBlockBin, headBlock); err != nil {
+	if err = encoder.Unmarshal(headBlockBin, headBlock); err != nil {
 		return nil, err
 	}
 	return headBlock, nil
@@ -112,7 +112,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 			return err
 		}
 
-		blockBinary, err := cbor.Marshal(block)
+		blockBinary, err := encoder.Marshal(block)
 		if err != nil {
 			return err
 		}

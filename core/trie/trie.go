@@ -133,9 +133,9 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 		}
 
 		if key.Test(key.Len() - cur.Len() - 1) {
-			cur = node.right
+			cur = node.Right
 		} else {
-			cur = node.left
+			cur = node.Left
 		}
 	}
 
@@ -148,7 +148,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value.value, nil
+	return value.Value, nil
 }
 
 // Put updates the corresponding `value` for a `key`
@@ -157,7 +157,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 	old := new(felt.Felt)
 	nodeKey := t.FeltToBitSet(key)
 	node := &Node{
-		value: value,
+		Value: value,
 	}
 
 	// empty trie, make new value root
@@ -183,7 +183,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 	// Replace if key already exist
 	sibling := &nodes[len(nodes)-1]
 	if nodeKey.Equal(sibling.key) {
-		old = sibling.node.value // record old value to return to caller
+		old = sibling.node.Value // record old value to return to caller
 		sibling.node = node
 		if value.IsZero() {
 			if err = t.deleteLast(nodes); err != nil {
@@ -202,12 +202,12 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 
 	commonKey, _ := FindCommonKey(nodeKey, sibling.key)
 	newParent := &Node{
-		value: new(felt.Felt),
+		Value: new(felt.Felt),
 	}
 	if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
-		newParent.left, newParent.right = sibling.key, nodeKey
+		newParent.Left, newParent.Right = sibling.key, nodeKey
 	} else {
-		newParent.left, newParent.right = nodeKey, sibling.key
+		newParent.Left, newParent.Right = nodeKey, sibling.key
 	}
 
 	makeRoot := len(nodes) == 1
@@ -215,10 +215,10 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 		siblingParent := &nodes[len(nodes)-2]
 
 		// replace the link to our sibling with the new parent
-		if siblingParent.node.left.Equal(sibling.key) {
-			siblingParent.node.left = commonKey
+		if siblingParent.node.Left.Equal(sibling.key) {
+			siblingParent.node.Left = commonKey
 		} else {
-			siblingParent.node.right = commonKey
+			siblingParent.node.Right = commonKey
 		}
 	}
 
@@ -257,10 +257,10 @@ func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 		}
 
 		var siblingKey *bitset.BitSet
-		if parent.node.left.Equal(last.key) {
-			siblingKey = parent.node.right
+		if parent.node.Left.Equal(last.key) {
+			siblingKey = parent.node.Right
 		} else {
-			siblingKey = parent.node.left
+			siblingKey = parent.node.Left
 		}
 
 		if len(affectedNodes) == 2 { // sibling should become root
@@ -268,10 +268,10 @@ func (t *Trie) deleteLast(affectedNodes []storageNode) error {
 		} else { // sibling should link to grandparent (len(affectedNodes) > 2)
 			grandParent := &affectedNodes[len(affectedNodes)-3]
 			// replace link to parent with a link to sibling
-			if grandParent.node.left.Equal(parent.key) {
-				grandParent.node.left = siblingKey
+			if grandParent.node.Left.Equal(parent.key) {
+				grandParent.node.Left = siblingKey
 			} else {
-				grandParent.node.right = siblingKey
+				grandParent.node.Right = siblingKey
 			}
 
 			if sibling, err := t.storage.Get(siblingKey); err != nil {
@@ -301,26 +301,26 @@ func (t *Trie) propagateValues(affectedNodes []storageNode) error {
 	for idx := len(affectedNodes) - 1; idx >= 0; idx-- {
 		cur := affectedNodes[idx]
 
-		if (cur.node.left == nil) != (cur.node.right == nil) {
+		if (cur.node.Left == nil) != (cur.node.Right == nil) {
 			panic("should not happen")
 		}
 
-		if cur.node.left != nil || cur.node.right != nil {
+		if cur.node.Left != nil || cur.node.Right != nil {
 			// todo: one of the children is already in affectedNodes, use that instead of fetching from storage
-			left, err := t.storage.Get(cur.node.left)
+			left, err := t.storage.Get(cur.node.Left)
 			if err != nil {
 				return err
 			}
 
-			right, err := t.storage.Get(cur.node.right)
+			right, err := t.storage.Get(cur.node.Right)
 			if err != nil {
 				return err
 			}
 
-			leftPath := Path(cur.node.left, cur.key)
-			rightPath := Path(cur.node.right, cur.key)
+			leftPath := Path(cur.node.Left, cur.key)
+			rightPath := Path(cur.node.Right, cur.key)
 
-			cur.node.value = crypto.Pedersen(left.Hash(leftPath), right.Hash(rightPath))
+			cur.node.Value = crypto.Pedersen(left.Hash(leftPath), right.Hash(rightPath))
 		}
 
 		if err := t.storage.Put(cur.key, cur.node); err != nil {
@@ -377,16 +377,16 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 
 	root, err := t.storage.Get(t.rootKey)
 	path := Path(t.rootKey, parentP)
-	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), path.String(), path.Len(), root.value.Text(16))
+	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), path.String(), path.Len(), root.Value.Text(16))
 	if err != nil {
 		return
 	}
 	(&Trie{
-		rootKey: root.left,
+		rootKey: root.Left,
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
 	(&Trie{
-		rootKey: root.right,
+		rootKey: root.Right,
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
 }

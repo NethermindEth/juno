@@ -11,9 +11,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -158,7 +158,7 @@ func TestVerifyBlock(t *testing.T) {
 			incomingBlock := &core.Block{Number: 10, ParentHash: h2}
 
 			assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-				blockBinary, err := cbor.Marshal(headBlock)
+				blockBinary, err := encoder.Marshal(headBlock)
 				if err != nil {
 					return err
 				}
@@ -174,7 +174,7 @@ func TestVerifyBlock(t *testing.T) {
 		headBlock := &core.Block{Hash: h1, Number: 1}
 		incomingBlock := &core.Block{ParentHash: h2, Number: 2}
 		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-			blockBinary, err := cbor.Marshal(headBlock)
+			blockBinary, err := encoder.Marshal(headBlock)
 			if err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ func TestVerifyBlock(t *testing.T) {
 		block := &core.Block{Number: 1, ParentHash: h1, Hash: h2}
 		stateUpdate := &core.StateUpdate{BlockHash: h3}
 		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-			blockBinary, err := cbor.Marshal(headBlock)
+			blockBinary, err := encoder.Marshal(headBlock)
 			if err != nil {
 				return err
 			}
@@ -207,7 +207,7 @@ func TestVerifyBlock(t *testing.T) {
 			block := &core.Block{Number: 1, ParentHash: h1, Hash: h2, GlobalStateRoot: sr1}
 			stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr2}
 			assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-				blockBinary, err := cbor.Marshal(headBlock)
+				blockBinary, err := encoder.Marshal(headBlock)
 				if err != nil {
 					return err
 				}
@@ -223,7 +223,7 @@ func TestVerifyBlock(t *testing.T) {
 		block := &core.Block{Number: 119802, ParentHash: h1, Hash: h2, GlobalStateRoot: sr1}
 		stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr1}
 		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-			blockBinary, err := cbor.Marshal(headBlock)
+			blockBinary, err := encoder.Marshal(headBlock)
 			if err != nil {
 				return err
 			}
@@ -243,7 +243,7 @@ func TestVerifyBlock(t *testing.T) {
 		}
 		stateUpdate := &core.StateUpdate{BlockHash: h2, NewRoot: sr1}
 		assert.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-			blockBinary, err := cbor.Marshal(headBlock)
+			blockBinary, err := encoder.Marshal(headBlock)
 			if err != nil {
 				return err
 			}
@@ -296,7 +296,7 @@ func TestStore(t *testing.T) {
 			}
 
 			headBlock := new(core.Block)
-			if err = cbor.Unmarshal(databaseHeadBlock, headBlock); err != nil {
+			if err = encoder.Unmarshal(databaseHeadBlock, headBlock); err != nil {
 				return err
 			}
 			assert.Equal(t, headBlock, block0)
@@ -313,7 +313,7 @@ func TestStore(t *testing.T) {
 			}
 
 			block := new(core.Block)
-			if err = cbor.Unmarshal(databaseBlock0, block); err != nil {
+			if err = encoder.Unmarshal(databaseBlock0, block); err != nil {
 				return err
 			}
 			assert.Equal(t, block, block0)
@@ -358,7 +358,7 @@ func TestStore(t *testing.T) {
 			}
 
 			headBlock := new(core.Block)
-			if err = cbor.Unmarshal(databaseHeadBlock, headBlock); err != nil {
+			if err = encoder.Unmarshal(databaseHeadBlock, headBlock); err != nil {
 				return err
 			}
 			assert.Equal(t, headBlock, block1)
@@ -375,7 +375,7 @@ func TestStore(t *testing.T) {
 			}
 
 			block := new(core.Block)
-			if err = cbor.Unmarshal(databaseBlock0, block); err != nil {
+			if err = encoder.Unmarshal(databaseBlock0, block); err != nil {
 				return err
 			}
 			assert.Equal(t, block, block1)
