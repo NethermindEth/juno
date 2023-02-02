@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -12,6 +11,8 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+var ErrUnknownTransaction = errors.New("unknown transaction")
 
 type Event struct {
 	Data []*felt.Felt
@@ -72,7 +73,10 @@ type TransactionReceipt struct {
 	TransactionHash    *felt.Felt
 }
 
-type Transaction interface{}
+type Transaction interface {
+	hash() *felt.Felt
+	signature() []*felt.Felt
+}
 
 type DeployTransaction struct {
 	Hash *felt.Felt
@@ -93,19 +97,16 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
+func (d *DeployTransaction) hash() *felt.Felt {
+	return d.Hash
+}
+
+func (d *DeployTransaction) signature() []*felt.Felt {
+	return make([]*felt.Felt, 0)
+}
+
 type InvokeTransaction struct {
 	Hash *felt.Felt
-	// Version 0 fields
-	// The address of the contract invoked by this transaction.
-	ContractAddress *felt.Felt
-	// The encoding of the selector for the function invoked (the entry point in the contract)
-	EntryPointSelector *felt.Felt
-
-	// Version 1 fields
-	// The address of the sender of this transaction.
-	SenderAddress *felt.Felt
-	// The transaction nonce.
-	Nonce *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
@@ -116,6 +117,24 @@ type InvokeTransaction struct {
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	Version *felt.Felt
+	// The address of the contract invoked by this transaction.
+	ContractAddress *felt.Felt
+
+	// Version 0 fields
+	// The encoding of the selector for the function invoked (the entry point in the contract)
+	EntryPointSelector *felt.Felt
+
+	// Version 1 fields
+	// The transaction nonce.
+	Nonce *felt.Felt
+}
+
+func (i *InvokeTransaction) hash() *felt.Felt {
+	return i.Hash
+}
+
+func (i *InvokeTransaction) signature() []*felt.Felt {
+	return i.Signature
 }
 
 type DeclareTransaction struct {
@@ -138,16 +157,56 @@ type DeclareTransaction struct {
 	Version *felt.Felt
 }
 
+func (d *DeclareTransaction) hash() *felt.Felt {
+	return d.Hash
+}
+
+func (d *DeclareTransaction) signature() []*felt.Felt {
+	return d.Signature
+}
+
+type L1HandlerTransaction struct {
+	Hash *felt.Felt
+	// todo: add more
+}
+
+func (l *L1HandlerTransaction) hash() *felt.Felt {
+	return l.Hash
+}
+
+func (l *L1HandlerTransaction) signature() []*felt.Felt {
+	return make([]*felt.Felt, 0)
+}
+
+type DeployAccountTransaction struct {
+	Hash *felt.Felt
+	// Additional information given by the sender, used to validate the transaction.
+	Signature []*felt.Felt
+	// todo: add more
+}
+
+func (d *DeployAccountTransaction) hash() *felt.Felt {
+	return d.Hash
+}
+
+func (d *DeployAccountTransaction) signature() []*felt.Felt {
+	return d.Signature
+}
+
 func TransactionHash(transaction Transaction, network utils.Network) (*felt.Felt, error) {
-	switch transaction.(type) {
+	switch t := transaction.(type) {
 	case *DeclareTransaction:
-		return declareTransactionHash(transaction.(*DeclareTransaction), network)
+		return declareTransactionHash(t, network)
 	case *InvokeTransaction:
-		return invokeTransactionHash(transaction.(*InvokeTransaction), network)
+		return invokeTransactionHash(t, network)
 	case *DeployTransaction:
-		return deployTransactionHash(transaction.(*DeployTransaction), network)
+		return deployTransactionHash(t, network)
+	case *L1HandlerTransaction:
+		return l1HandlerTransactionHash(t, network)
+	case *DeployAccountTransaction:
+		return deployAccountTransactionHash(t, network)
 	default:
-		return nil, errors.New("unknown transaction type")
+		return nil, ErrUnknownTransaction
 	}
 }
 
@@ -181,7 +240,7 @@ func invokeTransactionHash(i *InvokeTransaction, network utils.Network) (*felt.F
 		return crypto.PedersenArray(
 			invokeFelt,
 			i.Version,
-			i.SenderAddress,
+			i.ContractAddress,
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
@@ -220,36 +279,33 @@ func declareTransactionHash(d *DeclareTransaction, network utils.Network) (*felt
 	return nil, errors.New("invalid transaction version")
 }
 
-type L1HandlerTransaction struct {
-	// todo
+func l1HandlerTransactionHash(l *L1HandlerTransaction, network utils.Network) (*felt.Felt, error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
-func (h *L1HandlerTransaction) Hash(network utils.Network) (*felt.Felt, error) {
-	panic("not implemented")
-}
-
-type DeployAccountTransaction struct {
-	// todo
-}
-
-func (d *DeployAccountTransaction) Hash(network utils.Network) (*felt.Felt, error) {
-	panic("not implemented")
+func deployAccountTransactionHash(d *DeployAccountTransaction,
+	network utils.Network,
+) (*felt.Felt, error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 const commitmentTrieHeight uint = 64
 
 // TransactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func TransactionCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+func TransactionCommitment(transactions []Transaction) (*felt.Felt, error) {
 	var transactionCommitment *felt.Felt
 	return transactionCommitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
-		for i, receipt := range receipts {
-			signaturesHash := crypto.PedersenArray()
-			if receipt.Type == Invoke {
-				signaturesHash = crypto.PedersenArray(receipt.Signatures...)
+		for i, transaction := range transactions {
+			signatureHash := crypto.PedersenArray()
+			if _, ok := transaction.(*InvokeTransaction); ok {
+				signatureHash = crypto.PedersenArray(transaction.signature()...)
 			}
-			transactionAndSignatureHash := crypto.Pedersen(receipt.TransactionHash, signaturesHash)
-			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), transactionAndSignatureHash); err != nil {
+
+			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
+				crypto.Pedersen(transaction.hash(), signatureHash)); err != nil {
 				return err
 			}
 		}

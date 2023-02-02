@@ -53,7 +53,7 @@ func TestTransactionHash(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
 
-			transactionHash, err := txn.Hash(test.network)
+			transactionHash, err := core.TransactionHash(txn, test.network)
 			if err != nil {
 				t.Errorf("no error expected but got %v", err)
 			}

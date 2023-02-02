@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -209,7 +210,9 @@ func TestAdaptClass(t *testing.T) {
 func TestAdaptTransaction(t *testing.T) {
 	t.Run("invoke transaction", func(t *testing.T) {
 		invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
-	assert.NoError(t, err)response := new(clients.TransactionStatus)
+		assert.NoError(t, err)
+
+		response := new(clients.TransactionStatus)
 		err = json.Unmarshal(invokeJson, response)
 		require.NoError(t, err)
 
@@ -222,16 +225,15 @@ func TestAdaptTransaction(t *testing.T) {
 		assert.Equal(t, transaction.Hash, invokeTx.Hash)
 		assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
 		assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
-		assert.Equal(t, transaction.ContractAddress, invokeTx.SenderAddress)
 		assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
 		assert.Equal(t, transaction.Calldata, invokeTx.CallData)
-		assert.Equal(t, transaction.Signature, invokeTx.Signatures)
+		assert.Equal(t, transaction.Signature, invokeTx.Signature)
 		assert.Equal(t, transaction.MaxFee, invokeTx.MaxFee)
 		assert.Equal(t, transaction.Version, invokeTx.Version)
 	})
 	t.Run("deploy transaction", func(t *testing.T) {
-	deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
-	assert.NoError(t, err)
+		deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
+		assert.NoError(t, err)
 
 		response := new(clients.TransactionStatus)
 		err = json.Unmarshal(deployJson, response)
@@ -255,7 +257,7 @@ func TestAdaptTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		response := new(clients.TransactionStatus)
-		err := json.Unmarshal(declareJson, response)
+		err = json.Unmarshal(declareJson, response)
 		require.NoError(t, err)
 
 		transaction := response.Transaction
@@ -269,7 +271,7 @@ func TestAdaptTransaction(t *testing.T) {
 		assert.Equal(t, transaction.Version, declareTx.Version)
 		assert.Equal(t, transaction.Nonce, declareTx.Nonce)
 		assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
-		assert.Equal(t, transaction.Signature, declareTx.Signatures)
+		assert.Equal(t, transaction.Signature, declareTx.Signature)
 		assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
 	})
 }

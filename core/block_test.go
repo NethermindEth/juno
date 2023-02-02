@@ -84,6 +84,7 @@ func TestBlockHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			client, closer := testsource.NewTestGateway(tt.chain)
 			defer closer.Close()
 
