@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/testsource"
@@ -15,6 +14,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
+
+const mockUrl = "https://mock_gateway.io/"
 
 func TestStateUpdateUnmarshal(t *testing.T) {
 	jsonData := []byte(`{
@@ -371,8 +372,8 @@ func TestGetStateUpdate(t *testing.T) {
 	assert.Equal(t, nil, err, "Unexpected error")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "get_state_update"):
+		switch r.URL.Path {
+		case "/get_state_update":
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -437,8 +438,8 @@ func TestGetTransaction(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "get_transaction"):
+		switch r.URL.Path {
+		case "/get_transaction":
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")

@@ -12,15 +12,13 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-const feederGatewayPath = "/feeder_gateway/"
-
 type GatewayClient struct {
 	baseUrl string
 }
 
 func NewGatewayClient(baseUrl string) *GatewayClient {
 	return &GatewayClient{
-		baseUrl: baseUrl + feederGatewayPath,
+		baseUrl: baseUrl,
 	}
 }
 
