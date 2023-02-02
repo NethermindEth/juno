@@ -6,19 +6,12 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
-	t.Run("error when marshalling node with nil value", func(t *testing.T) {
-		n := new(Node)
-		_, err := n.MarshalBinary()
-
-		if err == nil {
-			t.Fatal("expected error but got no error")
-		}
-	})
 	t.Run("node with non nil value", func(t *testing.T) {
 		value, err := new(felt.Felt).SetRandom()
 		if err != nil {
@@ -34,52 +27,52 @@ func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
 			{
 				name: "node with both children nil",
 				node: Node{
-					value: value,
-					left:  nil,
-					right: nil,
+					Value: value,
+					Left:  nil,
+					Right: nil,
 				},
 			},
 			{
 				name: "node with left child",
 				node: Node{
-					value: value,
-					left:  path1,
-					right: nil,
+					Value: value,
+					Left:  path1,
+					Right: nil,
 				},
 			},
 			{
 				name: "node with right child",
 				node: Node{
-					value: value,
-					left:  nil,
-					right: path2,
+					Value: value,
+					Left:  nil,
+					Right: path2,
 				},
 			},
 			{
 				name: "node with both children (l: path1, r: path2)",
 				node: Node{
-					value: value,
-					left:  path1,
-					right: path2,
+					Value: value,
+					Left:  path1,
+					Right: path2,
 				},
 			},
 			{
 				name: "node with both children (l: path2, r: path1)",
 				node: Node{
-					value: value,
-					left:  path2,
-					right: path1,
+					Value: value,
+					Left:  path2,
+					Right: path1,
 				},
 			},
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				data, err := test.node.MarshalBinary()
+				data, err := encoder.Marshal(test.node)
 				if err != nil {
 					t.Fatalf("expected no error but got %s", err)
 				}
 				unmarshalled := new(Node)
-				err = unmarshalled.UnmarshalBinary(data)
+				err = encoder.Unmarshal(data, unmarshalled)
 				if err != nil {
 					t.Fatalf("expected no error but got %s", err)
 				}
@@ -137,7 +130,7 @@ func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
 		unmarshalled := new(Node)
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				err = unmarshalled.UnmarshalBinary(test.marshalBin)
+				err = encoder.Unmarshal(test.marshalBin, unmarshalled)
 				if errors.Is(err, ErrMalformedNode{}) {
 					t.Errorf("expected error not right: got %s, wanted ErrMalformedNode", err)
 				}
@@ -159,7 +152,7 @@ func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				if err := new(Node).UnmarshalBinary(test.node); err == nil {
+				if err := encoder.Unmarshal(test.node, new(Node)); err == nil {
 					t.Errorf("expected error but got no error")
 				}
 			})
@@ -173,7 +166,7 @@ func TestNodeHash(t *testing.T) {
 	expected, _ := new(felt.Felt).SetString("0x1d937094c09b5f8e26a662d21911871e3cbc6858d55cc49af9848ea6fed4e9")
 
 	node := Node{
-		value: new(felt.Felt).SetBytes(valueBytes),
+		Value: new(felt.Felt).SetBytes(valueBytes),
 	}
 	path := bitset.FromWithLength(6, []uint64{42})
 

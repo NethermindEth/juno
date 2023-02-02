@@ -52,11 +52,8 @@ func TestState_Root(t *testing.T) {
 	newRootPath = storage.FeltToBitSet(key)
 
 	expectedRootNode := new(trie.Node)
-	if err := expectedRootNode.UnmarshalBinary(value.Marshal()); err != nil {
-		t.Error(err)
-	}
+	expectedRootNode.Value = value
 
-	expectedRootNode.UnmarshalBinary(value.Marshal())
 	expectedRoot := expectedRootNode.Hash(trie.Path(newRootPath, nil))
 
 	actualRoot, err := state.Root()

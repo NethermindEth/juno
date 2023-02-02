@@ -2,6 +2,7 @@ package trie
 
 import (
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -35,7 +36,7 @@ func (t *TrieTxn) Put(key *bitset.BitSet, value *Node) error {
 		return err
 	}
 
-	valueBytes, err := value.MarshalBinary()
+	valueBytes, err := encoder.Marshal(value)
 	if err != nil {
 		return err
 	}
@@ -53,7 +54,7 @@ func (t *TrieTxn) Get(key *bitset.BitSet) (*Node, error) {
 		return nil, err
 	} else {
 		node := new(Node)
-		return node, node.UnmarshalBinary(val)
+		return node, encoder.Unmarshal(val, node)
 	}
 }
 
