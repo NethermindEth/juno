@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -52,6 +54,8 @@ func TestDeployTransactions(t *testing.T) {
 			if !transactionHash.Equal(test.want) {
 				t.Errorf("wrong hash: got %s, want %s", transactionHash.Text(16), test.want.Text(16))
 			}
+
+			checkTransactionSymmetry(t, &test.input)
 		})
 	}
 }
@@ -125,6 +129,8 @@ func TestInvokeTransactions(t *testing.T) {
 			if !transactionHash.Equal(test.want) {
 				t.Errorf("wrong hash: got %s, want %s", transactionHash.Text(16), test.want.Text(16))
 			}
+
+			checkTransactionSymmetry(t, &test.input)
 		})
 	}
 }
@@ -185,6 +191,27 @@ func TestDeclareTransaction(t *testing.T) {
 			if !transactionHash.Equal(test.want) {
 				t.Errorf("wrong hash: got %s, want %s", transactionHash.Text(16), test.want.Text(16))
 			}
+
+			checkTransactionSymmetry(t, &test.input)
 		})
+	}
+}
+
+func checkTransactionSymmetry(t *testing.T, input Transaction) {
+	data, err := encoder.Marshal(input)
+	assert.NoError(t, err)
+
+	var txn Transaction
+	assert.NoError(t, encoder.Unmarshal(data, &txn))
+
+	switch v := txn.(type) {
+	case *DeclareTransaction:
+		assert.Equal(t, input, v)
+	case *DeployTransaction:
+		assert.Equal(t, input, v)
+	case *InvokeTransaction:
+		assert.Equal(t, input, v)
+	default:
+		t.Error("not a transaction")
 	}
 }

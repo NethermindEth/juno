@@ -3,9 +3,11 @@ package core
 import (
 	"errors"
 	"math/big"
+	"reflect"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -56,6 +58,21 @@ const (
 	Invoke
 	L1Handler
 )
+
+func init() {
+	err := encoder.RegisterType(reflect.TypeOf(DeclareTransaction{}))
+	if err != nil {
+		panic(err)
+	}
+	err = encoder.RegisterType(reflect.TypeOf(DeployTransaction{}))
+	if err != nil {
+		panic(err)
+	}
+	err = encoder.RegisterType(reflect.TypeOf(InvokeTransaction{}))
+	if err != nil {
+		panic(err)
+	}
+}
 
 type TransactionReceipt struct {
 	ActualFee          *felt.Felt
