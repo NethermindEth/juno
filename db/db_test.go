@@ -1,66 +1,67 @@
-package db
+package db_test
 
 import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewTransaction(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	txn := db.NewTransaction(true)
+	txn := testDb.NewTransaction(true)
 	err := txn.Set([]byte("key"), []byte("value"))
 	assert.Nil(t, err)
 	err = txn.Commit()
 	assert.Nil(t, err)
 
-	readOnlyTxn := db.NewTransaction(false)
+	readOnlyTxn := testDb.NewTransaction(false)
 	val, err := readOnlyTxn.Get([]byte("key"))
 	assert.Nil(t, err)
 	assert.Equal(t, "value", string(val))
 }
 
 func TestDiscardTransaction(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	txn := db.NewTransaction(true)
+	txn := testDb.NewTransaction(true)
 	err := txn.Set([]byte("key"), []byte("value"))
 	assert.Nil(t, err)
 	txn.Discard()
 
-	readOnlyTxn := db.NewTransaction(false)
+	readOnlyTxn := testDb.NewTransaction(false)
 	_, err = readOnlyTxn.Get([]byte("key"))
-	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Equal(t, db.ErrKeyNotFound, err)
 }
 
 func TestConcurrentTransactions(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	txn1 := db.NewTransaction(true)
-	txn2 := db.NewTransaction(true)
+	txn1 := testDb.NewTransaction(true)
+	txn2 := testDb.NewTransaction(true)
 
 	txn1.Set([]byte("key1"), []byte("value1"))
 	_, err := txn2.Get([]byte("key1"))
-	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Equal(t, db.ErrKeyNotFound, err)
 
 	txn2.Set([]byte("key2"), []byte("value2"))
 	_, err = txn1.Get([]byte("key2"))
-	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Equal(t, db.ErrKeyNotFound, err)
 }
 
 func TestViewUpdate(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
 	// Test View
-	err := db.View(func(txn Transaction) error {
+	err := testDb.View(func(txn db.Transaction) error {
 		val, err := txn.Get([]byte("key"))
-		if err == ErrKeyNotFound {
+		if err == db.ErrKeyNotFound {
 			return nil
 		}
 		if err != nil {
@@ -72,13 +73,13 @@ func TestViewUpdate(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Test Update
-	err = db.Update(func(txn Transaction) error {
+	err = testDb.Update(func(txn db.Transaction) error {
 		return txn.Set([]byte("key"), []byte("value"))
 	})
 	assert.Nil(t, err)
 
 	// Check value
-	err = db.View(func(txn Transaction) error {
+	err = testDb.View(func(txn db.Transaction) error {
 		val, err := txn.Get([]byte("key"))
 		if err != nil {
 			return err
@@ -90,11 +91,11 @@ func TestViewUpdate(t *testing.T) {
 }
 
 func TestUpdateDiscardOnError(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
 	// Test Update
-	err := db.Update(func(txn Transaction) error {
+	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte("key"), []byte("value"))
 		assert.Nil(t, err)
 		return fmt.Errorf("error")
@@ -102,18 +103,18 @@ func TestUpdateDiscardOnError(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// Check key is not in the db
-	err = db.View(func(txn Transaction) error {
+	err = testDb.View(func(txn db.Transaction) error {
 		_, err := txn.Get([]byte("key"))
-		assert.Equal(t, ErrKeyNotFound, err)
+		assert.Equal(t, db.ErrKeyNotFound, err)
 		return nil
 	})
 }
 
 func TestDiscardCommit(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	txn := db.NewTransaction(true)
+	txn := testDb.NewTransaction(true)
 	err := txn.Set([]byte("key"), []byte("value"))
 	assert.Nil(t, err)
 	txn.Discard()
@@ -123,10 +124,10 @@ func TestDiscardCommit(t *testing.T) {
 }
 
 func TestZeroLengthValue(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	err := db.Update(func(txn Transaction) error {
+	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte("key"), []byte{})
 		assert.Nil(t, err, "setting a key with a zero-length value should be allowed")
 		val, err := txn.Get([]byte("key"))
@@ -138,10 +139,10 @@ func TestZeroLengthValue(t *testing.T) {
 }
 
 func TestZeroLengthKey(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	err := db.Update(func(txn Transaction) error {
+	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte{}, []byte("value"))
 		assert.NotNil(t, err, "setting a key with a zero-length key should not be allowed")
 		return nil
@@ -150,10 +151,10 @@ func TestZeroLengthKey(t *testing.T) {
 }
 
 func TestNilKey(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	err := db.Update(func(txn Transaction) error {
+	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set(nil, []byte("value"))
 		assert.NotNil(t, err, "setting a key with a nil key should not be allowed")
 		return nil
@@ -162,10 +163,10 @@ func TestNilKey(t *testing.T) {
 }
 
 func TestNilValue(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	err := db.Update(func(txn Transaction) error {
+	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte("key"), nil)
 		assert.Nil(t, err, "setting a key with a nil value should be allowed")
 		val, err := txn.Get([]byte("key"))
@@ -177,10 +178,10 @@ func TestNilValue(t *testing.T) {
 }
 
 func TestSeek(t *testing.T) {
-	db := NewTestDb()
-	defer db.Close()
+	testDb := db.NewTestDb()
+	defer testDb.Close()
 
-	err := db.Update(func(txn Transaction) error {
+	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte{1}, []byte{1})
 		assert.NoError(t, err)
 		err = txn.Set([]byte{3}, []byte{3})
@@ -189,7 +190,7 @@ func TestSeek(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	db.View(func(txn Transaction) error {
+	testDb.View(func(txn db.Transaction) error {
 		next, err := txn.Seek([]byte{0})
 		assert.NoError(t, err)
 		assert.Equal(t, []byte{1}, next.Key)

@@ -1,11 +1,11 @@
-package clients
+package clients_test
 
 import (
+	_ "embed"
 	"encoding/json"
 	"testing"
 
-	_ "embed"
-
+	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -47,12 +47,12 @@ func TestProgramHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var classDefinition *ClassDefinition
+			var classDefinition *clients.ClassDefinition
 			if err := json.Unmarshal(tt.class, &classDefinition); err != nil {
 				t.Fatalf("unexpected error while unmarshaling contract definition: %s", err)
 			}
 
-			programHash, err := ProgramHash(classDefinition)
+			programHash, err := clients.ProgramHash(classDefinition)
 			if err != nil {
 				t.Fatalf("unexpected error while computing program hash: %s", err)
 			}

@@ -1,10 +1,11 @@
-package core
+package core_test
 
 import (
 	_ "embed"
 	"encoding/json"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -16,7 +17,7 @@ func TestBlockHash(t *testing.T) {
 	}
 
 	tests := []struct {
-		block   *Block
+		block   *core.Block
 		chain   utils.Network
 		name    string
 		want    string
@@ -25,7 +26,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 231579: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x40ffdbd9abbc4fc64652c50db94a29bce65c183316f304a95df624de708e746",
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x2e304af9a165977b79298abe812607a2d5044d278bd784f245e3cb21d7a77e8"),
 				Number:                231579,
 				GlobalStateRoot:       hexToFelt("0x1ee483d84c82fec55ec52fdf62e85abaebc47dfe0e4623187a2350a17a1b1dc"),
@@ -46,7 +47,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 156000: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=156000",
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x331e6b9d99341aba27113ff30bd211b84194e87f2a8fe41f3485ca91b3e047b"),
 				Number:                156000,
 				GlobalStateRoot:       hexToFelt("0x24e7360800ca4cdfc0ac3e18fb32399142d75b7a20d29ecbb563fbf962aa3c5"),
@@ -67,7 +68,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 1: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=1",
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x7d328a71faf48c5c3857e99f20a77b18522480956d1cd5bff1ff2df3c8b427b"),
 				Number:                1,
 				GlobalStateRoot:       hexToFelt("0x3f04ffa63e188d602796505a2ee4f6e1f294ee29a914b057af8e75b17259d9f"),
@@ -88,7 +89,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 16789: mainnet
 			// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=16789"
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x3a97d46093a823719ac0c905e6548cebcbd6028b39f3cd184b0bf47498c1f66"),
 				Number:                16789,
 				GlobalStateRoot:       hexToFelt("0x23710fe6dcc2fd95b74f66b30695e7b48506a17e5795676035c845fef50678c"),
@@ -109,7 +110,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 1: integration
 			// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=1"
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279"),
 				Number:                1,
 				GlobalStateRoot:       hexToFelt("0x074abfb3f55d3f9c3967014e1a5ec7205949130ff8912dba0565daf70299144c"),
@@ -130,7 +131,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 119802: goerli
 			// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=119802
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x3947adfc82697eaff29275eb4dba13c8e9d606d24246507d9c2faf8321f3c6b"),
 				Number:                119802,
 				GlobalStateRoot:       hexToFelt("0x12c1e72707cd8a1226728aa8dee7fe70d281b482da5997c13db7c8746f9e8c0"),
@@ -151,7 +152,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 10: goerli2
 			// https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=10
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x57467bd9f04b75e138357376d1f705604e0044fd677f7c12bbdfb9819d31b51"),
 				Number:                10,
 				GlobalStateRoot:       hexToFelt("0x0097a5aa9bef614afc2f5f2b7fa1849f384be4bcc4e987b97e7640254eef0d7c"),
@@ -172,7 +173,7 @@ func TestBlockHash(t *testing.T) {
 		{
 			// block 0: main
 			// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=0
-			&Block{
+			&core.Block{
 				ParentHash:            hexToFelt("0x0"),
 				Number:                0,
 				GlobalStateRoot:       hexToFelt("0x021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6"),
@@ -194,7 +195,7 @@ func TestBlockHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := BlockHash(tt.block, tt.chain)
+			got, err := core.BlockHash(tt.block, tt.chain)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("got error %v, want error %v", err, tt.wantErr)
 			}
@@ -216,7 +217,7 @@ var (
 	blocks16789Main []byte
 )
 
-var receipts [][]*TransactionReceipt
+var receipts [][]*core.TransactionReceipt
 
 func getTransactionReceipts(t *testing.T) {
 	// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=156000
@@ -255,7 +256,7 @@ func getTransactionReceipts(t *testing.T) {
 	txns = blck16789Main["transactions"].([]interface{})
 	receipt16789Main := generateReceipt(t, txns, receiptsInterface)
 
-	receipts = [][]*TransactionReceipt{
+	receipts = [][]*core.TransactionReceipt{
 		receipt156000,
 		receipt1Goerli,
 		receipt1Integration,
@@ -263,21 +264,21 @@ func getTransactionReceipts(t *testing.T) {
 	}
 }
 
-func generateReceipt(t *testing.T, txns []interface{}, receiptsInterface []interface{}) []*TransactionReceipt {
-	receipts := make([]*TransactionReceipt, len(txns))
+func generateReceipt(t *testing.T, txns []interface{}, receiptsInterface []interface{}) []*core.TransactionReceipt {
+	receipts := make([]*core.TransactionReceipt, len(txns))
 
-	transactionType := func(t string) TransactionType {
+	transactionType := func(t string) core.TransactionType {
 		switch t {
 		case "DECLARE":
-			return Declare
+			return core.Declare
 		case "DEPLOY":
-			return Deploy
+			return core.Deploy
 		case "DEPLOY_ACCOUNT":
-			return DeployAccount
+			return core.DeployAccount
 		case "INVOKE_FUNCTION":
-			return Invoke
+			return core.Invoke
 		case "L1_HANDLER":
-			return L1Handler
+			return core.L1Handler
 		default:
 			return -1
 		}
@@ -286,7 +287,7 @@ func generateReceipt(t *testing.T, txns []interface{}, receiptsInterface []inter
 	for i, r := range receiptsInterface {
 		receipt := r.(map[string]interface{})
 		txn := txns[i].(map[string]interface{})
-		var events []*Event
+		var events []*core.Event
 		for _, e := range receipt["events"].([]interface{}) {
 			event := e.(map[string]interface{})
 			var data []*felt.Felt
@@ -297,7 +298,7 @@ func generateReceipt(t *testing.T, txns []interface{}, receiptsInterface []inter
 			for _, k := range event["keys"].([]interface{}) {
 				keys = append(keys, hexToFelt(k.(string)))
 			}
-			events = append(events, &Event{
+			events = append(events, &core.Event{
 				Data: data,
 				From: hexToFelt(event["from_address"].(string)),
 				Keys: keys,
@@ -310,7 +311,7 @@ func generateReceipt(t *testing.T, txns []interface{}, receiptsInterface []inter
 			}
 		}
 		// Some of these values are set to nil since they are not required to calculate the commitment.
-		transactionReceipt := TransactionReceipt{
+		transactionReceipt := core.TransactionReceipt{
 			Events:          events,
 			Signatures:      signatures,
 			TransactionHash: hexToFelt(receipt["transaction_hash"].(string)),
@@ -336,7 +337,7 @@ func assertCorrectCommitment(t *testing.T, got *felt.Felt, want string) {
 func TestTransactionCommitment(t *testing.T) {
 	tests := []struct {
 		description string
-		receipts    []*TransactionReceipt
+		receipts    []*core.TransactionReceipt
 		want        string
 	}{
 		{
@@ -363,7 +364,7 @@ func TestTransactionCommitment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			commitment, _ := TransactionCommitment(test.receipts)
+			commitment, _ := core.TransactionCommitment(test.receipts)
 			assertCorrectCommitment(t, commitment, test.want)
 		})
 	}
@@ -372,7 +373,7 @@ func TestTransactionCommitment(t *testing.T) {
 func TestEventCommitment(t *testing.T) {
 	tests := []struct {
 		description string
-		receipts    []*TransactionReceipt
+		receipts    []*core.TransactionReceipt
 		want        string
 	}{
 		{
@@ -399,7 +400,7 @@ func TestEventCommitment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			commitment, _, _ := EventCommitmentAndCount(test.receipts)
+			commitment, _, _ := core.EventCommitmentAndCount(test.receipts)
 			assertCorrectCommitment(t, commitment, test.want)
 		})
 	}

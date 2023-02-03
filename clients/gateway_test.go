@@ -1,4 +1,4 @@
-package clients
+package clients_test
 
 import (
 	"encoding/json"
@@ -6,8 +6,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +43,7 @@ func TestStateUpdateUnmarshal(t *testing.T) {
   }
 }`)
 
-	var update StateUpdate
+	var update clients.StateUpdate
 	err := json.Unmarshal(jsonData, &update)
 	assert.Equal(t, nil, err, "Unexpected error")
 	expected, _ := new(felt.Felt).SetString("0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943")
@@ -92,7 +94,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
       "sender_address":"0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23",
       "type":"DECLARE"
    }`)
-	var declareTx Transaction
+	var declareTx clients.Transaction
 	err := json.Unmarshal(declareJson, &declareTx)
 	if err != nil {
 		t.Error(err)
@@ -125,7 +127,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
       ],
       "type":"INVOKE_FUNCTION"
    }`)
-	var invokeTx Transaction
+	var invokeTx clients.Transaction
 	err := json.Unmarshal(invokeJson, &invokeTx)
 	if err != nil {
 		t.Error(err)
@@ -158,7 +160,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
       ],
       "type":"DEPLOY"
    }`)
-	var deployTx Transaction
+	var deployTx clients.Transaction
 	err := json.Unmarshal(deployJson, &deployTx)
 	if err != nil {
 		t.Error(err)
@@ -199,7 +201,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
       ],
       "type":"DEPLOY_ACCOUNT"
    }`)
-	var deployTx Transaction
+	var deployTx clients.Transaction
 	err := json.Unmarshal(deployJson, &deployTx)
 	if err != nil {
 		t.Error(err)
@@ -240,7 +242,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
       ],
       "type":"L1_HANDLER"
    }`)
-	var handlerTx Transaction
+	var handlerTx clients.Transaction
 	err := json.Unmarshal(handlerJson, &handlerTx)
 	if err != nil {
 		t.Error(err)
@@ -265,7 +267,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 		t.Error(err)
 	}
 
-	var block Block
+	var block clients.Block
 	err = json.Unmarshal(blockJson, &block)
 	if err != nil {
 		t.Error(err)
@@ -290,7 +292,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 		t.Errorf("read json from file: %s", err)
 	}
 
-	var block Block
+	var block clients.Block
 	if err = json.Unmarshal(blockJson, &block); err != nil {
 		t.Errorf("unmarshal json: %s", err)
 	}
@@ -314,7 +316,7 @@ func TestClassUnmarshal(t *testing.T) {
 		t.Error(err)
 	}
 
-	var class ClassDefinition
+	var class clients.ClassDefinition
 	err = json.Unmarshal(classJson, &class)
 	if err != nil {
 		t.Error(err)
@@ -330,24 +332,6 @@ func TestClassUnmarshal(t *testing.T) {
 	assert.Equal(t, "0.10.1", class.Program.CompilerVersion)
 }
 
-func TestNewGatewayClient(t *testing.T) {
-	baseUrl := "https://mock_gateway.io"
-	gatewayClient := NewGatewayClient(baseUrl)
-	assert.Equal(t, baseUrl+feederGatewayPath, gatewayClient.baseUrl)
-}
-
-func TestBuildQueryString(t *testing.T) {
-	baseUrl := "https://mock_gateway.io"
-	gatewayClient := NewGatewayClient(baseUrl)
-	endpoint := ""
-	args := make(map[string]string)
-	args["a"] = "b"
-	query := gatewayClient.buildQueryString(endpoint, args)
-	feederGatewayUrl := baseUrl + feederGatewayPath
-	assert.Equal(t, feederGatewayUrl, gatewayClient.baseUrl)
-	assert.Equal(t, feederGatewayUrl+"?a=b", query)
-}
-
 func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -355,8 +339,8 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseUrl := "https\t://mock_gateway.io"
-	gatewayClient := NewGatewayClient(baseUrl)
-	gatewayClient.buildQueryString("/test_fail", map[string]string{})
+	gatewayClient := clients.NewGatewayClient(baseUrl)
+	gatewayClient.GetBlock(0)
 }
 
 func TestGetStateUpdate(t *testing.T) {
@@ -388,13 +372,13 @@ func TestGetStateUpdate(t *testing.T) {
 		}
 	  }`)
 
-	var update StateUpdate
+	var update clients.StateUpdate
 	err := json.Unmarshal(jsonData, &update)
 	assert.Equal(t, nil, err, "Unexpected error")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case feederGatewayPath + "get_state_update":
+		switch {
+		case strings.HasSuffix(r.URL.Path, "get_state_update"):
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -411,7 +395,7 @@ func TestGetStateUpdate(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	gatewayClient := NewGatewayClient(srv.URL)
+	gatewayClient := clients.NewGatewayClient(srv.URL)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		stateUpdate, err := gatewayClient.GetStateUpdate(10)
@@ -421,32 +405,6 @@ func TestGetStateUpdate(t *testing.T) {
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		stateUpdate, err := gatewayClient.GetStateUpdate(1000000)
 		assert.Nil(t, stateUpdate, "Unexpected error")
-		assert.NotNil(t, err)
-	})
-}
-
-func TestGet(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/normal_get" {
-			w.WriteHeader(200)
-			w.Write([]byte(r.URL.Path))
-		} else {
-			w.WriteHeader(404)
-		}
-	}))
-	defer srv.Close()
-	t.Run("Test normal get", func(t *testing.T) {
-		gatewayClient := NewGatewayClient(srv.URL)
-		expectPath := "/normal_get"
-		path, err := gatewayClient.get(srv.URL + expectPath)
-		assert.Equal(t, nil, err)
-		assert.Equal(t, expectPath, string(path))
-	})
-	t.Run("Test unnormal get", func(t *testing.T) {
-		gatewayClient := NewGatewayClient(srv.URL)
-		expectPath := "/unnormal_get"
-		path, err := gatewayClient.get("https\t://" + expectPath)
-		assert.Nil(t, path)
 		assert.NotNil(t, err)
 	})
 }
@@ -480,13 +438,13 @@ func TestGetTransaction(t *testing.T) {
 		"transaction_index": 1
 	}
 	`)
-	var transactionStatus TransactionStatus
+	var transactionStatus clients.TransactionStatus
 	err := json.Unmarshal(jsonTransactionStatus, &transactionStatus)
 	assert.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case feederGatewayPath + "get_transaction":
+		switch {
+		case strings.HasSuffix(r.URL.Path, "get_transaction"):
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -506,14 +464,14 @@ func TestGetTransaction(t *testing.T) {
 	defer srv.Close()
 	t.Run("Test normal case", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0x00")
-		gatewayClient := NewGatewayClient(srv.URL)
+		gatewayClient := clients.NewGatewayClient(srv.URL)
 		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, *actualStatus, transactionStatus)
 	})
 	t.Run("Test case when transaction_hash not exit", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
-		gatewayClient := NewGatewayClient(srv.URL)
+		gatewayClient := clients.NewGatewayClient(srv.URL)
 		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
 		assert.Nil(t, actualStatus, "Unexpected error")
 		assert.NotNil(t, err)
@@ -526,15 +484,15 @@ func TestGetBlock(t *testing.T) {
 		t.Error(err)
 	}
 
-	var block Block
+	var block clients.Block
 	err = json.Unmarshal(blockJson, &block)
 	if err != nil {
 		t.Error(err)
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case feederGatewayPath + "get_block":
+		switch {
+		case strings.HasSuffix(r.URL.Path, "get_block"):
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -551,7 +509,7 @@ func TestGetBlock(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	gatewayClient := NewGatewayClient(srv.URL)
+	gatewayClient := clients.NewGatewayClient(srv.URL)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		blcokNumber := uint64(11817)
@@ -574,15 +532,15 @@ func TestGetClassDefinition(t *testing.T) {
 		t.Error(err)
 	}
 
-	var class ClassDefinition
+	var class clients.ClassDefinition
 	err = json.Unmarshal(classJson, &class)
 	if err != nil {
 		t.Error(err)
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case feederGatewayPath + "get_class_by_hash":
+		switch {
+		case strings.HasSuffix(r.URL.Path, "get_class_by_hash"):
 			{
 				queryMap, err := url.ParseQuery(r.URL.RawQuery)
 				assert.Equal(t, nil, err, "No Query value")
@@ -601,7 +559,7 @@ func TestGetClassDefinition(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	gatewayClient := NewGatewayClient(srv.URL)
+	gatewayClient := clients.NewGatewayClient(srv.URL)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x01efa8f8")
@@ -623,7 +581,7 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	gatewayClient := NewGatewayClient(srv.URL)
+	gatewayClient := clients.NewGatewayClient(srv.URL)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := gatewayClient.GetBlock(0)

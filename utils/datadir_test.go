@@ -1,8 +1,9 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -75,6 +76,6 @@ func TestDataDir(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		assert.Equal(t, tc.expectedDir, DataDir(tc.os, tc.userDataDir, tc.userHomeDir))
+		assert.Equal(t, tc.expectedDir, utils.DataDir(tc.os, tc.userDataDir, tc.userHomeDir))
 	}
 }

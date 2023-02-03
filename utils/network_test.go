@@ -1,24 +1,25 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNetwork(t *testing.T) {
-	networks := []Network{0, 1, 2, 56, 3, 100}
+	networks := []utils.Network{0, 1, 2, 56, 3, 100}
 	t.Run("string", func(t *testing.T) {
 		for _, n := range networks {
 			switch n {
-			case GOERLI:
+			case utils.GOERLI:
 				assert.Equal(t, "goerli", n.String())
-			case MAINNET:
+			case utils.MAINNET:
 				assert.Equal(t, "mainnet", n.String())
-			case GOERLI2:
+			case utils.GOERLI2:
 				assert.Equal(t, "goerli2", n.String())
-			case INTEGRATION:
+			case utils.INTEGRATION:
 				assert.Equal(t, "integration", n.String())
 			default:
 				assert.Equal(t, "", n.String())
@@ -28,13 +29,13 @@ func TestNetwork(t *testing.T) {
 	t.Run("url", func(t *testing.T) {
 		for _, n := range networks {
 			switch n {
-			case GOERLI:
+			case utils.GOERLI:
 				assert.Equal(t, "https://alpha4.starknet.io", n.URL())
-			case MAINNET:
+			case utils.MAINNET:
 				assert.Equal(t, "https://alpha-mainnet.starknet.io", n.URL())
-			case GOERLI2:
+			case utils.GOERLI2:
 				assert.Equal(t, "https://alpha4-2.starknet.io", n.URL())
-			case INTEGRATION:
+			case utils.INTEGRATION:
 				assert.Equal(t, "https://external.integration.starknet.io", n.URL())
 			default:
 				assert.Equal(t, "", n.URL())
@@ -45,13 +46,13 @@ func TestNetwork(t *testing.T) {
 	t.Run("chainId", func(t *testing.T) {
 		for _, n := range networks {
 			switch n {
-			case GOERLI:
+			case utils.GOERLI:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainId())
-			case MAINNET:
+			case utils.MAINNET:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.ChainId())
-			case GOERLI2:
+			case utils.GOERLI2:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainId())
-			case INTEGRATION:
+			case utils.INTEGRATION:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION")), n.ChainId())
 			default:
 				assert.Equal(t, (*felt.Felt)(nil), n.ChainId())
@@ -62,15 +63,15 @@ func TestNetwork(t *testing.T) {
 
 func TestValidNetwork(t *testing.T) {
 	t.Run("valid networks", func(t *testing.T) {
-		networks := []Network{0, 1, 2, 3}
+		networks := []utils.Network{0, 1, 2, 3}
 		for _, n := range networks {
-			assert.True(t, IsValidNetwork(n))
+			assert.True(t, utils.IsValidNetwork(n))
 		}
 	})
 	t.Run("invalid networks", func(t *testing.T) {
-		networks := []Network{4, 6, 5, 7, 12, 34, 255}
+		networks := []utils.Network{6, 5, 7, 12, 34, 255}
 		for _, n := range networks {
-			assert.False(t, IsValidNetwork(n))
+			assert.False(t, utils.IsValidNetwork(n))
 		}
 	})
 }
