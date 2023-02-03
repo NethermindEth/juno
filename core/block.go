@@ -161,9 +161,8 @@ func post07Hash(b *Block) *felt.Felt {
 func TransactionCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var transactionCommitment *felt.Felt
 	return transactionCommitment, trie.RunOnTempTrie(64, func(trie *trie.Trie) error {
-		zeroFelt := new(felt.Felt)
 		for i, receipt := range receipts {
-			signaturesHash := crypto.Pedersen(zeroFelt, zeroFelt)
+			signaturesHash := crypto.PedersenArray()
 			if receipt.Type == Invoke {
 				signaturesHash = crypto.PedersenArray(receipt.Signatures...)
 			}

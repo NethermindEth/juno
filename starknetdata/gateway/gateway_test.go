@@ -8,11 +8,14 @@ import (
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
 	//go:embed testdata/block_11817.json
-	blockJson []byte
+	block11817Json []byte
+	//go:embed testdata/mainnet_block_147.json
+	block147Json []byte
 	//go:embed testdata/class_0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json
 	classJson []byte
 	//go:embed testdata/invokeTx_0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json
@@ -25,26 +28,53 @@ var (
 
 func TestAdaptBlock(t *testing.T) {
 	var response *clients.Block
-	err := json.Unmarshal(blockJson, &response)
-	if err != nil {
-		t.Fatalf("unexpected unmarshal error: %s", err)
-	}
 
-	block, err := AdaptBlock(response)
-	if !assert.NoError(t, err) {
-		t.Errorf("unexpected error on AdaptBlock: %s", err)
-	}
-	assert.True(t, block.Hash.Equal(response.Hash))
-	assert.True(t, block.ParentHash.Equal(response.ParentHash))
-	assert.Equal(t, block.Number, response.Number)
-	assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
-	assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
-	assert.Equal(t, block.TransactionCount, new(felt.Felt).SetUint64(uint64(len(response.Transactions))))
-	assert.Equal(t, block.ProtocolVersion, new(felt.Felt))
-	var extraData *felt.Felt
-	assert.Equal(t, block.ExtraData, extraData)
-	// TODO test transaction commitment...?
-	// TODO test event commitment and count
+	t.Run("mainnet block number 11817", func(t *testing.T) {
+		err := json.Unmarshal(block11817Json, &response)
+		require.NoError(t, err)
+
+		block, err := AdaptBlock(response)
+		require.NoError(t, err)
+
+		assert.True(t, block.Hash.Equal(response.Hash))
+		assert.True(t, block.ParentHash.Equal(response.ParentHash))
+		assert.Equal(t, response.Number, block.Number)
+		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
+		assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
+		assert.Equal(t, new(felt.Felt).SetUint64(uint64(len(response.Transactions))), block.TransactionCount)
+		assert.Equal(t, new(felt.Felt), block.ProtocolVersion)
+		assert.Nil(t, block.ExtraData)
+		// TODO test transaction commitment...?
+		// TODO test event commitment and count
+	})
+	t.Run("mainnet block number 147", func(t *testing.T) {
+		err := json.Unmarshal(block147Json, &response)
+		require.NoError(t, err)
+
+		block, err := AdaptBlock(response)
+		require.NoError(t, err)
+
+		assert.True(t, block.Hash.Equal(response.Hash))
+		assert.True(t, block.ParentHash.Equal(response.ParentHash))
+		assert.Equal(t, response.Number, block.Number)
+		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
+		assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
+		assert.Equal(t, new(felt.Felt).SetUint64(uint64(len(response.Transactions))), block.TransactionCount)
+		assert.Equal(t, new(felt.Felt), block.ProtocolVersion)
+		assert.Nil(t, block.ExtraData)
+		// TODO test transaction commitment...?
+		// TODO test event commitment and count
+	})
+	t.Run("error with unknown transaction", func(t *testing.T) {
+		err := json.Unmarshal(block147Json, &response)
+		require.NoError(t, err)
+
+		response.Transactions[0].Type = "test"
+
+		block, err := AdaptBlock(response)
+		assert.Nil(t, block)
+		assert.EqualError(t, err, "unknown transaction")
+	})
 }
 
 func TestAdaptStateUpdate(t *testing.T) {

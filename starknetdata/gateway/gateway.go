@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -36,8 +38,27 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 
 	// Receipts
 	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
+	var txType core.TransactionType
 	for i, receipt := range response.Receipts {
-		receipts[i] = adaptTransactionReceipt(receipt)
+		// Todo: TransactionReceipt's Type and Signature will be removed in future,
+		// which is why explict test for AdaptTransactionReceipt is not being added.
+		t := response.Transactions[i]
+		switch t.Type {
+		case "DEPLOY":
+			txType = core.Deploy
+		case "DEPLOY_ACCOUNT":
+			txType = core.DeployAccount
+		case "INVOKE_FUNCTION":
+			txType = core.Invoke
+		case "DECLARE":
+			txType = core.Declare
+		case "L1_HANDLER":
+			txType = core.L1Handler
+		default:
+			return nil, errors.New("unknown transaction")
+
+		}
+		receipts[i] = adaptTransactionReceipt(receipt, txType, t.Signature)
 	}
 
 	// Events
@@ -67,7 +88,9 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	}, nil
 }
 
-func adaptTransactionReceipt(response *clients.TransactionReceipt) *core.TransactionReceipt {
+func adaptTransactionReceipt(response *clients.TransactionReceipt,
+	txType core.TransactionType, signature []*felt.Felt,
+) *core.TransactionReceipt {
 	if response == nil {
 		return nil
 	}
@@ -90,6 +113,8 @@ func adaptTransactionReceipt(response *clients.TransactionReceipt) *core.Transac
 		ExecutionResources: adaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      adaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
+		Type:               txType,
+		Signatures:         signature,
 	}
 }
 
