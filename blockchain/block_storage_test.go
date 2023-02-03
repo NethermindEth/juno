@@ -1,8 +1,9 @@
-package blockchain
+package blockchain_test
 
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -12,7 +13,7 @@ import (
 func TestBlockStorage(t *testing.T) {
 	testDb := db.NewTestDb()
 	txn := testDb.NewTransaction(true)
-	bs := NewBlockStorage(txn)
+	bs := blockchain.NewBlockStorage(txn)
 
 	block := new(core.Block)
 	block.Number = 0xDEADBEEF

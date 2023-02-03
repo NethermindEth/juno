@@ -1,9 +1,10 @@
-package crypto
+package crypto_test
 
 import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -39,7 +40,7 @@ func TestPedersen(t *testing.T) {
 				t.Errorf("expected no error but got %s", err)
 			}
 
-			ans := Pedersen(a, b)
+			ans := crypto.Pedersen(a, b)
 			if !ans.Equal(want) {
 				t.Errorf("TestHash got %s, want %s", ans.Text(16), want.Text(16))
 			}
@@ -107,7 +108,7 @@ func TestPedersenArray(t *testing.T) {
 			data = append(data, elem)
 		}
 		want, _ := new(felt.Felt).SetString(test.want)
-		got := PedersenArray(data...)
+		got := crypto.PedersenArray(data...)
 		if !got.Equal(want) {
 			t.Errorf("PedersenArray(%x) = %x, want %x", data, got, want)
 		}
@@ -136,7 +137,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 			var f *felt.Felt
 			randomFelts := createRandomFelts(i)
 			for n := 0; n < b.N; n++ {
-				f = PedersenArray(randomFelts...)
+				f = crypto.PedersenArray(randomFelts...)
 			}
 			feltBench = f
 		})
@@ -156,7 +157,7 @@ func BenchmarkPedersen(b *testing.B) {
 
 	var f *felt.Felt
 	for n := 0; n < b.N; n++ {
-		f = Pedersen(e0, e1)
+		f = crypto.Pedersen(e0, e1)
 	}
 	feltBench = f
 }

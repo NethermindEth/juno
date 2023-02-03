@@ -1,8 +1,10 @@
-package crypto
+package crypto_test
 
 import (
 	"fmt"
 	"testing"
+
+	"github.com/NethermindEth/juno/core/crypto"
 )
 
 func TestStarkNetKeccak(t *testing.T) {
@@ -16,7 +18,7 @@ func TestStarkNetKeccak(t *testing.T) {
 		{"keccak", "0335a135a69c769066bbb4d17b2fa3ec922c028d4e4bf9d0402e6f7c12b31813"},
 	}
 	for _, test := range tests {
-		d, err := StarkNetKeccak([]byte(test.input))
+		d, err := crypto.StarkNetKeccak([]byte(test.input))
 		if err != nil {
 			t.Fatalf("expected no error but got %s", err)
 		}

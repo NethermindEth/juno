@@ -1,10 +1,11 @@
-package node
+package node_test
 
 import (
 	"fmt"
 	"path/filepath"
 	"testing"
 
+	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,9 +19,9 @@ func TestNew(t *testing.T) {
 		}
 		for _, n := range networks {
 			t.Run(fmt.Sprintf("%d", n), func(t *testing.T) {
-				cfg := &Config{Network: n}
+				cfg := &node.Config{Network: n}
 
-				_, err := New(cfg)
+				_, err := node.New(cfg)
 
 				if utils.IsValidNetwork(cfg.Network) {
 					assert.NoError(t, err)
@@ -39,17 +40,17 @@ func TestNew(t *testing.T) {
 
 		for _, n := range networks {
 			t.Run(n.String(), func(t *testing.T) {
-				cfg := &Config{Network: n, DatabasePath: ""}
-				expectedCfg := &Config{
+				cfg := &node.Config{Network: n, DatabasePath: ""}
+				expectedCfg := node.Config{
 					Network:      n,
 					DatabasePath: filepath.Join(defaultDataDir, n.String()),
 				}
-				node, err := New(cfg)
+				snNode, err := node.New(cfg)
 				require.NoError(t, err)
 
-				junoN, ok := node.(*Node)
+				junoN, ok := snNode.(*node.Node)
 				require.True(t, ok)
-				assert.Equal(t, expectedCfg, junoN.cfg)
+				assert.Equal(t, expectedCfg, junoN.Config())
 			})
 		}
 	})

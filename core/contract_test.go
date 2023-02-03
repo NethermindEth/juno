@@ -1,10 +1,11 @@
-package core
+package core_test
 
 import (
 	_ "embed"
 	"encoding/json"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
@@ -40,14 +41,14 @@ func TestClassHash(t *testing.T) {
 	}
 
 	tests := []struct {
-		class *Class
+		class *core.Class
 		want  *felt.Felt
 	}{
 		{
 			// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8
-			class: &Class{
+			class: &core.Class{
 				APIVersion: new(felt.Felt),
-				Externals: []EntryPoint{
+				Externals: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0x40a"),
 						Selector: hexToFelt("0x5fbd85570830519219bb4ad6951316f96fce363f86909d1f8adb1fdc836471"),
@@ -129,13 +130,13 @@ func TestClassHash(t *testing.T) {
 						Selector: hexToFelt("0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3"),
 					},
 				},
-				L1Handlers: []EntryPoint{
+				L1Handlers: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0x2cb"),
 						Selector: hexToFelt("0xc73f681176fc7b3f9693986fd7b14581e8d540519e27400e88b8713932be01"),
 					},
 				},
-				Constructors: []EntryPoint{
+				Constructors: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0x125"),
 						Selector: hexToFelt("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
@@ -153,9 +154,9 @@ func TestClassHash(t *testing.T) {
 		},
 		{
 			// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3
-			class: &Class{
+			class: &core.Class{
 				APIVersion: new(felt.Felt),
-				Externals: []EntryPoint{
+				Externals: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0xed"),
 						Selector: hexToFelt("0x1a35984e05126dbecb7c3bb9929e7dd9106d460c59b1633739a5c733a5fb13b"),
@@ -181,8 +182,8 @@ func TestClassHash(t *testing.T) {
 						Selector: hexToFelt("0x2e3e21ff5952b2531241e37999d9c4c8b3034cccc89a202a6bf019bdf5294f9"),
 					},
 				},
-				L1Handlers: make([]EntryPoint, 0),
-				Constructors: []EntryPoint{
+				L1Handlers: make([]core.EntryPoint, 0),
+				Constructors: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0x13f"),
 						Selector: hexToFelt("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
@@ -200,9 +201,9 @@ func TestClassHash(t *testing.T) {
 		},
 		{
 			// https://alpha4.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x0079e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118
-			class: &Class{
+			class: &core.Class{
 				APIVersion: new(felt.Felt),
-				Externals: []EntryPoint{
+				Externals: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0x3a"),
 						Selector: hexToFelt("0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320"),
@@ -212,8 +213,8 @@ func TestClassHash(t *testing.T) {
 						Selector: hexToFelt("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695"),
 					},
 				},
-				L1Handlers: make([]EntryPoint, 0),
-				Constructors: []EntryPoint{
+				L1Handlers: make([]core.EntryPoint, 0),
+				Constructors: []core.EntryPoint{
 					{
 						Offset:   hexToFelt("0x71"),
 						Selector: hexToFelt("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
@@ -266,7 +267,7 @@ func TestContractAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("Address", func(t *testing.T) {
-			address := ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCalldata)
+			address := core.ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCalldata)
 			if !address.Equal(tt.want) {
 				t.Errorf("wrong address: got %s, want %s", address.Text(16), tt.want.Text(16))
 			}
@@ -282,7 +283,7 @@ func TestContract(t *testing.T) {
 	addr := new(felt.Felt).SetUint64(44)
 	class := new(felt.Felt).SetUint64(37)
 
-	contract := NewContract(addr, txn)
+	contract := core.NewContract(addr, txn)
 	assert.NoError(t, contract.Deploy(class))
 	assert.Error(t, contract.Deploy(class))
 
@@ -301,7 +302,7 @@ func TestContract(t *testing.T) {
 	root, err := storage.Root()
 	assert.NoError(t, err)
 
-	contract.UpdateStorage([]StorageDiff{{addr, class}})
+	contract.UpdateStorage([]core.StorageDiff{{addr, class}})
 
 	sRoot, err := contract.StorageRoot()
 	assert.NoError(t, err)
@@ -312,7 +313,7 @@ func TestContract(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, class, got)
 
-	contract.UpdateStorage([]StorageDiff{{addr, new(felt.Felt)}})
+	contract.UpdateStorage([]core.StorageDiff{{addr, new(felt.Felt)}})
 	sRoot, err = contract.StorageRoot()
 	assert.NoError(t, err)
 	assert.Equal(t, new(felt.Felt), sRoot)
