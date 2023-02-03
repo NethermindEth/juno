@@ -3,6 +3,7 @@ package gateway
 import (
 	_ "embed"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
@@ -11,24 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	//go:embed testdata/block_11817.json
-	block11817Json []byte
-	//go:embed testdata/mainnet_block_147.json
-	block147Json []byte
-	//go:embed testdata/class_0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json
-	classJson []byte
-	//go:embed testdata/invokeTx_0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json
-	invokeJson []byte
-	//go:embed testdata/deployTx_0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json
-	deployJson []byte
-	//go:embed testdata/declareTx_0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json
-	declareJson []byte
-)
-
 func TestAdaptBlock(t *testing.T) {
-	var response *clients.Block
+	block11817Json, err := os.ReadFile("../../testsource/testdata/mainnet/block/11817.json")
+	assert.NoError(t, err)
+	block147Json, err := os.ReadFile("../../testsource/testdata/mainnet/block/147.json")
+	assert.NoError(t, err)
 
+	var response *clients.Block
 	t.Run("mainnet block number 11817", func(t *testing.T) {
 		err := json.Unmarshal(block11817Json, &response)
 		require.NoError(t, err)
@@ -171,8 +161,11 @@ func TestAdaptStateUpdate(t *testing.T) {
 }
 
 func TestAdaptClass(t *testing.T) {
+	classJson, err := os.ReadFile("../../testsource/testdata/goerli/class/0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json")
+	assert.NoError(t, err)
+
 	response := new(clients.ClassDefinition)
-	err := json.Unmarshal(classJson, response)
+	err = json.Unmarshal(classJson, response)
 	assert.NoError(t, err)
 
 	class, err := adaptClass(response)
@@ -204,7 +197,9 @@ func TestAdaptClass(t *testing.T) {
 	assert.Equal(t, len(response.Program.Builtins), len(class.Builtins))
 
 	for i, v := range response.Program.Data {
-		assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), class.Bytecode[i])
+		expected, err := new(felt.Felt).SetString(v)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, class.Bytecode[i])
 	}
 	assert.Equal(t, len(response.Program.Data), len(class.Bytecode))
 
@@ -214,15 +209,18 @@ func TestAdaptClass(t *testing.T) {
 }
 
 func TestAdaptInvokeTransaction(t *testing.T) {
+	invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
+	assert.NoError(t, err)
+
 	response := new(clients.TransactionStatus)
-	err := json.Unmarshal(invokeJson, response)
+	err = json.Unmarshal(invokeJson, response)
 	assert.NoError(t, err)
 
 	transaction := response.Transaction
 	invokeTx := adaptInvokeTransaction(transaction)
 	assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
 	assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
-	assert.Equal(t, transaction.SenderAddress, invokeTx.SenderAddress)
+	assert.Equal(t, transaction.ContractAddress, invokeTx.SenderAddress)
 	assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
 	assert.Equal(t, transaction.Calldata, invokeTx.CallData)
 	assert.Equal(t, transaction.Signature, invokeTx.Signature)
@@ -231,8 +229,11 @@ func TestAdaptInvokeTransaction(t *testing.T) {
 }
 
 func TestAdaptDeployTransaction(t *testing.T) {
+	deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
+	assert.NoError(t, err)
+
 	response := new(clients.TransactionStatus)
-	err := json.Unmarshal(deployJson, response)
+	err = json.Unmarshal(deployJson, response)
 	assert.NoError(t, err)
 
 	transaction := response.Transaction
@@ -241,14 +242,18 @@ func TestAdaptDeployTransaction(t *testing.T) {
 
 	assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
 	assert.Equal(t, transaction.ConstructorCalldata, deployTx.ConstructorCallData)
-	assert.Equal(t, transaction.ContractAddress, deployTx.CallerAddress)
+	assert.Equal(t, &felt.Zero, deployTx.CallerAddress)
+	assert.NotEqual(t, &felt.Zero, deployTx.ContractAddress)
 	assert.Equal(t, transaction.Version, deployTx.Version)
 	assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
 }
 
 func TestAdaptDeclareTransaction(t *testing.T) {
+	declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
+	assert.NoError(t, err)
+
 	response := new(clients.TransactionStatus)
-	err := json.Unmarshal(declareJson, response)
+	err = json.Unmarshal(declareJson, response)
 	assert.NoError(t, err)
 
 	transaction := response.Transaction
