@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/NethermindEth/juno/testsource"
+	"github.com/NethermindEth/juno/utils"
 
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core/felt"
@@ -262,15 +264,12 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	blockJson, err := os.ReadFile("testdata/block_11817.json")
-	if err != nil {
-		t.Error(err)
-	}
+	client, closer := testsource.NewTestClient(utils.MAINNET)
+	defer closer.Close()
 
-	var block clients.Block
-	err = json.Unmarshal(blockJson, &block)
+	block, err := client.GetBlock(11817)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	assert.Equal(t, "24c692acaed3b486990bd9d2b2fbbee802b37b3bd79c59f295bad3277200a83", block.Hash.Text(16))
@@ -286,15 +285,12 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=19199
-	blockJson, err := os.ReadFile("testdata/block_19199_mainnet.json")
-	if err != nil {
-		t.Errorf("read json from file: %s", err)
-	}
+	client, closer := testsource.NewTestClient(utils.MAINNET)
+	defer closer.Close()
 
-	var block clients.Block
-	if err = json.Unmarshal(blockJson, &block); err != nil {
-		t.Errorf("unmarshal json: %s", err)
+	block, err := client.GetBlock(19199)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	assert.Equal(t, "41811b69473f26503e0375806ee97d05951ccc7840e3d2bbe14ffb2522e5be1", block.Hash.Text(16))
@@ -311,13 +307,11 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestClassUnmarshal(t *testing.T) {
-	classJson, err := os.ReadFile("testdata/class_01efa8f8.json")
-	if err != nil {
-		t.Error(err)
-	}
+	gatewayClient, closer := testsource.NewTestClient(utils.MAINNET)
+	defer closer.Close()
 
-	var class clients.ClassDefinition
-	err = json.Unmarshal(classJson, &class)
+	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
+	class, err := gatewayClient.GetClassDefinition(hash)
 	if err != nil {
 		t.Error(err)
 	}
@@ -479,43 +473,14 @@ func TestGetTransaction(t *testing.T) {
 }
 
 func TestGetBlock(t *testing.T) {
-	blockJson, err := os.ReadFile("testdata/block_11817.json")
-	if err != nil {
-		t.Error(err)
-	}
-
-	var block clients.Block
-	err = json.Unmarshal(blockJson, &block)
-	if err != nil {
-		t.Error(err)
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "get_block"):
-			{
-				queryMap, err := url.ParseQuery(r.URL.RawQuery)
-				assert.Equal(t, nil, err, "No Query value")
-				queryBlockNumebr := queryMap["blockNumber"]
-				t.Log(queryBlockNumebr[0])
-				if queryBlockNumebr[0] == "11817" {
-					w.WriteHeader(200)
-					marshaledStr, _ := json.Marshal(block)
-					w.Write(marshaledStr)
-				} else {
-					w.WriteHeader(404)
-				}
-			}
-		}
-	}))
-	defer srv.Close()
-	gatewayClient := clients.NewGatewayClient(srv.URL)
+	gatewayClient, closer := testsource.NewTestClient(utils.MAINNET)
+	defer closer.Close()
 
 	t.Run("Test normal case", func(t *testing.T) {
 		blcokNumber := uint64(11817)
 		actualBlock, err := gatewayClient.GetBlock(blcokNumber)
 		assert.Equal(t, nil, err, "Unexpected error")
-		assert.Equal(t, *actualBlock, block)
+		assert.NotNil(t, actualBlock)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		blcokNumber := uint64(1000000)
@@ -527,46 +492,15 @@ func TestGetBlock(t *testing.T) {
 }
 
 func TestGetClassDefinition(t *testing.T) {
-	classJson, err := os.ReadFile("testdata/class_01efa8f8.json")
-	if err != nil {
-		t.Error(err)
-	}
-
-	var class clients.ClassDefinition
-	err = json.Unmarshal(classJson, &class)
-	if err != nil {
-		t.Error(err)
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "get_class_by_hash"):
-			{
-				queryMap, err := url.ParseQuery(r.URL.RawQuery)
-				assert.Equal(t, nil, err, "No Query value")
-				classHash := queryMap["classHash"]
-				t.Log(classHash[0])
-				inputClassFelt, _ := new(felt.Felt).SetString(classHash[0])
-				serverClassFelt, _ := new(felt.Felt).SetString("0x01efa8f8")
-				if inputClassFelt.Equal(serverClassFelt) {
-					w.WriteHeader(200)
-					marshaledStr, _ := json.Marshal(class)
-					w.Write(marshaledStr)
-				} else {
-					w.WriteHeader(404)
-				}
-			}
-		}
-	}))
-	defer srv.Close()
-	gatewayClient := clients.NewGatewayClient(srv.URL)
+	gatewayClient, closer := testsource.NewTestClient(utils.MAINNET)
+	defer closer.Close()
 
 	t.Run("Test normal case", func(t *testing.T) {
-		classHash, _ := new(felt.Felt).SetString("0x01efa8f8")
+		classHash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 
 		actualClass, err := gatewayClient.GetClassDefinition(classHash)
 		assert.Equal(t, nil, err, "Unexpected error")
-		assert.Equal(t, *actualClass, class)
+		assert.NotNil(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x000")

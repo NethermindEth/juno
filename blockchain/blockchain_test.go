@@ -2,33 +2,22 @@ package blockchain
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/starknetdata/gateway"
+	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	//go:embed testdata/mainnet_block_0.json
-	mainnetBlock0 []byte
-	//go:embed testdata/mainnet_state_update_0.json
-	mainnetStateUpdate0 []byte
-	//go:embed testdata/mainnet_block_1.json
-	mainnetBlock1 []byte
-	//go:embed testdata/mainnet_state_update_1.json
-	mainnetStateUpdate1 []byte
-)
-
 func TestNewBlockchain(t *testing.T) {
+	gw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer.Close()
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
 		assert.Equal(t, utils.MAINNET, chain.network)
@@ -37,18 +26,11 @@ func TestNewBlockchain(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("non-empty blockchain gets head from db", func(t *testing.T) {
-		clientBlock0, clientStateUpdate0 := new(clients.Block), new(clients.StateUpdate)
-		if err := json.Unmarshal(mainnetBlock0, clientBlock0); err != nil {
-			t.Fatal(err)
-		}
-		if err := json.Unmarshal(mainnetStateUpdate0, clientStateUpdate0); err != nil {
-			t.Fatal(err)
-		}
-		block0, err := gateway.AdaptBlock(clientBlock0)
+		block0, err := gw.BlockByNumber(0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		stateUpdate0, err := gateway.AdaptStateUpdate(clientStateUpdate0)
+		stateUpdate0, err := gw.StateUpdate(0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -64,24 +46,19 @@ func TestNewBlockchain(t *testing.T) {
 }
 
 func TestHeight(t *testing.T) {
+	gw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer.Close()
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
 		chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
 	t.Run("return height of the blockchain's head", func(t *testing.T) {
-		clientBlock0, clientStateUpdate0 := new(clients.Block), new(clients.StateUpdate)
-		if err := json.Unmarshal(mainnetBlock0, clientBlock0); err != nil {
-			t.Fatal(err)
-		}
-		if err := json.Unmarshal(mainnetStateUpdate0, clientStateUpdate0); err != nil {
-			t.Fatal(err)
-		}
-		block0, err := gateway.AdaptBlock(clientBlock0)
+		block0, err := gw.BlockByNumber(0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		stateUpdate0, err := gateway.AdaptStateUpdate(clientStateUpdate0)
+		stateUpdate0, err := gw.StateUpdate(0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -209,18 +186,13 @@ func TestVerifyBlock(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	clientBlock0, clientStateUpdate0 := new(clients.Block), new(clients.StateUpdate)
-	if err := json.Unmarshal(mainnetBlock0, clientBlock0); err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(mainnetStateUpdate0, clientStateUpdate0); err != nil {
-		t.Fatal(err)
-	}
-	block0, err := gateway.AdaptBlock(clientBlock0)
+	gw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer.Close()
+	block0, err := gw.BlockByNumber(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stateUpdate0, err := gateway.AdaptStateUpdate(clientStateUpdate0)
+	stateUpdate0, err := gw.StateUpdate(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,18 +218,11 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, gotHeadBlock, got0Block)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
-		clientBlock1, clientStateUpdate1 := new(clients.Block), new(clients.StateUpdate)
-		if err := json.Unmarshal(mainnetBlock1, clientBlock1); err != nil {
-			t.Fatal(err)
-		}
-		if err := json.Unmarshal(mainnetStateUpdate1, clientStateUpdate1); err != nil {
-			t.Fatal(err)
-		}
-		block1, err := gateway.AdaptBlock(clientBlock1)
+		block1, err := gw.BlockByNumber(1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		stateUpdate1, err := gateway.AdaptStateUpdate(clientStateUpdate1)
+		stateUpdate1, err := gw.StateUpdate(1)
 		if err != nil {
 			t.Fatal(err)
 		}
