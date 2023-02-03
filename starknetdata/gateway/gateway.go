@@ -20,6 +20,12 @@ func NewGateway(n utils.Network) *Gateway {
 	}
 }
 
+func NewGatewayWithClient(client *clients.GatewayClient) *Gateway {
+	return &Gateway{
+		client: client,
+	}
+}
+
 // BlockByNumber gets the block for a given block number from the feeder gateway,
 // then adapts it to the core.Block type.
 func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
@@ -85,6 +91,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 		EventCommitment:       eventCommitment,
 		ProtocolVersion:       new(felt.Felt),
 		ExtraData:             nil,
+		SequencerAddress:      response.SequencerAddress,
 	}, nil
 }
 
@@ -210,11 +217,11 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 			return nil, err
 		}
 		return deployTx, nil
-	case "INVOKE":
+	case "INVOKE_FUNCTION":
 		invokeTx := adaptInvokeTransaction(transaction)
 		return invokeTx, nil
 	default:
-		return nil, nil
+		return nil, errors.New("txn type not recognized")
 	}
 }
 
@@ -234,10 +241,11 @@ func adaptDeployTransaction(transaction *clients.Transaction) (*core.DeployTrans
 	deployTx := new(core.DeployTransaction)
 	deployTx.ContractAddressSalt = transaction.ContractAddressSalt
 	deployTx.ConstructorCallData = transaction.ConstructorCalldata
-	deployTx.CallerAddress = transaction.ContractAddress
+	deployTx.CallerAddress = new(felt.Felt)
 	deployTx.Version = transaction.Version
 	deployTx.ClassHash = transaction.ClassHash
-
+	deployTx.ContractAddress = core.ContractAddress(deployTx.CallerAddress,
+		deployTx.ClassHash, deployTx.ContractAddressSalt, deployTx.ConstructorCallData)
 	return deployTx, nil
 }
 
@@ -245,7 +253,7 @@ func adaptInvokeTransaction(transaction *clients.Transaction) *core.InvokeTransa
 	invokeTx := new(core.InvokeTransaction)
 	invokeTx.ContractAddress = transaction.ContractAddress
 	invokeTx.EntryPointSelector = transaction.EntryPointSelector
-	invokeTx.SenderAddress = transaction.SenderAddress
+	invokeTx.SenderAddress = transaction.ContractAddress // todo
 	invokeTx.Nonce = transaction.Nonce
 	invokeTx.CallData = transaction.Calldata
 	invokeTx.Signature = transaction.Signature
@@ -270,43 +278,42 @@ func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 	class := new(core.Class)
 	class.APIVersion = new(felt.Felt).SetUint64(0)
 
-	var externals []core.EntryPoint
+	class.Externals = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.External {
-		externals = append(externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+		class.Externals = append(class.Externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
-	class.Externals = externals
 
-	var l1Handlers []core.EntryPoint
+	class.L1Handlers = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.L1Handler {
-		l1Handlers = append(l1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+		class.L1Handlers = append(class.L1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
-	class.L1Handlers = l1Handlers
 
-	var constructors []core.EntryPoint
+	class.Constructors = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.Constructor {
-		constructors = append(constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
-	class.Constructors = constructors
 
-	var builtins []*felt.Felt
+	class.Builtins = []*felt.Felt{}
 	for _, v := range response.Program.Builtins {
 		builtin := new(felt.Felt).SetBytes([]byte(v))
-		builtins = append(builtins, builtin)
+		class.Builtins = append(class.Builtins, builtin)
 	}
-	class.Builtins = builtins
 
-	programHash, err := clients.ProgramHash(response)
+	var err error
+	class.ProgramHash, err = clients.ProgramHash(response)
 	if err != nil {
 		return nil, err
 	}
-	class.ProgramHash = programHash
 
-	var data []*felt.Felt
+	class.Bytecode = []*felt.Felt{}
 	for _, v := range response.Program.Data {
-		datum := new(felt.Felt).SetBytes([]byte(v))
-		data = append(data, datum)
+		datum, err := new(felt.Felt).SetString(v)
+		if err != nil {
+			return nil, err
+		}
+
+		class.Bytecode = append(class.Bytecode, datum)
 	}
-	class.Bytecode = data
 
 	return class, nil
 }
