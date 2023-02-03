@@ -2,6 +2,7 @@ package trie
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -24,9 +25,10 @@ func TestPathFromKey(t *testing.T) {
 	trie := NewTrie(nil, 251, nil)
 	key, _ := new(felt.Felt).SetRandom()
 	path := trie.FeltToBitSet(key)
-	keyRegular := key.ToRegular()
+	var keyRegular big.Int
+	key.BigInt(&keyRegular)
 	for bit := 0; bit < felt.Bits; bit++ {
-		if keyRegular.Bit(uint64(bit)) > 0 != path.Test(uint(bit)) {
+		if keyRegular.Bit(bit) > 0 != path.Test(uint(bit)) {
 			t.Error("TestPathFromKey failed")
 			break
 		}
@@ -34,9 +36,9 @@ func TestPathFromKey(t *testing.T) {
 
 	// Make sure they dont share the same underlying memory
 	key.Halve()
-	keyRegular = key.ToRegular()
+	key.BigInt(&keyRegular)
 	for bit := 0; bit < felt.Bits; bit++ {
-		if keyRegular.Bit(uint64(bit)) > 0 != path.Test(uint(bit)) {
+		if keyRegular.Bit(bit) > 0 != path.Test(uint(bit)) {
 			return
 		}
 	}

@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/bits-and-blooms/bitset v1.5.0
-	github.com/consensys/gnark-crypto v0.8.1-0.20221209144717-f585adf5f61e
+	github.com/consensys/gnark-crypto v0.9.1-0.20230131132727-b4237f253e66
 	github.com/dgraph-io/badger/v3 v3.2103.4
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/fxamacker/cbor/v2 v2.4.0

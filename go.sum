@@ -57,8 +57,8 @@ github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnht
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/consensys/bavard v0.1.13 h1:oLhMLOFGTLdlda/kma4VOJazblc7IM5y5QPd2A/YjhQ=
 github.com/consensys/bavard v0.1.13/go.mod h1:9ItSMtA/dXMAiL7BG6bqW2m3NdSEObYWoH223nGHukI=
-github.com/consensys/gnark-crypto v0.8.1-0.20221209144717-f585adf5f61e h1:7FLHIYO2zM4WjMTQXuwbSOrG8BYxPO7jTgTiztu3VbI=
-github.com/consensys/gnark-crypto v0.8.1-0.20221209144717-f585adf5f61e/go.mod h1:CkbdF9hbRidRJYMRzmfX8TMOr95I2pYXRHF18MzRrvA=
+github.com/consensys/gnark-crypto v0.9.1-0.20230131132727-b4237f253e66 h1:2mQGrqmcwJL9YKWwdmu89qrBrGWmociiou+TmumnO/0=
+github.com/consensys/gnark-crypto v0.9.1-0.20230131132727-b4237f253e66/go.mod h1:CkbdF9hbRidRJYMRzmfX8TMOr95I2pYXRHF18MzRrvA=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8NzMklzPG4d5KIOhIy30Tk=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=

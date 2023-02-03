@@ -8,11 +8,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
-const (
-	lowPartMask = 0xffffffffffffff
-	lowPartBits = 56
-)
-
 var (
 	shiftPoint *starkcurve.G1Jac
 	p0         *starkcurve.G1Jac
@@ -77,15 +72,14 @@ func Pedersen(a *felt.Felt, b *felt.Felt) *felt.Felt {
 
 func processElement(a *fp.Element, p1 *starkcurve.G1Jac, p2 *starkcurve.G1Jac) *starkcurve.G1Jac {
 	var bigInt big.Int
-	aRegular := a.ToRegular()
+	var aBytes [32]byte
+	a.BigInt(&bigInt).FillBytes(aBytes[:])
 
-	lowPart := aRegular
-	lowPart[3] = lowPart[3] & lowPartMask // Zero-out the top nibble (bits 249-252)
-	m := new(starkcurve.G1Jac).ScalarMultiplication(p1, lowPart.ToBigInt(&bigInt))
+	highPart := bigInt.SetUint64(uint64(aBytes[0])) // The top nibble (bits 249-252)
+	lowPart := aBytes[1:]                           // Zero-out the top nibble (bits 249-252)
 
-	highPart := bigInt.SetUint64(aRegular[3] >> lowPartBits) // The top nibble (bits 249-252)
-
+	m := new(starkcurve.G1Jac).ScalarMultiplication(p2, highPart)
 	var n starkcurve.G1Jac
-	n.ScalarMultiplication(p2, highPart)
+	n.ScalarMultiplication(p1, bigInt.SetBytes(lowPart))
 	return m.AddAssign(&n)
 }
