@@ -54,28 +54,35 @@ type blockHashMetaInfo struct {
 }
 
 func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
+	fallBackSequencerAddress, err := new(felt.Felt).SetString(
+		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+	if err != nil {
+		panic(fmt.Sprintf("Error while creating FallBackSequencerAddress %s", err))
+	}
+
 	switch network {
 	case utils.MAINNET:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
+		fallBackSequencerAddress, err = new(felt.Felt).SetString(
+			"0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
+		if err != nil {
+			panic(fmt.Sprintf("Error while creating FallBackSequencerAddress %s", err))
+		}
 		return &blockHashMetaInfo{
-			First07Block:             883,
+			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.GOERLI:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.GOERLI2:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
 	case utils.INTEGRATION:
-		fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 		return &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
