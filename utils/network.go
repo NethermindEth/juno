@@ -1,6 +1,12 @@
 package utils
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"errors"
+
+	"github.com/NethermindEth/juno/core/felt"
+)
+
+var ErrUnknownNetwork = errors.New("unknown network")
 
 type Network uint8
 
@@ -54,4 +60,8 @@ func (n Network) ChainId() *felt.Felt {
 	default:
 		return nil
 	}
+}
+
+func IsValidNetwork(n Network) bool {
+	return !(n.String() == "")
 }

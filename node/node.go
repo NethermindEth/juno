@@ -1,7 +1,6 @@
 package node
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -30,8 +29,6 @@ const (
 	shutdownTimeout = 5 * time.Second
 )
 
-var ErrUnknownNetwork = errors.New("unknown network")
-
 // Config is the top-level juno configuration.
 type Config struct {
 	Verbosity    string        `mapstructure:"verbosity"`
@@ -50,8 +47,8 @@ type Node struct {
 }
 
 func New(cfg *Config) (StarkNetNode, error) {
-	if cfg.Network != utils.GOERLI && cfg.Network != utils.MAINNET {
-		return nil, ErrUnknownNetwork
+	if !utils.IsValidNetwork(cfg.Network) {
+		return nil, utils.ErrUnknownNetwork
 	}
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
