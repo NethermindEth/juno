@@ -42,12 +42,9 @@ func NewBlockchain(database db.DB, network utils.Network) *Blockchain {
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
-func (b *Blockchain) Height() (uint64, error) {
-	var height uint64
-
+func (b *Blockchain) Height() (height uint64, err error) {
 	return height, b.database.View(func(txn db.Transaction) error {
-		dbHeight, err := b.height(txn)
-		height = dbHeight
+		height, err = b.height(txn)
 		return err
 	})
 }
@@ -61,12 +58,9 @@ func (b *Blockchain) height(txn db.Transaction) (uint64, error) {
 	return binary.BigEndian.Uint64(heightBin), err
 }
 
-func (b *Blockchain) Head() (*core.Block, error) {
-	var head *core.Block
-
+func (b *Blockchain) Head() (head *core.Block, err error) {
 	return head, b.database.View(func(txn db.Transaction) error {
-		dbHead, err := b.head(txn)
-		head = dbHead
+		head, err = b.head(txn)
 		return err
 	})
 }
@@ -79,22 +73,16 @@ func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 	}
 }
 
-func (b *Blockchain) GetBlockByNumber(number uint64) (*core.Block, error) {
-	var block *core.Block
-
+func (b *Blockchain) GetBlockByNumber(number uint64) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
-		dbBlock, err := NewBlockStorage(txn).GetByNumber(number)
-		block = dbBlock
+		block, err = NewBlockStorage(txn).GetByNumber(number)
 		return err
 	})
 }
 
-func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (*core.Block, error) {
-	var block *core.Block
-
+func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
-		dbBlock, err := NewBlockStorage(txn).GetByHash(hash)
-		block = dbBlock
+		block, err = NewBlockStorage(txn).GetByHash(hash)
 		return err
 	})
 }
