@@ -81,7 +81,7 @@ Juno is a Go implementation of a StarkNet full node client created by Nethermind
 		defaultRpcPort := uint16(6060)
 		defaultMetrics := false
 		defaultDbPath := ""
-		defaultNetwork := utils.GOERLI
+		defaultNetwork := utils.MAINNET
 		defaultEthNode := ""
 
 		tests := map[string]struct {
@@ -131,7 +131,7 @@ Juno is a Go implementation of a StarkNet full node client created by Nethermind
 rpc-port: 4576
 metrics: true
 db-path: /home/.juno
-network: 1
+network: 2
 eth-node: "https://some-ethnode:5673"
 `,
 				expectedConfig: &node.Config{
@@ -139,7 +139,7 @@ eth-node: "https://some-ethnode:5673"
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: "/home/.juno",
-					Network:      utils.MAINNET,
+					Network:      utils.GOERLI2,
 					EthNode:      "https://some-ethnode:5673",
 				},
 			},
@@ -169,21 +169,21 @@ metrics: true
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: "/home/.juno",
-					Network:      utils.MAINNET,
+					Network:      utils.GOERLI,
 					EthNode:      "https://some-ethnode:5673",
 				},
 			},
 			"some flags without config file": {
 				inputArgs: []string{
 					"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
-					"--network", "1",
+					"--network", "3",
 				},
 				expectedConfig: &node.Config{
 					Verbosity:    "debug",
 					RpcPort:      4576,
 					Metrics:      defaultMetrics,
 					DatabasePath: "/home/.juno",
-					Network:      utils.MAINNET,
+					Network:      utils.INTEGRATION,
 					EthNode:      defaultEthNode,
 				},
 			},
@@ -193,12 +193,12 @@ metrics: true
 rpc-port: 4576
 metrics: true
 db-path: /home/config-file/.juno
-network: 0
+network: 1
 eth-node: "https://some-ethnode:5673"
 `,
 				inputArgs: []string{
 					"--verbosity", "error", "--rpc-port", "4577",
-					"--metrics", "--db-path", "/home/flag/.juno", "--network", "1",
+					"--metrics", "--db-path", "/home/flag/.juno", "--network", "3",
 					"--eth-node", "https://some-ethnode:5674",
 				},
 				expectedConfig: &node.Config{
@@ -206,7 +206,7 @@ eth-node: "https://some-ethnode:5673"
 					RpcPort:      4577,
 					Metrics:      true,
 					DatabasePath: "/home/flag/.juno",
-					Network:      utils.MAINNET,
+					Network:      utils.INTEGRATION,
 					EthNode:      "https://some-ethnode:5674",
 				},
 			},
@@ -225,13 +225,13 @@ network: 1
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: "/home/flag/.juno",
-					Network:      utils.MAINNET,
+					Network:      utils.GOERLI,
 					EthNode:      "https://some-ethnode:5674",
 				},
 			},
 			"some setting set in default, config file and flags": {
 				cfgFile:         tempCfgFile,
-				cfgFileContents: `network: 1`,
+				cfgFileContents: `network: 2`,
 				inputArgs: []string{
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 					"https://some-ethnode:5674",
@@ -241,7 +241,7 @@ network: 1
 					RpcPort:      defaultRpcPort,
 					Metrics:      true,
 					DatabasePath: "/home/flag/.juno",
-					Network:      utils.MAINNET,
+					Network:      utils.GOERLI2,
 					EthNode:      "https://some-ethnode:5674",
 				},
 			},
