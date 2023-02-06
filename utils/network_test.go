@@ -59,3 +59,18 @@ func TestNetwork(t *testing.T) {
 		}
 	})
 }
+
+func TestValidNetwork(t *testing.T) {
+	t.Run("valid networks", func(t *testing.T) {
+		networks := []Network{0, 1, 2, 3}
+		for _, n := range networks {
+			assert.True(t, IsValidNetwork(n))
+		}
+	})
+	t.Run("invalid networks", func(t *testing.T) {
+		networks := []Network{4, 6, 5, 7, 12, 34, 255}
+		for _, n := range networks {
+			assert.False(t, IsValidNetwork(n))
+		}
+	})
+}

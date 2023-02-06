@@ -13,7 +13,7 @@ import (
 func TestNew(t *testing.T) {
 	t.Run("network", func(t *testing.T) {
 		networks := []utils.Network{
-			utils.GOERLI, utils.MAINNET, utils.Network(2),
+			utils.GOERLI, utils.MAINNET, utils.GOERLI2, utils.INTEGRATION, utils.Network(2),
 			utils.Network(20), utils.Network(100),
 		}
 		for _, n := range networks {
@@ -22,10 +22,10 @@ func TestNew(t *testing.T) {
 
 				_, err := New(cfg)
 
-				if cfg.Network == utils.GOERLI || cfg.Network == utils.MAINNET {
+				if utils.IsValidNetwork(cfg.Network) {
 					assert.NoError(t, err)
 				} else {
-					assert.Error(t, err, ErrUnknownNetwork)
+					assert.Error(t, err, utils.ErrUnknownNetwork)
 				}
 			})
 		}
@@ -35,7 +35,7 @@ func TestNew(t *testing.T) {
 		defaultDataDir, err := utils.DefaultDataDir()
 		require.NoError(t, err)
 
-		networks := []utils.Network{utils.GOERLI, utils.MAINNET}
+		networks := []utils.Network{utils.GOERLI, utils.MAINNET, utils.GOERLI2, utils.INTEGRATION}
 
 		for _, n := range networks {
 			t.Run(n.String(), func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 				require.NoError(t, err)
 
 				junoN, ok := node.(*Node)
-				require.Equal(t, true, ok)
+				require.True(t, ok)
 				assert.Equal(t, expectedCfg, junoN.cfg)
 			})
 		}

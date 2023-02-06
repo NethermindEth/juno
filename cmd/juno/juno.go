@@ -46,7 +46,8 @@ const (
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
-	networkUsage = "Available StarkNet networks. Options: 0 = goerli and 1 = mainnet"
+	networkUsage = "Available StarkNet networks. Options: 0 = goerli, 1 = mainnet, " +
+		"2 = goerli2 and 3 = integration"
 	ethNodeUsage = "The Ethereum endpoint to synchronise with. " +
 		"If unset feeder gateway will be used."
 )
