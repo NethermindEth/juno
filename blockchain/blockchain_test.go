@@ -3,7 +3,6 @@ package blockchain
 import (
 	_ "embed"
 	"encoding/binary"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -201,10 +200,7 @@ func TestVerifyBlock(t *testing.T) {
 		*wrongHashStateUpdate = *mainnetStateUpdate1
 		wrongHashStateUpdate.BlockHash = wrongHashBlock.Hash
 
-		expectedErr := &ErrIncompatibleBlock{fmt.Sprintf(
-			"incorrect block hash: block.Hash = %v and BlockHash(block) = %v",
-			wrongHashBlock.Hash.Text(16), mainnetBlock1.Hash.Text(16))}
-		assert.Equal(t, chain.VerifyBlock(wrongHashBlock, wrongHashStateUpdate), expectedErr)
+		assert.EqualError(t, chain.VerifyBlock(wrongHashBlock, wrongHashStateUpdate), "can not verify hash in block header")
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {

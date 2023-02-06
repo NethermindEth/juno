@@ -16,7 +16,6 @@ func TestBlockHash(t *testing.T) {
 		blockNumber uint64
 		chain       utils.Network
 		name        string
-		wantErr     bool
 	}{
 		{
 			// block 231579: goerli
@@ -24,7 +23,6 @@ func TestBlockHash(t *testing.T) {
 			231579,
 			utils.GOERLI,
 			"goerli network (post 0.7.0 with sequencer address)",
-			false,
 		},
 		{
 			// block 156000: goerli
@@ -32,7 +30,6 @@ func TestBlockHash(t *testing.T) {
 			156000,
 			utils.GOERLI,
 			"goerli network (post 0.7.0 without sequencer address)",
-			false,
 		},
 		{
 			// block 1: goerli
@@ -40,7 +37,6 @@ func TestBlockHash(t *testing.T) {
 			1,
 			utils.GOERLI,
 			"goerli network (pre 0.7.0 without sequencer address)",
-			false,
 		},
 		{
 			// block 16789: mainnet
@@ -48,7 +44,6 @@ func TestBlockHash(t *testing.T) {
 			16789,
 			utils.MAINNET,
 			"mainnet (post 0.7.0 with sequencer address)",
-			false,
 		},
 		{
 			// block 1: integration
@@ -56,7 +51,6 @@ func TestBlockHash(t *testing.T) {
 			1,
 			utils.INTEGRATION,
 			"integration network (pre 0.7.0 without sequencer address)",
-			true,
 		},
 		{
 			// block 119802: goerli
@@ -64,7 +58,6 @@ func TestBlockHash(t *testing.T) {
 			119802,
 			utils.GOERLI,
 			"goerli network (post 0.7.0 without sequencer address)",
-			true,
 		},
 		{
 			// block 10: goerli2
@@ -72,7 +65,6 @@ func TestBlockHash(t *testing.T) {
 			10,
 			utils.GOERLI2,
 			"goerli2 network (post 0.7.0 with sequencer address)",
-			false,
 		},
 		{
 			// block 0: main
@@ -80,7 +72,13 @@ func TestBlockHash(t *testing.T) {
 			0,
 			utils.MAINNET,
 			"mainnet (pre 0.7.0 without sequencer address)",
-			false,
+		},
+		{
+			// block 833: main
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=833
+			833,
+			utils.MAINNET,
+			"mainnet 833 (post 0.7.0 without sequencer address)",
 		},
 	}
 
@@ -91,14 +89,7 @@ func TestBlockHash(t *testing.T) {
 
 			block, err := client.BlockByNumber(tt.blockNumber)
 			assert.NoError(t, err)
-
-			got, err := core.BlockHash(block, tt.chain)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("got error %v, want error %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && !got.Equal(block.Hash) {
-				t.Errorf("got %s, want %s", got.Text(16), block.Hash.Text(16))
-			}
+			assert.NoError(t, core.VerifyBlockHash(block, tt.chain))
 		})
 	}
 }

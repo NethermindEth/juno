@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -9,13 +10,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type ErrUnverifiableBlock struct {
-	blockNumber uint64
-}
-
-func (e ErrUnverifiableBlock) Error() string {
-	return fmt.Sprintf("block is unverifiable: %d", e.blockNumber)
-}
+var ErrCantVerifyBlockHash = errors.New("can not verify hash in block header")
 
 type Block struct {
 	// The hash of this block
@@ -94,26 +89,47 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
-// BlockHash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
-// verifiable hashes. In that case, an [ErrUnverifiableBlock] is returned.
-func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
+// VerifyBlockHash verifies the block hash. Due to bugs in StarkNet alpha, not all blocks have
+// verifiable hashes.
+func VerifyBlockHash(b *Block, network utils.Network) error {
 	metaInfo := getBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
 	if unverifiableRange != nil {
 		// Check if the block number is in the unverifiable range
 		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
-			// If so, return unverifiable block error
-			return nil, &ErrUnverifiableBlock{blockNumber: b.Number}
+			// If so, return success
+			return nil
 		}
 	}
 
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainId()), nil
-	} else if b.SequencerAddress == nil {
-		b.SequencerAddress = metaInfo.FallBackSequencerAddress
+		if pre07Hash(b, network.ChainId()).Equal(b.Hash) {
+			return nil
+		}
+	} else {
+		for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
+			var overrideSeq *felt.Felt
+			if b.SequencerAddress == nil {
+				overrideSeq = fallbackSeq
+			}
+			if post07Hash(b, overrideSeq).Equal(b.Hash) {
+				return nil
+			}
+		}
 	}
-	return post07Hash(b), nil
+
+	return ErrCantVerifyBlockHash
+}
+
+// BlockHash computes the block hash
+func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
+	metaInfo := getBlockHashMetaInfo(network)
+
+	if b.Number < metaInfo.First07Block {
+		return pre07Hash(b, network.ChainId()), nil
+	}
+	return post07Hash(b, nil), nil
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
@@ -138,10 +154,14 @@ func pre07Hash(b *Block, chain *felt.Felt) *felt.Felt {
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block) *felt.Felt {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt) *felt.Felt {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	zeroFelt := new(felt.Felt)
 
+	seqAddr := b.SequencerAddress
+	if overrideSeqAddr != nil {
+		seqAddr = overrideSeqAddr
+	}
 	// Unlike the pre07Hash computation, we exclude the chain
 	// id and replace the zero felt with the actual values for:
 	// - sequencer address
@@ -151,7 +171,7 @@ func post07Hash(b *Block) *felt.Felt {
 	return crypto.PedersenArray(
 		blockNumber,             // block number
 		b.GlobalStateRoot,       // global state root
-		b.SequencerAddress,      // sequencer address
+		seqAddr,                 // sequencer address
 		b.Timestamp,             // block timestamp
 		b.TransactionCount,      // number of transactions
 		b.TransactionCommitment, // transaction commitment
