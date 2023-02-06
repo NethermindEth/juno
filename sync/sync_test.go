@@ -132,7 +132,8 @@ func populateBlocksAndStateUpdate() (map[uint64]*core.Block, map[uint64]*core.St
 			panic(err)
 		}
 		bm[uint64(i)] = b
-		su, err := gateway.AdaptStateUpdate(clientStateUpdate)
+		declaredContract := new(core.DeclaredContract)
+		su, err := gateway.AdaptStateUpdate(*declaredContract, clientStateUpdate)
 		if err != nil {
 			panic(err)
 		}

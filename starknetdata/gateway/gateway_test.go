@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -129,17 +130,19 @@ func TestAdaptStateUpdate(t *testing.T) {
 	err := json.Unmarshal(jsonData, &gatewayStateUpdate)
 	assert.Equal(t, nil, err, "Unexpected error")
 
-	coreStateUpdate, err := AdaptStateUpdate(&gatewayStateUpdate)
+	declaredContracts := new(core.DeclaredContract)
+	coreStateUpdate, err := AdaptStateUpdate(*declaredContracts, &gatewayStateUpdate)
 	if assert.NoError(t, err) {
 		assert.Equal(t, true, gatewayStateUpdate.NewRoot.Equal(coreStateUpdate.NewRoot))
 		assert.Equal(t, true, gatewayStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
 		assert.Equal(t, true, gatewayStateUpdate.BlockHash.Equal(coreStateUpdate.BlockHash))
 
 		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
-		for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
-			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
-			core := coreStateUpdate.StateDiff.DeclaredContracts[idx]
-			assert.Equal(t, true, gw.Equal(core))
+		index := 0
+		for key := range *declaredContracts {
+			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[index]
+			assert.Equal(t, true, gw.Equal(key))
+			index++
 		}
 
 		for keyStr, gw := range gatewayStateUpdate.StateDiff.Nonces {

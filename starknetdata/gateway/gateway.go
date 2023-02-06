@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/NethermindEth/juno/clients"
@@ -270,23 +271,11 @@ func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 	class := new(core.Class)
 	class.APIVersion = new(felt.Felt).SetUint64(0)
 
-	var externals []core.EntryPoint
-	for _, v := range response.EntryPoints.External {
-		externals = append(externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
-	}
-	class.Externals = externals
-
-	var l1Handlers []core.EntryPoint
-	for _, v := range response.EntryPoints.L1Handler {
-		l1Handlers = append(l1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
-	}
-	class.L1Handlers = l1Handlers
-
-	var constructors []core.EntryPoint
-	for _, v := range response.EntryPoints.Constructor {
-		constructors = append(constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
-	}
-	class.Constructors = constructors
+	entryPoints := response.EntryPoints
+	adaptedEntryPoints := adaptEntryPoints(entryPoints)
+	class.Externals = adaptedEntryPoints.Externals
+	class.L1Handlers = adaptedEntryPoints.L1Handlers
+	class.Constructors = adaptedEntryPoints.Constructors
 
 	var builtins []*felt.Felt
 	for _, v := range response.Program.Builtins {
@@ -311,6 +300,29 @@ func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 	return class, nil
 }
 
+func adaptEntryPoints(entryPoints clients.EntryPointsByType) core.EntryPointsByType {
+	var externals []core.EntryPoint
+	for _, v := range entryPoints.External {
+		externals = append(externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+	}
+
+	var l1Handlers []core.EntryPoint
+	for _, v := range entryPoints.L1Handler {
+		l1Handlers = append(l1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+	}
+
+	var constructors []core.EntryPoint
+	for _, v := range entryPoints.Constructor {
+		constructors = append(constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+	}
+
+	return core.EntryPointsByType{
+		Constructors: constructors,
+		Externals:    externals,
+		L1Handlers:   l1Handlers,
+	}
+}
+
 // StateUpdate gets the state update for a given block number from the feeder gateway,
 // then adapts it to the core.StateUpdate type.
 func (g *Gateway) StateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
@@ -319,12 +331,17 @@ func (g *Gateway) StateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
 		return nil, err
 	}
 
-	return AdaptStateUpdate(response)
+	declaredContracts, err := g.adaptDeclaredContracts(response.StateDiff.DeclaredContracts)
+	if err != nil {
+		return nil, err
+	}
+
+	return AdaptStateUpdate(declaredContracts, response)
 }
 
-func AdaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) {
+func AdaptStateUpdate(declaredContracts core.DeclaredContract, response *clients.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
-	stateDiff.DeclaredContracts = response.StateDiff.DeclaredContracts
+	stateDiff.DeclaredContracts = declaredContracts
 	for _, deployedContract := range response.StateDiff.DeployedContracts {
 		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, core.DeployedContract{
 			Address:   deployedContract.Address,
@@ -363,4 +380,28 @@ func AdaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) 
 		OldRoot:   response.OldRoot,
 		StateDiff: stateDiff,
 	}, nil
+}
+
+func (g *Gateway) adaptDeclaredContracts(contracts []*felt.Felt) (map[*felt.Felt]core.ClassDefinition, error) {
+	declaredContracts := make(map[*felt.Felt]core.ClassDefinition, len(contracts))
+	for _, contract := range contracts {
+		response, err := g.client.GetClassDefinition(contract)
+		if err != nil {
+			return nil, err
+		}
+		programBytes, err := json.Marshal(response.Program)
+		if err != nil {
+			return nil, err
+		}
+		encodedProgram, err := utils.Compress(programBytes)
+		if err != nil {
+			return nil, err
+		}
+		declaredContracts[contract] = core.ClassDefinition{
+			Abi:         response.Abi,
+			EntryPoints: adaptEntryPoints(response.EntryPoints),
+			Program:     encodedProgram,
+		}
+	}
+	return declaredContracts, nil
 }

@@ -49,7 +49,8 @@ func TestNewBlockchain(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stateUpdate0, err := gateway.AdaptStateUpdate(clientStateUpdate0)
+		declaredContracts0 := new(core.DeclaredContract)
+		stateUpdate0, err := gateway.AdaptStateUpdate(*declaredContracts0, clientStateUpdate0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -81,7 +82,8 @@ func TestHeight(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stateUpdate0, err := gateway.AdaptStateUpdate(clientStateUpdate0)
+		declaredContracts0 := new(core.DeclaredContract)
+		stateUpdate0, err := gateway.AdaptStateUpdate(*declaredContracts0, clientStateUpdate0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -270,7 +272,8 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stateUpdate0, err := gateway.AdaptStateUpdate(clientStateUpdate0)
+	declaredContracts0 := new(core.DeclaredContract)
+	stateUpdate0, err := gateway.AdaptStateUpdate(*declaredContracts0, clientStateUpdate0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +335,8 @@ func TestStore(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stateUpdate1, err := gateway.AdaptStateUpdate(clientStateUpdate1)
+		declaredContracts1 := new(core.DeclaredContract)
+		stateUpdate1, err := gateway.AdaptStateUpdate(*declaredContracts1, clientStateUpdate1)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -12,6 +12,7 @@ const (
 	StateTrie
 	ContractRootKey   // contract storage roots
 	ContractClassHash // maps contract addresses and class hashes
+	ContractClass     // maps block number and class hash to classes
 	ContractStorage   // contract storages
 	ContractNonce     // contract nonce
 	HeadBlock         // Head of the blockchain

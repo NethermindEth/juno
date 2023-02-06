@@ -243,16 +243,17 @@ type (
 		Prime            string      `json:"prime"`
 		ReferenceManager interface{} `json:"reference_manager"`
 	}
-)
-
-type ClassDefinition struct {
-	Abi         interface{} `json:"abi"`
-	EntryPoints struct {
+	EntryPointsByType struct {
 		Constructor []EntryPoint `json:"CONSTRUCTOR"`
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program Program `json:"program"`
+	}
+)
+
+type ClassDefinition struct {
+	Abi         interface{}       `json:"abi"`
+	EntryPoints EntryPointsByType `json:"entry_points_by_type"`
+	Program     Program           `json:"program"`
 }
 
 func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefinition, error) {
