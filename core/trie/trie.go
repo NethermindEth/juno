@@ -16,7 +16,7 @@ import (
 )
 
 // Max height of a [Trie] is 251.
-var maxTrieHeight uint = 251
+const maxTrieHeight uint = 251
 
 // Storage is the Persistent storage for the [Trie]
 type Storage interface {
@@ -51,7 +51,7 @@ type Trie struct {
 
 func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
 	if height > maxTrieHeight {
-		return nil, errors.New("trie height must be less than 251")
+		return nil, errors.New("trie height must be less than 252")
 	}
 	var x big.Int
 	x.SetInt64(1).Lsh(&x, height)
@@ -174,7 +174,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) error {
 	if key.Cmp(t.maxKeyValue) != -1 {
-		return errors.New("key is bigger than the trie height")
+		return errors.New("key is bigger than the maxKeyValue")
 	}
 
 	nodeKey := t.FeltToBitSet(key)

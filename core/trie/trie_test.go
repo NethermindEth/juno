@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
@@ -135,20 +134,25 @@ func TestTriePut(t *testing.T) {
 }
 
 func TestTriePutError(t *testing.T) {
+	hexToFelt := func(hex string) *felt.Felt {
+		f, _ := new(felt.Felt).SetString(hex)
+		return f
+	}
+
 	tests := [...]struct {
 		key   *felt.Felt
 		value *felt.Felt
 		root  *bitset.BitSet
 	}{
 		{
-			key:   utils.HexToFelt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
+			key:   hexToFelt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
 			value: new(felt.Felt).SetUint64(10),
 			root:  nil,
 		},
 	}
 	RunOnTempTrie(201, func(trie *Trie) error {
 		for idx, test := range tests {
-			if err := trie.Put(test.key, test.value); err.Error() != "key is bigger than the trie height" {
+			if err := trie.Put(test.key, test.value); err.Error() != "key is bigger than the maxKeyValue" {
 				t.Errorf("TestTriePut: Put() failed at test #%d", idx)
 			}
 			if value, err := trie.Get(test.key); err.Error() == "key not found" && value != nil {
