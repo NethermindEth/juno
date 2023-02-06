@@ -38,11 +38,20 @@
 
 ## ⚙️ Installation
 
-Golang 1.18 or higher is required to build and run the project. You can find the installer on the official Golang [download](https://go.dev/doc/install) page.
+### Prerequisites
 
-```
+- Golang 1.18 or higher is required to build and run the project. You can find the installer on 
+  the official Golang [download](https://go.dev/doc/install) page.
+- A C compiler: `gcc` or `clang`.
+
+### Build and Run
+
+```shell
 make juno
+./build/juno
 ```
+
+
 ## 🛣 Roadmap
 
 ### Phase 1
