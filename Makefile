@@ -12,6 +12,7 @@ generate: ## generate
 	@cd pkg/felt && go generate ./...
 
 test: ## tests
+	go clean -testcache
 	go test ./...
 
 benchmarks: ## benchmarking
