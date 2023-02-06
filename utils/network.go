@@ -11,8 +11,8 @@ var ErrUnknownNetwork = errors.New("unknown network")
 type Network uint8
 
 const (
-	GOERLI Network = iota
-	MAINNET
+	MAINNET Network = iota
+	GOERLI
 	GOERLI2
 	INTEGRATION
 )

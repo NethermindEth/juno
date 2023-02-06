@@ -36,18 +36,28 @@ const (
 	defaultRpcPort   = uint16(6060)
 	defaultMetrics   = false
 	defaultDbPath    = ""
-	defaultNetwork   = utils.GOERLI
+	defaultNetwork   = utils.MAINNET
 	defaultEthNode   = ""
 
 	configFlagUsage    = "The yaml configuration file."
-	verbosityFlagUsage = "Verbosity of the logs. Options: debug, info, warn, error, dpanic, " +
-		"panic, fatal."
+	verbosityFlagUsage = `Verbosity of the logs. Options:
+- debug
+- info
+- warn
+- error
+- dpanic
+- panic
+- fatal
+`
 	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
-	networkUsage = "Available StarkNet networks. Options: 0 = goerli, 1 = mainnet, " +
-		"2 = goerli2 and 3 = integration"
+	networkUsage = `Available StarkNet networks. Options:
+0 = mainnet
+1 = goerli
+2 = goerli2
+3 = integration`
 	ethNodeUsage = "The Ethereum endpoint to synchronise with. " +
 		"If unset feeder gateway will be used."
 )
