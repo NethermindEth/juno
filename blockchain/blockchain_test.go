@@ -27,13 +27,11 @@ func TestNewBlockchain(t *testing.T) {
 	})
 	t.Run("non-empty blockchain gets head from db", func(t *testing.T) {
 		block0, err := gw.BlockByNumber(0)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
 		stateUpdate0, err := gw.StateUpdate(0)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
 		testDB := db.NewTestDb()
 		chain := NewBlockchain(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
@@ -55,13 +53,11 @@ func TestHeight(t *testing.T) {
 	})
 	t.Run("return height of the blockchain's head", func(t *testing.T) {
 		block0, err := gw.BlockByNumber(0)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
 		stateUpdate0, err := gw.StateUpdate(0)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
 		testDB := db.NewTestDb()
 		chain := NewBlockchain(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
@@ -70,6 +66,60 @@ func TestHeight(t *testing.T) {
 		height, err := chain.Height()
 		assert.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
+	})
+}
+
+func TestGetBlockByNumberAndHash(t *testing.T) {
+	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
+	t.Run("same block is returned for both by GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		var err error
+		block := new(core.Block)
+		block.Number = 0xDEADBEEF
+		block.Hash, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.ParentHash, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.GlobalStateRoot, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.SequencerAddress, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.Timestamp, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.TransactionCount, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.TransactionCommitment, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.EventCount, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.EventCommitment, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.ProtocolVersion, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		block.ExtraData, err = new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+
+		require.NoError(t, put(txn, block))
+
+		storedByNumber, err := getByNumber(txn, block.Number)
+		require.NoError(t, err)
+		assert.Equal(t, block, storedByNumber)
+
+		storedByHash, err := getByHash(txn, block.Hash)
+		require.NoError(t, err)
+		assert.Equal(t, block, storedByHash)
+	})
+	t.Run("GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
+		_, err := chain.GetBlockByNumber(42)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
+	t.Run("GetBlockByHash returns error if block doesn't exist", func(t *testing.T) {
+		f, err := new(felt.Felt).SetRandom()
+		require.NoError(t, err)
+		_, err = chain.GetBlockByHash(f)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 }
 
@@ -102,14 +152,15 @@ func TestVerifyBlock(t *testing.T) {
 		TransactionCommitment: &felt.Zero,
 	}
 	headBlock.Hash, err = core.BlockHash(headBlock, utils.UNITTEST)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	headStateUpdate := &core.StateUpdate{
 		BlockHash: headBlock.Hash,
 		OldRoot:   &felt.Zero,
 		NewRoot:   &felt.Zero,
 		StateDiff: new(core.StateDiff),
 	}
-	assert.NoError(t, chain.Store(headBlock, headStateUpdate))
+	require.NoError(t, chain.Store(headBlock, headStateUpdate))
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
@@ -170,81 +221,74 @@ func TestVerifyBlock(t *testing.T) {
 		assert.Equal(t, chain.VerifyBlock(&wrongHashBlock, &wrongHashStateUpdate), expectedErr)
 	})
 
-	assert.NoError(t, chain.Store(&validNextBlock, &validNextStateUpdate))
+	require.NoError(t, chain.Store(&validNextBlock, &validNextStateUpdate))
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		unverifBlock := validNextBlock
-		unverifBlock.Number = 2
-		unverifBlock.ParentHash = validNextBlock.Hash
-		unverifBlock.Hash = h1
+		unverifiedBlock := validNextBlock
+		unverifiedBlock.Number = 2
+		unverifiedBlock.ParentHash = validNextBlock.Hash
+		unverifiedBlock.Hash = h1
 
-		unverifStateUpdate := validNextStateUpdate
-		unverifStateUpdate.BlockHash = unverifBlock.Hash
+		unverifiedStateUpdate := validNextStateUpdate
+		unverifiedStateUpdate.BlockHash = unverifiedBlock.Hash
 
-		assert.NoError(t, chain.VerifyBlock(&unverifBlock, &unverifStateUpdate))
+		assert.NoError(t, chain.VerifyBlock(&unverifiedBlock, &unverifiedStateUpdate))
 	})
 }
 
 func TestStore(t *testing.T) {
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
+
 	block0, err := gw.BlockByNumber(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	stateUpdate0, err := gw.StateUpdate(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		assert.NoError(t, chain.Store(block0, stateUpdate0))
+		require.NoError(t, chain.Store(block0, stateUpdate0))
 
 		headBlock, err := chain.Head()
 		assert.NoError(t, err)
-		assert.Equal(t, headBlock, block0)
+		assert.Equal(t, block0, headBlock)
 
 		txn := chain.database.NewTransaction(false)
 		defer txn.Discard()
+
 		root, err := state.NewState(txn).Root()
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate0.NewRoot, root)
 
-		gotHeadBlock, err := chain.Head()
-		assert.NoError(t, err)
 		got0Block, err := chain.GetBlockByNumber(0)
 		assert.NoError(t, err)
-		assert.Equal(t, gotHeadBlock, got0Block)
+		assert.Equal(t, got0Block, block0)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(1)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
 		stateUpdate1, err := gw.StateUpdate(1)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		assert.NoError(t, chain.Store(block0, stateUpdate0))
-		assert.NoError(t, chain.Store(block1, stateUpdate1))
+		require.NoError(t, chain.Store(block0, stateUpdate0))
+		require.NoError(t, chain.Store(block1, stateUpdate1))
 
 		headBlock, err := chain.Head()
 		assert.NoError(t, err)
-		assert.Equal(t, headBlock, block1)
+		assert.Equal(t, block1, headBlock)
 
 		txn := chain.database.NewTransaction(false)
 		defer txn.Discard()
+
 		root, err := state.NewState(txn).Root()
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate1.NewRoot, root)
 
-		gotHeadBlock, err := chain.Head()
-		assert.NoError(t, err)
 		got1Block, err := chain.GetBlockByNumber(1)
 		assert.NoError(t, err)
-		assert.Equal(t, gotHeadBlock, got1Block)
+		assert.Equal(t, got1Block, block1)
 	})
 }
