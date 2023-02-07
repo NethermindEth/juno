@@ -101,13 +101,13 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 		block.ExtraData, err = new(felt.Felt).SetRandom()
 		require.NoError(t, err)
 
-		require.NoError(t, put(txn, block))
+		require.NoError(t, putBlock(txn, block))
 
-		storedByNumber, err := getByNumber(txn, block.Number)
+		storedByNumber, err := getBlockByNumber(txn, block.Number)
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByNumber)
 
-		storedByHash, err := getByHash(txn, block.Hash)
+		storedByHash, err := getBlockByHash(txn, block.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByHash)
 	})
