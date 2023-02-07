@@ -72,20 +72,20 @@ func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 	if height, err := b.height(txn); err != nil {
 		return nil, err
 	} else {
-		return getByNumber(txn, height)
+		return getBlockByNumber(txn, height)
 	}
 }
 
 func (b *Blockchain) GetBlockByNumber(number uint64) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
-		block, err = getByNumber(txn, number)
+		block, err = getBlockByNumber(txn, number)
 		return err
 	})
 }
 
 func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
-		block, err = getByHash(txn, hash)
+		block, err = getBlockByHash(txn, hash)
 		return err
 	})
 }
@@ -99,7 +99,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 		if err := state.NewState(txn).Update(stateUpdate); err != nil {
 			return err
 		}
-		if err := put(txn, block); err != nil {
+		if err := putBlock(txn, block); err != nil {
 			return err
 		}
 
@@ -178,8 +178,8 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block,
 	return nil
 }
 
-// Put stores the given block in the database. No check on whether the hash matches or not is done
-func put(txn db.Transaction, block *core.Block) error {
+// putBlock stores the given block in the database. No check on whether the hash matches or not is done
+func putBlock(txn db.Transaction, block *core.Block) error {
 	numBytes := make([]byte, lenOfBlockNumberBytes)
 	binary.BigEndian.PutUint64(numBytes, block.Number)
 	if err := txn.Set(db.BlockNumbersByHash.Key(block.Hash.Marshal()), numBytes); err != nil {
@@ -195,14 +195,14 @@ func put(txn db.Transaction, block *core.Block) error {
 	return nil
 }
 
-// getByNumber retrieves a block from database by its number
-func getByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
+// getBlockByNumber retrieves a block from database by its number
+func getBlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	numBytes := make([]byte, lenOfBlockNumberBytes)
 	binary.BigEndian.PutUint64(numBytes, number)
-	return getByNumberBytes(txn, numBytes)
+	return getBlockByNumberBytes(txn, numBytes)
 }
 
-func getByNumberBytes(txn db.Transaction, numBytes []byte) (*core.Block, error) {
+func getBlockByNumberBytes(txn db.Transaction, numBytes []byte) (*core.Block, error) {
 	if blockBytes, err := txn.Get(db.BlocksByNumber.Key(numBytes)); err != nil {
 		return nil, err
 	} else {
@@ -211,11 +211,11 @@ func getByNumberBytes(txn db.Transaction, numBytes []byte) (*core.Block, error) 
 	}
 }
 
-// getByHash retrieves a block from database by its hash
-func getByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
+// getBlockByHash retrieves a block from database by its hash
+func getBlockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	if numBytes, err := txn.Get(db.BlockNumbersByHash.Key(hash.Marshal())); err != nil {
 		return nil, err
 	} else {
-		return getByNumberBytes(txn, numBytes)
+		return getBlockByNumberBytes(txn, numBytes)
 	}
 }
