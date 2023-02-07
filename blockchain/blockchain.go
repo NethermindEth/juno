@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/fxamacker/cbor/v2"
 )
 
 const lenOfBlockNumberBytes = 8
@@ -186,7 +186,7 @@ func put(txn db.Transaction, block *core.Block) error {
 		return err
 	}
 
-	if blockBytes, err := cbor.Marshal(block); err != nil {
+	if blockBytes, err := encoder.Marshal(block); err != nil {
 		return err
 	} else if err = txn.Set(db.BlocksByNumber.Key(numBytes), blockBytes); err != nil {
 		return err
@@ -207,7 +207,7 @@ func getByNumberBytes(txn db.Transaction, numBytes []byte) (*core.Block, error) 
 		return nil, err
 	} else {
 		block := new(core.Block)
-		return block, cbor.Unmarshal(blockBytes, block)
+		return block, encoder.Unmarshal(blockBytes, block)
 	}
 }
 
