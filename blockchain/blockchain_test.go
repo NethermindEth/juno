@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	_ "embed"
+	"encoding/binary"
 	"fmt"
 	"testing"
 
@@ -127,10 +128,7 @@ func TestVerifyBlock(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	h2, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-
-	chain := NewBlockchain(db.NewTestDb(), utils.UNITTEST)
+	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Number: 10}
@@ -144,27 +142,20 @@ func TestVerifyBlock(t *testing.T) {
 		assert.EqualError(t, chain.VerifyBlock(block, nil), expectedErr.Error())
 	})
 
-	headBlock := &core.Block{
-		Number:                0,
-		ParentHash:            &felt.Zero,
-		GlobalStateRoot:       &felt.Zero,
-		TransactionCount:      &felt.Zero,
-		TransactionCommitment: &felt.Zero,
-	}
-	headBlock.Hash, err = core.BlockHash(headBlock, utils.UNITTEST)
+	gw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer.Close()
+
+	mainnetBlock0, err := gw.BlockByNumber(0)
 	require.NoError(t, err)
 
-	headStateUpdate := &core.StateUpdate{
-		BlockHash: headBlock.Hash,
-		OldRoot:   &felt.Zero,
-		NewRoot:   &felt.Zero,
-		StateDiff: new(core.StateDiff),
-	}
-	require.NoError(t, chain.Store(headBlock, headStateUpdate))
+	mainnetStateUpdate0, err := gw.StateUpdate(0)
+	require.NoError(t, err)
+
+	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
-			incomingBlock := &core.Block{Number: 10, ParentHash: headBlock.Hash}
+			incomingBlock := &core.Block{Number: 10}
 
 			expectedErr := &ErrIncompatibleBlock{
 				"block number difference between head and incoming block is not 1",
@@ -181,58 +172,63 @@ func TestVerifyBlock(t *testing.T) {
 		assert.Equal(t, chain.VerifyBlock(incomingBlock, nil), expectedErr)
 	})
 
-	validNextBlock := *headBlock
-	validNextBlock.Number = 1
-	validNextBlock.ParentHash = headBlock.Hash
-	validNextBlock.Hash, err = core.BlockHash(&validNextBlock, utils.UNITTEST)
-	assert.NoError(t, err)
+	mainnetBlock1, err := gw.BlockByNumber(1)
+	require.NoError(t, err)
+	mainnetStateUpdate1, err := gw.StateUpdate(1)
+	require.NoError(t, err)
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
 		expectedErr := ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
-		assert.Equal(t, chain.VerifyBlock(&validNextBlock, stateUpdate), expectedErr)
+		assert.Equal(t, chain.VerifyBlock(mainnetBlock1, stateUpdate), expectedErr)
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
 		func(t *testing.T) {
-			block := validNextBlock
-			block.GlobalStateRoot = h1
-			stateUpdate := &core.StateUpdate{BlockHash: block.Hash, NewRoot: h2}
+			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
 			expectedErr := ErrIncompatibleBlockAndStateUpdate{
 				"block's GlobalStateRoot does not match state update's NewRoot",
 			}
-			assert.Equal(t, chain.VerifyBlock(&block, stateUpdate), expectedErr)
+			assert.Equal(t, chain.VerifyBlock(mainnetBlock1, stateUpdate), expectedErr)
 		})
-
-	validNextStateUpdate := *headStateUpdate
-	validNextStateUpdate.BlockHash = validNextBlock.Hash
-
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
-		wrongHashBlock := validNextBlock
+		wrongHashBlock, wrongHashStateUpdate := new(core.Block), new(core.StateUpdate)
+
+		*wrongHashBlock = *mainnetBlock1
 		wrongHashBlock.Hash = h1
 
-		wrongHashStateUpdate := validNextStateUpdate
+		*wrongHashStateUpdate = *mainnetStateUpdate1
 		wrongHashStateUpdate.BlockHash = wrongHashBlock.Hash
 
 		expectedErr := &ErrIncompatibleBlock{fmt.Sprintf(
 			"incorrect block hash: block.Hash = %v and BlockHash(block) = %v",
-			wrongHashBlock.Hash.Text(16), validNextBlock.Hash.Text(16))}
-		assert.Equal(t, chain.VerifyBlock(&wrongHashBlock, &wrongHashStateUpdate), expectedErr)
+			wrongHashBlock.Hash.Text(16), mainnetBlock1.Hash.Text(16))}
+		assert.Equal(t, chain.VerifyBlock(wrongHashBlock, wrongHashStateUpdate), expectedErr)
 	})
 
-	require.NoError(t, chain.Store(&validNextBlock, &validNextStateUpdate))
-
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		unverifiedBlock := validNextBlock
-		unverifiedBlock.Number = 2
-		unverifiedBlock.ParentHash = validNextBlock.Hash
-		unverifiedBlock.Hash = h1
+		chain = NewBlockchain(db.NewTestDb(), utils.GOERLI)
+		goerliGW, goerliCloser := testsource.NewTestGateway(utils.GOERLI)
+		defer goerliCloser.Close()
 
-		unverifiedStateUpdate := validNextStateUpdate
-		unverifiedStateUpdate.BlockHash = unverifiedBlock.Hash
+		block119801, err := goerliGW.BlockByNumber(119801)
+		require.NoError(t, err)
+		block119802, err := goerliGW.BlockByNumber(119802)
+		require.NoError(t, err)
+		stateUpdate119802, err := goerliGW.StateUpdate(119802)
+		require.NoError(t, err)
 
-		assert.NoError(t, chain.VerifyBlock(&unverifiedBlock, &unverifiedStateUpdate))
+		require.NoError(t, chain.database.Update(func(txn db.Transaction) error {
+			if err = putBlock(txn, block119801); err != nil {
+				return err
+			}
+			heightBin := make([]byte, lenOfBlockNumberBytes)
+			binary.BigEndian.PutUint64(heightBin, block119801.Number)
+			return txn.Set(db.ChainHeight.Key(), heightBin)
+		}))
+
+		assert.NoError(t, chain.VerifyBlock(block119802, stateUpdate119802))
 	})
 }
 
