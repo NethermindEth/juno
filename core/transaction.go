@@ -62,6 +62,14 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	err = encoder.RegisterType(reflect.TypeOf(L1HandlerTransaction{}))
+	if err != nil {
+		panic(err)
+	}
+	err = encoder.RegisterType(reflect.TypeOf(DeployAccountTransaction{}))
+	if err != nil {
+		panic(err)
+	}
 }
 
 type TransactionReceipt struct {
