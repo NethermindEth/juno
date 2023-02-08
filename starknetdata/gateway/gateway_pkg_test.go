@@ -31,11 +31,10 @@ func TestAdaptBlock(t *testing.T) {
 		assert.Equal(t, response.Number, block.Number)
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 		assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
-		assert.Equal(t, new(felt.Felt).SetUint64(uint64(len(response.Transactions))), block.TransactionCount)
-		assert.Equal(t, new(felt.Felt), block.ProtocolVersion)
+		assert.Equal(t, len(response.Transactions), len(block.Transactions))
+		assert.Equal(t, len(response.Receipts), len(block.Receipts))
+		assert.Equal(t, "0.10.1", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
-		// TODO test transaction commitment...?
-		// TODO test event commitment and count
 	})
 	t.Run("mainnet block number 147", func(t *testing.T) {
 		err := json.Unmarshal(block147Json, &response)
@@ -49,11 +48,10 @@ func TestAdaptBlock(t *testing.T) {
 		assert.Equal(t, response.Number, block.Number)
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 		assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
-		assert.Equal(t, new(felt.Felt).SetUint64(uint64(len(response.Transactions))), block.TransactionCount)
-		assert.Equal(t, new(felt.Felt), block.ProtocolVersion)
+		assert.Equal(t, len(response.Transactions), len(block.Transactions))
+		assert.Equal(t, len(response.Receipts), len(block.Receipts))
+		assert.Equal(t, "0.10.1", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
-		// TODO test transaction commitment...?
-		// TODO test event commitment and count
 	})
 	t.Run("error with unknown transaction", func(t *testing.T) {
 		err := json.Unmarshal(block147Json, &response)

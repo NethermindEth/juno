@@ -164,18 +164,7 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block,
 		}
 	}
 
-	h, err := core.BlockHash(block, b.network)
-	if err != nil && !errors.As(err, new(*core.ErrUnverifiableBlock)) {
-		return err
-	}
-
-	if h != nil && !block.Hash.Equal(h) {
-		return &ErrIncompatibleBlock{fmt.Sprintf(
-			"incorrect block hash: block.Hash = %v and BlockHash(block) = %v",
-			block.Hash.Text(16), h.Text(16))}
-	}
-
-	return nil
+	return core.VerifyBlockHash(block, b.network)
 }
 
 // putBlock stores the given block in the database. No check on whether the hash matches or not is done

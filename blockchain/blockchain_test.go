@@ -3,7 +3,6 @@ package blockchain
 import (
 	_ "embed"
 	"encoding/binary"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -76,32 +75,11 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 		txn := chain.database.NewTransaction(true)
 		defer txn.Discard()
 
-		var err error
-		block := new(core.Block)
-		block.Number = 0xDEADBEEF
-		block.Hash, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.ParentHash, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.GlobalStateRoot, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.SequencerAddress, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.Timestamp, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.TransactionCount, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.TransactionCommitment, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.EventCount, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.EventCommitment, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.ProtocolVersion, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		block.ExtraData, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
 
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
 		require.NoError(t, putBlock(txn, block))
 
 		storedByNumber, err := getBlockByNumber(txn, block.Number)
@@ -131,13 +109,13 @@ func TestVerifyBlock(t *testing.T) {
 	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
-		block := &core.Block{Number: 10}
+		block := &core.Block{Header: core.Header{Number: 10}}
 		expectedErr := &ErrIncompatibleBlock{"cannot insert a block with number more than 0 in an empty blockchain"}
 		assert.EqualError(t, chain.VerifyBlock(block, nil), expectedErr.Error())
 	})
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
-		block := &core.Block{ParentHash: h1}
+		block := &core.Block{Header: core.Header{ParentHash: h1}}
 		expectedErr := &ErrIncompatibleBlock{"cannot insert a block with non-zero parent hash in an empty blockchain"}
 		assert.EqualError(t, chain.VerifyBlock(block, nil), expectedErr.Error())
 	})
@@ -155,7 +133,7 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
-			incomingBlock := &core.Block{Number: 10}
+			incomingBlock := &core.Block{Header: core.Header{Number: 10}}
 
 			expectedErr := &ErrIncompatibleBlock{
 				"block number difference between head and incoming block is not 1",
@@ -164,7 +142,7 @@ func TestVerifyBlock(t *testing.T) {
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
-		incomingBlock := &core.Block{ParentHash: h1, Number: 1}
+		incomingBlock := &core.Block{Header: core.Header{ParentHash: h1, Number: 1}}
 
 		expectedErr := &ErrIncompatibleBlock{
 			"block's parent hash does not match head block hash",
@@ -201,10 +179,7 @@ func TestVerifyBlock(t *testing.T) {
 		*wrongHashStateUpdate = *mainnetStateUpdate1
 		wrongHashStateUpdate.BlockHash = wrongHashBlock.Hash
 
-		expectedErr := &ErrIncompatibleBlock{fmt.Sprintf(
-			"incorrect block hash: block.Hash = %v and BlockHash(block) = %v",
-			wrongHashBlock.Hash.Text(16), mainnetBlock1.Hash.Text(16))}
-		assert.Equal(t, chain.VerifyBlock(wrongHashBlock, wrongHashStateUpdate), expectedErr)
+		assert.EqualError(t, chain.VerifyBlock(wrongHashBlock, wrongHashStateUpdate), "can not verify hash in block header")
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {

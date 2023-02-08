@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -9,15 +10,9 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type ErrUnverifiableBlock struct {
-	blockNumber uint64
-}
+var ErrCantVerifyBlockHash = errors.New("can not verify hash in block header")
 
-func (e ErrUnverifiableBlock) Error() string {
-	return fmt.Sprintf("block is unverifiable: %d", e.blockNumber)
-}
-
-type Block struct {
+type Header struct {
 	// The hash of this block
 	Hash *felt.Felt
 	// The hash of this block’s parent
@@ -30,21 +25,16 @@ type Block struct {
 	SequencerAddress *felt.Felt
 	// The time the sequencer created this block before executing transactions
 	Timestamp *felt.Felt
-	// TODO: Add Transactions and TransactionReceipts
-	// TODO: Remove TransactionCount and EventCount
-	// The number of transactions in a block
-	TransactionCount *felt.Felt
-	// A commitment to the transactions included in the block
-	TransactionCommitment *felt.Felt
-	// The number of events
-	EventCount *felt.Felt
-	// A commitment to the events produced in this block
-	EventCommitment *felt.Felt
 	// The version of the StarkNet protocol used when creating this block
-	// Todo: change ProtocolVersion type  to string
-	ProtocolVersion *felt.Felt
+	ProtocolVersion string
 	// Extraneous data that might be useful for running transactions
 	ExtraData *felt.Felt
+}
+
+type Block struct {
+	Header
+	Transactions []Transaction
+	Receipts     []*TransactionReceipt
 }
 
 type blockHashMetaInfo struct {
@@ -94,53 +84,93 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
-// BlockHash computes the block hash. Due to bugs in StarkNet alpha, not all blocks have
-// verifiable hashes. In that case, an [ErrUnverifiableBlock] is returned.
-func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
+// VerifyBlockHash verifies the block hash. Due to bugs in StarkNet alpha, not all blocks have
+// verifiable hashes.
+func VerifyBlockHash(b *Block, network utils.Network) error {
 	metaInfo := getBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
 	if unverifiableRange != nil {
 		// Check if the block number is in the unverifiable range
 		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
-			// If so, return unverifiable block error
-			return nil, &ErrUnverifiableBlock{blockNumber: b.Number}
+			// If so, return success
+			return nil
 		}
 	}
 
-	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainId()), nil
-	} else if b.SequencerAddress == nil {
-		b.SequencerAddress = metaInfo.FallBackSequencerAddress
+	for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
+		var overrideSeq *felt.Felt
+		if b.SequencerAddress == nil {
+			overrideSeq = fallbackSeq
+		}
+
+		if hash, err := blockHash(b, network, overrideSeq); err != nil {
+			return err
+		} else if hash.Equal(b.Hash) {
+			return nil
+		}
 	}
-	return post07Hash(b), nil
+	return ErrCantVerifyBlockHash
+}
+
+// BlockHash computes the block hash
+func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
+	return blockHash(b, network, nil)
+}
+
+// blockHash computes the block hash, with option to override sequence address
+func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
+	metaInfo := getBlockHashMetaInfo(network)
+
+	if b.Number < metaInfo.First07Block {
+		return pre07Hash(b, network.ChainId())
+	}
+	return post07Hash(b, overrideSeqAddr)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt) *felt.Felt {
+func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
-	zeroFelt := new(felt.Felt)
+	transactionCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
+	transactionCommitment, err := TransactionCommitment(b.Receipts)
+	if err != nil {
+		return nil, err
+	}
 
 	return crypto.PedersenArray(
-		blockNumber,             // block number
-		b.GlobalStateRoot,       // global state root
-		zeroFelt,                // reserved: sequencer address
-		zeroFelt,                // reserved: block timestamp
-		b.TransactionCount,      // number of transactions
-		b.TransactionCommitment, // transaction commitment
-		zeroFelt,                // reserved: number of events
-		zeroFelt,                // reserved: event commitment
-		zeroFelt,                // reserved: protocol version
-		zeroFelt,                // reserved: extra data
-		chain,                   // extra data: chain id
-		b.ParentHash,            // parent hash
-	)
+		blockNumber,           // block number
+		b.GlobalStateRoot,     // global state root
+		&felt.Zero,            // reserved: sequencer address
+		&felt.Zero,            // reserved: block timestamp
+		transactionCount,      // number of transactions
+		transactionCommitment, // transaction commitment
+		&felt.Zero,            // reserved: number of events
+		&felt.Zero,            // reserved: event commitment
+		&felt.Zero,            // reserved: protocol version
+		&felt.Zero,            // reserved: extra data
+		chain,                 // extra data: chain id
+		b.ParentHash,          // parent hash
+	), nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block) *felt.Felt {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
-	zeroFelt := new(felt.Felt)
+	seqAddr := b.SequencerAddress
+	if overrideSeqAddr != nil {
+		seqAddr = overrideSeqAddr
+	}
+
+	transactionCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
+	transactionCommitment, err := TransactionCommitment(b.Receipts)
+	if err != nil {
+		return nil, err
+	}
+
+	eventCommitment, eventCount, err := EventCommitmentAndCount(b.Receipts)
+	if err != nil {
+		return nil, err
+	}
 
 	// Unlike the pre07Hash computation, we exclude the chain
 	// id and replace the zero felt with the actual values for:
@@ -149,18 +179,18 @@ func post07Hash(b *Block) *felt.Felt {
 	// - number of events
 	// - event commitment
 	return crypto.PedersenArray(
-		blockNumber,             // block number
-		b.GlobalStateRoot,       // global state root
-		b.SequencerAddress,      // sequencer address
-		b.Timestamp,             // block timestamp
-		b.TransactionCount,      // number of transactions
-		b.TransactionCommitment, // transaction commitment
-		b.EventCount,            // number of events
-		b.EventCommitment,       // event commitment
-		zeroFelt,                // reserved: protocol version
-		zeroFelt,                // reserved: extra data
-		b.ParentHash,            // parent block hash
-	)
+		blockNumber,                          // block number
+		b.GlobalStateRoot,                    // global state root
+		seqAddr,                              // sequencer address
+		b.Timestamp,                          // block timestamp
+		transactionCount,                     // number of transactions
+		transactionCommitment,                // transaction commitment
+		new(felt.Felt).SetUint64(eventCount), // number of events
+		eventCommitment,                      // event commitment
+		&felt.Zero,                           // reserved: protocol version
+		&felt.Zero,                           // reserved: extra data
+		b.ParentHash,                         // parent block hash
+	), nil
 }
 
 // TransactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
