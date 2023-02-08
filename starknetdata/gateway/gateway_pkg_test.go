@@ -32,7 +32,7 @@ func TestAdaptBlock(t *testing.T) {
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 		assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
 		assert.Equal(t, new(felt.Felt).SetUint64(uint64(len(response.Transactions))), block.TransactionCount)
-		assert.Equal(t, new(felt.Felt), block.ProtocolVersion)
+		assert.Equal(t, "0.10.1", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
 		// TODO test transaction commitment...?
 		// TODO test event commitment and count
@@ -50,7 +50,7 @@ func TestAdaptBlock(t *testing.T) {
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 		assert.True(t, block.Timestamp.Equal(new(felt.Felt).SetUint64(response.Timestamp)))
 		assert.Equal(t, new(felt.Felt).SetUint64(uint64(len(response.Transactions))), block.TransactionCount)
-		assert.Equal(t, new(felt.Felt), block.ProtocolVersion)
+		assert.Equal(t, "0.10.1", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
 		// TODO test transaction commitment...?
 		// TODO test event commitment and count

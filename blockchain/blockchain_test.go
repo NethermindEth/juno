@@ -96,8 +96,7 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 		require.NoError(t, err)
 		block.EventCommitment, err = new(felt.Felt).SetRandom()
 		require.NoError(t, err)
-		block.ProtocolVersion, err = new(felt.Felt).SetRandom()
-		require.NoError(t, err)
+		block.ProtocolVersion = "0.1.0"
 		block.ExtraData, err = new(felt.Felt).SetRandom()
 		require.NoError(t, err)
 

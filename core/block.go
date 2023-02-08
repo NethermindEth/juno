@@ -36,8 +36,7 @@ type Block struct {
 	// A commitment to the events produced in this block
 	EventCommitment *felt.Felt
 	// The version of the StarkNet protocol used when creating this block
-	// Todo: change ProtocolVersion type  to string
-	ProtocolVersion *felt.Felt
+	ProtocolVersion string
 	// Extraneous data that might be useful for running transactions
 	ExtraData *felt.Felt
 }

@@ -89,7 +89,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 		TransactionCommitment: txCommitment,
 		EventCount:            new(felt.Felt).SetUint64(eventCount),
 		EventCommitment:       eventCommitment,
-		ProtocolVersion:       new(felt.Felt),
+		ProtocolVersion:       response.Version,
 		ExtraData:             nil,
 		SequencerAddress:      response.SequencerAddress,
 	}, nil
