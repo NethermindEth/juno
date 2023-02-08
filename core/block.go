@@ -98,38 +98,34 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		}
 	}
 
-	if b.Number < metaInfo.First07Block {
-		if hash, err := pre07Hash(b, network.ChainId()); err != nil {
+	for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
+		var overrideSeq *felt.Felt
+		if b.SequencerAddress == nil {
+			overrideSeq = fallbackSeq
+		}
+
+		if hash, err := blockHash(b, network, overrideSeq); err != nil {
 			return err
 		} else if hash.Equal(b.Hash) {
 			return nil
 		}
-	} else {
-		for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
-			var overrideSeq *felt.Felt
-			if b.SequencerAddress == nil {
-				overrideSeq = fallbackSeq
-			}
-
-			if hash, err := post07Hash(b, overrideSeq); err != nil {
-				return err
-			} else if hash.Equal(b.Hash) {
-				return nil
-			}
-		}
 	}
-
 	return ErrCantVerifyBlockHash
 }
 
 // BlockHash computes the block hash
 func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
+	return blockHash(b, network, nil)
+}
+
+// blockHash computes the block hash, with option to override sequence address
+func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	metaInfo := getBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
 		return pre07Hash(b, network.ChainId())
 	}
-	return post07Hash(b, nil)
+	return post07Hash(b, overrideSeqAddr)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
