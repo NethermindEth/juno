@@ -77,7 +77,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				errChan <- ErrSyncFailed{block.Number, err}
 				return
 			}
-			err = s.Blockchain.Store(block, stateUpdate)
+			err = s.Blockchain.StoreBlock(block, stateUpdate)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number, "hash", block.Hash.Text(16),
 					"err", err.Error())

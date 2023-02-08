@@ -35,7 +35,7 @@ func TestNewBlockchain(t *testing.T) {
 
 		testDB := db.NewTestDb()
 		chain := NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, chain.Store(block0, stateUpdate0))
+		assert.NoError(t, chain.StoreBlock(block0, stateUpdate0))
 
 		chain = NewBlockchain(testDB, utils.MAINNET)
 		b, err := chain.Head()
@@ -61,7 +61,7 @@ func TestHeight(t *testing.T) {
 
 		testDB := db.NewTestDb()
 		chain := NewBlockchain(testDB, utils.MAINNET)
-		assert.NoError(t, chain.Store(block0, stateUpdate0))
+		assert.NoError(t, chain.StoreBlock(block0, stateUpdate0))
 
 		chain = NewBlockchain(testDB, utils.MAINNET)
 		height, err := chain.Height()
@@ -72,7 +72,7 @@ func TestHeight(t *testing.T) {
 
 func TestGetBlockByNumberAndHash(t *testing.T) {
 	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
-	t.Run("same block is returned for both by GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
+	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		txn := chain.database.NewTransaction(true)
 		defer txn.Discard()
 
@@ -83,13 +83,13 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, putBlock(txn, block))
 
-		storedByNumber, err := getBlockByNumber(txn, block.Number)
+		storedBlockByNumber, err := getBlockByNumber(txn, block.Number)
 		require.NoError(t, err)
-		assert.Equal(t, block, storedByNumber)
+		assert.Equal(t, block, storedBlockByNumber)
 
-		storedByHash, err := getBlockByHash(txn, block.Hash)
+		storedBlockByHash, err := getBlockByHash(txn, block.Hash)
 		require.NoError(t, err)
-		assert.Equal(t, block, storedByHash)
+		assert.Equal(t, block, storedBlockByHash)
 	})
 	t.Run("GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
 		_, err := chain.GetBlockByNumber(42)
@@ -130,7 +130,7 @@ func TestVerifyBlock(t *testing.T) {
 	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
+	require.NoError(t, chain.StoreBlock(mainnetBlock0, mainnetStateUpdate0))
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
@@ -226,7 +226,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	})
 }
 
-func TestStore(t *testing.T) {
+func TestStoreBlock(t *testing.T) {
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
 
@@ -238,7 +238,7 @@ func TestStore(t *testing.T) {
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		require.NoError(t, chain.Store(block0, stateUpdate0))
+		require.NoError(t, chain.StoreBlock(block0, stateUpdate0))
 
 		headBlock, err := chain.Head()
 		assert.NoError(t, err)
@@ -263,8 +263,8 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 
 		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
-		require.NoError(t, chain.Store(block0, stateUpdate0))
-		require.NoError(t, chain.Store(block1, stateUpdate1))
+		require.NoError(t, chain.StoreBlock(block0, stateUpdate0))
+		require.NoError(t, chain.StoreBlock(block1, stateUpdate1))
 
 		headBlock, err := chain.Head()
 		assert.NoError(t, err)
@@ -281,4 +281,24 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, got1Block, block1)
 	})
+}
+
+func TestGetTransaction(t *testing.T) {
+	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
+	t.Run("same transaction is returned for both GetTransactionByBlockNumAndIndex and GetTransactionByHash", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+	})
+}
+
+func TestVerifyTransaction(t *testing.T) {
+}
+
+func TestStoreTransaction(t *testing.T) {
+}
+
+func TestGetTransactionReceipt(t *testing.T) {
+}
+
+func TestStoreTransactionReceipt(t *testing.T) {
 }
