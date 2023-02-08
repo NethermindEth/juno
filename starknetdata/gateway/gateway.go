@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+var ErrUnknownTransaction = errors.New("unknown transaction")
+
 type Gateway struct {
 	client *clients.GatewayClient
 }
@@ -42,6 +44,15 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 		return nil, nil
 	}
 
+	txns := make([]core.Transaction, len(response.Transactions))
+	for i, txn := range response.Transactions {
+		var err error
+		txns[i], err = adaptTransaction(txn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Receipts
 	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
 	var txType core.TransactionType
@@ -61,37 +72,25 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 		case "L1_HANDLER":
 			txType = core.L1Handler
 		default:
-			return nil, errors.New("unknown transaction")
+			return nil, ErrUnknownTransaction
 
 		}
 		receipts[i] = adaptTransactionReceipt(receipt, txType, t.Signature)
 	}
 
-	// Events
-	eventCommitment, eventCount, err := core.EventCommitmentAndCount(receipts)
-	if err != nil {
-		return nil, err
-	}
-
-	// Transaction Commitment
-	txCommitment, err := core.TransactionCommitment(receipts)
-	if err != nil {
-		return nil, err
-	}
-
 	return &core.Block{
-		Hash:                  response.Hash,
-		ParentHash:            response.ParentHash,
-		Number:                response.Number,
-		GlobalStateRoot:       response.StateRoot,
-		Timestamp:             new(felt.Felt).SetUint64(response.Timestamp),
-		TransactionCount:      new(felt.Felt).SetUint64(uint64(len(response.Transactions))),
-		TransactionCommitment: txCommitment,
-		EventCount:            new(felt.Felt).SetUint64(eventCount),
-		EventCommitment:       eventCommitment,
-		ProtocolVersion:       response.Version,
-		ExtraData:             nil,
-		SequencerAddress:      response.SequencerAddress,
+		Header: core.Header{
+			Hash:             response.Hash,
+			ParentHash:       response.ParentHash,
+			Number:           response.Number,
+			GlobalStateRoot:  response.StateRoot,
+			Timestamp:        new(felt.Felt).SetUint64(response.Timestamp),
+			ProtocolVersion:  response.Version,
+			ExtraData:        nil,
+			SequencerAddress: response.SequencerAddress,
+		},
+		Transactions: txns,
+		Receipts:     receipts,
 	}, nil
 }
 
@@ -220,8 +219,12 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 	case "INVOKE_FUNCTION":
 		invokeTx := adaptInvokeTransaction(transaction)
 		return invokeTx, nil
+	case "DEPLOY_ACCOUNT":
+		return &core.DeployAccountTransaction{}, nil // todo
+	case "L1_HANDLER":
+		return &core.L1HandlerTransaction{}, nil // todo
 	default:
-		return nil, errors.New("txn type not recognized")
+		return nil, ErrUnknownTransaction
 	}
 }
 

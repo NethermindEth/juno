@@ -4,11 +4,11 @@ import (
 	_ "embed"
 	"testing"
 
-	"github.com/NethermindEth/juno/testsource"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlockHash(t *testing.T) {
@@ -88,7 +88,7 @@ func TestBlockHash(t *testing.T) {
 			defer closer.Close()
 
 			block, err := client.BlockByNumber(tt.blockNumber)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.NoError(t, core.VerifyBlockHash(block, tt.chain))
 		})
 	}

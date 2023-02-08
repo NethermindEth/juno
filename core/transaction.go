@@ -223,3 +223,19 @@ func (d *DeclareTransaction) Hash(network utils.Network) (*felt.Felt, error) {
 	}
 	return nil, errors.New("invalid transaction version")
 }
+
+type L1HandlerTransaction struct {
+	// todo
+}
+
+func (h *L1HandlerTransaction) Hash(network utils.Network) (*felt.Felt, error) {
+	panic("not implemented")
+}
+
+type DeployAccountTransaction struct {
+	// todo
+}
+
+func (d *DeployAccountTransaction) Hash(network utils.Network) (*felt.Felt, error) {
+	panic("not implemented")
+}
