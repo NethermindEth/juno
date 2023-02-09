@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"sync"
 	"syscall"
@@ -19,26 +20,16 @@ type spyJuno struct {
 	sync.RWMutex
 	cfg   *node.Config
 	calls []string
-	exit  chan struct{}
 }
 
 func newSpyJuno(junoCfg *node.Config) (node.StarknetNode, error) {
-	return &spyJuno{cfg: junoCfg, exit: make(chan struct{})}, nil
+	return &spyJuno{cfg: junoCfg}, nil
 }
 
-func (s *spyJuno) Run() error {
+func (s *spyJuno) Run(ctx context.Context) error {
 	s.Lock()
 	s.calls = append(s.calls, "run")
 	s.Unlock()
-	<-s.exit
-	return nil
-}
-
-func (s *spyJuno) Shutdown() error {
-	s.Lock()
-	s.calls = append(s.calls, "shutdown")
-	s.Unlock()
-	s.exit <- struct{}{}
 	return nil
 }
 
@@ -67,7 +58,7 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 
 		n, ok := juno.StarknetNode.(*spyJuno)
 		require.Equal(t, true, ok)
-		assert.Equal(t, []string{"run", "shutdown"}, n.calls)
+		assert.Equal(t, []string{"run"}, n.calls)
 	})
 
 	t.Run("config precedence", func(t *testing.T) {
@@ -268,7 +259,7 @@ network: 1
 				n, ok := juno.StarknetNode.(*spyJuno)
 				require.Equal(t, true, ok)
 				assert.Equal(t, tc.expectedConfig, n.cfg)
-				assert.Equal(t, []string{"run", "shutdown"}, n.calls)
+				assert.Equal(t, []string{"run"}, n.calls)
 			})
 		}
 	})

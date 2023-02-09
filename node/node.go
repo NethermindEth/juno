@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -13,8 +14,7 @@ import (
 )
 
 type StarknetNode interface {
-	Run() error
-	Shutdown() error
+	Run(ctx context.Context) error
 }
 
 type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
@@ -63,7 +63,7 @@ func New(cfg *Config) (StarknetNode, error) {
 	return &Node{cfg: cfg}, nil
 }
 
-func (n *Node) Run() error {
+func (n *Node) Run(ctx context.Context) error {
 	var err error
 	n.log, err = utils.NewZapLogger(n.cfg.Verbosity)
 	if err != nil {
@@ -83,13 +83,11 @@ func (n *Node) Run() error {
 	defer n.db.Close()
 	n.blockchain = blockchain.NewBlockchain(n.db, n.cfg.Network)
 	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network), n.log)
-	return n.synchronizer.Run()
-}
-
-func (n *Node) Shutdown() error {
-	n.log.Infow("Shutting down Juno...")
-
-	return n.synchronizer.Shutdown()
+	go func() {
+		<-ctx.Done()
+		n.log.Infow("Shutting down Juno...")
+	}()
+	return n.synchronizer.Run(ctx)
 }
 
 func (n *Node) Config() Config {

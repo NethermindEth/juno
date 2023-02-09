@@ -41,7 +41,7 @@ func TestSyncBlocks(t *testing.T) {
 		testDB := db.NewTestDb()
 		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
 		synchronizer := NewSynchronizer(bc, gw, log)
-		assert.Error(t, synchronizer.SyncBlocks())
+		assert.Error(t, synchronizer.SyncBlocks(context.Background()))
 
 		testBlockchain(t, bc)
 	})
@@ -55,7 +55,7 @@ func TestSyncBlocks(t *testing.T) {
 		assert.NoError(t, bc.Store(b0, s0))
 
 		synchronizer := NewSynchronizer(bc, gw, log)
-		assert.Error(t, synchronizer.SyncBlocks())
+		assert.Error(t, synchronizer.SyncBlocks(context.Background()))
 
 		testBlockchain(t, bc)
 	})
