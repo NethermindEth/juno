@@ -79,7 +79,11 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 		assert.Equal(t, input, v)
 	case *core.DeployTransaction:
 		assert.Equal(t, input, v)
+	case *core.DeployAccountTransaction:
+		assert.Equal(t, input, v)
 	case *core.InvokeTransaction:
+		assert.Equal(t, input, v)
+	case *core.L1HandlerTransaction:
 		assert.Equal(t, input, v)
 	default:
 		t.Error("not a transaction")
