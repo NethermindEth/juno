@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type Backoff func(wait time.Duration) time.Duration
@@ -23,6 +24,7 @@ type GatewayClient struct {
 	maxRetries int
 	maxWait    time.Duration
 	minWait    time.Duration
+	log        utils.SimpleLogger
 }
 
 func (c *GatewayClient) WithBackoff(b Backoff) *GatewayClient {
@@ -45,6 +47,11 @@ func (c *GatewayClient) WithMinWait(d time.Duration) *GatewayClient {
 	return c
 }
 
+func (c *GatewayClient) WithLogger(log utils.SimpleLogger) *GatewayClient {
+	c.log = log
+	return c
+}
+
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	time.Sleep(wait)
 	return wait * 2
@@ -62,6 +69,7 @@ func NewGatewayClient(url string) *GatewayClient {
 		maxRetries: 35, // ~35 minutes with default backoff and maxWait (block time on mainnet is 20-30 minutes)
 		maxWait:    time.Minute,
 		minWait:    time.Second,
+		log:        utils.NewNopZapLogger(),
 	}
 }
 
@@ -100,7 +108,7 @@ func (c *GatewayClient) get(ctx context.Context, queryUrl string) ([]byte, error
 		} else if err != nil {
 			return nil, err
 		}
-
+		c.log.Warnw("failed query to feeder gateway, retrying...", "retryAfter", wait.String())
 		wait = c.backoff(wait)
 		if wait > c.maxWait {
 			wait = c.maxWait
