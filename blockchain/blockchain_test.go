@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/binary"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -288,17 +289,193 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("same transaction is returned for both GetTransactionByBlockNumAndIndex and GetTransactionByHash", func(t *testing.T) {
 		txn := chain.database.NewTransaction(true)
 		defer txn.Discard()
+
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
+
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
+		transaction := (block.Transactions[0])
+
+		bnIndex := joinBlockNumberAndIndex(block.Number, 0)
+		hash := transaction.(*core.DeployTransaction).Hash
+		require.NoError(t, putTransaction(txn, bnIndex, hash, transaction))
+
+		storedTransactionByNumIndex, err := getTransactionByBnIndexBytes(txn, bnIndex)
+		require.NoError(t, err)
+		switch v := storedTransactionByNumIndex.(type) {
+		case *core.DeclareTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.DeployTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.InvokeTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.DeployAccountTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.L1HandlerTransaction:
+			assert.Equal(t, transaction, v)
+		default:
+			t.Fatalf("unexpected transaction type %T", v)
+		}
+
+		storedTransactionByHash, err := getTransactionByHash(txn, hash)
+		require.NoError(t, err)
+
+		switch v := storedTransactionByHash.(type) {
+		case *core.DeclareTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.DeployTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.InvokeTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.DeployAccountTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.L1HandlerTransaction:
+			assert.Equal(t, transaction, v)
+		default:
+			t.Fatalf("unexpected transaction type %T", v)
+		}
+	})
+
+	t.Run("GetTransactionByBlockNumAndIndex returns error if transaction does not exist", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		bnIndex := joinBlockNumberAndIndex(0, 0)
+		_, err := getTransactionByBnIndexBytes(txn, bnIndex)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
+
+	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		_, err := getTransactionByHash(txn, new(felt.Felt))
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 }
 
 func TestVerifyTransaction(t *testing.T) {
+	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+
+	t.Run("error if transaction hash is not calculated properly", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
+
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
+		transaction := (block.Transactions[0])
+
+		transaction.(*core.DeployTransaction).Hash = new(felt.Felt)
+
+		hash, err := chain.VerifyTransaction(transaction)
+		expectedErr := ErrIncompatibleTransaction{fmt.Sprintf(
+			"incorrect transaction hash: hash = %v and transaction.Hash(b.network) = %v",
+			new(felt.Felt).Text(16), hash.Text(16))}
+		assert.EqualError(t, err, expectedErr.Error())
+	})
+
+	t.Run("no error if transaction hash is calculated properly", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
+
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
+		transaction := (block.Transactions[4])
+
+		hash, err := chain.VerifyTransaction(transaction)
+		assert.NoError(t, err)
+		assert.Equal(t, hash, transaction.(*core.InvokeTransaction).Hash)
+	})
 }
 
 func TestStoreTransaction(t *testing.T) {
+	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+	t.Run("correct transaction is stored", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
+
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
+		transaction := (block.Transactions[4])
+		require.NoError(t, chain.StoreTransaction(block.Number, 4, transaction))
+
+		storedTransactionByNumIndex, err := chain.GetTransactionByBlockNumAndIndex(block.Number, 4)
+		require.NoError(t, err)
+		switch v := storedTransactionByNumIndex.(type) {
+		case *core.DeclareTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.DeployTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.InvokeTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.DeployAccountTransaction:
+			assert.Equal(t, transaction, v)
+		case *core.L1HandlerTransaction:
+			assert.Equal(t, transaction, v)
+		default:
+			t.Fatalf("unexpected transaction type %T", v)
+		}
+	})
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
+	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
+
+	t.Run("correct receipt is returned for a transaction", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
+
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
+		receipt := (block.Receipts[0])
+		assert.Equal(t, receipt.TransactionIndex, uint64(0))
+
+		hash := receipt.TransactionHash
+		bnIndex := joinBlockNumberAndIndex(block.Number, receipt.TransactionIndex)
+		require.NoError(t, putReceipt(txn, bnIndex, receipt))
+
+		storedReceipt, err := getReceiptByHash(txn, hash)
+		assert.NoError(t, err)
+		assert.Equal(t, receipt, storedReceipt)
+	})
+
+	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
+		_, err := chain.GetReceipt(new(felt.Felt))
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
 }
 
-func TestStoreTransactionReceipt(t *testing.T) {
+func TestStoreReceipt(t *testing.T) {
+	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
+
+	t.Run("receipt is stored correctly", func(t *testing.T) {
+		txn := chain.database.NewTransaction(true)
+		defer txn.Discard()
+
+		gw, closer := testsource.NewTestGateway(utils.MAINNET)
+		defer closer.Close()
+
+		block, err := gw.BlockByNumber(0)
+		require.NoError(t, err)
+		receipt := (block.Receipts[0])
+		assert.Equal(t, receipt.TransactionIndex, uint64(0))
+		assert.NoError(t, chain.StoreReceipt(block.Number, *block.Receipts[0]))
+
+		storedReceipt, err := chain.GetReceipt(receipt.TransactionHash)
+		assert.NoError(t, err)
+		assert.Equal(t, receipt, storedReceipt)
+	})
 }
