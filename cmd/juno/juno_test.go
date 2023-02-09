@@ -22,7 +22,7 @@ type spyJuno struct {
 	exit  chan struct{}
 }
 
-func newSpyJuno(junoCfg *node.Config) (node.StarkNetNode, error) {
+func newSpyJuno(junoCfg *node.Config) (node.StarknetNode, error) {
 	return &spyJuno{cfg: junoCfg, exit: make(chan struct{})}, nil
 }
 
@@ -52,7 +52,7 @@ func TestNewCmd(t *testing.T) {
  | |__| | |_| | | | | (_) |  
   \____/ \__,_|_| |_|\___/  
 
-Juno is a Go implementation of a StarkNet full node client created by Nethermind.
+Juno is a Go implementation of a Starknet full node client created by Nethermind.
 
 `
 		b := new(bytes.Buffer)
@@ -65,7 +65,7 @@ Juno is a Go implementation of a StarkNet full node client created by Nethermind
 		actual := b.String()
 		assert.Equal(t, expected, actual)
 
-		n, ok := juno.StarkNetNode.(*spyJuno)
+		n, ok := juno.StarknetNode.(*spyJuno)
 		require.Equal(t, true, ok)
 		assert.Equal(t, []string{"run", "shutdown"}, n.calls)
 	})
@@ -75,7 +75,7 @@ Juno is a Go implementation of a StarkNet full node client created by Nethermind
 		// values is respected. Since viper offers this feature, it would be
 		// redundant to enumerate all combinations. Thus, only a select few are
 		// tested for sanity. These tests are not intended to perform semantics
-		// checks on the config, those will be checked by the StarkNetNode
+		// checks on the config, those will be checked by the StarknetNode
 		// implementation.
 		defaultVerbosity := "info"
 		defaultRpcPort := uint16(6060)
@@ -265,7 +265,7 @@ network: 1
 				}
 				require.NoError(t, err)
 
-				n, ok := juno.StarkNetNode.(*spyJuno)
+				n, ok := juno.StarknetNode.(*spyJuno)
 				require.Equal(t, true, ok)
 				assert.Equal(t, tc.expectedConfig, n.cfg)
 				assert.Equal(t, []string{"run", "shutdown"}, n.calls)

@@ -31,7 +31,7 @@ func (e ErrIncompatibleBlock) Error() string {
 	return fmt.Sprintf("incompatible block: %v", e.reason)
 }
 
-// Blockchain is responsible for keeping track of all things related to the StarkNet blockchain
+// Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network  utils.Network
 	database db.DB

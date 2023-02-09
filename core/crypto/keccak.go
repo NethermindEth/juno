@@ -7,10 +7,10 @@ import (
 
 var h = sha3.NewLegacyKeccak256()
 
-// StarkNetKeccak implements [StarkNet keccak]
+// StarknetKeccak implements [Starknet keccak]
 //
-// [StarkNet keccak]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#starknet_keccak
-func StarkNetKeccak(b []byte) (*felt.Felt, error) {
+// [Starknet keccak]: https://docs.starknet.//io/documentation/develop/Hashing/hash-functions/#starknet_keccak
+func StarknetKeccak(b []byte) (*felt.Felt, error) {
 	h.Reset()
 	_, err := h.Write(b)
 	if err != nil {

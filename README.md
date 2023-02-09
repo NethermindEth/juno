@@ -33,7 +33,7 @@
 
 
 <p align="center">
-  <b>Juno</b> is a golang <a href="https://starknet.io/">StarkNet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising StarkNet.
+  <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
 ## ⚙️ Installation
@@ -59,7 +59,7 @@ make juno
 * [X] Flat DB implementation of trie
 * [X] Go implementation of crypto primitives
     * [X] Pedersen hash
-    * [X] StarkNet_Keccak
+    * [X] Starknet_Keccak
     * [X] Felt
 * [ ] Feeder gateway synchronisation (in progress)
     * [ ] State Update

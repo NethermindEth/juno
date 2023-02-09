@@ -18,7 +18,7 @@ const greeting = `
  | |__| | |_| | | | | (_) |  
   \____/ \__,_|_| |_|\___/  
 
-Juno is a Go implementation of a StarkNet full node client created by Nethermind.
+Juno is a Go implementation of a Starknet full node client created by Nethermind.
 
 `
 
@@ -53,7 +53,7 @@ const (
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
-	networkUsage = `Available StarkNet networks. Options:
+	networkUsage = `Available Starknet networks. Options:
 0 = mainnet
 1 = goerli
 2 = goerli2
@@ -63,14 +63,14 @@ const (
 )
 
 var (
-	StarkNetNode node.StarkNetNode
+	StarknetNode node.StarknetNode
 	cfgFile      string
 )
 
-func NewCmd(newNodeFn node.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Command {
+func NewCmd(newNodeFn node.NewStarknetNodeFn, quit <-chan os.Signal) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:   "juno [flags]",
-		Short: "StarkNet client implementation in Go.",
+		Short: "Starknet client implementation in Go.",
 	}
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
@@ -106,7 +106,7 @@ func NewCmd(newNodeFn node.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Comm
 			return err
 		}
 
-		StarkNetNode, err = newNodeFn(junoCfg)
+		StarknetNode, err = newNodeFn(junoCfg)
 		if err != nil {
 			return err
 		}
@@ -114,13 +114,13 @@ func NewCmd(newNodeFn node.NewStarkNetNodeFn, quit <-chan os.Signal) *cobra.Comm
 		shutDownErrCh := make(chan error)
 		go func() {
 			<-quit
-			if shutdownErr := StarkNetNode.Shutdown(); shutdownErr != nil {
+			if shutdownErr := StarknetNode.Shutdown(); shutdownErr != nil {
 				shutDownErrCh <- shutdownErr
 			}
 			close(shutDownErrCh)
 		}()
 
-		if err = StarkNetNode.Run(); err != nil {
+		if err = StarknetNode.Run(); err != nil {
 			return err
 		}
 

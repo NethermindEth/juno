@@ -101,7 +101,7 @@ type DeployTransaction struct {
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
-	// Transaction version 0 is deprecated and will be removed in a future version of StarkNet.
+	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
 	Version *felt.Felt
 }
 
@@ -161,7 +161,7 @@ type DeclareTransaction struct {
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
-	// Transaction version 0 is deprecated and will be removed in a future version of StarkNet.
+	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
 	Version *felt.Felt
 }
 
@@ -219,7 +219,7 @@ func TransactionHash(transaction Transaction, network utils.Network) (*felt.Felt
 }
 
 func deployTransactionHash(d *DeployTransaction, network utils.Network) (*felt.Felt, error) {
-	snKeccakConstructor, err := crypto.StarkNetKeccak([]byte("constructor"))
+	snKeccakConstructor, err := crypto.StarknetKeccak([]byte("constructor"))
 	if err != nil {
 		return nil, err
 	}

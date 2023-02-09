@@ -58,7 +58,7 @@ func ProgramHash(contractDefinition *ClassDefinition) (*felt.Felt, error) {
 		return nil, err
 	}
 
-	programKeccak, err := crypto.StarkNetKeccak(programBytes)
+	programKeccak, err := crypto.StarknetKeccak(programBytes)
 	if err != nil {
 		return nil, err
 	}

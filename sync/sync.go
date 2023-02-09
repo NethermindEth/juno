@@ -9,21 +9,21 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
-// Synchronizer manages a list of StarkNetData to fetch the latest blockchain updates
+// Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	running uint64
 
 	Blockchain   *blockchain.Blockchain
-	StarkNetData starknetdata.StarkNetData
+	StarknetData starknetdata.StarknetData
 
 	quit chan struct{}
 }
 
-func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarkNetData) *Synchronizer {
+func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData) *Synchronizer {
 	return &Synchronizer{
 		running:      0,
 		Blockchain:   bc,
-		StarkNetData: starkNetData,
+		StarknetData: starkNetData,
 		quit:         make(chan struct{}),
 	}
 }
@@ -57,13 +57,13 @@ func (s *Synchronizer) SyncBlocks() error {
 			if h, err := s.Blockchain.Height(); err == nil {
 				nextHeight = h + 1
 			}
-			block, err := s.StarkNetData.BlockByNumber(nextHeight)
+			block, err := s.StarknetData.BlockByNumber(nextHeight)
 			if err != nil {
 				return err
 			}
 			log.Println()
 			log.Printf("Fetched Block: Number: %d, Hash: %s", block.Number, block.Hash.Text(16))
-			stateUpdate, err := s.StarkNetData.StateUpdate(nextHeight)
+			stateUpdate, err := s.StarknetData.StateUpdate(nextHeight)
 			if err != nil {
 				return err
 			}
