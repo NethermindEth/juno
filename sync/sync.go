@@ -18,8 +18,6 @@ type Synchronizer struct {
 	StarknetData starknetdata.StarknetData
 
 	log utils.SimpleLogger
-
-	quit chan struct{}
 }
 
 func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger) *Synchronizer {
@@ -28,45 +26,34 @@ func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.Starkn
 		Blockchain:   bc,
 		StarknetData: starkNetData,
 		log:          log,
-		quit:         make(chan struct{}),
 	}
 }
 
 // Run starts the Synchronizer, returns an error if the loop is already running
-func (s *Synchronizer) Run() error {
+func (s *Synchronizer) Run(ctx context.Context) error {
 	if running := atomic.CompareAndSwapUint64(&s.running, 0, 1); !running {
 		return errors.New("synchronizer is already running")
 	}
-	return s.SyncBlocks()
+	return s.SyncBlocks(ctx)
 }
 
-// Shutdown attempts to stop the Synchronizer, should block until loop acknowledges the request
-func (s *Synchronizer) Shutdown() error {
-	if stopped := atomic.CompareAndSwapUint64(&s.running, 1, 0); !stopped {
-		return errors.New("synchronizer is stopped")
-	}
-	close(s.quit)
-	return nil
-}
-
-func (s *Synchronizer) SyncBlocks() error {
+func (s *Synchronizer) SyncBlocks(ctx context.Context) error {
 	for {
 		select {
-		case <-s.quit:
-			// Clean up and return
-			return nil
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 			// Call the gateway to get blocks and state update
 			nextHeight := uint64(0)
 			if h, err := s.Blockchain.Height(); err == nil {
 				nextHeight = h + 1
 			}
-			block, err := s.StarknetData.BlockByNumber(context.Background(), nextHeight)
+			block, err := s.StarknetData.BlockByNumber(ctx, nextHeight)
 			if err != nil {
 				return err
 			}
 			s.log.Infow("Fetched block", "number", block.Number, "hash", block.Hash.Text(16))
-			stateUpdate, err := s.StarknetData.StateUpdate(context.Background(), nextHeight)
+			stateUpdate, err := s.StarknetData.StateUpdate(ctx, nextHeight)
 			if err != nil {
 				return err
 			}

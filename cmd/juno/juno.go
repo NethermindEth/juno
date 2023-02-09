@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -108,23 +110,23 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn, quit <-chan os.Signal) *cobra.Comm
 			return err
 		}
 
+		nodeCtx, cancel := context.WithCancel(context.Background())
+
 		shutDownErrCh := make(chan error)
 		go func() {
 			<-quit
-			if shutdownErr := StarknetNode.Shutdown(); shutdownErr != nil {
+			cancel()
+			if shutdownErr := nodeCtx.Err(); shutdownErr != nil && !errors.Is(shutdownErr, context.Canceled) {
 				shutDownErrCh <- shutdownErr
 			}
 			close(shutDownErrCh)
 		}()
 
-		if err = StarknetNode.Run(); err != nil {
+		if err = StarknetNode.Run(nodeCtx); err != nil {
 			return err
 		}
 
-		if err = <-shutDownErrCh; err != nil {
-			return err
-		}
-		return nil
+		return <-shutDownErrCh
 	}
 
 	return junoCmd
