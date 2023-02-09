@@ -93,7 +93,7 @@ func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err err
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := b.verifyBlock(txn, block, stateUpdate); err != nil {
+		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
 		if err := state.NewState(txn).Update(stateUpdate); err != nil {
@@ -109,15 +109,14 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 	})
 }
 
-func (b *Blockchain) VerifyBlock(block *core.Block, stateUpdate *core.StateUpdate) error {
+// VerifyBlock assumes the block has already been sanity-checked.
+func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	txn := b.database.NewTransaction(false)
 	defer txn.Discard()
-	return b.verifyBlock(txn, block, stateUpdate)
+	return b.verifyBlock(txn, block)
 }
 
-func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block,
-	stateUpdate *core.StateUpdate,
-) error {
+func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 	/*
 		Todo: Transaction and TransactionReceipts
 			- When Block is changed to include a list of Transaction and TransactionReceipts
@@ -155,7 +154,7 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block,
 		}
 	}
 
-	return b.SanityCheckNewHeight(block, stateUpdate)
+	return nil
 }
 
 // putBlock stores the given block in the database. No check on whether the hash matches or not is done

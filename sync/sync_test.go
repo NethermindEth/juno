@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
@@ -41,7 +42,12 @@ func TestSyncBlocks(t *testing.T) {
 		testDB := db.NewTestDb()
 		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
 		synchronizer := NewSynchronizer(bc, gw, log)
-		assert.Error(t, synchronizer.SyncBlocks(context.Background()))
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(time.Second)
+			cancel()
+		}()
+		assert.NoError(t, synchronizer.Run(ctx))
 
 		testBlockchain(t, bc)
 	})
@@ -55,7 +61,12 @@ func TestSyncBlocks(t *testing.T) {
 		assert.NoError(t, bc.Store(b0, s0))
 
 		synchronizer := NewSynchronizer(bc, gw, log)
-		assert.Error(t, synchronizer.SyncBlocks(context.Background()))
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(time.Second)
+			cancel()
+		}()
+		assert.NoError(t, synchronizer.Run(ctx))
 
 		testBlockchain(t, bc)
 	})

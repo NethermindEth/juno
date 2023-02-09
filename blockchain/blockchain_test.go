@@ -112,13 +112,13 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: core.Header{Number: 10}}
 		expectedErr := &ErrIncompatibleBlock{"cannot insert a block with number more than 0 in an empty blockchain"}
-		assert.EqualError(t, chain.VerifyBlock(block, nil), expectedErr.Error())
+		assert.EqualError(t, chain.VerifyBlock(block), expectedErr.Error())
 	})
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
 		block := &core.Block{Header: core.Header{ParentHash: h1}}
 		expectedErr := &ErrIncompatibleBlock{"cannot insert a block with non-zero parent hash in an empty blockchain"}
-		assert.EqualError(t, chain.VerifyBlock(block, nil), expectedErr.Error())
+		assert.EqualError(t, chain.VerifyBlock(block), expectedErr.Error())
 	})
 
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
@@ -139,7 +139,7 @@ func TestVerifyBlock(t *testing.T) {
 			expectedErr := &ErrIncompatibleBlock{
 				"block number difference between head and incoming block is not 1",
 			}
-			assert.Equal(t, chain.VerifyBlock(incomingBlock, nil), expectedErr)
+			assert.Equal(t, chain.VerifyBlock(incomingBlock), expectedErr)
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
@@ -148,8 +148,26 @@ func TestVerifyBlock(t *testing.T) {
 		expectedErr := &ErrIncompatibleBlock{
 			"block's parent hash does not match head block hash",
 		}
-		assert.Equal(t, chain.VerifyBlock(incomingBlock, nil), expectedErr)
+		assert.Equal(t, chain.VerifyBlock(incomingBlock), expectedErr)
 	})
+}
+
+func TestSanityCheckNewHeight(t *testing.T) {
+	h1, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+
+	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+
+	gw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer.Close()
+
+	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+
+	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
 
 	mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
 	require.NoError(t, err)
@@ -159,7 +177,7 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
 		expectedErr := ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
-		assert.Equal(t, chain.VerifyBlock(mainnetBlock1, stateUpdate), expectedErr)
+		assert.Equal(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr)
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
@@ -169,7 +187,7 @@ func TestVerifyBlock(t *testing.T) {
 			expectedErr := ErrIncompatibleBlockAndStateUpdate{
 				"block's GlobalStateRoot does not match state update's NewRoot",
 			}
-			assert.Equal(t, chain.VerifyBlock(mainnetBlock1, stateUpdate), expectedErr)
+			assert.Equal(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr)
 		})
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		wrongHashBlock, wrongHashStateUpdate := new(core.Block), new(core.StateUpdate)
@@ -180,7 +198,7 @@ func TestVerifyBlock(t *testing.T) {
 		*wrongHashStateUpdate = *mainnetStateUpdate1
 		wrongHashStateUpdate.BlockHash = wrongHashBlock.Hash
 
-		assert.EqualError(t, chain.VerifyBlock(wrongHashBlock, wrongHashStateUpdate), "can not verify hash in block header")
+		assert.EqualError(t, chain.SanityCheckNewHeight(wrongHashBlock, wrongHashStateUpdate), "can not verify hash in block header")
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
@@ -204,7 +222,7 @@ func TestVerifyBlock(t *testing.T) {
 			return txn.Set(db.ChainHeight.Key(), heightBin)
 		}))
 
-		assert.NoError(t, chain.VerifyBlock(block119802, stateUpdate119802))
+		assert.NoError(t, chain.SanityCheckNewHeight(block119802, stateUpdate119802))
 	})
 }
 
