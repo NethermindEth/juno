@@ -36,10 +36,11 @@ func TestSyncBlocks(t *testing.T) {
 			return nil
 		}())
 	}
+	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := db.NewTestDb()
 		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
-		synchronizer := NewSynchronizer(bc, gw)
+		synchronizer := NewSynchronizer(bc, gw, log)
 		assert.Error(t, synchronizer.SyncBlocks())
 
 		testBlockchain(t, bc)
@@ -53,7 +54,7 @@ func TestSyncBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NoError(t, bc.Store(b0, s0))
 
-		synchronizer := NewSynchronizer(bc, gw)
+		synchronizer := NewSynchronizer(bc, gw, log)
 		assert.Error(t, synchronizer.SyncBlocks())
 
 		testBlockchain(t, bc)

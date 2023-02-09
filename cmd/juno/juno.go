@@ -41,10 +41,10 @@ const (
 
 	configFlagUsage    = "The yaml configuration file."
 	verbosityFlagUsage = `Verbosity of the logs. Options:
-- 0 = debug
-- 1 = info
-- 2 = warn
-- 3 = error
+0 = debug
+1 = info
+2 = warn
+3 = error
 `
 	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
