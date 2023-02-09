@@ -3,11 +3,11 @@ package sync
 import (
 	"context"
 	"errors"
-	"log"
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/NethermindEth/juno/utils"
 )
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -17,14 +17,17 @@ type Synchronizer struct {
 	Blockchain   *blockchain.Blockchain
 	StarknetData starknetdata.StarknetData
 
+	log utils.SimpleLogger
+
 	quit chan struct{}
 }
 
-func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData) *Synchronizer {
+func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger) *Synchronizer {
 	return &Synchronizer{
 		running:      0,
 		Blockchain:   bc,
 		StarknetData: starkNetData,
+		log:          log,
 		quit:         make(chan struct{}),
 	}
 }
@@ -62,21 +65,17 @@ func (s *Synchronizer) SyncBlocks() error {
 			if err != nil {
 				return err
 			}
-			log.Println()
-			log.Printf("Fetched Block: Number: %d, Hash: %s", block.Number, block.Hash.Text(16))
+			s.log.Infow("Fetched block", "number", block.Number, "hash", block.Hash.Text(16))
 			stateUpdate, err := s.StarknetData.StateUpdate(context.Background(), nextHeight)
 			if err != nil {
 				return err
 			}
-			log.Printf("Fetched StateUpdate: Hash: %s, NewRoot: %s", stateUpdate.BlockHash.Text(16),
-				stateUpdate.NewRoot.Text(16))
+			s.log.Infow("Fetched state update", "newRoot", stateUpdate.NewRoot.Text(16), "hash", stateUpdate.BlockHash.Text(16))
 			if err = s.Blockchain.Store(block, stateUpdate); err != nil {
 				return err
 			}
-			log.Printf("Stored Block: Number: %d, Hash: %s", block.Number, block.Hash.Text(16))
-			log.Printf("Applied StateUpdate: Hash: %s, NewRoot: %s",
-				stateUpdate.BlockHash.Text(16),
-				stateUpdate.NewRoot.Text(16))
+			s.log.Infow("Stored block", "number", block.Number, "hash", block.Hash.Text(16))
+			s.log.Infow("Applied state update", "newRoot", stateUpdate.NewRoot.Text(16), "hash", stateUpdate.BlockHash.Text(16))
 		}
 	}
 }

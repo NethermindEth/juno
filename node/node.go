@@ -2,7 +2,6 @@ package node
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"time"
 
@@ -71,7 +70,7 @@ func (n *Node) Run() error {
 		return err
 	}
 
-	fmt.Println("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
+	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
 
 	dbLog, err := utils.NewZapLogger(utils.ERROR)
 	if err != nil {
@@ -83,12 +82,12 @@ func (n *Node) Run() error {
 	}
 	defer n.db.Close()
 	n.blockchain = blockchain.NewBlockchain(n.db, n.cfg.Network)
-	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network))
+	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network), n.log)
 	return n.synchronizer.Run()
 }
 
 func (n *Node) Shutdown() error {
-	log.Println("Shutting down Juno...")
+	n.log.Infow("Shutting down Juno...")
 
 	return n.synchronizer.Shutdown()
 }
