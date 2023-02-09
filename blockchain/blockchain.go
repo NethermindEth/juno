@@ -155,16 +155,7 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block,
 		}
 	}
 
-	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
-	}
-	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return ErrIncompatibleBlockAndStateUpdate{
-			"block's GlobalStateRoot does not match state update's NewRoot",
-		}
-	}
-
-	return core.VerifyBlockHash(block, b.network)
+	return b.SanityCheckNewHeight(block, stateUpdate)
 }
 
 // putBlock stores the given block in the database. No check on whether the hash matches or not is done
@@ -207,4 +198,18 @@ func getBlockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	} else {
 		return getBlockByNumberBytes(txn, numBytes)
 	}
+}
+
+// SanityCheckNewHeight checks integrity of a block and resulting state update
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) error {
+	if !block.Hash.Equal(stateUpdate.BlockHash) {
+		return ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
+	}
+	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
+		return ErrIncompatibleBlockAndStateUpdate{
+			"block's GlobalStateRoot does not match state update's NewRoot",
+		}
+	}
+
+	return core.VerifyBlockHash(block, b.network)
 }
