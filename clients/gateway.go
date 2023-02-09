@@ -170,12 +170,12 @@ type Transaction struct {
 	ContractAddress     *felt.Felt   `json:"contract_address"`
 	ContractAddressSalt *felt.Felt   `json:"contract_address_salt"`
 	ClassHash           *felt.Felt   `json:"class_hash"`
-	ConstructorCalldata []*felt.Felt `json:"constructor_calldata"`
+	ConstructorCallData []*felt.Felt `json:"constructor_calldata"`
 	Type                string       `json:"type"`
 	SenderAddress       *felt.Felt   `json:"sender_address"`
 	MaxFee              *felt.Felt   `json:"max_fee"`
 	Signature           []*felt.Felt `json:"signature"`
-	Calldata            []*felt.Felt `json:"calldata"`
+	CallData            []*felt.Felt `json:"calldata"`
 	EntryPointSelector  *felt.Felt   `json:"entry_point_selector"`
 	Nonce               *felt.Felt   `json:"nonce"`
 }

@@ -208,7 +208,7 @@ func adaptDeployTransaction(t *clients.Transaction) *core.DeployTransaction {
 		ContractAddressSalt: t.ContractAddressSalt,
 		ContractAddress:     t.ContractAddress,
 		ClassHash:           t.ClassHash,
-		ConstructorCallData: t.ConstructorCalldata,
+		ConstructorCallData: t.ConstructorCallData,
 		Version:             t.Version,
 	}
 }
@@ -219,7 +219,7 @@ func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
 		ContractAddress:    t.ContractAddress,
 		EntryPointSelector: t.EntryPointSelector,
 		Nonce:              t.Nonce,
-		CallData:           t.Calldata,
+		CallData:           t.CallData,
 		Signature:          t.Signature,
 		MaxFee:             t.MaxFee,
 		Version:            t.Version,
@@ -232,7 +232,7 @@ func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransactio
 		ContractAddress:    t.ContractAddress,
 		EntryPointSelector: t.EntryPointSelector,
 		Nonce:              t.Nonce,
-		CallData:           t.Calldata,
+		CallData:           t.CallData,
 		Version:            t.Version,
 	}
 }
