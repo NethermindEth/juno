@@ -182,9 +182,9 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 	case "INVOKE_FUNCTION":
 		return adaptInvokeTransaction(transaction), nil
 	case "DEPLOY_ACCOUNT":
-		return adaptDeployAccountTransaction(transaction), nil // todo
+		return adaptDeployAccountTransaction(transaction), nil
 	case "L1_HANDLER":
-		return adaptL1HandlerTransaction(transaction), nil // todo
+		return adaptL1HandlerTransaction(transaction), nil
 	default:
 		return nil, core.ErrUnknownTransaction
 	}
@@ -228,14 +228,21 @@ func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
 
 func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransaction {
 	return &core.L1HandlerTransaction{
-		Hash: t.Hash,
+		Hash:               t.Hash,
+		ContractAddress:    t.ContractAddress,
+		EntryPointSelector: t.EntryPointSelector,
+		Nonce:              t.Nonce,
+		CallData:           t.Calldata,
+		Version:            t.Version,
 	}
 }
 
 func adaptDeployAccountTransaction(t *clients.Transaction) *core.DeployAccountTransaction {
 	return &core.DeployAccountTransaction{
-		Hash:      t.Hash,
-		Signature: t.Signature,
+		DeployTransaction: *adaptDeployTransaction(t),
+		MaxFee:            t.MaxFee,
+		Signature:         t.Signature,
+		Nonce:             t.Nonce,
 	}
 }
 

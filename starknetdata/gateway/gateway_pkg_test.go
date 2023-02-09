@@ -13,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Todo: refactor all of the test such that the test functions call the functions defined in
+// 	StarknetData interface instead of calling adapt functions.
+
 func TestAdaptBlock(t *testing.T) {
 	block11817Json, err := os.ReadFile("../../testsource/testdata/mainnet/block/11817.json")
 	assert.NoError(t, err)
@@ -252,6 +255,34 @@ func TestAdaptTransaction(t *testing.T) {
 		assert.Equal(t, transaction.ConstructorCalldata, deployTx.ConstructorCallData)
 		assert.Equal(t, transaction.Version, deployTx.Version)
 	})
+
+	t.Run("deploy account transaction", func(t *testing.T) {
+		deployJson, err := os.ReadFile("../.." +
+			"/testsource/testdata/mainnet/transaction" +
+			"/0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2.json")
+		assert.NoError(t, err)
+
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(deployJson, response)
+		require.NoError(t, err)
+
+		transaction := response.Transaction
+		txn, err := adaptTransaction(transaction)
+		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
+
+		assert.Equal(t, transaction.Hash, deployAccountTx.Hash)
+		assert.Equal(t, transaction.ContractAddressSalt, deployAccountTx.ContractAddressSalt)
+		assert.Equal(t, transaction.ContractAddress, deployAccountTx.ContractAddress)
+		assert.Equal(t, transaction.ClassHash, deployAccountTx.ClassHash)
+		assert.Equal(t, transaction.ConstructorCalldata, deployAccountTx.ConstructorCallData)
+		assert.Equal(t, transaction.Version, deployAccountTx.Version)
+		assert.Equal(t, transaction.MaxFee, deployAccountTx.MaxFee)
+		assert.Equal(t, transaction.Signature, deployAccountTx.Signature)
+		assert.Equal(t, transaction.Nonce, deployAccountTx.Nonce)
+	})
+
 	t.Run("declare transaction", func(t *testing.T) {
 		declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
 		assert.NoError(t, err)
@@ -273,5 +304,29 @@ func TestAdaptTransaction(t *testing.T) {
 		assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
 		assert.Equal(t, transaction.Signature, declareTx.Signature)
 		assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
+	})
+
+	t.Run("l1handler transaction", func(t *testing.T) {
+		deployJson, err := os.ReadFile("../.." +
+			"/testsource/testdata/mainnet/transaction" +
+			"/0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8.json")
+		assert.NoError(t, err)
+
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(deployJson, response)
+		require.NoError(t, err)
+
+		transaction := response.Transaction
+		txn, err := adaptTransaction(transaction)
+		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
+
+		assert.Equal(t, transaction.Hash, l1HandlerTx.Hash)
+		assert.Equal(t, transaction.ContractAddress, l1HandlerTx.ContractAddress)
+		assert.Equal(t, transaction.EntryPointSelector, l1HandlerTx.EntryPointSelector)
+		assert.Equal(t, transaction.Nonce, l1HandlerTx.Nonce)
+		assert.Equal(t, transaction.Calldata, l1HandlerTx.CallData)
+		assert.Equal(t, transaction.Version, l1HandlerTx.Version)
 	})
 }
