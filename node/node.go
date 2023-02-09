@@ -13,12 +13,12 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type StarkNetNode interface {
+type StarknetNode interface {
 	Run() error
 	Shutdown() error
 }
 
-type NewStarkNetNodeFn func(cfg *Config) (StarkNetNode, error)
+type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
 
 const (
 	feederGatewaySuffix = "/feeder_gateway"
@@ -46,7 +46,7 @@ type Node struct {
 	synchronizer *sync.Synchronizer
 }
 
-func New(cfg *Config) (StarkNetNode, error) {
+func New(cfg *Config) (StarknetNode, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
 	}

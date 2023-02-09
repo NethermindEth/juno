@@ -214,7 +214,7 @@ func TestGetPath_ZeroRoot(t *testing.T) {
 }
 
 // TestState tests whether the trie produces the same state root as in
-// Block 0 of the StarkNet protocol mainnet.
+// Block 0 of the Starknet protocol mainnet.
 func TestState(t *testing.T) {
 	// See https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=0.
 	type (

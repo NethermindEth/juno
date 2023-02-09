@@ -20,11 +20,11 @@ type Header struct {
 	Number uint64
 	// The state commitment after this block
 	GlobalStateRoot *felt.Felt
-	// The StarkNet address of the sequencer who created this block
+	// The Starknet address of the sequencer who created this block
 	SequencerAddress *felt.Felt
 	// The time the sequencer created this block before executing transactions
 	Timestamp *felt.Felt
-	// The version of the StarkNet protocol used when creating this block
+	// The version of the Starknet protocol used when creating this block
 	ProtocolVersion string
 	// Extraneous data that might be useful for running transactions
 	ExtraData *felt.Felt
@@ -83,7 +83,7 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
-// VerifyBlockHash verifies the block hash. Due to bugs in StarkNet alpha, not all blocks have
+// VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
 func VerifyBlockHash(b *Block, network utils.Network) error {
 	metaInfo := getBlockHashMetaInfo(network)
