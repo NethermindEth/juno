@@ -17,6 +17,7 @@ type Backoff func(wait time.Duration) time.Duration
 
 type GatewayClient struct {
 	url        string
+	client     *http.Client
 	backoff    Backoff
 	maxRetries int
 	maxWait    time.Duration
@@ -55,6 +56,7 @@ func NopBackoff(d time.Duration) time.Duration {
 func NewGatewayClient(url string) *GatewayClient {
 	return &GatewayClient{
 		url:        url,
+		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
 		maxRetries: 35, // ~35 minutes with default backoff and maxWait (block time on mainnet is 20-30 minutes)
 		maxWait:    time.Minute,
@@ -84,12 +86,21 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 	var res *http.Response
 	var err error
+	var body io.Reader 
 	wait := c.minWait
 	for i := 0; i <= c.maxRetries; i++ {
-		res, err = http.Get(queryUrl)
+		req, err := http.NewRequest("GET", queryUrl, body)
+		if err != nil {
+			return nil, err
+		}
+
+		res, err = c.client.Do(req)
 		if res != nil && res.StatusCode == http.StatusOK {
 			break
+		} else if err != nil {
+			return nil, err
 		}
+
 		wait = c.backoff(wait)
 		if wait > c.maxWait {
 			wait = c.maxWait
@@ -101,8 +112,8 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 		return nil, errors.New(res.Status)
 	}
 
-	body, err := io.ReadAll(res.Body)
-	return body, err
+	bodyBytes, err := io.ReadAll(res.Body)
+	return bodyBytes, err
 }
 
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
