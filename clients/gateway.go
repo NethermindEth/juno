@@ -172,15 +172,12 @@ type Transaction struct {
 	ClassHash           *felt.Felt   `json:"class_hash"`
 	ConstructorCalldata []*felt.Felt `json:"constructor_calldata"`
 	Type                string       `json:"type"`
-	// invoke
-	MaxFee             *felt.Felt   `json:"max_fee"`
-	Signature          []*felt.Felt `json:"signature"`
-	Calldata           []*felt.Felt `json:"calldata"`
-	EntryPointSelector *felt.Felt   `json:"entry_point_selector"`
-	// declare/deploy_account
-	Nonce *felt.Felt `json:"nonce"`
-	// declare
-	SenderAddress *felt.Felt `json:"sender_address"`
+	SenderAddress       *felt.Felt   `json:"sender_address"`
+	MaxFee              *felt.Felt   `json:"max_fee"`
+	Signature           []*felt.Felt `json:"signature"`
+	Calldata            []*felt.Felt `json:"calldata"`
+	EntryPointSelector  *felt.Felt   `json:"entry_point_selector"`
+	Nonce               *felt.Felt   `json:"nonce"`
 }
 
 type TransactionStatus struct {

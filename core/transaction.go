@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -13,6 +14,16 @@ import (
 )
 
 var ErrUnknownTransaction = errors.New("unknown transaction")
+
+type ErrInvalidTransactionVersion struct {
+	t Transaction
+	v string
+}
+
+func (e ErrInvalidTransactionVersion) Error() string {
+	return fmt.Sprintf("invalid Transaction verions. Type: %v, Version: %v", reflect.TypeOf(e.t),
+		e.t)
+}
 
 type Event struct {
 	Data []*felt.Felt
@@ -113,6 +124,24 @@ func (d *DeployTransaction) signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
+type DeployAccountTransaction struct {
+	DeployTransaction
+	// The maximum fee that the sender is willing to pay for the transaction.
+	MaxFee *felt.Felt
+	// Additional information given by the sender, used to validate the transaction.
+	Signature []*felt.Felt
+	// The transaction nonce.
+	Nonce *felt.Felt
+}
+
+func (d *DeployAccountTransaction) hash() *felt.Felt {
+	return d.Hash
+}
+
+func (d *DeployAccountTransaction) signature() []*felt.Felt {
+	return d.Signature
+}
+
 type InvokeTransaction struct {
 	Hash *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
@@ -121,12 +150,12 @@ type InvokeTransaction struct {
 	Signature []*felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction
 	MaxFee *felt.Felt
+	// The address of the contract invoked by this transaction.
+	ContractAddress *felt.Felt
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	Version *felt.Felt
-	// The address of the contract invoked by this transaction.
-	ContractAddress *felt.Felt
 
 	// Version 0 fields
 	// The encoding of the selector for the function invoked (the entry point in the contract)
@@ -175,7 +204,18 @@ func (d *DeclareTransaction) signature() []*felt.Felt {
 
 type L1HandlerTransaction struct {
 	Hash *felt.Felt
-	// todo: add more
+	// The address of the contract.
+	ContractAddress *felt.Felt
+	// The encoding of the selector for the function invoked (the entry point in the contract)
+	EntryPointSelector *felt.Felt
+	// The transaction nonce.
+	Nonce *felt.Felt
+	// The arguments that are passed to the validated and execute functions.
+	CallData []*felt.Felt
+	// When the fields that comprise a transaction change,
+	// either with the addition of a new field or the removal of an existing field,
+	// then the transaction version increases.
+	Version *felt.Felt
 }
 
 func (l *L1HandlerTransaction) hash() *felt.Felt {
@@ -184,21 +224,6 @@ func (l *L1HandlerTransaction) hash() *felt.Felt {
 
 func (l *L1HandlerTransaction) signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
-}
-
-type DeployAccountTransaction struct {
-	Hash *felt.Felt
-	// Additional information given by the sender, used to validate the transaction.
-	Signature []*felt.Felt
-	// todo: add more
-}
-
-func (d *DeployAccountTransaction) hash() *felt.Felt {
-	return d.Hash
-}
-
-func (d *DeployAccountTransaction) signature() []*felt.Felt {
-	return d.Signature
 }
 
 func TransactionHash(transaction Transaction, network utils.Network) (*felt.Felt, error) {
@@ -223,15 +248,18 @@ func deployTransactionHash(d *DeployTransaction, network utils.Network) (*felt.F
 	if err != nil {
 		return nil, err
 	}
-	return crypto.PedersenArray(
-		new(felt.Felt).SetBytes([]byte("deploy")),
-		d.Version,
-		d.ContractAddress,
-		snKeccakConstructor,
-		crypto.PedersenArray(d.ConstructorCallData...),
-		new(felt.Felt),
-		network.ChainId(),
-	), nil
+	if d.Version.IsZero() || d.Version.IsOne() {
+		return crypto.PedersenArray(
+			new(felt.Felt).SetBytes([]byte("deploy")),
+			d.Version,
+			d.ContractAddress,
+			snKeccakConstructor,
+			crypto.PedersenArray(d.ConstructorCallData...),
+			new(felt.Felt),
+			network.ChainId(),
+		), nil
+	}
+	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
 }
 
 func invokeTransactionHash(i *InvokeTransaction, network utils.Network) (*felt.Felt, error) {
@@ -256,7 +284,7 @@ func invokeTransactionHash(i *InvokeTransaction, network utils.Network) (*felt.F
 			i.Nonce,
 		), nil
 	}
-	return nil, errors.New("invalid transaction version")
+	return nil, ErrInvalidTransactionVersion{i, i.Version.Text(10)}
 }
 
 func declareTransactionHash(d *DeclareTransaction, network utils.Network) (*felt.Felt, error) {
@@ -284,19 +312,17 @@ func declareTransactionHash(d *DeclareTransaction, network utils.Network) (*felt
 			d.Nonce,
 		), nil
 	}
-	return nil, errors.New("invalid transaction version")
+	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
 }
 
 func l1HandlerTransactionHash(l *L1HandlerTransaction, network utils.Network) (*felt.Felt, error) {
-	// TODO: implement me
-	panic("implement me")
+	return nil, ErrInvalidTransactionVersion{l, l.Version.Text(10)}
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction,
 	network utils.Network,
 ) (*felt.Felt, error) {
-	// TODO: implement me
-	panic("implement me")
+	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
 }
 
 const commitmentTrieHeight uint = 64
