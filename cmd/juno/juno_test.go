@@ -77,7 +77,7 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 		// tested for sanity. These tests are not intended to perform semantics
 		// checks on the config, those will be checked by the StarknetNode
 		// implementation.
-		defaultVerbosity := "info"
+		defaultVerbosity := utils.INFO
 		defaultRpcPort := uint16(6060)
 		defaultMetrics := false
 		defaultDbPath := ""
@@ -127,7 +127,7 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 			},
 			"config file with all settings but without any other flags": {
 				cfgFile: tempCfgFile,
-				cfgFileContents: `verbosity: "debug"
+				cfgFileContents: `verbosity: 0
 rpc-port: 4576
 metrics: true
 db-path: /home/.juno
@@ -135,7 +135,7 @@ network: 2
 eth-node: "https://some-ethnode:5673"
 `,
 				expectedConfig: &node.Config{
-					Verbosity:    "debug",
+					Verbosity:    utils.DEBUG,
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: "/home/.juno",
@@ -145,12 +145,12 @@ eth-node: "https://some-ethnode:5673"
 			},
 			"config file with some settings but without any other flags": {
 				cfgFile: tempCfgFile,
-				cfgFileContents: `verbosity: "debug"
+				cfgFileContents: `verbosity: 0
 rpc-port: 4576
 metrics: true
 `,
 				expectedConfig: &node.Config{
-					Verbosity:    "debug",
+					Verbosity:    utils.DEBUG,
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: defaultDbPath,
@@ -160,12 +160,12 @@ metrics: true
 			},
 			"all flags without config file": {
 				inputArgs: []string{
-					"--verbosity", "debug", "--rpc-port", "4576",
+					"--verbosity", "0", "--rpc-port", "4576",
 					"--metrics", "--db-path", "/home/.juno", "--network", "1",
 					"--eth-node", "https://some-ethnode:5673",
 				},
 				expectedConfig: &node.Config{
-					Verbosity:    "debug",
+					Verbosity:    utils.DEBUG,
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: "/home/.juno",
@@ -175,11 +175,11 @@ metrics: true
 			},
 			"some flags without config file": {
 				inputArgs: []string{
-					"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
+					"--verbosity", "0", "--rpc-port", "4576", "--db-path", "/home/.juno",
 					"--network", "3",
 				},
 				expectedConfig: &node.Config{
-					Verbosity:    "debug",
+					Verbosity:    utils.DEBUG,
 					RpcPort:      4576,
 					Metrics:      defaultMetrics,
 					DatabasePath: "/home/.juno",
@@ -189,7 +189,7 @@ metrics: true
 			},
 			"all setting set in both config file and flags": {
 				cfgFile: tempCfgFile,
-				cfgFileContents: `verbosity: "debug"
+				cfgFileContents: `verbosity: 0
 rpc-port: 4576
 metrics: true
 db-path: /home/config-file/.juno
@@ -197,12 +197,12 @@ network: 1
 eth-node: "https://some-ethnode:5673"
 `,
 				inputArgs: []string{
-					"--verbosity", "error", "--rpc-port", "4577",
+					"--verbosity", "3", "--rpc-port", "4577",
 					"--metrics", "--db-path", "/home/flag/.juno", "--network", "3",
 					"--eth-node", "https://some-ethnode:5674",
 				},
 				expectedConfig: &node.Config{
-					Verbosity:    "error",
+					Verbosity:    utils.ERROR,
 					RpcPort:      4577,
 					Metrics:      true,
 					DatabasePath: "/home/flag/.juno",
@@ -212,7 +212,7 @@ eth-node: "https://some-ethnode:5673"
 			},
 			"some setting set in both config file and flags": {
 				cfgFile: tempCfgFile,
-				cfgFileContents: `verbosity: "panic"
+				cfgFileContents: `verbosity: 2
 rpc-port: 4576
 network: 1
 `,
@@ -221,7 +221,7 @@ network: 1
 					"https://some-ethnode:5674",
 				},
 				expectedConfig: &node.Config{
-					Verbosity:    "panic",
+					Verbosity:    utils.WARN,
 					RpcPort:      4576,
 					Metrics:      true,
 					DatabasePath: "/home/flag/.juno",

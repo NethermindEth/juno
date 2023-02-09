@@ -111,8 +111,8 @@ func (t *badgerTxn) Impl() any {
 }
 
 // NewDb opens a new database at the given path
-func NewDb(path string) (DB, error) {
-	opt := badger.DefaultOptions(path)
+func NewDb(path string, log badger.Logger) (DB, error) {
+	opt := badger.DefaultOptions(path).WithLogger(log)
 	db, err := badger.Open(opt)
 	return &badgerDb{db}, err
 }
