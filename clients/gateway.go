@@ -3,7 +3,7 @@ package clients
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -101,7 +101,7 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 		return nil, errors.New(res.Status)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	return body, err
 }
 
