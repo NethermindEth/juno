@@ -58,7 +58,7 @@ func TestSyncBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
 		assert.NoError(t, err)
-		assert.NoError(t, bc.StoreBlock(b0, s0))
+		assert.NoError(t, bc.Store(b0, s0))
 
 		synchronizer := NewSynchronizer(bc, gw, log)
 		ctx, cancel := context.WithCancel(context.Background())

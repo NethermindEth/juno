@@ -222,7 +222,7 @@ func TestAdaptTransaction(t *testing.T) {
 		require.True(t, ok)
 		require.NoError(t, err)
 
-		assert.Equal(t, transaction.Hash, invokeTx.Hash)
+		assert.Equal(t, transaction.Hash, invokeTx.TransactionHash)
 		assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
 		assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
 		assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
@@ -245,7 +245,7 @@ func TestAdaptTransaction(t *testing.T) {
 		require.True(t, ok)
 		require.NoError(t, err)
 
-		assert.Equal(t, transaction.Hash, deployTx.Hash)
+		assert.Equal(t, transaction.Hash, deployTx.TransactionHash)
 		assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
 		assert.Equal(t, transaction.ContractAddress, deployTx.ContractAddress)
 		assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
@@ -266,7 +266,7 @@ func TestAdaptTransaction(t *testing.T) {
 		require.True(t, ok)
 		require.NoError(t, err)
 
-		assert.Equal(t, transaction.Hash, declareTx.Hash)
+		assert.Equal(t, transaction.Hash, declareTx.TransactionHash)
 		assert.Equal(t, transaction.SenderAddress, declareTx.SenderAddress)
 		assert.Equal(t, transaction.Version, declareTx.Version)
 		assert.Equal(t, transaction.Nonce, declareTx.Nonce)

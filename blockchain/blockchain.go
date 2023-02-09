@@ -98,8 +98,8 @@ func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err err
 	})
 }
 
-// StoreBlock takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) StoreBlock(block *core.Block, stateUpdate *core.StateUpdate) error {
+// Store takes a block and state update and performs sanity checks before putting in the database.
+func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
@@ -109,6 +109,14 @@ func (b *Blockchain) StoreBlock(block *core.Block, stateUpdate *core.StateUpdate
 		}
 		if err := putBlock(txn, block); err != nil {
 			return err
+		}
+		for i, tx := range block.Transactions {
+			if err := storeTransaction(txn, block.Number, uint64(i), tx); err != nil {
+				return err
+			}
+			if err := storeReceipt(txn, block.Number, uint64(i), *block.Receipts[i]); err != nil {
+				return err
+			}
 		}
 
 		heightBin := make([]byte, lenOfBlockNumberBytes)
@@ -238,41 +246,10 @@ func (b *Blockchain) GetTransactionByHash(hash *felt.Felt) (transaction core.Tra
 	})
 }
 
-// StoreTransaction takes a transaction and verifies its hash before storing it in the database.
-func (b *Blockchain) StoreTransaction(blockNumber, txnIndex uint64, transaction core.Transaction) error {
-	return b.database.Update(func(txn db.Transaction) error {
-		if hash, err := b.VerifyTransaction(transaction); err != nil {
-			return err
-		} else {
-			bnIndexBytes := joinBlockNumberAndIndex(blockNumber, txnIndex)
-			return putTransaction(txn, bnIndexBytes, hash, transaction)
-		}
-	})
-}
-
-func (b *Blockchain) VerifyTransaction(transaction core.Transaction) (*felt.Felt, error) {
-	txn := b.database.NewTransaction(false)
-	defer txn.Discard()
-	return b.verifyTransaction(txn, transaction)
-}
-
-func (b *Blockchain) verifyTransaction(txn db.Transaction, transaction core.Transaction) (*felt.Felt, error) {
-	txnHash, err := core.TransactionHash(transaction, b.network)
-	if err != nil {
-		return nil, err
-	}
-	if !hash.Equal(txnHash) {
-		return txnHash, &ErrIncompatibleTransaction{fmt.Sprintf(
-			"incorrect transaction hash: hash = %v and transaction.Hash(b.network) = %v",
-			hash.Text(16), txnHash.Text(16))}, nil
-	}
-
-	return txnHash, nil
-}
-
-// putTransaction stores the given transaction in the database.
-func putTransaction(txn db.Transaction, bnIndexBytes []byte, hash *felt.Felt, transaction core.Transaction) error {
-	if err := txn.Set(db.TransactionsIndexByHash.Key(hash.Marshal()), bnIndexBytes); err != nil {
+// storeTransaction stores the given transaction in the database.
+func storeTransaction(txn db.Transaction, blockNumber, txnIndex uint64, transaction core.Transaction) error {
+	bnIndexBytes := joinBlockNumberAndIndex(blockNumber, txnIndex)
+	if err := txn.Set(db.TransactionsIndexByHash.Key(transaction.Hash().Marshal()), bnIndexBytes); err != nil {
 		return err
 	}
 
@@ -324,16 +301,9 @@ func (b *Blockchain) GetReceipt(hash *felt.Felt) (receipt *core.TransactionRecei
 	})
 }
 
-// StoreReceipt takes a transaction receipt and stores it in the database.
-func (b *Blockchain) StoreReceipt(blockNumber uint64, receipt core.TransactionReceipt) error {
-	return b.database.Update(func(txn db.Transaction) error {
-		bnIndexBytes := joinBlockNumberAndIndex(blockNumber, receipt.TransactionIndex)
-		return putReceipt(txn, bnIndexBytes, &receipt)
-	})
-}
-
-// putReceipt stores the given transaction receipt in the database.
-func putReceipt(txn db.Transaction, bnIndexBytes []byte, receipt *core.TransactionReceipt) error {
+// storeReceipt stores the given transaction receipt in the database.
+func storeReceipt(txn db.Transaction, blockNumber, index uint64, receipt core.TransactionReceipt) error {
+	bnIndexBytes := joinBlockNumberAndIndex(blockNumber, index)
 	if err := txn.Set(db.TransactionsIndexByHash.Key((receipt.TransactionHash).Marshal()), bnIndexBytes); err != nil {
 		return err
 	}

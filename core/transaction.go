@@ -82,12 +82,12 @@ type TransactionReceipt struct {
 }
 
 type Transaction interface {
-	hash() *felt.Felt
+	Hash() *felt.Felt
 	signature() []*felt.Felt
 }
 
 type DeployTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
 	// The address of the contract.
@@ -105,8 +105,8 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeployTransaction) hash() *felt.Felt {
-	return d.Hash
+func (d *DeployTransaction) Hash() *felt.Felt {
+	return d.TransactionHash
 }
 
 func (d *DeployTransaction) signature() []*felt.Felt {
@@ -114,7 +114,7 @@ func (d *DeployTransaction) signature() []*felt.Felt {
 }
 
 type InvokeTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
@@ -137,8 +137,8 @@ type InvokeTransaction struct {
 	Nonce *felt.Felt
 }
 
-func (i *InvokeTransaction) hash() *felt.Felt {
-	return i.Hash
+func (i *InvokeTransaction) Hash() *felt.Felt {
+	return i.TransactionHash
 }
 
 func (i *InvokeTransaction) signature() []*felt.Felt {
@@ -146,7 +146,7 @@ func (i *InvokeTransaction) signature() []*felt.Felt {
 }
 
 type DeclareTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// The class hash
 	ClassHash *felt.Felt
 	// The address of the account initiating the transaction.
@@ -165,8 +165,8 @@ type DeclareTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeclareTransaction) hash() *felt.Felt {
-	return d.Hash
+func (d *DeclareTransaction) Hash() *felt.Felt {
+	return d.TransactionHash
 }
 
 func (d *DeclareTransaction) signature() []*felt.Felt {
@@ -174,12 +174,12 @@ func (d *DeclareTransaction) signature() []*felt.Felt {
 }
 
 type L1HandlerTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// todo: add more
 }
 
-func (l *L1HandlerTransaction) hash() *felt.Felt {
-	return l.Hash
+func (l *L1HandlerTransaction) Hash() *felt.Felt {
+	return l.TransactionHash
 }
 
 func (l *L1HandlerTransaction) signature() []*felt.Felt {
@@ -187,14 +187,14 @@ func (l *L1HandlerTransaction) signature() []*felt.Felt {
 }
 
 type DeployAccountTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	Signature []*felt.Felt
 	// todo: add more
 }
 
-func (d *DeployAccountTransaction) hash() *felt.Felt {
-	return d.Hash
+func (d *DeployAccountTransaction) Hash() *felt.Felt {
+	return d.TransactionHash
 }
 
 func (d *DeployAccountTransaction) signature() []*felt.Felt {
@@ -313,7 +313,7 @@ func TransactionCommitment(transactions []Transaction) (*felt.Felt, error) {
 			}
 
 			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
-				crypto.Pedersen(transaction.hash(), signatureHash)); err != nil {
+				crypto.Pedersen(transaction.Hash(), signatureHash)); err != nil {
 				return err
 			}
 		}
