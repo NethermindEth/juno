@@ -32,7 +32,7 @@ const (
 	ethNodeF   = "eth-node"
 
 	defaultConfig    = ""
-	defaultVerbosity = "info"
+	defaultVerbosity = utils.INFO
 	defaultRpcPort   = uint16(6060)
 	defaultMetrics   = false
 	defaultDbPath    = ""
@@ -41,13 +41,10 @@ const (
 
 	configFlagUsage    = "The yaml configuration file."
 	verbosityFlagUsage = `Verbosity of the logs. Options:
-- debug
-- info
-- warn
-- error
-- dpanic
-- panic
-- fatal
+- 0 = debug
+- 1 = info
+- 2 = warn
+- 3 = error
 `
 	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
@@ -74,7 +71,7 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn, quit <-chan os.Signal) *cobra.Comm
 	}
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().String(verbosityF, defaultVerbosity, verbosityFlagUsage)
+	junoCmd.Flags().Uint8(verbosityF, uint8(defaultVerbosity), verbosityFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)

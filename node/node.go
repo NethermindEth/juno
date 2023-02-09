@@ -31,12 +31,12 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	Verbosity    string        `mapstructure:"verbosity"`
-	RpcPort      uint16        `mapstructure:"rpc-port"`
-	Metrics      bool          `mapstructure:"metrics"`
-	DatabasePath string        `mapstructure:"db-path"`
-	Network      utils.Network `mapstructure:"network"`
-	EthNode      string        `mapstructure:"eth-node"`
+	Verbosity    utils.LogLevel `mapstructure:"verbosity"`
+	RpcPort      uint16         `mapstructure:"rpc-port"`
+	Metrics      bool           `mapstructure:"metrics"`
+	DatabasePath string         `mapstructure:"db-path"`
+	Network      utils.Network  `mapstructure:"network"`
+	EthNode      string         `mapstructure:"eth-node"`
 }
 
 type Node struct {
@@ -44,11 +44,15 @@ type Node struct {
 	db           db.DB
 	blockchain   *blockchain.Blockchain
 	synchronizer *sync.Synchronizer
+	log          utils.Logger
 }
 
 func New(cfg *Config) (StarknetNode, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
+	}
+	if !cfg.Verbosity.IsValid() {
+		return nil, utils.ErrUnknownLogLevel
 	}
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
@@ -61,10 +65,19 @@ func New(cfg *Config) (StarknetNode, error) {
 }
 
 func (n *Node) Run() error {
-	log.Println("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
-
 	var err error
-	n.db, err = db.NewDb(n.cfg.DatabasePath)
+	n.log, err = utils.NewZapLogger(n.cfg.Verbosity)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Running Juno with config: ", fmt.Sprintf("%+v", *n.cfg))
+
+	dbLog, err := utils.NewZapLogger(utils.ERROR)
+	if err != nil {
+		return err
+	}
+	n.db, err = db.NewDb(n.cfg.DatabasePath, dbLog)
 	if err != nil {
 		return err
 	}
