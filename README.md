@@ -1,11 +1,7 @@
 <p align="center">
-  <a href="https://gojuno.xyz">
-    <img alt="Juno Logo" height="125" src="./.github/juno_rounded.png">
-  </a>
+  <img alt="Juno Logo" height="125" src="./.github/Juno_Horizontal_Light.png">
   <br>
 </p>
-
-<h1 align="center">Juno</h1>
 
 <p align="center">
   <a href="https://pkg.go.dev/github.com/NethermindEth/juno">
