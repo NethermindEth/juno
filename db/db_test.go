@@ -8,6 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var noop = func(val []byte) error {
+	return nil
+}
+
 func TestNewTransaction(t *testing.T) {
 	testDb := db.NewTestDb()
 	defer testDb.Close()
@@ -19,9 +23,11 @@ func TestNewTransaction(t *testing.T) {
 	assert.Nil(t, err)
 
 	readOnlyTxn := testDb.NewTransaction(false)
-	val, err := readOnlyTxn.Get([]byte("key"))
+	err = readOnlyTxn.Get([]byte("key"), func(val []byte) error {
+		assert.Equal(t, "value", string(val))
+		return nil
+	})
 	assert.Nil(t, err)
-	assert.Equal(t, "value", string(val))
 }
 
 func TestDiscardTransaction(t *testing.T) {
@@ -34,7 +40,7 @@ func TestDiscardTransaction(t *testing.T) {
 	txn.Discard()
 
 	readOnlyTxn := testDb.NewTransaction(false)
-	_, err = readOnlyTxn.Get([]byte("key"))
+	err = readOnlyTxn.Get([]byte("key"), noop)
 	assert.Equal(t, db.ErrKeyNotFound, err)
 }
 
@@ -46,11 +52,11 @@ func TestConcurrentTransactions(t *testing.T) {
 	txn2 := testDb.NewTransaction(true)
 
 	txn1.Set([]byte("key1"), []byte("value1"))
-	_, err := txn2.Get([]byte("key1"))
+	err := txn2.Get([]byte("key1"), noop)
 	assert.Equal(t, db.ErrKeyNotFound, err)
 
 	txn2.Set([]byte("key2"), []byte("value2"))
-	_, err = txn1.Get([]byte("key2"))
+	err = txn1.Get([]byte("key2"), noop)
 	assert.Equal(t, db.ErrKeyNotFound, err)
 }
 
@@ -60,15 +66,14 @@ func TestViewUpdate(t *testing.T) {
 
 	// Test View
 	err := testDb.View(func(txn db.Transaction) error {
-		val, err := txn.Get([]byte("key"))
+		err := txn.Get([]byte("key"), func(val []byte) error {
+			assert.Equal(t, "", string(val))
+			return nil
+		})
 		if err == db.ErrKeyNotFound {
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		assert.Equal(t, "", string(val))
-		return nil
+		return err
 	})
 	assert.Nil(t, err)
 
@@ -80,12 +85,11 @@ func TestViewUpdate(t *testing.T) {
 
 	// Check value
 	err = testDb.View(func(txn db.Transaction) error {
-		val, err := txn.Get([]byte("key"))
-		if err != nil {
-			return err
-		}
-		assert.Equal(t, "value", string(val))
-		return nil
+		err = txn.Get([]byte("key"), func(val []byte) error {
+			assert.Equal(t, "value", string(val))
+			return nil
+		})
+		return err
 	})
 	assert.Nil(t, err)
 }
@@ -104,7 +108,7 @@ func TestUpdateDiscardOnError(t *testing.T) {
 
 	// Check key is not in the db
 	err = testDb.View(func(txn db.Transaction) error {
-		_, err := txn.Get([]byte("key"))
+		err = txn.Get([]byte("key"), noop)
 		assert.Equal(t, db.ErrKeyNotFound, err)
 		return nil
 	})
@@ -130,10 +134,11 @@ func TestZeroLengthValue(t *testing.T) {
 	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte("key"), []byte{})
 		assert.Nil(t, err, "setting a key with a zero-length value should be allowed")
-		val, err := txn.Get([]byte("key"))
-		assert.Nil(t, err)
-		assert.Equal(t, []byte{}, val)
-		return nil
+		err = txn.Get([]byte("key"), func(val []byte) error {
+			assert.Equal(t, []byte{}, val)
+			return nil
+		})
+		return err
 	})
 	assert.Nil(t, err)
 }
@@ -169,10 +174,11 @@ func TestNilValue(t *testing.T) {
 	err := testDb.Update(func(txn db.Transaction) error {
 		err := txn.Set([]byte("key"), nil)
 		assert.Nil(t, err, "setting a key with a nil value should be allowed")
-		val, err := txn.Get([]byte("key"))
-		assert.Nil(t, err)
-		assert.Equal(t, val, []byte{})
-		return nil
+		err = txn.Get([]byte("key"), func(val []byte) error {
+			assert.Nil(t, val)
+			return nil
+		})
+		return err
 	})
 	assert.Nil(t, err)
 }
@@ -191,24 +197,32 @@ func TestSeek(t *testing.T) {
 	assert.NoError(t, err)
 
 	testDb.View(func(txn db.Transaction) error {
-		next, err := txn.Seek([]byte{0})
+		err := txn.Seek([]byte{0}, func(next *db.Entry) error {
+			assert.Equal(t, []byte{1}, next.Key)
+			assert.Equal(t, []byte{1}, next.Value)
+			return nil
+		})
 		assert.NoError(t, err)
-		assert.Equal(t, []byte{1}, next.Key)
-		assert.Equal(t, []byte{1}, next.Value)
 
-		next, err = txn.Seek([]byte{2})
+		err = txn.Seek([]byte{2}, func(next *db.Entry) error {
+			assert.Equal(t, []byte{3}, next.Key)
+			assert.Equal(t, []byte{3}, next.Value)
+			return nil
+		})
 		assert.NoError(t, err)
-		assert.Equal(t, []byte{3}, next.Key)
-		assert.Equal(t, []byte{3}, next.Value)
 
-		next, err = txn.Seek([]byte{3})
+		err = txn.Seek([]byte{3}, func(next *db.Entry) error {
+			assert.Equal(t, []byte{3}, next.Key)
+			assert.Equal(t, []byte{3}, next.Value)
+			return nil
+		})
 		assert.NoError(t, err)
-		assert.Equal(t, []byte{3}, next.Key)
-		assert.Equal(t, []byte{3}, next.Value)
 
-		next, err = txn.Seek([]byte{4})
+		err = txn.Seek([]byte{4}, func(next *db.Entry) error {
+			assert.Nil(t, next)
+			return nil
+		})
 		assert.NoError(t, err)
-		assert.Nil(t, next)
 		return nil
 	})
 }

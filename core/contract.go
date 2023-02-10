@@ -83,7 +83,9 @@ func NewContract(addr *felt.Felt, txn db.Transaction) *Contract {
 // Deploy sets up the database for a new contract.
 func (c *Contract) Deploy(classHash *felt.Felt) error {
 	classHashKey := db.ContractClassHash.Key(c.Address.Marshal())
-	if _, err := c.txn.Get(classHashKey); err == nil {
+	if err := c.txn.Get(classHashKey, func(val []byte) error {
+		return nil
+	}); err == nil {
 		// Should not happen.
 		return errors.New("existing contract")
 	} else if err = c.txn.Set(classHashKey, classHash.Marshal()); err != nil {
@@ -97,13 +99,14 @@ func (c *Contract) Deploy(classHash *felt.Felt) error {
 
 // Nonce returns the number of transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func (c *Contract) Nonce() (*felt.Felt, error) {
+func (c *Contract) Nonce() (nonce *felt.Felt, err error) {
 	key := db.ContractNonce.Key(c.Address.Marshal())
-	val, err := c.txn.Get(key)
-	if err != nil {
-		return nil, err
-	}
-	return new(felt.Felt).SetBytes(val), nil
+	err = c.txn.Get(key, func(val []byte) error {
+		nonce = new(felt.Felt)
+		nonce.SetBytes(val)
+		return nil
+	})
+	return
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -113,13 +116,14 @@ func (c *Contract) UpdateNonce(nonce *felt.Felt) error {
 }
 
 // ClassHash returns hash of the class that this contract instantiates.
-func (c *Contract) ClassHash() (*felt.Felt, error) {
+func (c *Contract) ClassHash() (classHash *felt.Felt, err error) {
 	key := db.ContractClassHash.Key(c.Address.Marshal())
-	val, err := c.txn.Get(key)
-	if err != nil {
-		return nil, err
-	}
-	return new(felt.Felt).SetBytes(val), nil
+	err = c.txn.Get(key, func(val []byte) error {
+		classHash = new(felt.Felt)
+		classHash.SetBytes(val)
+		return nil
+	})
+	return
 }
 
 // Storage returns the [core.Trie] that represents the
@@ -128,12 +132,10 @@ func (c *Contract) Storage() (*trie.Trie, error) {
 	addrBytes := c.Address.Marshal()
 	var contractRootKey *bitset.BitSet
 
-	if val, err := c.txn.Get(db.ContractRootKey.Key(addrBytes)); err == nil {
+	if err := c.txn.Get(db.ContractRootKey.Key(addrBytes), func(val []byte) error {
 		contractRootKey = new(bitset.BitSet)
-		if err = contractRootKey.UnmarshalBinary(val); err != nil {
-			return nil, err
-		}
-	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return contractRootKey.UnmarshalBinary(val)
+	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		// Don't continue normal operation with arbitrary
 		// database error.
 		return nil, err
