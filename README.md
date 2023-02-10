@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://gojuno.xyz">
+  <a href="https://github.com/NethermindEth/juno">
     <img alt="Juno Logo" height="125" src="./.github/juno_icon_light.png">
   </a>
   <br>
