@@ -52,13 +52,12 @@ func (b *Blockchain) Height() (height uint64, err error) {
 	})
 }
 
-func (b *Blockchain) height(txn db.Transaction) (uint64, error) {
-	heightBin, err := txn.Get(db.ChainHeight.Key())
-	if err != nil {
-		return 0, err
-	}
-
-	return binary.BigEndian.Uint64(heightBin), err
+func (b *Blockchain) height(txn db.Transaction) (height uint64, err error) {
+	err = txn.Get(db.ChainHeight.Key(), func(val []byte) error {
+		height = binary.BigEndian.Uint64(val)
+		return nil
+	})
+	return
 }
 
 func (b *Blockchain) Head() (head *core.Block, err error) {
@@ -181,22 +180,21 @@ func getBlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	return getBlockByNumberBytes(txn, numBytes)
 }
 
-func getBlockByNumberBytes(txn db.Transaction, numBytes []byte) (*core.Block, error) {
-	if blockBytes, err := txn.Get(db.BlocksByNumber.Key(numBytes)); err != nil {
-		return nil, err
-	} else {
-		block := new(core.Block)
-		return block, encoder.Unmarshal(blockBytes, block)
-	}
+func getBlockByNumberBytes(txn db.Transaction, numBytes []byte) (block *core.Block, err error) {
+	err = txn.Get(db.BlocksByNumber.Key(numBytes), func(val []byte) error {
+		block = new(core.Block)
+		return encoder.Unmarshal(val, block)
+	})
+	return
 }
 
 // getBlockByHash retrieves a block from database by its hash
-func getBlockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
-	if numBytes, err := txn.Get(db.BlockNumbersByHash.Key(hash.Marshal())); err != nil {
-		return nil, err
-	} else {
-		return getBlockByNumberBytes(txn, numBytes)
-	}
+func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err error) {
+	err = txn.Get(db.BlockNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+		block, err = getBlockByNumberBytes(txn, val)
+		return err
+	})
+	return
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update

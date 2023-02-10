@@ -68,41 +68,38 @@ func (t *badgerTxn) Delete(key []byte) error {
 }
 
 // Get : see db.Transaction.Get
-func (t *badgerTxn) Get(key []byte) ([]byte, error) {
+func (t *badgerTxn) Get(key []byte, cb func([]byte) error) error {
 	item, err := t.badger.Get(key)
 	if err != nil {
 		if errors.Is(err, badger.ErrKeyNotFound) {
-			return nil, ErrKeyNotFound
+			return ErrKeyNotFound
 		}
 
-		return nil, err
+		return err
 	}
 
-	var value []byte
-	return value, item.Value(func(val []byte) error {
-		value = append([]byte{}, val...)
-		return nil
+	return item.Value(func(val []byte) error {
+		return cb(val)
 	})
 }
 
 // Seek : see db.Transaction.Seek
-func (t *badgerTxn) Seek(key []byte) (*Entry, error) {
+func (t *badgerTxn) Seek(key []byte, cb func(*Entry) error) error {
 	it := t.badger.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
 	it.Seek(key)
 	if it.Valid() {
 		item := it.Item()
-		next := &Entry{
-			Key: item.Key(),
-		}
-		return next, item.Value(func(val []byte) error {
-			next.Value = append([]byte{}, val...)
-			return nil
+		return item.Value(func(val []byte) error {
+			return cb(&Entry{
+				Key:   item.Key(),
+				Value: val,
+			})
 		})
 	}
 
-	return nil, nil
+	return nil
 }
 
 // Impl : see db.Transaction.Impl

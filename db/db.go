@@ -48,10 +48,11 @@ type Transaction interface {
 	// Delete removes the key from the database
 	Delete(key []byte) error
 	// Get fetches the value for the given key, should return ErrKeyNotFound if key is not present
-	Get(key []byte) ([]byte, error)
+	// Caller should not assume that the slice would stay valid after the call to cb
+	Get(key []byte, cb func([]byte) error) error
 	// Seek would seek to the provided key if present. If absent, it would seek to the next
 	// key in lexicographic order
-	Seek(key []byte) (*Entry, error)
+	Seek(key []byte, cb func(*Entry) error) error
 
 	// Impl returns the underlying transaction object
 	Impl() any

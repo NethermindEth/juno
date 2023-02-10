@@ -44,18 +44,17 @@ func (t *TrieTxn) Put(key *bitset.BitSet, value *Node) error {
 	return t.txn.Set(dbKey, valueBytes)
 }
 
-func (t *TrieTxn) Get(key *bitset.BitSet) (*Node, error) {
+func (t *TrieTxn) Get(key *bitset.BitSet) (node *Node, err error) {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return nil, err
 	}
 
-	if val, err := t.txn.Get(dbKey); err != nil {
-		return nil, err
-	} else {
-		node := new(Node)
-		return node, encoder.Unmarshal(val, node)
-	}
+	err = t.txn.Get(dbKey, func(val []byte) error {
+		node = new(Node)
+		return encoder.Unmarshal(val, node)
+	})
+	return
 }
 
 func (t *TrieTxn) Delete(key *bitset.BitSet) error {
