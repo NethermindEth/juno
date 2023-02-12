@@ -2,10 +2,12 @@ package db_test
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var noop = func(val []byte) error {
@@ -49,15 +51,20 @@ func TestConcurrentTransactions(t *testing.T) {
 	defer testDb.Close()
 
 	txn1 := testDb.NewTransaction(true)
-	txn2 := testDb.NewTransaction(true)
+	txn2 := testDb.NewTransaction(false)
 
 	txn1.Set([]byte("key1"), []byte("value1"))
-	err := txn2.Get([]byte("key1"), noop)
-	assert.Equal(t, db.ErrKeyNotFound, err)
+	assert.Equal(t, db.ErrKeyNotFound, txn2.Get([]byte("key1"), noop))
 
-	txn2.Set([]byte("key2"), []byte("value2"))
-	err = txn1.Get([]byte("key2"), noop)
-	assert.Equal(t, db.ErrKeyNotFound, err)
+	assert.NoError(t, txn1.Commit())
+	assert.Equal(t, db.ErrKeyNotFound, txn2.Get([]byte("key1"), noop))
+	txn2.Discard()
+
+	txn3 := testDb.NewTransaction(false)
+	assert.NoError(t, txn3.Get([]byte("key1"), func(bytes []byte) error {
+		assert.Equal(t, []byte("value1"), bytes)
+		return nil
+	}))
 }
 
 func TestViewUpdate(t *testing.T) {
@@ -225,4 +232,59 @@ func TestSeek(t *testing.T) {
 		assert.NoError(t, err)
 		return nil
 	})
+}
+
+func TestConcurrentUpdate(t *testing.T) {
+	testDb := db.NewTestDb()
+	defer testDb.Close()
+	wg := sync.WaitGroup{}
+
+	key := []byte{0}
+	require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		return txn.Set(key, []byte{0})
+	}))
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
+					var next byte
+					err := txn.Get(key, func(bytes []byte) error {
+						next = bytes[0] + 1
+						return nil
+					})
+					if err != nil {
+						return err
+					}
+					return txn.Set(key, []byte{next})
+				}))
+			}
+		}()
+	}
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				txn := testDb.NewTransaction(true)
+				var next byte
+				require.NoError(t, txn.Get(key, func(bytes []byte) error {
+					next = bytes[0] + 1
+					return nil
+				}))
+				require.NoError(t, txn.Set(key, []byte{next}))
+				txn.Commit()
+			}
+		}()
+	}
+
+	wg.Wait()
+	require.NoError(t, testDb.View(func(txn db.Transaction) error {
+		return txn.Get(key, func(bytes []byte) error {
+			assert.Equal(t, byte(200), bytes[0])
+			return nil
+		})
+	}))
 }
