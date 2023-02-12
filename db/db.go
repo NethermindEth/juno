@@ -12,7 +12,8 @@ var ErrKeyNotFound = errors.New("Key not found")
 type DB interface {
 	io.Closer
 
-	// NewTransaction returns a transaction on this database
+	// NewTransaction returns a transaction on this database, it should block if an update transaction is requested
+	// while another one is still in progress
 	NewTransaction(update bool) Transaction
 	// View creates a read-only transaction and calls fn with the given transaction
 	// View should handle committing or discarding the transaction. Transaction should be discarded when fn

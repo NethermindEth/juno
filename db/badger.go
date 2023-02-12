@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 )
@@ -10,11 +11,18 @@ import (
 // golang
 type badgerDb struct {
 	badger *badger.DB
+	wMutex *sync.Mutex
 }
 
 // NewTransaction : see db.DB.NewTransaction
 func (db *badgerDb) NewTransaction(update bool) Transaction {
-	return &badgerTxn{db.badger.NewTransaction(update)}
+	txn := &badgerTxn{}
+	if update {
+		db.wMutex.Lock()
+		txn.lock = db.wMutex
+	}
+	txn.badger = db.badger.NewTransaction(update)
+	return txn
 }
 
 // Close : see io.Closer.Close
@@ -25,14 +33,17 @@ func (db *badgerDb) Close() error {
 // View : see db.DB.View
 func (db *badgerDb) View(fn func(txn Transaction) error) error {
 	return db.badger.View(func(txn *badger.Txn) error {
-		return fn(&badgerTxn{txn})
+		return fn(&badgerTxn{txn, nil})
 	})
 }
 
 // Update : see db.DB.Update
 func (db *badgerDb) Update(fn func(txn Transaction) error) error {
+	db.wMutex.Lock()
+	defer db.wMutex.Unlock()
+
 	return db.badger.Update(func(txn *badger.Txn) error {
-		return fn(&badgerTxn{txn})
+		return fn(&badgerTxn{txn, nil})
 	})
 }
 
@@ -45,15 +56,21 @@ func (db *badgerDb) Impl() any {
 // "overriding" the badger txn Get function.
 type badgerTxn struct {
 	badger *badger.Txn
+	lock   *sync.Mutex
 }
 
 // Discard : see db.Transaction.Discard
 func (t *badgerTxn) Discard() {
 	t.badger.Discard()
+	if t.lock != nil {
+		t.lock.Unlock()
+		t.lock = nil
+	}
 }
 
 // Commit : see db.Transaction.Commit
 func (t *badgerTxn) Commit() error {
+	defer t.Discard()
 	return t.badger.Commit()
 }
 
@@ -111,7 +128,7 @@ func (t *badgerTxn) Impl() any {
 func NewDb(path string, log badger.Logger) (DB, error) {
 	opt := badger.DefaultOptions(path).WithLogger(log)
 	db, err := badger.Open(opt)
-	return &badgerDb{db}, err
+	return &badgerDb{db, new(sync.Mutex)}, err
 }
 
 // NewInMemoryDb opens a new in-memory database
@@ -119,7 +136,7 @@ func NewInMemoryDb() (DB, error) {
 	opt := badger.DefaultOptions("").WithInMemory(true)
 	opt.Logger = nil
 	db, err := badger.Open(opt)
-	return &badgerDb{db}, err
+	return &badgerDb{db, new(sync.Mutex)}, err
 }
 
 // NewTestDb opens a new in-memory database, panics on error
