@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/cockroachdb/pebble"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -427,9 +427,8 @@ func TestPutZero(t *testing.T) {
 	}
 	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
 
-	it := txn.Impl().(*badger.Txn).NewIterator(badger.DefaultIteratorOptions)
+	it := txn.Impl().(*pebble.Batch).NewIter(&pebble.IterOptions{})
 	defer it.Close()
-	it.Rewind()
 	assert.Equal(t, false, it.Valid()) // storage should be empty
 }
 
