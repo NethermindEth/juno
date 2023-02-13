@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/cockroachdb/pebble"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -41,7 +41,7 @@ func (l LogLevel) IsValid() bool {
 
 type Logger interface {
 	SimpleLogger
-	badger.Logger
+	pebble.Logger
 }
 
 type SimpleLogger interface {

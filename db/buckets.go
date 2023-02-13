@@ -4,7 +4,7 @@ import "bytes"
 
 type Bucket byte
 
-// Badger does not support buckets to differentiate between groups of
+// Pebble does not support buckets to differentiate between groups of
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
 const (

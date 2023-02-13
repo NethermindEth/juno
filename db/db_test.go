@@ -182,7 +182,7 @@ func TestNilValue(t *testing.T) {
 		err := txn.Set([]byte("key"), nil)
 		assert.Nil(t, err, "setting a key with a nil value should be allowed")
 		err = txn.Get([]byte("key"), func(val []byte) error {
-			assert.Nil(t, val)
+			assert.Equal(t, 0, len(val))
 			return nil
 		})
 		return err
