@@ -39,6 +39,14 @@ func (e ErrIncompatibleBlock) Unwrap() error {
 	return e.Err
 }
 
+type ErrInvalidL1Verification struct {
+	reason string
+}
+
+func (e ErrInvalidL1Verification) Error() string {
+	return fmt.Sprintf("invalid L1 verification: %v", e.reason)
+}
+
 type Reader interface {
 	Height() (height uint64, err error)
 	Head() (head *core.Block, err error)
@@ -82,7 +90,22 @@ func (b *Blockchain) Height() (height uint64, err error) {
 }
 
 func (b *Blockchain) height(txn db.Transaction) (height uint64, err error) {
-	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
+	return height, txn.Get(db.L2ChainHeight.Key(), func(val []byte) error {
+		height = binary.BigEndian.Uint64(val)
+		return nil
+	})
+}
+
+// L1ChainHeight returns the latest L1 verified block height.
+func (b *Blockchain) L1ChainHeight() (height uint64, err error) {
+	return height, b.database.View(func(txn db.Transaction) error {
+		height, err = b.l1ChainHeight(txn)
+		return err
+	})
+}
+
+func (b *Blockchain) l1ChainHeight(txn db.Transaction) (height uint64, err error) {
+	return height, txn.Get(db.L1ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
 		return nil
 	})
@@ -182,7 +205,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, dec
 		// [db.ChainHeight]() -> (BlockNumber)
 		heightBin := make([]byte, lenOfByteSlice)
 		binary.BigEndian.PutUint64(heightBin, block.Number)
-		return txn.Set(db.ChainHeight.Key(), heightBin)
+		return txn.Set(db.L2ChainHeight.Key(), heightBin)
 	})
 }
 
@@ -452,5 +475,13 @@ func getReceiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionRec
 func getReceiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (r *core.TransactionReceipt, err error) {
 	return r, txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &r)
+	})
+}
+
+func (b *Blockchain) StoreL1ChainHeight(height uint64, block *core.Block) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		heightBin := make([]byte, lenOfByteSlice)
+		binary.BigEndian.PutUint64(heightBin, height)
+		return txn.Set(db.L1ChainHeight.Key(), heightBin)
 	})
 }

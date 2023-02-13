@@ -15,7 +15,8 @@ const (
 	ContractStorage   // contract storages
 	Class             // maps class hashes to classes
 	ContractNonce     // contract nonce
-	ChainHeight       // Latest height of the blockchain
+	L2ChainHeight     // Latest height of the L2 verified blockchain
+	L1ChainHeight     // Latest height of the L1 verified blockchain
 	BlockHeaderNumbersByHash
 	BlockHeadersByNumber
 	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index

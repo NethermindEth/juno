@@ -71,6 +71,29 @@ func TestHeight(t *testing.T) {
 	})
 }
 
+func TestL1ChainHeight(t *testing.T) {
+	t.Run("return nil if blockchain is empty", func(t *testing.T) {
+		chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
+		_, err := chain.L1ChainHeight()
+		assert.Error(t, err)
+	})
+	t.Run("return latest verified block", func(t *testing.T) {
+		gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
+		defer closeFn()
+
+		block0, err := gw.BlockByNumber(context.Background(), 0)
+		require.NoError(t, err)
+
+		testDB := pebble.NewMemTest()
+		chain := blockchain.New(testDB, utils.MAINNET)
+		chain.StoreL1ChainHeight(block0.Number, block0)
+
+		height, err := chain.L1ChainHeight()
+		assert.NoError(t, err)
+		assert.Equal(t, block0.Number, height)
+	})
+}
+
 func TestGetBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
