@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Todo: Refactor:
@@ -88,7 +89,8 @@ func TestFindCommonPath(t *testing.T) {
 func TestTriePut(t *testing.T) {
 	t.Run("put to empty tree", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
-			keyNum, _ := strconv.ParseUint("1101", 2, 64)
+			keyNum, err := strconv.ParseUint("1101", 2, 64)
+			require.NoError(t, err)
 			key := new(felt.Felt).SetUint64(keyNum)
 			val := new(felt.Felt).SetUint64(11)
 			if _, err := trie.Put(key, val); err != nil {
@@ -105,7 +107,8 @@ func TestTriePut(t *testing.T) {
 
 	t.Run("put zero value", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
-			keyNum, _ := strconv.ParseUint("1101", 2, 64)
+			keyNum, err := strconv.ParseUint("1101", 2, 64)
+			require.NoError(t, err)
 			key := new(felt.Felt).SetUint64(keyNum)
 			val := new(felt.Felt).SetUint64(0)
 			if _, err := trie.Put(key, val); err != nil {
@@ -121,7 +124,8 @@ func TestTriePut(t *testing.T) {
 	})
 	t.Run("put to replace an existed value", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
-			keyNum, _ := strconv.ParseUint("1101", 2, 64)
+			keyNum, err := strconv.ParseUint("1101", 2, 64)
+			require.NoError(t, err)
 			key := new(felt.Felt).SetUint64(keyNum)
 			val := new(felt.Felt).SetUint64(1)
 			if _, err := trie.Put(key, val); err != nil {
@@ -141,14 +145,16 @@ func TestTriePut(t *testing.T) {
 	t.Run("put a left then a right node", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
 			// First put a left node
-			leftKeyNum, _ := strconv.ParseUint("10001", 2, 64)
+			leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
+			require.NoError(t, err)
 			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
 			leftVal := new(felt.Felt).SetUint64(12)
 			if _, err := trie.Put(leftKey, leftVal); err != nil {
 				t.Errorf("Put() failed")
 			}
 			// Then put a right node
-			rightKeyNum, _ := strconv.ParseUint("10011", 2, 64)
+			rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
+			require.NoError(t, err)
 			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
 			rightVal := new(felt.Felt).SetUint64(22)
 			if _, err := trie.Put(rightKey, rightVal); err != nil {
@@ -173,14 +179,16 @@ func TestTriePut(t *testing.T) {
 	t.Run("put a right node then a left node", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
 			// First put a right node
-			rightKeyNum, _ := strconv.ParseUint("10011", 2, 64)
+			rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
+			require.NoError(t, err)
 			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
 			rightVal := new(felt.Felt).SetUint64(22)
 			if _, err := trie.Put(rightKey, rightVal); err != nil {
 				t.Errorf("Put() failed")
 			}
 			// Then put a left node
-			leftKeyNum, _ := strconv.ParseUint("10001", 2, 64)
+			leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
+			require.NoError(t, err)
 			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
 			leftVal := new(felt.Felt).SetUint64(12)
 			if _, err := trie.Put(leftKey, leftVal); err != nil {
@@ -202,12 +210,14 @@ func TestTriePut(t *testing.T) {
 	t.Run("Add new key to different branches", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
 			// left branch
-			leftKeyNum, _ := strconv.ParseUint("100", 2, 64)
+			leftKeyNum, err := strconv.ParseUint("100", 2, 64)
+			require.NoError(t, err)
 			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
 			leftVal := new(felt.Felt).SetUint64(12)
 
 			// right branch
-			rightKeyNum, _ := strconv.ParseUint("111", 2, 64)
+			rightKeyNum, err := strconv.ParseUint("111", 2, 64)
+			require.NoError(t, err)
 			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
 			rightVal := new(felt.Felt).SetUint64(22)
 			// Build a basic trie
@@ -218,7 +228,8 @@ func TestTriePut(t *testing.T) {
 				t.Errorf("Put() failed")
 			}
 			t.Run("Add to left branch", func(t *testing.T) {
-				newKeyNum, _ := strconv.ParseUint("101", 2, 64)
+				newKeyNum, err := strconv.ParseUint("101", 2, 64)
+				require.NoError(t, err)
 				newKey := new(felt.Felt).SetUint64(newKeyNum)
 				newVal := new(felt.Felt).SetUint64(12)
 				if _, err := trie.Put(newKey, newVal); err != nil {
@@ -231,7 +242,8 @@ func TestTriePut(t *testing.T) {
 				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.Right)
 			})
 			t.Run("Add to right branch", func(t *testing.T) {
-				newKeyNum, _ := strconv.ParseUint("110", 2, 64)
+				newKeyNum, err := strconv.ParseUint("110", 2, 64)
+				require.NoError(t, err)
 				newKey := new(felt.Felt).SetUint64(newKeyNum)
 				newVal := new(felt.Felt).SetUint64(12)
 				if _, err := trie.Put(newKey, newVal); err != nil {
@@ -244,7 +256,8 @@ func TestTriePut(t *testing.T) {
 				assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.Right)
 			})
 			t.Run("Add new node as parent sibling", func(t *testing.T) {
-				newKeyNum, _ := strconv.ParseUint("000", 2, 64)
+				newKeyNum, err := strconv.ParseUint("000", 2, 64)
+				require.NoError(t, err)
 				newKey := new(felt.Felt).SetUint64(newKeyNum)
 				newVal := new(felt.Felt).SetUint64(12)
 				if _, err := trie.Put(newKey, newVal); err != nil {
@@ -264,11 +277,14 @@ func TestTriePut(t *testing.T) {
 
 func TestTrieDeleteBasic(t *testing.T) {
 	// left branch
-	leftKeyNum, _ := strconv.ParseUint("100", 2, 64)
+	leftKeyNum, err := strconv.ParseUint("100", 2, 64)
+	require.NoError(t, err)
+
 	leftKey := new(felt.Felt).SetUint64(leftKeyNum)
 	leftVal := new(felt.Felt).SetUint64(12)
 	// right branch
-	rightKeyNum, _ := strconv.ParseUint("111", 2, 64)
+	rightKeyNum, err := strconv.ParseUint("111", 2, 64)
+	require.NoError(t, err)
 	rightKey := new(felt.Felt).SetUint64(rightKeyNum)
 	rightVal := new(felt.Felt).SetUint64(22)
 	// Zero value
@@ -324,15 +340,18 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 func TestTrieDeleteSubtree(t *testing.T) {
 	// left branch
-	leftKeyNum, _ := strconv.ParseUint("100", 2, 64)
+	leftKeyNum, err := strconv.ParseUint("100", 2, 64)
+	require.NoError(t, err)
 	leftKey := new(felt.Felt).SetUint64(leftKeyNum)
 	leftVal := new(felt.Felt).SetUint64(11)
 	// left sub branch
-	leftSubKeyNum, _ := strconv.ParseUint("101", 2, 64)
+	leftSubKeyNum, err := strconv.ParseUint("101", 2, 64)
+	require.NoError(t, err)
 	leftSubKey := new(felt.Felt).SetUint64(leftSubKeyNum)
 	leftSubVal := new(felt.Felt).SetUint64(22)
 	// right branch
-	rightKeyNum, _ := strconv.ParseUint("111", 2, 64)
+	rightKeyNum, err := strconv.ParseUint("111", 2, 64)
+	require.NoError(t, err)
 	rightKey := new(felt.Felt).SetUint64(rightKeyNum)
 	rightVal := new(felt.Felt).SetUint64(33)
 	// Zero value
