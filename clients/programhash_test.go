@@ -1,6 +1,7 @@
 package clients_test
 
 import (
+	"context"
 	_ "embed"
 	"testing"
 
@@ -42,7 +43,7 @@ func TestProgramHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			classDefinition, err := client.GetClassDefinition(hexToFelt(tt.classHash))
+			classDefinition, err := client.GetClassDefinition(context.Background(), hexToFelt(tt.classHash))
 			if err != nil {
 				t.Fatal(err)
 			}

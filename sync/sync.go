@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"errors"
 	"log"
 	"sync/atomic"
@@ -57,13 +58,13 @@ func (s *Synchronizer) SyncBlocks() error {
 			if h, err := s.Blockchain.Height(); err == nil {
 				nextHeight = h + 1
 			}
-			block, err := s.StarknetData.BlockByNumber(nextHeight)
+			block, err := s.StarknetData.BlockByNumber(context.Background(), nextHeight)
 			if err != nil {
 				return err
 			}
 			log.Println()
 			log.Printf("Fetched Block: Number: %d, Hash: %s", block.Number, block.Hash.Text(16))
-			stateUpdate, err := s.StarknetData.StateUpdate(nextHeight)
+			stateUpdate, err := s.StarknetData.StateUpdate(context.Background(), nextHeight)
 			if err != nil {
 				return err
 			}

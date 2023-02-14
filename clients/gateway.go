@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -83,13 +84,12 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
+func (c *GatewayClient) get(ctx context.Context, queryUrl string) ([]byte, error) {
 	var res *http.Response
 	var err error
-	var body io.Reader 
 	wait := c.minWait
 	for i := 0; i <= c.maxRetries; i++ {
-		req, err := http.NewRequest("GET", queryUrl, body)
+		req, err := http.NewRequestWithContext(ctx, "GET", queryUrl, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -112,8 +112,7 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 		return nil, errors.New(res.Status)
 	}
 
-	bodyBytes, err := io.ReadAll(res.Body)
-	return bodyBytes, err
+	return io.ReadAll(res.Body)
 }
 
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
@@ -137,12 +136,12 @@ type StateUpdate struct {
 	} `json:"state_diff"`
 }
 
-func (c *GatewayClient) GetStateUpdate(blockNumber uint64) (*StateUpdate, error) {
+func (c *GatewayClient) GetStateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
 	queryUrl := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	if body, err := c.get(queryUrl); err != nil {
+	if body, err := c.get(ctx, queryUrl); err != nil {
 		return nil, err
 	} else {
 		update := new(StateUpdate)
@@ -181,12 +180,12 @@ type TransactionStatus struct {
 	Transaction      *Transaction `json:"transaction"`
 }
 
-func (c *GatewayClient) GetTransaction(transactionHash *felt.Felt) (*TransactionStatus, error) {
+func (c *GatewayClient) GetTransaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
 	queryUrl := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": "0x" + transactionHash.Text(16),
 	})
 
-	if body, err := c.get(queryUrl); err != nil {
+	if body, err := c.get(ctx, queryUrl); err != nil {
 		return nil, err
 	} else {
 		txStatus := new(TransactionStatus)
@@ -257,12 +256,12 @@ type Block struct {
 	SequencerAddress *felt.Felt            `json:"sequencer_address"`
 }
 
-func (c *GatewayClient) GetBlock(blockNumber uint64) (*Block, error) {
+func (c *GatewayClient) GetBlock(ctx context.Context, blockNumber uint64) (*Block, error) {
 	queryUrl := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	if body, err := c.get(queryUrl); err != nil {
+	if body, err := c.get(ctx, queryUrl); err != nil {
 		return nil, err
 	} else {
 		block := new(Block)
@@ -316,12 +315,12 @@ type ClassDefinition struct {
 	Program Program `json:"program"`
 }
 
-func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefinition, error) {
+func (c *GatewayClient) GetClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
 	queryUrl := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": "0x" + classHash.Text(16),
 	})
 
-	if body, err := c.get(queryUrl); err != nil {
+	if body, err := c.get(ctx, queryUrl); err != nil {
 		return nil, err
 	} else {
 		class := new(ClassDefinition)

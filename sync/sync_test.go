@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	_ "embed"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestSyncBlocks(t *testing.T) {
 
 			height := int(headBlock.Number)
 			for height >= 0 {
-				b, err := gw.BlockByNumber(uint64(height))
+				b, err := gw.BlockByNumber(context.Background(), uint64(height))
 				if err != nil {
 					return err
 				}
@@ -46,9 +47,9 @@ func TestSyncBlocks(t *testing.T) {
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := db.NewTestDb()
 		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
-		b0, err := gw.BlockByNumber(0)
+		b0, err := gw.BlockByNumber(context.Background(), 0)
 		assert.NoError(t, err)
-		s0, err := gw.StateUpdate(0)
+		s0, err := gw.StateUpdate(context.Background(), 0)
 		assert.NoError(t, err)
 		assert.NoError(t, bc.Store(b0, s0))
 

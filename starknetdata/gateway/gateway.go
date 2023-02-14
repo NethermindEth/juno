@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"errors"
 
 	"github.com/NethermindEth/juno/clients"
@@ -28,8 +29,8 @@ func NewGatewayWithClient(client *clients.GatewayClient) *Gateway {
 
 // BlockByNumber gets the block for a given block number from the feeder gateway,
 // then adapts it to the core.Block type.
-func (g *Gateway) BlockByNumber(blockNumber uint64) (*core.Block, error) {
-	response, err := g.client.GetBlock(blockNumber)
+func (g *Gateway) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
+	response, err := g.client.GetBlock(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -157,8 +158,8 @@ func adaptL2ToL1Message(response *clients.L2ToL1Message) *core.L2ToL1Message {
 
 // Transaction gets the transaction for a given transaction hash from the feeder gateway,
 // then adapts it to the appropriate core.Transaction types.
-func (g *Gateway) Transaction(transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := g.client.GetTransaction(transactionHash)
+func (g *Gateway) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
+	response, err := g.client.GetTransaction(ctx, transactionHash)
 	if err != nil {
 		return nil, err
 	}
@@ -240,8 +241,8 @@ func adaptDeployAccountTransaction(t *clients.Transaction) *core.DeployAccountTr
 
 // Class gets the class for a given class hash from the feeder gateway,
 // then adapts it to the core.Class type.
-func (g *Gateway) Class(classHash *felt.Felt) (*core.Class, error) {
-	response, err := g.client.GetClassDefinition(classHash)
+func (g *Gateway) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error) {
+	response, err := g.client.GetClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err
 	}
@@ -295,8 +296,8 @@ func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 
 // StateUpdate gets the state update for a given block number from the feeder gateway,
 // then adapts it to the core.StateUpdate type.
-func (g *Gateway) StateUpdate(blockNumber uint64) (*core.StateUpdate, error) {
-	response, err := g.client.GetStateUpdate(blockNumber)
+func (g *Gateway) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
+	response, err := g.client.GetStateUpdate(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
