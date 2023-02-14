@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -47,6 +48,7 @@ type Node struct {
 	blockchain   *blockchain.Blockchain
 	synchronizer *sync.Synchronizer
 	http         *jsonrpc.Http
+	verifier     *sync.L1Verifier
 
 	log utils.Logger
 }
@@ -80,11 +82,13 @@ func New(cfg *Config) (StarknetNode, error) {
 
 	chain := blockchain.New(stateDb, cfg.Network)
 	synchronizer := sync.NewSynchronizer(chain, gateway.NewGateway(cfg.Network), log)
+	l1Verifier := sync.NewL1Verifier(chain, clients.NewGatewayClient(cfg.Network.URL()), log)
 	return &Node{
 		cfg:          cfg,
 		log:          log,
 		db:           stateDb,
 		blockchain:   chain,
+		verifier:     l1Verifier,
 		synchronizer: synchronizer,
 		http:         makeHttp(cfg.RpcPort, rpc.New(chain, cfg.Network.ChainId()), log),
 	}, nil
@@ -114,7 +118,28 @@ func (n *Node) Run(ctx context.Context) (err error) {
 		n.log.Infow("Shutting down Juno...")
 	}()
 	n.http.Run(ctx)
-	return n.synchronizer.Run(ctx)
+
+	syncErrChan := make(chan error)
+	verifierErrChan := make(chan error)
+
+	go func() {
+		syncErrChan <- n.synchronizer.Run(ctx)
+	}()
+	go func() {
+		verifierErrChan <- n.verifier.Run(ctx)
+	}()
+
+	syncErr := <-syncErrChan
+	verifierErr := <-verifierErrChan
+
+	if syncErr != nil {
+		return syncErr
+	}
+	if verifierErr != nil {
+		return verifierErr
+	}
+
+	return err
 }
 
 func (n *Node) Config() Config {

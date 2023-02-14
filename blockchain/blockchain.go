@@ -478,7 +478,7 @@ func getReceiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDB
 	})
 }
 
-func (b *Blockchain) StoreL1ChainHeight(height uint64, block *core.Block) error {
+func (b *Blockchain) StoreL1ChainHeight(height uint64) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		heightBin := make([]byte, lenOfByteSlice)
 		binary.BigEndian.PutUint64(heightBin, height)

@@ -72,25 +72,41 @@ func TestHeight(t *testing.T) {
 }
 
 func TestL1ChainHeight(t *testing.T) {
-	t.Run("return nil if blockchain is empty", func(t *testing.T) {
+	t.Run("return 0 if blockchain is empty", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
-		_, err := chain.L1ChainHeight()
+		height, err := chain.L1ChainHeight()
 		assert.Error(t, err)
+		assert.Equal(t, uint64(0), height)
 	})
 	t.Run("return latest verified block", func(t *testing.T) {
 		gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
 		defer closeFn()
 
+		testDB := pebble.NewMemTest()
+		chain := blockchain.New(testDB, utils.MAINNET)
+
 		block0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
-		testDB := pebble.NewMemTest()
-		chain := blockchain.New(testDB, utils.MAINNET)
-		chain.StoreL1ChainHeight(block0.Number, block0)
+		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+		require.NoError(t, err)
+
+		assert.NoError(t, chain.Store(block0, stateUpdate0, nil))
+
+		block1, err := gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
+		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
+		require.NoError(t, err)
+
+		assert.NoError(t, chain.Store(block1, stateUpdate1, nil))
+
+		require.NoError(t, chain.StoreL1ChainHeight(block0.Number))
+		require.NoError(t, chain.StoreL1ChainHeight(block1.Number))
 
 		height, err := chain.L1ChainHeight()
 		assert.NoError(t, err)
-		assert.Equal(t, block0.Number, height)
+		assert.Equal(t, block1.Number, height)
 	})
 }
 

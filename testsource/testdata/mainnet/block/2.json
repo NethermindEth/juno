@@ -3,7 +3,7 @@
   "parent_block_hash": "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb",
   "block_number": 2,
   "state_root": "03ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9",
-  "status": "ACCEPTED_ON_L1",
+  "status": "ACCEPTED_ON_L2",
   "gas_price": "0x0",
   "transactions": [
     {
