@@ -1,7 +1,6 @@
 package clients_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -273,7 +272,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	client, closer := testsource.NewTestClient(utils.MAINNET)
 	defer closer.Close()
 
-	block, err := client.GetBlock(context.Background(), 11817)
+	block, err := client.GetBlock(11817)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +293,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	client, closer := testsource.NewTestClient(utils.MAINNET)
 	defer closer.Close()
 
-	block, err := client.GetBlock(context.Background(), 19199)
+	block, err := client.GetBlock(19199)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +316,7 @@ func TestClassUnmarshal(t *testing.T) {
 	defer closer.Close()
 
 	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
-	class, err := gatewayClient.GetClassDefinition(context.Background(), hash)
+	class, err := gatewayClient.GetClassDefinition(hash)
 	if err != nil {
 		t.Error(err)
 	}
@@ -340,7 +339,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 	}()
 	baseUrl := "https\t://mock_gateway.io"
 	gatewayClient := clients.NewGatewayClient(baseUrl)
-	gatewayClient.GetBlock(context.Background(), 0)
+	gatewayClient.GetBlock(0)
 }
 
 func TestGetStateUpdate(t *testing.T) {
@@ -398,12 +397,12 @@ func TestGetStateUpdate(t *testing.T) {
 	gatewayClient := testClient(srv.URL)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		stateUpdate, err := gatewayClient.GetStateUpdate(context.Background(), 10)
+		stateUpdate, err := gatewayClient.GetStateUpdate(10)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, update, *stateUpdate)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
-		stateUpdate, err := gatewayClient.GetStateUpdate(context.Background(), 1000000)
+		stateUpdate, err := gatewayClient.GetStateUpdate(1000000)
 		assert.Nil(t, stateUpdate, "Unexpected error")
 		assert.NotNil(t, err)
 	})
@@ -465,14 +464,14 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("Test normal case", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0x00")
 		gatewayClient := testClient(srv.URL)
-		actualStatus, err := gatewayClient.GetTransaction(context.Background(), transaction_hash)
+		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, *actualStatus, transactionStatus)
 	})
 	t.Run("Test case when transaction_hash not exit", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
 		gatewayClient := testClient(srv.URL)
-		actualStatus, err := gatewayClient.GetTransaction(context.Background(), transaction_hash)
+		actualStatus, err := gatewayClient.GetTransaction(transaction_hash)
 		assert.Nil(t, actualStatus, "Unexpected error")
 		assert.NotNil(t, err)
 	})
@@ -484,14 +483,14 @@ func TestGetBlock(t *testing.T) {
 
 	t.Run("Test normal case", func(t *testing.T) {
 		blcokNumber := uint64(11817)
-		actualBlock, err := gatewayClient.GetBlock(context.Background(), blcokNumber)
+		actualBlock, err := gatewayClient.GetBlock(blcokNumber)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualBlock)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		blcokNumber := uint64(1000000)
 
-		actualBlock, err := gatewayClient.GetBlock(context.Background(), blcokNumber)
+		actualBlock, err := gatewayClient.GetBlock(blcokNumber)
 		assert.Nil(t, actualBlock, "Unexpected error")
 		assert.NotNil(t, err)
 	})
@@ -504,13 +503,13 @@ func TestGetClassDefinition(t *testing.T) {
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 
-		actualClass, err := gatewayClient.GetClassDefinition(context.Background(), classHash)
+		actualClass, err := gatewayClient.GetClassDefinition(classHash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x000")
-		actualClass, err := gatewayClient.GetClassDefinition(context.Background(), classHash)
+		actualClass, err := gatewayClient.GetClassDefinition(classHash)
 		assert.Nil(t, actualClass, "Unexpected error")
 		assert.NotNil(t, err)
 	})
@@ -524,22 +523,22 @@ func TestHttpError(t *testing.T) {
 	gatewayClient := testClient(srv.URL)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
-		_, err := gatewayClient.GetBlock(context.Background(), 0)
+		_, err := gatewayClient.GetBlock(0)
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetTransaction", func(t *testing.T) {
-		_, err := gatewayClient.GetTransaction(context.Background(), new(felt.Felt))
+		_, err := gatewayClient.GetTransaction(new(felt.Felt))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetClassDefinition", func(t *testing.T) {
-		_, err := gatewayClient.GetClassDefinition(context.Background(), new(felt.Felt))
+		_, err := gatewayClient.GetClassDefinition(new(felt.Felt))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetStateUpdate", func(t *testing.T) {
-		_, err := gatewayClient.GetStateUpdate(context.Background(), 0)
+		_, err := gatewayClient.GetStateUpdate(0)
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 }
@@ -555,7 +554,7 @@ func TestBackoffFailure(t *testing.T) {
 
 	c := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(maxRetries)
 
-	_, err := c.GetBlock(context.Background(), 0)
+	_, err := c.GetBlock(0)
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }

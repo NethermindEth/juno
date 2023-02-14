@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"context"
 	_ "embed"
 	"testing"
 
@@ -89,7 +88,7 @@ func TestBlockHash(t *testing.T) {
 			client, closer := testsource.NewTestGateway(tt.chain)
 			defer closer.Close()
 
-			block, err := client.BlockByNumber(context.Background(), tt.blockNumber)
+			block, err := client.BlockByNumber(tt.blockNumber)
 			require.NoError(t, err)
 			assert.NoError(t, core.VerifyBlockHash(block, tt.chain))
 		})

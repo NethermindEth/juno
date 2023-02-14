@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"context"
 	_ "embed"
 	"testing"
 
@@ -43,7 +42,7 @@ func TestClassHash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
 			hash := hexToFelt(tt.classHash)
-			class, err := gw.Class(context.Background(), hash)
+			class, err := gw.Class(hash)
 			assert.NoError(t, err)
 			got := class.Hash()
 			if !hash.Equal(got) {
