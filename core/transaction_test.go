@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"context"
 	_ "embed"
 	"testing"
 
@@ -49,7 +50,7 @@ func TestTransactionHash(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			hash := hexToFelt(test.txnHash)
-			txn, err := gw.Transaction(hash)
+			txn, err := gw.Transaction(context.Background(), hash)
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
 

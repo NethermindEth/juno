@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"context"
 	_ "embed"
 	"encoding/binary"
 	"testing"
@@ -26,10 +27,10 @@ func TestNewBlockchain(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("non-empty blockchain gets head from db", func(t *testing.T) {
-		block0, err := gw.BlockByNumber(0)
+		block0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(0)
+		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
 
 		testDB := db.NewTestDb()
@@ -52,10 +53,10 @@ func TestHeight(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("return height of the blockchain's head", func(t *testing.T) {
-		block0, err := gw.BlockByNumber(0)
+		block0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(0)
+		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
 
 		testDB := db.NewTestDb()
@@ -78,7 +79,7 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 		gw, closer := testsource.NewTestGateway(utils.MAINNET)
 		defer closer.Close()
 
-		block, err := gw.BlockByNumber(0)
+		block, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 		require.NoError(t, putBlock(txn, block))
 
@@ -123,10 +124,10 @@ func TestVerifyBlock(t *testing.T) {
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
 
-	mainnetBlock0, err := gw.BlockByNumber(0)
+	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
 
-	mainnetStateUpdate0, err := gw.StateUpdate(0)
+	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
 	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
@@ -150,9 +151,9 @@ func TestVerifyBlock(t *testing.T) {
 		assert.Equal(t, chain.VerifyBlock(incomingBlock, nil), expectedErr)
 	})
 
-	mainnetBlock1, err := gw.BlockByNumber(1)
+	mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
 	require.NoError(t, err)
-	mainnetStateUpdate1, err := gw.StateUpdate(1)
+	mainnetStateUpdate1, err := gw.StateUpdate(context.Background(), 1)
 	require.NoError(t, err)
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
@@ -187,11 +188,11 @@ func TestVerifyBlock(t *testing.T) {
 		goerliGW, goerliCloser := testsource.NewTestGateway(utils.GOERLI)
 		defer goerliCloser.Close()
 
-		block119801, err := goerliGW.BlockByNumber(119801)
+		block119801, err := goerliGW.BlockByNumber(context.Background(), 119801)
 		require.NoError(t, err)
-		block119802, err := goerliGW.BlockByNumber(119802)
+		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
-		stateUpdate119802, err := goerliGW.StateUpdate(119802)
+		stateUpdate119802, err := goerliGW.StateUpdate(context.Background(), 119802)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.database.Update(func(txn db.Transaction) error {
@@ -211,10 +212,10 @@ func TestStore(t *testing.T) {
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
 
-	block0, err := gw.BlockByNumber(0)
+	block0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
 
-	stateUpdate0, err := gw.StateUpdate(0)
+	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
@@ -237,10 +238,10 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, got0Block, block0)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
-		block1, err := gw.BlockByNumber(1)
+		block1, err := gw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
 
-		stateUpdate1, err := gw.StateUpdate(1)
+		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
 		require.NoError(t, err)
 
 		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
