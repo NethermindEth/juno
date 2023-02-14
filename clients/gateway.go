@@ -19,6 +19,7 @@ type GatewayClient struct {
 	url        string
 	backoff    Backoff
 	maxRetries int
+	maxWait    time.Duration
 	minWait    time.Duration
 }
 
@@ -32,12 +33,16 @@ func (c *GatewayClient) WithMaxRetries(num int) *GatewayClient {
 	return c
 }
 
+func (c *GatewayClient) WithMaxWait(d time.Duration) *GatewayClient {
+	c.maxWait = d
+	return c
+}
+
 func (c *GatewayClient) WithMinWait(d time.Duration) *GatewayClient {
 	c.minWait = d
 	return c
 }
 
-// https://cloud.google.com/iot/docs/how-tos/exponential-backoff
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	time.Sleep(wait)
 	return wait * 2
@@ -51,8 +56,9 @@ func NewGatewayClient(url string) *GatewayClient {
 	return &GatewayClient{
 		url:        url,
 		backoff:    ExponentialBackoff,
-		maxRetries: 11, // ~34 minutes with ExponentialBackoff (block time on mainnet is 20-30 minutes)
-		minWait:    1 * time.Second,
+		maxRetries: 35, // ~35 minutes with default backoff and maxWait (block time on mainnet is 20-30 minutes)
+		maxWait:    time.Minute,
+		minWait:    time.Second,
 	}
 }
 
@@ -85,6 +91,9 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 			break
 		}
 		wait = c.backoff(wait)
+		if wait > c.maxWait {
+			wait = c.maxWait
+		}
 	}
 	if err != nil {
 		return nil, err
