@@ -346,3 +346,8 @@ func AdaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) 
 		StateDiff: stateDiff,
 	}, nil
 }
+
+// Close prematurely aborts all requests and forces them to return an error immediately
+func (g *Gateway) Close() error {
+	return g.client.Close()
+}

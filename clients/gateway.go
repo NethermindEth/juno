@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -22,6 +23,8 @@ type GatewayClient struct {
 	maxRetries int
 	maxWait    time.Duration
 	minWait    time.Duration
+	ctx        context.Context
+	cancelCtx  context.CancelFunc
 }
 
 func (c *GatewayClient) WithBackoff(b Backoff) *GatewayClient {
@@ -54,6 +57,7 @@ func NopBackoff(d time.Duration) time.Duration {
 }
 
 func NewGatewayClient(url string) *GatewayClient {
+	ctx, cancelCtx := context.WithCancel(context.Background())
 	return &GatewayClient{
 		url:        url,
 		client:     http.DefaultClient,
@@ -61,6 +65,8 @@ func NewGatewayClient(url string) *GatewayClient {
 		maxRetries: 35, // ~35 minutes with default backoff and maxWait (block time on mainnet is 20-30 minutes)
 		maxWait:    time.Minute,
 		minWait:    time.Second,
+		ctx:        ctx,
+		cancelCtx:  cancelCtx,
 	}
 }
 
@@ -86,10 +92,9 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 	var res *http.Response
 	var err error
-	var body io.Reader 
 	wait := c.minWait
 	for i := 0; i <= c.maxRetries; i++ {
-		req, err := http.NewRequest("GET", queryUrl, body)
+		req, err := http.NewRequestWithContext(c.ctx, "GET", queryUrl, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -112,8 +117,7 @@ func (c *GatewayClient) get(queryUrl string) ([]byte, error) {
 		return nil, errors.New(res.Status)
 	}
 
-	bodyBytes, err := io.ReadAll(res.Body)
-	return bodyBytes, err
+	return io.ReadAll(res.Body)
 }
 
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
@@ -330,4 +334,10 @@ func (c *GatewayClient) GetClassDefinition(classHash *felt.Felt) (*ClassDefiniti
 		}
 		return class, nil
 	}
+}
+
+// Close prematurely aborts all requests and forces them to return an error immediately
+func (c *GatewayClient) Close() error {
+	c.cancelCtx()
+	return nil
 }
