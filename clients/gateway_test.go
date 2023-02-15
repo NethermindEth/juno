@@ -517,11 +517,14 @@ func TestGetClassDefinition(t *testing.T) {
 }
 
 func TestHttpError(t *testing.T) {
+	maxRetries := 2
+	callCount := make(map[string]int)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount[r.URL.String()]++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	gatewayClient := testClient(srv.URL)
+	gatewayClient := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(maxRetries)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := gatewayClient.GetBlock(context.Background(), 0)
@@ -542,6 +545,10 @@ func TestHttpError(t *testing.T) {
 		_, err := gatewayClient.GetStateUpdate(context.Background(), 0)
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
+
+	for _, called := range callCount {
+		assert.Equal(t, maxRetries+1, called)
+	}
 }
 
 func TestBackoffFailure(t *testing.T) {

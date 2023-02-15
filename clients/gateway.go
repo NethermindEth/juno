@@ -53,7 +53,6 @@ func (c *GatewayClient) WithLogger(log utils.SimpleLogger) *GatewayClient {
 }
 
 func ExponentialBackoff(wait time.Duration) time.Duration {
-	time.Sleep(wait)
 	return wait * 2
 }
 
@@ -95,32 +94,36 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 func (c *GatewayClient) get(ctx context.Context, queryUrl string) ([]byte, error) {
 	var res *http.Response
 	var err error
-	wait := c.minWait
+	wait := time.Duration(0)
 	for i := 0; i <= c.maxRetries; i++ {
-		req, err := http.NewRequestWithContext(ctx, "GET", queryUrl, nil)
-		if err != nil {
-			return nil, err
-		}
+		select {
+		case <-ctx.Done():
+			return nil, errors.New("canceled")
+		case <-time.After(wait):
+			var req *http.Request
+			req, err = http.NewRequestWithContext(ctx, "GET", queryUrl, nil)
+			if err != nil {
+				return nil, err
+			}
 
-		res, err = c.client.Do(req)
-		if res != nil && res.StatusCode == http.StatusOK {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		c.log.Warnw("failed query to feeder gateway, retrying...", "retryAfter", wait.String())
-		wait = c.backoff(wait)
-		if wait > c.maxWait {
-			wait = c.maxWait
+			res, err = c.client.Do(req)
+			if err == nil && res != nil && res.StatusCode == http.StatusOK {
+				return io.ReadAll(res.Body)
+			} else if res != nil && res.StatusCode != http.StatusOK {
+				err = errors.New(res.Status)
+			}
+
+			if wait < c.minWait {
+				wait = c.minWait
+			}
+			wait = c.backoff(wait)
+			if wait > c.maxWait {
+				wait = c.maxWait
+			}
+			c.log.Warnw("failed query to feeder gateway, retrying...", "retryAfter", wait.String())
 		}
 	}
-	if err != nil {
-		return nil, err
-	} else if res.StatusCode != http.StatusOK {
-		return nil, errors.New(res.Status)
-	}
-
-	return io.ReadAll(res.Body)
+	return nil, err
 }
 
 // StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
