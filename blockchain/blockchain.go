@@ -111,9 +111,9 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
-	txn := b.database.NewTransaction(false)
-	defer txn.Discard()
-	return b.verifyBlock(txn, block)
+	return b.database.View(func(txn db.Transaction) error {
+		return b.verifyBlock(txn, block)
+	})
 }
 
 func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
