@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	"go.uber.org/zap"
@@ -64,7 +65,9 @@ func NewZapLogger(logLevel LogLevel) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Encoding = "console"
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
+	}
 	level, err := zapcore.ParseLevel(logLevel.String())
 	if err != nil {
 		return nil, err
