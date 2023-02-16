@@ -60,29 +60,33 @@ func New(cfg *Config) (StarknetNode, error) {
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-	return &Node{cfg: cfg}, nil
+	log, err := utils.NewZapLogger(cfg.Verbosity)
+	if err != nil {
+		return nil, err
+	}
+	dbLog, err := utils.NewZapLogger(utils.ERROR)
+	if err != nil {
+		return nil, err
+	}
+	stateDb, err := db.NewDb(cfg.DatabasePath, dbLog)
+	if err != nil {
+		return nil, err
+	}
+
+	blockchain := blockchain.NewBlockchain(stateDb, cfg.Network)
+	synchronizer := sync.NewSynchronizer(blockchain, gateway.NewGateway(cfg.Network), log)
+	return &Node{
+		cfg:          cfg,
+		log:          log,
+		db:           stateDb,
+		blockchain:   blockchain,
+		synchronizer: synchronizer,
+	}, nil
 }
 
 func (n *Node) Run(ctx context.Context) error {
-	var err error
-	n.log, err = utils.NewZapLogger(n.cfg.Verbosity)
-	if err != nil {
-		return err
-	}
-
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
-
-	dbLog, err := utils.NewZapLogger(utils.ERROR)
-	if err != nil {
-		return err
-	}
-	n.db, err = db.NewDb(n.cfg.DatabasePath, dbLog)
-	if err != nil {
-		return err
-	}
 	defer n.db.Close()
-	n.blockchain = blockchain.NewBlockchain(n.db, n.cfg.Network)
-	n.synchronizer = sync.NewSynchronizer(n.blockchain, gateway.NewGateway(n.cfg.Network), n.log)
 	go func() {
 		<-ctx.Done()
 		n.log.Infow("Shutting down Juno...")
