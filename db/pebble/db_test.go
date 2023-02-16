@@ -1,6 +1,7 @@
 package pebble_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"testing"
@@ -219,5 +220,139 @@ func TestConcurrentUpdate(t *testing.T) {
 			assert.Equal(t, byte(200), bytes[0])
 			return nil
 		})
+	}))
+}
+
+func TestSeek(t *testing.T) {
+	testDb := pebble.NewMemTest()
+	defer testDb.Close()
+
+	err := testDb.Update(func(txn db.Transaction) error {
+		err := txn.Set([]byte{1}, []byte{1})
+		assert.NoError(t, err)
+		err = txn.Set([]byte{3}, []byte{3})
+		assert.NoError(t, err)
+		return nil
+	})
+	assert.NoError(t, err)
+
+	testDb.View(func(txn db.Transaction) error {
+		t.Run("seeks to the next key in lexicographical order", func(t *testing.T) {
+			iter := txn.NewIterator(db.IterOptions{
+				LowerBound: []byte{0},
+				UpperBound: []byte{2},
+			})
+			defer iter.Close()
+
+			err := iter.Seek(func(next *db.Entry) error {
+				assert.Equal(t, []byte{1}, next.Key)
+				assert.Equal(t, []byte{1}, next.Value)
+				return nil
+			})
+			assert.NoError(t, err)
+		})
+
+		t.Run("stop iteration when next key is upper bound", func(t *testing.T) {
+			iter := txn.NewIterator(db.IterOptions{
+				LowerBound: []byte{1},
+				UpperBound: []byte{3},
+			})
+			defer iter.Close()
+
+			key := 0
+			err = iter.Seek(func(next *db.Entry) error {
+				key++
+				return nil
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, 1, key)
+		})
+
+		t.Run("return nil when key is not found", func(t *testing.T) {
+			iter := txn.NewIterator(db.IterOptions{
+				LowerBound: []byte{4},
+				UpperBound: []byte{5},
+			})
+			defer iter.Close()
+
+			err = iter.Seek(func(next *db.Entry) error {
+				assert.Nil(t, next)
+				return nil
+			})
+			assert.NoError(t, err)
+		})
+		return nil
+	})
+}
+
+type Entry struct {
+	Key   uint64
+	Value []byte
+}
+
+func TestIterator(t *testing.T) {
+	data := []struct {
+		key   uint64
+		value []byte
+	}{
+		{11, []byte("c")},
+		{12, []byte("a")},
+		{13, []byte("e")},
+		{22, []byte("d")},
+		{23, []byte("b")},
+		{123, []byte("f")},
+		{123678, []byte("f")},
+	}
+
+	testDb := pebble.NewMemTest()
+	defer testDb.Close()
+
+	require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		for _, d := range data {
+			numBytes := make([]byte, 8)
+			binary.BigEndian.PutUint64(numBytes, d.key)
+			err := txn.Set(numBytes, d.value)
+			assert.NoError(t, err)
+		}
+		return nil
+	}))
+
+	require.NoError(t, testDb.View(func(txn db.Transaction) error {
+		lowBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(lowBytes, 10)
+		highBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(highBytes, 20)
+		iter := txn.NewIterator(db.IterOptions{
+			LowerBound: lowBytes,
+			UpperBound: highBytes,
+		})
+		defer iter.Close()
+
+		prefixBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(prefixBytes, 1)
+		var entries []Entry
+		err := iter.Seek(func(e *db.Entry) error {
+			var key uint64
+			keyBytes := make([]byte, 8)
+			copy(keyBytes[:], iter.Key())
+			key = binary.BigEndian.Uint64(keyBytes)
+			entries = append(entries, Entry{
+				Key:   key,
+				Value: iter.Value(),
+			})
+
+			return nil
+		})
+		assert.NoError(t, err)
+
+		expectedKeys := []uint64{11, 12, 13}
+
+		assert.Equal(t, len(expectedKeys), len(entries))
+
+		for i := 0; i < len(entries); i++ {
+			assert.Contains(t, expectedKeys, entries[i].Key)
+		}
+
+		return nil
 	}))
 }

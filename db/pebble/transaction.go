@@ -15,6 +15,10 @@ type Transaction struct {
 	lock     *sync.Mutex
 }
 
+type pebbleIterator struct {
+	iter *pebble.Iterator
+}
+
 // Discard : see db.Transaction.Discard
 func (t *Transaction) Discard() {
 	if t.batch != nil {
@@ -92,4 +96,70 @@ func (t *Transaction) Impl() any {
 	} else {
 		return nil
 	}
+}
+
+// NewIterator : see db.Transaction.NewIterator
+func (t *Transaction) NewIterator(opts db.IterOptions) db.Iterator {
+	var iter *pebble.Iterator
+	if t.batch != nil {
+		iter = t.batch.NewIter(&pebble.IterOptions{
+			LowerBound: opts.LowerBound,
+			UpperBound: opts.UpperBound,
+		})
+	} else if t.snapshot != nil {
+		iter = t.snapshot.NewIter(&pebble.IterOptions{
+			LowerBound: opts.LowerBound,
+			UpperBound: opts.UpperBound,
+		})
+	} else {
+		return nil
+	}
+
+	return &pebbleIterator{
+		iter: iter,
+	}
+}
+
+// Valid : see db.Transaction.Iterator.Valid
+func (it *pebbleIterator) Valid() bool {
+	return it.iter.Valid()
+}
+
+// Key : see db.Transaction.Iterator.Key
+func (it *pebbleIterator) Key() []byte {
+	return it.iter.Key()
+}
+
+// Value : see db.Transaction.Iterator.Value
+func (it *pebbleIterator) Value() []byte {
+	return it.iter.Value()
+}
+
+// Next : see db.Transaction.Iterator.Next
+func (it *pebbleIterator) Next() bool {
+	return it.iter.Next()
+}
+
+// Seek : see db.Transaction.Iterator.Seek
+func (it *pebbleIterator) Seek(cb func(*db.Entry) error) error {
+	for it.iter.First(); it.iter.Valid(); it.iter.Next() {
+		val, err := it.iter.ValueAndErr()
+		if err != nil {
+			return err
+		}
+		if err := cb(&db.Entry{
+			Key:   it.iter.Key(),
+			Value: val,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Close : see db.Transaction.Iterator.Close
+func (it *pebbleIterator) Close() error {
+	it.iter.Close()
+	return nil
 }
