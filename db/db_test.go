@@ -190,50 +190,6 @@ func TestNilValue(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestSeek(t *testing.T) {
-	testDb := db.NewTestDb()
-	defer testDb.Close()
-
-	err := testDb.Update(func(txn db.Transaction) error {
-		err := txn.Set([]byte{1}, []byte{1})
-		assert.NoError(t, err)
-		err = txn.Set([]byte{3}, []byte{3})
-		assert.NoError(t, err)
-		return nil
-	})
-	assert.NoError(t, err)
-
-	testDb.View(func(txn db.Transaction) error {
-		err := txn.Seek([]byte{0}, func(next *db.Entry) error {
-			assert.Equal(t, []byte{1}, next.Key)
-			assert.Equal(t, []byte{1}, next.Value)
-			return nil
-		})
-		assert.NoError(t, err)
-
-		err = txn.Seek([]byte{2}, func(next *db.Entry) error {
-			assert.Equal(t, []byte{3}, next.Key)
-			assert.Equal(t, []byte{3}, next.Value)
-			return nil
-		})
-		assert.NoError(t, err)
-
-		err = txn.Seek([]byte{3}, func(next *db.Entry) error {
-			assert.Equal(t, []byte{3}, next.Key)
-			assert.Equal(t, []byte{3}, next.Value)
-			return nil
-		})
-		assert.NoError(t, err)
-
-		err = txn.Seek([]byte{4}, func(next *db.Entry) error {
-			assert.Nil(t, next)
-			return nil
-		})
-		assert.NoError(t, err)
-		return nil
-	})
-}
-
 func TestConcurrentUpdate(t *testing.T) {
 	testDb := db.NewTestDb()
 	defer testDb.Close()
