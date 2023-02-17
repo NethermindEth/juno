@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -88,7 +88,7 @@ func TestContractAddress(t *testing.T) {
 }
 
 func TestContract(t *testing.T) {
-	testDb := db.NewTestDb()
+	testDb := pebble.NewMemTest()
 	defer testDb.Close()
 
 	txn := testDb.NewTransaction(true)

@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -166,7 +166,7 @@ func TestUpdate(t *testing.T) {
 		}
 	}
 
-	testDb := db.NewTestDb()
+	testDb := pebble.NewMemTest()
 	state := state.NewState(testDb.NewTransaction(true))
 
 	assert.Equal(t, nil, state.Update(coreUpdate))
@@ -185,7 +185,7 @@ func TestUpdateNonce(t *testing.T) {
 			Address: addr, ClassHash: classHash,
 		},
 	}
-	testDb := db.NewTestDb()
+	testDb := pebble.NewMemTest()
 	state := state.NewState(testDb.NewTransaction(true))
 
 	assert.NoError(t, state.Update(coreUpdate))
