@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
+	pebble2 "github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/cockroachdb/pebble"
 	"github.com/stretchr/testify/assert"
@@ -355,7 +355,7 @@ func TestState(t *testing.T) {
 }
 
 func TestPutZero(t *testing.T) {
-	db, _ := db.NewInMemoryDb()
+	db, _ := pebble2.NewMem()
 	defer db.Close()
 
 	txn := db.NewTransaction(true)
