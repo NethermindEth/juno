@@ -191,3 +191,27 @@ func (z *Felt) Set(x *Felt) *Felt {
 	z.val.Set(&x.val)
 	return z
 }
+
+// Double forwards the call to underlying field element implementation
+func (z *Felt) Double(x *Felt) *Felt {
+	z.val.Double(&x.val)
+	return z
+}
+
+// Sub forwards the call to underlying field element implementation
+func (z *Felt) Sub(x, y *Felt) *Felt {
+	z.val.Sub(&x.val, &y.val)
+	return z
+}
+
+// Exp forwards the call to underlying field element implementation
+func (z *Felt) Exp(x *Felt, y *big.Int) *Felt {
+	z.val.Exp(x.val, y)
+	return z
+}
+
+// Mul forwards the call to underlying field element implementation
+func (z *Felt) Mul(x, y *Felt) *Felt {
+	z.val.Mul(&x.val, &y.val)
+	return z
+}
