@@ -100,25 +100,6 @@ func (t *badgerTxn) Get(key []byte, cb func([]byte) error) error {
 	})
 }
 
-// Seek : see db.Transaction.Seek
-func (t *badgerTxn) Seek(key []byte, cb func(*Entry) error) error {
-	it := t.badger.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	it.Seek(key)
-	if it.Valid() {
-		item := it.Item()
-		return item.Value(func(val []byte) error {
-			return cb(&Entry{
-				Key:   item.Key(),
-				Value: val,
-			})
-		})
-	}
-
-	return nil
-}
-
 // Impl : see db.Transaction.Impl
 func (t *badgerTxn) Impl() any {
 	return t.badger
