@@ -1,4 +1,4 @@
-package state
+package core
 
 import (
 	"testing"
