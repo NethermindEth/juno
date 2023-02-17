@@ -1,9 +1,8 @@
-package state
+package core
 
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -12,9 +11,8 @@ import (
 )
 
 const (
-	stateTrieHeight           = 251
-	contractStorageTrieHeight = 251
-	// fields of state metadata table
+	stateTrieHeight = 251
+	// Fields of state metadata table
 	stateRootKey = "rootKey"
 )
 
@@ -50,7 +48,7 @@ func CalculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 // stores the relation between contract address and class hash to be
 // queried later on with [GetContractClass].
 func (s *State) putNewContract(addr, classHash *felt.Felt) error {
-	contract := core.NewContract(addr, s.txn)
+	contract := NewContract(addr, s.txn)
 	if err := contract.Deploy(classHash); err != nil {
 		return err
 	} else {
@@ -60,12 +58,12 @@ func (s *State) putNewContract(addr, classHash *felt.Felt) error {
 
 // GetContractClass returns class hash of a contract at a given address.
 func (s *State) GetContractClass(addr *felt.Felt) (*felt.Felt, error) {
-	return core.NewContract(addr, s.txn).ClassHash()
+	return NewContract(addr, s.txn).ClassHash()
 }
 
 // GetContractNonce returns nonce of a contract at a given address.
 func (s *State) GetContractNonce(addr *felt.Felt) (*felt.Felt, error) {
-	return core.NewContract(addr, s.txn).Nonce()
+	return NewContract(addr, s.txn).Nonce()
 }
 
 // Root returns the state commitment.
@@ -120,7 +118,7 @@ func (s *State) putStateStorage(state *trie.Trie) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(update *core.StateUpdate) error {
+func (s *State) Update(update *StateUpdate) error {
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -173,8 +171,8 @@ func (s *State) Update(update *core.StateUpdate) error {
 
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff) error {
-	contract := core.NewContract(addr, s.txn)
+func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff) error {
+	contract := NewContract(addr, s.txn)
 	if err := contract.UpdateStorage(diff); err != nil {
 		return err
 	}
@@ -185,7 +183,7 @@ func (s *State) updateContractStorage(addr *felt.Felt, diff []core.StorageDiff) 
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
 func (s *State) updateContractNonce(addr, nonce *felt.Felt) error {
-	contract := core.NewContract(addr, s.txn)
+	contract := NewContract(addr, s.txn)
 	if err := contract.UpdateNonce(nonce); err != nil {
 		return err
 	}
@@ -194,7 +192,7 @@ func (s *State) updateContractNonce(addr, nonce *felt.Felt) error {
 }
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
-func (s *State) updateContractCommitment(contract *core.Contract) error {
+func (s *State) updateContractCommitment(contract *Contract) error {
 	if storageRoot, err := contract.StorageRoot(); err != nil {
 		return err
 	} else if classHash, err := contract.ClassHash(); err != nil {

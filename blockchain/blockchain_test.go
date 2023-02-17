@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/testsource"
@@ -248,7 +247,7 @@ func TestStore(t *testing.T) {
 		txn := chain.database.NewTransaction(false)
 		defer txn.Discard()
 
-		root, err := state.NewState(txn).Root()
+		root, err := core.NewState(txn).Root()
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate0.NewRoot, root)
 
@@ -274,7 +273,7 @@ func TestStore(t *testing.T) {
 		txn := chain.database.NewTransaction(false)
 		defer txn.Discard()
 
-		root, err := state.NewState(txn).Root()
+		root, err := core.NewState(txn).Root()
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate1.NewRoot, root)
 

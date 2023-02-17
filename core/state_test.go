@@ -1,4 +1,4 @@
-package state_test
+package core_test
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
 )
@@ -159,7 +158,8 @@ func TestUpdate(t *testing.T) {
 	for addrStr, diffs := range gatewayUpdate.StateDiff.StorageDiffs {
 		addr, _ := new(felt.Felt).SetString(addrStr)
 		for _, diff := range diffs {
-			coreUpdate.StateDiff.StorageDiffs[*addr] = append(coreUpdate.StateDiff.StorageDiffs[*addr], core.StorageDiff{
+			coreUpdate.StateDiff.StorageDiffs[*addr] = append(coreUpdate.StateDiff.
+				StorageDiffs[*addr], core.StorageDiff{
 				Key:   diff.Key,
 				Value: diff.Value,
 			})
@@ -167,7 +167,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	testDb := pebble.NewMemTest()
-	state := state.NewState(testDb.NewTransaction(true))
+	state := core.NewState(testDb.NewTransaction(true))
 
 	assert.Equal(t, nil, state.Update(coreUpdate))
 }
@@ -186,7 +186,7 @@ func TestUpdateNonce(t *testing.T) {
 		},
 	}
 	testDb := pebble.NewMemTest()
-	state := state.NewState(testDb.NewTransaction(true))
+	state := core.NewState(testDb.NewTransaction(true))
 
 	assert.NoError(t, state.Update(coreUpdate))
 
