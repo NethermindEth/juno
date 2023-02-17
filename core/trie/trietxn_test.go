@@ -6,12 +6,13 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTrieTxn(t *testing.T) {
-	testDb := db.NewTestDb()
+	testDb := pebble.NewMemTest()
 	prefix := []byte{37, 44}
 
 	key := bitset.New(44)

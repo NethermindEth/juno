@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func TestNewBlockchain(t *testing.T) {
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
-		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+		chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
 		assert.Equal(t, utils.MAINNET, chain.network)
 		b, err := chain.Head()
 		assert.Nil(t, b)
@@ -33,7 +34,7 @@ func TestNewBlockchain(t *testing.T) {
 		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
 
-		testDB := db.NewTestDb()
+		testDB := pebble.NewMemTest()
 		chain := NewBlockchain(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
@@ -48,7 +49,7 @@ func TestHeight(t *testing.T) {
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
+		chain := NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
@@ -59,7 +60,7 @@ func TestHeight(t *testing.T) {
 		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
 
-		testDB := db.NewTestDb()
+		testDB := pebble.NewMemTest()
 		chain := NewBlockchain(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
@@ -71,7 +72,7 @@ func TestHeight(t *testing.T) {
 }
 
 func TestGetBlockByNumberAndHash(t *testing.T) {
-	chain := NewBlockchain(db.NewTestDb(), utils.GOERLI)
+	chain := NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
 	t.Run("same block is returned for both by GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		txn := chain.database.NewTransaction(true)
 		defer txn.Discard()
@@ -107,7 +108,7 @@ func TestVerifyBlock(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+	chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: core.Header{Number: 10}}
@@ -156,7 +157,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+	chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
 
 	gw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer.Close()
@@ -202,7 +203,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		chain = NewBlockchain(db.NewTestDb(), utils.GOERLI)
+		chain = NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
 		goerliGW, goerliCloser := testsource.NewTestGateway(utils.GOERLI)
 		defer goerliCloser.Close()
 
@@ -237,7 +238,7 @@ func TestStore(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
-		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+		chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
 		require.NoError(t, chain.Store(block0, stateUpdate0))
 
 		headBlock, err := chain.Head()
@@ -262,7 +263,7 @@ func TestStore(t *testing.T) {
 		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
 		require.NoError(t, err)
 
-		chain := NewBlockchain(db.NewTestDb(), utils.MAINNET)
+		chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
 		require.NoError(t, chain.Store(block0, stateUpdate0))
 		require.NoError(t, chain.Store(block1, stateUpdate1))
 

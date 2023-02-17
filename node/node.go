@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -68,7 +69,7 @@ func New(cfg *Config) (StarknetNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	stateDb, err := db.NewDb(cfg.DatabasePath, dbLog)
+	stateDb, err := pebble.New(cfg.DatabasePath, dbLog)
 	if err != nil {
 		return nil, err
 	}

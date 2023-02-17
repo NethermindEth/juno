@@ -5,13 +5,13 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestState_PutNewContract(t *testing.T) {
-	testDb := db.NewTestDb()
+	testDb := pebble.NewMemTest()
 	state := NewState(testDb.NewTransaction(true))
 
 	addr, _ := new(felt.Felt).SetRandom()
@@ -29,7 +29,7 @@ func TestState_PutNewContract(t *testing.T) {
 }
 
 func TestState_Root(t *testing.T) {
-	testDb := db.NewTestDb()
+	testDb := pebble.NewMemTest()
 
 	state := NewState(testDb.NewTransaction(true))
 
