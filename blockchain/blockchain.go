@@ -7,7 +7,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
@@ -95,7 +94,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := state.NewState(txn).Update(stateUpdate); err != nil {
+		if err := core.NewState(txn).Update(stateUpdate); err != nil {
 			return err
 		}
 		if err := putBlock(txn, block); err != nil {
