@@ -140,7 +140,7 @@ func (c *Contract) Storage() (*trie.Trie, error) {
 		// database error.
 		return nil, err
 	}
-	trieTxn := trie.NewTrieTxn(c.txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := NewTransactionStorage(c.txn, db.ContractStorage.Key(addrBytes))
 	return trie.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey), nil
 }
 

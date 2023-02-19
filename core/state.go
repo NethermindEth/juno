@@ -78,7 +78,7 @@ func (s *State) Root() (*felt.Felt, error) {
 // getStateStorage returns a [core.Trie] that represents the Starknet
 // global state in the given Txn context
 func (s *State) getStateStorage() (*trie.Trie, error) {
-	tTxn := trie.NewTrieTxn(s.txn, []byte{byte(db.StateTrie)})
+	tTxn := NewTransactionStorage(s.txn, []byte{byte(db.StateTrie)})
 
 	rootKey, err := s.rootKey()
 	if err != nil {

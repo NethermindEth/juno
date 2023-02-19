@@ -1,19 +1,22 @@
-package trie
+package core
 
 import (
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
 
-// TrieTxn is a database transaction on a trie.
-type TrieTxn struct {
+var _ trie.Storage = (*TransactionStorage)(nil)
+
+// TransactionStorage is a database transaction on a trie.
+type TransactionStorage struct {
 	txn    db.Transaction
 	prefix []byte
 }
 
-func NewTrieTxn(txn db.Transaction, prefix []byte) *TrieTxn {
-	return &TrieTxn{
+func NewTransactionStorage(txn db.Transaction, prefix []byte) *TransactionStorage {
+	return &TransactionStorage{
 		txn:    txn,
 		prefix: prefix,
 	}
@@ -21,7 +24,7 @@ func NewTrieTxn(txn db.Transaction, prefix []byte) *TrieTxn {
 
 // dbKey creates a byte array to be used as a key to our KV store
 // it simply appends the given key to the configured prefix
-func (t *TrieTxn) dbKey(key *bitset.BitSet) ([]byte, error) {
+func (t *TransactionStorage) dbKey(key *bitset.BitSet) ([]byte, error) {
 	keyBytes, err := key.MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -30,7 +33,7 @@ func (t *TrieTxn) dbKey(key *bitset.BitSet) ([]byte, error) {
 	return append(t.prefix, keyBytes...), nil
 }
 
-func (t *TrieTxn) Put(key *bitset.BitSet, value *Node) error {
+func (t *TransactionStorage) Put(key *bitset.BitSet, value *trie.Node) error {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return err
@@ -44,20 +47,20 @@ func (t *TrieTxn) Put(key *bitset.BitSet, value *Node) error {
 	return t.txn.Set(dbKey, valueBytes)
 }
 
-func (t *TrieTxn) Get(key *bitset.BitSet) (node *Node, err error) {
+func (t *TransactionStorage) Get(key *bitset.BitSet) (node *trie.Node, err error) {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return nil, err
 	}
 
 	err = t.txn.Get(dbKey, func(val []byte) error {
-		node = new(Node)
+		node = new(trie.Node)
 		return encoder.Unmarshal(val, node)
 	})
 	return
 }
 
-func (t *TrieTxn) Delete(key *bitset.BitSet) error {
+func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return err
