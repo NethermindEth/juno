@@ -7,7 +7,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -52,17 +51,7 @@ func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTrie(height uint, do func(*Trie) error) error {
-	db, err := pebble.NewMem()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	txn := db.NewTransaction(true)
-	defer txn.Discard()
-
-	trieTxn := NewTrieTxn(txn, nil)
-	return do(NewTrie(trieTxn, height, nil))
+	return do(NewTrie(newMemStorage(), height, nil))
 }
 
 // FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
