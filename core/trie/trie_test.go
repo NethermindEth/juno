@@ -7,9 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	pebble2 "github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/cockroachdb/pebble"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -355,21 +353,15 @@ func TestState(t *testing.T) {
 }
 
 func TestPutZero(t *testing.T) {
-	db, _ := pebble2.NewMem()
-	defer db.Close()
-
-	txn := db.NewTransaction(true)
-	defer txn.Discard()
-
-	trieTxn := NewTrieTxn(txn, nil)
-	trie := NewTrie(trieTxn, 251, nil)
+	storage := newMemStorage()
+	trie := NewTrie(storage, 251, nil)
 	emptyRoot, err := trie.Root()
 	if err != nil {
 		t.Error(err)
 	}
 
-	roots := []*felt.Felt{}
-	keys := []*felt.Felt{}
+	var roots []*felt.Felt
+	var keys []*felt.Felt
 	// put random 64 keys and record roots
 	for i := 0; i < 64; i++ {
 		key, err := new(felt.Felt).SetRandom()
@@ -427,9 +419,7 @@ func TestPutZero(t *testing.T) {
 	}
 	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
 
-	it := txn.Impl().(*pebble.Batch).NewIter(&pebble.IterOptions{})
-	defer it.Close()
-	assert.Equal(t, false, it.Valid()) // storage should be empty
+	assert.Equal(t, 0, len(storage.storage)) // storage should be empty
 }
 
 func TestOldData(t *testing.T) {
