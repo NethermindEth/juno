@@ -588,7 +588,7 @@ func TestState(t *testing.T) {
 
 func TestPutZero(t *testing.T) {
 	storage := newMemStorage()
-	trie := NewTrie(storage, 251, nil)
+	trie := NewTriePedersen(storage, 251, nil)
 	emptyRoot, err := trie.Root()
 	require.NoError(t, err)
 

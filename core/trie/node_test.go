@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
@@ -170,5 +171,5 @@ func TestNodeHash(t *testing.T) {
 	}
 	path := bitset.FromWithLength(6, []uint64{42})
 
-	assert.Equal(t, true, expected.Equal(node.Hash(path)), "TestTrieNode_Hash failed")
+	assert.Equal(t, true, expected.Equal(node.Hash(path, crypto.Pedersen)), "TestTrieNode_Hash failed")
 }

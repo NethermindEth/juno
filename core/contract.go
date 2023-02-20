@@ -92,7 +92,7 @@ func (c *Contract) Storage() (*trie.Trie, error) {
 		return nil, err
 	}
 	trieTxn := NewTransactionStorage(c.txn, db.ContractStorage.Key(addrBytes))
-	return trie.NewTrie(trieTxn, contractStorageTrieHeight, contractRootKey), nil
+	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight, contractRootKey), nil
 }
 
 // StorageRoot returns the root of the contract storage.
