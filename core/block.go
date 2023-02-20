@@ -112,11 +112,6 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 	return ErrCantVerifyBlockHash
 }
 
-// BlockHash computes the block hash
-func BlockHash(b *Block, network utils.Network) (*felt.Felt, error) {
-	return blockHash(b, network, nil)
-}
-
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	metaInfo := getBlockHashMetaInfo(network)
