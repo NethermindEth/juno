@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
 )
@@ -25,7 +24,7 @@ type Node struct {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *bitset.BitSet) *felt.Felt {
+func (n *Node) Hash(path *bitset.BitSet, hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt) *felt.Felt {
 	if path.Len() == 0 {
 		return n.Value
 	}
@@ -44,7 +43,7 @@ func (n *Node) Hash(path *bitset.BitSet) *felt.Felt {
 	pathFelt := new(felt.Felt).SetBytes(pathBytes[:])
 
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
-	hash := crypto.Pedersen(n.Value, pathFelt)
+	hash := hashFunc(n.Value, pathFelt)
 
 	pathFelt.SetUint64(uint64(path.Len()))
 	return hash.Add(hash, pathFelt)

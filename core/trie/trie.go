@@ -38,14 +38,26 @@ type Trie struct {
 	height  uint
 	rootKey *bitset.BitSet
 	storage Storage
+	hash    func(*felt.Felt, *felt.Felt) *felt.Felt
 }
 
+type NewTrieFunc func(Storage, uint, *bitset.BitSet) *Trie
+
 func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+	return newTrie(storage, height, rootKey, crypto.Pedersen)
+}
+
+func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+	return newTrie(storage, height, rootKey, crypto.Poseidon)
+}
+
+func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash func(*felt.Felt, *felt.Felt) *felt.Felt) *Trie {
 	// Todo: set max height to 251 and set max key value accordingly
 	return &Trie{
 		storage: storage,
 		height:  height,
 		rootKey: rootKey,
+		hash:    hash,
 	}
 }
 
@@ -313,7 +325,7 @@ func (t *Trie) propagateValues(affectedNodes []storageNode) error {
 			leftPath := path(cur.node.Left, cur.key)
 			rightPath := path(cur.node.Right, cur.key)
 
-			cur.node.Value = crypto.Pedersen(left.Hash(leftPath), right.Hash(rightPath))
+			cur.node.Value = t.hash(left.Hash(leftPath, t.hash), right.Hash(rightPath, t.hash))
 		}
 
 		if err := t.storage.Put(cur.key, cur.node); err != nil {
@@ -336,7 +348,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	}
 
 	path := path(t.rootKey, nil)
-	return root.Hash(path), nil
+	return root.Hash(path, t.hash), nil
 }
 
 // RootKey returns db key of the [Trie] root node
