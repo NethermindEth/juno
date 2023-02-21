@@ -9,6 +9,8 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
+var ErrDiscardedTransaction = errors.New("discarded txn")
+
 type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot
@@ -38,7 +40,7 @@ func (t *Transaction) Commit() error {
 	if t.batch != nil {
 		return t.batch.Commit(pebble.Sync)
 	} else {
-		return errors.New("discarded txn")
+		return ErrDiscardedTransaction
 	}
 }
 
@@ -70,7 +72,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 	} else if t.snapshot != nil {
 		val, closer, err = t.snapshot.Get(key)
 	} else {
-		return errors.New("discarded txn")
+		return ErrDiscardedTransaction
 	}
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
@@ -92,4 +94,18 @@ func (t *Transaction) Impl() any {
 	} else {
 		return nil
 	}
+}
+
+// NewIterator : see db.Transaction.NewIterator
+func (t *Transaction) NewIterator() (db.Iterator, error) {
+	var iter *pebble.Iterator
+	if t.batch != nil {
+		iter = t.batch.NewIter(nil)
+	} else if t.snapshot != nil {
+		iter = t.snapshot.NewIter(nil)
+	} else {
+		return nil, ErrDiscardedTransaction
+	}
+
+	return &iterator{iter: iter}, nil
 }

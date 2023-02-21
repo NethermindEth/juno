@@ -1,6 +1,7 @@
 package pebble_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"testing"
@@ -219,5 +220,94 @@ func TestConcurrentUpdate(t *testing.T) {
 			assert.Equal(t, byte(200), bytes[0])
 			return nil
 		})
+	}))
+}
+
+func TestSeek(t *testing.T) {
+	testDb := pebble.NewMemTest()
+	defer testDb.Close()
+
+	txn := testDb.NewTransaction(true)
+	defer txn.Discard()
+
+	require.NoError(t, txn.Set([]byte{1}, []byte{1}))
+	require.NoError(t, txn.Set([]byte{3}, []byte{3}))
+
+	t.Run("seeks to the next key in lexicographical order", func(t *testing.T) {
+		iter, err := txn.NewIterator()
+		require.NoError(t, err)
+		defer iter.Close()
+
+		iter.Seek([]byte{0})
+		v, err := iter.Value()
+		require.NoError(t, err)
+		assert.Equal(t, []byte{1}, iter.Key())
+		assert.Equal(t, []byte{1}, v)
+	})
+
+	t.Run("key returns nil when seeking nonexistent data", func(t *testing.T) {
+		iter, _ := txn.NewIterator()
+		defer iter.Close()
+
+		iter.Seek([]byte{4})
+		assert.Nil(t, iter.Key())
+	})
+}
+
+func TestPrefixSearch(t *testing.T) {
+	type entry struct {
+		key   uint64
+		value []byte
+	}
+
+	data := []entry{
+		{11, []byte("c")},
+		{12, []byte("a")},
+		{13, []byte("e")},
+		{22, []byte("d")},
+		{23, []byte("b")},
+		{123, []byte("f")},
+	}
+
+	testDb := pebble.NewMemTest()
+	defer testDb.Close()
+
+	require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		for _, d := range data {
+			numBytes := make([]byte, 8)
+			binary.BigEndian.PutUint64(numBytes, d.key)
+			require.NoError(t, txn.Set(numBytes, d.value))
+		}
+		return nil
+	}))
+
+	require.NoError(t, testDb.View(func(txn db.Transaction) error {
+		iter, err := txn.NewIterator()
+		require.NoError(t, err)
+		defer iter.Close()
+
+		prefixBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(prefixBytes, 1)
+
+		var entries []entry
+		for iter.Seek(prefixBytes); iter.Valid(); iter.Next() {
+			key := binary.BigEndian.Uint64(iter.Key())
+			if key >= 20 {
+				break
+			}
+			v, err := iter.Value()
+			require.NoError(t, err)
+			entries = append(entries, entry{key, v})
+		}
+
+		expectedKeys := []uint64{11, 12, 13}
+
+		assert.Equal(t, len(expectedKeys), len(entries))
+
+		for i := 0; i < len(entries); i++ {
+			assert.Contains(t, expectedKeys, entries[i].key)
+		}
+
+		return nil
 	}))
 }

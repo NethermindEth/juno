@@ -70,5 +70,5 @@ func TestTrieTxn(t *testing.T) {
 		tTxn := &TransactionStorage{txn, prefix}
 		_, err := tTxn.Get(key)
 		return err
-	}), "Key not found")
+	}), db.ErrKeyNotFound.Error())
 }

@@ -6,7 +6,7 @@ import (
 )
 
 // ErrKeyNotFound is returned when key isn't found on a txn.Get.
-var ErrKeyNotFound = errors.New("Key not found")
+var ErrKeyNotFound = errors.New("key not found")
 
 // DB is a key-value database
 type DB interface {
@@ -28,16 +28,35 @@ type DB interface {
 	Impl() any
 }
 
-// Entry is a database entry consisting of a Key and Value
-type Entry struct {
-	Key   []byte
-	Value []byte
+// Iterator is an iterator over a DB's key/value pairs.
+type Iterator interface {
+	io.Closer
+
+	// Valid returns true if the iterator is positioned at a valid key/value pair.
+	Valid() bool
+
+	// Next moves the iterator to the next key/value pair. It returns whether the
+	// iterator is valid after the call. Once invalid, the iterator remains
+	// invalid.
+	Next() bool
+
+	// Key returns the key at the current position.
+	Key() []byte
+
+	// Value returns the value at the current position.
+	Value() ([]byte, error)
+
+	// Seek would seek to the provided key if present. If absent, it would seek to the next
+	// key in lexicographical order
+	Seek(key []byte) bool
 }
 
 // Transaction provides an interface to access the database's state at the point the transaction was created
 // Updates done to the database with a transaction should be only visible to other newly created transaction after
 // the transaction is committed.
 type Transaction interface {
+	// NewIterator returns an iterator over the database's key/value pairs.
+	NewIterator() (Iterator, error)
 	// Discard discards all the changes done to the database with this transaction
 	Discard()
 	// Commit flushes all the changes pending on this transaction to the database, making the changes visible to other
