@@ -104,7 +104,7 @@ func (t *Transaction) NewIterator() (db.Iterator, error) {
 	} else if t.snapshot != nil {
 		iter = t.snapshot.NewIter(nil)
 	} else {
-		return nil, errors.New("discarded txn")
+		return nil, ErrDiscardedTransaction
 	}
 
 	return &iterator{iter: iter}, nil
