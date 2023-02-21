@@ -6,7 +6,7 @@ import (
 )
 
 // ErrKeyNotFound is returned when key isn't found on a txn.Get.
-var ErrKeyNotFound = errors.New("Key not found")
+var ErrKeyNotFound = errors.New("key not found")
 
 // DB is a key-value database
 type DB interface {
@@ -30,6 +30,8 @@ type DB interface {
 
 // Iterator is an iterator over a DB's key/value pairs.
 type Iterator interface {
+	io.Closer
+
 	// Valid returns true if the iterator is positioned at a valid key/value pair.
 	Valid() bool
 
@@ -42,10 +44,7 @@ type Iterator interface {
 	Key() []byte
 
 	// Value returns the value at the current position.
-	Value() []byte
-
-	// Close closes the iterator.
-	Close() error
+	Value() ([]byte, error)
 
 	// Seek would seek to the provided key if present. If absent, it would seek to the next
 	// key in lexicographical order

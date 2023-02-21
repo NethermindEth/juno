@@ -299,7 +299,9 @@ func TestPrefixSearch(t *testing.T) {
 			if key >= 20 {
 				break
 			}
-			entries = append(entries, Entry{key, iter.Value()})
+			v, err := iter.Value()
+			require.NoError(t, err)
+			entries = append(entries, Entry{key, v})
 		}
 
 		expectedKeys := []uint64{11, 12, 13}
