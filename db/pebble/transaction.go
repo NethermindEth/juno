@@ -9,14 +9,12 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
+var ErrDiscardedTransaction = errors.New("discarded txn")
+
 type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot
 	lock     *sync.Mutex
-}
-
-type pebbleIterator struct {
-	iter *pebble.Iterator
 }
 
 // Discard : see db.Transaction.Discard
@@ -42,7 +40,7 @@ func (t *Transaction) Commit() error {
 	if t.batch != nil {
 		return t.batch.Commit(pebble.Sync)
 	} else {
-		return errors.New("discarded txn")
+		return ErrDiscardedTransaction
 	}
 }
 
@@ -74,7 +72,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 	} else if t.snapshot != nil {
 		val, closer, err = t.snapshot.Get(key)
 	} else {
-		return errors.New("discarded txn")
+		return ErrDiscardedTransaction
 	}
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
@@ -109,36 +107,5 @@ func (t *Transaction) NewIterator() (db.Iterator, error) {
 		return nil, errors.New("discarded txn")
 	}
 
-	return &pebbleIterator{iter: iter}, nil
-}
-
-// Valid : see db.Transaction.Iterator.Valid
-func (it *pebbleIterator) Valid() bool {
-	return it.iter.Valid()
-}
-
-// Key : see db.Transaction.Iterator.Key
-func (it *pebbleIterator) Key() []byte {
-	return it.iter.Key()
-}
-
-// Value : see db.Transaction.Iterator.Value
-func (it *pebbleIterator) Value() []byte {
-	return it.iter.Value()
-}
-
-// Next : see db.Transaction.Iterator.Next
-func (it *pebbleIterator) Next() bool {
-	return it.iter.Next()
-}
-
-// Seek : see db.Transaction.Iterator.Seek
-func (it *pebbleIterator) Seek(key []byte) bool {
-	return it.iter.SeekGE(key)
-}
-
-// Close : see db.Transaction.Iterator.Close
-func (it *pebbleIterator) Close() error {
-	it.iter.Close()
-	return nil
+	return &iterator{iter: iter}, nil
 }
