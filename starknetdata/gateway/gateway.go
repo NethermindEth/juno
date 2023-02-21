@@ -60,7 +60,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 			ParentHash:       response.ParentHash,
 			Number:           response.Number,
 			GlobalStateRoot:  response.StateRoot,
-			Timestamp:        new(felt.Felt).SetUint64(response.Timestamp),
+			Timestamp:        response.Timestamp,
 			ProtocolVersion:  response.Version,
 			ExtraData:        nil,
 			SequencerAddress: response.SequencerAddress,

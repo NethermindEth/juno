@@ -23,7 +23,7 @@ type Header struct {
 	// The Starknet address of the sequencer who created this block
 	SequencerAddress *felt.Felt
 	// The time the sequencer created this block before executing transactions
-	Timestamp *felt.Felt
+	Timestamp uint64
 	// The version of the Starknet protocol used when creating this block
 	ProtocolVersion string
 	// Extraneous data that might be useful for running transactions
@@ -178,16 +178,16 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	// - number of events
 	// - event commitment
 	return crypto.PedersenArray(
-		blockNumber,                          // block number
-		b.GlobalStateRoot,                    // global state root
-		seqAddr,                              // sequencer address
-		b.Timestamp,                          // block timestamp
-		transactionCount,                     // number of transactions
-		transactionCommitment,                // transaction commitment
-		new(felt.Felt).SetUint64(eventCount), // number of events
-		eventCommitment,                      // event commitment
-		&felt.Zero,                           // reserved: protocol version
-		&felt.Zero,                           // reserved: extra data
-		b.ParentHash,                         // parent block hash
+		blockNumber,                           // block number
+		b.GlobalStateRoot,                     // global state root
+		seqAddr,                               // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		transactionCount,                      // number of transactions
+		transactionCommitment,                 // transaction commitment
+		new(felt.Felt).SetUint64(eventCount),  // number of events
+		eventCommitment,                       // event commitment
+		&felt.Zero,                            // reserved: protocol version
+		&felt.Zero,                            // reserved: extra data
+		b.ParentHash,                          // parent block hash
 	), nil
 }
