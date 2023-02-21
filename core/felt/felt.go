@@ -67,7 +67,7 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON forwards the call to underlying field element implementation
 func (z *Felt) MarshalJSON() ([]byte, error) {
-	return z.val.MarshalJSON()
+	return []byte("\"" + z.String() + "\""), nil
 }
 
 // SetBytes forwards the call to underlying field element implementation
@@ -112,7 +112,7 @@ func (z *Felt) SetRandom() (*Felt, error) {
 
 // String forwards the call to underlying field element implementation
 func (z *Felt) String() string {
-	return z.val.String()
+	return "0x" + z.val.Text(16)
 }
 
 // ShortString prints the felt to a string in a shortened format
