@@ -81,12 +81,6 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 	return z.val.MarshalJSON()
 }
 
-// SetInterface forwards the call to underlying field element implementation
-func (z *Felt) SetInterface(i1 interface{}) (*Felt, error) {
-	_, err := z.val.SetInterface(i1)
-	return z, err
-}
-
 // SetBytes forwards the call to underlying field element implementation
 func (z *Felt) SetBytes(e []byte) *Felt {
 	z.val.SetBytes(e)
