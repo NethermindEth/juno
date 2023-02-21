@@ -144,11 +144,6 @@ func (z *Felt) IsZero() bool {
 	return z.val.IsZero()
 }
 
-// Bit forwards the call to underlying field element implementation
-func (z *Felt) Bit(i uint64) uint64 {
-	return z.val.Bit(i)
-}
-
 // Add forwards the call to underlying field element implementation
 func (z *Felt) Add(x, y *Felt) *Felt {
 	z.val.Add(&x.val, &y.val)
