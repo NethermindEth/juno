@@ -15,6 +15,11 @@ func TestUnmarshalJson(t *testing.T) {
 	var without felt.Felt
 	assert.NoError(t, without.UnmarshalJSON([]byte("4437ab")))
 	assert.Equal(t, true, without.Equal(&with))
+
+	var fails felt.Felt
+	assert.Error(t, fails.UnmarshalJSON([]byte("0x2000000000000000000000000000000000000000000000000000000000000000000")))
+	assert.Error(t, fails.UnmarshalJSON([]byte("0x800000000000011000000000000000000000000000000000000000000000001")))
+	assert.Error(t, fails.UnmarshalJSON([]byte("0xfb01012100000000000000000000000000000000000000000000000000000000")))
 }
 
 func TestFeltCbor(t *testing.T) {

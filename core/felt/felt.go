@@ -60,20 +60,8 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 		s = s[:len(s)-1]
 	}
 
-	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
-
-	if _, ok := vv.SetString(s, 0); !ok {
-		if _, ok := vv.SetString(s, 16); !ok {
-			return errors.New("can't parse into a big.Int: " + s)
-		}
-	}
-
-	z.val.SetBigInt(vv)
-
-	// release object into pool
-	bigIntPool.Put(vv)
-	return nil
+	_, err := z.SetString(s)
+	return err
 }
 
 // MarshalJSON forwards the call to underlying field element implementation
@@ -89,8 +77,24 @@ func (z *Felt) SetBytes(e []byte) *Felt {
 
 // SetString forwards the call to underlying field element implementation
 func (z *Felt) SetString(number string) (*Felt, error) {
-	_, err := z.val.SetString(number)
-	return z, err
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+	// release object into pool
+	defer bigIntPool.Put(vv)
+
+	if _, ok := vv.SetString(number, 0); !ok {
+		if _, ok := vv.SetString(number, 16); !ok {
+			return z, errors.New("can't parse into a big.Int: " + number)
+		}
+	}
+
+	if vv.BitLen() > fp.Bits {
+		return z, errors.New("can't fit in felt: " + number)
+	}
+
+	var bytes [32]byte
+	vv.FillBytes(bytes[:])
+	return z, z.val.SetBytesCanonical(bytes[:])
 }
 
 // SetUint64 forwards the call to underlying field element implementation
