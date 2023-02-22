@@ -92,6 +92,19 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, latestRpc, byNumber)
 	})
 
+	t.Run("starknet_getBlockWithTxs", func(t *testing.T) {
+		latestRpcWithTxs, err := handler.GetBlockWithTxs(&rpc.BlockId{Latest: true})
+		assert.Nil(t, err)
+
+		rpcWithTxHashes, err := handler.GetBlockWithTxHashes(&rpc.BlockId{Hash: latestRpcWithTxs.Hash})
+		assert.Nil(t, err)
+
+		assert.Equal(t, rpcWithTxHashes.BlockHeader, latestRpcWithTxs.BlockHeader)
+		for i := 0; i < len(rpcWithTxHashes.TxnHashes); i++ {
+			assert.Equal(t, rpcWithTxHashes.TxnHashes[i], latestRpcWithTxs.Transactions[i].Hash)
+		}
+	})
+
 	canceler()
 	<-syncNodeChan
 }
