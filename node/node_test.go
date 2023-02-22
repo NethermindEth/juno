@@ -22,12 +22,12 @@ func TestNew(t *testing.T) {
 			utils.Network(20), utils.Network(100),
 		}
 		for _, n := range networks {
-			t.Run(fmt.Sprintf("%d", n), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s", n), func(t *testing.T) {
 				cfg := &node.Config{Network: n}
 
 				snNode, err := node.New(cfg)
 				if utils.IsValidNetwork(cfg.Network) {
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					require.NoError(t, snNode.Run(ctx))
 				} else {
 					assert.Error(t, err, utils.ErrUnknownNetwork)

@@ -93,12 +93,12 @@ type TransactionReceipt struct {
 }
 
 type Transaction interface {
-	hash() *felt.Felt
-	signature() []*felt.Felt
+	Hash() *felt.Felt
+	Signature() []*felt.Felt
 }
 
 type DeployTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// A random number used to distinguish between different instances of the contract.
 	ContractAddressSalt *felt.Felt
 	// The address of the contract.
@@ -116,11 +116,11 @@ type DeployTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeployTransaction) hash() *felt.Felt {
-	return d.Hash
+func (d *DeployTransaction) Hash() *felt.Felt {
+	return d.TransactionHash
 }
 
-func (d *DeployTransaction) signature() []*felt.Felt {
+func (d *DeployTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
@@ -129,25 +129,25 @@ type DeployAccountTransaction struct {
 	// The maximum fee that the sender is willing to pay for the transaction.
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	Signature []*felt.Felt
+	TransactionSignature []*felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
 }
 
-func (d *DeployAccountTransaction) hash() *felt.Felt {
-	return d.Hash
+func (d *DeployAccountTransaction) Hash() *felt.Felt {
+	return d.TransactionHash
 }
 
-func (d *DeployAccountTransaction) signature() []*felt.Felt {
-	return d.Signature
+func (d *DeployAccountTransaction) Signature() []*felt.Felt {
+	return d.TransactionSignature
 }
 
 type InvokeTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	Signature []*felt.Felt
+	TransactionSignature []*felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction
 	MaxFee *felt.Felt
 	// The address of the contract invoked by this transaction.
@@ -166,16 +166,16 @@ type InvokeTransaction struct {
 	Nonce *felt.Felt
 }
 
-func (i *InvokeTransaction) hash() *felt.Felt {
-	return i.Hash
+func (i *InvokeTransaction) Hash() *felt.Felt {
+	return i.TransactionHash
 }
 
-func (i *InvokeTransaction) signature() []*felt.Felt {
-	return i.Signature
+func (i *InvokeTransaction) Signature() []*felt.Felt {
+	return i.TransactionSignature
 }
 
 type DeclareTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// The class hash
 	ClassHash *felt.Felt
 	// The address of the account initiating the transaction.
@@ -183,7 +183,7 @@ type DeclareTransaction struct {
 	// The maximum fee that the sender is willing to pay for the transaction.
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	Signature []*felt.Felt
+	TransactionSignature []*felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
 	// The transaction’s version. Possible values are 1 or 0.
@@ -194,16 +194,16 @@ type DeclareTransaction struct {
 	Version *felt.Felt
 }
 
-func (d *DeclareTransaction) hash() *felt.Felt {
-	return d.Hash
+func (d *DeclareTransaction) Hash() *felt.Felt {
+	return d.TransactionHash
 }
 
-func (d *DeclareTransaction) signature() []*felt.Felt {
-	return d.Signature
+func (d *DeclareTransaction) Signature() []*felt.Felt {
+	return d.TransactionSignature
 }
 
 type L1HandlerTransaction struct {
-	Hash *felt.Felt
+	TransactionHash *felt.Felt
 	// The address of the contract.
 	ContractAddress *felt.Felt
 	// The encoding of the selector for the function invoked (the entry point in the contract)
@@ -218,11 +218,11 @@ type L1HandlerTransaction struct {
 	Version *felt.Felt
 }
 
-func (l *L1HandlerTransaction) hash() *felt.Felt {
-	return l.Hash
+func (l *L1HandlerTransaction) Hash() *felt.Felt {
+	return l.TransactionHash
 }
 
-func (l *L1HandlerTransaction) signature() []*felt.Felt {
+func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
@@ -335,11 +335,11 @@ func TransactionCommitment(transactions []Transaction) (*felt.Felt, error) {
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
 			if _, ok := transaction.(*InvokeTransaction); ok {
-				signatureHash = crypto.PedersenArray(transaction.signature()...)
+				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
 
 			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
-				crypto.Pedersen(transaction.hash(), signatureHash)); err != nil {
+				crypto.Pedersen(transaction.Hash(), signatureHash)); err != nil {
 				return err
 			}
 		}

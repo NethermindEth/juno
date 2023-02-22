@@ -192,19 +192,19 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 
 func adaptDeclareTransaction(t *clients.Transaction) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
-		Hash:          t.Hash,
-		SenderAddress: t.SenderAddress,
-		MaxFee:        t.MaxFee,
-		Signature:     t.Signature,
-		Nonce:         t.Nonce,
-		Version:       t.Version,
-		ClassHash:     t.ClassHash,
+		TransactionHash:      t.Hash,
+		SenderAddress:        t.SenderAddress,
+		MaxFee:               t.MaxFee,
+		TransactionSignature: t.Signature,
+		Nonce:                t.Nonce,
+		Version:              t.Version,
+		ClassHash:            t.ClassHash,
 	}
 }
 
 func adaptDeployTransaction(t *clients.Transaction) *core.DeployTransaction {
 	return &core.DeployTransaction{
-		Hash:                t.Hash,
+		TransactionHash:     t.Hash,
 		ContractAddressSalt: t.ContractAddressSalt,
 		ContractAddress:     t.ContractAddress,
 		ClassHash:           t.ClassHash,
@@ -215,20 +215,20 @@ func adaptDeployTransaction(t *clients.Transaction) *core.DeployTransaction {
 
 func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
-		Hash:               t.Hash,
-		ContractAddress:    t.ContractAddress,
-		EntryPointSelector: t.EntryPointSelector,
-		Nonce:              t.Nonce,
-		CallData:           t.CallData,
-		Signature:          t.Signature,
-		MaxFee:             t.MaxFee,
-		Version:            t.Version,
+		TransactionHash:      t.Hash,
+		ContractAddress:      t.ContractAddress,
+		EntryPointSelector:   t.EntryPointSelector,
+		Nonce:                t.Nonce,
+		CallData:             t.CallData,
+		TransactionSignature: t.Signature,
+		MaxFee:               t.MaxFee,
+		Version:              t.Version,
 	}
 }
 
 func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransaction {
 	return &core.L1HandlerTransaction{
-		Hash:               t.Hash,
+		TransactionHash:    t.Hash,
 		ContractAddress:    t.ContractAddress,
 		EntryPointSelector: t.EntryPointSelector,
 		Nonce:              t.Nonce,
@@ -239,10 +239,10 @@ func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransactio
 
 func adaptDeployAccountTransaction(t *clients.Transaction) *core.DeployAccountTransaction {
 	return &core.DeployAccountTransaction{
-		DeployTransaction: *adaptDeployTransaction(t),
-		MaxFee:            t.MaxFee,
-		Signature:         t.Signature,
-		Nonce:             t.Nonce,
+		DeployTransaction:    *adaptDeployTransaction(t),
+		MaxFee:               t.MaxFee,
+		TransactionSignature: t.Signature,
+		Nonce:                t.Nonce,
 	}
 }
 
