@@ -246,7 +246,7 @@ type TransactionReceipt struct {
 	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
 	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages"`
 	TransactionHash    *felt.Felt          `json:"transaction_hash"`
-	TransactionIndex   *big.Int            `json:"transaction_index"`
+	TransactionIndex   uint64              `json:"transaction_index"`
 }
 
 // Block object returned by the gateway in JSON format for "get_block" endpoint

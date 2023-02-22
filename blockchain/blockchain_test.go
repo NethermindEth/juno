@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/binary"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -81,7 +82,7 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 
 		block, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
-		require.NoError(t, putBlock(txn, block))
+		require.NoError(t, storeBlock(txn, block))
 
 		storedByNumber, err := getBlockByNumber(txn, block.Number)
 		require.NoError(t, err)
@@ -214,7 +215,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-			if err = putBlock(txn, block119801); err != nil {
+			if err = storeBlock(txn, block119801); err != nil {
 				return err
 			}
 			heightBin := make([]byte, lenOfBlockNumberBytes)
@@ -280,5 +281,75 @@ func TestStore(t *testing.T) {
 		got1Block, err := chain.GetBlockByNumber(1)
 		assert.NoError(t, err)
 		assert.Equal(t, got1Block, block1)
+	})
+}
+
+func TestGetTransactionAndReceipt(t *testing.T) {
+	chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
+
+	gw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer.Close()
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+
+		require.NoError(t, chain.Store(b, su))
+	}
+
+	t.Run("GetTransactionByBlockNumberAndIndex returns error if transaction does not exist", func(t *testing.T) {
+		tx, err := chain.GetTransactionByBlockNumberAndIndex(32, 20)
+		assert.Nil(t, tx)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
+
+	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
+		tx, err := chain.GetTransactionByHash(new(felt.Felt).SetUint64(345))
+		assert.Nil(t, tx)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
+
+	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
+		r, err := chain.GetReceipt(new(felt.Felt).SetUint64(234))
+		assert.Nil(t, r)
+		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
+
+	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
+		for i := uint64(0); i < 3; i++ {
+			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
+				block, err := gw.BlockByNumber(context.Background(), i)
+				require.NoError(t, err)
+
+				for j, expectedTx := range block.Transactions {
+					gotTx, err := chain.GetTransactionByHash(expectedTx.Hash())
+					require.NoError(t, err)
+					assert.Equal(t, expectedTx, gotTx)
+
+					gotTx, err = chain.GetTransactionByBlockNumberAndIndex(block.Number, uint64(j))
+					require.NoError(t, err)
+					assert.Equal(t, expectedTx, gotTx)
+				}
+			})
+		}
+	})
+
+	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
+		for i := uint64(0); i < 3; i++ {
+			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
+				block, err := gw.BlockByNumber(context.Background(), i)
+				require.NoError(t, err)
+
+				for _, expectedR := range block.Receipts {
+					gotR, err := chain.GetReceipt(expectedR.TransactionHash)
+					require.NoError(t, err)
+					assert.Equal(t, expectedR, gotR)
+
+				}
+			})
+		}
 	})
 }

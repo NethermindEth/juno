@@ -17,6 +17,9 @@ const (
 	ChainHeight       // Latest height of the blockchain
 	BlockNumbersByHash
 	BlocksByNumber
+	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index
+	TransactionsByBlockNumberAndIndex       // maps block number and index to transaction
+	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
