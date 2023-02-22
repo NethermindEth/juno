@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
@@ -57,15 +58,23 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 			if err != nil {
 				continue
 			}
+			declaredClasses := make(map[felt.Felt]*core.Class, len(stateUpdate.StateDiff.DeclaredClasses))
+			for _, classHash := range stateUpdate.StateDiff.DeclaredClasses {
+				class, err := s.StarknetData.Class(ctx, classHash)
+				if err != nil {
+					continue
+				}
+				declaredClasses[*classHash] = class
+			}
 
 			return func() {
-				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, errChan) })
+				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, declaredClasses, errChan) })
 			}
 		}
 	}
 }
 
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, errChan chan ErrSyncFailed) stream.Callback {
+func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]*core.Class, errChan chan ErrSyncFailed) stream.Callback {
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
 	return func() {
 		select {
@@ -87,7 +96,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					return
 				}
 			}
-			err := s.Blockchain.Store(block, stateUpdate)
+			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number, "hash", block.Hash.Text(16),
 					"err", err.Error())

@@ -314,7 +314,7 @@ func (g *Gateway) StateUpdate(ctx context.Context, blockNumber uint64) (*core.St
 
 func AdaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
-	stateDiff.DeclaredContracts = response.StateDiff.DeclaredContracts
+	stateDiff.DeclaredClasses = response.StateDiff.DeclaredContracts
 	for _, deployedContract := range response.StateDiff.DeployedContracts {
 		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, core.DeployedContract{
 			Address:   deployedContract.Address,

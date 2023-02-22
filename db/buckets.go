@@ -13,6 +13,7 @@ const (
 	ContractRootKey   // contract storage roots
 	ContractClassHash // maps contract addresses and class hashes
 	ContractStorage   // contract storages
+	Class             // maps class hashes to classes
 	ContractNonce     // contract nonce
 	ChainHeight       // Latest height of the blockchain
 	BlockHeaderNumbersByHash

@@ -13,7 +13,7 @@ type StateDiff struct {
 	StorageDiffs      map[felt.Felt][]StorageDiff
 	Nonces            map[felt.Felt]*felt.Felt
 	DeployedContracts []DeployedContract
-	DeclaredContracts []*felt.Felt
+	DeclaredClasses   []*felt.Felt
 }
 
 type StorageDiff struct {
