@@ -54,19 +54,19 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	return do(NewTrie(newMemStorage(), height, nil))
 }
 
-// FeltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
+// feltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) FeltToBitSet(k *felt.Felt) *bitset.BitSet {
-	if k == (*felt.Felt)(nil) {
-		return (*bitset.BitSet)(nil)
+func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
+	if k == nil {
+		return nil
 	}
 
 	kBits := k.Bits()
 	return bitset.FromWithLength(t.height, kBits[:])
 }
 
-// FindCommonKey finds the set of common MSB bits in two key bitsets.
-func FindCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) {
+// findCommonKey finds the set of common MSB bits in two key bitsets.
+func findCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) {
 	divergentBit := uint(0)
 
 	for divergentBit <= shorterKey.Len() &&
@@ -81,12 +81,12 @@ func FindCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) 
 	return commonKey, divergentBit == shorterKey.Len()+1
 }
 
-// Path returns the path as mentioned in the [specification] for commitment calculations.
-// Path is suffix of key that diverges from parentKey. For example,
-// for a key 0b1011 and parentKey 0b10, this function would return the Path object of 0b0.
+// path returns the path as mentioned in the [specification] for commitment calculations.
+// path is suffix of key that diverges from parentKey. For example,
+// for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func Path(key, parentKey *bitset.BitSet) *bitset.BitSet {
+func path(key, parentKey *bitset.BitSet) *bitset.BitSet {
 	path := key.Clone()
 	// drop parent key, and one more MSB since left/right relation already encodes that information
 	if parentKey != nil {
@@ -120,7 +120,7 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 			node: node,
 		})
 
-		_, subset := FindCommonKey(key, cur)
+		_, subset := findCommonKey(key, cur)
 		if cur.Len() >= key.Len() || !subset {
 			return nodes, nil
 		}
@@ -137,7 +137,7 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	value, err := t.storage.Get(t.FeltToBitSet(key))
+	value, err := t.storage.Get(t.feltToBitSet(key))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 	// Todo: check key is not bigger than max key value for a trie height.
 	old := new(felt.Felt)
-	nodeKey := t.FeltToBitSet(key)
+	nodeKey := t.feltToBitSet(key)
 	node := &Node{
 		Value: value,
 	}
@@ -193,7 +193,7 @@ func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
 		return nil, nil // no-op
 	}
 
-	commonKey, _ := FindCommonKey(nodeKey, sibling.key)
+	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 	newParent := &Node{
 		Value: new(felt.Felt),
 	}
@@ -310,8 +310,8 @@ func (t *Trie) propagateValues(affectedNodes []storageNode) error {
 				return err
 			}
 
-			leftPath := Path(cur.node.Left, cur.key)
-			rightPath := Path(cur.node.Right, cur.key)
+			leftPath := path(cur.node.Left, cur.key)
+			rightPath := path(cur.node.Right, cur.key)
 
 			cur.node.Value = crypto.Pedersen(left.Hash(leftPath), right.Hash(rightPath))
 		}
@@ -335,7 +335,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	path := Path(t.rootKey, nil)
+	path := path(t.rootKey, nil)
 	return root.Hash(path), nil
 }
 
@@ -369,7 +369,7 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	}
 
 	root, err := t.storage.Get(t.rootKey)
-	path := Path(t.rootKey, parentP)
+	path := path(t.rootKey, parentP)
 	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), path.String(), path.Len(), root.Value.Text(16))
 	if err != nil {
 		return

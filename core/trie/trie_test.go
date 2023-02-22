@@ -2,7 +2,6 @@ package trie
 
 import (
 	"fmt"
-	"math/big"
 	"strconv"
 	"testing"
 
@@ -14,79 +13,28 @@ import (
 )
 
 // Todo: Refactor:
-//   - Test names should not have "_"
-//   - Table test are being used incorrectly: they should be separated into subsets, see node_test.go
-//   - Functions such as Path and FindCommonKey don't need to be public. Thus,
+//
+//   - [*] Test names should not have "_"
+//   - [*] Table test are being used incorrectly: they should be separated into subsets, see node_test.go
+//   - [*] Functions such as Path and findCommonKey don't need to be public. Thus,
 //     they don't need to be tested explicitly.
-//   - There are warning which ignore returned errors, returned errors should not be ignored.
-//   - Add more test cases with different heights
-//   - Add more complicated Put and Delete scenarios
-func TestPathFromKey(t *testing.T) {
-	trie := NewTrie(nil, 251, nil)
-	key, _ := new(felt.Felt).SetRandom()
-	path := trie.FeltToBitSet(key)
-	var keyRegular big.Int
-	key.BigInt(&keyRegular)
-	for bit := 0; bit < felt.Bits; bit++ {
-		if keyRegular.Bit(bit) > 0 != path.Test(uint(bit)) {
-			t.Error("TestPathFromKey failed")
-			break
-		}
-	}
-
-	// Make sure they dont share the same underlying memory
-	key.Halve()
-	key.BigInt(&keyRegular)
-	for bit := 0; bit < felt.Bits; bit++ {
-		if keyRegular.Bit(bit) > 0 != path.Test(uint(bit)) {
-			return
-		}
-	}
-	t.Error("TestPathFromKey failed")
-}
-
-func TestFindCommonPath(t *testing.T) {
-	tests := [...]struct {
-		path1  *bitset.BitSet
-		path2  *bitset.BitSet
-		common *bitset.BitSet
-		subset bool
-	}{
-		{
-			path1:  bitset.New(16).Set(4).Set(3),
-			path2:  bitset.New(16).Set(4),
-			common: bitset.New(12).Set(0),
-			subset: false,
-		},
-		{
-			path1:  bitset.New(2).Set(1),
-			path2:  bitset.New(2),
-			common: bitset.New(0),
-			subset: false,
-		},
-		{
-			path1:  bitset.New(2).Set(1),
-			path2:  bitset.New(2).Set(1),
-			common: bitset.New(2).Set(1),
-			subset: true,
-		},
-		{
-			path1:  bitset.New(10),
-			path2:  bitset.New(8),
-			common: bitset.New(8),
-			subset: true,
-		},
-	}
-
-	for _, test := range tests {
-		if common, subset := FindCommonKey(test.path1, test.path2); !test.common.Equal(common) || subset != test.subset {
-			t.Errorf("TestFindCommonPath: Expected %s (%d) Got %s (%d)", test.common.DumpAsBits(),
-				test.common.Len(), common.DumpAsBits(), common.Len())
-		}
-	}
-}
-
+//   - [ ] There are warning which ignore returned errors, returned errors should not be ignored.
+//   - [ ] Add more test cases with different heights
+//   - [*] Add more complicated Put and Delete scenarios
 func TestTriePut(t *testing.T) {
+	t.Run("put zero to empty tree", func(t *testing.T) {
+		RunOnTempTrie(251, func(trie *Trie) error {
+			key := new(felt.Felt).SetUint64(1)
+			zeroVal := new(felt.Felt).SetUint64(0)
+
+			oldVal, err := trie.Put(key, zeroVal)
+			assert.NoError(t, err)
+
+			require.Nil(t, oldVal)
+
+			return nil
+		})
+	})
 	t.Run("put to empty tree", func(t *testing.T) {
 		RunOnTempTrie(251, func(trie *Trie) error {
 			keyNum, err := strconv.ParseUint("1101", 2, 64)
@@ -102,7 +50,7 @@ func TestTriePut(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, val, value, "key-val not match")
-			assert.Equal(t, trie.FeltToBitSet(key), trie.rootKey, "root key not match single node's key")
+			assert.Equal(t, trie.feltToBitSet(key), trie.rootKey, "root key not match single node's key")
 
 			return nil
 		})
@@ -175,7 +123,7 @@ func TestTriePut(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check parent and its left right children
-			commonKey, isSame := FindCommonKey(trie.FeltToBitSet(leftKey), trie.FeltToBitSet(rightKey))
+			commonKey, isSame := findCommonKey(trie.feltToBitSet(leftKey), trie.feltToBitSet(rightKey))
 			require.False(t, isSame)
 
 			// Common key should be 0b100, length 251-2;
@@ -188,8 +136,8 @@ func TestTriePut(t *testing.T) {
 			parentNode, err := trie.storage.Get(commonKey)
 			require.NoError(t, err)
 
-			assert.Equal(t, trie.FeltToBitSet(leftKey), parentNode.Left)
-			assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.Right)
+			assert.Equal(t, trie.feltToBitSet(leftKey), parentNode.Left)
+			assert.Equal(t, trie.feltToBitSet(rightKey), parentNode.Right)
 
 			return nil
 		})
@@ -216,7 +164,7 @@ func TestTriePut(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check parent and its left right children
-			commonKey, isSame := FindCommonKey(trie.FeltToBitSet(leftKey), trie.FeltToBitSet(rightKey))
+			commonKey, isSame := findCommonKey(trie.feltToBitSet(leftKey), trie.feltToBitSet(rightKey))
 			require.False(t, isSame)
 
 			expectKey := bitset.New(251 - 2).Set(2)
@@ -225,8 +173,8 @@ func TestTriePut(t *testing.T) {
 			parentNode, err := trie.storage.Get(commonKey)
 			require.NoError(t, err)
 
-			assert.Equal(t, trie.FeltToBitSet(leftKey), parentNode.Left)
-			assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.Right)
+			assert.Equal(t, trie.feltToBitSet(leftKey), parentNode.Left)
+			assert.Equal(t, trie.feltToBitSet(rightKey), parentNode.Right)
 
 			return nil
 		})
@@ -269,8 +217,8 @@ func TestTriePut(t *testing.T) {
 				parentNode, err := trie.storage.Get(commonKey)
 				require.NoError(t, err)
 
-				assert.Equal(t, trie.FeltToBitSet(leftKey), parentNode.Left)
-				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.Right)
+				assert.Equal(t, trie.feltToBitSet(leftKey), parentNode.Left)
+				assert.Equal(t, trie.feltToBitSet(newKey), parentNode.Right)
 			})
 			t.Run("Add to right branch", func(t *testing.T) {
 				newKeyNum, err := strconv.ParseUint("110", 2, 64)
@@ -286,8 +234,8 @@ func TestTriePut(t *testing.T) {
 				parentNode, err := trie.storage.Get(commonKey)
 				require.NoError(t, err)
 
-				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.Left)
-				assert.Equal(t, trie.FeltToBitSet(rightKey), parentNode.Right)
+				assert.Equal(t, trie.feltToBitSet(newKey), parentNode.Left)
+				assert.Equal(t, trie.feltToBitSet(rightKey), parentNode.Right)
 			})
 			t.Run("Add new node as parent sibling", func(t *testing.T) {
 				newKeyNum, err := strconv.ParseUint("000", 2, 64)
@@ -303,7 +251,7 @@ func TestTriePut(t *testing.T) {
 				parentNode, err := trie.storage.Get(commonKey)
 				require.NoError(t, err)
 
-				assert.Equal(t, trie.FeltToBitSet(newKey), parentNode.Left)
+				assert.Equal(t, trie.feltToBitSet(newKey), parentNode.Left)
 
 				expectRightKey := bitset.New(251 - 2).Set(0)
 				assert.Equal(t, expectRightKey, parentNode.Right)
@@ -372,7 +320,7 @@ func TestTrieDeleteBasic(t *testing.T) {
 					assert.Nil(t, val)
 				}
 				// Check the final rootKey
-				assert.Equal(t, trie.FeltToBitSet(test.expectRootKey), trie.rootKey)
+				assert.Equal(t, trie.feltToBitSet(test.expectRootKey), trie.rootKey)
 
 				return nil
 			})
@@ -445,8 +393,8 @@ func TestTrieDeleteSubtree(t *testing.T) {
 				rootNode, err := trie.storage.Get(newRootKey)
 				require.NoError(t, err)
 
-				assert.Equal(t, trie.FeltToBitSet(rightKey), rootNode.Right)
-				assert.Equal(t, trie.FeltToBitSet(test.expectLeft), rootNode.Left)
+				assert.Equal(t, trie.feltToBitSet(rightKey), rootNode.Right)
+				assert.Equal(t, trie.feltToBitSet(test.expectLeft), rootNode.Left)
 
 				return nil
 			})
@@ -478,58 +426,10 @@ func TestPath(t *testing.T) {
 	}
 
 	for idx, test := range tests {
-		if got := Path(test.child, test.parent); !got.Equal(test.want) {
+		if got := path(test.child, test.parent); !got.Equal(test.want) {
 			t.Error("TestPath failing #", idx)
 		}
 	}
-}
-
-func TestPathOnTrie(t *testing.T) {
-	RunOnTempTrie(251, func(trie *Trie) error {
-		// build example trie from https://docs.starknet.io/documentation/develop/State/starknet-state/
-		// and check paths
-		var two felt.Felt
-		two.SetUint64(2)
-		var five felt.Felt
-		five.SetUint64(5)
-		var one felt.Felt
-		one.SetUint64(1)
-		trie.Put(&two, &one)
-		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(trie.FeltToBitSet(&two)))
-
-		trie.Put(&five, &one)
-		expectedRoot, _ := FindCommonKey(trie.FeltToBitSet(&two), trie.FeltToBitSet(&five))
-		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(expectedRoot))
-
-		rootNode, err := trie.storage.Get(trie.rootKey)
-		if err != nil {
-			t.Error()
-		}
-
-		assert.Equal(t, true, rootNode.Left != nil && rootNode.Right != nil)
-
-		expectedLeftPath := bitset.New(2).Set(1)
-		expectedRightPath := bitset.New(2).Set(0)
-		assert.Equal(t, true, Path(rootNode.Left, trie.rootKey).Equal(expectedLeftPath))
-		assert.Equal(t, true, Path(rootNode.Right, trie.rootKey).Equal(expectedRightPath))
-		return nil
-	})
-}
-
-func TestGetPath_ZeroRoot(t *testing.T) {
-	RunOnTempTrie(251, func(trie *Trie) error {
-		var zero felt.Felt
-		msbOne, _ := new(felt.Felt).SetString("0x400000000000000000000000000000000000000000000000000000000000000")
-		var one felt.Felt
-		one.SetUint64(1)
-		trie.Put(&zero, &one)
-		trie.Put(msbOne, &one)
-
-		zeroPath := bitset.New(0)
-		assert.Equal(t, true, trie.rootKey.Equal(zeroPath))
-		assert.Equal(t, true, Path(trie.rootKey, nil).Equal(zeroPath))
-		return nil
-	})
 }
 
 // TestState tests whether the trie produces the same state root as in
