@@ -17,7 +17,7 @@ import (
 )
 
 func TestHandler(t *testing.T) {
-	bc := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
+	bc := blockchain.NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
 	handler := rpc.NewHandler(bc, utils.MAINNET.ChainId())
 
 	t.Run("starknet_chainId", func(t *testing.T) {
@@ -33,6 +33,10 @@ func TestHandler(t *testing.T) {
 	t.Run("empty bc - starknet_blockHashAndNumber", func(t *testing.T) {
 		_, err := handler.BlockNumberAndHash()
 		assert.Equal(t, rpc.ErrNoBlock, err)
+	})
+	t.Run("empty bc - starknet_getBlockWithTxHashes", func(t *testing.T) {
+		_, err := handler.GetBlockWithTxHashes(&rpc.BlockId{Number: 0})
+		assert.Equal(t, rpc.ErrBlockNotFound, err)
 	})
 
 	log := utils.NewNopZapLogger()
@@ -62,6 +66,28 @@ func TestHandler(t *testing.T) {
 		gwBlock, gwErr := gw.BlockByNumber(ctx, hashAndNum.Number)
 		assert.NoError(t, gwErr)
 		assert.Equal(t, gwBlock.Hash, hashAndNum.Hash)
+	})
+
+	t.Run("starknet_getBlockWithTxHashes", func(t *testing.T) {
+		latestRpc, err := handler.GetBlockWithTxHashes(&rpc.BlockId{Latest: true})
+		assert.Nil(t, err)
+		gwBlock, gwErr := gw.BlockByNumber(ctx, latestRpc.Number)
+		assert.NoError(t, gwErr)
+
+		assert.Equal(t, gwBlock.Number, latestRpc.Number)
+		assert.Equal(t, gwBlock.Hash, latestRpc.Hash)
+		assert.Equal(t, gwBlock.GlobalStateRoot, latestRpc.NewRoot)
+		assert.Equal(t, gwBlock.ParentHash, latestRpc.ParentHash)
+		assert.Equal(t, gwBlock.SequencerAddress, latestRpc.SequencerAddress)
+		assert.Equal(t, gwBlock.Timestamp, latestRpc.Timestamp)
+		for i := 0; i < len(gwBlock.Transactions); i++ {
+			assert.Equal(t, gwBlock.Transactions[i].Hash(), latestRpc.TxnHashes[i])
+		}
+
+		byHash, err := handler.GetBlockWithTxHashes(&rpc.BlockId{Hash: latestRpc.Hash})
+		assert.Equal(t, latestRpc, byHash)
+		byNumber, err := handler.GetBlockWithTxHashes(&rpc.BlockId{Number: latestRpc.Number})
+		assert.Equal(t, latestRpc, byNumber)
 	})
 
 	canceler()
