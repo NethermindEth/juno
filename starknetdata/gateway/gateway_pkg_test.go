@@ -68,6 +68,12 @@ func TestAdaptBlock(t *testing.T) {
 	})
 }
 
+func hexToFelt(t *testing.T, hex string) *felt.Felt {
+	f, err := new(felt.Felt).SetString(hex)
+	require.NoError(t, err)
+	return f
+}
+
 func TestAdaptStateUpdate(t *testing.T) {
 	jsonData := []byte(`{
   "block_hash": "0x3",
@@ -129,7 +135,7 @@ func TestAdaptStateUpdate(t *testing.T) {
 		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
 		for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
 			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
-			core := coreStateUpdate.StateDiff.DeclaredContracts[idx]
+			core := coreStateUpdate.StateDiff.DeclaredClasses[idx]
 			assert.Equal(t, true, gw.Equal(core))
 		}
 

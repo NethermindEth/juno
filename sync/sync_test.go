@@ -58,7 +58,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
-		require.NoError(t, bc.Store(b0, s0))
+		require.NoError(t, bc.Store(b0, s0, nil))
 
 		synchronizer := NewSynchronizer(bc, gw, log)
 		ctx, cancel := context.WithCancel(context.Background())

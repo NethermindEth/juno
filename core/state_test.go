@@ -169,7 +169,7 @@ func TestUpdate(t *testing.T) {
 	testDb := pebble.NewMemTest()
 	state := core.NewState(testDb.NewTransaction(true))
 
-	assert.Equal(t, nil, state.Update(coreUpdate))
+	assert.Equal(t, nil, state.Update(coreUpdate, nil))
 }
 
 func TestUpdateNonce(t *testing.T) {
@@ -188,7 +188,7 @@ func TestUpdateNonce(t *testing.T) {
 	testDb := pebble.NewMemTest()
 	state := core.NewState(testDb.NewTransaction(true))
 
-	assert.NoError(t, state.Update(coreUpdate))
+	assert.NoError(t, state.Update(coreUpdate, nil))
 
 	nonce, err := state.GetContractNonce(addr)
 	assert.NoError(t, err)
@@ -202,7 +202,7 @@ func TestUpdateNonce(t *testing.T) {
 
 	nonce.SetUint64(1)
 	coreUpdate.StateDiff.Nonces[*addr] = nonce
-	assert.NoError(t, state.Update(coreUpdate))
+	assert.NoError(t, state.Update(coreUpdate, nil))
 
 	newNonce, err := state.GetContractNonce(addr)
 	assert.NoError(t, err)
