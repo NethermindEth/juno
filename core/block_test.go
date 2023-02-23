@@ -94,4 +94,14 @@ func TestBlockHash(t *testing.T) {
 			assert.NoError(t, core.VerifyBlockHash(block, tt.chain))
 		})
 	}
+
+	t.Run("no error if block is unverifiable", func(t *testing.T) {
+		goerliGW, closer := testsource.NewTestGateway(utils.GOERLI)
+		defer closer.Close()
+		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
+		require.NoError(t, err)
+
+		err = core.VerifyBlockHash(block119802, utils.GOERLI)
+		assert.NoError(t, err)
+	})
 }
