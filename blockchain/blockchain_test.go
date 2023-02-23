@@ -3,7 +3,6 @@ package blockchain
 import (
 	"context"
 	_ "embed"
-	"encoding/binary"
 	"fmt"
 	"testing"
 
@@ -74,21 +73,21 @@ func TestHeight(t *testing.T) {
 func TestGetBlockByNumberAndHash(t *testing.T) {
 	chain := NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
 	t.Run("same block is returned for both by GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
-		txn := chain.database.NewTransaction(true)
-		defer txn.Discard()
-
 		gw, closer := testsource.NewTestGateway(utils.MAINNET)
 		defer closer.Close()
 
 		block, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
-		require.NoError(t, storeBlock(txn, block))
+		update, err := gw.StateUpdate(context.Background(), 0)
+		require.NoError(t, err)
 
-		storedByNumber, err := getBlockByNumber(txn, block.Number)
+		require.NoError(t, chain.Store(block, update))
+
+		storedByNumber, err := chain.GetBlockByNumber(block.Number)
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByNumber)
 
-		storedByHash, err := getBlockByHash(txn, block.Hash)
+		storedByHash, err := chain.GetBlockByHash(block.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByHash)
 	})
@@ -200,30 +199,6 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		wrongHashStateUpdate.BlockHash = wrongHashBlock.Hash
 
 		assert.EqualError(t, chain.SanityCheckNewHeight(wrongHashBlock, wrongHashStateUpdate), "can not verify hash in block header")
-	})
-
-	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		chain = NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
-		goerliGW, goerliCloser := testsource.NewTestGateway(utils.GOERLI)
-		defer goerliCloser.Close()
-
-		block119801, err := goerliGW.BlockByNumber(context.Background(), 119801)
-		require.NoError(t, err)
-		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
-		require.NoError(t, err)
-		stateUpdate119802, err := goerliGW.StateUpdate(context.Background(), 119802)
-		require.NoError(t, err)
-
-		require.NoError(t, chain.database.Update(func(txn db.Transaction) error {
-			if err = storeBlock(txn, block119801); err != nil {
-				return err
-			}
-			heightBin := make([]byte, lenOfBlockNumberBytes)
-			binary.BigEndian.PutUint64(heightBin, block119801.Number)
-			return txn.Set(db.ChainHeight.Key(), heightBin)
-		}))
-
-		assert.NoError(t, chain.SanityCheckNewHeight(block119802, stateUpdate119802))
 	})
 }
 

@@ -15,8 +15,8 @@ const (
 	ContractStorage   // contract storages
 	ContractNonce     // contract nonce
 	ChainHeight       // Latest height of the blockchain
-	BlockNumbersByHash
-	BlocksByNumber
+	BlockHeaderNumbersByHash
+	BlockHeadersByNumber
 	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index
 	TransactionsByBlockNumberAndIndex       // maps block number and index to transaction
 	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt

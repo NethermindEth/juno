@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-const lenOfBlockNumberBytes = 8
+const lenOfByteSlice = 8
 
 type ErrIncompatibleBlockAndStateUpdate struct {
 	reason string
@@ -90,12 +91,8 @@ func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err err
 
 // GetTransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) GetTransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error) {
-	bnIndexBytes, err := encoder.Marshal(txAndReceiptDBKey{blockNumber, index})
-	if err != nil {
-		return nil, err
-	}
 	return transaction, b.database.View(func(txn db.Transaction) error {
-		transaction, err = getTransactionByBnIndexBytes(txn, bnIndexBytes)
+		transaction, err = getTransactionByBlockNumberAndIndex(txn, &txAndReceiptDBKey{blockNumber, index})
 		return err
 	})
 }
@@ -125,7 +122,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 		if err := core.NewState(txn).Update(stateUpdate); err != nil {
 			return err
 		}
-		if err := storeBlock(txn, block); err != nil {
+		if err := storeBlockHeader(txn, &block.Header); err != nil {
 			return err
 		}
 		for i, tx := range block.Transactions {
@@ -137,7 +134,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 
 		// Head of the blockchain is maintained as follows:
 		// [db.ChainHeight]() -> (BlockNumber)
-		heightBin := make([]byte, lenOfBlockNumberBytes)
+		heightBin := make([]byte, lenOfByteSlice)
 		binary.BigEndian.PutUint64(heightBin, block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
@@ -191,26 +188,26 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 	return nil
 }
 
-// storeBlock stores the given block in the database.
+// storeBlockHeader stores the given block in the database.
 // The db storage for blocks is maintained by two buckets as follows:
 //
-// [db.BlockNumbersByHash](BlockHash) -> (BlockNumber)
-// [db.BlocksByNumber](BlockNumber) -> (Block)
+// [db.BlockHeaderNumbersByHash](BlockHash) -> (BlockNumber)
+// [db.BlockHeadersByNumber](BlockNumber) -> (Block)
 //
 // "[]" is the db prefix to represent a bucket
 // "()" are additional keys appended to the prefix or multiple values marshalled together
 // "->" represents a key value pair.
-func storeBlock(txn db.Transaction, block *core.Block) error {
-	numBytes := make([]byte, lenOfBlockNumberBytes)
+func storeBlockHeader(txn db.Transaction, block *core.Header) error {
+	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, block.Number)
 
-	if err := txn.Set(db.BlockNumbersByHash.Key(block.Hash.Marshal()), numBytes); err != nil {
+	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(block.Hash.Marshal()), numBytes); err != nil {
 		return err
 	}
 
 	if blockBytes, err := encoder.Marshal(block); err != nil {
 		return err
-	} else if err = txn.Set(db.BlocksByNumber.Key(numBytes), blockBytes); err != nil {
+	} else if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), blockBytes); err != nil {
 		return err
 	}
 
@@ -219,23 +216,67 @@ func storeBlock(txn db.Transaction, block *core.Block) error {
 
 // getBlockByNumber retrieves a block from database by its number
 func getBlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
-	numBytes := make([]byte, lenOfBlockNumberBytes)
+	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, number)
-	return getBlockByNumberBytes(txn, numBytes)
-}
 
-func getBlockByNumberBytes(txn db.Transaction, numBytes []byte) (block *core.Block, err error) {
-	err = txn.Get(db.BlocksByNumber.Key(numBytes), func(val []byte) error {
-		block = new(core.Block)
-		return encoder.Unmarshal(val, block)
-	})
-	return
+	block := new(core.Block)
+	if err := txn.Get(db.BlockHeadersByNumber.Key(numBytes), func(val []byte) error {
+		return encoder.Unmarshal(val, &block.Header)
+	}); err != nil {
+		return nil, err
+	}
+
+	iterator, err := txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+	defer iterator.Close()
+
+	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
+	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+		if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
+			break
+		}
+
+		val, err := iterator.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		var tx core.Transaction
+		if err = encoder.Unmarshal(val, &tx); err != nil {
+			return nil, err
+		}
+
+		block.Transactions = append(block.Transactions, tx)
+	}
+
+	prefix = db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
+	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+		if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
+			break
+		}
+
+		val, err := iterator.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		receipt := new(core.TransactionReceipt)
+		if err = encoder.Unmarshal(val, receipt); err != nil {
+			return nil, err
+		}
+
+		block.Receipts = append(block.Receipts, receipt)
+	}
+
+	return block, nil
 }
 
 // getBlockByHash retrieves a block from database by its hash
 func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err error) {
-	err = txn.Get(db.BlockNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
-		block, err = getBlockByNumberBytes(txn, val)
+	err = txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+		block, err = getBlockByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 	return
@@ -260,6 +301,18 @@ type txAndReceiptDBKey struct {
 	Index  uint64
 }
 
+func (t *txAndReceiptDBKey) MarshalBinary() []byte {
+	return binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64([]byte{}, t.Number), t.Index)
+}
+
+func (t *txAndReceiptDBKey) UnmarshalBinary(data []byte) error {
+	r := bytes.NewReader(data)
+	if err := binary.Read(r, binary.BigEndian, &t.Number); err != nil {
+		return err
+	}
+	return binary.Read(r, binary.BigEndian, &t.Index)
+}
+
 // storeTransactionAndReceipt stores the given transaction receipt in the database.
 // The db storage for transaction and receipts is maintained by three buckets as follows:
 //
@@ -273,12 +326,9 @@ type txAndReceiptDBKey struct {
 // "()" are additional keys appended to the prefix or multiple values marshalled together
 // "->" represents a key value pair.
 func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Transaction, r *core.TransactionReceipt) error {
-	bnIndexBytes, err := encoder.Marshal(txAndReceiptDBKey{number, i})
-	if err != nil {
-		return err
-	}
+	bnIndexBytes := (&txAndReceiptDBKey{number, i}).MarshalBinary()
 
-	if err = txn.Set(db.TransactionBlockNumbersAndIndicesByHash.Key((r.TransactionHash).Marshal()),
+	if err := txn.Set(db.TransactionBlockNumbersAndIndicesByHash.Key((r.TransactionHash).Marshal()),
 		bnIndexBytes); err != nil {
 		return err
 	}
@@ -298,17 +348,17 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 }
 
 // getTransactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
-func getTransactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (bnIndexBytes []byte, err error) {
+func getTransactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (bnIndex *txAndReceiptDBKey, err error) {
 	err = txn.Get(db.TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal()), func(val []byte) error {
-		bnIndexBytes = val
-		return nil
+		bnIndex = new(txAndReceiptDBKey)
+		return bnIndex.UnmarshalBinary(val)
 	})
 	return
 }
 
-// getTransactionByBnIndexBytes gets the transaction for a given block number and index.
-func getTransactionByBnIndexBytes(txn db.Transaction, bnIndexBytes []byte) (transaction core.Transaction, err error) {
-	err = txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndexBytes), func(val []byte) error {
+// getTransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
+func getTransactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (transaction core.Transaction, err error) {
+	err = txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &transaction)
 	})
 	return
@@ -316,25 +366,25 @@ func getTransactionByBnIndexBytes(txn db.Transaction, bnIndexBytes []byte) (tran
 
 // getTransactionByHash gets the transaction for a given hash.
 func getTransactionByHash(txn db.Transaction, hash *felt.Felt) (core.Transaction, error) {
-	bnIndexBytes, err := getTransactionBlockNumberAndIndexByHash(txn, hash)
+	bnIndex, err := getTransactionBlockNumberAndIndexByHash(txn, hash)
 	if err != nil {
 		return nil, err
 	}
-	return getTransactionByBnIndexBytes(txn, bnIndexBytes)
+	return getTransactionByBlockNumberAndIndex(txn, bnIndex)
 }
 
 // getReceiptByHash gets the transaction receipt for a given hash.
 func getReceiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionReceipt, error) {
-	if bnIndexBytes, err := getTransactionBlockNumberAndIndexByHash(txn, hash); err != nil {
+	if bnIndex, err := getTransactionBlockNumberAndIndexByHash(txn, hash); err != nil {
 		return nil, err
 	} else {
-		return getReceiptByBlockNumberAndIndex(txn, bnIndexBytes)
+		return getReceiptByBlockNumberAndIndex(txn, bnIndex)
 	}
 }
 
 // getReceiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.
-func getReceiptByBlockNumberAndIndex(txn db.Transaction, bnIndexBytes []byte) (r *core.TransactionReceipt, err error) {
-	err = txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), func(val []byte) error {
+func getReceiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (r *core.TransactionReceipt, err error) {
+	err = txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &r)
 	})
 	return
