@@ -37,7 +37,7 @@ type Blockchain struct {
 	database db.DB
 }
 
-func NewBlockchain(database db.DB, network utils.Network) *Blockchain {
+func New(database db.DB, network utils.Network) *Blockchain {
 	return &Blockchain{
 		database: database,
 		network:  network,

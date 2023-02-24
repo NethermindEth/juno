@@ -74,13 +74,13 @@ func New(cfg *Config) (StarknetNode, error) {
 		return nil, err
 	}
 
-	blockchain := blockchain.NewBlockchain(stateDb, cfg.Network)
-	synchronizer := sync.NewSynchronizer(blockchain, gateway.NewGateway(cfg.Network), log)
+	chain := blockchain.New(stateDb, cfg.Network)
+	synchronizer := sync.NewSynchronizer(chain, gateway.NewGateway(cfg.Network), log)
 	return &Node{
 		cfg:          cfg,
 		log:          log,
 		db:           stateDb,
-		blockchain:   blockchain,
+		blockchain:   chain,
 		synchronizer: synchronizer,
 	}, nil
 }
