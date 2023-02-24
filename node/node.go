@@ -93,6 +93,7 @@ func New(cfg *Config) (StarknetNode, error) {
 			{"starknet_blockHashAndNumber", nil, rpcHandler.BlockNumberAndHash},
 			{"starknet_getBlockWithTxHashes", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxHashes},
 			{"starknet_getBlockWithTxs", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxs},
+			{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
 		}, log),
 	}, nil
 }
