@@ -64,19 +64,29 @@ func (db *DB) Close() error {
 }
 
 // View : see db.DB.View
-func (db *DB) View(fn func(txn db.Transaction) error) error {
+func (db *DB) View(fn func(txn db.Transaction) error) (err error) {
 	txn := db.NewTransaction(false)
-	defer txn.Discard()
+	defer func() {
+		// Prioritise closing error over other errors
+		if closeErr := txn.Discard(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	return fn(txn)
 }
 
 // Update : see db.DB.Update
-func (db *DB) Update(fn func(txn db.Transaction) error) error {
+func (db *DB) Update(fn func(txn db.Transaction) error) (err error) {
 	txn := db.NewTransaction(true)
-	defer txn.Discard()
+	defer func() {
+		// Prioritise closing error over other errors
+		if closeErr := txn.Discard(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
-	if err := fn(txn); err != nil {
+	if err = fn(txn); err != nil {
 		return err
 	}
 

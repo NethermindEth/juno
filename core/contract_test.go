@@ -91,7 +91,9 @@ func TestContractAddress(t *testing.T) {
 
 func TestContract(t *testing.T) {
 	testDb := pebble.NewMemTest()
-	defer testDb.Close()
+	defer func() {
+		require.NoError(t, testDb.Close())
+	}()
 
 	txn := testDb.NewTransaction(true)
 	addr := new(felt.Felt).SetUint64(44)

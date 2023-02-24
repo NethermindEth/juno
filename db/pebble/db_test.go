@@ -19,7 +19,9 @@ var noop = func(val []byte) error {
 func TestTransaction(t *testing.T) {
 	t.Run("new transaction can retrieve exising value", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		txn := testDb.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
@@ -31,24 +33,30 @@ func TestTransaction(t *testing.T) {
 			assert.Equal(t, "value", string(val))
 			return nil
 		}))
+		require.NoError(t, readOnlyTxn.Discard())
 	})
 
 	t.Run("discarded transaction is not committed to DB", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		txn := testDb.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
-		txn.Discard()
+		require.NoError(t, txn.Discard())
 
 		readOnlyTxn := testDb.NewTransaction(false)
 		assert.EqualError(t, readOnlyTxn.Get([]byte("key"), noop), db.ErrKeyNotFound.Error())
+		require.NoError(t, readOnlyTxn.Discard())
 	})
 
 	t.Run("value committed by a transactions are not accessible to other transactions created"+
 		" before Commit()", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		txn1 := testDb.NewTransaction(true)
 		txn2 := testDb.NewTransaction(false)
@@ -58,22 +66,25 @@ func TestTransaction(t *testing.T) {
 
 		require.NoError(t, txn1.Commit())
 		assert.EqualError(t, txn2.Get([]byte("key1"), noop), db.ErrKeyNotFound.Error())
-		txn2.Discard()
+		require.NoError(t, txn2.Discard())
 
 		txn3 := testDb.NewTransaction(false)
 		assert.NoError(t, txn3.Get([]byte("key1"), func(bytes []byte) error {
 			assert.Equal(t, []byte("value1"), bytes)
 			return nil
 		}))
+		require.NoError(t, txn3.Discard())
 	})
 
 	t.Run("discarded transaction cannot commit", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		txn := testDb.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
-		txn.Discard()
+		require.NoError(t, txn.Discard())
 
 		assert.Error(t, txn.Commit())
 	})
@@ -82,7 +93,9 @@ func TestTransaction(t *testing.T) {
 func TestViewUpdate(t *testing.T) {
 	t.Run("value after Update is committed to DB", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		// Test View
 		require.EqualError(t, testDb.View(func(txn db.Transaction) error {
@@ -106,7 +119,9 @@ func TestViewUpdate(t *testing.T) {
 
 	t.Run("Update error does not commit value to DB", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		// Test Update
 		require.EqualError(t, testDb.Update(func(txn db.Transaction) error {
@@ -123,7 +138,9 @@ func TestViewUpdate(t *testing.T) {
 
 	t.Run("setting a key with a zero-length value should be allowed", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set([]byte("key"), []byte{}))
@@ -137,7 +154,9 @@ func TestViewUpdate(t *testing.T) {
 
 	t.Run("setting a key with a nil value should be allowed", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set([]byte("key"), nil))
@@ -151,7 +170,9 @@ func TestViewUpdate(t *testing.T) {
 
 	t.Run("setting a key with a zero-length key should not be allowed", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		assert.Error(t, testDb.Update(func(txn db.Transaction) error {
 			return txn.Set([]byte{}, []byte("value"))
@@ -160,7 +181,9 @@ func TestViewUpdate(t *testing.T) {
 
 	t.Run("setting a key with a nil key should not be allowed", func(t *testing.T) {
 		testDb := pebble.NewMemTest()
-		defer testDb.Close()
+		defer func() {
+			require.NoError(t, testDb.Close())
+		}()
 
 		assert.Error(t, testDb.Update(func(txn db.Transaction) error {
 			return txn.Set(nil, []byte("value"))
@@ -170,7 +193,9 @@ func TestViewUpdate(t *testing.T) {
 
 func TestConcurrentUpdate(t *testing.T) {
 	testDb := pebble.NewMemTest()
-	defer testDb.Close()
+	defer func() {
+		require.NoError(t, testDb.Close())
+	}()
 	wg := sync.WaitGroup{}
 
 	key := []byte{0}
@@ -225,7 +250,9 @@ func TestConcurrentUpdate(t *testing.T) {
 
 func TestSeek(t *testing.T) {
 	testDb := pebble.NewMemTest()
-	defer testDb.Close()
+	defer func() {
+		require.NoError(t, testDb.Close())
+	}()
 
 	txn := testDb.NewTransaction(true)
 	defer txn.Discard()
@@ -236,7 +263,9 @@ func TestSeek(t *testing.T) {
 	t.Run("seeks to the next key in lexicographical order", func(t *testing.T) {
 		iter, err := txn.NewIterator()
 		require.NoError(t, err)
-		defer iter.Close()
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
 
 		iter.Seek([]byte{0})
 		v, err := iter.Value()
@@ -247,7 +276,9 @@ func TestSeek(t *testing.T) {
 
 	t.Run("key returns nil when seeking nonexistent data", func(t *testing.T) {
 		iter, _ := txn.NewIterator()
-		defer iter.Close()
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
 
 		iter.Seek([]byte{4})
 		assert.Nil(t, iter.Key())
@@ -270,7 +301,9 @@ func TestPrefixSearch(t *testing.T) {
 	}
 
 	testDb := pebble.NewMemTest()
-	defer testDb.Close()
+	defer func() {
+		require.NoError(t, testDb.Close())
+	}()
 
 	require.NoError(t, testDb.Update(func(txn db.Transaction) error {
 		for _, d := range data {
@@ -284,7 +317,9 @@ func TestPrefixSearch(t *testing.T) {
 	require.NoError(t, testDb.View(func(txn db.Transaction) error {
 		iter, err := txn.NewIterator()
 		require.NoError(t, err)
-		defer iter.Close()
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
 
 		prefixBytes := make([]byte, 8)
 		binary.BigEndian.PutUint64(prefixBytes, 1)

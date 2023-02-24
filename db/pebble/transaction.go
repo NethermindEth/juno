@@ -18,13 +18,13 @@ type Transaction struct {
 }
 
 // Discard : see db.Transaction.Discard
-func (t *Transaction) Discard() {
+func (t *Transaction) Discard() (err error) {
 	if t.batch != nil {
-		t.batch.Close()
+		err = t.batch.Close()
 		t.batch = nil
 	}
 	if t.snapshot != nil {
-		t.snapshot.Close()
+		err = t.snapshot.Close()
 		t.snapshot = nil
 	}
 
@@ -32,11 +32,18 @@ func (t *Transaction) Discard() {
 		t.lock.Unlock()
 		t.lock = nil
 	}
+	return
 }
 
 // Commit : see db.Transaction.Commit
-func (t *Transaction) Commit() error {
-	defer t.Discard()
+func (t *Transaction) Commit() (err error) {
+	defer func() {
+		// Prioritise closing error over other errors
+		if closeErr := t.Discard(); closeErr != nil {
+			err = closeErr
+		}
+	}()
+
 	if t.batch != nil {
 		return t.batch.Commit(pebble.Sync)
 	} else {
@@ -63,10 +70,10 @@ func (t *Transaction) Delete(key []byte) error {
 }
 
 // Get : see db.Transaction.Get
-func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
+func (t *Transaction) Get(key []byte, cb func([]byte) error) (err error) {
 	var val []byte
 	var closer io.Closer
-	var err error
+
 	if t.batch != nil {
 		val, closer, err = t.batch.Get(key)
 	} else if t.snapshot != nil {
@@ -79,9 +86,14 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 			return db.ErrKeyNotFound
 		}
 
-		return err
+		return
 	}
-	defer closer.Close()
+	defer func() {
+		// Prioritise closing error over other errors
+		if closeErr := closer.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 	return cb(val)
 }
 

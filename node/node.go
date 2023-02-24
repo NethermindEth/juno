@@ -85,9 +85,14 @@ func New(cfg *Config) (StarknetNode, error) {
 	}, nil
 }
 
-func (n *Node) Run(ctx context.Context) error {
+func (n *Node) Run(ctx context.Context) (err error) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
-	defer n.db.Close()
+	defer func() {
+		// Prioritise closing error over other errors
+		if closeErr := n.db.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 	go func() {
 		<-ctx.Done()
 		n.log.Infow("Shutting down Juno...")

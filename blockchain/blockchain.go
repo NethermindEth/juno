@@ -215,12 +215,12 @@ func storeBlockHeader(txn db.Transaction, block *core.Header) error {
 }
 
 // getBlockByNumber retrieves a block from database by its number
-func getBlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
+func getBlockByNumber(txn db.Transaction, number uint64) (block *core.Block, err error) {
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, number)
 
-	block := new(core.Block)
-	if err := txn.Get(db.BlockHeadersByNumber.Key(numBytes), func(val []byte) error {
+	block = new(core.Block)
+	if err = txn.Get(db.BlockHeadersByNumber.Key(numBytes), func(val []byte) error {
 		return encoder.Unmarshal(val, &block.Header)
 	}); err != nil {
 		return nil, err
@@ -230,7 +230,12 @@ func getBlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer iterator.Close()
+	defer func() {
+		// Prioritise closing error over other errors
+		if closeErr := iterator.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
