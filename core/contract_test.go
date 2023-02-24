@@ -10,11 +10,12 @@ import (
 	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func hexToFelt(hex string) *felt.Felt {
-	// We know our test hex values are valid, so we'll ignore the potential error
-	f, _ := new(felt.Felt).SetString(hex)
+func hexToFelt(t *testing.T, hex string) *felt.Felt {
+	f, err := new(felt.Felt).SetString(hex)
+	require.NoError(t, err)
 	return f
 }
 
@@ -41,7 +42,7 @@ func TestClassHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := hexToFelt(tt.classHash)
+			hash := hexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
 			assert.NoError(t, err)
 			got := class.Hash()
@@ -62,17 +63,19 @@ func TestContractAddress(t *testing.T) {
 	}{
 		{
 			// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0
-			callerAddress: hexToFelt("0x0000000000000000000000000000000000000000"),
-			classHash:     hexToFelt("0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486"),
-			salt:          hexToFelt("0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b"),
+			callerAddress: hexToFelt(t, "0x0000000000000000000000000000000000000000"),
+			classHash: hexToFelt(
+				t, "0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486"),
+			salt: hexToFelt(
+				t, "0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b"),
 			constructorCalldata: []*felt.Felt{
-				hexToFelt("0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4"),
-				hexToFelt("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
-				hexToFelt("0x2"),
-				hexToFelt("0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6"),
-				hexToFelt("0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"),
+				hexToFelt(t, "0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4"),
+				hexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				hexToFelt(t, "0x2"),
+				hexToFelt(t, "0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6"),
+				hexToFelt(t, "0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"),
 			},
-			want: hexToFelt("0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3"),
+			want: hexToFelt(t, "0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3"),
 		},
 	}
 
