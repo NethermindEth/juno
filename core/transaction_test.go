@@ -54,7 +54,7 @@ func TestTransactionHash(t *testing.T) {
 			gw, closer := testsource.NewTestGateway(test.network)
 			defer closer.Close()
 
-			hash := hexToFelt(test.txnHash)
+			hash := hexToFelt(t, test.txnHash)
 			txn, err := gw.Transaction(context.Background(), hash)
 			require.NoError(t, err)
 			require.NotNil(t, txn)
