@@ -226,52 +226,36 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
-func TransactionHash(transaction Transaction, network utils.Network) (*felt.Felt, error) {
+func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
-		return declareTransactionHash(t, network)
+		return declareTransactionHash(t, n)
 	case *InvokeTransaction:
-		return invokeTransactionHash(t, network)
+		return invokeTransactionHash(t, n)
 	case *DeployTransaction:
-		return deployTransactionHash(t, network)
+		// deploy transactions are deprecated after re-genesis therefore we don't verify
+		// transaction hash
+		return t.TransactionHash, nil
 	case *L1HandlerTransaction:
-		return l1HandlerTransactionHash(t, network)
+		return l1HandlerTransactionHash(t, n)
 	case *DeployAccountTransaction:
-		return deployAccountTransactionHash(t, network)
+		return deployAccountTransactionHash(t, n)
 	default:
 		return nil, ErrUnknownTransaction
 	}
 }
 
-func deployTransactionHash(d *DeployTransaction, network utils.Network) (*felt.Felt, error) {
-	snKeccakConstructor, err := crypto.StarknetKeccak([]byte("constructor"))
-	if err != nil {
-		return nil, err
-	}
-	if d.Version.IsZero() || d.Version.IsOne() {
-		return crypto.PedersenArray(
-			new(felt.Felt).SetBytes([]byte("deploy")),
-			d.Version,
-			d.ContractAddress,
-			snKeccakConstructor,
-			crypto.PedersenArray(d.ConstructorCallData...),
-			new(felt.Felt),
-			network.ChainId(),
-		), nil
-	}
-	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
-}
+var (
+	invokeFelt        = new(felt.Felt).SetBytes([]byte("invoke"))
+	declareFelt       = new(felt.Felt).SetBytes([]byte("declare"))
+	l1HandlerFelt     = new(felt.Felt).SetBytes([]byte("l1_handler"))
+	deployAccountFelt = new(felt.Felt).SetBytes([]byte("deploy_account"))
+)
 
-func invokeTransactionHash(i *InvokeTransaction, network utils.Network) (*felt.Felt, error) {
-	invokeFelt := new(felt.Felt).SetBytes([]byte("invoke"))
+func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
 	if i.Version.IsZero() {
-		return crypto.PedersenArray(
-			invokeFelt,
-			i.ContractAddress,
-			i.EntryPointSelector,
-			crypto.PedersenArray(i.CallData...),
-			network.ChainId(),
-		), nil
+		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
+		return i.TransactionHash, nil
 	} else if i.Version.IsOne() {
 		return crypto.PedersenArray(
 			invokeFelt,
@@ -280,26 +264,17 @@ func invokeTransactionHash(i *InvokeTransaction, network utils.Network) (*felt.F
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			network.ChainId(),
+			n.ChainId(),
 			i.Nonce,
 		), nil
 	}
 	return nil, ErrInvalidTransactionVersion{i, i.Version.Text(10)}
 }
 
-func declareTransactionHash(d *DeclareTransaction, network utils.Network) (*felt.Felt, error) {
-	declareFelt := new(felt.Felt).SetBytes([]byte("declare"))
+func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
 	if d.Version.IsZero() {
-		return crypto.PedersenArray(
-			declareFelt,
-			d.Version,
-			d.SenderAddress,
-			new(felt.Felt),
-			crypto.PedersenArray(make([]*felt.Felt, 0)...),
-			d.MaxFee,
-			network.ChainId(),
-			d.ClassHash,
-		), nil
+		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
+		return d.TransactionHash, nil
 	} else if d.Version.IsOne() {
 		return crypto.PedersenArray(
 			declareFelt,
@@ -308,30 +283,77 @@ func declareTransactionHash(d *DeclareTransaction, network utils.Network) (*felt
 			new(felt.Felt),
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			network.ChainId(),
+			n.ChainId(),
 			d.Nonce,
 		), nil
 	}
 	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
 }
 
-func l1HandlerTransactionHash(l *L1HandlerTransaction, network utils.Network) (*felt.Felt, error) {
+func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
+	if l.Version.IsZero() {
+		// There are some l1 handler transaction which do not return a nonce and for some random
+		// transaction the following hash fails.
+		if l.Nonce == nil {
+			return l.TransactionHash, nil
+		}
+		return crypto.PedersenArray(
+			l1HandlerFelt,
+			l.Version,
+			l.ContractAddress,
+			l.EntryPointSelector,
+			crypto.PedersenArray(l.CallData...),
+			&felt.Zero,
+			n.ChainId(),
+			l.Nonce,
+		), nil
+	}
 	return nil, ErrInvalidTransactionVersion{l, l.Version.Text(10)}
 }
 
-func deployAccountTransactionHash(d *DeployAccountTransaction,
-	network utils.Network,
-) (*felt.Felt, error) {
+func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) (*felt.Felt, error) {
+	callData := []*felt.Felt{d.ClassHash, d.ContractAddressSalt}
+	callData = append(callData, d.ConstructorCallData...)
+	// There is no version 0 for deploy account
+	if d.Version.IsOne() {
+		return crypto.PedersenArray(
+			deployAccountFelt,
+			d.Version,
+			d.ContractAddress,
+			&felt.Zero,
+			crypto.PedersenArray(callData...),
+			d.MaxFee,
+			n.ChainId(),
+			d.Nonce,
+		), nil
+	}
 	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
+}
+
+type ErrCantVerifyTransactionHash struct {
+	t Transaction
+}
+
+func (e ErrCantVerifyTransactionHash) Error() string {
+	return fmt.Sprintf("cannot verify transaction hash(0x%v) of Transaction Type: %v",
+		e.t.Hash().Text(16), reflect.TypeOf(e.t))
+}
+
+func verifyTransactionHash(t Transaction, n utils.Network) error {
+	if calculatedTxHash, err := transactionHash(t, n); err != nil {
+		return err
+	} else if !calculatedTxHash.Equal(t.Hash()) {
+		return ErrCantVerifyTransactionHash{t}
+	}
+	return nil
 }
 
 const commitmentTrieHeight uint = 64
 
-// TransactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
+// transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func TransactionCommitment(transactions []Transaction) (*felt.Felt, error) {
-	var transactionCommitment *felt.Felt
-	return transactionCommitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+func transactionCommitment(transactions []Transaction) (commitment *felt.Felt, err error) {
+	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
 			if _, ok := transaction.(*InvokeTransaction); ok {
@@ -347,16 +369,16 @@ func TransactionCommitment(transactions []Transaction) (*felt.Felt, error) {
 		if err != nil {
 			return err
 		}
-		transactionCommitment = root
+		commitment = root
 		return nil
 	})
 }
 
-// EventCommitmentAndCount computes the event commitment and event count for a block.
-func EventCommitmentAndCount(receipts []*TransactionReceipt) (*felt.Felt, uint64, error) {
-	var eventCommitment *felt.Felt // root of a height 64 binary Merkle Patricia tree of the events in a block.
-	var eventCount uint64          // number of events in a block.
-	return eventCommitment, eventCount, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+// eventCommitmentAndCount computes the event commitment and event count for a block.
+func eventCommitmentAndCount(receipts []*TransactionReceipt) (commitment *felt.Felt,
+	count uint64, err error,
+) {
+	return commitment, count, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for _, receipt := range receipts {
 			for _, event := range receipt.Events {
 				eventHash := crypto.PedersenArray(
@@ -365,17 +387,17 @@ func EventCommitmentAndCount(receipts []*TransactionReceipt) (*felt.Felt, uint64
 					crypto.PedersenArray(event.Data...),
 				)
 
-				if _, err := trie.Put(new(felt.Felt).SetUint64(eventCount), eventHash); err != nil {
+				if _, err := trie.Put(new(felt.Felt).SetUint64(count), eventHash); err != nil {
 					return err
 				}
-				eventCount++
+				count++
 			}
 		}
 		root, err := trie.Root()
 		if err != nil {
 			return err
 		}
-		eventCommitment = root
+		commitment = root
 		return nil
 	})
 }

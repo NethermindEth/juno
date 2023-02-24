@@ -66,21 +66,28 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 }
 
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, errChan chan ErrSyncFailed) stream.Callback {
-	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
+	errs := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
 	return func() {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.Text(16))
-				select {
-				case <-ctx.Done():
-				case errChan <- ErrSyncFailed{block.Number, err}:
+			if errs != nil {
+				for _, err := range errs {
+					if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
+						s.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
+							block.Hash.Text(16), "error", err.Error())
+					} else {
+						s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.Text(16))
+						select {
+						case <-ctx.Done():
+						case errChan <- ErrSyncFailed{block.Number, err}:
+						}
+						return
+					}
 				}
-				return
 			}
-			err = s.Blockchain.Store(block, stateUpdate)
+			err := s.Blockchain.Store(block, stateUpdate)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number, "hash", block.Hash.Text(16),
 					"err", err.Error())
