@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewBlockchain(t *testing.T) {
+func TestNew(t *testing.T) {
 	gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
 	defer closeFn()
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
-		chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
-		assert.Equal(t, utils.MAINNET, chain.network)
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
+		assert.Equal(t, utils.MAINNET, chain.Network())
 		b, err := chain.Head()
 		assert.Nil(t, b)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
@@ -33,10 +33,10 @@ func TestNewBlockchain(t *testing.T) {
 		require.NoError(t, err)
 
 		testDB := pebble.NewMemTest()
-		chain := NewBlockchain(testDB, utils.MAINNET)
+		chain := blockchain.New(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
-		chain = NewBlockchain(testDB, utils.MAINNET)
+		chain = blockchain.New(testDB, utils.MAINNET)
 		b, err := chain.Head()
 		assert.NoError(t, err)
 		assert.Equal(t, block0, b)
@@ -47,7 +47,7 @@ func TestHeight(t *testing.T) {
 	gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
 	defer closeFn()
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain := NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
+		chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
@@ -59,10 +59,10 @@ func TestHeight(t *testing.T) {
 		require.NoError(t, err)
 
 		testDB := pebble.NewMemTest()
-		chain := NewBlockchain(testDB, utils.MAINNET)
+		chain := blockchain.New(testDB, utils.MAINNET)
 		assert.NoError(t, chain.Store(block0, stateUpdate0))
 
-		chain = NewBlockchain(testDB, utils.MAINNET)
+		chain = blockchain.New(testDB, utils.MAINNET)
 		height, err := chain.Height()
 		assert.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
@@ -70,8 +70,8 @@ func TestHeight(t *testing.T) {
 }
 
 func TestGetBlockByNumberAndHash(t *testing.T) {
-	chain := NewBlockchain(pebble.NewMemTest(), utils.GOERLI)
-	t.Run("same block is returned for both by GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
+	chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
+	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
 		defer closeFn()
 
@@ -106,7 +106,7 @@ func TestVerifyBlock(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
+	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: core.Header{Number: 10}}
@@ -155,7 +155,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
+	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
 	defer closeFn()
@@ -212,7 +212,7 @@ func TestStore(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
-		chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 		require.NoError(t, chain.Store(block0, stateUpdate0))
 
 		headBlock, err := chain.Head()
@@ -239,7 +239,7 @@ func TestStore(t *testing.T) {
 		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
 		require.NoError(t, err)
 
-		chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 		require.NoError(t, chain.Store(block0, stateUpdate0))
 		require.NoError(t, chain.Store(block1, stateUpdate1))
 
@@ -263,7 +263,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestGetTransactionAndReceipt(t *testing.T) {
-	chain := NewBlockchain(pebble.NewMemTest(), utils.MAINNET)
+	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
 	defer closeFn()
