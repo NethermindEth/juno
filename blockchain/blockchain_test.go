@@ -1,10 +1,12 @@
-package blockchain
+package blockchain_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -110,13 +112,17 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: core.Header{Number: 10}}
-		expectedErr := &ErrIncompatibleBlock{"cannot insert a block with number more than 0 in an empty blockchain"}
+		expectedErr := blockchain.ErrIncompatibleBlock{
+			Err: errors.New("cannot insert a block with number more than 0 in an empty blockchain"),
+		}
 		assert.EqualError(t, chain.VerifyBlock(block), expectedErr.Error())
 	})
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
 		block := &core.Block{Header: core.Header{ParentHash: h1}}
-		expectedErr := &ErrIncompatibleBlock{"cannot insert a block with non-zero parent hash in an empty blockchain"}
+		expectedErr := blockchain.ErrIncompatibleBlock{
+			Err: errors.New("cannot insert a block with non-zero parent hash in an empty blockchain"),
+		}
 		assert.EqualError(t, chain.VerifyBlock(block), expectedErr.Error())
 	})
 
@@ -134,20 +140,18 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
 			incomingBlock := &core.Block{Header: core.Header{Number: 10}}
-
-			expectedErr := &ErrIncompatibleBlock{
-				"block number difference between head and incoming block is not 1",
+			expectedErr := blockchain.ErrIncompatibleBlock{
+				Err: errors.New("block number difference between head and incoming block is not 1"),
 			}
-			assert.Equal(t, chain.VerifyBlock(incomingBlock), expectedErr)
+			assert.EqualError(t, chain.VerifyBlock(incomingBlock), expectedErr.Error())
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
 		incomingBlock := &core.Block{Header: core.Header{ParentHash: h1, Number: 1}}
-
-		expectedErr := &ErrIncompatibleBlock{
-			"block's parent hash does not match head block hash",
+		expectedErr := blockchain.ErrIncompatibleBlock{
+			Err: errors.New("block's parent hash does not match head block hash"),
 		}
-		assert.Equal(t, chain.VerifyBlock(incomingBlock), expectedErr)
+		assert.EqualError(t, chain.VerifyBlock(incomingBlock), expectedErr.Error())
 	})
 }
 
@@ -168,37 +172,32 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
 
-	mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
-	require.NoError(t, err)
-	mainnetStateUpdate1, err := gw.StateUpdate(context.Background(), 1)
-	require.NoError(t, err)
-
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
+		mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
-		expectedErr := ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
-		assert.Equal(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr)
+		expectedErr := blockchain.ErrIncompatibleBlockAndStateUpdate{
+			Err: errors.New("block hashes do not match"),
+		}
+		errs := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate)
+		assert.Equal(t, 1, len(errs))
+		assert.EqualError(t, errs[0], expectedErr.Error())
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
 		func(t *testing.T) {
+			mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
+			require.NoError(t, err)
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
-			expectedErr := ErrIncompatibleBlockAndStateUpdate{
-				"block's GlobalStateRoot does not match state update's NewRoot",
+			expectedErr := blockchain.ErrIncompatibleBlockAndStateUpdate{
+				Err: errors.New("block's GlobalStateRoot does not match state update's NewRoot"),
 			}
-			assert.Equal(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr)
+			errs := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate)
+			assert.Equal(t, 1, len(errs))
+			assert.EqualError(t, errs[0], expectedErr.Error())
 		})
-	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
-		wrongHashBlock, wrongHashStateUpdate := new(core.Block), new(core.StateUpdate)
-
-		*wrongHashBlock = *mainnetBlock1
-		wrongHashBlock.Hash = h1
-
-		*wrongHashStateUpdate = *mainnetStateUpdate1
-		wrongHashStateUpdate.BlockHash = wrongHashBlock.Hash
-
-		assert.EqualError(t, chain.SanityCheckNewHeight(wrongHashBlock, wrongHashStateUpdate), "can not verify hash in block header")
-	})
 }
 
 func TestStore(t *testing.T) {
@@ -219,12 +218,7 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, block0, headBlock)
 
-		txn := chain.database.NewTransaction(false)
-		defer func() {
-			require.NoError(t, txn.Discard())
-		}()
-
-		root, err := core.NewState(txn).Root()
+		root, err := chain.StateCommitment()
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate0.NewRoot, root)
 
@@ -247,12 +241,7 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, block1, headBlock)
 
-		txn := chain.database.NewTransaction(false)
-		defer func() {
-			require.NoError(t, txn.Discard())
-		}()
-
-		root, err := core.NewState(txn).Root()
+		root, err := chain.StateCommitment()
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate1.NewRoot, root)
 

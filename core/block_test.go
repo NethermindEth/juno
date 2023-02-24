@@ -2,9 +2,12 @@ package core_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -13,86 +16,169 @@ import (
 
 func TestBlockHash(t *testing.T) {
 	tests := []struct {
-		blockNumber uint64
-		chain       utils.Network
-		name        string
+		number uint64
+		chain  utils.Network
+		name   string
 	}{
 		{
 			// block 231579: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x40ffdbd9abbc4fc64652c50db94a29bce65c183316f304a95df624de708e746",
-			231579,
-			utils.GOERLI,
-			"goerli network (post 0.7.0 with sequencer address)",
+			number: 231579,
+			chain:  utils.GOERLI,
+			name:   "goerli network (post 0.7.0 with sequencer address)",
 		},
 		{
 			// block 156000: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=156000",
-			156000,
-			utils.GOERLI,
-			"goerli network (post 0.7.0 without sequencer address)",
+			number: 156000,
+			chain:  utils.GOERLI,
+			name:   "goerli network (post 0.7.0 without sequencer address)",
 		},
 		{
 			// block 1: goerli
 			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=1",
-			1,
-			utils.GOERLI,
-			"goerli network (pre 0.7.0 without sequencer address)",
+			number: 1,
+			chain:  utils.GOERLI,
+			name:   "goerli network (pre 0.7.0 without sequencer address)",
 		},
 		{
 			// block 16789: mainnet
 			// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=16789"
-			16789,
-			utils.MAINNET,
-			"mainnet (post 0.7.0 with sequencer address)",
+			number: 16789,
+			chain:  utils.MAINNET,
+			name:   "mainnet (post 0.7.0 with sequencer address)",
 		},
 		{
 			// block 1: integration
 			// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=1"
-			1,
-			utils.INTEGRATION,
-			"integration network (pre 0.7.0 without sequencer address)",
+			number: 1,
+			chain:  utils.INTEGRATION,
+			name:   "integration network (pre 0.7.0 without sequencer address)",
 		},
 		{
 			// block 119802: goerli
 			// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=119802
-			119802,
-			utils.GOERLI,
-			"goerli network (post 0.7.0 without sequencer address)",
+			number: 119802,
+			chain:  utils.GOERLI,
+			name:   "goerli network (post 0.7.0 without sequencer address)",
 		},
 		{
 			// block 10: goerli2
 			// https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=10
-			10,
-			utils.GOERLI2,
-			"goerli2 network (post 0.7.0 with sequencer address)",
+			number: 10,
+			chain:  utils.GOERLI2,
+			name:   "goerli2 network (post 0.7.0 with sequencer address)",
 		},
 		{
 			// block 0: main
 			// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=0
-			0,
-			utils.MAINNET,
-			"mainnet (pre 0.7.0 without sequencer address)",
+			number: 0,
+			chain:  utils.MAINNET,
+			name:   "mainnet (pre 0.7.0 without sequencer address)",
 		},
 		{
 			// block 833: main
 			// https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=833
-			833,
-			utils.MAINNET,
-			"mainnet 833 (post 0.7.0 without sequencer address)",
+			number: 833,
+			chain:  utils.MAINNET,
+			name:   "mainnet 833 (post 0.7.0 without sequencer address)",
+		},
+
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=16259"
+		{
+			number: 16259,
+			chain:  utils.MAINNET,
+			name:   "Block 16259 with Deploy transaction version 0",
+		},
+		// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=485004"
+		{
+			number: 485004,
+			chain:  utils.GOERLI,
+			name:   "Block 485004 with Deploy transaction version 1",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=8"
+		{
+			number: 8,
+			chain:  utils.MAINNET,
+			name:   "Block 8 with Invoke transaction version 0",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=16730"
+		{
+			number: 16730,
+			chain:  utils.MAINNET,
+			name:   "Block 16730 with Invoke transaction version 1",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=2889"
+		{
+			number: 2889,
+			chain:  utils.MAINNET,
+			name:   "Block 2889 with Declare transaction version 0",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=2889"
+		{
+			number: 16697,
+			chain:  utils.MAINNET,
+			name:   "Block 16697 with Declare transaction version 1",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=1059"
+		{
+			number: 1059,
+			chain:  utils.MAINNET,
+			name:   "Block 1059 with L1Handler transaction version 0",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=7320"
+		{
+			number: 7320,
+			chain:  utils.MAINNET,
+			name:   "Block 7320 with Deploy account transaction version 1",
+		},
+		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=192"
+		{
+			number: 192,
+			chain:  utils.MAINNET,
+			name:   "Block 192 with Failing l1 handler transaction version 1",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, testcase := range tests {
+		tc := testcase
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client, closeFn := testsource.NewTestGateway(tt.chain)
+			gw, closeFn := testsource.NewTestGateway(tc.chain)
 			defer closeFn()
 
-			block, err := client.BlockByNumber(context.Background(), tt.blockNumber)
+			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
-			assert.NoError(t, core.VerifyBlockHash(block, tt.chain))
+
+			errs := core.VerifyBlockHash(block, tc.chain)
+			for _, err = range errs {
+				if err != nil {
+					if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
+						t.Log(err)
+					} else {
+						assert.NoError(t, err)
+					}
+				}
+			}
 		})
 	}
+
+	h1, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+
+	mainnetGW, closeFn := testsource.NewTestGateway(utils.MAINNET)
+	defer closeFn()
+	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
+		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
+		mainnetBlock1.Hash = h1
+
+		expectedErr := "can not verify hash in block header"
+		errs := core.VerifyBlockHash(mainnetBlock1, utils.MAINNET)
+		assert.Equal(t, 1, len(errs))
+		assert.EqualError(t, errs[0], expectedErr)
+	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
 		goerliGW, closeFn := testsource.NewTestGateway(utils.GOERLI)
@@ -100,7 +186,37 @@ func TestBlockHash(t *testing.T) {
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 
-		err = core.VerifyBlockHash(block119802, utils.GOERLI)
-		assert.NoError(t, err)
+		errs := core.VerifyBlockHash(block119802, utils.GOERLI)
+		assert.Equal(t, 0, len(errs))
 	})
+
+	t.Run("error if len of transactions do not match len of receipts", func(t *testing.T) {
+		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
+		mainnetBlock1.Transactions = mainnetBlock1.Transactions[:len(mainnetBlock1.Transactions)-1]
+
+		expectedErr := fmt.Sprintf("len of transactions: %v do not match len of receipts: %v",
+			len(mainnetBlock1.Transactions), len(mainnetBlock1.Receipts))
+
+		errs := core.VerifyBlockHash(mainnetBlock1, utils.MAINNET)
+		assert.Equal(t, 1, len(errs))
+		assert.EqualError(t, errs[0], expectedErr)
+	})
+
+	t.Run("error if hash of transaction doesn't match corresponding receipt hash",
+		func(t *testing.T) {
+			mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+			require.NoError(t, err)
+
+			mainnetBlock1.Receipts[1].TransactionHash = h1
+			expectedErr := fmt.Sprintf(
+				"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
+				mainnetBlock1.Transactions[1].Hash().Text(16), 1,
+				mainnetBlock1.Receipts[1].TransactionHash)
+
+			errs := core.VerifyBlockHash(mainnetBlock1, utils.MAINNET)
+			assert.Equal(t, 1, len(errs))
+			assert.EqualError(t, errs[0], expectedErr)
+		})
 }

@@ -85,7 +85,34 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network utils.Network) error {
+func VerifyBlockHash(b *Block, network utils.Network) []error {
+	if len(b.Transactions) != len(b.Receipts) {
+		return []error{
+			fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
+				len(b.Transactions), len(b.Receipts)),
+		}
+	}
+
+	for i, tx := range b.Transactions {
+		if !tx.Hash().Equal(b.Receipts[i].TransactionHash) {
+			return []error{
+				fmt.Errorf(
+					"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
+					tx.Hash().Text(16), i, b.Receipts[i].TransactionHash),
+			}
+		}
+	}
+
+	var errs []error
+	for _, tx := range b.Transactions {
+		if err := verifyTransactionHash(tx, network); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if errs != nil {
+		return errs
+	}
+
 	metaInfo := getBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
@@ -104,12 +131,12 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		}
 
 		if hash, err := blockHash(b, network, overrideSeq); err != nil {
-			return err
+			return []error{err}
 		} else if hash.Equal(b.Hash) {
 			return nil
 		}
 	}
-	return ErrCantVerifyBlockHash
+	return []error{ErrCantVerifyBlockHash}
 }
 
 // blockHash computes the block hash, with option to override sequence address
@@ -125,25 +152,25 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
 	blockNumber := new(felt.Felt).SetUint64(b.Number)
-	transactionCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
-	transactionCommitment, err := TransactionCommitment(b.Transactions)
+	txCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
+	txCommitment, err := transactionCommitment(b.Transactions)
 	if err != nil {
 		return nil, err
 	}
 
 	return crypto.PedersenArray(
-		blockNumber,           // block number
-		b.GlobalStateRoot,     // global state root
-		&felt.Zero,            // reserved: sequencer address
-		&felt.Zero,            // reserved: block timestamp
-		transactionCount,      // number of transactions
-		transactionCommitment, // transaction commitment
-		&felt.Zero,            // reserved: number of events
-		&felt.Zero,            // reserved: event commitment
-		&felt.Zero,            // reserved: protocol version
-		&felt.Zero,            // reserved: extra data
-		chain,                 // extra data: chain id
-		b.ParentHash,          // parent hash
+		blockNumber,       // block number
+		b.GlobalStateRoot, // global state root
+		&felt.Zero,        // reserved: sequencer address
+		&felt.Zero,        // reserved: block timestamp
+		txCount,           // number of transactions
+		txCommitment,      // transaction commitment
+		&felt.Zero,        // reserved: number of events
+		&felt.Zero,        // reserved: event commitment
+		&felt.Zero,        // reserved: protocol version
+		&felt.Zero,        // reserved: extra data
+		chain,             // extra data: chain id
+		b.ParentHash,      // parent hash
 	), nil
 }
 
@@ -155,13 +182,13 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		seqAddr = overrideSeqAddr
 	}
 
-	transactionCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
-	transactionCommitment, err := TransactionCommitment(b.Transactions)
+	txCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
+	txCommitment, err := transactionCommitment(b.Transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	eventCommitment, eventCount, err := EventCommitmentAndCount(b.Receipts)
+	eventCommitment, eventCount, err := eventCommitmentAndCount(b.Receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +204,8 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		b.GlobalStateRoot,                     // global state root
 		seqAddr,                               // sequencer address
 		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-		transactionCount,                      // number of transactions
-		transactionCommitment,                 // transaction commitment
+		txCount,                               // number of transactions
+		txCommitment,                          // transaction commitment
 		new(felt.Felt).SetUint64(eventCount),  // number of events
 		eventCommitment,                       // event commitment
 		&felt.Zero,                            // reserved: protocol version

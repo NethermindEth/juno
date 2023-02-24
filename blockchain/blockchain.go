@@ -16,19 +16,27 @@ import (
 const lenOfByteSlice = 8
 
 type ErrIncompatibleBlockAndStateUpdate struct {
-	reason string
+	Err error
 }
 
 func (e ErrIncompatibleBlockAndStateUpdate) Error() string {
-	return fmt.Sprintf("incompatible block and state update: %v", e.reason)
+	return fmt.Sprintf("incompatible block and state update: %v", e.Err)
+}
+
+func (e ErrIncompatibleBlockAndStateUpdate) Unwrap() error {
+	return e.Err
 }
 
 type ErrIncompatibleBlock struct {
-	reason string
+	Err error
 }
 
 func (e ErrIncompatibleBlock) Error() string {
-	return fmt.Sprintf("incompatible block: %v", e.reason)
+	return fmt.Sprintf("incompatible block: %v", e.Err.Error())
+}
+
+func (e ErrIncompatibleBlock) Unwrap() error {
+	return e.Err
 }
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
@@ -42,6 +50,19 @@ func New(database db.DB, network utils.Network) *Blockchain {
 		database: database,
 		network:  network,
 	}
+}
+
+func (b *Blockchain) Network() utils.Network {
+	return b.network
+}
+
+// StateCommitment returns the latest block state commitment.
+// If blockchain is empty zero felt is returned.
+func (b *Blockchain) StateCommitment() (commitment *felt.Felt, err error) {
+	return commitment, b.database.View(func(txn db.Transaction) error {
+		commitment, err = core.NewState(txn).Root()
+		return err
+	})
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
@@ -148,14 +169,6 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
-	/*
-		Todo: Transaction and TransactionReceipts
-			- When Block is changed to include a list of Transaction and TransactionReceipts
-			- Further checks would need to be added to ensure Transaction Hash has been computed
-				properly.
-			- Sanity check would need to include checks which ensure there is same number of
-				Transactions and TransactionReceipts.
-	*/
 	head, err := b.head(txn)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return err
@@ -163,24 +176,23 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 
 	if head == nil {
 		if block.Number != 0 {
-			return &ErrIncompatibleBlock{
-				"cannot insert a block with number more than 0 in an empty blockchain",
+			return ErrIncompatibleBlock{
+				errors.New("cannot insert a block with number more than 0 in an empty blockchain"),
 			}
 		}
 		if !block.ParentHash.Equal(new(felt.Felt).SetUint64(0)) {
-			return &ErrIncompatibleBlock{
-				"cannot insert a block with non-zero parent hash in an empty blockchain",
-			}
+			return ErrIncompatibleBlock{errors.New(
+				"cannot insert a block with non-zero parent hash in an empty blockchain")}
 		}
 	} else {
 		if head.Number+1 != block.Number {
-			return &ErrIncompatibleBlock{
-				"block number difference between head and incoming block is not 1",
+			return ErrIncompatibleBlock{
+				errors.New("block number difference between head and incoming block is not 1"),
 			}
 		}
 		if !block.ParentHash.Equal(head.Hash) {
-			return &ErrIncompatibleBlock{
-				"block's parent hash does not match head block hash",
+			return ErrIncompatibleBlock{
+				errors.New("block's parent hash does not match head block hash"),
 			}
 		}
 	}
@@ -288,17 +300,24 @@ func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) []error {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return ErrIncompatibleBlockAndStateUpdate{"block hashes do not match"}
+		return []error{ErrIncompatibleBlockAndStateUpdate{errors.New("block hashes do not match")}}
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return ErrIncompatibleBlockAndStateUpdate{
-			"block's GlobalStateRoot does not match state update's NewRoot",
-		}
+		return []error{ErrIncompatibleBlockAndStateUpdate{
+			errors.New("block's GlobalStateRoot does not match state update's NewRoot"),
+		}}
 	}
 
-	return core.VerifyBlockHash(block, b.network)
+	if errs := core.VerifyBlockHash(block, b.network); errs != nil {
+		errS := make([]error, len(errs))
+		for i, err := range errs {
+			errS[i] = ErrIncompatibleBlock{err}
+		}
+		return errS
+	}
+	return nil
 }
 
 type txAndReceiptDBKey struct {
