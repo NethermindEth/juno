@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	_ "embed"
 	"testing"
 	"time"
 
