@@ -11,9 +11,14 @@ generate: ## generate
 	@cd internal/db && $(MAKE) generate
 	@cd pkg/felt && go generate ./...
 
-test: ## tests
+clean-testcache:
 	go clean -testcache
+
+test: clean-testcache ## tests
 	go test ./...
+
+test-race: clean-testcache
+	go test ./... -race
 
 benchmarks: ## benchmarking
 	go test ./... -run=^# -bench=. -benchmem
