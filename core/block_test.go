@@ -85,8 +85,8 @@ func TestBlockHash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			client, closer := testsource.NewTestGateway(tt.chain)
-			defer closer.Close()
+			client, closeFn := testsource.NewTestGateway(tt.chain)
+			defer closeFn()
 
 			block, err := client.BlockByNumber(context.Background(), tt.blockNumber)
 			require.NoError(t, err)
@@ -95,8 +95,8 @@ func TestBlockHash(t *testing.T) {
 	}
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		goerliGW, closer := testsource.NewTestGateway(utils.GOERLI)
-		defer closer.Close()
+		goerliGW, closeFn := testsource.NewTestGateway(utils.GOERLI)
+		defer closeFn()
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 

@@ -12,8 +12,8 @@ import (
 )
 
 func TestProgramHash(t *testing.T) {
-	client, closer := testsource.NewTestClient(utils.GOERLI)
-	defer closer.Close()
+	client, closeFn := testsource.NewTestClient(utils.GOERLI)
+	defer closeFn()
 	hexToFelt := func(t *testing.T, hex string) *felt.Felt {
 		f, err := new(felt.Felt).SetString(hex)
 		require.NoError(t, err)
