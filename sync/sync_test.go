@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSyncBlocks(t *testing.T) {
@@ -18,7 +19,7 @@ func TestSyncBlocks(t *testing.T) {
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {
 		return assert.NoError(t, func() error {
 			headBlock, err := bc.Head()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			height := int(headBlock.Number)
 			for height >= 0 {
@@ -28,7 +29,7 @@ func TestSyncBlocks(t *testing.T) {
 				}
 
 				block, err := bc.GetBlockByNumber(uint64(height))
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				assert.Equal(t, b, block)
 				height--
@@ -46,7 +47,7 @@ func TestSyncBlocks(t *testing.T) {
 			time.Sleep(time.Second)
 			cancel()
 		}()
-		assert.NoError(t, synchronizer.Run(ctx))
+		require.NoError(t, synchronizer.Run(ctx))
 
 		testBlockchain(t, bc)
 	})
@@ -54,10 +55,10 @@ func TestSyncBlocks(t *testing.T) {
 		testDB := pebble.NewMemTest()
 		bc := blockchain.NewBlockchain(testDB, utils.MAINNET)
 		b0, err := gw.BlockByNumber(context.Background(), 0)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
-		assert.NoError(t, err)
-		assert.NoError(t, bc.Store(b0, s0))
+		require.NoError(t, err)
+		require.NoError(t, bc.Store(b0, s0))
 
 		synchronizer := NewSynchronizer(bc, gw, log)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -65,7 +66,7 @@ func TestSyncBlocks(t *testing.T) {
 			time.Sleep(time.Second)
 			cancel()
 		}()
-		assert.NoError(t, synchronizer.Run(ctx))
+		require.NoError(t, synchronizer.Run(ctx))
 
 		testBlockchain(t, bc)
 	})
