@@ -51,8 +51,8 @@ func TestTransactionHash(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gw, closer := testsource.NewTestGateway(test.network)
-			defer closer.Close()
+			gw, closerFn := testsource.NewTestGateway(test.network)
+			defer closerFn()
 
 			hash := hexToFelt(t, test.txnHash)
 			txn, err := gw.Transaction(context.Background(), hash)

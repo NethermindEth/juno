@@ -1,31 +1,21 @@
 package testsource
 
 import (
-	"io"
-	"net/http/httptest"
-
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
 )
 
-type srvCloser struct {
-	srv *httptest.Server
-}
+type TestClientCloseFn func()
 
-func (c *srvCloser) Close() error {
-	c.srv.Close()
-	return nil
-}
-
-func NewTestClient(network utils.Network) (*clients.GatewayClient, io.Closer) {
+func NewTestClient(network utils.Network) (*clients.GatewayClient, TestClientCloseFn) {
 	srv := newTestGatewayServer(network)
 	client := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(0)
 
-	return client, &srvCloser{srv}
+	return client, srv.Close
 }
 
-func NewTestGateway(network utils.Network) (*gateway.Gateway, io.Closer) {
+func NewTestGateway(network utils.Network) (*gateway.Gateway, TestClientCloseFn) {
 	client, closer := NewTestClient(network)
 	gw := gateway.NewGatewayWithClient(client)
 

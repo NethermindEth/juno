@@ -13,8 +13,8 @@ import (
 )
 
 func TestSyncBlocks(t *testing.T) {
-	gw, closer := testsource.NewTestGateway(utils.MAINNET)
-	defer closer.Close()
+	gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
+	defer closeFn()
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {
 		return assert.NoError(t, func() error {
 			headBlock, err := bc.Head()

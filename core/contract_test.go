@@ -20,8 +20,8 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 }
 
 func TestClassHash(t *testing.T) {
-	gw, closer := testsource.NewTestGateway(utils.GOERLI)
-	defer closer.Close()
+	gw, closeFn := testsource.NewTestGateway(utils.GOERLI)
+	defer closeFn()
 
 	tests := []struct {
 		classHash string

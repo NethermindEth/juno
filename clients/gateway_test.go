@@ -270,8 +270,8 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client, closer := testsource.NewTestClient(utils.MAINNET)
-	defer closer.Close()
+	client, closeFn := testsource.NewTestClient(utils.MAINNET)
+	defer closeFn()
 
 	block, err := client.GetBlock(context.Background(), 11817)
 	if err != nil {
@@ -291,8 +291,8 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client, closer := testsource.NewTestClient(utils.MAINNET)
-	defer closer.Close()
+	client, closeFn := testsource.NewTestClient(utils.MAINNET)
+	defer closeFn()
 
 	block, err := client.GetBlock(context.Background(), 19199)
 	if err != nil {
@@ -313,8 +313,8 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestClassUnmarshal(t *testing.T) {
-	gatewayClient, closer := testsource.NewTestClient(utils.MAINNET)
-	defer closer.Close()
+	gatewayClient, closeFn := testsource.NewTestClient(utils.MAINNET)
+	defer closeFn()
 
 	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	class, err := gatewayClient.GetClassDefinition(context.Background(), hash)
@@ -479,8 +479,8 @@ func TestGetTransaction(t *testing.T) {
 }
 
 func TestGetBlock(t *testing.T) {
-	gatewayClient, closer := testsource.NewTestClient(utils.MAINNET)
-	defer closer.Close()
+	gatewayClient, closeFn := testsource.NewTestClient(utils.MAINNET)
+	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
 		blcokNumber := uint64(11817)
@@ -498,8 +498,8 @@ func TestGetBlock(t *testing.T) {
 }
 
 func TestGetClassDefinition(t *testing.T) {
-	gatewayClient, closer := testsource.NewTestClient(utils.MAINNET)
-	defer closer.Close()
+	gatewayClient, closeFn := testsource.NewTestClient(utils.MAINNET)
+	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
