@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	ErrBlockNotFound = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrNoBlock       = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrBlockNotFound   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrTxnHashNotFound = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrNoBlock         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
 )
 
 type Handler struct {
@@ -204,4 +205,13 @@ func (h *Handler) getBlockById(id *BlockId) (*core.Block, error) {
 	}
 
 	return block, err
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
+func (h *Handler) GetTransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
+	txn, err := h.bcReader.GetTransactionByHash(hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+	return adaptTransaction(txn), nil
 }
