@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	_ "embed"
 	"encoding/json"
 	"os"
 	"testing"

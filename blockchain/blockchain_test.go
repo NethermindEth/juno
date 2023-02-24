@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"testing"
 

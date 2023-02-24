@@ -2,7 +2,6 @@ package clients_test
 
 import (
 	"context"
-	_ "embed"
 	"testing"
 
 	"github.com/NethermindEth/juno/testsource"

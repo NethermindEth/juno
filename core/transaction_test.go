@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	_ "embed"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
