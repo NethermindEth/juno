@@ -58,7 +58,7 @@ type Transaction interface {
 	// NewIterator returns an iterator over the database's key/value pairs.
 	NewIterator() (Iterator, error)
 	// Discard discards all the changes done to the database with this transaction
-	Discard()
+	Discard() error
 	// Commit flushes all the changes pending on this transaction to the database, making the changes visible to other
 	// transaction
 	Commit() error

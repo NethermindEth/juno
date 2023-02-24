@@ -220,7 +220,9 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, block0, headBlock)
 
 		txn := chain.database.NewTransaction(false)
-		defer txn.Discard()
+		defer func() {
+			require.NoError(t, txn.Discard())
+		}()
 
 		root, err := core.NewState(txn).Root()
 		assert.NoError(t, err)
@@ -246,7 +248,9 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, block1, headBlock)
 
 		txn := chain.database.NewTransaction(false)
-		defer txn.Discard()
+		defer func() {
+			require.NoError(t, txn.Discard())
+		}()
 
 		root, err := core.NewState(txn).Root()
 		assert.NoError(t, err)
