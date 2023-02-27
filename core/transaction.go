@@ -331,19 +331,46 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 }
 
 type ErrCantVerifyTransactionHash struct {
-	t Transaction
+	t           Transaction
+	hashFailure error
+	next        *ErrCantVerifyTransactionHash
+}
+
+func (e ErrCantVerifyTransactionHash) Unwrap() error {
+	if e.next != nil {
+		return *e.next
+	}
+	return nil
 }
 
 func (e ErrCantVerifyTransactionHash) Error() string {
-	return fmt.Sprintf("cannot verify transaction hash(0x%v) of Transaction Type: %v",
+	errStr := fmt.Sprintf("cannot verify transaction hash(0x%v) of Transaction Type: %v",
 		e.t.Hash().Text(16), reflect.TypeOf(e.t))
+	if e.hashFailure != nil {
+		errStr = fmt.Sprintf("%v: %v", errStr, e.hashFailure.Error())
+	}
+	return errStr
 }
 
-func verifyTransactionHash(t Transaction, n utils.Network) error {
+func verifyTransactions(txs []Transaction, n utils.Network) error {
+	var head *ErrCantVerifyTransactionHash
+	for _, tx := range txs {
+		if err := verifyTransactionHash(tx, n); err != nil {
+			err.next = head
+			head = err
+		}
+	}
+	if head != nil {
+		return *head
+	}
+	return nil
+}
+
+func verifyTransactionHash(t Transaction, n utils.Network) *ErrCantVerifyTransactionHash {
 	if calculatedTxHash, err := transactionHash(t, n); err != nil {
-		return err
+		return &ErrCantVerifyTransactionHash{t: t, hashFailure: err}
 	} else if !calculatedTxHash.Equal(t.Hash()) {
-		return ErrCantVerifyTransactionHash{t}
+		return &ErrCantVerifyTransactionHash{t: t}
 	}
 	return nil
 }

@@ -180,9 +180,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		expectedErr := blockchain.ErrIncompatibleBlockAndStateUpdate{
 			Err: errors.New("block hashes do not match"),
 		}
-		errs := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate)
-		assert.Equal(t, 1, len(errs))
-		assert.EqualError(t, errs[0], expectedErr.Error())
+		assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr.Error())
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
@@ -194,9 +192,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 			expectedErr := blockchain.ErrIncompatibleBlockAndStateUpdate{
 				Err: errors.New("block's GlobalStateRoot does not match state update's NewRoot"),
 			}
-			errs := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate)
-			assert.Equal(t, 1, len(errs))
-			assert.EqualError(t, errs[0], expectedErr.Error())
+			assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr.Error())
 		})
 }
 

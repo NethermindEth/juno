@@ -300,24 +300,14 @@ func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) []error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) error {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return []error{ErrIncompatibleBlockAndStateUpdate{errors.New("block hashes do not match")}}
+		return ErrIncompatibleBlockAndStateUpdate{errors.New("block hashes do not match")}
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return []error{ErrIncompatibleBlockAndStateUpdate{
-			errors.New("block's GlobalStateRoot does not match state update's NewRoot"),
-		}}
+		return ErrIncompatibleBlockAndStateUpdate{errors.New("block's GlobalStateRoot does not match state update's NewRoot")}
 	}
-
-	if errs := core.VerifyBlockHash(block, b.network); errs != nil {
-		errS := make([]error, len(errs))
-		for i, err := range errs {
-			errS[i] = ErrIncompatibleBlock{err}
-		}
-		return errS
-	}
-	return nil
+	return core.VerifyBlockHash(block, b.network)
 }
 
 type txAndReceiptDBKey struct {
