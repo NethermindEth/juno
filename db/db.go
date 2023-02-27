@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -73,4 +74,14 @@ type Transaction interface {
 
 	// Impl returns the underlying transaction object
 	Impl() any
+}
+
+func CloseAndWrapOnError(closeFn func() error, existingErr *error) {
+	if closeErr := closeFn(); closeErr != nil {
+		if *existingErr != nil {
+			*existingErr = fmt.Errorf(`failed to close because "%v"" with existing err "%w"`, closeErr, *existingErr)
+		} else {
+			*existingErr = closeErr
+		}
+	}
 }

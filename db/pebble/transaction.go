@@ -37,12 +37,7 @@ func (t *Transaction) Discard() (err error) {
 
 // Commit : see db.Transaction.Commit
 func (t *Transaction) Commit() (err error) {
-	defer func() {
-		// Prioritise closing error over other errors
-		if closeErr := t.Discard(); closeErr != nil {
-			err = closeErr
-		}
-	}()
+	defer db.CloseAndWrapOnError(t.Discard, &err)
 
 	if t.batch != nil {
 		return t.batch.Commit(pebble.Sync)
@@ -88,12 +83,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) (err error) {
 
 		return
 	}
-	defer func() {
-		// Prioritise closing error over other errors
-		if closeErr := closer.Close(); closeErr != nil {
-			err = closeErr
-		}
-	}()
+	defer db.CloseAndWrapOnError(closer.Close, &err)
 	return cb(val)
 }
 
