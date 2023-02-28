@@ -32,6 +32,9 @@ jobs:
           docker buildx build --platform=linux/amd64,linux/arm64 -t "${{ steps.settings.outputs.docker_image }}:latest" -t "${{ steps.settings.outputs.docker_image }}:${{ steps.settings.outputs.TAG }}" -f ${{ steps.settings.outputs.dockerfile }} .
       - name: Pushing image to Docker Hub
         run : |
+          docker images
+          echo "${{ steps.settings.outputs.docker_image }}:latest"
+          echo "${{ steps.settings.outputs.docker_image }}:${{ steps.settings.outputs.TAG }}"
           docker push "${{ steps.settings.outputs.docker_image }}:latest"
           docker push "${{ steps.settings.outputs.docker_image }}:${{ steps.settings.outputs.TAG }}"
       - name: Clearing
