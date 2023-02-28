@@ -5,35 +5,34 @@ on:
     branches: [ test_workflow ]
 
 jobs:
-  build_and_push_docker_images:
+  build_and_push_docker_image:
     if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-latest
-    env:
-      DOCKER_IMAGE_NAME: nethermindeth/juno
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
       # Log in to Docker Hub
-      - name: Log in to Docker Hub
-        if: success()
-        env:
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: |
-          echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USERNAME}" --password-stdin
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       # Build and push Docker images
-      - name: Build and push Docker images
-        uses: docker/build-push-action@v2
+      - name: Build and push
+        uses: docker/build-push-action@v4
         with:
           context: .
           push: true
           tags: |
-            ${DOCKER_IMAGE_NAME}:${{ github.sha }}
-            ${DOCKER_IMAGE_NAME}:${{ env.BUILD_ID }}
-            ${DOCKER_IMAGE_NAME}:latest
+            nethermindeth/juno:${{ github.sha }}
+            nethermindeth/juno:${{ env.BUILD_ID }}
+            nethermindeth/juno:latest
 
       # Clean up environment
       - name: Clean up environment
