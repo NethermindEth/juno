@@ -9,30 +9,47 @@ jobs:
     if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repository
+      - name: Set up environment variables
+        run: |
+          echo "BRANCH=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
         
-      # Log in to Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Build and push Docker images
-      - name: Build and push
+      - name: Build and push dev
+        if: ${{ github.ref == 'refs/heads/test_workflow' }}
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
           tags: |
-            nethermindeth/juno:${{github.run_number}}-unstable
+            nethermindeth/juno:${{github.run_number}}-dev
+            
+      - name: Build and push main
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            nethermindeth/juno:latest
+            nethermindeth/juno:${{github.run_number}}-main
+       
+          if: ${{ github.ref == 'refs/heads/main' }}
+           tags: |
+            nethermindeth/juno:latest
+          
 
-      # Clean up environment
+
       - name: Clean up environment
         if: always()
         run: |
