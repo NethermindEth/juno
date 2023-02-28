@@ -30,8 +30,7 @@ jobs:
           context: .
           push: true
           tags: |
-            nethermindeth/juno:${{ github.sha }}
-            nethermindeth/juno:latest
+            nethermindeth/juno:${{github.run_number}}-unstable
 
       # Clean up environment
       - name: Clean up environment
