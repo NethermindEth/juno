@@ -198,7 +198,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt,
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]*core.Class) error {
+func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err

@@ -145,6 +145,12 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.MAINNET,
 			name:   "Block 192 with Failing l1 handler transaction version 1",
 		},
+		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=283364"
+		{
+			number: 283364,
+			chain:  utils.INTEGRATION,
+			name:   "Block 283364 with Declare v2",
+		},
 	}
 
 	for _, testcase := range tests {

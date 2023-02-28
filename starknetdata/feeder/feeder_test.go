@@ -142,8 +142,10 @@ func TestClass(t *testing.T) {
 			hash := hexToFelt(t, hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			class, err := adapter.Class(ctx, hash)
+			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
+			class, ok := classGeneric.(*core.Cairo0Class)
+			require.True(t, ok)
 
 			for i, v := range response.EntryPoints.External {
 				assert.Equal(t, v.Selector, class.Externals[i].Selector)
@@ -206,7 +208,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, responseTx.Hash, invokeTx.Hash())
-		assert.Equal(t, responseTx.ContractAddress, invokeTx.ContractAddress)
+		assert.Equal(t, responseTx.SenderAddress, invokeTx.ContractAddress)
 		assert.Equal(t, responseTx.EntryPointSelector, invokeTx.EntryPointSelector)
 		assert.Equal(t, responseTx.Nonce, invokeTx.Nonce)
 		assert.Equal(t, responseTx.CallData, invokeTx.CallData)

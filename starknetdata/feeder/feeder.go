@@ -196,6 +196,7 @@ func adaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 		Nonce:                t.Nonce,
 		Version:              t.Version,
 		ClassHash:            t.ClassHash,
+		CompiledClassHash:    t.CompiledClassHash,
 	}
 }
 
@@ -211,15 +212,24 @@ func adaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
 }
 
 func adaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
+	// pre-v0.11.0 used ContractAddress as SenderAddress for invoke v1
+	contractAddress := t.ContractAddress
+	senderAddress := t.SenderAddress
+	if t.Version.IsOne() && senderAddress == nil {
+		senderAddress = contractAddress
+		contractAddress = nil
+	}
+
 	return &core.InvokeTransaction{
 		TransactionHash:      t.Hash,
-		ContractAddress:      t.ContractAddress,
+		ContractAddress:      contractAddress,
 		EntryPointSelector:   t.EntryPointSelector,
 		Nonce:                t.Nonce,
 		CallData:             t.CallData,
 		TransactionSignature: t.Signature,
 		MaxFee:               t.MaxFee,
 		Version:              t.Version,
+		SenderAddress:        senderAddress,
 	}
 }
 
@@ -245,7 +255,7 @@ func adaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTra
 
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
-func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error) {
+func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
 	response, err := f.client.ClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err
@@ -254,9 +264,8 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, 
 	return adaptClass(response)
 }
 
-func adaptClass(response *feeder.ClassDefinition) (*core.Class, error) {
-	class := new(core.Class)
-
+func adaptClass(response *feeder.ClassDefinition) (core.Class, error) {
+	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 
 	class.Externals = []core.EntryPoint{}

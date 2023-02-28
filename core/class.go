@@ -6,7 +6,13 @@ import (
 )
 
 // Class unambiguously defines a [Contract]'s semantics.
-type Class struct {
+type Class interface {
+	Version() uint64
+	Hash() *felt.Felt
+}
+
+// Cairo0Class unambiguously defines a [Contract]'s semantics.
+type Cairo0Class struct {
 	Abi any
 	// External functions defined in the class.
 	Externals []EntryPoint
@@ -30,7 +36,11 @@ type EntryPoint struct {
 	Offset *felt.Felt
 }
 
-func (c *Class) Hash() *felt.Felt {
+func (c *Cairo0Class) Version() uint64 {
+	return 0
+}
+
+func (c *Cairo0Class) Hash() *felt.Felt {
 	return crypto.PedersenArray(
 		&felt.Zero,
 		crypto.PedersenArray(flatten(c.Externals)...),
@@ -51,4 +61,17 @@ func flatten(entryPoints []EntryPoint) []*felt.Felt {
 		result[2*i+1] = entryPoint.Offset
 	}
 	return result
+}
+
+// Cairo1Class unambiguously defines a [Contract]'s semantics.
+type Cairo1Class struct {
+	// todo
+}
+
+func (c *Cairo1Class) Version() uint64 {
+	return 1
+}
+
+func (c *Cairo1Class) Hash() *felt.Felt {
+	return nil
 }

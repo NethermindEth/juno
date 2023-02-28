@@ -164,6 +164,8 @@ type InvokeTransaction struct {
 	// Version 1 fields
 	// The transaction nonce.
 	Nonce *felt.Felt
+	// The address of the sender of this transaction
+	SenderAddress *felt.Felt
 }
 
 func (i *InvokeTransaction) Hash() *felt.Felt {
@@ -192,6 +194,9 @@ type DeclareTransaction struct {
 	// then the transaction version increases.
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
 	Version *felt.Felt
+
+	// Version 2 fields
+	CompiledClassHash *felt.Felt
 }
 
 func (d *DeclareTransaction) Hash() *felt.Felt {
@@ -260,7 +265,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 		return crypto.PedersenArray(
 			invokeFelt,
 			i.Version,
-			i.ContractAddress,
+			i.SenderAddress,
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
@@ -285,6 +290,18 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.MaxFee,
 			n.ChainId(),
 			d.Nonce,
+		), nil
+	} else if d.Version.Equal(new(felt.Felt).SetUint64(2)) {
+		return crypto.PedersenArray(
+			declareFelt,
+			d.Version,
+			d.SenderAddress,
+			&felt.Zero,
+			crypto.PedersenArray(d.ClassHash),
+			d.MaxFee,
+			n.ChainId(),
+			d.Nonce,
+			d.CompiledClassHash,
 		), nil
 	}
 	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
