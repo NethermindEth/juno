@@ -37,8 +37,6 @@ func TestState_Root(t *testing.T) {
 	key, _ := new(felt.Felt).SetRandom()
 	value, _ := new(felt.Felt).SetRandom()
 
-	var newRootPath *bitset.BitSet
-
 	// add a value and update db
 	storage, err := state.getStateStorage()
 	assert.Equal(t, nil, err)
@@ -47,12 +45,13 @@ func TestState_Root(t *testing.T) {
 
 	err = state.putStateStorage(storage)
 	assert.Equal(t, nil, err)
-	newRootPath = storage.FeltToBitSet(key)
 
 	expectedRootNode := new(trie.Node)
 	expectedRootNode.Value = value
 
-	expectedRoot := expectedRootNode.Hash(trie.Path(newRootPath, nil))
+	kBits := key.Bits()
+	newRootPath := bitset.FromWithLength(stateTrieHeight, kBits[:])
+	expectedRoot := expectedRootNode.Hash(newRootPath)
 
 	actualRoot, err := state.Root()
 	assert.Equal(t, nil, err)
