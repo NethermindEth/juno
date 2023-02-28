@@ -51,6 +51,20 @@ make juno
 ./build/juno
 ```
 
+### Run with Docker
+
+```shell
+docker run -it \
+  -p 6060:6060 \
+  -v /home/juno:/var/lib/juno \
+  nethermindeth/juno \
+  --rpc-port 6060 \
+  --db-path /var/lib/juno \
+  --verbosity 0 \
+  --network 0
+```
+
+Before running the docker run command, please ensure that the directory `/home/juno` exists on your local machine.
 
 ## 🛣 Roadmap
 
