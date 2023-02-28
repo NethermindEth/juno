@@ -85,32 +85,22 @@ func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network utils.Network) []error {
+func VerifyBlockHash(b *Block, network utils.Network) error {
 	if len(b.Transactions) != len(b.Receipts) {
-		return []error{
-			fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
-				len(b.Transactions), len(b.Receipts)),
-		}
+		return fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
+			len(b.Transactions), len(b.Receipts))
 	}
 
 	for i, tx := range b.Transactions {
 		if !tx.Hash().Equal(b.Receipts[i].TransactionHash) {
-			return []error{
-				fmt.Errorf(
-					"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
-					tx.Hash().Text(16), i, b.Receipts[i].TransactionHash),
-			}
+			return fmt.Errorf(
+				"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
+				tx.Hash().Text(16), i, b.Receipts[i].TransactionHash)
 		}
 	}
 
-	var errs []error
-	for _, tx := range b.Transactions {
-		if err := verifyTransactionHash(tx, network); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if errs != nil {
-		return errs
+	if err := verifyTransactions(b.Transactions, network); err != nil {
+		return err
 	}
 
 	metaInfo := getBlockHashMetaInfo(network)
@@ -131,12 +121,12 @@ func VerifyBlockHash(b *Block, network utils.Network) []error {
 		}
 
 		if hash, err := blockHash(b, network, overrideSeq); err != nil {
-			return []error{err}
+			return err
 		} else if hash.Equal(b.Hash) {
 			return nil
 		}
 	}
-	return []error{ErrCantVerifyBlockHash}
+	return ErrCantVerifyBlockHash
 }
 
 // blockHash computes the block hash, with option to override sequence address
