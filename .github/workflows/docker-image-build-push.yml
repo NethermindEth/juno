@@ -1,0 +1,42 @@
+name: Build and publish Docker image
+
+on:
+  push:
+    branches: [ test_workflow ]
+
+jobs:
+  build_and_push_docker_images:
+    if: github.repository_owner == 'NethermindEth'
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_IMAGE_NAME: nethermindeth/juno
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Log in to Docker Hub
+      - name: Log in to Docker Hub
+        if: success()
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USERNAME}" --password-stdin
+
+      # Build and push Docker images
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: |
+            ${DOCKER_IMAGE_NAME}:${{ github.sha }}
+            ${DOCKER_IMAGE_NAME}:${{ env.BUILD_ID }}
+            ${DOCKER_IMAGE_NAME}:latest
+
+      # Clean up environment
+      - name: Clean up environment
+        if: always()
+        run: |
+          rm -f ${HOME}/.docker/config.json
