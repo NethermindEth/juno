@@ -2,25 +2,48 @@ package db_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/NethermindEth/juno/db"
 )
 
-type errorer struct{}
+func closeAndError() error {
+	return errors.New("close error")
+}
 
-func (e errorer) Close() error {
-	return errors.New("closer error")
+func closeAndNoError() error {
+	return nil
 }
 
 func TestCloseAndJoinOnError(t *testing.T) {
-	var err error
-	defer func() {
-		db.CloseAndWrapOnError(errorer{}.Close, &err)
-		assert.EqualError(t, errors.Unwrap(err), "closer error")
-	}()
+	t.Run("closeFn returns no error", func(t *testing.T) {
+		t.Run("original error is nil", func(t *testing.T) {
+			var err error
+			db.CloseAndWrapOnError(closeAndNoError, &err)
+		})
 
-	db.CloseAndWrapOnError(errorer{}.Close, &err)
-	assert.EqualError(t, err, "closer error")
+		t.Run("original error is non-nil", func(t *testing.T) {
+			err := errors.New("some error")
+			db.CloseAndWrapOnError(closeAndNoError, &err)
+			assert.EqualError(t, err, "some error")
+		})
+	})
+	t.Run("closeFn returns error", func(t *testing.T) {
+		t.Run("original error is nil", func(t *testing.T) {
+			var err error
+			db.CloseAndWrapOnError(closeAndError, &err)
+			assert.EqualError(t, err, "close error")
+		})
+
+		t.Run("original error is non-nil", func(t *testing.T) {
+			err := errors.New("some error")
+			db.CloseAndWrapOnError(closeAndError, &err)
+			assert.EqualError(t, err, fmt.Sprintf(`failed to close because "%v" with existing err "%s"`, "close error",
+				"some error"))
+			assert.EqualError(t, errors.Unwrap(err), "some error")
+		})
+	})
 }

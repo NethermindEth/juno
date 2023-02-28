@@ -79,7 +79,7 @@ type Transaction interface {
 func CloseAndWrapOnError(closeFn func() error, existingErr *error) {
 	if closeErr := closeFn(); closeErr != nil {
 		if *existingErr != nil {
-			*existingErr = fmt.Errorf(`failed to close because "%v"" with existing err "%w"`, closeErr, *existingErr)
+			*existingErr = fmt.Errorf(`failed to close because "%v" with existing err "%w"`, closeErr, *existingErr)
 		} else {
 			*existingErr = closeErr
 		}
