@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/NethermindEth/juno/db"
+	"github.com/stretchr/testify/assert"
 )
 
 func closeAndError() error {
