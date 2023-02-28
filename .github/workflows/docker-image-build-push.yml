@@ -31,7 +31,6 @@ jobs:
           push: true
           tags: |
             nethermindeth/juno:${{ github.sha }}
-            nethermindeth/juno:${{ env.BUILD_ID }}
             nethermindeth/juno:latest
 
       # Clean up environment
