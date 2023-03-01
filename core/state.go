@@ -134,6 +134,13 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		}
 	}
 
+	// replace contract instances
+	for _, replace := range update.StateDiff.ReplacedClasses {
+		if err = s.replaceContract(replace.Address, replace.ClassHash); err != nil {
+			return err
+		}
+	}
+
 	// update contract nonces
 	for addr, nonce := range update.StateDiff.Nonces {
 		if err = s.updateContractNonce(&addr, nonce); err != nil {
@@ -159,6 +166,20 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		return fmt.Errorf("state's new root: %s does not match state update's new root: %s", newRoot, update.NewRoot)
 	}
 	return nil
+}
+
+// replaceContract replaces the class that a contract at a given address instantiates
+func (s *State) replaceContract(addr, classHash *felt.Felt) error {
+	contract, err := NewContract(addr, s.txn)
+	if err != nil {
+		return err
+	}
+
+	if err = contract.Replace(classHash); err != nil {
+		return err
+	}
+
+	return s.updateContractCommitment(contract)
 }
 
 func (s *State) putClass(classHash *felt.Felt, class Class) error {

@@ -46,8 +46,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*Contract, 
 		return nil, ErrContractAlreadyDeployed
 	}
 
-	classHashKey := db.ContractClassHash.Key(addr.Marshal())
-	err = txn.Set(classHashKey, classHash.Marshal())
+	err = setClassHash(txn, addr, classHash)
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +184,16 @@ func classHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 		return nil, err
 	}
 	return classHash, nil
+}
+
+func setClassHash(txn db.Transaction, addr, classHash *felt.Felt) error {
+	classHashKey := db.ContractClassHash.Key(addr.Marshal())
+	return txn.Set(classHashKey, classHash.Marshal())
+}
+
+// Replace replaces the class that the contract instantiates
+func (c *Contract) Replace(classHash *felt.Felt) error {
+	return setClassHash(c.txn, c.Address, classHash)
 }
 
 // storage returns the [core.Trie] that represents the

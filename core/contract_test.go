@@ -156,6 +156,14 @@ func TestNonceAndClassHash(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, classHash, got)
 	})
+
+	t.Run("Replace()", func(t *testing.T) {
+		replaceWith := utils.HexToFelt(t, "0xDEADBEEF")
+		require.NoError(t, contract.Replace(replaceWith))
+		got, err := contract.ClassHash()
+		require.NoError(t, err)
+		assert.Equal(t, replaceWith, got)
+	})
 }
 
 func TestUpdateStorageAndStorage(t *testing.T) {

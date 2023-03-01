@@ -867,7 +867,7 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("post v0.11.0", func(t *testing.T) {
 		integrationClient, integrationCloser := feeder.NewTestClient(utils.INTEGRATION)
-		defer integrationCloser()
+		t.Cleanup(integrationCloser)
 		integGw := adaptfeeder.New(integrationClient)
 
 		for name, height := range map[string]uint64{
