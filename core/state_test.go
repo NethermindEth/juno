@@ -117,6 +117,29 @@ func TestContractClassHash(t *testing.T) {
 
 		assert.Equal(t, expectedClassHash, gotClassHash)
 	}
+
+	t.Run("replace class hash", func(t *testing.T) {
+		replaceUpdate := &core.StateUpdate{
+			OldRoot:   su1.NewRoot,
+			BlockHash: utils.HexToFelt(t, "0xDEADBEEF"),
+			NewRoot:   utils.HexToFelt(t, "0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
+			StateDiff: &core.StateDiff{
+				ReplacedClasses: []core.ReplacedClass{
+					{
+						Address:   su1.StateDiff.DeployedContracts[0].Address,
+						ClassHash: utils.HexToFelt(t, "0x1337"),
+					},
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(replaceUpdate, nil))
+
+		gotClassHash, err := state.ContractClassHash(su1.StateDiff.DeployedContracts[0].Address)
+		require.NoError(t, err)
+
+		assert.Equal(t, utils.HexToFelt(t, "0x1337"), gotClassHash)
+	})
 }
 
 func TestNonce(t *testing.T) {
