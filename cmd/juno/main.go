@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,7 +13,13 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	if err := NewCmd(node.New, quit).Execute(); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-quit
+		cancel()
+	}()
+
+	if err := NewCmd(node.New).ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
 }
