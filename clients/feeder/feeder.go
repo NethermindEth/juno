@@ -203,7 +203,18 @@ type StateUpdate struct {
 			Address   *felt.Felt `json:"address"`
 			ClassHash *felt.Felt `json:"class_hash"`
 		} `json:"deployed_contracts"`
-		DeclaredContracts []*felt.Felt `json:"declared_contracts"`
+		DeclaredContracts []*felt.Felt `json:"declared_contracts"` // todo: remove after all networks move to v0.11.0
+
+		// v0.11.0
+		OldDeclaredContracts []*felt.Felt `json:"old_declared_contracts"`
+		DeclaredClasses      []struct {
+			ClassHash         *felt.Felt `json:"class_hash"`
+			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+		} `json:"declared_classes"`
+		ReplacedClasses []struct {
+			Address   *felt.Felt `json:"address"`
+			ClassHash *felt.Felt `json:"class_hash"`
+		} `json:"replaced_classes"`
 	} `json:"state_diff"`
 }
 

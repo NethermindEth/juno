@@ -321,12 +321,33 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.Sta
 
 func adaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
-	stateDiff.DeclaredClasses = response.StateDiff.DeclaredContracts
-	for _, deployedContract := range response.StateDiff.DeployedContracts {
-		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, core.DeployedContract{
+	stateDiff.DeclaredV0Classes = response.StateDiff.DeclaredContracts
+	if stateDiff.DeclaredV0Classes == nil {
+		stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts // post-v0.11.0 StateUpdate
+	}
+
+	stateDiff.DeclaredV1Classes = make([]core.DeclaredV1Class, len(response.StateDiff.DeclaredClasses))
+	for index, declaredV1Class := range response.StateDiff.DeclaredClasses {
+		stateDiff.DeclaredV1Classes[index] = core.DeclaredV1Class{
+			ClassHash:         declaredV1Class.ClassHash,
+			CompiledClassHash: declaredV1Class.CompiledClassHash,
+		}
+	}
+
+	stateDiff.ReplacedClasses = make([]core.ReplacedClass, len(response.StateDiff.ReplacedClasses))
+	for index, replacedClass := range response.StateDiff.ReplacedClasses {
+		stateDiff.ReplacedClasses[index] = core.ReplacedClass{
+			Address:   replacedClass.Address,
+			ClassHash: replacedClass.ClassHash,
+		}
+	}
+
+	stateDiff.DeployedContracts = make([]core.DeployedContract, len(response.StateDiff.DeployedContracts))
+	for index, deployedContract := range response.StateDiff.DeployedContracts {
+		stateDiff.DeployedContracts[index] = core.DeployedContract{
 			Address:   deployedContract.Address,
 			ClassHash: deployedContract.ClassHash,
-		})
+		}
 	}
 
 	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt)

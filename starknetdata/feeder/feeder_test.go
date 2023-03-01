@@ -86,10 +86,10 @@ func TestStateUpdate(t *testing.T) {
 				assert.True(t, response.OldRoot.Equal(feederUpdate.OldRoot))
 				assert.True(t, response.BlockHash.Equal(feederUpdate.BlockHash))
 
-				assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredClasses))
+				assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredV0Classes))
 				for idx := range response.StateDiff.DeclaredContracts {
 					resp := response.StateDiff.DeclaredContracts[idx]
-					core := feederUpdate.StateDiff.DeclaredClasses[idx]
+					core := feederUpdate.StateDiff.DeclaredV0Classes[idx]
 					assert.True(t, resp.Equal(core))
 				}
 
@@ -299,5 +299,35 @@ func TestTransaction(t *testing.T) {
 		assert.Equal(t, responseTx.Nonce, l1HandlerTx.Nonce)
 		assert.Equal(t, responseTx.CallData, l1HandlerTx.CallData)
 		assert.Equal(t, responseTx.Version, l1HandlerTx.Version)
+	})
+}
+
+func TestPostV0110StateUpdate(t *testing.T) {
+	client, serverClose := feeder.NewTestClient(utils.INTEGRATION)
+	defer serverClose()
+	gw := adaptfeeder.New(client)
+
+	t.Run("declared Cairo0 classes", func(t *testing.T) {
+		update, err := gw.StateUpdate(context.Background(), 283746)
+		require.NoError(t, err)
+		assert.NotEqual(t, 0, len(update.StateDiff.DeclaredV0Classes))
+		assert.Equal(t, 0, len(update.StateDiff.DeclaredV1Classes))
+		assert.Equal(t, 0, len(update.StateDiff.ReplacedClasses))
+	})
+
+	t.Run("declared Cairo1 classes", func(t *testing.T) {
+		update, err := gw.StateUpdate(context.Background(), 283364)
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(update.StateDiff.DeclaredV0Classes))
+		assert.NotEqual(t, 0, len(update.StateDiff.DeclaredV1Classes))
+		assert.Equal(t, 0, len(update.StateDiff.ReplacedClasses))
+	})
+
+	t.Run("replaced classes", func(t *testing.T) {
+		update, err := gw.StateUpdate(context.Background(), 283428)
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(update.StateDiff.DeclaredV0Classes))
+		assert.Equal(t, 0, len(update.StateDiff.DeclaredV1Classes))
+		assert.NotEqual(t, 0, len(update.StateDiff.ReplacedClasses))
 	})
 }

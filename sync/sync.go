@@ -66,7 +66,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 			for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
 				referencedClasses[*deployedContract.ClassHash] = nil
 			}
-			for _, classHash := range stateUpdate.StateDiff.DeclaredClasses {
+			for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes { // todo: fetch v1 classes as well
 				referencedClasses[*classHash] = nil
 			}
 			for classHash := range referencedClasses {

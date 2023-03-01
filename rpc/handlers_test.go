@@ -819,7 +819,7 @@ func TestStateUpdate(t *testing.T) {
 				rpcUpdate.StateDiff.DeployedContracts[index].ClassHash)
 		}
 
-		assert.Equal(t, coreUpdate.StateDiff.DeclaredClasses, rpcUpdate.StateDiff.DeclaredClasses)
+		assert.Equal(t, coreUpdate.StateDiff.DeclaredV0Classes, rpcUpdate.StateDiff.DeclaredClasses)
 	}
 
 	t.Run("latest", func(t *testing.T) {

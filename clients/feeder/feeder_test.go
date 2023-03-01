@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/NethermindEth/juno/utils"
-
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const mockUrl = "https://mock_feeder.io/"
@@ -564,4 +564,27 @@ func TestBackoffFailure(t *testing.T) {
 	_, err := c.Block(context.Background(), 0)
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
+}
+
+func TestPostV0110StateUpdate(t *testing.T) {
+	client, closer := feeder.NewTestClient(utils.INTEGRATION)
+	defer closer()
+
+	t.Run("declared Cairo0 classes", func(t *testing.T) {
+		update, err := client.StateUpdate(context.Background(), 283746)
+		require.NoError(t, err)
+		assert.Equal(t, true, len(update.StateDiff.OldDeclaredContracts) > 0)
+	})
+
+	t.Run("declared Cairo1 classes", func(t *testing.T) {
+		update, err := client.StateUpdate(context.Background(), 283364)
+		require.NoError(t, err)
+		assert.Equal(t, true, len(update.StateDiff.DeclaredClasses) > 0)
+	})
+
+	t.Run("replaced classes", func(t *testing.T) {
+		update, err := client.StateUpdate(context.Background(), 283428)
+		require.NoError(t, err)
+		assert.Equal(t, true, len(update.StateDiff.ReplacedClasses) > 0)
+	})
 }
