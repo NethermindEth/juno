@@ -58,6 +58,16 @@ func (s *State) putNewContract(addr, classHash *felt.Felt) error {
 	}
 }
 
+// replaceContract replaces the class that a contract at a given address instantiates
+func (s *State) replaceContract(addr, classHash *felt.Felt) error {
+	contract := NewContract(addr, s.txn)
+	if err := contract.Replace(classHash); err != nil {
+		return err
+	} else {
+		return s.updateContractCommitment(contract)
+	}
+}
+
 // ContractClass returns class hash of a contract at a given address.
 func (s *State) ContractClass(addr *felt.Felt) (*felt.Felt, error) {
 	return NewContract(addr, s.txn).ClassHash()
@@ -154,6 +164,13 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 	// register deployed contracts
 	for _, contract := range update.StateDiff.DeployedContracts {
 		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
+			return err
+		}
+	}
+
+	// replace contract instances
+	for _, replace := range update.StateDiff.ReplacedClasses {
+		if err = s.replaceContract(replace.Address, replace.ClassHash); err != nil {
 			return err
 		}
 	}

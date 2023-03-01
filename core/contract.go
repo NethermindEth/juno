@@ -33,13 +33,10 @@ func NewContract(addr *felt.Felt, txn db.Transaction) *Contract {
 
 // Deploy sets up the database for a new contract.
 func (c *Contract) Deploy(classHash *felt.Felt) error {
-	classHashKey := db.ContractClassHash.Key(c.Address.Marshal())
-	if err := c.txn.Get(classHashKey, func(val []byte) error {
-		return nil
-	}); err == nil {
+	if _, err := c.ClassHash(); err == nil {
 		// Should not happen.
 		return errors.New("existing contract")
-	} else if err = c.txn.Set(classHashKey, classHash.Marshal()); err != nil {
+	} else if err = c.Replace(classHash); err != nil {
 		return err
 	} else if err = c.UpdateNonce(&felt.Zero); err != nil {
 		return err
@@ -75,6 +72,12 @@ func (c *Contract) ClassHash() (classHash *felt.Felt, err error) {
 		return nil
 	})
 	return
+}
+
+// Replace replaces the class that the contract instantiates
+func (c *Contract) Replace(classHash *felt.Felt) error {
+	classHashKey := db.ContractClassHash.Key(c.Address.Marshal())
+	return c.txn.Set(classHashKey, classHash.Marshal())
 }
 
 // Storage returns the [core.Trie] that represents the

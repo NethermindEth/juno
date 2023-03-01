@@ -9,9 +9,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestUpdate(t *testing.T) {
+func TestUpdateWithGatewayData(t *testing.T) {
 	updateJson := []byte(`{
   "block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
   "new_root": "021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6",
@@ -172,7 +173,7 @@ func TestUpdate(t *testing.T) {
 	assert.Equal(t, nil, state.Update(coreUpdate, nil))
 }
 
-func TestUpdateNonce(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	coreUpdate := new(core.StateUpdate)
 	coreUpdate.OldRoot = new(felt.Felt)
 	coreUpdate.NewRoot, _ = new(felt.Felt).SetString("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
@@ -187,24 +188,46 @@ func TestUpdateNonce(t *testing.T) {
 	}
 	testDb := pebble.NewMemTest()
 	state := core.NewState(testDb.NewTransaction(true))
-
 	assert.NoError(t, state.Update(coreUpdate, nil))
 
-	nonce, err := state.ContractNonce(addr)
-	assert.NoError(t, err)
-	assert.Equal(t, true, nonce.Equal(&felt.Zero))
+	t.Run("initial nonce", func(t *testing.T) {
+		nonce, err := state.ContractNonce(addr)
+		require.NoError(t, err)
+		assert.Equal(t, true, nonce.Equal(&felt.Zero))
+	})
 
 	coreUpdate = new(core.StateUpdate)
 	coreUpdate.OldRoot, _ = new(felt.Felt).SetString("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
 	coreUpdate.NewRoot, _ = new(felt.Felt).SetString("0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1")
 	coreUpdate.StateDiff = new(core.StateDiff)
 	coreUpdate.StateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
+	coreUpdate.StateDiff.Nonces[*addr] = new(felt.Felt).SetUint64(1)
 
-	nonce.SetUint64(1)
-	coreUpdate.StateDiff.Nonces[*addr] = nonce
-	assert.NoError(t, state.Update(coreUpdate, nil))
+	t.Run("update nonce", func(t *testing.T) {
+		require.NoError(t, state.Update(coreUpdate, nil))
 
-	newNonce, err := state.ContractNonce(addr)
-	assert.NoError(t, err)
-	assert.Equal(t, true, nonce.Equal(newNonce))
+		newNonce, err := state.ContractNonce(addr)
+		assert.NoError(t, err)
+		assert.Equal(t, true, coreUpdate.StateDiff.Nonces[*addr].Equal(newNonce))
+	})
+
+	coreUpdate = new(core.StateUpdate)
+	coreUpdate.OldRoot, _ = new(felt.Felt).SetString("0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1")
+	coreUpdate.NewRoot, _ = new(felt.Felt).SetString("0x33839870511e3694278128ade2017c3fdd27a3357da543d1c116fb88bb314cb")
+	coreUpdate.StateDiff = new(core.StateDiff)
+
+	newClassHash, _ := new(felt.Felt).SetString("0xdeadbeef")
+	coreUpdate.StateDiff.ReplacedClasses = []core.ReplacedClass{
+		{
+			Address:   addr,
+			ClassHash: newClassHash,
+		},
+	}
+
+	t.Run("replace class", func(t *testing.T) {
+		require.NoError(t, state.Update(coreUpdate, nil))
+		gotClassHash, err := state.ContractClass(addr)
+		require.NoError(t, err)
+		assert.Equal(t, newClassHash, gotClassHash)
+	})
 }
