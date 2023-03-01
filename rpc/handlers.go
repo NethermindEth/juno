@@ -348,7 +348,7 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 		OldRoot:   update.OldRoot,
 		NewRoot:   update.NewRoot,
 		StateDiff: &StateDiff{
-			DeclaredClasses:   update.StateDiff.DeclaredClasses,
+			DeclaredClasses:   update.StateDiff.DeclaredV0Classes, // todo: update according to v0.11.0
 			Nonces:            nonces,
 			StorageDiffs:      storageDiffs,
 			DeployedContracts: deployedContracts,

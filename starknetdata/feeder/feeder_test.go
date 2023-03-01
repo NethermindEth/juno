@@ -79,10 +79,10 @@ func TestStateUpdate(t *testing.T) {
 			assert.True(t, response.OldRoot.Equal(feederUpdate.OldRoot))
 			assert.True(t, response.BlockHash.Equal(feederUpdate.BlockHash))
 
-			assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredClasses))
+			assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredV0Classes))
 			for idx := range response.StateDiff.DeclaredContracts {
 				resp := response.StateDiff.DeclaredContracts[idx]
-				coreDeclaredClass := feederUpdate.StateDiff.DeclaredClasses[idx]
+				coreDeclaredClass := feederUpdate.StateDiff.DeclaredV0Classes[idx]
 				assert.True(t, resp.Equal(coreDeclaredClass))
 			}
 
@@ -114,6 +114,36 @@ func TestStateUpdate(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("v0.11.0 state update", func(t *testing.T) {
+		client, serverClose := feeder.NewTestClient(utils.INTEGRATION)
+		t.Cleanup(serverClose)
+		gw := adaptfeeder.New(client)
+
+		t.Run("declared Cairo0 classes", func(t *testing.T) {
+			update, err := gw.StateUpdate(ctx, 283746)
+			require.NoError(t, err)
+			assert.NotEmpty(t, update.StateDiff.DeclaredV0Classes)
+			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
+			assert.Empty(t, update.StateDiff.ReplacedClasses)
+		})
+
+		t.Run("declared Cairo1 classes", func(t *testing.T) {
+			update, err := gw.StateUpdate(ctx, 283364)
+			require.NoError(t, err)
+			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
+			assert.NotEmpty(t, update.StateDiff.DeclaredV1Classes)
+			assert.Empty(t, update.StateDiff.ReplacedClasses)
+		})
+
+		t.Run("replaced classes", func(t *testing.T) {
+			update, err := gw.StateUpdate(ctx, 283428)
+			require.NoError(t, err)
+			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
+			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
+			assert.NotEmpty(t, update.StateDiff.ReplacedClasses)
+		})
+	})
 }
 
 func TestClassV0(t *testing.T) {
