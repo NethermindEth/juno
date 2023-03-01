@@ -260,6 +260,29 @@ func TestStateUpdate(t *testing.T) {
 		assert.Nil(t, stateUpdate)
 		assert.Error(t, err)
 	})
+
+	t.Run("v0.11.0 state update", func(t *testing.T) {
+		client, closer := feeder.NewTestClient(utils.INTEGRATION)
+		t.Cleanup(closer)
+
+		t.Run("declared Cairo0 classes", func(t *testing.T) {
+			update, err := client.StateUpdate(context.Background(), 283746)
+			require.NoError(t, err)
+			assert.NotEmpty(t, update.StateDiff.OldDeclaredContracts)
+		})
+
+		t.Run("declared Cairo1 classes", func(t *testing.T) {
+			update, err := client.StateUpdate(context.Background(), 283364)
+			require.NoError(t, err)
+			assert.NotEmpty(t, update.StateDiff.DeclaredClasses)
+		})
+
+		t.Run("replaced classes", func(t *testing.T) {
+			update, err := client.StateUpdate(context.Background(), 283428)
+			require.NoError(t, err)
+			assert.NotEmpty(t, update.StateDiff.ReplacedClasses)
+		})
+	})
 }
 
 func TestTransaction(t *testing.T) {
