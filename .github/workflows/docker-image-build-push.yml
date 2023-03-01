@@ -2,17 +2,18 @@ name: Build and publish Docker image
 
 on:
   push:
-    branches: [ test_workflow ]
-
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - test_workflow
+      - develop
 jobs:
   build_and_push_docker_image:
     if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-latest
     steps:
-      - name: Set up environment variables
-        run: |
-          echo "BRANCH=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
-
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -26,7 +27,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push dev
-        if: ${{ github.ref == 'refs/heads/test_workflow' }}
+        if: ${{ github.ref == 'refs/heads/develop' }}
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -43,7 +44,15 @@ jobs:
           tags: |
             nethermindeth/juno:latest
             nethermindeth/juno:${{github.run_number}}-main
-
+        
+      - name: Build image on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          tags: nethermindeth/juno:${{github.run_number}}-pr
+          
       - name: Clean up environment
         if: always()
         run: |
