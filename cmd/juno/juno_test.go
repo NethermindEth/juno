@@ -5,9 +5,7 @@ import (
 	"context"
 	"os"
 	"sync"
-	"syscall"
 	"testing"
-	"time"
 
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/node"
@@ -48,9 +46,9 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 `
 		b := new(bytes.Buffer)
 
-		cmd := juno.NewCmd(newSpyJuno, quitTest())
+		cmd := juno.NewCmd(newSpyJuno)
 		cmd.SetOut(b)
-		err := cmd.Execute()
+		err := cmd.ExecuteContext(context.Background())
 		require.NoError(t, err)
 
 		actual := b.String()
@@ -246,10 +244,10 @@ network: 1
 					tc.inputArgs = append(tc.inputArgs, []string{"--config", fileN}...)
 				}
 
-				cmd := juno.NewCmd(newSpyJuno, quitTest())
+				cmd := juno.NewCmd(newSpyJuno)
 				cmd.SetArgs(tc.inputArgs)
 
-				err := cmd.Execute()
+				err := cmd.ExecuteContext(context.Background())
 				if tc.expectErr {
 					require.Error(t, err)
 					return
@@ -263,15 +261,6 @@ network: 1
 			})
 		}
 	})
-}
-
-func quitTest() chan os.Signal {
-	exit := make(chan os.Signal, 1)
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		exit <- syscall.SIGINT
-	}()
-	return exit
 }
 
 func tempCfgFile(t *testing.T, cfg string) (string, func()) {
