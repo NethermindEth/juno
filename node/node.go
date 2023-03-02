@@ -80,22 +80,25 @@ func New(cfg *Config) (StarknetNode, error) {
 
 	chain := blockchain.New(stateDb, cfg.Network)
 	synchronizer := sync.NewSynchronizer(chain, gateway.NewGateway(cfg.Network), log)
-	rpcHandler := rpc.NewHandler(chain, cfg.Network.ChainId())
 	return &Node{
 		cfg:          cfg,
 		log:          log,
 		db:           stateDb,
 		blockchain:   chain,
 		synchronizer: synchronizer,
-		http: jsonrpc.NewHttp(cfg.RpcPort, []jsonrpc.Method{
-			{"starknet_chainId", nil, rpcHandler.ChainId},
-			{"starknet_blockNumber", nil, rpcHandler.BlockNumber},
-			{"starknet_blockHashAndNumber", nil, rpcHandler.BlockNumberAndHash},
-			{"starknet_getBlockWithTxHashes", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxHashes},
-			{"starknet_getBlockWithTxs", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxs},
-			{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
-		}, log),
+		http:         makeHttp(cfg.RpcPort, rpc.NewHandler(chain, cfg.Network.ChainId()), log),
 	}, nil
+}
+
+func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.Http {
+	return jsonrpc.NewHttp(port, []jsonrpc.Method{
+		{"starknet_chainId", nil, rpcHandler.ChainId},
+		{"starknet_blockNumber", nil, rpcHandler.BlockNumber},
+		{"starknet_blockHashAndNumber", nil, rpcHandler.BlockNumberAndHash},
+		{"starknet_getBlockWithTxHashes", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxHashes},
+		{"starknet_getBlockWithTxs", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxs},
+		{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
+	}, log)
 }
 
 func (n *Node) Run(ctx context.Context) (err error) {
