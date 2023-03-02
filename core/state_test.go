@@ -76,6 +76,24 @@ func TestUpdate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, gotNewRoot)
 	})
+
+	t.Run("post v0.11.0 declared classes affect root", func(t *testing.T) {
+		su := &core.StateUpdate{
+			OldRoot: su2.NewRoot,
+			NewRoot: utils.HexToFelt(t, "0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
+			StateDiff: &core.StateDiff{
+				DeclaredV1Classes: []core.DeclaredV1Class{
+					{
+						ClassHash:         utils.HexToFelt(t, "0xDEADBEEF"),
+						CompiledClassHash: utils.HexToFelt(t, "0xBEEFDEAD"),
+					},
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(su, nil))
+		assert.NotEqual(t, su.NewRoot, su.OldRoot)
+	})
 }
 
 func TestContractClassHash(t *testing.T) {
