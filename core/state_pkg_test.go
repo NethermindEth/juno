@@ -51,7 +51,7 @@ func TestState_Root(t *testing.T) {
 	expectedRootNode.Value = value
 
 	kBits := key.Bits()
-	newRootPath := bitset.FromWithLength(stateTrieHeight, kBits[:])
+	newRootPath := bitset.FromWithLength(globalTrieHeight, kBits[:])
 	expectedRoot := expectedRootNode.Hash(newRootPath, crypto.Pedersen)
 
 	actualRoot, err := state.Root()

@@ -12,10 +12,16 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
+var (
+	stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+	leafVersion  = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+)
+
 const (
-	stateTrieHeight = 251
+	globalTrieHeight = 251
 	// Fields of state metadata table
-	stateRootKey = "rootKey"
+	stateRootKey   = "rootKey"
+	classesRootKey = "classesRootKey"
 )
 
 type ErrMismatchedRoot struct {
@@ -80,40 +86,62 @@ func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
-	storage, err := s.stateStorage()
-	if err != nil {
+	if storage, err := s.stateStorage(); err != nil {
 		return nil, err
+	} else if classes, err := s.classTrie(); err != nil {
+		return nil, err
+	} else if classesRoot, err := classes.Root(); err != nil {
+		return nil, err
+	} else if storageRoot, err := storage.Root(); err != nil {
+		return nil, err
+	} else if classesRoot.IsZero() {
+		return storageRoot, nil
+	} else {
+		return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 	}
-	return storage.Root()
 }
 
 // stateStorage returns a [core.Trie] that represents the Starknet
 // global state in the given Txn context
 func (s *State) stateStorage() (*trie.Trie, error) {
-	tTxn := NewTransactionStorage(s.txn, []byte{byte(db.StateTrie)})
-
-	rootKey, err := s.rootKey()
-	if err != nil {
-		rootKey = nil
-	}
-
-	return trie.NewTrie(tTxn, stateTrieHeight, rootKey), nil
+	return s.globalTrie(db.StateTrie, stateRootKey, trie.NewTrie)
 }
 
-// rootKey returns key to the root node in the given Txn context.
-func (s *State) rootKey() (key *bitset.BitSet, err error) {
-	err = s.txn.Get(db.State.Key([]byte(stateRootKey)), func(val []byte) error {
-		key = new(bitset.BitSet)
-		return key.UnmarshalBinary(val)
-	})
-	return
+// getClassTrie returns a [core.Trie] that represents the Starknet
+// classes trie in the given Txn context
+func (s *State) classTrie() (*trie.Trie, error) {
+	return s.globalTrie(db.ClassesTrie, classesRootKey, trie.NewTriePoseidon)
+}
+
+func (s *State) globalTrie(bucket db.Bucket, rootDbKey string, NewTrie trie.NewTrieFunc) (*trie.Trie, error) {
+	tTxn := NewTransactionStorage(s.txn, []byte{byte(bucket)})
+
+	var rootKey *bitset.BitSet
+	if err := s.txn.Get(db.State.Key([]byte(rootDbKey)), func(val []byte) error {
+		rootKey = new(bitset.BitSet)
+		return rootKey.UnmarshalBinary(val)
+	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
+
+	return NewTrie(tTxn, globalTrieHeight, rootKey), nil
 }
 
 // putStateStorage updates the fields related to the state trie root in
 // the given Txn context.
 func (s *State) putStateStorage(state *trie.Trie) error {
-	rootKeyDbKey := db.State.Key([]byte(stateRootKey))
-	if rootKey := state.RootKey(); rootKey != nil {
+	return s.putGlobalTrie(state, stateRootKey)
+}
+
+// putClassesTrie updates the fields related to the classes trie root in
+// the given Txn context.
+func (s *State) putClassesTrie(classes *trie.Trie) error {
+	return s.putGlobalTrie(classes, classesRootKey)
+}
+
+func (s *State) putGlobalTrie(trie *trie.Trie, rootDbKey string) error {
+	rootKeyDbKey := db.State.Key([]byte(rootDbKey))
+	if rootKey := trie.RootKey(); rootKey != nil {
 		if rootKeyBytes, err := rootKey.MarshalBinary(); err != nil {
 			return err
 		} else if err = s.txn.Set(rootKeyDbKey, rootKeyBytes); err != nil {
@@ -161,9 +189,13 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		}
 	}
 
+	if err = s.updateDeclaredClasses(update.StateDiff.DeclaredV1Classes); err != nil {
+		return err
+	}
+
 	// register deployed contracts
 	for _, contract := range update.StateDiff.DeployedContracts {
-		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
+		if err = s.putNewContract(contract.Address, contract.ClassHash); err != nil {
 			return err
 		}
 	}
@@ -238,6 +270,7 @@ func (s *State) updateContractCommitment(contract *Contract) error {
 		return err
 	} else {
 		commitment := CalculateContractCommitment(storageRoot, classHash, nonce)
+		// todo: eliminate repeated calls to stateStorage and putStateStorage, move to Update()
 		state, err := s.stateStorage()
 		if err != nil {
 			return err
@@ -249,4 +282,21 @@ func (s *State) updateContractCommitment(contract *Contract) error {
 
 		return s.putStateStorage(state)
 	}
+}
+
+func (s *State) updateDeclaredClasses(declaredClasses []DeclaredV1Class) error {
+	classesTrie, err := s.classTrie()
+	if err != nil {
+		return err
+	}
+
+	for _, declaredClass := range declaredClasses {
+		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
+		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
+		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
+			return err
+		}
+	}
+
+	return s.putClassesTrie(classesTrie)
 }
