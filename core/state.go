@@ -7,8 +7,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/fxamacker/cbor/v2"
 )
 
 const (
@@ -134,12 +134,12 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]*Class
 
 	// register declared classes
 	for classHash, class := range declaredClasses {
-		classCbor, err := cbor.Marshal(class)
+		classEncoded, err := encoder.Marshal(class)
 		if err != nil {
 			return err
 		}
 		classHashBytes := db.Class.Key(classHash.Marshal())
-		if err := s.txn.Set(classHashBytes, classCbor); err != nil {
+		if err := s.txn.Set(classHashBytes, classEncoded); err != nil {
 			return err
 		}
 	}
