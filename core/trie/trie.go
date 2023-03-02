@@ -45,6 +45,8 @@ type Trie struct {
 	hash    hashFunc
 }
 
+type NewTrieFunc func(Storage, uint, *bitset.BitSet) (*Trie, error)
+
 func NewTriePedersen(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
 	return newTrie(storage, height, rootKey, crypto.Pedersen)
 }

@@ -12,7 +12,12 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-const stateTrieHeight = 251
+const globalTrieHeight = 251
+
+var (
+	stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+	leafVersion  = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+)
 
 type State struct {
 	txn db.Transaction
@@ -52,58 +57,91 @@ func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
-	storage, err := s.storage()
+	var storageRoot, classesRoot *felt.Felt
+
+	sStorage, closer, err := s.storage()
 	if err != nil {
 		return nil, err
 	}
-	return storage.Root()
+
+	if storageRoot, err = sStorage.Root(); err != nil {
+		return nil, err
+	}
+
+	if err = closer(); err != nil {
+		return nil, err
+	}
+
+	classes, closer, err := s.classesTrie()
+	if err != nil {
+		return nil, err
+	}
+
+	if classesRoot, err = classes.Root(); err != nil {
+		return nil, err
+	}
+
+	if err = closer(); err != nil {
+		return nil, err
+	}
+
+	if classesRoot.IsZero() {
+		return storageRoot, nil
+	}
+
+	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
-func (s *State) storage() (*trie.Trie, error) {
-	tTxn := NewTransactionStorage(s.txn, []byte{byte(db.StateTrie)})
+func (s *State) storage() (*trie.Trie, func() error, error) {
+	return s.globalTrie(db.StateTrie, db.StateRootKey, trie.NewTriePedersen)
+}
 
-	rootKey, err := s.rootKey()
+func (s *State) classesTrie() (*trie.Trie, func() error, error) {
+	return s.globalTrie(db.ClassesTrie, db.ClassesRootKey, trie.NewTriePoseidon)
+}
+
+func (s *State) globalTrie(bucket, rootKeyBucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+	tTxn := NewTransactionStorage(s.txn, bucket.Key())
+
+	// fetch root key
+	rootKeyDBKey := rootKeyBucket.Key()
+	var rootKey *bitset.BitSet
+	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
+		rootKey = new(bitset.BitSet)
+		return rootKey.UnmarshalBinary(val)
+	})
+
+	// if some error other than "not found"
+	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+		return nil, nil, err
+	}
+
+	gTrie, err := newTrie(tTxn, globalTrieHeight, rootKey)
 	if err != nil {
-		if !errors.Is(db.ErrKeyNotFound, err) {
-			return nil, err
-		}
-		rootKey = nil
+		return nil, nil, err
 	}
 
-	return trie.NewTriePedersen(tTxn, stateTrieHeight, rootKey)
-}
-
-// rootKey returns key to the root node in the given Txn context.
-func (s *State) rootKey() (*bitset.BitSet, error) {
-	var key *bitset.BitSet
-	if err := s.txn.Get(db.StateRootKey.Key(), func(val []byte) error {
-		key = new(bitset.BitSet)
-		return key.UnmarshalBinary(val)
-	}); err != nil {
-		return nil, err
-	}
-	return key, nil
-}
-
-// updateStateRootDBKey updates the fields related to the state trie root in
-// the given Txn context.
-func (s *State) updateStateRootDBKey(state *trie.Trie) error {
-	rootKeyDBKey := db.StateRootKey.Key()
-	if rootKey := state.RootKey(); rootKey != nil {
-		rootKeyBytes, err := rootKey.MarshalBinary()
-		if err != nil {
-			return err
+	// prep closer
+	closer := func() error {
+		resultingRootKey := gTrie.RootKey()
+		// no updates on the trie, short circuit and return
+		if resultingRootKey.Equal(rootKey) {
+			return nil
 		}
 
-		if err := s.txn.Set(rootKeyDBKey, rootKeyBytes); err != nil {
-			return err
+		if resultingRootKey != nil {
+			rootKeyBytes, marshalErr := resultingRootKey.MarshalBinary()
+			if marshalErr != nil {
+				return marshalErr
+			}
+
+			return s.txn.Set(rootKeyDBKey, rootKeyBytes)
 		}
-	} else if err := s.txn.Delete(rootKeyDBKey); err != nil {
-		return err
+		return s.txn.Delete(rootKeyDBKey)
 	}
 
-	return nil
+	return gTrie, closer, nil
 }
 
 // Update applies a StateUpdate to the State object. State is not
@@ -125,6 +163,10 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		if err = s.putClass(&classHash, class); err != nil {
 			return err
 		}
+	}
+
+	if err = s.updateDeclaredClasses(update.StateDiff.DeclaredV1Classes); err != nil {
+		return err
 	}
 
 	// register deployed contracts
@@ -249,7 +291,7 @@ func (s *State) updateContractCommitment(contract *Contract) error {
 
 	commitment := calculateContractCommitment(root, cHash, nonce)
 
-	state, err := s.storage()
+	state, storageCloser, err := s.storage()
 	if err != nil {
 		return err
 	}
@@ -258,9 +300,26 @@ func (s *State) updateContractCommitment(contract *Contract) error {
 		return err
 	}
 
-	return s.updateStateRootDBKey(state)
+	return storageCloser()
 }
 
 func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
+}
+
+func (s *State) updateDeclaredClasses(declaredClasses []DeclaredV1Class) error {
+	classesTrie, classesCloser, err := s.classesTrie()
+	if err != nil {
+		return err
+	}
+
+	for _, declaredClass := range declaredClasses {
+		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
+		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
+		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
+			return err
+		}
+	}
+
+	return classesCloser()
 }
