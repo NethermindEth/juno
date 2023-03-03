@@ -84,11 +84,11 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			if err != nil {
 				if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
 					for ; err != nil; err = errors.Unwrap(err) {
-						s.log.Debugw("Sanity checks failed", "number", block.Number, "hash", block.Hash.Text(16),
-							"error", err.Error())
+						s.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
+							block.Hash.ShortString(), "error", err.Error())
 					}
 				} else {
-					s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.Text(16))
+					s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
 					select {
 					case <-ctx.Done():
 					case errChan <- ErrSyncFailed{block.Number, err}:
@@ -98,8 +98,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
 			if err != nil {
-				s.log.Warnw("Failed storing Block", "number", block.Number, "hash", block.Hash.Text(16),
-					"err", err.Error())
+				s.log.Warnw("Failed storing Block", "number", block.Number,
+					"hash", block.Hash.ShortString(), "err", err.Error())
 				select {
 				case <-ctx.Done():
 				case errChan <- ErrSyncFailed{block.Number, err}:
@@ -107,8 +107,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.Text(16),
-				"root", block.GlobalStateRoot.Text(16))
+			s.log.Infow("Stored Block", "number", block.Number, "hash",
+				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
 	}
 }
