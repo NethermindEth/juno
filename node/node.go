@@ -2,8 +2,11 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
+	sync2 "sync"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -17,7 +20,7 @@ import (
 )
 
 type StarknetNode interface {
-	Run(ctx context.Context) error
+	Run(ctx context.Context)
 }
 
 type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
@@ -46,7 +49,7 @@ type Node struct {
 	db           db.DB
 	blockchain   *blockchain.Blockchain
 	synchronizer *sync.Synchronizer
-	http         *jsonrpc.Http
+	rpc          *jsonrpc.Http
 
 	log utils.Logger
 }
@@ -86,12 +89,12 @@ func New(cfg *Config) (StarknetNode, error) {
 		db:           stateDb,
 		blockchain:   chain,
 		synchronizer: synchronizer,
-		http:         makeHttp(cfg.RpcPort, rpc.NewHandler(chain, cfg.Network.ChainId()), log),
+		rpc:          registerRpcMethods(cfg.RpcPort, rpc.NewHandler(chain, cfg.Network.ChainId()), log),
 	}, nil
 }
 
-func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.Http {
-	return jsonrpc.NewHttp(port, []jsonrpc.Method{
+func registerRpcMethods(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.Http {
+	return jsonrpc.New(port, []jsonrpc.Method{
 		{"starknet_chainId", nil, rpcHandler.ChainId},
 		{"starknet_blockNumber", nil, rpcHandler.BlockNumber},
 		{"starknet_blockHashAndNumber", nil, rpcHandler.BlockNumberAndHash},
@@ -101,20 +104,52 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.H
 	}, log)
 }
 
-func (n *Node) Run(ctx context.Context) (err error) {
+func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
-	defer func() {
-		// Prioritise closing error over other errors
-		if closeErr := n.db.Close(); closeErr != nil {
-			err = closeErr
+
+	numOfRoutines := 3
+	var wg sync2.WaitGroup
+	wg.Add(numOfRoutines)
+
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		n.shutdownServers()
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := n.rpc.Serve(); !errors.Is(err, http.ErrServerClosed) {
+			n.log.Warnw("Error while shutting down n.rpc", "err", err)
 		}
 	}()
+
 	go func() {
-		<-ctx.Done()
-		n.log.Infow("Shutting down Juno...")
+		defer wg.Done()
+		if err := n.synchronizer.Run(ctx); err != nil {
+			n.log.Warnw("Error while shutting down n.synchronizer", "err", err)
+		}
 	}()
-	n.http.Run(ctx)
-	return n.synchronizer.Run(ctx)
+
+	wg.Wait()
+
+	// DB cannot be closed before synchronizer returns
+	if err := n.closeDB(); err != nil {
+		n.log.Warnw("Error while closing db", "err", err)
+	}
+}
+
+func (n *Node) shutdownServers() {
+	n.log.Infow("Shutting down Juno...")
+
+	// We need to ensure that Shutdown() returns before exiting the application.
+	if err := n.rpc.Shutdown(); err != nil {
+		n.log.Warnw("Error while closing db", "err", err)
+	}
+}
+
+func (n *Node) closeDB() error {
+	return n.db.Close()
 }
 
 func (n *Node) Config() Config {

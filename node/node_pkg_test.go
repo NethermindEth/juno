@@ -1,21 +1,16 @@
-package node_test
+package node
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
-	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
 	t.Run("network", func(t *testing.T) {
 		networks := []utils.Network{
 			utils.GOERLI, utils.MAINNET, utils.GOERLI2, utils.INTEGRATION, utils.Network(2),
@@ -23,12 +18,16 @@ func TestNew(t *testing.T) {
 		}
 		for _, n := range networks {
 			t.Run(fmt.Sprintf("%s", n), func(t *testing.T) {
-				cfg := &node.Config{Network: n}
+				cfg := &Config{Network: n}
 
-				snNode, err := node.New(cfg)
+				snNode, err := New(cfg)
+
 				if utils.IsValidNetwork(cfg.Network) {
 					require.NoError(t, err)
-					require.NoError(t, snNode.Run(ctx))
+
+					junoN, ok := snNode.(*Node)
+					require.True(t, ok)
+					require.NoError(t, junoN.closeDB())
 				} else {
 					assert.Error(t, err, utils.ErrUnknownNetwork)
 				}
@@ -44,17 +43,17 @@ func TestNew(t *testing.T) {
 
 		for _, n := range networks {
 			t.Run(n.String(), func(t *testing.T) {
-				cfg := &node.Config{Network: n, DatabasePath: ""}
-				expectedCfg := node.Config{
+				cfg := &Config{Network: n, DatabasePath: ""}
+				expectedCfg := Config{
 					Network:      n,
 					DatabasePath: filepath.Join(defaultDataDir, n.String()),
 				}
-				snNode, err := node.New(cfg)
+				snNode, err := New(cfg)
 				require.NoError(t, err)
-				require.NoError(t, snNode.Run(ctx))
-
-				junoN, ok := snNode.(*node.Node)
+				junoN, ok := snNode.(*Node)
 				require.True(t, ok)
+
+				require.NoError(t, junoN.closeDB())
 				assert.Equal(t, expectedCfg, junoN.Config())
 			})
 		}

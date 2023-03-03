@@ -2,10 +2,8 @@ package jsonrpc
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/NethermindEth/juno/utils"
 )
@@ -18,7 +16,7 @@ type Http struct {
 	log  utils.Logger
 }
 
-func NewHttp(port uint16, methods []Method, log utils.Logger) *Http {
+func New(port uint16, methods []Method, log utils.Logger) *Http {
 	h := &Http{
 		rpc: NewServer(),
 		addr: &net.TCPAddr{
@@ -38,28 +36,18 @@ func NewHttp(port uint16, methods []Method, log utils.Logger) *Http {
 	return h
 }
 
-// Run starts to listen for HTTP requests
-func (h *Http) Run(ctx context.Context) error {
+// Serve starts to listen for HTTP requests
+func (h *Http) Serve() error {
 	listener, listenErr := net.ListenTCP("tcp", h.addr)
 	if listenErr != nil {
 		return listenErr
 	}
+	h.log.Infow("Starting RPC server", "addr", h.addr)
+	return h.http.Serve(listener)
+}
 
-	go func() {
-		var err error
-		for ; !errors.Is(err, http.ErrServerClosed); err = h.http.Serve(listener) {
-			time.Sleep(time.Second) // retry if server was not closed
-		}
-	}()
-	go func() {
-		<-ctx.Done()
-		err := h.http.Shutdown(context.Background())
-		if err != nil {
-			h.log.Warnw("Error shutting down the http server", "err", err)
-		}
-	}()
-
-	return nil
+func (h *Http) Shutdown() error {
+	return h.http.Shutdown(context.Background())
 }
 
 // ServeHTTP processes an incoming HTTP request
@@ -74,10 +62,13 @@ func (h *Http) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("Error: rpc.HandlerReader", "err", err)
 	} else {
 		writer.WriteHeader(http.StatusOK)
 	}
 	if resp != nil {
-		writer.Write(resp)
+		if _, err = writer.Write(resp); err != nil {
+			h.log.Warnw("Error: http.ServeHTTP", "err", err)
+		}
 	}
 }
