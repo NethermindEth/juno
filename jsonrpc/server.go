@@ -11,6 +11,21 @@ import (
 	"strings"
 )
 
+// Todo: add rpcErr type which implements Error() to return short string representation of the error. For example:
+//   - ErrInvalidJson.Error() = "Parse error"
+//   - ErrInvalidRequest.Error() = "Invalid Request"
+//   - ErrMethodNotFound.Error() = "Method Not Found"
+//   - ErrInvalidParams.Error() = "Invalid Params"
+//   - ErrInternal.Error() = "Internal Error"
+//
+// More contextual information can then be passed through Data field of Error as follows:
+//
+//	Error {
+//	  Code: ErrInvalidRequest,
+//	  Message: ErrInvalidRequest.Error(),
+//	  Data: err.Error(), // These are golang errors to provide more information
+//	}
+
 const (
 	InvalidJson    = -32700 // Invalid JSON was received by the server.
 	InvalidRequest = -32600 // The JSON sent is not a valid Request object.
@@ -144,8 +159,8 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 			res = resObject
 		}
 	} else {
-		batchReq := []json.RawMessage{}
-		batchRes := []json.RawMessage{}
+		var batchReq []json.RawMessage
+		var batchRes []json.RawMessage
 
 		if batchJsonErr := dec.Decode(&batchReq); batchJsonErr != nil {
 			res.Error = &Error{Code: InvalidJson, Message: batchJsonErr.Error()}
@@ -262,52 +277,65 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 }
 
 func buildArguments(params, handler any, configuredParams []Parameter) ([]reflect.Value, error) {
-	args := []reflect.Value{}
+	var args []reflect.Value
+	if isNil(params) {
+		return args, nil
+	}
+
 	handlerType := reflect.TypeOf(handler)
-	paramCount := handlerType.NumIn()
-	paramsKind := reflect.Invalid
-	if !isNil(params) {
-		paramsKind = reflect.TypeOf(params).Kind()
-	}
 
-	for idx := 0; idx < paramCount; idx++ {
-		valueContainer := reflect.New(handlerType.In(idx))
-		var requestValue any
-		found := true
-
-		switch paramsKind {
-		case reflect.Slice:
-			paramsList := params.([]any)
-			if len(paramsList) != paramCount {
-				return nil, errors.New("missing param in list")
-			}
-
-			requestValue = paramsList[idx]
-		case reflect.Map:
-			paramsMap := params.(map[string]any)
-			requestValue, found = paramsMap[configuredParams[idx].Name]
-		case reflect.Invalid:
-			found = false
-			// nil params
-		default:
-			return nil, errors.New("impossible param type: check request.isSane")
+	handlerParamValue := func(param any, t reflect.Type) (reflect.Value, error) {
+		handlerParam := reflect.New(t)
+		valueMarshaled, err := json.Marshal(param) // we have to marshal the value into JSON again
+		if err != nil {
+			return reflect.ValueOf(nil), err
+		}
+		err = json.Unmarshal(valueMarshaled, handlerParam.Interface())
+		if err != nil {
+			return reflect.ValueOf(nil), err
 		}
 
-		if found {
-			valueMarshaled, err := json.Marshal(requestValue) // we have to marshal the value into JSON again
+		return handlerParam.Elem(), nil
+	}
+
+	switch reflect.TypeOf(params).Kind() {
+	case reflect.Slice:
+		paramsList := params.([]any)
+
+		if len(paramsList) != handlerType.NumIn() {
+			return nil, errors.New("missing param in list")
+		}
+
+		for i, param := range paramsList {
+			v, err := handlerParamValue(param, handlerType.In(i))
 			if err != nil {
 				return nil, err
 			}
-			err = json.Unmarshal(valueMarshaled, valueContainer.Interface())
-			if err != nil {
-				return nil, err
-			}
-		} else if !configuredParams[idx].Optional {
-			return nil, errors.New("missing non-optional param")
+			args = append(args, v)
 		}
+		return args, nil
+	case reflect.Map:
+		paramsMap := params.(map[string]any)
 
-		args = append(args, valueContainer.Elem())
+		for i, configuredParam := range configuredParams {
+			// optional parameter
+			v := reflect.New(handlerType.In(i)).Elem()
+
+			if param, found := paramsMap[configuredParam.Name]; found {
+				var err error
+				v, err = handlerParamValue(param, handlerType.In(i))
+				if err != nil {
+					return nil, err
+				}
+			} else if !configuredParam.Optional {
+				return nil, errors.New("missing non-optional param")
+			}
+
+			args = append(args, v)
+		}
+		return args, nil
+	default:
+		// Todo: return InternalError
+		return nil, errors.New("impossible param type: check request.isSane")
 	}
-
-	return args, nil
 }

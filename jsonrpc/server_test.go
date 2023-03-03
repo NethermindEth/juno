@@ -64,43 +64,45 @@ func TestServer_RegisterMethod(t *testing.T) {
 }
 
 func TestHandle(t *testing.T) {
+	methods := []jsonrpc.Method{
+		{
+			"method",
+			[]jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
+			func(num *int, shouldError bool, msg string) (any, *jsonrpc.Error) {
+				if shouldError {
+					return nil, &jsonrpc.Error{Code: 44, Message: msg}
+				}
+				return struct {
+					Doubled int `json:"doubled"`
+				}{*num * 2}, nil
+			},
+		},
+		{
+			"subtract",
+			[]jsonrpc.Parameter{{Name: "minuend"}, {Name: "subtrahend"}},
+			func(a, b int) (int, *jsonrpc.Error) {
+				return a - b, nil
+			},
+		},
+		{
+			"update",
+			[]jsonrpc.Parameter{{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"}},
+			func(a, b, c, d, e int) (int, *jsonrpc.Error) {
+				return 0, nil
+			},
+		},
+		{
+			"foobar",
+			[]jsonrpc.Parameter{},
+			func() (int, *jsonrpc.Error) {
+				return 0, nil
+			},
+		},
+	}
 	server := jsonrpc.NewServer()
-	require.NoError(t, server.RegisterMethod(jsonrpc.Method{
-		"method",
-		[]jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
-		func(num *int, shouldError bool, msg string) (any, *jsonrpc.Error) {
-			if shouldError {
-				return nil, &jsonrpc.Error{Code: 44, Message: msg}
-			}
-			return struct {
-				Doubled int `json:"doubled"`
-			}{*num * 2}, nil
-		},
-	}))
-
-	require.NoError(t, server.RegisterMethod(jsonrpc.Method{
-		"subtract",
-		[]jsonrpc.Parameter{{Name: "minuend"}, {Name: "subtrahend"}},
-		func(a, b int) (int, *jsonrpc.Error) {
-			return a - b, nil
-		},
-	}))
-
-	require.NoError(t, server.RegisterMethod(jsonrpc.Method{
-		"update",
-		[]jsonrpc.Parameter{{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"}},
-		func(a, b, c, d, e int) (int, *jsonrpc.Error) {
-			return 0, nil
-		},
-	}))
-
-	require.NoError(t, server.RegisterMethod(jsonrpc.Method{
-		"foobar",
-		[]jsonrpc.Parameter{},
-		func() (int, *jsonrpc.Error) {
-			return 0, nil
-		},
-	}))
+	for _, m := range methods {
+		require.NoError(t, server.RegisterMethod(m))
+	}
 
 	tests := map[string]struct {
 		req string
