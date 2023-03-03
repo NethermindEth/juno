@@ -21,7 +21,7 @@ import (
 
 func TestHandler(t *testing.T) {
 	bc := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
-	handler := rpc.NewHandler(bc, utils.MAINNET.ChainId())
+	handler := rpc.New(bc, utils.MAINNET.ChainId())
 
 	t.Run("starknet_chainId", func(t *testing.T) {
 		cId, err := handler.ChainId()
@@ -130,7 +130,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
 	defer closer()
 
-	handler := rpc.NewHandler(&fakeBcReader{nil, mainnetGw}, nil)
+	handler := rpc.New(&fakeBcReader{nil, mainnetGw}, nil)
 
 	tests := map[string]struct {
 		hash     string

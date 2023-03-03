@@ -21,7 +21,7 @@ type Handler struct {
 	chainId *felt.Felt
 }
 
-func NewHandler(bcReader blockchain.Reader, chainId *felt.Felt) *Handler {
+func New(bcReader blockchain.Reader, chainId *felt.Felt) *Handler {
 	return &Handler{
 		bcReader: bcReader,
 		chainId:  chainId,

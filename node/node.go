@@ -89,7 +89,7 @@ func New(cfg *Config) (StarknetNode, error) {
 		db:           stateDb,
 		blockchain:   chain,
 		synchronizer: synchronizer,
-		rpc:          registerRpcMethods(cfg.RpcPort, rpc.NewHandler(chain, cfg.Network.ChainId()), log),
+		rpc:          registerRpcMethods(cfg.RpcPort, rpc.New(chain, cfg.Network.ChainId()), log),
 	}, nil
 }
 

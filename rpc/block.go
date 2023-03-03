@@ -7,6 +7,31 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1999-L2008
+type BlockStatus uint8
+
+const (
+	BlockStatusPending BlockStatus = iota
+	BlockStatusAcceptedL2
+	BlockStatusAcceptedL1
+	BlockStatusRejected
+)
+
+func (s BlockStatus) MarshalJSON() ([]byte, error) {
+	switch s {
+	case BlockStatusPending:
+		return []byte("\"PENDING\""), nil
+	case BlockStatusAcceptedL2:
+		return []byte("\"ACCEPTED_ON_L2\""), nil
+	case BlockStatusAcceptedL1:
+		return []byte("\"ACCEPTED_ON_L1\""), nil
+	case BlockStatusRejected:
+		return []byte("\"REJECTED\""), nil
+	default:
+		return nil, errors.New("unknown block status")
+	}
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L520-L534
 type BlockNumberAndHash struct {
 	Number uint64     `json:"block_number"`
@@ -48,31 +73,6 @@ func (b *BlockId) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1999-L2008
-type BlockStatus uint8
-
-const (
-	BlockStatusPending BlockStatus = iota
-	BlockStatusAcceptedL2
-	BlockStatusAcceptedL1
-	BlockStatusRejected
-)
-
-func (s BlockStatus) MarshalJSON() ([]byte, error) {
-	switch s {
-	case BlockStatusPending:
-		return []byte("\"PENDING\""), nil
-	case BlockStatusAcceptedL2:
-		return []byte("\"ACCEPTED_ON_L2\""), nil
-	case BlockStatusAcceptedL1:
-		return []byte("\"ACCEPTED_ON_L1\""), nil
-	case BlockStatusRejected:
-		return []byte("\"REJECTED\""), nil
-	default:
-		return nil, errors.New("unknown block status")
-	}
-}
-
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
 type BlockHeader struct {
 	Hash             *felt.Felt `json:"block_hash"`
@@ -81,24 +81,6 @@ type BlockHeader struct {
 	NewRoot          *felt.Felt `json:"new_root"`
 	Timestamp        uint64     `json:"timestamp"`
 	SequencerAddress *felt.Felt `json:"sequencer_address,omitempty"`
-}
-
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
-type Transaction struct {
-	Hash                *felt.Felt    `json:"transaction_hash,omitempty"`
-	Type                string        `json:"type,omitempty"`
-	Version             *felt.Felt    `json:"version,omitempty"`
-	Nonce               *felt.Felt    `json:"nonce,omitempty"`
-	MaxFee              *felt.Felt    `json:"max_fee,omitempty"`
-	ContractAddress     *felt.Felt    `json:"contract_address,omitempty"`
-	ContractAddressSalt *felt.Felt    `json:"contract_address_salt,omitempty"`
-	ClassHash           *felt.Felt    `json:"class_hash,omitempty"`
-	ConstructorCalldata []*felt.Felt  `json:"constructor_calldata,omitempty"`
-	SenderAddress       *felt.Felt    `json:"sender_address,omitempty"`
-	Signature           *[]*felt.Felt `json:"signature,omitempty"`
-	Calldata            *[]*felt.Felt `json:"calldata,omitempty"`
-	EntryPointSelector  *felt.Felt    `json:"entry_point_selector,omitempty"`
-	CompiledClassHash   *felt.Felt    `json:"compiled_class_hash,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
