@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnmarshalJson(t *testing.T) {
@@ -28,4 +29,26 @@ func TestFeltCbor(t *testing.T) {
 	assert.NoError(t, err)
 
 	encoder.TestSymmetry(t, val)
+}
+
+func TestShortString(t *testing.T) {
+	var f felt.Felt
+
+	t.Run("less than 8 digits", func(t *testing.T) {
+		_, err := f.SetString("0x1234567")
+		require.NoError(t, err)
+		assert.Equal(t, "0x1234567", f.ShortString())
+	})
+
+	t.Run("8 digits", func(t *testing.T) {
+		_, err := f.SetString("0x12345678")
+		require.NoError(t, err)
+		assert.Equal(t, "0x12345678", f.ShortString())
+	})
+
+	t.Run("more than 8 digits", func(t *testing.T) {
+		_, err := f.SetString("0x123456789")
+		require.NoError(t, err)
+		assert.Equal(t, "0x1234...6789", f.ShortString())
+	})
 }
