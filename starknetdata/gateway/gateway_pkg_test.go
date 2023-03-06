@@ -8,9 +8,10 @@ import (
 
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknetdata/gateway"
 
-	// "github.com/NethermindEth/juno/core"
-	// "github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core"
+
 	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -65,17 +66,17 @@ func TestBlockByNumber(t *testing.T) {
 		assert.Equal(t, "", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
 	})
-	// t.Run("error with unknown transaction", func(t *testing.T) {
-	// 	var response *clients.Block
-	// 	err := json.Unmarshal(block147Json, &response)
-	// 	require.NoError(t, err)
+	t.Run("error with unknown transaction", func(t *testing.T) {
+		var response *clients.Block
+		err := json.Unmarshal(block147Json, &response)
+		require.NoError(t, err)
 
-	// 	response.Transactions[0].Type = "test"
+		response.Transactions[0].Type = "test"
 
-	// 	block, err := AdaptBlock(response)
-	// 	assert.Nil(t, block)
-	// 	assert.EqualError(t, err, "unknown transaction")
-	// })
+		block, err := gateway.AdaptBlock(response)
+		assert.Nil(t, block)
+		assert.EqualError(t, err, "unknown transaction")
+	})
 }
 
 func hexToFelt(t *testing.T, hex string) *felt.Felt {
@@ -84,104 +85,102 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 	return f
 }
 
-// func TestAdaptStateUpdate(t *testing.T) {
-// 	jsonData := []byte(`{
-//   "block_hash": "0x3",
-//   "block_number": "0x4",
-//   "new_root": "0x1",
-//   "old_root": "0x2",
-//   "state_diff": {
-//     "storage_diffs": {
-//       "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6": [
-//         {
-//           "key": "0x5",
-//           "value": "0x22b"
-//         },
-//         {
-//           "key": "0x2",
-//           "value": "0x1"
-//         }
-//       ],
-//       "0x3": [
-//         {
-//           "key": "0x1",
-//           "value": "0x5"
-//         },
-//         {
-//           "key": "0x7",
-//           "value": "0x13"
-//         }
-//       ]
-//     },
-//     "nonces": {
-// 		"0x37" : "0x44",
-// 		"0x44" : "0x37"
-// 	},
-//     "deployed_contracts": [
-//       {
-//         "address": "0x1",
-//         "class_hash": "0x2"
-//       },
-//       {
-//         "address": "0x3",
-//         "class_hash": "0x4"
-//       }
-// 	],
-//     "declared_contracts": [
-// 		"0x37", "0x44"
-// 	]
-//   }
-// }`)
+func TestAdaptStateUpdate(t *testing.T) {
+	jsonData := []byte(`{
+  "block_hash": "0x3",
+  "new_root": "0x1",
+  "old_root": "0x2",
+  "state_diff": {
+    "storage_diffs": {
+      "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6": [
+        {
+          "key": "0x5",
+          "value": "0x22b"
+        },
+        {
+          "key": "0x2",
+          "value": "0x1"
+        }
+      ],
+      "0x3": [
+        {
+          "key": "0x1",
+          "value": "0x5"
+        },
+        {
+          "key": "0x7",
+          "value": "0x13"
+        }
+      ]
+    },
+    "nonces": {
+		"0x37" : "0x44",
+		"0x44" : "0x37"
+	},
+    "deployed_contracts": [
+      {
+        "address": "0x1",
+        "class_hash": "0x2"
+      },
+      {
+        "address": "0x3",
+        "class_hash": "0x4"
+      }
+	],
+    "declared_contracts": [
+		"0x37", "0x44"
+	]
+  }
+}`)
 
-// 	var gatewayStateUpdate clients.StateUpdate
-// 	err := json.Unmarshal(jsonData, &gatewayStateUpdate)
-// 	assert.Equal(t, nil, err, "Unexpected error")
+	var gatewayStateUpdate clients.StateUpdate
+	err := json.Unmarshal(jsonData, &gatewayStateUpdate)
+	assert.Equal(t, nil, err, "Unexpected error")
 
-// 	gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
-// 	defer closeFn()
+	coreStateUpdate, err := gateway.AdaptStateUpdate(&gatewayStateUpdate)
+	if assert.NoError(t, err) {
+		assert.Equal(t, true, gatewayStateUpdate.NewRoot.Equal(coreStateUpdate.NewRoot))
+		assert.Equal(t, true, gatewayStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
+		assert.Equal(t, true, gatewayStateUpdate.BlockHash.Equal(coreStateUpdate.BlockHash))
 
-// 	coreStateUpdate, err := gw.StateUpdate(context.Background(), *gatewayStateUpdate.BlockNumber )
+		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
+		for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
+			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
+			core := coreStateUpdate.StateDiff.DeclaredClasses[idx]
+			assert.Equal(t, true, gw.Equal(core))
+		}
 
-// coreStateUpdate, err := AdaptStateUpdate(&gatewayStateUpdate)
-// if assert.NoError(t, err) {
-// 	assert.Equal(t, true, gatewayStateUpdate.NewRoot.Equal(coreStateUpdate.NewRoot))
-// 	assert.Equal(t, true, gatewayStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
-// 	assert.Equal(t, true, gatewayStateUpdate.BlockHash.Equal(coreStateUpdate.BlockHash))
+		for keyStr, gw := range gatewayStateUpdate.StateDiff.Nonces {
+			key, _ := new(felt.Felt).SetString(keyStr)
+			core := coreStateUpdate.StateDiff.Nonces[*key]
+			assert.Equal(t, true, gw.Equal(core))
+		}
 
-// 	assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
-// 	for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
-// 		gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
-// 		core := coreStateUpdate.StateDiff.DeclaredClasses[idx]
-// 		assert.Equal(t, true, gw.Equal(core))
-// 	}
+		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeployedContracts))
+		for idx := range gatewayStateUpdate.StateDiff.DeployedContracts {
+			gw := gatewayStateUpdate.StateDiff.DeployedContracts[idx]
+			core := coreStateUpdate.StateDiff.DeployedContracts[idx]
+			assert.Equal(t, true, gw.ClassHash.Equal(core.ClassHash))
+			assert.Equal(t, true, gw.Address.Equal(core.Address))
+		}
 
-// 	for keyStr, gw := range gatewayStateUpdate.StateDiff.Nonces {
-// 		key, _ := new(felt.Felt).SetString(keyStr)
-// 		core := coreStateUpdate.StateDiff.Nonces[*key]
-// 		assert.Equal(t, true, gw.Equal(core))
-// 	}
+		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.StorageDiffs))
+		for keyStr, diffs := range gatewayStateUpdate.StateDiff.StorageDiffs {
+			key, _ := new(felt.Felt).SetString(keyStr)
+			coreDiffs := coreStateUpdate.StateDiff.StorageDiffs[*key]
+			assert.Equal(t, len(diffs) > 0, true)
+			assert.Equal(t, len(diffs), len(coreDiffs))
+			for idx := range diffs {
+				assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))
+				assert.Equal(t, true, diffs[idx].Value.Equal(coreDiffs[idx].Value))
+			}
+		}
+	}
+}
 
-// 	assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeployedContracts))
-// 	for idx := range gatewayStateUpdate.StateDiff.DeployedContracts {
-// 		gw := gatewayStateUpdate.StateDiff.DeployedContracts[idx]
-// 		core := coreStateUpdate.StateDiff.DeployedContracts[idx]
-// 		assert.Equal(t, true, gw.ClassHash.Equal(core.ClassHash))
-// 		assert.Equal(t, true, gw.Address.Equal(core.Address))
-// 	}
-
-// 	assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.StorageDiffs))
-// 	for keyStr, diffs := range gatewayStateUpdate.StateDiff.StorageDiffs {
-// 		key, _ := new(felt.Felt).SetString(keyStr)
-// 		coreDiffs := coreStateUpdate.StateDiff.StorageDiffs[*key]
-// 		assert.Equal(t, len(diffs) > 0, true)
-// 		assert.Equal(t, len(diffs), len(coreDiffs))
-// 		for idx := range diffs {
-// 			assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))
-// 			assert.Equal(t, true, diffs[idx].Value.Equal(coreDiffs[idx].Value))
-// 		}
-// 	}
-// }
-// }
+func AdaptStateUpdate(stateUpdate *clients.StateUpdate) {
+	panic("unimplemented")
+}
 
 func TestAdaptClass(t *testing.T) {
 	classJson, err := os.ReadFile("../../testsource/testdata/goerli/class/0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json")
@@ -236,123 +235,136 @@ func TestAdaptClass(t *testing.T) {
 	assert.Equal(t, programHash, class.ProgramHash)
 }
 
-// func TestAdaptTransaction(t *testing.T) {
-// 	t.Run("invoke transaction", func(t *testing.T) {
-// 		invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
-// 		assert.NoError(t, err)
+func TestAdaptTransaction(t *testing.T) {
+	t.Run("invoke transaction", func(t *testing.T) {
+		invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
+		assert.NoError(t, err)
 
-// 		response := new(clients.TransactionStatus)
-// 		err = json.Unmarshal(invokeJson, response)
-// 		require.NoError(t, err)
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(invokeJson, response)
+		require.NoError(t, err)
 
-// 		transaction := response.Transaction
-// 		txn, err := adaptTransaction(transaction)
-// 		invokeTx, ok := txn.(*core.InvokeTransaction)
-// 		require.True(t, ok)
-// 		require.NoError(t, err)
+		transaction := response.Transaction
 
-// 		assert.Equal(t, transaction.Hash, invokeTx.Hash())
-// 		assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
-// 		assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
-// 		assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
-// 		assert.Equal(t, transaction.CallData, invokeTx.CallData)
-// 		assert.Equal(t, transaction.Signature, invokeTx.Signature())
-// 		assert.Equal(t, transaction.MaxFee, invokeTx.MaxFee)
-// 		assert.Equal(t, transaction.Version, invokeTx.Version)
-// 	})
-// 	t.Run("deploy transaction", func(t *testing.T) {
-// 		deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
-// 		assert.NoError(t, err)
+		gw, closeFn := testsource.NewTestGateway(utils.GOERLI)
+		defer closeFn()
+		txn, err := gw.Transaction(context.Background(), transaction.Hash)
 
-// 		response := new(clients.TransactionStatus)
-// 		err = json.Unmarshal(deployJson, response)
-// 		require.NoError(t, err)
+		invokeTx, ok := txn.(*core.InvokeTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-// 		transaction := response.Transaction
-// 		txn, err := adaptTransaction(transaction)
-// 		deployTx, ok := txn.(*core.DeployTransaction)
-// 		require.True(t, ok)
-// 		require.NoError(t, err)
+		assert.Equal(t, transaction.Hash, invokeTx.Hash())
+		assert.Equal(t, transaction.ContractAddress, invokeTx.ContractAddress)
+		assert.Equal(t, transaction.EntryPointSelector, invokeTx.EntryPointSelector)
+		assert.Equal(t, transaction.Nonce, invokeTx.Nonce)
+		assert.Equal(t, transaction.CallData, invokeTx.CallData)
+		assert.Equal(t, transaction.Signature, invokeTx.Signature())
+		assert.Equal(t, transaction.MaxFee, invokeTx.MaxFee)
+		assert.Equal(t, transaction.Version, invokeTx.Version)
+	})
+	t.Run("deploy transaction", func(t *testing.T) {
+		deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
+		assert.NoError(t, err)
 
-// 		assert.Equal(t, transaction.Hash, deployTx.Hash())
-// 		assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
-// 		assert.Equal(t, transaction.ContractAddress, deployTx.ContractAddress)
-// 		assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
-// 		assert.Equal(t, transaction.ConstructorCallData, deployTx.ConstructorCallData)
-// 		assert.Equal(t, transaction.Version, deployTx.Version)
-// 	})
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(deployJson, response)
+		require.NoError(t, err)
 
-// 	t.Run("deploy account transaction", func(t *testing.T) {
-// 		deployJson, err := os.ReadFile("../.." +
-// 			"/testsource/testdata/mainnet/transaction" +
-// 			"/0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2.json")
-// 		assert.NoError(t, err)
+		transaction := response.Transaction
+		gw, closeFn := testsource.NewTestGateway(utils.GOERLI)
+		defer closeFn()
+		txn, err := gw.Transaction(context.Background(), transaction.Hash)
+		deployTx, ok := txn.(*core.DeployTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-// 		response := new(clients.TransactionStatus)
-// 		err = json.Unmarshal(deployJson, response)
-// 		require.NoError(t, err)
+		assert.Equal(t, transaction.Hash, deployTx.Hash())
+		assert.Equal(t, transaction.ContractAddressSalt, deployTx.ContractAddressSalt)
+		assert.Equal(t, transaction.ContractAddress, deployTx.ContractAddress)
+		assert.Equal(t, transaction.ClassHash, deployTx.ClassHash)
+		assert.Equal(t, transaction.ConstructorCallData, deployTx.ConstructorCallData)
+		assert.Equal(t, transaction.Version, deployTx.Version)
+	})
 
-// 		transaction := response.Transaction
-// 		txn, err := adaptTransaction(transaction)
-// 		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
-// 		require.True(t, ok)
-// 		require.NoError(t, err)
+	t.Run("deploy account transaction", func(t *testing.T) {
+		deployJson, err := os.ReadFile("../.." +
+			"/testsource/testdata/mainnet/transaction" +
+			"/0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2.json")
+		assert.NoError(t, err)
 
-// 		assert.Equal(t, transaction.Hash, deployAccountTx.Hash())
-// 		assert.Equal(t, transaction.ContractAddressSalt, deployAccountTx.ContractAddressSalt)
-// 		assert.Equal(t, transaction.ContractAddress, deployAccountTx.ContractAddress)
-// 		assert.Equal(t, transaction.ClassHash, deployAccountTx.ClassHash)
-// 		assert.Equal(t, transaction.ConstructorCallData, deployAccountTx.ConstructorCallData)
-// 		assert.Equal(t, transaction.Version, deployAccountTx.Version)
-// 		assert.Equal(t, transaction.MaxFee, deployAccountTx.MaxFee)
-// 		assert.Equal(t, transaction.Signature, deployAccountTx.Signature())
-// 		assert.Equal(t, transaction.Nonce, deployAccountTx.Nonce)
-// 	})
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(deployJson, response)
+		require.NoError(t, err)
 
-// 	t.Run("declare transaction", func(t *testing.T) {
-// 		declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
-// 		assert.NoError(t, err)
+		transaction := response.Transaction
+		gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
+		defer closeFn()
+		txn, err := gw.Transaction(context.Background(), transaction.Hash)
 
-// 		response := new(clients.TransactionStatus)
-// 		err = json.Unmarshal(declareJson, response)
-// 		require.NoError(t, err)
+		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-// 		transaction := response.Transaction
-// 		txn, err := adaptTransaction(transaction)
-// 		declareTx, ok := txn.(*core.DeclareTransaction)
-// 		require.True(t, ok)
-// 		require.NoError(t, err)
+		assert.Equal(t, transaction.Hash, deployAccountTx.Hash())
+		assert.Equal(t, transaction.ContractAddressSalt, deployAccountTx.ContractAddressSalt)
+		assert.Equal(t, transaction.ContractAddress, deployAccountTx.ContractAddress)
+		assert.Equal(t, transaction.ClassHash, deployAccountTx.ClassHash)
+		assert.Equal(t, transaction.ConstructorCallData, deployAccountTx.ConstructorCallData)
+		assert.Equal(t, transaction.Version, deployAccountTx.Version)
+		assert.Equal(t, transaction.MaxFee, deployAccountTx.MaxFee)
+		assert.Equal(t, transaction.Signature, deployAccountTx.Signature())
+		assert.Equal(t, transaction.Nonce, deployAccountTx.Nonce)
+	})
 
-// 		assert.Equal(t, transaction.Hash, declareTx.Hash())
-// 		assert.Equal(t, transaction.SenderAddress, declareTx.SenderAddress)
-// 		assert.Equal(t, transaction.Version, declareTx.Version)
-// 		assert.Equal(t, transaction.Nonce, declareTx.Nonce)
-// 		assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
-// 		assert.Equal(t, transaction.Signature, declareTx.Signature())
-// 		assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
-// 	})
+	t.Run("declare transaction", func(t *testing.T) {
+		declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
+		assert.NoError(t, err)
 
-// 	t.Run("l1handler transaction", func(t *testing.T) {
-// 		deployJson, err := os.ReadFile("../.." +
-// 			"/testsource/testdata/mainnet/transaction" +
-// 			"/0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8.json")
-// 		assert.NoError(t, err)
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(declareJson, response)
+		require.NoError(t, err)
 
-// 		response := new(clients.TransactionStatus)
-// 		err = json.Unmarshal(deployJson, response)
-// 		require.NoError(t, err)
+		transaction := response.Transaction
+		gw, closeFn := testsource.NewTestGateway(utils.GOERLI)
+		defer closeFn()
+		txn, err := gw.Transaction(context.Background(), transaction.Hash)
+		declareTx, ok := txn.(*core.DeclareTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
 
-// 		transaction := response.Transaction
-// 		txn, err := adaptTransaction(transaction)
-// 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
-// 		require.True(t, ok)
-// 		require.NoError(t, err)
+		assert.Equal(t, transaction.Hash, declareTx.Hash())
+		assert.Equal(t, transaction.SenderAddress, declareTx.SenderAddress)
+		assert.Equal(t, transaction.Version, declareTx.Version)
+		assert.Equal(t, transaction.Nonce, declareTx.Nonce)
+		assert.Equal(t, transaction.MaxFee, declareTx.MaxFee)
+		assert.Equal(t, transaction.Signature, declareTx.Signature())
+		assert.Equal(t, transaction.ClassHash, declareTx.ClassHash)
+	})
 
-// 		assert.Equal(t, transaction.Hash, l1HandlerTx.Hash())
-// 		assert.Equal(t, transaction.ContractAddress, l1HandlerTx.ContractAddress)
-// 		assert.Equal(t, transaction.EntryPointSelector, l1HandlerTx.EntryPointSelector)
-// 		assert.Equal(t, transaction.Nonce, l1HandlerTx.Nonce)
-// 		assert.Equal(t, transaction.CallData, l1HandlerTx.CallData)
-// 		assert.Equal(t, transaction.Version, l1HandlerTx.Version)
-// 	})
-// }
+	t.Run("l1handler transaction", func(t *testing.T) {
+		deployJson, err := os.ReadFile("../.." +
+			"/testsource/testdata/mainnet/transaction" +
+			"/0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8.json")
+		assert.NoError(t, err)
+
+		response := new(clients.TransactionStatus)
+		err = json.Unmarshal(deployJson, response)
+		require.NoError(t, err)
+
+		transaction := response.Transaction
+		gw, closeFn := testsource.NewTestGateway(utils.MAINNET)
+		defer closeFn()
+		txn, err := gw.Transaction(context.Background(), transaction.Hash)
+		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
+		require.True(t, ok)
+		require.NoError(t, err)
+
+		assert.Equal(t, transaction.Hash, l1HandlerTx.Hash())
+		assert.Equal(t, transaction.ContractAddress, l1HandlerTx.ContractAddress)
+		assert.Equal(t, transaction.EntryPointSelector, l1HandlerTx.EntryPointSelector)
+		assert.Equal(t, transaction.Nonce, l1HandlerTx.Nonce)
+		assert.Equal(t, transaction.CallData, l1HandlerTx.CallData)
+		assert.Equal(t, transaction.Version, l1HandlerTx.Version)
+	})
+}
