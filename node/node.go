@@ -98,6 +98,7 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.H
 		{"starknet_getBlockWithTxHashes", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxHashes},
 		{"starknet_getBlockWithTxs", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxs},
 		{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
+		{"starknet_getTransactionReceipt", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionReceiptByHash},
 		{"starknet_getBlockTransactionCount", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockTransactionCount},
 	}, log)
 }
