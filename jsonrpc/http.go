@@ -10,6 +10,8 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
+
 type Http struct {
 	addr *net.TCPAddr
 
@@ -70,6 +72,7 @@ func (h *Http) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	resp, err := h.rpc.HandleReader(req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
