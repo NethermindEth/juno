@@ -10,3 +10,4 @@ config/
 
 # pyenv
 .python-version
+.gitpod.yml

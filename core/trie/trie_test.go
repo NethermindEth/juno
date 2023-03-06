@@ -684,3 +684,24 @@ func TestOldData(t *testing.T) {
 		return nil
 	})
 }
+
+func TestTrieHeight(t *testing.T) {
+	t.Run("put higher key than max height", func(t *testing.T) {
+		height := uint(3)
+		trie := NewTrie(newMemStorage(), height, nil)
+
+		keyNum, err := strconv.ParseUint("11111", 2, 64)
+		require.NoError(t, err)
+
+		key := new(felt.Felt).SetUint64(keyNum)
+		val := new(felt.Felt).SetUint64(1)
+
+		_, err = trie.Put(key, val)
+		require.NoError(t, err)
+
+		realVal, err := trie.Get(key)
+		require.NoError(t, err)
+
+		assert.Equal(t, val, realVal)
+	})
+}
