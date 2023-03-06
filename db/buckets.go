@@ -13,6 +13,7 @@ const (
 	ContractRootKey   // contract storage roots
 	ContractClassHash // maps contract addresses and class hashes
 	ContractStorage   // contract storages
+	Class             // maps class hashes to classes
 	ContractNonce     // contract nonce
 	ChainHeight       // Latest height of the blockchain
 	BlockHeaderNumbersByHash
@@ -20,6 +21,7 @@ const (
 	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index
 	TransactionsByBlockNumberAndIndex       // maps block number and index to transaction
 	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
+	StateUpdatesByBlockNumber
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

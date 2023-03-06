@@ -2,6 +2,7 @@ package felt
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -66,7 +67,7 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON forwards the call to underlying field element implementation
 func (z *Felt) MarshalJSON() ([]byte, error) {
-	return z.val.MarshalJSON()
+	return []byte("\"" + z.String() + "\""), nil
 }
 
 // SetBytes forwards the call to underlying field element implementation
@@ -111,7 +112,17 @@ func (z *Felt) SetRandom() (*Felt, error) {
 
 // String forwards the call to underlying field element implementation
 func (z *Felt) String() string {
-	return z.val.String()
+	return "0x" + z.val.Text(16)
+}
+
+// ShortString prints the felt to a string in a shortened format
+func (z *Felt) ShortString() string {
+	hex := z.val.Text(16)
+
+	if len(hex) <= 8 {
+		return fmt.Sprintf("0x%s", hex)
+	}
+	return fmt.Sprintf("0x%s...%s", hex[:4], hex[len(hex)-4:])
 }
 
 // Text forwards the call to underlying field element implementation

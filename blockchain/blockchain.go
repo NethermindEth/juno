@@ -39,6 +39,14 @@ func (e ErrIncompatibleBlock) Unwrap() error {
 	return e.Err
 }
 
+type Reader interface {
+	Height() (height uint64, err error)
+	Head() (head *core.Block, err error)
+	GetBlockByNumber(number uint64) (block *core.Block, err error)
+	GetBlockByHash(hash *felt.Felt) (block *core.Block, err error)
+	GetTransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
+}
+
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network  utils.Network
@@ -74,11 +82,10 @@ func (b *Blockchain) Height() (height uint64, err error) {
 }
 
 func (b *Blockchain) height(txn db.Transaction) (height uint64, err error) {
-	err = txn.Get(db.ChainHeight.Key(), func(val []byte) error {
+	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
 		return nil
 	})
-	return
 }
 
 func (b *Blockchain) Head() (head *core.Block, err error) {
@@ -110,6 +117,20 @@ func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err err
 	})
 }
 
+func (b *Blockchain) GetStateUpdateByNumber(number uint64) (update *core.StateUpdate, err error) {
+	return update, b.database.View(func(txn db.Transaction) error {
+		update, err = getStateUpdateByNumber(txn, number)
+		return err
+	})
+}
+
+func (b *Blockchain) GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error) {
+	return update, b.database.View(func(txn db.Transaction) error {
+		update, err = getStateUpdateByHash(txn, hash)
+		return err
+	})
+}
+
 // GetTransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) GetTransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error) {
 	return transaction, b.database.View(func(txn db.Transaction) error {
@@ -135,12 +156,12 @@ func (b *Blockchain) GetReceipt(hash *felt.Felt) (receipt *core.TransactionRecei
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) error {
+func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]*core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(stateUpdate); err != nil {
+		if err := core.NewState(txn).Update(stateUpdate, declaredClasses); err != nil {
 			return err
 		}
 		if err := storeBlockHeader(txn, &block.Header); err != nil {
@@ -151,6 +172,10 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate) err
 				block.Receipts[i]); err != nil {
 				return err
 			}
+		}
+
+		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+			return err
 		}
 
 		// Head of the blockchain is maintained as follows:
@@ -292,32 +317,51 @@ func getBlockByNumber(txn db.Transaction, number uint64) (block *core.Block, err
 
 // getBlockByHash retrieves a block from database by its hash
 func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err error) {
-	err = txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+	return block, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		block, err = getBlockByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
-	return
+}
+
+func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {
+	numBytes := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(numBytes, blockNumber)
+
+	if updateBytes, err := encoder.Marshal(update); err != nil {
+		return err
+	} else if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getStateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *core.StateUpdate, err error) {
+	numBytes := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(numBytes, blockNumber)
+
+	return update, txn.Get(db.StateUpdatesByBlockNumber.Key(numBytes), func(val []byte) error {
+		update = new(core.StateUpdate)
+		return encoder.Unmarshal(val, update)
+	})
+}
+
+func getStateUpdateByHash(txn db.Transaction, hash *felt.Felt) (update *core.StateUpdate, err error) {
+	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+		update, err = getStateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
+		return err
+	})
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) []error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) error {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return []error{ErrIncompatibleBlockAndStateUpdate{errors.New("block hashes do not match")}}
+		return ErrIncompatibleBlockAndStateUpdate{errors.New("block hashes do not match")}
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return []error{ErrIncompatibleBlockAndStateUpdate{
-			errors.New("block's GlobalStateRoot does not match state update's NewRoot"),
-		}}
+		return ErrIncompatibleBlockAndStateUpdate{errors.New("block's GlobalStateRoot does not match state update's NewRoot")}
 	}
-
-	if errs := core.VerifyBlockHash(block, b.network); errs != nil {
-		errS := make([]error, len(errs))
-		for i, err := range errs {
-			errS[i] = ErrIncompatibleBlock{err}
-		}
-		return errS
-	}
-	return nil
+	return core.VerifyBlockHash(block, b.network)
 }
 
 type txAndReceiptDBKey struct {
@@ -373,19 +417,17 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 
 // getTransactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
 func getTransactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (bnIndex *txAndReceiptDBKey, err error) {
-	err = txn.Get(db.TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal()), func(val []byte) error {
+	return bnIndex, txn.Get(db.TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal()), func(val []byte) error {
 		bnIndex = new(txAndReceiptDBKey)
 		return bnIndex.UnmarshalBinary(val)
 	})
-	return
 }
 
 // getTransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func getTransactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (transaction core.Transaction, err error) {
-	err = txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
+	return transaction, txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &transaction)
 	})
-	return
 }
 
 // getTransactionByHash gets the transaction for a given hash.
@@ -408,8 +450,7 @@ func getReceiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionRec
 
 // getReceiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.
 func getReceiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (r *core.TransactionReceipt, err error) {
-	err = txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
+	return r, txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &r)
 	})
-	return
 }

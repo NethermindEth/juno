@@ -1,10 +1,7 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
@@ -66,7 +63,7 @@ var (
 	cfgFile      string
 )
 
-func NewCmd(newNodeFn node.NewStarknetNodeFn, quit <-chan os.Signal) *cobra.Command {
+func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:   "juno [flags]",
 		Short: "Starknet client implementation in Go.",
@@ -110,23 +107,7 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn, quit <-chan os.Signal) *cobra.Comm
 			return err
 		}
 
-		nodeCtx, cancel := context.WithCancel(context.Background())
-
-		shutDownErrCh := make(chan error)
-		go func() {
-			<-quit
-			cancel()
-			if shutdownErr := nodeCtx.Err(); shutdownErr != nil && !errors.Is(shutdownErr, context.Canceled) {
-				shutDownErrCh <- shutdownErr
-			}
-			close(shutDownErrCh)
-		}()
-
-		if err = StarknetNode.Run(nodeCtx); err != nil {
-			return err
-		}
-
-		return <-shutDownErrCh
+		return StarknetNode.Run(cmd.Context())
 	}
 
 	return junoCmd

@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
@@ -57,40 +58,48 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 			if err != nil {
 				continue
 			}
+			declaredClasses := make(map[felt.Felt]*core.Class, len(stateUpdate.StateDiff.DeclaredClasses))
+			for _, classHash := range stateUpdate.StateDiff.DeclaredClasses {
+				class, err := s.StarknetData.Class(ctx, classHash)
+				if err != nil {
+					continue
+				}
+				declaredClasses[*classHash] = class
+			}
 
 			return func() {
-				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, errChan) })
+				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, declaredClasses, errChan) })
 			}
 		}
 	}
 }
 
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, errChan chan ErrSyncFailed) stream.Callback {
-	errs := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
+func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]*core.Class, errChan chan ErrSyncFailed) stream.Callback {
+	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
 	return func() {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if errs != nil {
-				for _, err := range errs {
-					if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
+			if err != nil {
+				if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
+					for ; err != nil; err = errors.Unwrap(err) {
 						s.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
-							block.Hash.Text(16), "error", err.Error())
-					} else {
-						s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.Text(16))
-						select {
-						case <-ctx.Done():
-						case errChan <- ErrSyncFailed{block.Number, err}:
-						}
-						return
+							block.Hash.ShortString(), "error", err.Error())
 					}
+				} else {
+					s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
+					select {
+					case <-ctx.Done():
+					case errChan <- ErrSyncFailed{block.Number, err}:
+					}
+					return
 				}
 			}
-			err := s.Blockchain.Store(block, stateUpdate)
+			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
 			if err != nil {
-				s.log.Warnw("Failed storing Block", "number", block.Number, "hash", block.Hash.Text(16),
-					"err", err.Error())
+				s.log.Warnw("Failed storing Block", "number", block.Number,
+					"hash", block.Hash.ShortString(), "err", err.Error())
 				select {
 				case <-ctx.Done():
 				case errChan <- ErrSyncFailed{block.Number, err}:
@@ -98,8 +107,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.Text(16),
-				"root", block.GlobalStateRoot.Text(16))
+			s.log.Infow("Stored Block", "number", block.Number, "hash",
+				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
 	}
 }

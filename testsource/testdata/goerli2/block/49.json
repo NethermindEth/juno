@@ -1,0 +1,223 @@
+{
+  "block_hash": "0x5d561b8a6b0d1f4b30dcea8391929b9c5a9a96c40881941b254aa82f67191b6",
+  "parent_block_hash": "0x48f451db584cd99ec83bac4729aee25d8a8953d01b58ca3badf54cdb0435949",
+  "block_number": 49,
+  "state_root": "005cdba2cd11a3aa662bac98ef26fd7b9d1d7696bb9b6725de8681c6e6fd8f42",
+  "status": "ACCEPTED_ON_L1",
+  "gas_price": "0xab7eecab5",
+  "transactions": [
+    {
+      "transaction_hash": "0x3c2cc953d2f17ee1e344ddd7ff301cce9ce858dcd237422ada004ce59bc4364",
+      "version": "0x1",
+      "max_fee": "0x2386f26fc10000",
+      "signature": [
+        "0x49b35a05f7d616cbcac8607216a0389919c9d44f0b2510dd90556245448a97d",
+        "0x74fe633f204a03ae85bc91cff9eb24a58c21f927e98976090409b719d665dbc"
+      ],
+      "nonce": "0x1f",
+      "contract_address": "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+      "calldata": [
+        "0x1",
+        "0x21b8c05314cdf55c4cc9cd55891dbdf0842c177aae564ff3efa79243440cf62",
+        "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f",
+        "0x0",
+        "0x4",
+        "0x4",
+        "0xc86425c6effca8d453e47d0734d03d7d40c4f77be2293531d9770b2dc824c",
+        "0x2",
+        "0xc1be14bf064fc5b4cc63120a03500200c637ba53e25a364b6b5a719fc20c81",
+        "0x728fc1af02daea81cc9fbebbfcfe2e820771398b63aad51a430e27c63e10173"
+      ],
+      "type": "INVOKE_FUNCTION"
+    },
+    {
+      "transaction_hash": "0x4f65d8a8d39de0038b175d1aee04230cfdec3e4ece99dc2f597ded701409312",
+      "version": "0x1",
+      "max_fee": "0x2386f26fc10000",
+      "signature": [
+        "0x116ff7f57965f8a6ee7975a0d572ca67db3899caa35f58c571ee223daaea493",
+        "0x4135dc5a73ed98dccc822ce8f61f8a2bded778d79259ca27ea0d05b6d527c2a"
+      ],
+      "nonce": "0x20",
+      "contract_address": "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+      "calldata": [
+        "0x1",
+        "0x21b8c05314cdf55c4cc9cd55891dbdf0842c177aae564ff3efa79243440cf62",
+        "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f",
+        "0x0",
+        "0x4",
+        "0x4",
+        "0xc86425c6effca8d453e47d0734d03d7d40c4f77be2293531d9770b2dc824c",
+        "0x2",
+        "0xc1be14bf064fc5b4cc63120a03500200c637ba53e25a364b6b5a719fc20c81",
+        "0x2c50a59c54d76a819fb37989b6e6360a5df0f69cd7ecd7bded4a7302a00069f"
+      ],
+      "type": "INVOKE_FUNCTION"
+    },
+    {
+      "transaction_hash": "0x1b8af51c3315d15044a79019bfe841807738b32e4a153e3d43037b4fad3b071",
+      "version": "0x1",
+      "max_fee": "0x2386f26fc10000",
+      "signature": [
+        "0x9f1dcffb00051b9a54466c51a8246dfd6d98d11ed6e167932c5a4784bb3e63",
+        "0x71fd98b6985bdaea2dc5b5cd70e266b89cd78e49cb2332ca1682d209fc579c6"
+      ],
+      "nonce": "0x21",
+      "contract_address": "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+      "calldata": [
+        "0x1",
+        "0x21b8c05314cdf55c4cc9cd55891dbdf0842c177aae564ff3efa79243440cf62",
+        "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f",
+        "0x0",
+        "0x4",
+        "0x4",
+        "0x15657f339e62c7cb8d6c1f8decb84802f3d02c9f22768b5702ea390b7e5d55a",
+        "0x2",
+        "0x516c4dc2e14ff8f82e1fbab78c26ac31f6e81073a0a930dd111c23b5fadf929",
+        "0x1bf0663204bc837446bdc4ea81ff8bc14a0183362e27713623eaf4a8c80b8bc"
+      ],
+      "type": "INVOKE_FUNCTION"
+    },
+    {
+      "transaction_hash": "0x3c72da44a0af1abc13e093ab53e4fc1fab79317e01b022e4bfb8ea2ae55456e",
+      "version": "0x1",
+      "max_fee": "0x2386f26fc10000",
+      "signature": [
+        "0x73d9b9486dede4226b36d5c9a864c1af0827174f6be2ca14a3920476adfc246",
+        "0x50859b42a9e05994fbbef1f1576e5cce38052f07bf69edc009782d4a0515c9e"
+      ],
+      "nonce": "0x22",
+      "contract_address": "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+      "calldata": [
+        "0x1",
+        "0x21b8c05314cdf55c4cc9cd55891dbdf0842c177aae564ff3efa79243440cf62",
+        "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f",
+        "0x0",
+        "0x4",
+        "0x4",
+        "0x15657f339e62c7cb8d6c1f8decb84802f3d02c9f22768b5702ea390b7e5d55a",
+        "0x2",
+        "0x516c4dc2e14ff8f82e1fbab78c26ac31f6e81073a0a930dd111c23b5fadf929",
+        "0x1713e67170971c17a118a453b85ae1191f1f3d2fd1261f393c0988a613bcaff"
+      ],
+      "type": "INVOKE_FUNCTION"
+    }
+  ],
+  "timestamp": 1666892470,
+  "sequencer_address": "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+  "transaction_receipts": [
+    {
+      "transaction_index": 0,
+      "transaction_hash": "0x3c2cc953d2f17ee1e344ddd7ff301cce9ce858dcd237422ada004ce59bc4364",
+      "l2_to_l1_messages": [],
+      "events": [
+        {
+          "from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+          "keys": [
+            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+          ],
+          "data": [
+            "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+            "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+            "0xd593011d1891",
+            "0x0"
+          ]
+        }
+      ],
+      "execution_resources": {
+        "n_steps": 307,
+        "builtin_instance_counter": {
+          "pedersen_builtin": 2,
+          "range_check_builtin": 9
+        },
+        "n_memory_holes": 25
+      },
+      "actual_fee": "0xd593011d1891"
+    },
+    {
+      "transaction_index": 1,
+      "transaction_hash": "0x4f65d8a8d39de0038b175d1aee04230cfdec3e4ece99dc2f597ded701409312",
+      "l2_to_l1_messages": [],
+      "events": [
+        {
+          "from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+          "keys": [
+            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+          ],
+          "data": [
+            "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+            "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+            "0xd593011d1891",
+            "0x0"
+          ]
+        }
+      ],
+      "execution_resources": {
+        "n_steps": 307,
+        "builtin_instance_counter": {
+          "pedersen_builtin": 2,
+          "range_check_builtin": 9
+        },
+        "n_memory_holes": 25
+      },
+      "actual_fee": "0xd593011d1891"
+    },
+    {
+      "transaction_index": 2,
+      "transaction_hash": "0x1b8af51c3315d15044a79019bfe841807738b32e4a153e3d43037b4fad3b071",
+      "l2_to_l1_messages": [],
+      "events": [
+        {
+          "from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+          "keys": [
+            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+          ],
+          "data": [
+            "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+            "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+            "0xd59db90be346",
+            "0x0"
+          ]
+        }
+      ],
+      "execution_resources": {
+        "n_steps": 311,
+        "builtin_instance_counter": {
+          "pedersen_builtin": 2,
+          "range_check_builtin": 9
+        },
+        "n_memory_holes": 23
+      },
+      "actual_fee": "0xd59db90be346"
+    },
+    {
+      "transaction_index": 3,
+      "transaction_hash": "0x3c72da44a0af1abc13e093ab53e4fc1fab79317e01b022e4bfb8ea2ae55456e",
+      "l2_to_l1_messages": [],
+      "events": [
+        {
+          "from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+          "keys": [
+            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+          ],
+          "data": [
+            "0x42952c4068b0a63cdedb19c01cff1645835b11c93ec7eb1fd3150dde3e94fce",
+            "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+            "0xd59db90be346",
+            "0x0"
+          ]
+        }
+      ],
+      "execution_resources": {
+        "n_steps": 311,
+        "builtin_instance_counter": {
+          "pedersen_builtin": 2,
+          "range_check_builtin": 9
+        },
+        "n_memory_holes": 23
+      },
+      "actual_fee": "0xd59db90be346"
+    }
+  ],
+  "starknet_version": "0.10.1"
+}

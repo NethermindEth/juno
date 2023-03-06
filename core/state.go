@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -118,7 +119,7 @@ func (s *State) putStateStorage(state *trie.Trie) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(update *StateUpdate) error {
+func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]*Class) error {
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -128,6 +129,18 @@ func (s *State) Update(update *StateUpdate) error {
 			Want:  update.OldRoot,
 			Got:   currentRoot,
 			IsOld: true,
+		}
+	}
+
+	// register declared classes
+	for classHash, class := range declaredClasses {
+		classEncoded, err := encoder.Marshal(class)
+		if err != nil {
+			return err
+		}
+		classHashBytes := db.Class.Key(classHash.Marshal())
+		if err := s.txn.Set(classHashBytes, classEncoded); err != nil {
+			return err
 		}
 	}
 

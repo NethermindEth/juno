@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 
 		testDB := pebble.NewMemTest()
 		chain := blockchain.New(testDB, utils.MAINNET)
-		assert.NoError(t, chain.Store(block0, stateUpdate0))
+		assert.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
 		chain = blockchain.New(testDB, utils.MAINNET)
 		b, err := chain.Head()
@@ -62,7 +62,7 @@ func TestHeight(t *testing.T) {
 
 		testDB := pebble.NewMemTest()
 		chain := blockchain.New(testDB, utils.MAINNET)
-		assert.NoError(t, chain.Store(block0, stateUpdate0))
+		assert.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
 		chain = blockchain.New(testDB, utils.MAINNET)
 		height, err := chain.Height()
@@ -82,7 +82,7 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 		update, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
 
-		require.NoError(t, chain.Store(block, update))
+		require.NoError(t, chain.Store(block, update, nil))
 
 		storedByNumber, err := chain.GetBlockByNumber(block.Number)
 		require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestVerifyBlock(t *testing.T) {
 	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
+	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
@@ -170,7 +170,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0))
+	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
 		mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
@@ -180,9 +180,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		expectedErr := blockchain.ErrIncompatibleBlockAndStateUpdate{
 			Err: errors.New("block hashes do not match"),
 		}
-		errs := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate)
-		assert.Equal(t, 1, len(errs))
-		assert.EqualError(t, errs[0], expectedErr.Error())
+		assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr.Error())
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
@@ -194,9 +192,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 			expectedErr := blockchain.ErrIncompatibleBlockAndStateUpdate{
 				Err: errors.New("block's GlobalStateRoot does not match state update's NewRoot"),
 			}
-			errs := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate)
-			assert.Equal(t, 1, len(errs))
-			assert.EqualError(t, errs[0], expectedErr.Error())
+			assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate), expectedErr.Error())
 		})
 }
 
@@ -212,7 +208,7 @@ func TestStore(t *testing.T) {
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
-		require.NoError(t, chain.Store(block0, stateUpdate0))
+		require.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
 		headBlock, err := chain.Head()
 		assert.NoError(t, err)
@@ -225,6 +221,10 @@ func TestStore(t *testing.T) {
 		got0Block, err := chain.GetBlockByNumber(0)
 		assert.NoError(t, err)
 		assert.Equal(t, got0Block, block0)
+
+		got0Update, err := chain.GetStateUpdateByHash(block0.Hash)
+		require.NoError(t, err)
+		assert.Equal(t, got0Update, stateUpdate0)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
@@ -234,8 +234,8 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
-		require.NoError(t, chain.Store(block0, stateUpdate0))
-		require.NoError(t, chain.Store(block1, stateUpdate1))
+		require.NoError(t, chain.Store(block0, stateUpdate0, nil))
+		require.NoError(t, chain.Store(block1, stateUpdate1, nil))
 
 		headBlock, err := chain.Head()
 		assert.NoError(t, err)
@@ -248,6 +248,10 @@ func TestStore(t *testing.T) {
 		got1Block, err := chain.GetBlockByNumber(1)
 		assert.NoError(t, err)
 		assert.Equal(t, got1Block, block1)
+
+		got1Update, err := chain.GetStateUpdateByNumber(1)
+		require.NoError(t, err)
+		assert.Equal(t, got1Update, stateUpdate1)
 	})
 }
 
@@ -264,7 +268,7 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 		su, err := gw.StateUpdate(context.Background(), i)
 		require.NoError(t, err)
 
-		require.NoError(t, chain.Store(b, su))
+		require.NoError(t, chain.Store(b, su, nil))
 	}
 
 	t.Run("GetTransactionByBlockNumberAndIndex returns error if transaction does not exist", func(t *testing.T) {

@@ -77,6 +77,12 @@ func TestBlockByNumber(t *testing.T) {
 	// })
 }
 
+func hexToFelt(t *testing.T, hex string) *felt.Felt {
+	f, err := new(felt.Felt).SetString(hex)
+	require.NoError(t, err)
+	return f
+}
+
 // func TestAdaptStateUpdate(t *testing.T) {
 // 	jsonData := []byte(`{
 //   "block_hash": "0x3",
@@ -135,12 +141,12 @@ func TestBlockByNumber(t *testing.T) {
 // 		assert.Equal(t, true, gatewayStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
 // 		assert.Equal(t, true, gatewayStateUpdate.BlockHash.Equal(coreStateUpdate.BlockHash))
 
-// 		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
-// 		for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
-// 			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
-// 			core := coreStateUpdate.StateDiff.DeclaredContracts[idx]
-// 			assert.Equal(t, true, gw.Equal(core))
-// 		}
+		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
+		for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
+			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
+			core := coreStateUpdate.StateDiff.DeclaredClasses[idx]
+			assert.Equal(t, true, gw.Equal(core))
+		}
 
 // 		for keyStr, gw := range gatewayStateUpdate.StateDiff.Nonces {
 // 			key, _ := new(felt.Felt).SetString(keyStr)

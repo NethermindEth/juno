@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -44,7 +46,9 @@ type Node struct {
 	db           db.DB
 	blockchain   *blockchain.Blockchain
 	synchronizer *sync.Synchronizer
-	log          utils.Logger
+	http         *jsonrpc.Http
+
+	log utils.Logger
 }
 
 func New(cfg *Config) (StarknetNode, error) {
@@ -82,7 +86,19 @@ func New(cfg *Config) (StarknetNode, error) {
 		db:           stateDb,
 		blockchain:   chain,
 		synchronizer: synchronizer,
+		http:         makeHttp(cfg.RpcPort, rpc.New(chain, cfg.Network.ChainId()), log),
 	}, nil
+}
+
+func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.Http {
+	return jsonrpc.NewHttp(port, []jsonrpc.Method{
+		{"starknet_chainId", nil, rpcHandler.ChainId},
+		{"starknet_blockNumber", nil, rpcHandler.BlockNumber},
+		{"starknet_blockHashAndNumber", nil, rpcHandler.BlockNumberAndHash},
+		{"starknet_getBlockWithTxHashes", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxHashes},
+		{"starknet_getBlockWithTxs", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxs},
+		{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
+	}, log)
 }
 
 func (n *Node) Run(ctx context.Context) (err error) {
@@ -97,6 +113,7 @@ func (n *Node) Run(ctx context.Context) (err error) {
 		<-ctx.Done()
 		n.log.Infow("Shutting down Juno...")
 	}()
+	n.http.Run(ctx)
 	return n.synchronizer.Run(ctx)
 }
 
