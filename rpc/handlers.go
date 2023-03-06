@@ -215,3 +215,12 @@ func (h *Handler) GetTransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.
 	}
 	return adaptTransaction(txn), nil
 }
+
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
+func (h *Handler) GetBlockTransactionCount(id *BlockId) (int, *jsonrpc.Error) {
+	block, err := h.getBlockById(id)
+	if err != nil {
+		return 0, ErrBlockNotFound
+	}
+	return len(block.Transactions), nil
+}

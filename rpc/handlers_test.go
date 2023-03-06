@@ -111,6 +111,16 @@ func TestHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("starknet_getBlockTransactionCount", func(t *testing.T) {
+		blockTxnCount, err := handler.GetBlockTransactionCount(&rpc.BlockId{Number: 2})
+		assert.Nil(t, err)
+
+		gwBlock, gwErr := gw.BlockByNumber(ctx, 2)
+		assert.NoError(t, gwErr)
+
+		assert.Equal(t, len(gwBlock.Transactions), blockTxnCount)
+	})
+
 	canceler()
 	<-syncNodeChan
 }
