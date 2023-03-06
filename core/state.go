@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -132,15 +133,21 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]*Class
 		}
 	}
 
-	// register declared classes
+	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for classHash, class := range declaredClasses {
-		classEncoded, err := encoder.Marshal(class)
-		if err != nil {
-			return err
-		}
-		classHashBytes := db.Class.Key(classHash.Marshal())
-		if err := s.txn.Set(classHashBytes, classEncoded); err != nil {
-			return err
+		classKey := db.Class.Key(classHash.Marshal())
+
+		if err := s.txn.Get(classKey, func(val []byte) error {
+			return nil
+		}); errors.Is(err, db.ErrKeyNotFound) {
+			classEncoded, err := encoder.Marshal(class)
+			if err != nil {
+				return err
+			}
+
+			if err := s.txn.Set(classKey, classEncoded); err != nil {
+				return err
+			}
 		}
 	}
 

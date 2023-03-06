@@ -314,7 +314,7 @@ type (
 )
 
 type ClassDefinition struct {
-	Abi         interface{} `json:"abi"`
+	Abi         any `json:"abi"`
 	EntryPoints struct {
 		Constructor []EntryPoint `json:"CONSTRUCTOR"`
 		External    []EntryPoint `json:"EXTERNAL"`
