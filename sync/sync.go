@@ -31,7 +31,7 @@ type Synchronizer struct {
 	log utils.SimpleLogger
 }
 
-func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger) *Synchronizer {
+func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger) *Synchronizer {
 	return &Synchronizer{
 		Blockchain:   bc,
 		StarknetData: starkNetData,
@@ -41,7 +41,8 @@ func NewSynchronizer(bc *blockchain.Blockchain, starkNetData starknetdata.Starkn
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	return s.SyncBlocks(ctx)
+	s.syncBlocks(ctx)
+	return nil
 }
 
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream, errChan chan ErrSyncFailed) stream.Callback {
@@ -132,7 +133,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
-func (s *Synchronizer) SyncBlocks(syncCtx context.Context) error {
+func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	errChan := make(chan ErrSyncFailed, 1)
 	fetchers := stream.New().WithMaxGoroutines(runtime.NumCPU())
 	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
@@ -150,11 +151,7 @@ func (s *Synchronizer) SyncBlocks(syncCtx context.Context) error {
 		case <-syncCtx.Done():
 			fetchers.Wait()
 			verifiers.Wait()
-			if errors.Is(syncCtx.Err(), context.Canceled) {
-				return nil
-			} else {
-				return syncCtx.Err()
-			}
+			return
 		default:
 			curHeight := nextHeight
 			curStreamCtx := streamCtx

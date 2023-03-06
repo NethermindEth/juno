@@ -24,11 +24,14 @@ func newSpyJuno(junoCfg *node.Config) (node.StarknetNode, error) {
 	return &spyJuno{cfg: junoCfg}, nil
 }
 
-func (s *spyJuno) Run(ctx context.Context) error {
+func (s *spyJuno) Run(ctx context.Context) {
 	s.Lock()
 	s.calls = append(s.calls, "run")
 	s.Unlock()
-	return nil
+}
+
+func (s *spyJuno) Config() node.Config {
+	return *s.cfg
 }
 
 func TestNewCmd(t *testing.T) {

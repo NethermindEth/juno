@@ -110,7 +110,8 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 			return err
 		}
 
-		return StarknetNode.Run(cmd.Context())
+		StarknetNode.Run(cmd.Context())
+		return nil
 	}
 
 	return junoCmd
