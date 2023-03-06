@@ -7,8 +7,7 @@ import (
 
 // Class unambiguously defines a [Contract]'s semantics.
 type Class struct {
-	// The version of the class, currently always 0.
-	APIVersion *felt.Felt
+	Abi any
 	// External functions defined in the class.
 	Externals []EntryPoint
 	// Functions that receive L1 messages. See
@@ -33,7 +32,7 @@ type EntryPoint struct {
 
 func (c *Class) Hash() *felt.Felt {
 	return crypto.PedersenArray(
-		c.APIVersion,
+		&felt.Zero,
 		crypto.PedersenArray(flatten(c.Externals)...),
 		crypto.PedersenArray(flatten(c.L1Handlers)...),
 		crypto.PedersenArray(flatten(c.Constructors)...),

@@ -259,7 +259,8 @@ func (g *Gateway) Class(ctx context.Context, classHash *felt.Felt) (*core.Class,
 
 func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 	class := new(core.Class)
-	class.APIVersion = new(felt.Felt).SetUint64(0)
+
+	class.Abi = response.Abi
 
 	class.Externals = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.External {

@@ -178,8 +178,6 @@ func TestAdaptClass(t *testing.T) {
 	class, err := adaptClass(response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, new(felt.Felt).SetUint64(0), class.APIVersion)
-
 	for i, v := range response.EntryPoints.External {
 		assert.Equal(t, v.Selector, class.Externals[i].Selector)
 		assert.Equal(t, v.Offset, class.Externals[i].Offset)
