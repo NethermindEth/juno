@@ -1,7 +1,6 @@
 package node_test
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -13,9 +12,6 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
 	t.Run("network", func(t *testing.T) {
 		networks := []utils.Network{
 			utils.GOERLI, utils.MAINNET, utils.GOERLI2, utils.INTEGRATION, utils.Network(2),
@@ -28,7 +24,8 @@ func TestNew(t *testing.T) {
 				snNode, err := node.New(cfg)
 				if utils.IsValidNetwork(cfg.Network) {
 					require.NoError(t, err)
-					require.NoError(t, snNode.Run(ctx))
+
+					require.Equal(t, cfg.Network, snNode.Config().Network)
 				} else {
 					assert.Error(t, err, utils.ErrUnknownNetwork)
 				}
@@ -51,11 +48,8 @@ func TestNew(t *testing.T) {
 				}
 				snNode, err := node.New(cfg)
 				require.NoError(t, err)
-				require.NoError(t, snNode.Run(ctx))
 
-				junoN, ok := snNode.(*node.Node)
-				require.True(t, ok)
-				assert.Equal(t, expectedCfg, junoN.Config())
+				assert.Equal(t, expectedCfg, snNode.Config())
 			})
 		}
 	})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -11,13 +12,16 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/sourcegraph/conc"
 )
 
 type StarknetNode interface {
-	Run(ctx context.Context) error
+	Run(ctx context.Context)
+	Config() Config
 }
 
 type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
@@ -33,15 +37,16 @@ type Config struct {
 }
 
 type Node struct {
-	cfg          *Config
-	db           db.DB
-	blockchain   *blockchain.Blockchain
-	synchronizer *sync.Synchronizer
-	http         *jsonrpc.Http
+	cfg        *Config
+	db         db.DB
+	blockchain *blockchain.Blockchain
 
-	log utils.Logger
+	services []service.Service
+	log      utils.Logger
 }
 
+// New sets the config and logger to the StarknetNode.
+// Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config) (StarknetNode, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
@@ -60,25 +65,9 @@ func New(cfg *Config) (StarknetNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	dbLog, err := utils.NewZapLogger(utils.ERROR)
-	if err != nil {
-		return nil, err
-	}
-	stateDb, err := pebble.New(cfg.DatabasePath, dbLog)
-	if err != nil {
-		return nil, err
-	}
-
-	chain := blockchain.New(stateDb, cfg.Network)
-	client := feeder.NewClient(cfg.Network.URL())
-	synchronizer := sync.NewSynchronizer(chain, adaptfeeder.New(client), log)
 	return &Node{
-		cfg:          cfg,
-		log:          log,
-		db:           stateDb,
-		blockchain:   chain,
-		synchronizer: synchronizer,
-		http:         makeHttp(cfg.RpcPort, rpc.New(chain, cfg.Network), log),
+		cfg: cfg,
+		log: log,
 	}, nil
 }
 
@@ -137,20 +126,53 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 	}, log)
 }
 
-func (n *Node) Run(ctx context.Context) (err error) {
+// Run starts Juno node by opening the DB, initialising services.
+// All the services blocking and any errors returned by service run function is logged.
+// Run will wait for all services to return before exiting.
+func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
+
+	dbLog, err := utils.NewZapLogger(utils.ERROR)
+	if err != nil {
+		n.log.Errorw("Error creating DB logger", "err", err)
+		return
+	}
+
+	n.db, err = pebble.New(n.cfg.DatabasePath, dbLog)
+	if err != nil {
+		n.log.Errorw("Error opening DB", "err", err)
+		return
+
+	}
+
 	defer func() {
-		// Prioritise closing error over other errors
 		if closeErr := n.db.Close(); closeErr != nil {
-			err = closeErr
+			n.log.Errorw("Error while closing the DB", "err", closeErr)
 		}
 	}()
-	go func() {
-		<-ctx.Done()
-		n.log.Infow("Shutting down Juno...")
-	}()
-	n.http.Run(ctx)
-	return n.synchronizer.Run(ctx)
+
+	n.blockchain = blockchain.New(n.db, n.cfg.Network)
+	client := feeder.NewClient(n.cfg.Network.URL())
+	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
+	http := makeHttp(n.cfg.RpcPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
+	n.services = []service.Service{synchronizer, http}
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	wg := conc.NewWaitGroup()
+	for _, s := range n.services {
+		s := s
+		wg.Go(func() {
+			if err = s.Run(ctx); err != nil {
+				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
+				cancel()
+			}
+		})
+	}
+
+	<-ctx.Done()
+	n.log.Infow("Shutting down Juno...")
+	wg.Wait()
 }
 
 func (n *Node) Config() Config {

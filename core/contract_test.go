@@ -46,7 +46,7 @@ func TestClassHash(t *testing.T) {
 		t.Run("ClassHash", func(t *testing.T) {
 			hash := hexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			got := class.Hash()
 			if !hash.Equal(got) {
 				t.Errorf("wrong hash: got %s, want %s", got.Text(16), hash.Text(16))
