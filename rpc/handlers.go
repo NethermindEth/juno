@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var (
@@ -18,18 +19,18 @@ var (
 type Handler struct {
 	bcReader blockchain.Reader
 
-	chainId *felt.Felt
+	network utils.Network
 }
 
-func New(bcReader blockchain.Reader, chainId *felt.Felt) *Handler {
+func New(bcReader blockchain.Reader, n utils.Network) *Handler {
 	return &Handler{
 		bcReader: bcReader,
-		chainId:  chainId,
+		network:  n,
 	}
 }
 
 func (h *Handler) ChainId() (*felt.Felt, *jsonrpc.Error) {
-	return h.chainId, nil
+	return h.network.ChainId(), nil
 }
 
 func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
