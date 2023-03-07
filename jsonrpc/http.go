@@ -17,10 +17,10 @@ type Http struct {
 
 	rpc  *Server
 	http *http.Server
-	log  utils.Logger
+	log  utils.SimpleLogger
 }
 
-func NewHttp(port uint16, methods []Method, log utils.Logger) *Http {
+func NewHttp(port uint16, methods []Method, log utils.SimpleLogger) *Http {
 	h := &Http{
 		rpc: NewServer(),
 		addr: &net.TCPAddr{

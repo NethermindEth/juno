@@ -90,7 +90,7 @@ func New(cfg *Config) (StarknetNode, error) {
 	}, nil
 }
 
-func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.Logger) *jsonrpc.Http {
+func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.Http {
 	return jsonrpc.NewHttp(port, []jsonrpc.Method{
 		{"starknet_chainId", nil, rpcHandler.ChainId},
 		{"starknet_blockNumber", nil, rpcHandler.BlockNumber},
