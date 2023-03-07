@@ -22,6 +22,7 @@ func TestSyncBlocks(t *testing.T) {
 			require.NoError(t, err)
 
 			height := int(headBlock.Number)
+			assert.Equal(t, 2, height)
 			for height >= 0 {
 				b, err := gw.BlockByNumber(context.Background(), uint64(height))
 				if err != nil {
