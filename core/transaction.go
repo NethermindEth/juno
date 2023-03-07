@@ -401,7 +401,7 @@ func transactionCommitment(transactions []Transaction) (commitment *felt.Felt, e
 	})
 }
 
-// eventCommitment computes the event commitment and event count for a block.
+// eventCommitment computes the event commitment for a block.
 func eventCommitment(receipts []*TransactionReceipt) (commitment *felt.Felt, err error) {
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		count := uint64(0)

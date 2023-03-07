@@ -42,10 +42,17 @@ func (e ErrIncompatibleBlock) Unwrap() error {
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
 	Height() (height uint64, err error)
+
 	Head() (head *core.Block, err error)
 	GetBlockByNumber(number uint64) (block *core.Block, err error)
 	GetBlockByHash(hash *felt.Felt) (block *core.Block, err error)
+
+	HeadsHeader() (header *core.Header, err error)
+	GetBlockHeaderByNumber(number uint64) (header *core.Header, err error)
+	GetBlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
+
 	GetTransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
+	GetTransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
 	GetReceipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	GetStateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
@@ -99,6 +106,23 @@ func (b *Blockchain) Head() (head *core.Block, err error) {
 	})
 }
 
+func (b *Blockchain) HeadsHeader() (*core.Header, error) {
+	var header *core.Header
+	return header, b.database.View(func(txn db.Transaction) error {
+		height, err := b.height(txn)
+		if err != nil {
+			return err
+		}
+
+		header, err = getBlockHeaderByNumber(txn, height)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 	if height, err := b.height(txn); err != nil {
 		return nil, err
@@ -114,9 +138,23 @@ func (b *Blockchain) GetBlockByNumber(number uint64) (block *core.Block, err err
 	})
 }
 
+func (b *Blockchain) GetBlockHeaderByNumber(number uint64) (header *core.Header, err error) {
+	return header, b.database.View(func(txn db.Transaction) error {
+		header, err = getBlockHeaderByNumber(txn, number)
+		return err
+	})
+}
+
 func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
 		block, err = getBlockByHash(txn, hash)
+		return err
+	})
+}
+
+func (b *Blockchain) GetBlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error) {
+	return header, b.database.View(func(txn db.Transaction) error {
+		header, err = getBlockHeaderByHash(txn, hash)
 		return err
 	})
 }
@@ -233,22 +271,22 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 // The db storage for blocks is maintained by two buckets as follows:
 //
 // [db.BlockHeaderNumbersByHash](BlockHash) -> (BlockNumber)
-// [db.BlockHeadersByNumber](BlockNumber) -> (Block)
+// [db.BlockHeadersByNumber](BlockNumber) -> (BlockHeader)
 //
 // "[]" is the db prefix to represent a bucket
 // "()" are additional keys appended to the prefix or multiple values marshalled together
 // "->" represents a key value pair.
-func storeBlockHeader(txn db.Transaction, block *core.Header) error {
+func storeBlockHeader(txn db.Transaction, header *core.Header) error {
 	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, block.Number)
+	binary.BigEndian.PutUint64(numBytes, header.Number)
 
-	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(block.Hash.Marshal()), numBytes); err != nil {
+	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()), numBytes); err != nil {
 		return err
 	}
 
-	if blockBytes, err := encoder.Marshal(block); err != nil {
+	if headerBytes, err := encoder.Marshal(header); err != nil {
 		return err
-	} else if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), blockBytes); err != nil {
+	} else if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes); err != nil {
 		return err
 	}
 
@@ -269,6 +307,13 @@ func getBlockHeaderByNumber(txn db.Transaction, number uint64) (header *core.Hea
 	return
 }
 
+func getBlockHeaderByHash(txn db.Transaction, hash *felt.Felt) (header *core.Header, err error) {
+	return header, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+		header, err = getBlockHeaderByNumber(txn, binary.BigEndian.Uint64(val))
+		return err
+	})
+}
+
 // getBlockByNumber retrieves a block from database by its number
 func getBlockByNumber(txn db.Transaction, number uint64) (block *core.Block, err error) {
 	header, err := getBlockHeaderByNumber(txn, number)
@@ -283,12 +328,7 @@ func getBlockByNumber(txn db.Transaction, number uint64) (block *core.Block, err
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		// Prioritise closing error over other errors
-		if closeErr := iterator.Close(); closeErr != nil {
-			err = closeErr
-		}
-	}()
+	defer db.CloseAndWrapOnError(iterator.Close, &err)
 
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, number)

@@ -65,6 +65,36 @@ func (mr *MockReaderMockRecorder) GetBlockByNumber(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByNumber", reflect.TypeOf((*MockReader)(nil).GetBlockByNumber), arg0)
 }
 
+// GetBlockHeaderByHash mocks base method.
+func (m *MockReader) GetBlockHeaderByHash(arg0 *felt.Felt) (*core.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockHeaderByHash", arg0)
+	ret0, _ := ret[0].(*core.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockHeaderByHash indicates an expected call of GetBlockHeaderByHash.
+func (mr *MockReaderMockRecorder) GetBlockHeaderByHash(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHeaderByHash", reflect.TypeOf((*MockReader)(nil).GetBlockHeaderByHash), arg0)
+}
+
+// GetBlockHeaderByNumber mocks base method.
+func (m *MockReader) GetBlockHeaderByNumber(arg0 uint64) (*core.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockHeaderByNumber", arg0)
+	ret0, _ := ret[0].(*core.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockHeaderByNumber indicates an expected call of GetBlockHeaderByNumber.
+func (mr *MockReaderMockRecorder) GetBlockHeaderByNumber(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).GetBlockHeaderByNumber), arg0)
+}
+
 // GetReceipt mocks base method.
 func (m *MockReader) GetReceipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()
@@ -112,6 +142,21 @@ func (mr *MockReaderMockRecorder) GetStateUpdateByNumber(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateUpdateByNumber", reflect.TypeOf((*MockReader)(nil).GetStateUpdateByNumber), arg0)
 }
 
+// GetTransactionByBlockNumberAndIndex mocks base method.
+func (m *MockReader) GetTransactionByBlockNumberAndIndex(arg0, arg1 uint64) (core.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransactionByBlockNumberAndIndex", arg0, arg1)
+	ret0, _ := ret[0].(core.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionByBlockNumberAndIndex indicates an expected call of GetTransactionByBlockNumberAndIndex.
+func (mr *MockReaderMockRecorder) GetTransactionByBlockNumberAndIndex(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).GetTransactionByBlockNumberAndIndex), arg0, arg1)
+}
+
 // GetTransactionByHash mocks base method.
 func (m *MockReader) GetTransactionByHash(arg0 *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()
@@ -140,6 +185,21 @@ func (m *MockReader) Head() (*core.Block, error) {
 func (mr *MockReaderMockRecorder) Head() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Head", reflect.TypeOf((*MockReader)(nil).Head))
+}
+
+// HeadsHeader mocks base method.
+func (m *MockReader) HeadsHeader() (*core.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HeadsHeader")
+	ret0, _ := ret[0].(*core.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HeadsHeader indicates an expected call of HeadsHeader.
+func (mr *MockReaderMockRecorder) HeadsHeader() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadsHeader", reflect.TypeOf((*MockReader)(nil).HeadsHeader))
 }
 
 // Height mocks base method.
