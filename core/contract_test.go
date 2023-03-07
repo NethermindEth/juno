@@ -23,7 +23,7 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 func TestClassHash(t *testing.T) {
 	client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
 	defer closeFn()
-	gw := gateway.NewGateway(client)
+	gw := gateway.New(client)
 
 	tests := []struct {
 		classHash string

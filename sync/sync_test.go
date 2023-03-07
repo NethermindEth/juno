@@ -17,7 +17,7 @@ import (
 func TestSyncBlocks(t *testing.T) {
 	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.NewGateway(client)
+	gw := gateway.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {
 		return assert.NoError(t, func() error {
 			headBlock, err := bc.Head()
