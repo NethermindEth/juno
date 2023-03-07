@@ -83,6 +83,14 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 	}
 }
 
+// tryError tries to send the error to the errChan if ctx is not canceled
+func tryError(ctx context.Context, errChan chan ErrSyncFailed, err ErrSyncFailed) {
+	select {
+	case <-ctx.Done():
+	case errChan <- err:
+	}
+}
+
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]*core.Class, errChan chan ErrSyncFailed) stream.Callback {
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
 	return func() {
@@ -98,10 +106,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					}
 				} else {
 					s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
-					select {
-					case <-ctx.Done():
-					case errChan <- ErrSyncFailed{block.Number, err}:
-					}
+					tryError(ctx, errChan, ErrSyncFailed{block.Number, err})
 					return
 				}
 			}
@@ -109,10 +114,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number,
 					"hash", block.Hash.ShortString(), "err", err.Error())
-				select {
-				case <-ctx.Done():
-				case errChan <- ErrSyncFailed{block.Number, err}:
-				}
+				tryError(ctx, errChan, ErrSyncFailed{block.Number, err})
 				return
 			}
 
@@ -122,24 +124,29 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	}
 }
 
-func (s *Synchronizer) SyncBlocks(syncCtx context.Context) error {
-	errChan := make(chan ErrSyncFailed)
-	fetchers := stream.New().WithMaxGoroutines(runtime.NumCPU())
-	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
-
-	streamCtx, streamCancel := context.WithCancel(syncCtx)
+func (s *Synchronizer) nextHeight() uint64 {
 	nextHeight := uint64(0)
 	if h, err := s.Blockchain.Height(); err == nil {
 		nextHeight = h + 1
 	}
+	return nextHeight
+}
+
+func (s *Synchronizer) SyncBlocks(syncCtx context.Context) error {
+	errChan := make(chan ErrSyncFailed, 1)
+	fetchers := stream.New().WithMaxGoroutines(runtime.NumCPU())
+	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
+
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+	nextHeight := s.nextHeight()
 
 	for {
 		select {
-		case err := <-errChan:
+		case <-errChan:
 			streamCancel() // cancel all running tasks
 			streamCtx, streamCancel = context.WithCancel(syncCtx)
-			nextHeight = err.Height // keep syncing from failed height
-			s.log.Warnw("Rolling back sync process to failed height", "height", err.Height)
+			nextHeight = s.nextHeight()
+			s.log.Warnw("Rolling back sync process", "height", nextHeight)
 		case <-syncCtx.Done():
 			fetchers.Wait()
 			verifiers.Wait()
