@@ -16,9 +16,9 @@ import (
 // 	StarknetData interface instead of calling adapt functions.
 
 func TestAdaptBlock(t *testing.T) {
-	block11817Json, err := os.ReadFile("../../testsource/testdata/mainnet/block/11817.json")
+	block11817Json, err := os.ReadFile("../../clients/testdata/mainnet/block/11817.json")
 	assert.NoError(t, err)
-	block147Json, err := os.ReadFile("../../testsource/testdata/mainnet/block/147.json")
+	block147Json, err := os.ReadFile("../../clients/testdata/mainnet/block/147.json")
 	assert.NoError(t, err)
 
 	t.Run("mainnet block number 11817", func(t *testing.T) {
@@ -184,7 +184,7 @@ func TestAdaptStateUpdate(t *testing.T) {
 }
 
 func TestAdaptClass(t *testing.T) {
-	classJson, err := os.ReadFile("../../testsource/testdata/goerli/class/0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json")
+	classJson, err := os.ReadFile("../../clients/testdata/goerli/class/0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0.json")
 	assert.NoError(t, err)
 
 	response := new(clients.ClassDefinition)
@@ -231,7 +231,7 @@ func TestAdaptClass(t *testing.T) {
 
 func TestAdaptTransaction(t *testing.T) {
 	t.Run("invoke transaction", func(t *testing.T) {
-		invokeJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
+		invokeJson, err := os.ReadFile("../../clients/testdata/goerli/transaction/0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9.json")
 		assert.NoError(t, err)
 
 		response := new(clients.TransactionStatus)
@@ -254,7 +254,7 @@ func TestAdaptTransaction(t *testing.T) {
 		assert.Equal(t, transaction.Version, invokeTx.Version)
 	})
 	t.Run("deploy transaction", func(t *testing.T) {
-		deployJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
+		deployJson, err := os.ReadFile("../../clients/testdata/goerli/transaction/0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb.json")
 		assert.NoError(t, err)
 
 		response := new(clients.TransactionStatus)
@@ -277,7 +277,7 @@ func TestAdaptTransaction(t *testing.T) {
 
 	t.Run("deploy account transaction", func(t *testing.T) {
 		deployJson, err := os.ReadFile("../.." +
-			"/testsource/testdata/mainnet/transaction" +
+			"/clients/testdata/mainnet/transaction" +
 			"/0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2.json")
 		assert.NoError(t, err)
 
@@ -303,7 +303,7 @@ func TestAdaptTransaction(t *testing.T) {
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
-		declareJson, err := os.ReadFile("../../testsource/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
+		declareJson, err := os.ReadFile("../../clients/testdata/goerli/transaction/0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f.json")
 		assert.NoError(t, err)
 
 		response := new(clients.TransactionStatus)
@@ -327,7 +327,7 @@ func TestAdaptTransaction(t *testing.T) {
 
 	t.Run("l1handler transaction", func(t *testing.T) {
 		deployJson, err := os.ReadFile("../.." +
-			"/testsource/testdata/mainnet/transaction" +
+			"/clients/testdata/mainnet/transaction" +
 			"/0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8.json")
 		assert.NoError(t, err)
 

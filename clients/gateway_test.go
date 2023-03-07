@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 
 	"github.com/NethermindEth/juno/clients"
@@ -270,7 +269,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client, closeFn := testsource.NewTestClient(utils.MAINNET)
+	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	block, err := client.GetBlock(context.Background(), 11817)
@@ -291,7 +290,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client, closeFn := testsource.NewTestClient(utils.MAINNET)
+	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	block, err := client.GetBlock(context.Background(), 19199)
@@ -313,7 +312,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestClassUnmarshal(t *testing.T) {
-	gatewayClient, closeFn := testsource.NewTestClient(utils.MAINNET)
+	gatewayClient, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
@@ -479,7 +478,7 @@ func TestGetTransaction(t *testing.T) {
 }
 
 func TestGetBlock(t *testing.T) {
-	gatewayClient, closeFn := testsource.NewTestClient(utils.MAINNET)
+	gatewayClient, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -498,7 +497,7 @@ func TestGetBlock(t *testing.T) {
 }
 
 func TestGetClassDefinition(t *testing.T) {
-	gatewayClient, closeFn := testsource.NewTestClient(utils.MAINNET)
+	gatewayClient, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {

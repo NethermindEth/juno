@@ -7,11 +7,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
-	"github.com/NethermindEth/juno/testsource"
+	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -76,8 +77,9 @@ func TestBlockNumberAndHash(t *testing.T) {
 	})
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
-		gw, closer := testsource.NewTestGateway(utils.MAINNET)
-		defer closer()
+		client, closeServer := clients.NewTestGatewayClient(utils.MAINNET)
+		defer closeServer()
+		gw := gateway.NewGateway(client)
 
 		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
 		require.NoError(t, err)
@@ -99,8 +101,9 @@ func TestGetBlockTransactionCount(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.GOERLI)
 
-	gw, closer := testsource.NewTestGateway(utils.GOERLI)
-	defer closer()
+	client, closeServer := clients.NewTestGatewayClient(utils.GOERLI)
+	defer closeServer()
+	gw := gateway.NewGateway(client)
 
 	latestBlockNumber := uint64(485004)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -164,8 +167,9 @@ func TestGetBlockWithTxHashes(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.GOERLI)
 
-	gw, closer := testsource.NewTestGateway(utils.GOERLI)
-	defer closer()
+	client, closeServer := clients.NewTestGatewayClient(utils.GOERLI)
+	defer closeServer()
+	gw := gateway.NewGateway(client)
 
 	latestBlockNumber := uint64(485004)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -244,8 +248,9 @@ func TestGetBlockWithTxs(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
 
-	gw, closer := testsource.NewTestGateway(utils.MAINNET)
-	defer closer()
+	client, closeServer := clients.NewTestGatewayClient(utils.MAINNET)
+	defer closeServer()
+	gw := gateway.NewGateway(client)
 
 	latestBlockNumber := uint64(16697)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -347,9 +352,10 @@ func TestGetTransactionByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	client, closeServer := clients.NewTestGatewayClient((utils.MAINNET))
+	defer closeServer()
+	mainnetGw := gateway.NewGateway(client)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
-	defer closer()
 
 	handler := rpc.New(mockReader, utils.MAINNET)
 
@@ -541,8 +547,9 @@ func TestGetTransactionByBlockIdAndIndex(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
+	client, closer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closer()
+	mainnetGw := gateway.NewGateway(client)
 
 	latestBlockNumber := 19199
 	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
@@ -677,8 +684,9 @@ func TestGetTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
 
-	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
+	client, closer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closer()
+	mainnetGw := gateway.NewGateway(client)
 
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -776,8 +784,9 @@ func TestGetStateUpdate(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
+	client, closer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closer()
+	mainnetGw := gateway.NewGateway(client)
 
 	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
 	require.NoError(t, err)
