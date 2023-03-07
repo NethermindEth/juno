@@ -39,9 +39,9 @@ func TestBlockId(t *testing.T) {
 			},
 		},
 	}
-	t.Parallel()
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			var blockId rpc.BlockId
 			require.NoError(t, blockId.UnmarshalJSON([]byte(test.blockIdJson)))
 			assert.Equal(t, blockId, test.expectedBlockId)
@@ -69,6 +69,7 @@ func TestBlockId(t *testing.T) {
 	}
 	for name, test := range failingTests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			var blockId rpc.BlockId
 			assert.Error(t, blockId.UnmarshalJSON([]byte(test.blockIdJson)))
 		})

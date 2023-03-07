@@ -8,6 +8,7 @@ require (
 	github.com/consensys/gnark-crypto v0.9.1
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/golang/mock v1.6.0
 	github.com/sourcegraph/conc v0.2.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
