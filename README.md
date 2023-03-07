@@ -75,22 +75,22 @@ Before running the docker run command, please ensure that the directory `/home/j
     * [X] Pedersen hash
     * [X] Starknet_Keccak
     * [X] Felt
-* [ ] Feeder gateway synchronisation (in progress)
-    * [ ] State Update
-    * [ ] Blocks
-    * [ ] Transactions
-    * [ ] Class
-* [ ] Implement the following core data structures and their Hash calculations (in progress)
-    * [ ] Blocks
-    * [ ] Transactions and Transaction Receipts
-    * [ ] Contracts and Classes
-* [ ] Storing blocks, transactions, and State updates in local DB (in progress)
-* [ ] Basic RPC (in progress)
-    * [ ] `getBlockWithTxHashes`
-    * [ ] `getBlockWithTxs`
-    * [ ] `getBlockTransactionCount`
-    * [ ] `getTransactionByHash`
-    * [ ] `getTransactionByBlockIdAndIndex`
+* [X] Feeder gateway synchronisation
+    * [X] State Update
+    * [X] Blocks
+    * [X] Transactions
+    * [X] Class
+* [X] Implement the following core data structures, and their Hash calculations
+    * [X] Blocks
+    * [X] Transactions and Transaction Receipts
+    * [X] Contracts and Classes
+* [X] Storing blocks, transactions and State updates in a local DB
+* [X] Basic RPC (in progress)
+    * [X] `getBlockWithTxHashes`
+    * [X] `getBlockWithTxs`
+    * [X] `getBlockTransactionCount`
+    * [X] `getTransactionByHash`
+    * [X] `getTransactionByBlockIdAndIndex`
 
 ### Phase 2
 

@@ -92,15 +92,56 @@ func New(cfg *Config) (StarknetNode, error) {
 
 func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.Http {
 	return jsonrpc.NewHttp(port, []jsonrpc.Method{
-		{"starknet_chainId", nil, rpcHandler.ChainId},
-		{"starknet_blockNumber", nil, rpcHandler.BlockNumber},
-		{"starknet_blockHashAndNumber", nil, rpcHandler.BlockNumberAndHash},
-		{"starknet_getBlockWithTxHashes", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxHashes},
-		{"starknet_getBlockWithTxs", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockWithTxs},
-		{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
-		{"starknet_getTransactionReceipt", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionReceiptByHash},
-		{"starknet_getBlockTransactionCount", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockTransactionCount},
-		{"starknet_getStateUpdate", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetStateUpdate},
+		{
+			"starknet_chainId",
+			nil,
+			rpcHandler.ChainId,
+		},
+		{
+			"starknet_blockNumber",
+			nil,
+			rpcHandler.BlockNumber,
+		},
+		{
+			"starknet_blockHashAndNumber",
+			nil,
+			rpcHandler.BlockNumberAndHash,
+		},
+		{
+			"starknet_getBlockWithTxHashes",
+			[]jsonrpc.Parameter{{Name: "block_id"}},
+			rpcHandler.GetBlockWithTxHashes,
+		},
+		{
+			"starknet_getBlockWithTxs",
+			[]jsonrpc.Parameter{{Name: "block_id"}},
+			rpcHandler.GetBlockWithTxs,
+		},
+		{
+			"starknet_getTransactionByHash",
+			[]jsonrpc.Parameter{{Name: "transaction_hash"}},
+			rpcHandler.GetTransactionByHash,
+		},
+		{
+			"starknet_getTransactionReceipt",
+			[]jsonrpc.Parameter{{Name: "transaction_hash"}},
+			rpcHandler.GetTransactionReceiptByHash,
+		},
+		{
+			"starknet_getBlockTransactionCount",
+			[]jsonrpc.Parameter{{Name: "block_id"}},
+			rpcHandler.GetBlockTransactionCount,
+		},
+		{
+			"starknet_getTransactionByBlockIdAndIndex",
+			[]jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
+			rpcHandler.GetTransactionByBlockIdAndIndex,
+		},
+		{
+			"starknet_getStateUpdate",
+			[]jsonrpc.Parameter{{Name: "block_id"}},
+			rpcHandler.GetStateUpdate,
+		},
 	}, log)
 }
 
