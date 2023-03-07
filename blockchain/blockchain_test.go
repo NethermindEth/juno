@@ -111,7 +111,7 @@ func TestVerifyBlock(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
-		block := &core.Block{Header: core.Header{Number: 10}}
+		block := &core.Block{Header: &core.Header{Number: 10}}
 		expectedErr := blockchain.ErrIncompatibleBlock{
 			Err: errors.New("cannot insert a block with number more than 0 in an empty blockchain"),
 		}
@@ -119,7 +119,7 @@ func TestVerifyBlock(t *testing.T) {
 	})
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
-		block := &core.Block{Header: core.Header{ParentHash: h1}}
+		block := &core.Block{Header: &core.Header{ParentHash: h1}}
 		expectedErr := blockchain.ErrIncompatibleBlock{
 			Err: errors.New("cannot insert a block with non-zero parent hash in an empty blockchain"),
 		}
@@ -139,7 +139,7 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
-			incomingBlock := &core.Block{Header: core.Header{Number: 10}}
+			incomingBlock := &core.Block{Header: &core.Header{Number: 10}}
 			expectedErr := blockchain.ErrIncompatibleBlock{
 				Err: errors.New("block number difference between head and incoming block is not 1"),
 			}
@@ -147,7 +147,7 @@ func TestVerifyBlock(t *testing.T) {
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
-		incomingBlock := &core.Block{Header: core.Header{ParentHash: h1, Number: 1}}
+		incomingBlock := &core.Block{Header: &core.Header{ParentHash: h1, Number: 1}}
 		expectedErr := blockchain.ErrIncompatibleBlock{
 			Err: errors.New("block's parent hash does not match head block hash"),
 		}
@@ -284,7 +284,7 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
-		r, err := chain.GetReceipt(new(felt.Felt).SetUint64(234))
+		r, _, _, err := chain.GetReceipt(new(felt.Felt).SetUint64(234))
 		assert.Nil(t, r)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
@@ -315,10 +315,11 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 				require.NoError(t, err)
 
 				for _, expectedR := range block.Receipts {
-					gotR, err := chain.GetReceipt(expectedR.TransactionHash)
+					gotR, hash, number, err := chain.GetReceipt(expectedR.TransactionHash)
 					require.NoError(t, err)
 					assert.Equal(t, expectedR, gotR)
-
+					assert.Equal(t, block.Hash, hash)
+					assert.Equal(t, block.Number, number)
 				}
 			})
 		}

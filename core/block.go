@@ -31,7 +31,7 @@ type Header struct {
 }
 
 type Block struct {
-	Header
+	*Header
 	Transactions []Transaction
 	Receipts     []*TransactionReceipt
 }

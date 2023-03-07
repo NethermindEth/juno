@@ -61,8 +61,8 @@ func (h *Handler) GetBlockWithTxHashes(id *BlockId) (*BlockWithTxHashes, *jsonrp
 	}
 
 	return &BlockWithTxHashes{
-		Status:      BlockStatusAcceptedL2, // todo
-		BlockHeader: adaptBlockHeader(&block.Header),
+		Status:      StatusAcceptedL2, // todo
+		BlockHeader: adaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -90,8 +90,8 @@ func (h *Handler) GetBlockWithTxs(id *BlockId) (*BlockWithTxs, *jsonrpc.Error) {
 	}
 
 	return &BlockWithTxs{
-		Status:       BlockStatusAcceptedL2, // todo
-		BlockHeader:  adaptBlockHeader(&block.Header),
+		Status:       StatusAcceptedL2, // todo
+		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -101,7 +101,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 	case *core.DeployTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
 		return &Transaction{
-			Type:                "DEPLOY",
+			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
 			Version:             v.Version,
@@ -122,7 +122,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			Version:             v.Version,
 			Signature:           &sig,
 			Nonce:               v.Nonce,
-			Type:                "DEPLOY_ACCOUNT",
+			Type:                TxnDeployAccount,
 			ContractAddressSalt: v.ContractAddressSalt,
 			ConstructorCalldata: v.ConstructorCallData,
 			ClassHash:           v.ClassHash,
@@ -131,7 +131,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 	case *core.L1HandlerTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1669
 		return &Transaction{
-			Type:               "L1_HANDLER",
+			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version,
 			Nonce:              v.Nonce,
@@ -148,7 +148,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	sig := t.Signature()
 	invTxn := &Transaction{
-		Type:      "INVOKE",
+		Type:      TxnInvoke,
 		Hash:      t.Hash(),
 		MaxFee:    t.MaxFee,
 		Version:   t.Version,
@@ -173,7 +173,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	sig := t.Signature()
 	txn := &Transaction{
-		Type:          "DECLARE",
+		Type:          TxnDeclare,
 		Hash:          t.Hash(),
 		MaxFee:        t.MaxFee,
 		Version:       t.Version,
@@ -223,4 +223,50 @@ func (h *Handler) GetBlockTransactionCount(id *BlockId) (int, *jsonrpc.Error) {
 		return 0, ErrBlockNotFound
 	}
 	return len(block.Transactions), nil
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
+func (h *Handler) GetTransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	txn, rpcErr := h.GetTransactionByHash(hash)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	receipt, blockHash, blockNumber, err := h.bcReader.GetReceipt(hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
+	for idx, msg := range receipt.L2ToL1Message {
+		messages[idx] = &MsgToL1{
+			To:      msg.To,
+			Payload: msg.Payload,
+		}
+	}
+
+	events := make([]*Event, len(receipt.Events))
+	for idx, event := range receipt.Events {
+		events[idx] = &Event{
+			From: event.From,
+			Keys: event.Keys,
+			Data: event.Data,
+		}
+	}
+
+	contractAddress := txn.ContractAddress
+	if txn.Type != TxnDeploy && txn.Type != TxnDeployAccount {
+		contractAddress = nil
+	}
+
+	return &TransactionReceipt{
+		Status:          StatusAcceptedL2, // todo
+		Type:            txn.Type,
+		Hash:            txn.Hash,
+		ActualFee:       receipt.Fee,
+		BlockHash:       blockHash,
+		BlockNumber:     blockNumber,
+		MessagesSent:    messages,
+		Events:          events,
+		ContractAddress: contractAddress,
+	}, nil
 }
