@@ -14,7 +14,7 @@ type Gateway struct {
 	client *clients.GatewayClient
 }
 
-func NewGateway(client *clients.GatewayClient) *Gateway {
+func New(client *clients.GatewayClient) *Gateway {
 	return &Gateway{
 		client: client,
 	}

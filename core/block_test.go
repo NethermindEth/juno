@@ -153,7 +153,7 @@ func TestBlockHash(t *testing.T) {
 			t.Parallel()
 			client, closeFn := clients.NewTestGatewayClient(tc.chain)
 			defer closeFn()
-			gw := gateway.NewGateway(client)
+			gw := gateway.New(client)
 
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestBlockHash(t *testing.T) {
 
 	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	mainnetGW := gateway.NewGateway(client)
+	mainnetGW := gateway.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestBlockHash(t *testing.T) {
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
 		client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
 		defer closeFn()
-		goerliGW := gateway.NewGateway(client)
+		goerliGW := gateway.New(client)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 

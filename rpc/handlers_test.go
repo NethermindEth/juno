@@ -79,7 +79,7 @@ func TestBlockNumberAndHash(t *testing.T) {
 	t.Run("blockchain height is 147", func(t *testing.T) {
 		client, closeServer := clients.NewTestGatewayClient(utils.MAINNET)
 		defer closeServer()
-		gw := gateway.NewGateway(client)
+		gw := gateway.New(client)
 
 		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
 		require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestGetBlockTransactionCount(t *testing.T) {
 
 	client, closeServer := clients.NewTestGatewayClient(utils.GOERLI)
 	defer closeServer()
-	gw := gateway.NewGateway(client)
+	gw := gateway.New(client)
 
 	latestBlockNumber := uint64(485004)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -169,7 +169,7 @@ func TestGetBlockWithTxHashes(t *testing.T) {
 
 	client, closeServer := clients.NewTestGatewayClient(utils.GOERLI)
 	defer closeServer()
-	gw := gateway.NewGateway(client)
+	gw := gateway.New(client)
 
 	latestBlockNumber := uint64(485004)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -250,7 +250,7 @@ func TestGetBlockWithTxs(t *testing.T) {
 
 	client, closeServer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closeServer()
-	gw := gateway.NewGateway(client)
+	gw := gateway.New(client)
 
 	latestBlockNumber := uint64(16697)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -351,11 +351,11 @@ func TestGetBlockWithTxs(t *testing.T) {
 func TestGetTransactionByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	mockReader := mocks.NewMockReader(mockCtrl)
 
 	client, closeServer := clients.NewTestGatewayClient((utils.MAINNET))
 	defer closeServer()
-	mainnetGw := gateway.NewGateway(client)
-	mockReader := mocks.NewMockReader(mockCtrl)
+	mainnetGw := gateway.New(client)
 
 	handler := rpc.New(mockReader, utils.MAINNET)
 
@@ -549,7 +549,7 @@ func TestGetTransactionByBlockIdAndIndex(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	client, closer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closer()
-	mainnetGw := gateway.NewGateway(client)
+	mainnetGw := gateway.New(client)
 
 	latestBlockNumber := 19199
 	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
@@ -686,7 +686,7 @@ func TestGetTransactionReceiptByHash(t *testing.T) {
 
 	client, closer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closer()
-	mainnetGw := gateway.NewGateway(client)
+	mainnetGw := gateway.New(client)
 
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -786,7 +786,7 @@ func TestGetStateUpdate(t *testing.T) {
 
 	client, closer := clients.NewTestGatewayClient(utils.MAINNET)
 	defer closer()
-	mainnetGw := gateway.NewGateway(client)
+	mainnetGw := gateway.New(client)
 
 	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
 	require.NoError(t, err)
