@@ -6,13 +6,12 @@ import (
 
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/testsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestProgramHash(t *testing.T) {
-	client, closeFn := testsource.NewTestClient(utils.GOERLI)
+	client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
 	defer closeFn()
 	hexToFelt := func(t *testing.T, hex string) *felt.Felt {
 		f, err := new(felt.Felt).SetString(hex)

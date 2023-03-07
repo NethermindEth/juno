@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/testsource"
+	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +21,9 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 }
 
 func TestClassHash(t *testing.T) {
-	gw, closeFn := testsource.NewTestGateway(utils.GOERLI)
+	client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
 	defer closeFn()
+	gw := gateway.NewGateway(client)
 
 	tests := []struct {
 		classHash string

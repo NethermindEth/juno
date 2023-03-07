@@ -7,8 +7,12 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -58,6 +62,62 @@ func ExponentialBackoff(wait time.Duration) time.Duration {
 
 func NopBackoff(d time.Duration) time.Duration {
 	return 0
+}
+
+// NewTestGatewayClient returns a client and a function to close a test server.
+func NewTestGatewayClient(network utils.Network) (*GatewayClient, func()) {
+	srv := newTestGatewayServer(network)
+	client := NewGatewayClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
+
+	return client, srv.Close
+}
+
+func newTestGatewayServer(network utils.Network) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queryMap, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		wd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+
+		base := wd[:strings.LastIndex(wd, "juno")+4]
+		queryArg := ""
+		dir := ""
+
+		switch {
+		case strings.HasSuffix(r.URL.Path, "get_block"):
+			dir = "block"
+			queryArg = "blockNumber"
+		case strings.HasSuffix(r.URL.Path, "get_state_update"):
+			dir = "state_update"
+			queryArg = "blockNumber"
+		case strings.HasSuffix(r.URL.Path, "get_transaction"):
+			dir = "transaction"
+			queryArg = "transactionHash"
+		case strings.HasSuffix(r.URL.Path, "get_class_by_hash"):
+			dir = "class"
+			queryArg = "classHash"
+		}
+
+		fileName, found := queryMap[queryArg]
+		if !found {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		path := filepath.Join(base, "clients", "testdata", network.String(), dir, fileName[0]+".json")
+		read, err := os.ReadFile(path)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Write(read)
+	}))
 }
 
 func NewGatewayClient(url string) *GatewayClient {

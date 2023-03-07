@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -79,7 +80,8 @@ func New(cfg *Config) (StarknetNode, error) {
 	}
 
 	chain := blockchain.New(stateDb, cfg.Network)
-	synchronizer := sync.NewSynchronizer(chain, gateway.NewGateway(cfg.Network), log)
+	gatewayClient := clients.NewGatewayClient(cfg.Network.URL())
+	synchronizer := sync.NewSynchronizer(chain, gateway.NewGateway(gatewayClient), log)
 	return &Node{
 		cfg:          cfg,
 		log:          log,

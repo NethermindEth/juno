@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -15,13 +14,7 @@ type Gateway struct {
 	client *clients.GatewayClient
 }
 
-func NewGateway(n utils.Network) *Gateway {
-	return &Gateway{
-		client: clients.NewGatewayClient(n.URL()),
-	}
-}
-
-func NewGatewayWithClient(client *clients.GatewayClient) *Gateway {
+func NewGateway(client *clients.GatewayClient) *Gateway {
 	return &Gateway{
 		client: client,
 	}
