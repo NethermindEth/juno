@@ -58,17 +58,26 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 			if err != nil {
 				continue
 			}
-			declaredClasses := make(map[felt.Felt]*core.Class, len(stateUpdate.StateDiff.DeclaredClasses))
+
+			// There are classes in deployed transactions which refer to class hash that are no present in declared
+			// classes. Thus, we need to fetch all the classes which are referenced in deployed contracts
+			referencedClasses := make(map[felt.Felt]*core.Class)
+			for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
+				referencedClasses[*deployedContract.ClassHash] = nil
+			}
 			for _, classHash := range stateUpdate.StateDiff.DeclaredClasses {
-				class, err := s.StarknetData.Class(ctx, classHash)
+				referencedClasses[*classHash] = nil
+			}
+			for classHash := range referencedClasses {
+				class, err := s.StarknetData.Class(ctx, &classHash)
 				if err != nil {
 					continue
 				}
-				declaredClasses[*classHash] = class
+				referencedClasses[classHash] = class
 			}
 
 			return func() {
-				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, declaredClasses, errChan) })
+				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, referencedClasses, errChan) })
 			}
 		}
 	}

@@ -8,24 +8,24 @@ import (
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1999-L2008
-type BlockStatus uint8
+type Status uint8
 
 const (
-	BlockStatusPending BlockStatus = iota
-	BlockStatusAcceptedL2
-	BlockStatusAcceptedL1
-	BlockStatusRejected
+	StatusPending Status = iota
+	StatusAcceptedL2
+	StatusAcceptedL1
+	StatusRejected
 )
 
-func (s BlockStatus) MarshalJSON() ([]byte, error) {
+func (s Status) MarshalJSON() ([]byte, error) {
 	switch s {
-	case BlockStatusPending:
+	case StatusPending:
 		return []byte("\"PENDING\""), nil
-	case BlockStatusAcceptedL2:
+	case StatusAcceptedL2:
 		return []byte("\"ACCEPTED_ON_L2\""), nil
-	case BlockStatusAcceptedL1:
+	case StatusAcceptedL1:
 		return []byte("\"ACCEPTED_ON_L1\""), nil
-	case BlockStatusRejected:
+	case StatusRejected:
 		return []byte("\"REJECTED\""), nil
 	default:
 		return nil, errors.New("unknown block status")
@@ -85,14 +85,14 @@ type BlockHeader struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status BlockStatus `json:"status"`
+	Status Status `json:"status"`
 	BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
 type BlockWithTxHashes struct {
-	Status BlockStatus `json:"status"`
+	Status Status `json:"status"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }

@@ -111,6 +111,75 @@ func TestHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("starknet_getBlockTransactionCount", func(t *testing.T) {
+		blockTxnCount, err := handler.GetBlockTransactionCount(&rpc.BlockId{Number: 2})
+		assert.Nil(t, err)
+
+		gwBlock, gwErr := gw.BlockByNumber(ctx, 2)
+		assert.NoError(t, gwErr)
+
+		assert.Equal(t, len(gwBlock.Transactions), blockTxnCount)
+	})
+
+	t.Run("starknet_getTransactionReceipt", func(t *testing.T) {
+		rpcWithTxHashes, err := handler.GetBlockWithTxHashes(&rpc.BlockId{Number: 0})
+		require.Nil(t, err)
+
+		for _, test := range map[string]struct {
+			index    uint64
+			expected string
+		}{
+			"with contract addr": {
+				index: 0,
+				expected: `{
+					"type": "DEPLOY",
+					"transaction_hash": "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
+					"actual_fee": "0x0",
+					"status": "ACCEPTED_ON_L2",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [],
+					"events": [],
+					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6"
+				}`,
+			},
+			"without contract addr": {
+				index: 2,
+				expected: `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": "0x0",
+					"status": "ACCEPTED_ON_L2",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [
+						{
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": []
+				}`,
+			},
+		} {
+			receipt, err := handler.GetTransactionReceiptByHash(rpcWithTxHashes.TxnHashes[test.index])
+			require.Nil(t, err)
+
+			expectedMap := make(map[string]any)
+			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
+
+			receiptJson, jsonErr := json.Marshal(receipt)
+			require.NoError(t, jsonErr)
+			receiptMap := make(map[string]any)
+			require.NoError(t, json.Unmarshal(receiptJson, &receiptMap))
+			assert.Equal(t, expectedMap, receiptMap)
+
+		}
+	})
+
 	canceler()
 	<-syncNodeChan
 }
