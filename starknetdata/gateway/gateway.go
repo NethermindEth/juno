@@ -45,6 +45,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 
 	txns := make([]core.Transaction, len(response.Transactions))
 	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
+	eventCount := uint64(0)
 	for i, txn := range response.Transactions {
 		var err error
 		txns[i], err = adaptTransaction(txn)
@@ -52,6 +53,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 			return nil, err
 		}
 		receipts[i] = adaptTransactionReceipt(response.Receipts[i])
+		eventCount = eventCount + uint64(len(response.Receipts[i].Events))
 	}
 
 	return &core.Block{
@@ -64,6 +66,8 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 			ProtocolVersion:  response.Version,
 			ExtraData:        nil,
 			SequencerAddress: response.SequencerAddress,
+			TransactionCount: uint64(len(response.Transactions)),
+			EventCount:       eventCount,
 		},
 		Transactions: txns,
 		Receipts:     receipts,

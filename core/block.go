@@ -22,6 +22,10 @@ type Header struct {
 	GlobalStateRoot *felt.Felt
 	// The Starknet address of the sequencer who created this block
 	SequencerAddress *felt.Felt
+	// The amount Transactions and Receipts stored in this block
+	TransactionCount uint64
+	// The amount of events stored in transaction receipts
+	EventCount uint64
 	// The time the sequencer created this block before executing transactions
 	Timestamp uint64
 	// The version of the Starknet protocol used when creating this block
@@ -141,44 +145,40 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
-	blockNumber := new(felt.Felt).SetUint64(b.Number)
-	txCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
 	txCommitment, err := transactionCommitment(b.Transactions)
 	if err != nil {
 		return nil, err
 	}
 
 	return crypto.PedersenArray(
-		blockNumber,       // block number
-		b.GlobalStateRoot, // global state root
-		&felt.Zero,        // reserved: sequencer address
-		&felt.Zero,        // reserved: block timestamp
-		txCount,           // number of transactions
-		txCommitment,      // transaction commitment
-		&felt.Zero,        // reserved: number of events
-		&felt.Zero,        // reserved: event commitment
-		&felt.Zero,        // reserved: protocol version
-		&felt.Zero,        // reserved: extra data
-		chain,             // extra data: chain id
-		b.ParentHash,      // parent hash
+		new(felt.Felt).SetUint64(b.Number), // block number
+		b.GlobalStateRoot,                  // global state root
+		&felt.Zero,                         // reserved: sequencer address
+		&felt.Zero,                         // reserved: block timestamp
+		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
+		txCommitment, // transaction commitment
+		&felt.Zero,   // reserved: number of events
+		&felt.Zero,   // reserved: event commitment
+		&felt.Zero,   // reserved: protocol version
+		&felt.Zero,   // reserved: extra data
+		chain,        // extra data: chain id
+		b.ParentHash, // parent hash
 	), nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
 func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
-	blockNumber := new(felt.Felt).SetUint64(b.Number)
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCount := new(felt.Felt).SetUint64(uint64(len(b.Transactions)))
 	txCommitment, err := transactionCommitment(b.Transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	eventCommitment, eventCount, err := eventCommitmentAndCount(b.Receipts)
+	eCommitment, err := eventCommitment(b.Receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -190,16 +190,16 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	// - number of events
 	// - event commitment
 	return crypto.PedersenArray(
-		blockNumber,                           // block number
-		b.GlobalStateRoot,                     // global state root
-		seqAddr,                               // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-		txCount,                               // number of transactions
-		txCommitment,                          // transaction commitment
-		new(felt.Felt).SetUint64(eventCount),  // number of events
-		eventCommitment,                       // event commitment
-		&felt.Zero,                            // reserved: protocol version
-		&felt.Zero,                            // reserved: extra data
-		b.ParentHash,                          // parent block hash
+		new(felt.Felt).SetUint64(b.Number),           // block number
+		b.GlobalStateRoot,                            // global state root
+		seqAddr,                                      // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp),        // block timestamp
+		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
+		txCommitment,                                 // transaction commitment
+		new(felt.Felt).SetUint64(b.EventCount),       // number of events
+		eCommitment,                                  // event commitment
+		&felt.Zero,                                   // reserved: protocol version
+		&felt.Zero,                                   // reserved: extra data
+		b.ParentHash,                                 // parent block hash
 	), nil
 }
