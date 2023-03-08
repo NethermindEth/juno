@@ -8,8 +8,7 @@ juno: ## compile
 all: juno
 
 generate: ## generate
-	@cd internal/db && $(MAKE) generate
-	@cd pkg/felt && go generate ./...
+	go generate ./...
 
 clean-testcache:
 	go clean -testcache
@@ -28,11 +27,13 @@ test-cover: ## tests with coverage
 	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-gofumpt ## install some project dependencies
+install-deps: | install-gofumpt install-mockgen ## install some project dependencies
 
 install-gofumpt:
-	# install gofumpt
 	go install mvdan.cc/gofumpt@latest
+
+install-mockgen:
+	go install github.com/golang/mock/mockgen@latest
 
 tidy: ## add missing and remove unused modules
 	 go mod tidy
