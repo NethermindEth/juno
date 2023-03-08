@@ -21,10 +21,15 @@ func TestAdaptBlock(t *testing.T) {
 	block147Json, err := os.ReadFile("../../testsource/testdata/mainnet/block/147.json")
 	assert.NoError(t, err)
 
-	var response *clients.Block
 	t.Run("mainnet block number 11817", func(t *testing.T) {
+		var response *clients.Block
 		err := json.Unmarshal(block11817Json, &response)
 		require.NoError(t, err)
+
+		expectedEventCount := uint64(0)
+		for _, r := range response.Receipts {
+			expectedEventCount = expectedEventCount + uint64(len(r.Events))
+		}
 
 		block, err := AdaptBlock(response)
 		require.NoError(t, err)
@@ -35,13 +40,21 @@ func TestAdaptBlock(t *testing.T) {
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 		assert.Equal(t, block.Timestamp, response.Timestamp)
 		assert.Equal(t, len(response.Transactions), len(block.Transactions))
+		assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
 		assert.Equal(t, len(response.Receipts), len(block.Receipts))
+		assert.Equal(t, expectedEventCount, block.EventCount)
 		assert.Equal(t, "0.10.1", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
 	})
 	t.Run("mainnet block number 147", func(t *testing.T) {
+		var response *clients.Block
 		err := json.Unmarshal(block147Json, &response)
 		require.NoError(t, err)
+
+		expectedEventCount := uint64(0)
+		for _, r := range response.Receipts {
+			expectedEventCount = expectedEventCount + uint64(len(r.Events))
+		}
 
 		block, err := AdaptBlock(response)
 		require.NoError(t, err)
@@ -52,11 +65,14 @@ func TestAdaptBlock(t *testing.T) {
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 		assert.Equal(t, block.Timestamp, response.Timestamp)
 		assert.Equal(t, len(response.Transactions), len(block.Transactions))
+		assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
 		assert.Equal(t, len(response.Receipts), len(block.Receipts))
-		assert.Equal(t, "0.10.1", block.ProtocolVersion)
+		assert.Equal(t, expectedEventCount, block.EventCount)
+		assert.Equal(t, "", block.ProtocolVersion)
 		assert.Nil(t, block.ExtraData)
 	})
 	t.Run("error with unknown transaction", func(t *testing.T) {
+		var response *clients.Block
 		err := json.Unmarshal(block147Json, &response)
 		require.NoError(t, err)
 

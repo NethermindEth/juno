@@ -401,11 +401,10 @@ func transactionCommitment(transactions []Transaction) (commitment *felt.Felt, e
 	})
 }
 
-// eventCommitmentAndCount computes the event commitment and event count for a block.
-func eventCommitmentAndCount(receipts []*TransactionReceipt) (commitment *felt.Felt,
-	count uint64, err error,
-) {
-	return commitment, count, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+// eventCommitment computes the event commitment and event count for a block.
+func eventCommitment(receipts []*TransactionReceipt) (commitment *felt.Felt, err error) {
+	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+		count := uint64(0)
 		for _, receipt := range receipts {
 			for _, event := range receipt.Events {
 				eventHash := crypto.PedersenArray(
