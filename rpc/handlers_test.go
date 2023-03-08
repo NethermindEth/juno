@@ -618,3 +618,97 @@ func TestGetTransactionReceiptByHash(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStateUpdate(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, utils.MAINNET)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().Height().Return(uint64(0), errors.New("empty blockchain"))
+
+		update, rpcErr := handler.GetStateUpdate(&rpc.BlockId{Latest: true})
+		assert.Nil(t, update)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().GetStateUpdateByHash(gomock.Any()).Return(nil, errors.New("block not found"))
+
+		update, rpcErr := handler.GetStateUpdate(&rpc.BlockId{Hash: new(felt.Felt).SetBytes([]byte("random"))})
+		assert.Nil(t, update)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().GetStateUpdateByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
+
+		update, rpcErr := handler.GetStateUpdate(&rpc.BlockId{Number: uint64(328476)})
+		assert.Nil(t, update)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer()
+
+	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
+	require.NoError(t, err)
+
+	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
+		assert.Equal(t, coreUpdate.BlockHash, rpcUpdate.BlockHash)
+		assert.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)
+		assert.Equal(t, coreUpdate.OldRoot, rpcUpdate.OldRoot)
+
+		assert.Equal(t, len(coreUpdate.StateDiff.StorageDiffs), len(rpcUpdate.StateDiff.StorageDiffs))
+		for _, diff := range rpcUpdate.StateDiff.StorageDiffs {
+			coreDiffs := coreUpdate.StateDiff.StorageDiffs[*diff.Address]
+			assert.Equal(t, len(coreDiffs), len(diff.StorageEntries))
+			for index, entry := range diff.StorageEntries {
+				assert.Equal(t, entry.Key, coreDiffs[index].Key)
+				assert.Equal(t, entry.Value, coreDiffs[index].Value)
+			}
+		}
+
+		assert.Equal(t, len(coreUpdate.StateDiff.Nonces), len(rpcUpdate.StateDiff.Nonces))
+		for _, nonce := range rpcUpdate.StateDiff.Nonces {
+			assert.Equal(t, coreUpdate.StateDiff.Nonces[*nonce.ContractAddress], nonce.Nonce)
+		}
+
+		assert.Equal(t, len(coreUpdate.StateDiff.DeployedContracts), len(rpcUpdate.StateDiff.DeployedContracts))
+		for index := range rpcUpdate.StateDiff.DeployedContracts {
+			assert.Equal(t, coreUpdate.StateDiff.DeployedContracts[index].Address,
+				rpcUpdate.StateDiff.DeployedContracts[index].Address)
+			assert.Equal(t, coreUpdate.StateDiff.DeployedContracts[index].ClassHash,
+				rpcUpdate.StateDiff.DeployedContracts[index].ClassHash)
+		}
+
+		assert.Equal(t, coreUpdate.StateDiff.DeclaredClasses, rpcUpdate.StateDiff.DeclaredClasses)
+	}
+
+	t.Run("latest", func(t *testing.T) {
+		mockReader.EXPECT().Height().Return(uint64(21656), nil)
+		mockReader.EXPECT().GetStateUpdateByNumber(uint64(21656)).Return(update21656, nil)
+
+		update, rpcErr := handler.GetStateUpdate(&rpc.BlockId{Latest: true})
+		assert.Nil(t, rpcErr)
+		checkUpdate(t, update21656, update)
+	})
+
+	t.Run("by height", func(t *testing.T) {
+		mockReader.EXPECT().GetStateUpdateByNumber(uint64(21656)).Return(update21656, nil)
+
+		update, rpcErr := handler.GetStateUpdate(&rpc.BlockId{Number: uint64(21656)})
+		assert.Nil(t, rpcErr)
+		checkUpdate(t, update21656, update)
+	})
+
+	t.Run("by hash", func(t *testing.T) {
+		mockReader.EXPECT().GetStateUpdateByHash(update21656.BlockHash).Return(update21656, nil)
+
+		update, rpcErr := handler.GetStateUpdate(&rpc.BlockId{Hash: update21656.BlockHash})
+		assert.Nil(t, rpcErr)
+		checkUpdate(t, update21656, update)
+	})
+}

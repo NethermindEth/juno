@@ -47,6 +47,8 @@ type Reader interface {
 	GetBlockByHash(hash *felt.Felt) (block *core.Block, err error)
 	GetTransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	GetReceipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
+	GetStateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
+	GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 }
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain

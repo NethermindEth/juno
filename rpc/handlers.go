@@ -11,6 +11,8 @@ import (
 )
 
 var (
+	ErrPendingNotSupported = errors.New("pending block is not supported yet")
+
 	ErrBlockNotFound   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrTxnHashNotFound = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
 	ErrNoBlock         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
@@ -198,7 +200,7 @@ func (h *Handler) getBlockById(id *BlockId) (*core.Block, error) {
 	if id.Latest {
 		block, err = h.bcReader.Head()
 	} else if id.Pending {
-		err = errors.New("pending block is not supported yet")
+		err = ErrPendingNotSupported
 	} else if id.Hash != nil {
 		block, err = h.bcReader.GetBlockByHash(id.Hash)
 	} else {
@@ -269,5 +271,61 @@ func (h *Handler) GetTransactionReceiptByHash(hash *felt.Felt) (*TransactionRece
 		MessagesSent:    messages,
 		Events:          events,
 		ContractAddress: contractAddress,
+	}, nil
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
+func (h *Handler) GetStateUpdate(id *BlockId) (*StateUpdate, *jsonrpc.Error) {
+	var update *core.StateUpdate
+	var err error
+	if id.Latest {
+		if height, heightErr := h.bcReader.Height(); heightErr != nil {
+			err = heightErr
+		} else {
+			update, err = h.bcReader.GetStateUpdateByNumber(height)
+		}
+	} else if id.Pending {
+		err = ErrPendingNotSupported
+	} else if id.Hash != nil {
+		update, err = h.bcReader.GetStateUpdateByHash(id.Hash)
+	} else {
+		update, err = h.bcReader.GetStateUpdateByNumber(id.Number)
+	}
+
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	nonces := []Nonce{}
+	for addr, nonce := range update.StateDiff.Nonces {
+		nonces = append(nonces, Nonce{ContractAddress: new(felt.Felt).Set(&addr), Nonce: nonce})
+	}
+
+	storageDiffs := []StorageDiff{}
+	for addr, diffs := range update.StateDiff.StorageDiffs {
+		entries := make([]Entry, len(diffs))
+
+		for index, diff := range diffs {
+			entries[index] = Entry{Key: diff.Key, Value: diff.Value}
+		}
+
+		storageDiffs = append(storageDiffs, StorageDiff{Address: new(felt.Felt).Set(&addr), StorageEntries: entries})
+	}
+
+	deployedContracts := make([]DeployedContract, len(update.StateDiff.DeployedContracts))
+	for index, deployedContract := range update.StateDiff.DeployedContracts {
+		deployedContracts[index] = DeployedContract{Address: deployedContract.Address, ClassHash: deployedContract.ClassHash}
+	}
+
+	return &StateUpdate{
+		BlockHash: update.BlockHash,
+		OldRoot:   update.OldRoot,
+		NewRoot:   update.NewRoot,
+		StateDiff: &StateDiff{
+			DeclaredClasses:   update.StateDiff.DeclaredClasses,
+			Nonces:            nonces,
+			StorageDiffs:      storageDiffs,
+			DeployedContracts: deployedContracts,
+		},
 	}, nil
 }
