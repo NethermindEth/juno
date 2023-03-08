@@ -68,6 +68,11 @@ func (s *State) GetContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	return NewContract(addr, s.txn).Nonce()
 }
 
+// GetContractNonceAt returns nonce of a contract at a given address at a given block.
+func (s *State) GetContractNonceAt(addr *felt.Felt, blockNum uint64) (*felt.Felt, error) {
+	return NewContract(addr, s.txn).NonceAt(blockNum)
+}
+
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
 	storage, err := s.getStateStorage()
@@ -120,7 +125,7 @@ func (s *State) putStateStorage(state *trie.Trie) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]*Class) error {
+func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]*Class) error {
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -160,6 +165,9 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]*Class
 
 	// update contract nonces
 	for addr, nonce := range update.StateDiff.Nonces {
+		if err = s.storeContractNonceAt(&addr, blockNumber); err != nil {
+			return err
+		}
 		if err = s.updateContractNonce(&addr, nonce); err != nil {
 			return err
 		}
@@ -209,6 +217,13 @@ func (s *State) updateContractNonce(addr, nonce *felt.Felt) error {
 	}
 
 	return s.updateContractCommitment(contract)
+}
+
+// storeContractNonceAt stores the nonce of the contract at the given
+// address in the given Txn context at the given block number.
+func (s *State) storeContractNonceAt(addr *felt.Felt, blockNumber uint64) error {
+	contract := NewContract(addr, s.txn)
+	return contract.StoreNonceAt(blockNumber)
 }
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie

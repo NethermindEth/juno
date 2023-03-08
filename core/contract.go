@@ -1,6 +1,8 @@
 package core
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -60,10 +62,50 @@ func (c *Contract) Nonce() (nonce *felt.Felt, err error) {
 	return
 }
 
+// NonceAt returns the nonce value at a given block number.
+func (c *Contract) NonceAt(bNumber uint64) (nonce *felt.Felt, err error) {
+	iterator, err := c.txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := iterator.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	bnBytes := binary.BigEndian.AppendUint64([]byte{}, bNumber)
+	prefix := db.HistoricalContractNonce.Key(bnBytes)
+	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+		if bytes.Equal(iterator.Key()[len(prefix):], c.Address.Marshal()) {
+			val, err := iterator.Value()
+			if err != nil {
+				return nil, err
+			}
+			nonce = new(felt.Felt)
+			return nonce.SetBytes(val), nil
+		}
+	}
+
+	return c.Nonce()
+}
+
 // UpdateNonce updates the nonce value in the database.
 func (c *Contract) UpdateNonce(nonce *felt.Felt) error {
 	nonceKey := db.ContractNonce.Key(c.Address.Marshal())
 	return c.txn.Set(nonceKey, nonce.Marshal())
+}
+
+// StoreNonceAt stores the nonce value at a given block number.
+func (c *Contract) StoreNonceAt(bNumber uint64) error {
+	bnBytes := binary.BigEndian.AppendUint64([]byte{}, bNumber)
+	bnAddressBytes := append(bnBytes, c.Address.Marshal()...)
+
+	key := db.ContractNonce.Key(c.Address.Marshal())
+	err := c.txn.Get(key, func(val []byte) error {
+		return c.txn.Set(db.HistoricalContractNonce.Key(bnAddressBytes), val)
+	})
+	return err
 }
 
 // ClassHash returns hash of the class that this contract instantiates.

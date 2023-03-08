@@ -22,6 +22,7 @@ const (
 	TransactionsByBlockNumberAndIndex       // maps block number and index to transaction
 	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
 	StateUpdatesByBlockNumber
+	HistoricalContractNonce // maps [block number + contract address] to contract nonce
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
