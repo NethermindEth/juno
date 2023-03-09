@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/starknetdata/gateway"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ import (
 func TestNew(t *testing.T) {
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 		assert.Equal(t, utils.MAINNET, chain.Network())
@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 func TestHeight(t *testing.T) {
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
 		_, err := chain.Height()
@@ -79,7 +79,7 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 		defer closeFn()
-		gw := gateway.New(client)
+		gw := adaptfeeder.New(client)
 
 		block, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestVerifyBlock(t *testing.T) {
 
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 
 	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 
 	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 func TestStore(t *testing.T) {
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 
 	block0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -267,7 +267,7 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)

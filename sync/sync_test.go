@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/starknetdata/gateway"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +17,7 @@ import (
 func TestSyncBlocks(t *testing.T) {
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {
 		return assert.NoError(t, func() error {
 			headBlock, err := bc.Head()

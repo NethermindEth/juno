@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/starknetdata/gateway"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 func TestClassHash(t *testing.T) {
 	client, closeFn := feeder.NewTestGatewayClient(utils.GOERLI)
 	defer closeFn()
-	gw := gateway.New(client)
+	gw := adaptfeeder.New(client)
 
 	tests := []struct {
 		classHash string
