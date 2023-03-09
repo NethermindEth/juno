@@ -34,6 +34,8 @@ const (
 	InternalError  = -32603 // Internal JSON-RPC error.
 )
 
+var ErrInvalidId = errors.New("id should be a string or an integer")
+
 type request struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
@@ -73,7 +75,7 @@ func (r *request) isSane() error {
 		idType := reflect.TypeOf(r.Id)
 		floating := idType.Name() == "Number" && strings.Contains(r.Id.(json.Number).String(), ".")
 		if (idType.Kind() != reflect.String && idType.Name() != "Number") || floating {
-			return errors.New("id should be a string or an integer")
+			return ErrInvalidId
 		}
 	}
 
@@ -154,6 +156,9 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			res.Error = &Error{Code: InvalidJson, Message: jsonErr.Error()}
 		} else if resObject, handleErr := s.handleRequest(req); handleErr != nil {
+			if !errors.Is(handleErr, ErrInvalidId) {
+				res.Id = req.Id
+			}
 			res.Error = &Error{Code: InvalidRequest, Message: handleErr.Error()}
 		} else {
 			res = resObject
@@ -186,6 +191,9 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 						resObject = &response{
 							Version: "2.0",
 							Error:   &Error{Code: InvalidRequest, Message: handleErr.Error()},
+						}
+						if !errors.Is(handleErr, ErrInvalidId) {
+							resObject.Id = req.Id
 						}
 					}
 				}

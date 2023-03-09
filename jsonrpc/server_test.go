@@ -118,6 +118,10 @@ func TestHandle(t *testing.T) {
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":1}`,
+		},
+		"wrong version with null id": {
+			req: `{"jsonrpc" : "1.0", "id" : null}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":null}`,
 		},
 		"non existent method": {
@@ -271,7 +275,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 } , "id" : 5},
 					{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 } , "id" : 6}]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":null},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		// spec tests
 		"rpc call with positional parameters 1": {
