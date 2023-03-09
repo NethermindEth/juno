@@ -95,6 +95,36 @@ func (mr *MockReaderMockRecorder) GetBlockHeaderByNumber(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).GetBlockHeaderByNumber), arg0)
 }
 
+// GetNonceByHash mocks base method.
+func (m *MockReader) GetNonceByHash(arg0, arg1 *felt.Felt) (*felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNonceByHash", arg0, arg1)
+	ret0, _ := ret[0].(*felt.Felt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNonceByHash indicates an expected call of GetNonceByHash.
+func (mr *MockReaderMockRecorder) GetNonceByHash(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNonceByHash", reflect.TypeOf((*MockReader)(nil).GetNonceByHash), arg0, arg1)
+}
+
+// GetNonceByNumber mocks base method.
+func (m *MockReader) GetNonceByNumber(arg0 uint64, arg1 *felt.Felt) (*felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNonceByNumber", arg0, arg1)
+	ret0, _ := ret[0].(*felt.Felt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNonceByNumber indicates an expected call of GetNonceByNumber.
+func (mr *MockReaderMockRecorder) GetNonceByNumber(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNonceByNumber", reflect.TypeOf((*MockReader)(nil).GetNonceByNumber), arg0, arg1)
+}
+
 // GetReceipt mocks base method.
 func (m *MockReader) GetReceipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()

@@ -356,3 +356,26 @@ func (h *Handler) GetStateUpdate(id *BlockId) (*StateUpdate, *jsonrpc.Error) {
 		},
 	}, nil
 }
+
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L641
+func (h *Handler) GetNonce(id *BlockId, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	var nonce *felt.Felt
+	var err error
+	if id.Latest {
+		if height, heightErr := h.bcReader.Height(); heightErr != nil {
+			err = heightErr
+		} else {
+			nonce, err = h.bcReader.GetNonceByNumber(height, address)
+		}
+	} else if id.Hash != nil {
+		nonce, err = h.bcReader.GetNonceByHash(id.Hash, address)
+	} else {
+		nonce, err = h.bcReader.GetNonceByNumber(id.Number, address)
+	}
+
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	return nonce, nil
+}

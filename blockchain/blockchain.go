@@ -54,8 +54,11 @@ type Reader interface {
 	GetTransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	GetTransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
 	GetReceipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
+
 	GetStateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
+	GetNonceByNumber(number uint64, address *felt.Felt) (nonce *felt.Felt, err error)
+	GetNonceByHash(hash *felt.Felt, address *felt.Felt) (nonce *felt.Felt, err error)
 }
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
@@ -169,6 +172,20 @@ func (b *Blockchain) GetStateUpdateByNumber(number uint64) (update *core.StateUp
 func (b *Blockchain) GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error) {
 	return update, b.database.View(func(txn db.Transaction) error {
 		update, err = getStateUpdateByHash(txn, hash)
+		return err
+	})
+}
+
+func (b *Blockchain) GetNonceByNumber(number uint64, address *felt.Felt) (nonce *felt.Felt, err error) {
+	return nonce, b.database.View(func(txn db.Transaction) error {
+		nonce, err = getNonceByNumber(txn, number, address)
+		return err
+	})
+}
+
+func (b *Blockchain) GetNonceByHash(hash *felt.Felt, address *felt.Felt) (nonce *felt.Felt, err error) {
+	return nonce, b.database.View(func(txn db.Transaction) error {
+		nonce, err = getNonceByHash(txn, hash, address)
 		return err
 	})
 }
@@ -408,6 +425,17 @@ func getStateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *cor
 func getStateUpdateByHash(txn db.Transaction, hash *felt.Felt) (update *core.StateUpdate, err error) {
 	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		update, err = getStateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
+		return err
+	})
+}
+
+func getNonceByNumber(txn db.Transaction, number uint64, addr *felt.Felt) (*felt.Felt, error) {
+	return core.NewState(txn).GetContractNonceAt(addr, number)
+}
+
+func getNonceByHash(txn db.Transaction, hash *felt.Felt, addr *felt.Felt) (nonce *felt.Felt, err error) {
+	return nonce, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+		nonce, err = getNonceByNumber(txn, binary.BigEndian.Uint64(val), addr)
 		return err
 	})
 }

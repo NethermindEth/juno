@@ -838,3 +838,91 @@ func TestGetStateUpdate(t *testing.T) {
 		checkUpdate(t, update21656, update)
 	})
 }
+
+func TestNonce(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, utils.MAINNET)
+
+	t.Run("non-existent address - latest", func(t *testing.T) {
+		mockReader.EXPECT().Height().Return(uint64(0), errors.New("empty blockchain"))
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Latest: true}, new(felt.Felt))
+		assert.Nil(t, nonce)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent address - block hash", func(t *testing.T) {
+		mockReader.EXPECT().GetNonceByHash(gomock.Any(), gomock.Any()).Return(new(felt.Felt), nil)
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Hash: new(felt.Felt)}, new(felt.Felt))
+		assert.Equal(t, true, nonce.Equal(new(felt.Felt)))
+		assert.Nil(t, rpcErr)
+	})
+
+	t.Run("non-existent address - block number", func(t *testing.T) {
+		mockReader.EXPECT().GetNonceByNumber(gomock.Any(), gomock.Any()).Return(new(felt.Felt), nil)
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Number: 0}, new(felt.Felt))
+		assert.Equal(t, true, nonce.Equal(new(felt.Felt)))
+		assert.Nil(t, rpcErr)
+	})
+
+	mainnetGw, closer := testsource.NewTestGateway(utils.MAINNET)
+	defer closer()
+
+	stateUpdate4887, err := mainnetGw.StateUpdate(context.Background(), 4887)
+	require.NoError(t, err)
+
+	stateUpdate4888, err := mainnetGw.StateUpdate(context.Background(), 4888)
+	require.NoError(t, err)
+
+	contractAddress, err := new(felt.Felt).SetString("0x5fb7f82414f88e8418bb5f973bbc8fcb660a91913da262f47ecf8e898b83b09")
+	require.NoError(t, err)
+
+	oldNonce := stateUpdate4887.StateDiff.Nonces[*contractAddress]
+	latestNonce := stateUpdate4888.StateDiff.Nonces[*contractAddress]
+
+	t.Run("existing address - latest", func(t *testing.T) {
+		mockReader.EXPECT().Height().Return(uint64(4888), nil)
+		mockReader.EXPECT().GetNonceByNumber(uint64(4888), gomock.Any()).Return(latestNonce, nil)
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Latest: true}, contractAddress)
+		assert.Equal(t, latestNonce, nonce)
+		assert.Nil(t, rpcErr)
+	})
+
+	t.Run("existing address - block hash", func(t *testing.T) {
+		mockReader.EXPECT().GetNonceByHash(stateUpdate4887.BlockHash, contractAddress).Return(oldNonce, nil)
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Hash: stateUpdate4887.BlockHash}, contractAddress)
+		assert.Equal(t, oldNonce, nonce)
+		assert.Nil(t, rpcErr)
+	})
+
+	t.Run("existing address - block number", func(t *testing.T) {
+		mockReader.EXPECT().GetNonceByNumber(uint64(4887), contractAddress).Return(oldNonce, nil)
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Number: 4887}, contractAddress)
+		assert.Equal(t, oldNonce, nonce)
+		assert.Nil(t, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().GetNonceByHash(gomock.Any(), contractAddress).Return(nil, errors.New("block not found"))
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Hash: new(felt.Felt)}, contractAddress)
+		assert.Nil(t, nonce)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().GetNonceByNumber(uint64(5000), contractAddress).Return(nil, errors.New("block not found"))
+
+		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Number: 5000}, contractAddress)
+		assert.Nil(t, nonce)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+}
