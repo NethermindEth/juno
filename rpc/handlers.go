@@ -13,10 +13,11 @@ import (
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
 
-	ErrBlockNotFound   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrTxnHashNotFound = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
-	ErrNoBlock         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrContractNotFound = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrBlockNotFound    = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrTxnHashNotFound  = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrNoBlock          = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidTxIndex   = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
 )
 
 type Handler struct {
@@ -363,7 +364,7 @@ func (h *Handler) GetNonce(id *BlockId, address *felt.Felt) (*felt.Felt, *jsonrp
 	var err error
 	if id.Latest {
 		if height, heightErr := h.bcReader.Height(); heightErr != nil {
-			err = heightErr
+			return nil, ErrBlockNotFound
 		} else {
 			nonce, err = h.bcReader.GetNonceByNumber(height, address)
 		}
@@ -374,7 +375,7 @@ func (h *Handler) GetNonce(id *BlockId, address *felt.Felt) (*felt.Felt, *jsonrp
 	}
 
 	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, ErrContractNotFound
 	}
 
 	return nonce, nil

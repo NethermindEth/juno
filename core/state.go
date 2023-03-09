@@ -1,6 +1,8 @@
 package core
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -71,6 +73,41 @@ func (s *State) GetContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 // GetContractNonceAt returns nonce of a contract at a given address at a given block.
 func (s *State) GetContractNonceAt(addr *felt.Felt, blockNum uint64) (*felt.Felt, error) {
 	return NewContract(addr, s.txn).NonceAt(blockNum)
+}
+
+// GetNoncesAt returns nonces of all contracts at a given block.
+func (s *State) GetNoncesAt(blockNum uint64) (map[felt.Felt]*felt.Felt, error) {
+	iterator, err := s.txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := iterator.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	bnBytes := binary.BigEndian.AppendUint64([]byte{}, blockNum)
+	prefix := db.HistoricalContractNonce.Key(bnBytes)
+	nonces := make(map[felt.Felt]*felt.Felt)
+	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+		key := iterator.Key()
+		if !bytes.HasPrefix(key, prefix) {
+			break
+		}
+		keySuffix := key[len(prefix):]
+		val, err := iterator.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		addr := new(felt.Felt).SetBytes(keySuffix)
+		nonce := new(felt.Felt).SetBytes(val)
+		nonces[*addr] = nonce
+
+	}
+
+	return nonces, nil
 }
 
 // Root returns the state commitment.

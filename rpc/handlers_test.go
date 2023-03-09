@@ -915,7 +915,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Hash: new(felt.Felt)}, contractAddress)
 		assert.Nil(t, nonce)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -923,6 +923,6 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.GetNonce(&rpc.BlockId{Number: 5000}, contractAddress)
 		assert.Nil(t, nonce)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
 }

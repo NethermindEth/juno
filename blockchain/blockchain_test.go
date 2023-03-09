@@ -206,6 +206,26 @@ func TestStore(t *testing.T) {
 	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
+	checkStateUpdate := func(expected *core.StateUpdate, got *core.StateUpdate) {
+		assert.Equal(t, expected.BlockHash, got.BlockHash)
+		assert.Equal(t, expected.NewRoot, got.NewRoot)
+		assert.Equal(t, expected.OldRoot, got.OldRoot)
+		assert.Equal(t, expected.StateDiff.StorageDiffs, got.StateDiff.StorageDiffs)
+		assert.Equal(t, expected.StateDiff.Nonces, got.StateDiff.Nonces)
+		assert.Equal(t, expected.StateDiff.DeclaredClasses, got.StateDiff.DeclaredClasses)
+		assert.Equal(t, len(expected.StateDiff.DeployedContracts), len(got.StateDiff.DeployedContracts))
+		for _, contract := range expected.StateDiff.DeployedContracts {
+			var contains bool
+			for _, gotContract := range got.StateDiff.DeployedContracts {
+				if contract.Address.Equal(gotContract.Address) && contract.ClassHash.Equal(gotContract.ClassHash) {
+					contains = true
+					break
+				}
+			}
+			assert.True(t, contains)
+		}
+	}
+
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 		require.NoError(t, chain.Store(block0, stateUpdate0, nil))
@@ -224,7 +244,8 @@ func TestStore(t *testing.T) {
 
 		got0Update, err := chain.GetStateUpdateByHash(block0.Hash)
 		require.NoError(t, err)
-		assert.Equal(t, got0Update, stateUpdate0)
+
+		checkStateUpdate(stateUpdate0, got0Update)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
@@ -251,7 +272,7 @@ func TestStore(t *testing.T) {
 
 		got1Update, err := chain.GetStateUpdateByNumber(1)
 		require.NoError(t, err)
-		assert.Equal(t, got1Update, stateUpdate1)
+		checkStateUpdate(stateUpdate1, got1Update)
 	})
 }
 

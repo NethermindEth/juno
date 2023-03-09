@@ -234,7 +234,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, dec
 			}
 		}
 
-		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+		if err := storeStorageDiffs(txn, block.Number, stateUpdate.StateDiff.StorageDiffs); err != nil {
 			return err
 		}
 
@@ -399,13 +399,13 @@ func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err
 	})
 }
 
-func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {
+func storeStorageDiffs(txn db.Transaction, blockNumber uint64, diffs map[felt.Felt][]core.StorageDiff) error {
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
-	if updateBytes, err := encoder.Marshal(update); err != nil {
+	if storageBytes, err := encoder.Marshal(diffs); err != nil {
 		return err
-	} else if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
+	} else if err = txn.Set(db.StorageDiffsByBlockNumber.Key(numBytes), storageBytes); err != nil {
 		return err
 	}
 
@@ -416,9 +416,64 @@ func getStateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *cor
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
-	return update, txn.Get(db.StateUpdatesByBlockNumber.Key(numBytes), func(val []byte) error {
-		update = new(core.StateUpdate)
-		return encoder.Unmarshal(val, update)
+	return update, txn.Get(db.StorageDiffsByBlockNumber.Key(numBytes), func(val []byte) error {
+		storageDiffs := new(map[felt.Felt][]core.StorageDiff)
+		if err = encoder.Unmarshal(val, storageDiffs); err != nil {
+			return err
+		}
+
+		var oldRoot *felt.Felt
+		block, err := getBlockByNumber(txn, blockNumber)
+		if err != nil {
+			return err
+		}
+		if block.Number != 0 {
+			prevBlock, err := getBlockByNumber(txn, blockNumber-1)
+			if err != nil {
+				return err
+			}
+			oldRoot = prevBlock.GlobalStateRoot
+		} else {
+			oldRoot = new(felt.Felt)
+		}
+
+		deployedContracts := []core.DeployedContract{}
+		declaredClasses := []*felt.Felt{}
+		for _, tx := range block.Transactions {
+			switch t := tx.(type) {
+			case *core.DeployTransaction:
+				deployedContracts = append(deployedContracts, core.DeployedContract{
+					Address:   t.ContractAddress,
+					ClassHash: t.ClassHash,
+				})
+			case *core.DeployAccountTransaction:
+				deployedContracts = append(deployedContracts, core.DeployedContract{
+					Address:   t.ContractAddress,
+					ClassHash: t.ClassHash,
+				})
+			case *core.DeclareTransaction:
+				declaredClasses = append(declaredClasses, t.ClassHash)
+			}
+		}
+
+		nonces, nonceErr := core.NewState(txn).GetNoncesAt(block.Number)
+		if nonceErr != nil {
+			return nonceErr
+		}
+
+		update = &core.StateUpdate{
+			BlockHash: block.Hash,
+			NewRoot:   block.GlobalStateRoot,
+			OldRoot:   oldRoot,
+			StateDiff: &core.StateDiff{
+				StorageDiffs:      *storageDiffs,
+				Nonces:            nonces,
+				DeployedContracts: deployedContracts,
+				DeclaredClasses:   declaredClasses,
+			},
+		}
+
+		return nil
 	})
 }
 

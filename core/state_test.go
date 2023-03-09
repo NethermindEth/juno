@@ -198,6 +198,10 @@ func TestNonce(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, true, nonceAt.Equal(&felt.Zero))
 
+	noncesAt, err := state.GetNoncesAt(0)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(noncesAt))
+
 	coreUpdate = new(core.StateUpdate)
 	coreUpdate.OldRoot, _ = new(felt.Felt).SetString("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
 	coreUpdate.NewRoot, _ = new(felt.Felt).SetString("0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1")
@@ -215,4 +219,8 @@ func TestNonce(t *testing.T) {
 	nonceAt, err = state.GetContractNonceAt(addr, 1)
 	assert.NoError(t, err)
 	assert.Equal(t, true, nonceAt.Equal(&felt.Zero))
+
+	noncesAt, err = state.GetNoncesAt(1)
+	assert.NoError(t, err)
+	assert.Equal(t, len(coreUpdate.StateDiff.Nonces), len(noncesAt))
 }
