@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestHeight(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestHeight(t *testing.T) {
 func TestGetBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
-		client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+		client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 		defer closeFn()
 		gw := gateway.New(client)
 
@@ -130,7 +130,7 @@ func TestVerifyBlock(t *testing.T) {
 		assert.EqualError(t, chain.VerifyBlock(block), expectedErr.Error())
 	})
 
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 
@@ -166,7 +166,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 
@@ -203,7 +203,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 
@@ -265,7 +265,7 @@ func TestStore(t *testing.T) {
 func TestGetTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
@@ -151,7 +151,7 @@ func TestBlockHash(t *testing.T) {
 		tc := testcase
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client, closeFn := clients.NewTestGatewayClient(tc.chain)
+			client, closeFn := feeder.NewTestGatewayClient(tc.chain)
 			defer closeFn()
 			gw := gateway.New(client)
 
@@ -174,7 +174,7 @@ func TestBlockHash(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	mainnetGW := gateway.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
+		client, closeFn := feeder.NewTestGatewayClient(utils.GOERLI)
 		defer closeFn()
 		goerliGW := gateway.New(client)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)

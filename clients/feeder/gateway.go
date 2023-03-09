@@ -1,4 +1,4 @@
-package clients
+package feeder
 
 import (
 	"context"
@@ -110,7 +110,7 @@ func newTestGatewayServer(network utils.Network) *httptest.Server {
 			return
 		}
 
-		path := filepath.Join(base, "clients", "testdata", network.String(), dir, fileName[0]+".json")
+		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
