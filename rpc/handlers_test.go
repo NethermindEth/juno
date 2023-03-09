@@ -77,7 +77,7 @@ func TestBlockNumberAndHash(t *testing.T) {
 	})
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
-		client, closeServer := feeder.NewTestGatewayClient(utils.MAINNET)
+		client, closeServer := feeder.NewTestClient(utils.MAINNET)
 		defer closeServer()
 		gw := adaptfeeder.New(client)
 
@@ -101,7 +101,7 @@ func TestGetBlockTransactionCount(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.GOERLI)
 
-	client, closeServer := feeder.NewTestGatewayClient(utils.GOERLI)
+	client, closeServer := feeder.NewTestClient(utils.GOERLI)
 	defer closeServer()
 	gw := adaptfeeder.New(client)
 
@@ -167,7 +167,7 @@ func TestGetBlockWithTxHashes(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.GOERLI)
 
-	client, closeServer := feeder.NewTestGatewayClient(utils.GOERLI)
+	client, closeServer := feeder.NewTestClient(utils.GOERLI)
 	defer closeServer()
 	gw := adaptfeeder.New(client)
 
@@ -248,7 +248,7 @@ func TestGetBlockWithTxs(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
 
-	client, closeServer := feeder.NewTestGatewayClient(utils.MAINNET)
+	client, closeServer := feeder.NewTestClient(utils.MAINNET)
 	defer closeServer()
 	gw := adaptfeeder.New(client)
 
@@ -353,7 +353,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	client, closeServer := feeder.NewTestGatewayClient((utils.MAINNET))
+	client, closeServer := feeder.NewTestClient(utils.MAINNET)
 	defer closeServer()
 	mainnetGw := adaptfeeder.New(client)
 
@@ -547,7 +547,7 @@ func TestGetTransactionByBlockIdAndIndex(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	client, closer := feeder.NewTestGatewayClient(utils.MAINNET)
+	client, closer := feeder.NewTestClient(utils.MAINNET)
 	defer closer()
 	mainnetGw := adaptfeeder.New(client)
 
@@ -684,7 +684,7 @@ func TestGetTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
 
-	client, closer := feeder.NewTestGatewayClient(utils.MAINNET)
+	client, closer := feeder.NewTestClient(utils.MAINNET)
 	defer closer()
 	mainnetGw := adaptfeeder.New(client)
 
@@ -784,7 +784,7 @@ func TestGetStateUpdate(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	client, closer := feeder.NewTestGatewayClient(utils.MAINNET)
+	client, closer := feeder.NewTestClient(utils.MAINNET)
 	defer closer()
 	mainnetGw := adaptfeeder.New(client)
 

@@ -80,8 +80,8 @@ func New(cfg *Config) (StarknetNode, error) {
 	}
 
 	chain := blockchain.New(stateDb, cfg.Network)
-	gatewayClient := feeder.NewGatewayClient(cfg.Network.URL())
-	synchronizer := sync.NewSynchronizer(chain, adaptfeeder.New(gatewayClient), log)
+	client := feeder.NewClient(cfg.Network.URL())
+	synchronizer := sync.NewSynchronizer(chain, adaptfeeder.New(client), log)
 	return &Node{
 		cfg:          cfg,
 		log:          log,

@@ -11,10 +11,10 @@ import (
 )
 
 type Gateway struct {
-	client *feeder.GatewayClient
+	client *feeder.Client
 }
 
-func New(client *feeder.GatewayClient) *Gateway {
+func New(client *feeder.Client) *Gateway {
 	return &Gateway{
 		client: client,
 	}
