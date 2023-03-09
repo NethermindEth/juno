@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -22,15 +21,6 @@ type StarknetNode interface {
 }
 
 type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
-
-const (
-	feederGatewaySuffix = "/feeder_gateway"
-	rpcSuffix           = "/rpc"
-
-	defaultMetricsPort = ":9090"
-
-	shutdownTimeout = 5 * time.Second
-)
 
 // Config is the top-level juno configuration.
 type Config struct {

@@ -10,20 +10,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type Gateway struct {
+type Feeder struct {
 	client *feeder.Client
 }
 
-func New(client *feeder.Client) *Gateway {
-	return &Gateway{
+func New(client *feeder.Client) *Feeder {
+	return &Feeder{
 		client: client,
 	}
 }
 
-// BlockByNumber gets the block for a given block number from the feeder gateway,
+// BlockByNumber gets the block for a given block number from the feeder,
 // then adapts it to the core.Block type.
-func (g *Gateway) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	response, err := g.client.GetBlock(ctx, blockNumber)
+func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
+	response, err := f.client.GetBlock(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -153,10 +153,10 @@ func adaptL2ToL1Message(response *feeder.L2ToL1Message) *core.L2ToL1Message {
 	}
 }
 
-// Transaction gets the transaction for a given transaction hash from the feeder gateway,
+// Transaction gets the transaction for a given transaction hash from the feeder,
 // then adapts it to the appropriate core.Transaction types.
-func (g *Gateway) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := g.client.GetTransaction(ctx, transactionHash)
+func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
+	response, err := f.client.GetTransaction(ctx, transactionHash)
 	if err != nil {
 		return nil, err
 	}
@@ -243,10 +243,10 @@ func adaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTra
 	}
 }
 
-// Class gets the class for a given class hash from the feeder gateway,
+// Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
-func (g *Gateway) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error) {
-	response, err := g.client.GetClassDefinition(ctx, classHash)
+func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error) {
+	response, err := f.client.GetClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err
 	}
@@ -299,10 +299,10 @@ func adaptClass(response *feeder.ClassDefinition) (*core.Class, error) {
 	return class, nil
 }
 
-// StateUpdate gets the state update for a given block number from the feeder gateway,
+// StateUpdate gets the state update for a given block number from the feeder,
 // then adapts it to the core.StateUpdate type.
-func (g *Gateway) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	response, err := g.client.GetStateUpdate(ctx, blockNumber)
+func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
+	response, err := f.client.GetStateUpdate(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
