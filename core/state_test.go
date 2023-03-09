@@ -136,18 +136,18 @@ func TestUpdate(t *testing.T) {
   }
 }`)
 
-	var gatewayUpdate feeder.StateUpdate
-	err := json.Unmarshal(updateJson, &gatewayUpdate)
+	var feederUpdate feeder.StateUpdate
+	err := json.Unmarshal(updateJson, &feederUpdate)
 	if err != nil {
 		t.Error(err)
 	}
 
 	coreUpdate := new(core.StateUpdate)
-	coreUpdate.BlockHash = gatewayUpdate.BlockHash
-	coreUpdate.NewRoot = gatewayUpdate.NewRoot
-	coreUpdate.OldRoot = gatewayUpdate.OldRoot
+	coreUpdate.BlockHash = feederUpdate.BlockHash
+	coreUpdate.NewRoot = feederUpdate.NewRoot
+	coreUpdate.OldRoot = feederUpdate.OldRoot
 	coreUpdate.StateDiff = new(core.StateDiff)
-	for _, contract := range gatewayUpdate.StateDiff.DeployedContracts {
+	for _, contract := range feederUpdate.StateDiff.DeployedContracts {
 		coreUpdate.StateDiff.DeployedContracts = append(coreUpdate.StateDiff.DeployedContracts, struct {
 			Address   *felt.Felt
 			ClassHash *felt.Felt
@@ -155,7 +155,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	coreUpdate.StateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff)
-	for addrStr, diffs := range gatewayUpdate.StateDiff.StorageDiffs {
+	for addrStr, diffs := range feederUpdate.StateDiff.StorageDiffs {
 		addr, _ := new(felt.Felt).SetString(addrStr)
 		for _, diff := range diffs {
 			coreUpdate.StateDiff.StorageDiffs[*addr] = append(coreUpdate.StateDiff.

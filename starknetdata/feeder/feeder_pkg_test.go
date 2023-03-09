@@ -138,39 +138,39 @@ func TestAdaptStateUpdate(t *testing.T) {
   }
 }`)
 
-	var gatewayStateUpdate feeder.StateUpdate
-	err := json.Unmarshal(jsonData, &gatewayStateUpdate)
+	var feederStateUpdate feeder.StateUpdate
+	err := json.Unmarshal(jsonData, &feederStateUpdate)
 	assert.Equal(t, nil, err, "Unexpected error")
 
-	coreStateUpdate, err := AdaptStateUpdate(&gatewayStateUpdate)
+	coreStateUpdate, err := AdaptStateUpdate(&feederStateUpdate)
 	if assert.NoError(t, err) {
-		assert.Equal(t, true, gatewayStateUpdate.NewRoot.Equal(coreStateUpdate.NewRoot))
-		assert.Equal(t, true, gatewayStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
-		assert.Equal(t, true, gatewayStateUpdate.BlockHash.Equal(coreStateUpdate.BlockHash))
+		assert.Equal(t, true, feederStateUpdate.NewRoot.Equal(coreStateUpdate.NewRoot))
+		assert.Equal(t, true, feederStateUpdate.OldRoot.Equal(coreStateUpdate.OldRoot))
+		assert.Equal(t, true, feederStateUpdate.BlockHash.Equal(coreStateUpdate.BlockHash))
 
-		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeclaredContracts))
-		for idx := range gatewayStateUpdate.StateDiff.DeclaredContracts {
-			gw := gatewayStateUpdate.StateDiff.DeclaredContracts[idx]
+		assert.Equal(t, 2, len(feederStateUpdate.StateDiff.DeclaredContracts))
+		for idx := range feederStateUpdate.StateDiff.DeclaredContracts {
+			gw := feederStateUpdate.StateDiff.DeclaredContracts[idx]
 			core := coreStateUpdate.StateDiff.DeclaredClasses[idx]
 			assert.Equal(t, true, gw.Equal(core))
 		}
 
-		for keyStr, gw := range gatewayStateUpdate.StateDiff.Nonces {
+		for keyStr, gw := range feederStateUpdate.StateDiff.Nonces {
 			key, _ := new(felt.Felt).SetString(keyStr)
 			core := coreStateUpdate.StateDiff.Nonces[*key]
 			assert.Equal(t, true, gw.Equal(core))
 		}
 
-		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.DeployedContracts))
-		for idx := range gatewayStateUpdate.StateDiff.DeployedContracts {
-			gw := gatewayStateUpdate.StateDiff.DeployedContracts[idx]
+		assert.Equal(t, 2, len(feederStateUpdate.StateDiff.DeployedContracts))
+		for idx := range feederStateUpdate.StateDiff.DeployedContracts {
+			gw := feederStateUpdate.StateDiff.DeployedContracts[idx]
 			core := coreStateUpdate.StateDiff.DeployedContracts[idx]
 			assert.Equal(t, true, gw.ClassHash.Equal(core.ClassHash))
 			assert.Equal(t, true, gw.Address.Equal(core.Address))
 		}
 
-		assert.Equal(t, 2, len(gatewayStateUpdate.StateDiff.StorageDiffs))
-		for keyStr, diffs := range gatewayStateUpdate.StateDiff.StorageDiffs {
+		assert.Equal(t, 2, len(feederStateUpdate.StateDiff.StorageDiffs))
+		for keyStr, diffs := range feederStateUpdate.StateDiff.StorageDiffs {
 			key, _ := new(felt.Felt).SetString(keyStr)
 			coreDiffs := coreStateUpdate.StateDiff.StorageDiffs[*key]
 			assert.Equal(t, true, len(diffs) > 0)
