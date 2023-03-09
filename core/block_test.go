@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/starknetdata/gateway"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,7 +153,7 @@ func TestBlockHash(t *testing.T) {
 			t.Parallel()
 			client, closeFn := feeder.NewTestGatewayClient(tc.chain)
 			defer closeFn()
-			gw := gateway.New(client)
+			gw := adaptfeeder.New(client)
 
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestBlockHash(t *testing.T) {
 
 	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
-	mainnetGW := gateway.New(client)
+	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestBlockHash(t *testing.T) {
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
 		client, closeFn := feeder.NewTestGatewayClient(utils.GOERLI)
 		defer closeFn()
-		goerliGW := gateway.New(client)
+		goerliGW := adaptfeeder.New(client)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 
