@@ -15,7 +15,7 @@ import (
 )
 
 func TestSyncBlocks(t *testing.T) {
-	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	defer closeFn()
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {

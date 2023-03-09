@@ -21,7 +21,7 @@ import (
 
 type Backoff func(wait time.Duration) time.Duration
 
-type GatewayClient struct {
+type Client struct {
 	url        string
 	client     *http.Client
 	backoff    Backoff
@@ -31,27 +31,27 @@ type GatewayClient struct {
 	log        utils.SimpleLogger
 }
 
-func (c *GatewayClient) WithBackoff(b Backoff) *GatewayClient {
+func (c *Client) WithBackoff(b Backoff) *Client {
 	c.backoff = b
 	return c
 }
 
-func (c *GatewayClient) WithMaxRetries(num int) *GatewayClient {
+func (c *Client) WithMaxRetries(num int) *Client {
 	c.maxRetries = num
 	return c
 }
 
-func (c *GatewayClient) WithMaxWait(d time.Duration) *GatewayClient {
+func (c *Client) WithMaxWait(d time.Duration) *Client {
 	c.maxWait = d
 	return c
 }
 
-func (c *GatewayClient) WithMinWait(d time.Duration) *GatewayClient {
+func (c *Client) WithMinWait(d time.Duration) *Client {
 	c.minWait = d
 	return c
 }
 
-func (c *GatewayClient) WithLogger(log utils.SimpleLogger) *GatewayClient {
+func (c *Client) WithLogger(log utils.SimpleLogger) *Client {
 	c.log = log
 	return c
 }
@@ -64,15 +64,15 @@ func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
 
-// NewTestGatewayClient returns a client and a function to close a test server.
-func NewTestGatewayClient(network utils.Network) (*GatewayClient, func()) {
-	srv := newTestGatewayServer(network)
-	client := NewGatewayClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
+// NewTestClient returns a client and a function to close a test server.
+func NewTestClient(network utils.Network) (*Client, func()) {
+	srv := newTestServer(network)
+	client := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
 
 	return client, srv.Close
 }
 
-func newTestGatewayServer(network utils.Network) *httptest.Server {
+func newTestServer(network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -120,8 +120,8 @@ func newTestGatewayServer(network utils.Network) *httptest.Server {
 	}))
 }
 
-func NewGatewayClient(url string) *GatewayClient {
-	return &GatewayClient{
+func NewClient(url string) *Client {
+	return &Client{
 		url:        url,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
@@ -133,10 +133,10 @@ func NewGatewayClient(url string) *GatewayClient {
 }
 
 // buildQueryString builds the query url with encoded parameters
-func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string) string {
+func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
 	base, err := url.Parse(c.url)
 	if err != nil {
-		panic("Malformed feeder gateway base URL")
+		panic("Malformed feeder base URL")
 	}
 
 	base.Path += endpoint
@@ -151,7 +151,7 @@ func (c *GatewayClient) buildQueryString(endpoint string, args map[string]string
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *GatewayClient) get(ctx context.Context, queryUrl string) ([]byte, error) {
+func (c *Client) get(ctx context.Context, queryUrl string) ([]byte, error) {
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
@@ -180,13 +180,13 @@ func (c *GatewayClient) get(ctx context.Context, queryUrl string) ([]byte, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Warnw("failed query to feeder gateway, retrying...", "retryAfter", wait.String())
+			c.log.Warnw("failed query to feeder, retrying...", "retryAfter", wait.String())
 		}
 	}
 	return nil, err
 }
 
-// StateUpdate object returned by the gateway in JSON format for "get_state_update" endpoint
+// StateUpdate object returned by the feeder in JSON format for "get_state_update" endpoint
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash"`
 	NewRoot   *felt.Felt `json:"new_root"`
@@ -207,7 +207,7 @@ type StateUpdate struct {
 	} `json:"state_diff"`
 }
 
-func (c *GatewayClient) GetStateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
+func (c *Client) GetStateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
 	queryUrl := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
@@ -223,7 +223,7 @@ func (c *GatewayClient) GetStateUpdate(ctx context.Context, blockNumber uint64) 
 	}
 }
 
-// Transaction object returned by the gateway in JSON format for multiple endpoints
+// Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
 	Hash                *felt.Felt   `json:"transaction_hash"`
 	Version             *felt.Felt   `json:"version"`
@@ -248,7 +248,7 @@ type TransactionStatus struct {
 	Transaction      *Transaction `json:"transaction"`
 }
 
-func (c *GatewayClient) GetTransaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
+func (c *Client) GetTransaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
 	queryUrl := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": "0x" + transactionHash.Text(16),
 	})
@@ -309,7 +309,7 @@ type TransactionReceipt struct {
 	TransactionIndex   uint64              `json:"transaction_index"`
 }
 
-// Block object returned by the gateway in JSON format for "get_block" endpoint
+// Block object returned by the feeder in JSON format for "get_block" endpoint
 type Block struct {
 	Hash             *felt.Felt            `json:"block_hash"`
 	ParentHash       *felt.Felt            `json:"parent_block_hash"`
@@ -324,7 +324,7 @@ type Block struct {
 	SequencerAddress *felt.Felt            `json:"sequencer_address"`
 }
 
-func (c *GatewayClient) GetBlock(ctx context.Context, blockNumber uint64) (*Block, error) {
+func (c *Client) GetBlock(ctx context.Context, blockNumber uint64) (*Block, error) {
 	queryUrl := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
@@ -383,7 +383,7 @@ type ClassDefinition struct {
 	Program Program `json:"program"`
 }
 
-func (c *GatewayClient) GetClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
+func (c *Client) GetClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
 	queryUrl := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": "0x" + classHash.Text(16),
 	})

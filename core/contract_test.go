@@ -21,7 +21,7 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 }
 
 func TestClassHash(t *testing.T) {
-	client, closeFn := feeder.NewTestGatewayClient(utils.GOERLI)
+	client, closeFn := feeder.NewTestClient(utils.GOERLI)
 	defer closeFn()
 	gw := adaptfeeder.New(client)
 
