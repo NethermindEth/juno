@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/starknetdata/gateway"
 	"github.com/NethermindEth/juno/utils"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestSyncBlocks(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 	gw := gateway.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {

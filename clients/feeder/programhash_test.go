@@ -1,17 +1,17 @@
-package clients_test
+package feeder_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestProgramHash(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
+	client, closeFn := feeder.NewTestGatewayClient(utils.GOERLI)
 	defer closeFn()
 	hexToFelt := func(t *testing.T, hex string) *felt.Felt {
 		f, err := new(felt.Felt).SetString(hex)
@@ -51,7 +51,7 @@ func TestProgramHash(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			programHash, err := clients.ProgramHash(classDefinition)
+			programHash, err := feeder.ProgramHash(classDefinition)
 			if err != nil {
 				t.Fatalf("unexpected error while computing program hash: %s", err)
 			}

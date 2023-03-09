@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -136,7 +136,7 @@ func TestUpdate(t *testing.T) {
   }
 }`)
 
-	var gatewayUpdate clients.StateUpdate
+	var gatewayUpdate feeder.StateUpdate
 	err := json.Unmarshal(updateJson, &gatewayUpdate)
 	if err != nil {
 		t.Error(err)

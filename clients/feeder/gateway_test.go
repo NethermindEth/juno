@@ -1,4 +1,4 @@
-package clients_test
+package feeder_test
 
 import (
 	"context"
@@ -10,15 +10,15 @@ import (
 
 	"github.com/NethermindEth/juno/utils"
 
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
 
 const mockUrl = "https://mock_gateway.io/"
 
-func testClient(url string) *clients.GatewayClient {
-	return clients.NewGatewayClient(url).WithBackoff(clients.NopBackoff).WithMaxRetries(0)
+func testClient(url string) *feeder.GatewayClient {
+	return feeder.NewGatewayClient(url).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
 }
 
 func TestStateUpdateUnmarshal(t *testing.T) {
@@ -50,7 +50,7 @@ func TestStateUpdateUnmarshal(t *testing.T) {
   }
 }`)
 
-	var update clients.StateUpdate
+	var update feeder.StateUpdate
 	err := json.Unmarshal(jsonData, &update)
 	assert.Equal(t, nil, err, "Unexpected error")
 	expected, _ := new(felt.Felt).SetString("0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943")
@@ -101,7 +101,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
       "sender_address":"0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23",
       "type":"DECLARE"
    }`)
-	var declareTx clients.Transaction
+	var declareTx feeder.Transaction
 	err := json.Unmarshal(declareJson, &declareTx)
 	if err != nil {
 		t.Error(err)
@@ -134,7 +134,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
       ],
       "type":"INVOKE_FUNCTION"
    }`)
-	var invokeTx clients.Transaction
+	var invokeTx feeder.Transaction
 	err := json.Unmarshal(invokeJson, &invokeTx)
 	if err != nil {
 		t.Error(err)
@@ -167,7 +167,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
       ],
       "type":"DEPLOY"
    }`)
-	var deployTx clients.Transaction
+	var deployTx feeder.Transaction
 	err := json.Unmarshal(deployJson, &deployTx)
 	if err != nil {
 		t.Error(err)
@@ -208,7 +208,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
       ],
       "type":"DEPLOY_ACCOUNT"
    }`)
-	var deployTx clients.Transaction
+	var deployTx feeder.Transaction
 	err := json.Unmarshal(deployJson, &deployTx)
 	if err != nil {
 		t.Error(err)
@@ -249,7 +249,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
       ],
       "type":"L1_HANDLER"
    }`)
-	var handlerTx clients.Transaction
+	var handlerTx feeder.Transaction
 	err := json.Unmarshal(handlerJson, &handlerTx)
 	if err != nil {
 		t.Error(err)
@@ -269,7 +269,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	block, err := client.GetBlock(context.Background(), 11817)
@@ -290,7 +290,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	client, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	block, err := client.GetBlock(context.Background(), 19199)
@@ -312,7 +312,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestClassUnmarshal(t *testing.T) {
-	gatewayClient, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	gatewayClient, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
@@ -338,7 +338,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseUrl := "https\t://mock_gateway.io"
-	gatewayClient := clients.NewGatewayClient(baseUrl)
+	gatewayClient := feeder.NewGatewayClient(baseUrl)
 	gatewayClient.GetBlock(context.Background(), 0)
 }
 
@@ -371,7 +371,7 @@ func TestGetStateUpdate(t *testing.T) {
 		}
 	  }`)
 
-	var update clients.StateUpdate
+	var update feeder.StateUpdate
 	err := json.Unmarshal(jsonData, &update)
 	assert.Equal(t, nil, err, "Unexpected error")
 
@@ -437,7 +437,7 @@ func TestGetTransaction(t *testing.T) {
 		"transaction_index": 1
 	}
 	`)
-	var transactionStatus clients.TransactionStatus
+	var transactionStatus feeder.TransactionStatus
 	err := json.Unmarshal(jsonTransactionStatus, &transactionStatus)
 	assert.NoError(t, err)
 
@@ -478,7 +478,7 @@ func TestGetTransaction(t *testing.T) {
 }
 
 func TestGetBlock(t *testing.T) {
-	gatewayClient, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	gatewayClient, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -497,7 +497,7 @@ func TestGetBlock(t *testing.T) {
 }
 
 func TestGetClassDefinition(t *testing.T) {
-	gatewayClient, closeFn := clients.NewTestGatewayClient(utils.MAINNET)
+	gatewayClient, closeFn := feeder.NewTestGatewayClient(utils.MAINNET)
 	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -523,7 +523,7 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	gatewayClient := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(maxRetries)
+	gatewayClient := feeder.NewGatewayClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := gatewayClient.GetBlock(context.Background(), 0)
@@ -559,7 +559,7 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := clients.NewGatewayClient(srv.URL).WithBackoff(clients.NopBackoff).WithMaxRetries(maxRetries)
+	c := feeder.NewGatewayClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	_, err := c.GetBlock(context.Background(), 0)
 	assert.EqualError(t, err, "500 Internal Server Error")

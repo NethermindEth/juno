@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type Gateway struct {
-	client *clients.GatewayClient
+	client *feeder.GatewayClient
 }
 
-func New(client *clients.GatewayClient) *Gateway {
+func New(client *feeder.GatewayClient) *Gateway {
 	return &Gateway{
 		client: client,
 	}
@@ -31,7 +31,7 @@ func (g *Gateway) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.
 	return AdaptBlock(response)
 }
 
-func AdaptBlock(response *clients.Block) (*core.Block, error) {
+func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 	if response == nil {
 		return nil, errors.New("nil client block")
 	}
@@ -67,7 +67,7 @@ func AdaptBlock(response *clients.Block) (*core.Block, error) {
 	}, nil
 }
 
-func adaptTransactionReceipt(response *clients.TransactionReceipt) *core.TransactionReceipt {
+func adaptTransactionReceipt(response *feeder.TransactionReceipt) *core.TransactionReceipt {
 	if response == nil {
 		return nil
 	}
@@ -92,7 +92,7 @@ func adaptTransactionReceipt(response *clients.TransactionReceipt) *core.Transac
 	}
 }
 
-func adaptEvent(response *clients.Event) *core.Event {
+func adaptEvent(response *feeder.Event) *core.Event {
 	if response == nil {
 		return nil
 	}
@@ -104,7 +104,7 @@ func adaptEvent(response *clients.Event) *core.Event {
 	}
 }
 
-func adaptExecutionResources(response *clients.ExecutionResources) *core.ExecutionResources {
+func adaptExecutionResources(response *feeder.ExecutionResources) *core.ExecutionResources {
 	if response == nil {
 		return nil
 	}
@@ -116,7 +116,7 @@ func adaptExecutionResources(response *clients.ExecutionResources) *core.Executi
 	}
 }
 
-func adaptBuiltinInstanceCounter(response clients.BuiltinInstanceCounter) core.BuiltinInstanceCounter {
+func adaptBuiltinInstanceCounter(response feeder.BuiltinInstanceCounter) core.BuiltinInstanceCounter {
 	return core.BuiltinInstanceCounter{
 		Bitwise:    response.Bitwise,
 		EcOp:       response.EcOp,
@@ -127,7 +127,7 @@ func adaptBuiltinInstanceCounter(response clients.BuiltinInstanceCounter) core.B
 	}
 }
 
-func adaptL1ToL2Message(response *clients.L1ToL2Message) *core.L1ToL2Message {
+func adaptL1ToL2Message(response *feeder.L1ToL2Message) *core.L1ToL2Message {
 	if response == nil {
 		return nil
 	}
@@ -141,7 +141,7 @@ func adaptL1ToL2Message(response *clients.L1ToL2Message) *core.L1ToL2Message {
 	}
 }
 
-func adaptL2ToL1Message(response *clients.L2ToL1Message) *core.L2ToL1Message {
+func adaptL2ToL1Message(response *feeder.L2ToL1Message) *core.L2ToL1Message {
 	if response == nil {
 		return nil
 	}
@@ -169,7 +169,7 @@ func (g *Gateway) Transaction(ctx context.Context, transactionHash *felt.Felt) (
 	return tx, nil
 }
 
-func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error) {
+func adaptTransaction(transaction *feeder.Transaction) (core.Transaction, error) {
 	txType := transaction.Type
 	switch txType {
 	case "DECLARE":
@@ -187,7 +187,7 @@ func adaptTransaction(transaction *clients.Transaction) (core.Transaction, error
 	}
 }
 
-func adaptDeclareTransaction(t *clients.Transaction) *core.DeclareTransaction {
+func adaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
 		TransactionHash:      t.Hash,
 		SenderAddress:        t.SenderAddress,
@@ -199,7 +199,7 @@ func adaptDeclareTransaction(t *clients.Transaction) *core.DeclareTransaction {
 	}
 }
 
-func adaptDeployTransaction(t *clients.Transaction) *core.DeployTransaction {
+func adaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
 		ContractAddressSalt: t.ContractAddressSalt,
@@ -210,7 +210,7 @@ func adaptDeployTransaction(t *clients.Transaction) *core.DeployTransaction {
 	}
 }
 
-func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
+func adaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
 		TransactionHash:      t.Hash,
 		ContractAddress:      t.ContractAddress,
@@ -223,7 +223,7 @@ func adaptInvokeTransaction(t *clients.Transaction) *core.InvokeTransaction {
 	}
 }
 
-func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransaction {
+func adaptL1HandlerTransaction(t *feeder.Transaction) *core.L1HandlerTransaction {
 	return &core.L1HandlerTransaction{
 		TransactionHash:    t.Hash,
 		ContractAddress:    t.ContractAddress,
@@ -234,7 +234,7 @@ func adaptL1HandlerTransaction(t *clients.Transaction) *core.L1HandlerTransactio
 	}
 }
 
-func adaptDeployAccountTransaction(t *clients.Transaction) *core.DeployAccountTransaction {
+func adaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTransaction {
 	return &core.DeployAccountTransaction{
 		DeployTransaction:    *adaptDeployTransaction(t),
 		MaxFee:               t.MaxFee,
@@ -254,7 +254,7 @@ func (g *Gateway) Class(ctx context.Context, classHash *felt.Felt) (*core.Class,
 	return adaptClass(response)
 }
 
-func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
+func adaptClass(response *feeder.ClassDefinition) (*core.Class, error) {
 	class := new(core.Class)
 
 	class.Abi = response.Abi
@@ -281,7 +281,7 @@ func adaptClass(response *clients.ClassDefinition) (*core.Class, error) {
 	}
 
 	var err error
-	class.ProgramHash, err = clients.ProgramHash(response)
+	class.ProgramHash, err = feeder.ProgramHash(response)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +310,7 @@ func (g *Gateway) StateUpdate(ctx context.Context, blockNumber uint64) (*core.St
 	return AdaptStateUpdate(response)
 }
 
-func AdaptStateUpdate(response *clients.StateUpdate) (*core.StateUpdate, error) {
+func AdaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredClasses = response.StateDiff.DeclaredContracts
 	for _, deployedContract := range response.StateDiff.DeployedContracts {

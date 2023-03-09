@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -21,7 +21,7 @@ func hexToFelt(t *testing.T, hex string) *felt.Felt {
 }
 
 func TestClassHash(t *testing.T) {
-	client, closeFn := clients.NewTestGatewayClient(utils.GOERLI)
+	client, closeFn := feeder.NewTestGatewayClient(utils.GOERLI)
 	defer closeFn()
 	gw := gateway.New(client)
 
