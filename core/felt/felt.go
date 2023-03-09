@@ -185,3 +185,9 @@ func (z *Felt) Bits() [4]uint64 {
 func (z *Felt) BigInt(res *big.Int) *big.Int {
 	return z.val.BigInt(res)
 }
+
+// Set forwards the call to underlying field element implementation
+func (z *Felt) Set(x *Felt) *Felt {
+	z.val.Set(&x.val)
+	return z
+}

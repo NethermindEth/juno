@@ -82,6 +82,36 @@ func (mr *MockReaderMockRecorder) GetReceipt(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceipt", reflect.TypeOf((*MockReader)(nil).GetReceipt), arg0)
 }
 
+// GetStateUpdateByHash mocks base method.
+func (m *MockReader) GetStateUpdateByHash(arg0 *felt.Felt) (*core.StateUpdate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStateUpdateByHash", arg0)
+	ret0, _ := ret[0].(*core.StateUpdate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStateUpdateByHash indicates an expected call of GetStateUpdateByHash.
+func (mr *MockReaderMockRecorder) GetStateUpdateByHash(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateUpdateByHash", reflect.TypeOf((*MockReader)(nil).GetStateUpdateByHash), arg0)
+}
+
+// GetStateUpdateByNumber mocks base method.
+func (m *MockReader) GetStateUpdateByNumber(arg0 uint64) (*core.StateUpdate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStateUpdateByNumber", arg0)
+	ret0, _ := ret[0].(*core.StateUpdate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStateUpdateByNumber indicates an expected call of GetStateUpdateByNumber.
+func (mr *MockReaderMockRecorder) GetStateUpdateByNumber(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateUpdateByNumber", reflect.TypeOf((*MockReader)(nil).GetStateUpdateByNumber), arg0)
+}
+
 // GetTransactionByHash mocks base method.
 func (m *MockReader) GetTransactionByHash(arg0 *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()

@@ -100,6 +100,7 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 		{"starknet_getTransactionByHash", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionByHash},
 		{"starknet_getTransactionReceipt", []jsonrpc.Parameter{{Name: "transaction_hash"}}, rpcHandler.GetTransactionReceiptByHash},
 		{"starknet_getBlockTransactionCount", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetBlockTransactionCount},
+		{"starknet_getStateUpdate", []jsonrpc.Parameter{{Name: "block_id"}}, rpcHandler.GetStateUpdate},
 	}, log)
 }
 
