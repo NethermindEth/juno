@@ -169,7 +169,7 @@ func TestUpdate(t *testing.T) {
 	testDb := pebble.NewMemTest()
 	state := core.NewState(testDb.NewTransaction(true))
 
-	assert.Equal(t, nil, state.Update(coreUpdate, nil))
+	assert.Equal(t, nil, state.Update(0, coreUpdate, nil))
 }
 
 func TestUpdateNonce(t *testing.T) {
@@ -188,11 +188,19 @@ func TestUpdateNonce(t *testing.T) {
 	testDb := pebble.NewMemTest()
 	state := core.NewState(testDb.NewTransaction(true))
 
-	assert.NoError(t, state.Update(coreUpdate, nil))
+	assert.NoError(t, state.Update(0, coreUpdate, nil))
 
 	nonce, err := state.ContractNonce(addr)
 	assert.NoError(t, err)
 	assert.Equal(t, true, nonce.Equal(&felt.Zero))
+
+	nonceAt, err := state.GetContractNonceAt(addr, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, true, nonceAt.Equal(&felt.Zero))
+
+	noncesAt, err := state.GetNoncesAt(0)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(noncesAt))
 
 	coreUpdate = new(core.StateUpdate)
 	coreUpdate.OldRoot, _ = new(felt.Felt).SetString("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
@@ -202,9 +210,17 @@ func TestUpdateNonce(t *testing.T) {
 
 	nonce.SetUint64(1)
 	coreUpdate.StateDiff.Nonces[*addr] = nonce
-	assert.NoError(t, state.Update(coreUpdate, nil))
+	assert.NoError(t, state.Update(1, coreUpdate, nil))
 
 	newNonce, err := state.ContractNonce(addr)
 	assert.NoError(t, err)
 	assert.Equal(t, true, nonce.Equal(newNonce))
+
+	nonceAt, err = state.GetContractNonceAt(addr, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, true, nonceAt.Equal(&felt.Zero))
+
+	noncesAt, err = state.GetNoncesAt(1)
+	assert.NoError(t, err)
+	assert.Equal(t, len(coreUpdate.StateDiff.Nonces), len(noncesAt))
 }

@@ -203,7 +203,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, dec
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(stateUpdate, declaredClasses); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, declaredClasses); err != nil {
 			return err
 		}
 		if err := storeBlockHeader(txn, block.Header); err != nil {
@@ -216,7 +216,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, dec
 			}
 		}
 
-		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+		if err := storeStorageDiffs(txn, block.Number, stateUpdate.StateDiff.StorageDiffs); err != nil {
 			return err
 		}
 
@@ -381,13 +381,13 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err er
 	})
 }
 
-func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {
+func storeStorageDiffs(txn db.Transaction, blockNumber uint64, diffs map[felt.Felt][]core.StorageDiff) error {
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
-	if updateBytes, err := encoder.Marshal(update); err != nil {
+	if storageBytes, err := encoder.Marshal(diffs); err != nil {
 		return err
-	} else if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
+	} else if err = txn.Set(db.StorageDiffsByBlockNumber.Key(numBytes), storageBytes); err != nil {
 		return err
 	}
 
@@ -398,9 +398,88 @@ func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *core.S
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
-	return update, txn.Get(db.StateUpdatesByBlockNumber.Key(numBytes), func(val []byte) error {
-		update = new(core.StateUpdate)
-		return encoder.Unmarshal(val, update)
+	return update, txn.Get(db.StorageDiffsByBlockNumber.Key(numBytes), func(val []byte) error {
+		storageDiffs := new(map[felt.Felt][]core.StorageDiff)
+		if err = encoder.Unmarshal(val, storageDiffs); err != nil {
+			return err
+		}
+
+		var oldRoot *felt.Felt
+		blockHeader, err := blockHeaderByNumber(txn, blockNumber)
+		if err != nil {
+			return err
+		}
+		if blockHeader.Number != 0 {
+			prevBlockHeader, err := blockHeaderByNumber(txn, blockNumber-1)
+			if err != nil {
+				return err
+			}
+			oldRoot = prevBlockHeader.GlobalStateRoot
+		} else {
+			oldRoot = new(felt.Felt)
+		}
+
+		deployedContracts := []core.DeployedContract{}
+		declaredClasses := []*felt.Felt{}
+
+		iterator, err := txn.NewIterator()
+		if err != nil {
+			return err
+		}
+		defer db.CloseAndWrapOnError(iterator.Close, &err)
+
+		numBytes := make([]byte, lenOfByteSlice)
+		binary.BigEndian.PutUint64(numBytes, blockNumber)
+		prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
+		for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+			if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
+				break
+			}
+
+			val, err := iterator.Value()
+			if err != nil {
+				return err
+			}
+
+			var tx core.Transaction
+			if err = encoder.Unmarshal(val, &tx); err != nil {
+				return err
+			}
+
+			switch t := tx.(type) {
+			case *core.DeployTransaction:
+				deployedContracts = append(deployedContracts, core.DeployedContract{
+					Address:   t.ContractAddress,
+					ClassHash: t.ClassHash,
+				})
+			case *core.DeployAccountTransaction:
+				deployedContracts = append(deployedContracts, core.DeployedContract{
+					Address:   t.ContractAddress,
+					ClassHash: t.ClassHash,
+				})
+			case *core.DeclareTransaction:
+				declaredClasses = append(declaredClasses, t.ClassHash)
+			}
+		}
+
+		nonces, nonceErr := core.NewState(txn).GetNoncesAt(blockHeader.Number)
+		if nonceErr != nil {
+			return nonceErr
+		}
+
+		update = &core.StateUpdate{
+			BlockHash: blockHeader.Hash,
+			NewRoot:   blockHeader.GlobalStateRoot,
+			OldRoot:   oldRoot,
+			StateDiff: &core.StateDiff{
+				StorageDiffs:      *storageDiffs,
+				Nonces:            nonces,
+				DeployedContracts: deployedContracts,
+				DeclaredClasses:   declaredClasses,
+			},
+		}
+
+		return nil
 	})
 }
 
