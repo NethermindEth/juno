@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var Version string
+
 const greeting = `
        _                    
       | |                   
@@ -65,8 +67,9 @@ var (
 
 func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:   "juno [flags]",
-		Short: "Starknet client implementation in Go.",
+		Use:     "juno [flags]",
+		Short:   "Starknet client implementation in Go.",
+		Version: Version,
 	}
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)

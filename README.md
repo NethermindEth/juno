@@ -66,35 +66,63 @@ docker run -it \
 
 Before running the docker run command, please ensure that the directory `/home/juno` exists on your local machine.
 
+## ✔ Supported Features
+
+- Starknet state construction and storage using a path-based Merkle Patricia trie. 
+- Pedersen and `starknet_keccak` hash implementation over starknet field.
+- Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
+- Block and Transaction hash verification.
+- JSON-RPC Endpoints:
+  - `starknet_chainId`
+  - `starknet_blockNumber`
+  - `starknet_blockHashAndNumber`
+  - `starknet_getBlockWithTxHashes`
+  - `starknet_getBlockWithTxs`
+  - `starknet_getTransactionByHash`
+  - `starknet_getTransactionReceipt`
+  - `starknet_getBlockTransactionCount`
+  - `starknet_getTransactionByBlockIdAndIndex`
+  - `starknet_getStateUpdate`
+
 ## 🛣 Roadmap
 
 ### Phase 1
 
+<details>
+<summary></summary>
+
 * [X] Flat DB implementation of trie
 * [X] Go implementation of crypto primitives
-    * [X] Pedersen hash
-    * [X] Starknet_Keccak
-    * [X] Felt
+  * [X] Pedersen hash
+  * [X] Starknet_Keccak
+  * [X] Felt
 * [X] Feeder gateway synchronisation
-    * [X] State Update
-    * [X] Blocks
-    * [X] Transactions
-    * [X] Class
+  * [X] State Update
+  * [X] Blocks
+  * [X] Transactions
+  * [X] Class
 * [X] Implement the following core data structures, and their Hash calculations
-    * [X] Blocks
-    * [X] Transactions and Transaction Receipts
-    * [X] Contracts and Classes
+  * [X] Blocks
+  * [X] Transactions and Transaction Receipts
+  * [X] Contracts and Classes
 * [X] Storing blocks, transactions and State updates in a local DB
 * [X] Basic RPC (in progress)
-    * [X] `getBlockWithTxHashes`
-    * [X] `getBlockWithTxs`
-    * [X] `getBlockTransactionCount`
-    * [X] `getTransactionByHash`
-    * [X] `getTransactionByBlockIdAndIndex`
+  * [X] `starknet_chainId`
+  * [X] `starknet_blockNumber`
+  * [X] `starknet_blockHashAndNumber`
+  * [X] `starknet_getBlockWithTxHashes`
+  * [X] `starknet_getBlockWithTxs`
+  * [X] `starknet_getTransactionByHash`
+  * [X] `starknet_getTransactionReceipt`
+  * [X] `starknet_getBlockTransactionCount`
+  * [X] `starknet_getTransactionByBlockIdAndIndex`
+  * [X] `starknet_getStateUpdate`
+
+</details>
 
 ### Phase 2
 
-* [ ] Integrate cairo rust-vm (discuss with lambda class, integrate starknet logic)
+* [ ] Integrate cairo vm
 * [ ] Verification
     * [ ] L1 verification
     * [ ] Execution of all transactions from feeder gateway
