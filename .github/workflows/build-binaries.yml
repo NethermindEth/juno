@@ -1,0 +1,45 @@
+name: Build Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: ['amd64', 'arm64']
+        os: ['linux', 'darwin', 'windows']
+        compiler: ['gcc']
+        go-version: ['1.19']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Install UPX
+        run: sudo apt-get install -y upx-ucl
+        
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+        
+      - name: Build Juno
+        run: |
+            if [[ ${{ matrix.os }} == "windows" ]]; then
+              GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o build/juno/juno.exe ./cmd/juno/
+            else
+              GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o build/juno ./cmd/juno/
+            fi
+            if [[ ${{ matrix.os }} == "linux" ]]; then
+                upx build/juno
+            fi
+            
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: juno-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/juno
