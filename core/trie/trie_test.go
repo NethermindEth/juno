@@ -434,7 +434,7 @@ func TestPath(t *testing.T) {
 
 	for idx, test := range tests {
 		got := path(test.child, test.parent)
-		assert.Equal(t, got, test.want, "TestPath failing #%d", idx)
+		assert.Equal(t, test.want, got, "TestPath failing #%d", idx)
 	}
 }
 

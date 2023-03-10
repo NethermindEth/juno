@@ -38,7 +38,7 @@ func TestAdaptBlock(t *testing.T) {
 		assert.True(t, block.ParentHash.Equal(response.ParentHash))
 		assert.Equal(t, response.Number, block.Number)
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
-		assert.Equal(t, block.Timestamp, response.Timestamp)
+		assert.Equal(t, response.Timestamp, block.Timestamp)
 		assert.Equal(t, len(response.Transactions), len(block.Transactions))
 		assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
 		assert.Equal(t, len(response.Receipts), len(block.Receipts))
@@ -63,7 +63,7 @@ func TestAdaptBlock(t *testing.T) {
 		assert.True(t, block.ParentHash.Equal(response.ParentHash))
 		assert.Equal(t, response.Number, block.Number)
 		assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
-		assert.Equal(t, block.Timestamp, response.Timestamp)
+		assert.Equal(t, response.Timestamp, block.Timestamp)
 		assert.Equal(t, len(response.Transactions), len(block.Transactions))
 		assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
 		assert.Equal(t, len(response.Receipts), len(block.Receipts))
@@ -173,7 +173,7 @@ func TestAdaptStateUpdate(t *testing.T) {
 		for keyStr, diffs := range gatewayStateUpdate.StateDiff.StorageDiffs {
 			key, _ := new(felt.Felt).SetString(keyStr)
 			coreDiffs := coreStateUpdate.StateDiff.StorageDiffs[*key]
-			assert.Equal(t, len(diffs) > 0, true)
+			assert.Equal(t, true, len(diffs) > 0)
 			assert.Equal(t, len(diffs), len(coreDiffs))
 			for idx := range diffs {
 				assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))

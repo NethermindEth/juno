@@ -44,7 +44,7 @@ func TestBlockId(t *testing.T) {
 			t.Parallel()
 			var blockId rpc.BlockId
 			require.NoError(t, blockId.UnmarshalJSON([]byte(test.blockIdJson)))
-			assert.Equal(t, blockId, test.expectedBlockId)
+			assert.Equal(t, test.expectedBlockId, blockId)
 		})
 	}
 

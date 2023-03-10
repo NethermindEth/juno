@@ -613,7 +613,7 @@ func TestGetTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := handler.GetTransactionByHash(latestBlock.Transactions[index].Hash())
 		assert.Nil(t, rpcErr)
 
-		assert.Equal(t, txn2, txn1)
+		assert.Equal(t, txn1, txn2)
 	})
 
 	t.Run("blockId - hash", func(t *testing.T) {
@@ -635,7 +635,7 @@ func TestGetTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := handler.GetTransactionByHash(latestBlock.Transactions[index].Hash())
 		assert.Nil(t, rpcErr)
 
-		assert.Equal(t, txn2, txn1)
+		assert.Equal(t, txn1, txn2)
 	})
 
 	t.Run("blockId - number", func(t *testing.T) {
@@ -657,7 +657,7 @@ func TestGetTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := handler.GetTransactionByHash(latestBlock.Transactions[index].Hash())
 		assert.Nil(t, rpcErr)
 
-		assert.Equal(t, txn2, txn1)
+		assert.Equal(t, txn1, txn2)
 	})
 }
 
