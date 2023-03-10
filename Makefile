@@ -3,7 +3,7 @@ export CC = clang
 
 juno: ## compile
 	@mkdir -p build
-	@go build -o build/juno ./cmd/juno/
+	@go build -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
 all: juno
 
