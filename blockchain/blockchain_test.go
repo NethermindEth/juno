@@ -220,11 +220,11 @@ func TestStore(t *testing.T) {
 
 		got0Block, err := chain.GetBlockByNumber(0)
 		assert.NoError(t, err)
-		assert.Equal(t, got0Block, block0)
+		assert.Equal(t, block0, got0Block)
 
 		got0Update, err := chain.GetStateUpdateByHash(block0.Hash)
 		require.NoError(t, err)
-		assert.Equal(t, got0Update, stateUpdate0)
+		assert.Equal(t, stateUpdate0, got0Update)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
@@ -247,11 +247,11 @@ func TestStore(t *testing.T) {
 
 		got1Block, err := chain.GetBlockByNumber(1)
 		assert.NoError(t, err)
-		assert.Equal(t, got1Block, block1)
+		assert.Equal(t, block1, got1Block)
 
 		got1Update, err := chain.GetStateUpdateByNumber(1)
 		require.NoError(t, err)
-		assert.Equal(t, got1Update, stateUpdate1)
+		assert.Equal(t, stateUpdate1, got1Update)
 	})
 }
 

@@ -467,9 +467,9 @@ func TestGetTransaction(t *testing.T) {
 		gatewayClient := testClient(srv.URL)
 		actualStatus, err := gatewayClient.GetTransaction(context.Background(), transaction_hash)
 		assert.Equal(t, nil, err, "Unexpected error")
-		assert.Equal(t, *actualStatus, transactionStatus)
+		assert.Equal(t, transactionStatus, *actualStatus)
 	})
-	t.Run("Test case when transaction_hash not exit", func(t *testing.T) {
+	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
 		gatewayClient := testClient(srv.URL)
 		actualStatus, err := gatewayClient.GetTransaction(context.Background(), transaction_hash)
