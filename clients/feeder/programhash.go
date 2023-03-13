@@ -16,7 +16,7 @@ type ContractCode struct {
 	Program *Program    `json:"program"`
 }
 
-func ProgramHash(contractDefinition *ClassDefinition) (*felt.Felt, error) {
+func ProgramHash(contractDefinition *Cairo0Definition) (*felt.Felt, error) {
 	program := contractDefinition.Program
 
 	// make debug info None

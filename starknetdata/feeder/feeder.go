@@ -261,10 +261,16 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, e
 		return nil, err
 	}
 
-	return adaptClass(response)
+	if response.V1 != nil {
+		return nil, nil // todo
+	} else if response.V0 != nil {
+		return adaptCairo0Class(response.V0)
+	} else {
+		return nil, errors.New("empty class")
+	}
 }
 
-func adaptClass(response *feeder.ClassDefinition) (core.Class, error) {
+func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 

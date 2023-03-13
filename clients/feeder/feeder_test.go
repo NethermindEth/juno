@@ -311,7 +311,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9", block.SequencerAddress.String())
 }
 
-func TestClassUnmarshal(t *testing.T) {
+func TestClassV0Unmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	defer closeFn()
 
@@ -321,14 +321,14 @@ func TestClassUnmarshal(t *testing.T) {
 		t.Error(err)
 	}
 
-	assert.Equal(t, 1, len(class.EntryPoints.Constructor))
-	assert.Equal(t, "0xa1", class.EntryPoints.Constructor[0].Offset.String())
-	assert.Equal(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.EntryPoints.Constructor[0].Selector.String())
-	assert.Equal(t, 1, len(class.EntryPoints.L1Handler))
-	assert.Equal(t, 1, len(class.EntryPoints.External))
-	assert.Equal(t, 250, len(class.Program.Data))
-	assert.Equal(t, []string{"pedersen", "range_check"}, class.Program.Builtins)
-	assert.Equal(t, "0.10.1", class.Program.CompilerVersion)
+	assert.Equal(t, 1, len(class.V0.EntryPoints.Constructor))
+	assert.Equal(t, "0xa1", class.V0.EntryPoints.Constructor[0].Offset.String())
+	assert.Equal(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.V0.EntryPoints.Constructor[0].Selector.String())
+	assert.Equal(t, 1, len(class.V0.EntryPoints.L1Handler))
+	assert.Equal(t, 1, len(class.V0.EntryPoints.External))
+	assert.Equal(t, 250, len(class.V0.Program.Data))
+	assert.Equal(t, []string{"pedersen", "range_check"}, class.V0.Program.Builtins)
+	assert.Equal(t, "0.10.1", class.V0.Program.CompilerVersion)
 }
 
 func TestBuildQueryString_WithErrorUrl(t *testing.T) {
