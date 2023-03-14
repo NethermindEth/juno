@@ -8,6 +8,7 @@ juno: ## compile
 all: juno
 
 generate: ## generate
+	mkdir -p mocks
 	go generate ./...
 
 clean-testcache:
