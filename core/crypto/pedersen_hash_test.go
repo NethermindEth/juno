@@ -42,7 +42,7 @@ func TestPedersen(t *testing.T) {
 
 			ans := crypto.Pedersen(a, b)
 			if !ans.Equal(want) {
-				t.Errorf("TestHash got %s, want %s", ans.Text(16), want.Text(16))
+				t.Errorf("TestHash got %s, want %s", ans.String(), want.String())
 			}
 		})
 	}

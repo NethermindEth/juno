@@ -216,8 +216,8 @@ func TestBlockHash(t *testing.T) {
 
 			mainnetBlock1.Receipts[1].TransactionHash = h1
 			expectedErr := fmt.Sprintf(
-				"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
-				mainnetBlock1.Transactions[1].Hash().Text(16), 1,
+				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
+				mainnetBlock1.Transactions[1].Hash().String(), 1,
 				mainnetBlock1.Receipts[1].TransactionHash)
 			assert.EqualError(t, core.VerifyBlockHash(mainnetBlock1, utils.MAINNET), expectedErr)
 		})

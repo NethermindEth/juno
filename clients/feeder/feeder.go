@@ -250,7 +250,7 @@ type TransactionStatus struct {
 
 func (c *Client) GetTransaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
 	queryUrl := c.buildQueryString("get_transaction", map[string]string{
-		"transactionHash": "0x" + transactionHash.Text(16),
+		"transactionHash": transactionHash.String(),
 	})
 
 	if body, err := c.get(ctx, queryUrl); err != nil {
@@ -385,7 +385,7 @@ type ClassDefinition struct {
 
 func (c *Client) GetClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
 	queryUrl := c.buildQueryString("get_class_by_hash", map[string]string{
-		"classHash": "0x" + classHash.Text(16),
+		"classHash": classHash.String(),
 	})
 
 	if body, err := c.get(ctx, queryUrl); err != nil {

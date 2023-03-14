@@ -57,7 +57,7 @@ func TestProgramHash(t *testing.T) {
 			}
 
 			if !programHash.Equal(tt.want) {
-				t.Errorf("wrong hash: got %s, want %s", programHash.Text(16), tt.want.Text(16))
+				t.Errorf("wrong hash: got %s, want %s", programHash.String(), tt.want.String())
 			}
 		})
 	}

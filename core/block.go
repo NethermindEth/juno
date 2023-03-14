@@ -98,8 +98,8 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 	for i, tx := range b.Transactions {
 		if !tx.Hash().Equal(b.Receipts[i].TransactionHash) {
 			return fmt.Errorf(
-				"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
-				tx.Hash().Text(16), i, b.Receipts[i].TransactionHash)
+				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
+				tx.Hash().String(), i, b.Receipts[i].TransactionHash)
 		}
 	}
 
