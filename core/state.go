@@ -29,7 +29,7 @@ func (e *ErrMismatchedRoot) Error() string {
 	if e.IsOld {
 		newOld = " old "
 	}
-	return fmt.Sprintf("mismatched %s root: want %s, got %s", newOld, e.Want.Text(16), e.Got.Text(16))
+	return fmt.Sprintf("mismatched %s root: want %s, got %s", newOld, e.Want.String(), e.Got.String())
 }
 
 type State struct {
