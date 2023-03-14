@@ -23,7 +23,7 @@ func New(client *feeder.Client) *Feeder {
 // BlockByNumber gets the block for a given block number from the feeder,
 // then adapts it to the core.Block type.
 func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	response, err := f.client.GetBlock(ctx, blockNumber)
+	response, err := f.client.Block(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func adaptL2ToL1Message(response *feeder.L2ToL1Message) *core.L2ToL1Message {
 // Transaction gets the transaction for a given transaction hash from the feeder,
 // then adapts it to the appropriate core.Transaction types.
 func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := f.client.GetTransaction(ctx, transactionHash)
+	response, err := f.client.Transaction(ctx, transactionHash)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func adaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTra
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
 func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error) {
-	response, err := f.client.GetClassDefinition(ctx, classHash)
+	response, err := f.client.ClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func adaptClass(response *feeder.ClassDefinition) (*core.Class, error) {
 // StateUpdate gets the state update for a given block number from the feeder,
 // then adapts it to the core.StateUpdate type.
 func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	response, err := f.client.GetStateUpdate(ctx, blockNumber)
+	response, err := f.client.StateUpdate(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}

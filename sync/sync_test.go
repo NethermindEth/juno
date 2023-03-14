@@ -31,7 +31,7 @@ func TestSyncBlocks(t *testing.T) {
 					return err
 				}
 
-				block, err := bc.GetBlockByNumber(uint64(height))
+				block, err := bc.BlockByNumber(uint64(height))
 				require.NoError(t, err)
 
 				assert.Equal(t, b, block)

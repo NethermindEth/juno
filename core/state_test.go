@@ -190,7 +190,7 @@ func TestUpdateNonce(t *testing.T) {
 
 	assert.NoError(t, state.Update(coreUpdate, nil))
 
-	nonce, err := state.GetContractNonce(addr)
+	nonce, err := state.ContractNonce(addr)
 	assert.NoError(t, err)
 	assert.Equal(t, true, nonce.Equal(&felt.Zero))
 
@@ -204,7 +204,7 @@ func TestUpdateNonce(t *testing.T) {
 	coreUpdate.StateDiff.Nonces[*addr] = nonce
 	assert.NoError(t, state.Update(coreUpdate, nil))
 
-	newNonce, err := state.GetContractNonce(addr)
+	newNonce, err := state.ContractNonce(addr)
 	assert.NoError(t, err)
 	assert.Equal(t, true, nonce.Equal(newNonce))
 }

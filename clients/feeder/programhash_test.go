@@ -45,7 +45,7 @@ func TestProgramHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			classDefinition, err := client.GetClassDefinition(context.Background(),
+			classDefinition, err := client.ClassDefinition(context.Background(),
 				hexToFelt(t, tt.classHash))
 			if err != nil {
 				t.Fatal(err)
