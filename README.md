@@ -17,8 +17,8 @@
   <a href="https://github.com/NethermindEth/juno/actions">
     <img src="https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg">
   </a>
-  <a href="https://app.codecov.io/gh/NethermindEth/juno/tree/develop">
-    <img src="https://codecov.io/gh/NethermindEth/juno/branch/develop/graph/badge.svg">
+  <a href="https://codecov.io/gh/NethermindEth/juno">
+    <img src="https://codecov.io/gh/NethermindEth/juno/branch/main/graph/badge.svg">
   </a>
 
 </p>
