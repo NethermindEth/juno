@@ -64,23 +64,18 @@ func (d *DB) Close() error {
 }
 
 // View : see db.DB.View
-func (d *DB) View(fn func(txn db.Transaction) error) (err error) {
+func (d *DB) View(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(false)
-	defer db.CloseAndWrapOnError(txn.Discard, &err)
-
-	return fn(txn)
+	return db.CloseAndWrapOnError(txn.Discard, fn(txn))
 }
 
 // Update : see db.DB.Update
-func (d *DB) Update(fn func(txn db.Transaction) error) (err error) {
+func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(true)
-	defer db.CloseAndWrapOnError(txn.Discard, &err)
-
-	if err = fn(txn); err != nil {
-		return err
+	if err := fn(txn); err != nil {
+		return db.CloseAndWrapOnError(txn.Discard, err)
 	}
-
-	return txn.Commit()
+	return db.CloseAndWrapOnError(txn.Discard, txn.Commit())
 }
 
 // Impl : see db.DB.Impl

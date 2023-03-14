@@ -75,12 +75,15 @@ func (s *State) storage() (*trie.Trie, error) {
 }
 
 // rootKey returns key to the root node in the given Txn context.
-func (s *State) rootKey() (key *bitset.BitSet, err error) {
-	err = s.txn.Get(db.StateRootKey.Key(), func(val []byte) error {
+func (s *State) rootKey() (*bitset.BitSet, error) {
+	var key *bitset.BitSet
+	if err := s.txn.Get(db.StateRootKey.Key(), func(val []byte) error {
 		key = new(bitset.BitSet)
 		return key.UnmarshalBinary(val)
-	})
-	return
+	}); err != nil {
+		return nil, err
+	}
+	return key, nil
 }
 
 // updateStateRootDBKey updates the fields related to the state trie root in
