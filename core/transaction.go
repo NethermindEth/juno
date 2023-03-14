@@ -372,7 +372,8 @@ const commitmentTrieHeight uint = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction) (commitment *felt.Felt, err error) {
+func transactionCommitment(transactions []Transaction) (*felt.Felt, error) {
+	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
@@ -395,7 +396,8 @@ func transactionCommitment(transactions []Transaction) (commitment *felt.Felt, e
 }
 
 // eventCommitment computes the event commitment for a block.
-func eventCommitment(receipts []*TransactionReceipt) (commitment *felt.Felt, err error) {
+func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		count := uint64(0)
 		for _, receipt := range receipts {

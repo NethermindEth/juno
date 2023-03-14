@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var errClose = errors.New("close error")
+
 func closeAndError() error {
-	return errors.New("close error")
+	return errClose
 }
 
 func closeAndNoError() error {
@@ -20,29 +22,26 @@ func closeAndNoError() error {
 func TestCloseAndJoinOnError(t *testing.T) {
 	t.Run("closeFn returns no error", func(t *testing.T) {
 		t.Run("original error is nil", func(t *testing.T) {
-			var err error
-			db.CloseAndWrapOnError(closeAndNoError, &err)
+			assert.NoError(t, db.CloseAndWrapOnError(closeAndNoError, nil))
 		})
 
 		t.Run("original error is non-nil", func(t *testing.T) {
-			err := errors.New("some error")
-			db.CloseAndWrapOnError(closeAndNoError, &err)
-			assert.EqualError(t, err, "some error")
+			want := errors.New("some error")
+			got := db.CloseAndWrapOnError(closeAndNoError, want)
+			assert.EqualError(t, got, want.Error())
 		})
 	})
 	t.Run("closeFn returns error", func(t *testing.T) {
 		t.Run("original error is nil", func(t *testing.T) {
-			var err error
-			db.CloseAndWrapOnError(closeAndError, &err)
-			assert.EqualError(t, err, "close error")
+			got := db.CloseAndWrapOnError(closeAndError, nil)
+			assert.EqualError(t, got, errClose.Error())
 		})
 
 		t.Run("original error is non-nil", func(t *testing.T) {
-			err := errors.New("some error")
-			db.CloseAndWrapOnError(closeAndError, &err)
-			assert.EqualError(t, err, fmt.Sprintf(`failed to close because "%v" with existing err "%s"`, "close error",
-				"some error"))
-			assert.EqualError(t, errors.Unwrap(err), "some error")
+			want := errors.New("some error")
+			wrapped := db.CloseAndWrapOnError(closeAndError, want)
+			assert.EqualError(t, wrapped, fmt.Sprintf(`failed to close because "%v" with existing err %q`, errClose.Error(), want.Error()))
+			assert.EqualError(t, errors.Unwrap(wrapped), want.Error())
 		})
 	})
 }
