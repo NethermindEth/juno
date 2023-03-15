@@ -59,11 +59,13 @@ docker run -it \
   -v /home/juno:/var/lib/juno \
   nethermindeth/juno \
   --rpc-port 6060 \
-  --db-path /var/lib/juno \
-  --network 0
+  --db-path /var/lib/juno
 ```
 
 Before running the docker run command, please ensure that the directory `/home/juno` exists on your local machine.
+
+Use the `--help` flag for configuration information.
+Flags and their values can also be placed in a `.yaml` file that is passed in through `--config`.
 
 ## ✔ Supported Features
 

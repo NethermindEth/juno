@@ -24,7 +24,6 @@ const (
 	defaultRpcPort = uint16(6060)
 	defaultMetrics = false
 	defaultDbPath  = ""
-	defaultNetwork = utils.MAINNET
 	defaultEthNode = ""
 	defaultPprof   = false
 
@@ -34,11 +33,7 @@ const (
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
-	networkUsage = `Available Starknet networks. Options:
-0 = mainnet
-1 = goerli
-2 = goerli2
-3 = integration`
+	networkUsage = "Options: mainnet, goerli, goerli2, integration."
 	ethNodeUsage = "The Ethereum endpoint to synchronise with. " +
 		"If unset feeder gateway will be used."
 	pprofUsage = "Enables the pprof server and listens on port 9080."
@@ -82,15 +77,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		return v.Unmarshal(config, viper.DecodeHook(mapstructure.TextUnmarshallerHookFunc()))
 	}
 
-	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	// For testing purposes, this variable cannot be declared outside the function because Cobra
-	// mutates the value.
+	// For testing purposes, these variables cannot be declared outside the function because Cobra
+	// may mutate their values.
 	defaultLogLevel := utils.INFO
+	defaultNetwork := utils.MAINNET
+
+	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
-	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
+	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 
