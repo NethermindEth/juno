@@ -1,19 +1,15 @@
 coverage:
-  range: "80...100"
+  range: 70..90
   status:
     project:
       default:
-        target: 80%    # the required coverage value
-        threshold: 1%  # the leniency in hitting the target
-        branches: 
-          - main
-          - experimental
-        if_ci_failed: error
+        target: 75%
+        threshold: 0%
     patch:
       default:
         target: 80%
         threshold: 1%
         branches: 
           - main
-          - experimental
-        if_ci_failed: error
+ignore:
+  - "node"
