@@ -60,7 +60,6 @@ docker run -it \
   nethermindeth/juno \
   --rpc-port 6060 \
   --db-path /var/lib/juno \
-  --verbosity 0 \
   --network 0
 ```
 
