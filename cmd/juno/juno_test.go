@@ -20,7 +20,7 @@ func TestConfigPrecedence(t *testing.T) {
 	// tested for sanity. These tests are not intended to perform semantics
 	// checks on the config, those will be checked by the StarknetNode
 	// implementation.
-	defaultVerbosity := utils.INFO
+	defaultLogLevel := utils.INFO
 	defaultRpcPort := uint16(6060)
 	defaultMetrics := false
 	defaultDbPath := ""
@@ -38,7 +38,7 @@ func TestConfigPrecedence(t *testing.T) {
 		"default config with no flags": {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
-				Verbosity:    defaultVerbosity,
+				LogLevel:     defaultLogLevel,
 				RpcPort:      defaultRpcPort,
 				Metrics:      defaultMetrics,
 				DatabasePath: defaultDbPath,
@@ -49,7 +49,7 @@ func TestConfigPrecedence(t *testing.T) {
 		"config file path is empty string": {
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
-				Verbosity:    defaultVerbosity,
+				LogLevel:     defaultLogLevel,
 				RpcPort:      defaultRpcPort,
 				Metrics:      defaultMetrics,
 				DatabasePath: defaultDbPath,
@@ -65,15 +65,15 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFile:         true,
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
-				Verbosity: defaultVerbosity,
-				RpcPort:   defaultRpcPort,
-				Metrics:   defaultMetrics,
-				Network:   defaultNetwork, EthNode: defaultEthNode,
+				LogLevel: defaultLogLevel,
+				RpcPort:  defaultRpcPort,
+				Metrics:  defaultMetrics,
+				Network:  defaultNetwork, EthNode: defaultEthNode,
 			},
 		},
 		"config file with all settings but without any other flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: debug
+			cfgFileContents: `log-level: debug
 rpc-port: 4576
 metrics: true
 db-path: /home/.juno
@@ -82,7 +82,7 @@ eth-node: "https://some-ethnode:5673"
 pprof: true
 `,
 			expectedConfig: &node.Config{
-				Verbosity:    utils.DEBUG,
+				LogLevel:     utils.DEBUG,
 				RpcPort:      4576,
 				Metrics:      true,
 				DatabasePath: "/home/.juno",
@@ -93,12 +93,12 @@ pprof: true
 		},
 		"config file with some settings but without any other flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: debug
+			cfgFileContents: `log-level: debug
 rpc-port: 4576
 metrics: true
 `,
 			expectedConfig: &node.Config{
-				Verbosity:    utils.DEBUG,
+				LogLevel:     utils.DEBUG,
 				RpcPort:      4576,
 				Metrics:      true,
 				DatabasePath: defaultDbPath,
@@ -109,12 +109,12 @@ metrics: true
 		},
 		"all flags without config file": {
 			inputArgs: []string{
-				"--verbosity", "debug", "--rpc-port", "4576",
+				"--log-level", "debug", "--rpc-port", "4576",
 				"--metrics", "--db-path", "/home/.juno", "--network", "1",
 				"--eth-node", "https://some-ethnode:5673", "--pprof",
 			},
 			expectedConfig: &node.Config{
-				Verbosity:    utils.DEBUG,
+				LogLevel:     utils.DEBUG,
 				RpcPort:      4576,
 				Metrics:      true,
 				DatabasePath: "/home/.juno",
@@ -125,11 +125,11 @@ metrics: true
 		},
 		"some flags without config file": {
 			inputArgs: []string{
-				"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
+				"--log-level", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
 				"--network", "3",
 			},
 			expectedConfig: &node.Config{
-				Verbosity:    utils.DEBUG,
+				LogLevel:     utils.DEBUG,
 				RpcPort:      4576,
 				Metrics:      defaultMetrics,
 				DatabasePath: "/home/.juno",
@@ -139,7 +139,7 @@ metrics: true
 		},
 		"all setting set in both config file and flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: debug
+			cfgFileContents: `log-level: debug
 rpc-port: 4576
 metrics: true
 db-path: /home/config-file/.juno
@@ -148,12 +148,12 @@ eth-node: "https://some-ethnode:5673"
 pprof: true
 `,
 			inputArgs: []string{
-				"--verbosity", "error", "--rpc-port", "4577",
+				"--log-level", "error", "--rpc-port", "4577",
 				"--metrics", "--db-path", "/home/flag/.juno", "--network", "3",
 				"--eth-node", "https://some-ethnode:5674", "--pprof",
 			},
 			expectedConfig: &node.Config{
-				Verbosity:    utils.ERROR,
+				LogLevel:     utils.ERROR,
 				RpcPort:      4577,
 				Metrics:      true,
 				DatabasePath: "/home/flag/.juno",
@@ -164,7 +164,7 @@ pprof: true
 		},
 		"some setting set in both config file and flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: warn
+			cfgFileContents: `log-level: warn
 rpc-port: 4576
 network: 1
 `,
@@ -173,7 +173,7 @@ network: 1
 				"https://some-ethnode:5674",
 			},
 			expectedConfig: &node.Config{
-				Verbosity:    utils.WARN,
+				LogLevel:     utils.WARN,
 				RpcPort:      4576,
 				Metrics:      true,
 				DatabasePath: "/home/flag/.juno",
@@ -190,7 +190,7 @@ network: 1
 				"https://some-ethnode:5674", "--pprof",
 			},
 			expectedConfig: &node.Config{
-				Verbosity:    defaultVerbosity,
+				LogLevel:     defaultLogLevel,
 				RpcPort:      defaultRpcPort,
 				Metrics:      true,
 				DatabasePath: "/home/flag/.juno",

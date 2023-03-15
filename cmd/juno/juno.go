@@ -11,14 +11,14 @@ import (
 var Version string
 
 const (
-	configF    = "config"
-	verbosityF = "verbosity"
-	rpcPortF   = "rpc-port"
-	metricsF   = "metrics"
-	dbPathF    = "db-path"
-	networkF   = "network"
-	ethNodeF   = "eth-node"
-	pprofF     = "pprof"
+	configF   = "config"
+	logLevelF = "log-level"
+	rpcPortF  = "rpc-port"
+	metricsF  = "metrics"
+	dbPathF   = "db-path"
+	networkF  = "network"
+	ethNodeF  = "eth-node"
+	pprofF    = "pprof"
 
 	defaultConfig  = ""
 	defaultRpcPort = uint16(6060)
@@ -28,9 +28,9 @@ const (
 	defaultEthNode = ""
 	defaultPprof   = false
 
-	configFlagUsage    = "The yaml configuration file."
-	verbosityFlagUsage = "Verbosity of the logs. Options: debug, info, warn, error."
-	rpcPortUsage       = "The port on which the RPC server will listen for requests. " +
+	configFlagUsage   = "The yaml configuration file."
+	logLevelFlagUsage = "Options: debug, info, warn, error."
+	rpcPortUsage      = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
@@ -85,8 +85,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	// For testing purposes, this variable cannot be declared outside the function because Cobra
 	// mutates the value.
-	defaultVerbosity := utils.INFO
-	junoCmd.Flags().Var(&defaultVerbosity, verbosityF, verbosityFlagUsage)
+	defaultLogLevel := utils.INFO
+	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
