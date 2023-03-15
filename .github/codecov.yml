@@ -7,7 +7,6 @@ coverage:
         threshold: 1%  # the leniency in hitting the target
         branches: 
           - main
-          - experimental
         if_ci_failed: error
     patch:
       default:
@@ -15,5 +14,4 @@ coverage:
         threshold: 1%
         branches: 
           - main
-          - experimental
         if_ci_failed: error
