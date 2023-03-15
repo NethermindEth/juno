@@ -311,7 +311,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 		paramsList := params.([]any)
 
 		if len(paramsList) != handlerType.NumIn() {
-			return nil, errors.New("missing param in list")
+			return nil, errors.New("missing/unexpected params in list")
 		}
 
 		for i, param := range paramsList {
