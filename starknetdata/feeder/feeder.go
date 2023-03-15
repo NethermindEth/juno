@@ -28,10 +28,10 @@ func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.B
 		return nil, err
 	}
 
-	return AdaptBlock(response)
+	return adaptBlock(response)
 }
 
-func AdaptBlock(response *feeder.Block) (*core.Block, error) {
+func adaptBlock(response *feeder.Block) (*core.Block, error) {
 	if response == nil {
 		return nil, errors.New("nil client block")
 	}
@@ -307,10 +307,10 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.Sta
 		return nil, err
 	}
 
-	return AdaptStateUpdate(response)
+	return adaptStateUpdate(response)
 }
 
-func AdaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
+func adaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredClasses = response.StateDiff.DeclaredContracts
 	for _, deployedContract := range response.StateDiff.DeployedContracts {
