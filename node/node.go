@@ -20,13 +20,6 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
-type StarknetNode interface {
-	Run(ctx context.Context)
-	Config() Config
-}
-
-type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
-
 const (
 	defaultPprofPort = uint16(9080)
 )
@@ -53,7 +46,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config) (StarknetNode, error) {
+func New(cfg *Config) (*Node, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
 	}
