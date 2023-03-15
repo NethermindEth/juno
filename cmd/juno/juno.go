@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
@@ -10,18 +8,6 @@ import (
 )
 
 var Version string
-
-const greeting = `
-       _                    
-      | |                   
-      | |_   _ _ __   ___   
-  _   | | | | | '_ \ / _ \  
- | |__| | |_| | | | | (_) |  
-  \____/ \__,_|_| |_|\___/  
-
-Juno is a Go implementation of a Starknet full node client created by Nethermind.
-
-`
 
 const (
 	configF    = "config"
@@ -63,28 +49,26 @@ const (
 	pprofUsage = "Enables the pprof server and listens on port 9080."
 )
 
-var (
-	StarknetNode node.StarknetNode
-	cfgFile      string
-)
-
-func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
+// NewCmd returns a command that can be exected with any of the Cobra Execute* functions.
+// The RunE field is set to the user-provided run function, allowing for robust testing setups.
+//
+//  1. NewCmd is called with a non-nil config and a run function.
+//  2. An Execute* function is called on the command returned from step 1.
+//  3. The config struct is populated.
+//  4. Cobra calls the run function.
+func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:     "juno [flags]",
 		Short:   "Starknet client implementation in Go.",
 		Version: Version,
+		RunE:    run,
 	}
 
-	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().Uint8(verbosityF, uint8(defaultVerbosity), verbosityFlagUsage)
-	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
-	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
-	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
-	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
-	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
-	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
+	var cfgFile string
 
-	junoCmd.RunE = func(cmd *cobra.Command, _ []string) error {
+	// PreRunE populates the configuration struct from the Cobra flags and Viper configuration.
+	// This is called in step 3 of the process described above.
+	junoCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
 		v := viper.New()
 		if cfgFile != "" {
 			v.SetConfigType("yaml")
@@ -98,25 +82,17 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 			return nil
 		}
 
-		if _, err := fmt.Fprint(cmd.OutOrStdout(), greeting); err != nil {
-			return err
-		}
-
-		var err error
-		junoCfg := new(node.Config)
-
-		if err = v.Unmarshal(junoCfg); err != nil {
-			return err
-		}
-
-		StarknetNode, err = newNodeFn(junoCfg)
-		if err != nil {
-			return err
-		}
-
-		StarknetNode.Run(cmd.Context())
-		return nil
+		return v.Unmarshal(config)
 	}
+
+	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
+	junoCmd.Flags().Uint8(verbosityF, uint8(defaultVerbosity), verbosityFlagUsage)
+	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
+	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
+	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
+	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
+	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 
 	return junoCmd
 }
