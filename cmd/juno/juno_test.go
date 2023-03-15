@@ -42,7 +42,8 @@ func TestConfigPrecedence(t *testing.T) {
 				RpcPort:      defaultRpcPort,
 				Metrics:      defaultMetrics,
 				DatabasePath: defaultDbPath,
-				Network:      defaultNetwork, EthNode: defaultEthNode,
+				Network:      defaultNetwork,
+				EthNode:      defaultEthNode,
 				Pprof:        defaultPprof,
 			},
 		},
@@ -53,7 +54,8 @@ func TestConfigPrecedence(t *testing.T) {
 				RpcPort:      defaultRpcPort,
 				Metrics:      defaultMetrics,
 				DatabasePath: defaultDbPath,
-				Network:      defaultNetwork, EthNode: defaultEthNode,
+				Network:      defaultNetwork,
+				EthNode:      defaultEthNode,
 				Pprof:        defaultPprof,
 			},
 		},
@@ -68,7 +70,8 @@ func TestConfigPrecedence(t *testing.T) {
 				LogLevel: defaultLogLevel,
 				RpcPort:  defaultRpcPort,
 				Metrics:  defaultMetrics,
-				Network:  defaultNetwork, EthNode: defaultEthNode,
+				Network:  defaultNetwork,
+				EthNode:  defaultEthNode,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -77,7 +80,7 @@ func TestConfigPrecedence(t *testing.T) {
 rpc-port: 4576
 metrics: true
 db-path: /home/.juno
-network: 2
+network: goerli2
 eth-node: "https://some-ethnode:5673"
 pprof: true
 `,
@@ -110,7 +113,7 @@ metrics: true
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--rpc-port", "4576",
-				"--metrics", "--db-path", "/home/.juno", "--network", "1",
+				"--metrics", "--db-path", "/home/.juno", "--network", "goerli",
 				"--eth-node", "https://some-ethnode:5673", "--pprof",
 			},
 			expectedConfig: &node.Config{
@@ -126,7 +129,7 @@ metrics: true
 		"some flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
-				"--network", "3",
+				"--network", "integration",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
@@ -143,13 +146,13 @@ metrics: true
 rpc-port: 4576
 metrics: true
 db-path: /home/config-file/.juno
-network: 1
+network: goerli
 eth-node: "https://some-ethnode:5673"
 pprof: true
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--rpc-port", "4577",
-				"--metrics", "--db-path", "/home/flag/.juno", "--network", "3",
+				"--metrics", "--db-path", "/home/flag/.juno", "--network", "integration",
 				"--eth-node", "https://some-ethnode:5674", "--pprof",
 			},
 			expectedConfig: &node.Config{
@@ -166,7 +169,7 @@ pprof: true
 			cfgFile: true,
 			cfgFileContents: `log-level: warn
 rpc-port: 4576
-network: 1
+network: goerli
 `,
 			inputArgs: []string{
 				"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
@@ -184,7 +187,7 @@ network: 1
 		},
 		"some setting set in default, config file and flags": {
 			cfgFile:         true,
-			cfgFileContents: "network: 2",
+			cfgFileContents: "network: goerli2",
 			inputArgs: []string{
 				"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 				"https://some-ethnode:5674", "--pprof",
