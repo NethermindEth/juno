@@ -10,11 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	Version string
-	
-	defaultLogLevel = utils.INFO
-)
+var Version string
 
 const greeting = `
        _                    
@@ -59,18 +55,15 @@ const (
 		"If unset feeder gateway will be used."
 )
 
-var (
-	StarknetNode node.StarknetNode
-	cfgFile      string
-)
-
-func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
+func NewCmd() (*cobra.Command, *node.Node) {
 	junoCmd := &cobra.Command{
 		Use:     "juno [flags]",
 		Short:   "Starknet client implementation in Go.",
 		Version: Version,
 	}
 
+	var cfgFile string
+	defaultLogLevel := utils.INFO
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
@@ -79,7 +72,8 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 
-	junoCmd.RunE = func(cmd *cobra.Command, _ []string) error {
+	var n *node.Node
+	junoCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
 		v := viper.New()
 		if cfgFile != "" {
 			v.SetConfigType("yaml")
@@ -104,14 +98,9 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 			return err
 		}
 
-		StarknetNode, err = newNodeFn(junoCfg)
-		if err != nil {
-			return err
-		}
-
-		StarknetNode.Run(cmd.Context())
-		return nil
+		n, err = node.New(junoCfg)
+		return err
 	}
 
-	return junoCmd
+	return junoCmd, n
 }

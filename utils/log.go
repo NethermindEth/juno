@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"encoding"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -14,7 +15,10 @@ var ErrUnknownLogLevel = errors.New("unkown log level (known: debug, info, warn,
 
 type LogLevel int
 
+// For cobra
 var _ pflag.Value = (*LogLevel)(nil)
+// For viper
+var _ encoding.TextUnmarshaler = (*LogLevel)(nil)
 
 const (
 	DEBUG LogLevel = iota

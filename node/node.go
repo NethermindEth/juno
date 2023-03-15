@@ -19,13 +19,6 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
-type StarknetNode interface {
-	Run(ctx context.Context)
-	Config() Config
-}
-
-type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
-
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel     utils.LogLevel `mapstructure:"log-level"`
@@ -47,7 +40,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config) (StarknetNode, error) {
+func New(cfg *Config) (*Node, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
 	}
@@ -127,6 +120,7 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 // All the services blocking and any errors returned by service run function is logged.
 // Run will wait for all services to return before exiting.
 func (n *Node) Run(ctx context.Context) {
+	fmt.Printf("%+v", *n.cfg)
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
 
 	dbLog, err := utils.NewZapLogger(utils.ERROR)
