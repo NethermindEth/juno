@@ -46,7 +46,7 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
-func getBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
+func networkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	fallBackSequencerAddress, err := new(felt.Felt).SetString(
 		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	if err != nil {
@@ -98,8 +98,8 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 	for i, tx := range b.Transactions {
 		if !tx.Hash().Equal(b.Receipts[i].TransactionHash) {
 			return fmt.Errorf(
-				"transaction hash (0x%v) at index: %v does not match receipt's hash (0x%v)",
-				tx.Hash().Text(16), i, b.Receipts[i].TransactionHash)
+				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
+				tx.Hash().String(), i, b.Receipts[i].TransactionHash)
 		}
 	}
 
@@ -107,7 +107,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		return err
 	}
 
-	metaInfo := getBlockHashMetaInfo(network)
+	metaInfo := networkBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
 	if unverifiableRange != nil {
@@ -135,7 +135,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
-	metaInfo := getBlockHashMetaInfo(network)
+	metaInfo := networkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
 		return pre07Hash(b, network.ChainId())

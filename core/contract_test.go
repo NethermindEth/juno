@@ -49,7 +49,7 @@ func TestClassHash(t *testing.T) {
 			require.NoError(t, err)
 			got := class.Hash()
 			if !hash.Equal(got) {
-				t.Errorf("wrong hash: got %s, want %s", got.Text(16), hash.Text(16))
+				t.Errorf("wrong hash: got %s, want %s", got.String(), hash.String())
 			}
 		})
 	}
@@ -85,7 +85,7 @@ func TestContractAddress(t *testing.T) {
 		t.Run("Address", func(t *testing.T) {
 			address := core.ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCalldata)
 			if !address.Equal(tt.want) {
-				t.Errorf("wrong address: got %s, want %s", address.Text(16), tt.want.Text(16))
+				t.Errorf("wrong address: got %s, want %s", address.String(), tt.want.String())
 			}
 		})
 	}

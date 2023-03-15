@@ -344,8 +344,8 @@ func (e ErrCantVerifyTransactionHash) Unwrap() error {
 }
 
 func (e ErrCantVerifyTransactionHash) Error() string {
-	errStr := fmt.Sprintf("cannot verify transaction hash(0x%v) of Transaction Type: %v",
-		e.t.Hash().Text(16), reflect.TypeOf(e.t))
+	errStr := fmt.Sprintf("cannot verify transaction hash(%v) of Transaction Type: %v",
+		e.t.Hash().String(), reflect.TypeOf(e.t))
 	if e.hashFailure != nil {
 		errStr = fmt.Sprintf("%v: %v", errStr, e.hashFailure.Error())
 	}

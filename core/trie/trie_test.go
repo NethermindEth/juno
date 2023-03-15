@@ -564,7 +564,7 @@ func TestState(t *testing.T) {
 				contractRoot, err := contractState.Root()
 				require.NoError(t, err)
 
-				fmt.Println(addr, " : ", contractRoot.Text(16))
+				fmt.Println(addr, " : ", contractRoot.String())
 
 				val := crypto.Pedersen(contractHash, contractRoot)
 				val = crypto.Pedersen(val, new(felt.Felt))

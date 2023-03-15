@@ -29,7 +29,7 @@ func (e *ErrMismatchedRoot) Error() string {
 	if e.IsOld {
 		newOld = " old "
 	}
-	return fmt.Sprintf("mismatched %s root: want %s, got %s", newOld, e.Want.Text(16), e.Got.Text(16))
+	return fmt.Sprintf("mismatched %s root: want %s, got %s", newOld, e.Want.String(), e.Got.String())
 }
 
 type State struct {
@@ -58,28 +58,28 @@ func (s *State) putNewContract(addr, classHash *felt.Felt) error {
 	}
 }
 
-// GetContractClass returns class hash of a contract at a given address.
-func (s *State) GetContractClass(addr *felt.Felt) (*felt.Felt, error) {
+// ContractClass returns class hash of a contract at a given address.
+func (s *State) ContractClass(addr *felt.Felt) (*felt.Felt, error) {
 	return NewContract(addr, s.txn).ClassHash()
 }
 
-// GetContractNonce returns nonce of a contract at a given address.
-func (s *State) GetContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+// ContractNonce returns nonce of a contract at a given address.
+func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	return NewContract(addr, s.txn).Nonce()
 }
 
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
-	storage, err := s.getStateStorage()
+	storage, err := s.stateStorage()
 	if err != nil {
 		return nil, err
 	}
 	return storage.Root()
 }
 
-// getStateStorage returns a [core.Trie] that represents the Starknet
+// stateStorage returns a [core.Trie] that represents the Starknet
 // global state in the given Txn context
-func (s *State) getStateStorage() (*trie.Trie, error) {
+func (s *State) stateStorage() (*trie.Trie, error) {
 	tTxn := NewTransactionStorage(s.txn, []byte{byte(db.StateTrie)})
 
 	rootKey, err := s.rootKey()
@@ -221,7 +221,7 @@ func (s *State) updateContractCommitment(contract *Contract) error {
 		return err
 	} else {
 		commitment := CalculateContractCommitment(storageRoot, classHash, nonce)
-		state, err := s.getStateStorage()
+		state, err := s.stateStorage()
 		if err != nil {
 			return err
 		}

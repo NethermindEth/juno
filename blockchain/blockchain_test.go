@@ -74,7 +74,7 @@ func TestHeight(t *testing.T) {
 	})
 }
 
-func TestGetBlockByNumberAndHash(t *testing.T) {
+func TestBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client, closeFn := feeder.NewTestClient(utils.MAINNET)
@@ -88,22 +88,22 @@ func TestGetBlockByNumberAndHash(t *testing.T) {
 
 		require.NoError(t, chain.Store(block, update, nil))
 
-		storedByNumber, err := chain.GetBlockByNumber(block.Number)
+		storedByNumber, err := chain.BlockByNumber(block.Number)
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByNumber)
 
-		storedByHash, err := chain.GetBlockByHash(block.Hash)
+		storedByHash, err := chain.BlockByHash(block.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByHash)
 	})
 	t.Run("GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
-		_, err := chain.GetBlockByNumber(42)
+		_, err := chain.BlockByNumber(42)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("GetBlockByHash returns error if block doesn't exist", func(t *testing.T) {
 		f, err := new(felt.Felt).SetRandom()
 		require.NoError(t, err)
-		_, err = chain.GetBlockByHash(f)
+		_, err = chain.BlockByHash(f)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 }
@@ -225,11 +225,11 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate0.NewRoot, root)
 
-		got0Block, err := chain.GetBlockByNumber(0)
+		got0Block, err := chain.BlockByNumber(0)
 		assert.NoError(t, err)
 		assert.Equal(t, block0, got0Block)
 
-		got0Update, err := chain.GetStateUpdateByHash(block0.Hash)
+		got0Update, err := chain.StateUpdateByHash(block0.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate0, got0Update)
 	})
@@ -252,17 +252,17 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, stateUpdate1.NewRoot, root)
 
-		got1Block, err := chain.GetBlockByNumber(1)
+		got1Block, err := chain.BlockByNumber(1)
 		assert.NoError(t, err)
 		assert.Equal(t, block1, got1Block)
 
-		got1Update, err := chain.GetStateUpdateByNumber(1)
+		got1Update, err := chain.StateUpdateByNumber(1)
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
 	})
 }
 
-func TestGetTransactionAndReceipt(t *testing.T) {
+func TestTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
@@ -280,19 +280,19 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 	}
 
 	t.Run("GetTransactionByBlockNumberAndIndex returns error if transaction does not exist", func(t *testing.T) {
-		tx, err := chain.GetTransactionByBlockNumberAndIndex(32, 20)
+		tx, err := chain.TransactionByBlockNumberAndIndex(32, 20)
 		assert.Nil(t, tx)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 
 	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
-		tx, err := chain.GetTransactionByHash(new(felt.Felt).SetUint64(345))
+		tx, err := chain.TransactionByHash(new(felt.Felt).SetUint64(345))
 		assert.Nil(t, tx)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
-		r, _, _, err := chain.GetReceipt(new(felt.Felt).SetUint64(234))
+		r, _, _, err := chain.Receipt(new(felt.Felt).SetUint64(234))
 		assert.Nil(t, r)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
@@ -304,11 +304,11 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 				require.NoError(t, err)
 
 				for j, expectedTx := range block.Transactions {
-					gotTx, err := chain.GetTransactionByHash(expectedTx.Hash())
+					gotTx, err := chain.TransactionByHash(expectedTx.Hash())
 					require.NoError(t, err)
 					assert.Equal(t, expectedTx, gotTx)
 
-					gotTx, err = chain.GetTransactionByBlockNumberAndIndex(block.Number, uint64(j))
+					gotTx, err = chain.TransactionByBlockNumberAndIndex(block.Number, uint64(j))
 					require.NoError(t, err)
 					assert.Equal(t, expectedTx, gotTx)
 				}
@@ -323,7 +323,7 @@ func TestGetTransactionAndReceipt(t *testing.T) {
 				require.NoError(t, err)
 
 				for _, expectedR := range block.Receipts {
-					gotR, hash, number, err := chain.GetReceipt(expectedR.TransactionHash)
+					gotR, hash, number, err := chain.Receipt(expectedR.TransactionHash)
 					require.NoError(t, err)
 					assert.Equal(t, expectedR, gotR)
 					assert.Equal(t, block.Hash, hash)
