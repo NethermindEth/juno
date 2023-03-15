@@ -272,7 +272,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	defer closeFn()
 
-	block, err := client.GetBlock(context.Background(), 11817)
+	block, err := client.Block(context.Background(), 11817)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	defer closeFn()
 
-	block, err := client.GetBlock(context.Background(), 19199)
+	block, err := client.Block(context.Background(), 19199)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestClassUnmarshal(t *testing.T) {
 	defer closeFn()
 
 	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
-	class, err := client.GetClassDefinition(context.Background(), hash)
+	class, err := client.ClassDefinition(context.Background(), hash)
 	if err != nil {
 		t.Error(err)
 	}
@@ -339,10 +339,10 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 	}()
 	baseUrl := "https\t://mock_feeder.io"
 	client := feeder.NewClient(baseUrl)
-	client.GetBlock(context.Background(), 0)
+	client.Block(context.Background(), 0)
 }
 
-func TestGetStateUpdate(t *testing.T) {
+func TestStateUpdate(t *testing.T) {
 	jsonData := []byte(`{
 		"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
 		"new_root": "021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6",
@@ -397,18 +397,18 @@ func TestGetStateUpdate(t *testing.T) {
 	client := testClient(srv.URL)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		stateUpdate, err := client.GetStateUpdate(context.Background(), 10)
+		stateUpdate, err := client.StateUpdate(context.Background(), 10)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, update, *stateUpdate)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
-		stateUpdate, err := client.GetStateUpdate(context.Background(), 1000000)
+		stateUpdate, err := client.StateUpdate(context.Background(), 1000000)
 		assert.Nil(t, stateUpdate, "Unexpected error")
 		assert.NotNil(t, err)
 	})
 }
 
-func TestGetTransaction(t *testing.T) {
+func TestTransaction(t *testing.T) {
 	jsonTransactionStatus := []byte(`{
 		"block_hash": "0x0",
 		"block_number": 0,
@@ -464,52 +464,52 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("Test normal case", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0x00")
 		client := testClient(srv.URL)
-		actualStatus, err := client.GetTransaction(context.Background(), transaction_hash)
+		actualStatus, err := client.Transaction(context.Background(), transaction_hash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, transactionStatus, *actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
 		client := testClient(srv.URL)
-		actualStatus, err := client.GetTransaction(context.Background(), transaction_hash)
+		actualStatus, err := client.Transaction(context.Background(), transaction_hash)
 		assert.Nil(t, actualStatus, "Unexpected error")
 		assert.NotNil(t, err)
 	})
 }
 
-func TestGetBlock(t *testing.T) {
+func TestBlock(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
 		blcokNumber := uint64(11817)
-		actualBlock, err := client.GetBlock(context.Background(), blcokNumber)
+		actualBlock, err := client.Block(context.Background(), blcokNumber)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualBlock)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		blcokNumber := uint64(1000000)
 
-		actualBlock, err := client.GetBlock(context.Background(), blcokNumber)
+		actualBlock, err := client.Block(context.Background(), blcokNumber)
 		assert.Nil(t, actualBlock, "Unexpected error")
 		assert.NotNil(t, err)
 	})
 }
 
-func TestGetClassDefinition(t *testing.T) {
+func TestClassDefinition(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	defer closeFn()
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 
-		actualClass, err := client.GetClassDefinition(context.Background(), classHash)
+		actualClass, err := client.ClassDefinition(context.Background(), classHash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x000")
-		actualClass, err := client.GetClassDefinition(context.Background(), classHash)
+		actualClass, err := client.ClassDefinition(context.Background(), classHash)
 		assert.Nil(t, actualClass, "Unexpected error")
 		assert.NotNil(t, err)
 	})
@@ -526,22 +526,22 @@ func TestHttpError(t *testing.T) {
 	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
-		_, err := client.GetBlock(context.Background(), 0)
+		_, err := client.Block(context.Background(), 0)
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetTransaction", func(t *testing.T) {
-		_, err := client.GetTransaction(context.Background(), new(felt.Felt))
+		_, err := client.Transaction(context.Background(), new(felt.Felt))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetClassDefinition", func(t *testing.T) {
-		_, err := client.GetClassDefinition(context.Background(), new(felt.Felt))
+		_, err := client.ClassDefinition(context.Background(), new(felt.Felt))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetStateUpdate", func(t *testing.T) {
-		_, err := client.GetStateUpdate(context.Background(), 0)
+		_, err := client.StateUpdate(context.Background(), 0)
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
@@ -561,7 +561,7 @@ func TestBackoffFailure(t *testing.T) {
 
 	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
-	_, err := c.GetBlock(context.Background(), 0)
+	_, err := c.Block(context.Background(), 0)
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }

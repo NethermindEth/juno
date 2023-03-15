@@ -207,7 +207,7 @@ type StateUpdate struct {
 	} `json:"state_diff"`
 }
 
-func (c *Client) GetStateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
+func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
 	queryUrl := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
@@ -248,7 +248,7 @@ type TransactionStatus struct {
 	Transaction      *Transaction `json:"transaction"`
 }
 
-func (c *Client) GetTransaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
+func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
 	queryUrl := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
@@ -324,7 +324,7 @@ type Block struct {
 	SequencerAddress *felt.Felt            `json:"sequencer_address"`
 }
 
-func (c *Client) GetBlock(ctx context.Context, blockNumber uint64) (*Block, error) {
+func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) {
 	queryUrl := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
@@ -383,7 +383,7 @@ type ClassDefinition struct {
 	Program Program `json:"program"`
 }
 
-func (c *Client) GetClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
+func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
 	queryUrl := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": classHash.String(),
 	})

@@ -44,18 +44,18 @@ type Reader interface {
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
-	GetBlockByNumber(number uint64) (block *core.Block, err error)
-	GetBlockByHash(hash *felt.Felt) (block *core.Block, err error)
+	BlockByNumber(number uint64) (block *core.Block, err error)
+	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
 	HeadsHeader() (header *core.Header, err error)
-	GetBlockHeaderByNumber(number uint64) (header *core.Header, err error)
-	GetBlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
+	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
+	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
 
-	GetTransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
-	GetTransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
-	GetReceipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
-	GetStateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
-	GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
+	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
+	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
+	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
+	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
+	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 }
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
@@ -114,7 +114,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 			return err
 		}
 
-		header, err = getBlockHeaderByNumber(txn, height)
+		header, err = blockHeaderByNumber(txn, height)
 		if err != nil {
 			return err
 		}
@@ -127,72 +127,72 @@ func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 	if height, err := b.height(txn); err != nil {
 		return nil, err
 	} else {
-		return getBlockByNumber(txn, height)
+		return blockByNumber(txn, height)
 	}
 }
 
-func (b *Blockchain) GetBlockByNumber(number uint64) (block *core.Block, err error) {
+func (b *Blockchain) BlockByNumber(number uint64) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
-		block, err = getBlockByNumber(txn, number)
+		block, err = blockByNumber(txn, number)
 		return err
 	})
 }
 
-func (b *Blockchain) GetBlockHeaderByNumber(number uint64) (header *core.Header, err error) {
+func (b *Blockchain) BlockHeaderByNumber(number uint64) (header *core.Header, err error) {
 	return header, b.database.View(func(txn db.Transaction) error {
-		header, err = getBlockHeaderByNumber(txn, number)
+		header, err = blockHeaderByNumber(txn, number)
 		return err
 	})
 }
 
-func (b *Blockchain) GetBlockByHash(hash *felt.Felt) (block *core.Block, err error) {
+func (b *Blockchain) BlockByHash(hash *felt.Felt) (block *core.Block, err error) {
 	return block, b.database.View(func(txn db.Transaction) error {
-		block, err = getBlockByHash(txn, hash)
+		block, err = blockByHash(txn, hash)
 		return err
 	})
 }
 
-func (b *Blockchain) GetBlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error) {
+func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error) {
 	return header, b.database.View(func(txn db.Transaction) error {
-		header, err = getBlockHeaderByHash(txn, hash)
+		header, err = blockHeaderByHash(txn, hash)
 		return err
 	})
 }
 
-func (b *Blockchain) GetStateUpdateByNumber(number uint64) (update *core.StateUpdate, err error) {
+func (b *Blockchain) StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error) {
 	return update, b.database.View(func(txn db.Transaction) error {
-		update, err = getStateUpdateByNumber(txn, number)
+		update, err = stateUpdateByNumber(txn, number)
 		return err
 	})
 }
 
-func (b *Blockchain) GetStateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error) {
+func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error) {
 	return update, b.database.View(func(txn db.Transaction) error {
-		update, err = getStateUpdateByHash(txn, hash)
+		update, err = stateUpdateByHash(txn, hash)
 		return err
 	})
 }
 
-// GetTransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
-func (b *Blockchain) GetTransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error) {
+// TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
+func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error) {
 	return transaction, b.database.View(func(txn db.Transaction) error {
-		transaction, err = getTransactionByBlockNumberAndIndex(txn, &txAndReceiptDBKey{blockNumber, index})
+		transaction, err = transactionByBlockNumberAndIndex(txn, &txAndReceiptDBKey{blockNumber, index})
 		return err
 	})
 }
 
-// GetTransactionByHash gets the transaction for a given hash.
-func (b *Blockchain) GetTransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error) {
+// TransactionByHash gets the transaction for a given hash.
+func (b *Blockchain) TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error) {
 	return transaction, b.database.View(func(txn db.Transaction) error {
-		transaction, err = getTransactionByHash(txn, hash)
+		transaction, err = transactionByHash(txn, hash)
 		return err
 	})
 }
 
-// GetReceipt gets the transaction receipt for a given transaction hash.
-func (b *Blockchain) GetReceipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error) {
+// Receipt gets the transaction receipt for a given transaction hash.
+func (b *Blockchain) Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error) {
 	return receipt, blockHash, blockNumber, b.database.View(func(txn db.Transaction) error {
-		receipt, blockHash, blockNumber, err = getReceiptByHash(txn, hash)
+		receipt, blockHash, blockNumber, err = receiptByHash(txn, hash)
 		return err
 	})
 }
@@ -293,8 +293,8 @@ func storeBlockHeader(txn db.Transaction, header *core.Header) error {
 	return nil
 }
 
-// getBlockHeaderByNumber retrieves a block header from database by its number
-func getBlockHeaderByNumber(txn db.Transaction, number uint64) (header *core.Header, err error) {
+// blockHeaderByNumber retrieves a block header from database by its number
+func blockHeaderByNumber(txn db.Transaction, number uint64) (header *core.Header, err error) {
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, number)
 
@@ -307,16 +307,16 @@ func getBlockHeaderByNumber(txn db.Transaction, number uint64) (header *core.Hea
 	return
 }
 
-func getBlockHeaderByHash(txn db.Transaction, hash *felt.Felt) (header *core.Header, err error) {
+func blockHeaderByHash(txn db.Transaction, hash *felt.Felt) (header *core.Header, err error) {
 	return header, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
-		header, err = getBlockHeaderByNumber(txn, binary.BigEndian.Uint64(val))
+		header, err = blockHeaderByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
 
-// getBlockByNumber retrieves a block from database by its number
-func getBlockByNumber(txn db.Transaction, number uint64) (block *core.Block, err error) {
-	header, err := getBlockHeaderByNumber(txn, number)
+// blockByNumber retrieves a block from database by its number
+func blockByNumber(txn db.Transaction, number uint64) (block *core.Block, err error) {
+	header, err := blockHeaderByNumber(txn, number)
 	if err != nil {
 		return nil, err
 	}
@@ -373,10 +373,10 @@ func getBlockByNumber(txn db.Transaction, number uint64) (block *core.Block, err
 	return block, nil
 }
 
-// getBlockByHash retrieves a block from database by its hash
-func getBlockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err error) {
+// blockByHash retrieves a block from database by its hash
+func blockByHash(txn db.Transaction, hash *felt.Felt) (block *core.Block, err error) {
 	return block, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
-		block, err = getBlockByNumber(txn, binary.BigEndian.Uint64(val))
+		block, err = blockByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
@@ -394,7 +394,7 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	return nil
 }
 
-func getStateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *core.StateUpdate, err error) {
+func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *core.StateUpdate, err error) {
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
@@ -404,9 +404,9 @@ func getStateUpdateByNumber(txn db.Transaction, blockNumber uint64) (update *cor
 	})
 }
 
-func getStateUpdateByHash(txn db.Transaction, hash *felt.Felt) (update *core.StateUpdate, err error) {
+func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (update *core.StateUpdate, err error) {
 	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
-		update, err = getStateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
+		update, err = stateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
@@ -473,45 +473,45 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 	return nil
 }
 
-// getTransactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
-func getTransactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (bnIndex *txAndReceiptDBKey, err error) {
+// transactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
+func transactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (bnIndex *txAndReceiptDBKey, err error) {
 	return bnIndex, txn.Get(db.TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal()), func(val []byte) error {
 		bnIndex = new(txAndReceiptDBKey)
 		return bnIndex.UnmarshalBinary(val)
 	})
 }
 
-// getTransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
-func getTransactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (transaction core.Transaction, err error) {
+// transactionByBlockNumberAndIndex gets the transaction for a given block number and index.
+func transactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (transaction core.Transaction, err error) {
 	return transaction, txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &transaction)
 	})
 }
 
-// getTransactionByHash gets the transaction for a given hash.
-func getTransactionByHash(txn db.Transaction, hash *felt.Felt) (core.Transaction, error) {
-	bnIndex, err := getTransactionBlockNumberAndIndexByHash(txn, hash)
+// transactionByHash gets the transaction for a given hash.
+func transactionByHash(txn db.Transaction, hash *felt.Felt) (core.Transaction, error) {
+	bnIndex, err := transactionBlockNumberAndIndexByHash(txn, hash)
 	if err != nil {
 		return nil, err
 	}
-	return getTransactionByBlockNumberAndIndex(txn, bnIndex)
+	return transactionByBlockNumberAndIndex(txn, bnIndex)
 }
 
-// getReceiptByHash gets the transaction receipt for a given hash.
-func getReceiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
-	if bnIndex, err := getTransactionBlockNumberAndIndexByHash(txn, hash); err != nil {
+// receiptByHash gets the transaction receipt for a given hash.
+func receiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+	if bnIndex, err := transactionBlockNumberAndIndexByHash(txn, hash); err != nil {
 		return nil, nil, 0, err
-	} else if receipt, err := getReceiptByBlockNumberAndIndex(txn, bnIndex); err != nil {
+	} else if receipt, err := receiptByBlockNumberAndIndex(txn, bnIndex); err != nil {
 		return nil, nil, 0, err
-	} else if header, err := getBlockHeaderByNumber(txn, bnIndex.Number); err != nil {
+	} else if header, err := blockHeaderByNumber(txn, bnIndex.Number); err != nil {
 		return nil, nil, 0, err
 	} else {
 		return receipt, header.Hash, header.Number, nil
 	}
 }
 
-// getReceiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.
-func getReceiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (r *core.TransactionReceipt, err error) {
+// receiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.
+func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (r *core.TransactionReceipt, err error) {
 	return r, txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &r)
 	})

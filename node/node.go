@@ -91,37 +91,37 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 		{
 			"starknet_getBlockWithTxHashes",
 			[]jsonrpc.Parameter{{Name: "block_id"}},
-			rpcHandler.GetBlockWithTxHashes,
+			rpcHandler.BlockWithTxHashes,
 		},
 		{
 			"starknet_getBlockWithTxs",
 			[]jsonrpc.Parameter{{Name: "block_id"}},
-			rpcHandler.GetBlockWithTxs,
+			rpcHandler.BlockWithTxs,
 		},
 		{
 			"starknet_getTransactionByHash",
 			[]jsonrpc.Parameter{{Name: "transaction_hash"}},
-			rpcHandler.GetTransactionByHash,
+			rpcHandler.TransactionByHash,
 		},
 		{
 			"starknet_getTransactionReceipt",
 			[]jsonrpc.Parameter{{Name: "transaction_hash"}},
-			rpcHandler.GetTransactionReceiptByHash,
+			rpcHandler.TransactionReceiptByHash,
 		},
 		{
 			"starknet_getBlockTransactionCount",
 			[]jsonrpc.Parameter{{Name: "block_id"}},
-			rpcHandler.GetBlockTransactionCount,
+			rpcHandler.BlockTransactionCount,
 		},
 		{
 			"starknet_getTransactionByBlockIdAndIndex",
 			[]jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			rpcHandler.GetTransactionByBlockIdAndIndex,
+			rpcHandler.TransactionByBlockIdAndIndex,
 		},
 		{
 			"starknet_getStateUpdate",
 			[]jsonrpc.Parameter{{Name: "block_id"}},
-			rpcHandler.GetStateUpdate,
+			rpcHandler.StateUpdate,
 		},
 	}, log)
 }
