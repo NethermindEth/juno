@@ -73,7 +73,7 @@ func TestConfigPrecedence(t *testing.T) {
 		},
 		"config file with all settings but without any other flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: 0
+			cfgFileContents: `verbosity: debug
 rpc-port: 4576
 metrics: true
 db-path: /home/.juno
@@ -93,7 +93,7 @@ pprof: true
 		},
 		"config file with some settings but without any other flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: 0
+			cfgFileContents: `verbosity: debug
 rpc-port: 4576
 metrics: true
 `,
@@ -109,7 +109,7 @@ metrics: true
 		},
 		"all flags without config file": {
 			inputArgs: []string{
-				"--verbosity", "0", "--rpc-port", "4576",
+				"--verbosity", "debug", "--rpc-port", "4576",
 				"--metrics", "--db-path", "/home/.juno", "--network", "1",
 				"--eth-node", "https://some-ethnode:5673", "--pprof",
 			},
@@ -125,7 +125,7 @@ metrics: true
 		},
 		"some flags without config file": {
 			inputArgs: []string{
-				"--verbosity", "0", "--rpc-port", "4576", "--db-path", "/home/.juno",
+				"--verbosity", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
 				"--network", "3",
 			},
 			expectedConfig: &node.Config{
@@ -139,7 +139,7 @@ metrics: true
 		},
 		"all setting set in both config file and flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: 0
+			cfgFileContents: `verbosity: debug
 rpc-port: 4576
 metrics: true
 db-path: /home/config-file/.juno
@@ -148,7 +148,7 @@ eth-node: "https://some-ethnode:5673"
 pprof: true
 `,
 			inputArgs: []string{
-				"--verbosity", "3", "--rpc-port", "4577",
+				"--verbosity", "error", "--rpc-port", "4577",
 				"--metrics", "--db-path", "/home/flag/.juno", "--network", "3",
 				"--eth-node", "https://some-ethnode:5674", "--pprof",
 			},
@@ -164,7 +164,7 @@ pprof: true
 		},
 		"some setting set in both config file and flags": {
 			cfgFile: true,
-			cfgFileContents: `verbosity: 2
+			cfgFileContents: `verbosity: warn
 rpc-port: 4576
 network: 1
 `,
@@ -184,7 +184,7 @@ network: 1
 		},
 		"some setting set in default, config file and flags": {
 			cfgFile:         true,
-			cfgFileContents: `network: 2`,
+			cfgFileContents: "network: 2",
 			inputArgs: []string{
 				"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
 				"https://some-ethnode:5674", "--pprof",

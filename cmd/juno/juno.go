@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -19,23 +20,17 @@ const (
 	ethNodeF   = "eth-node"
 	pprofF     = "pprof"
 
-	defaultConfig    = ""
-	defaultVerbosity = utils.INFO
-	defaultRpcPort   = uint16(6060)
-	defaultMetrics   = false
-	defaultDbPath    = ""
-	defaultNetwork   = utils.MAINNET
-	defaultEthNode   = ""
-	defaultPprof     = false
+	defaultConfig  = ""
+	defaultRpcPort = uint16(6060)
+	defaultMetrics = false
+	defaultDbPath  = ""
+	defaultNetwork = utils.MAINNET
+	defaultEthNode = ""
+	defaultPprof   = false
 
 	configFlagUsage    = "The yaml configuration file."
-	verbosityFlagUsage = `Verbosity of the logs. Options:
-0 = debug
-1 = info
-2 = warn
-3 = error
-`
-	rpcPortUsage = "The port on which the RPC server will listen for requests. " +
+	verbosityFlagUsage = "Verbosity of the logs. Options: debug, info, warn, error."
+	rpcPortUsage       = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
 	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
@@ -82,11 +77,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			return nil
 		}
 
-		return v.Unmarshal(config)
+		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
+		// encoding.TextUnmarshaller interface (see the LogLevel type for an example).
+		return v.Unmarshal(config, viper.DecodeHook(mapstructure.TextUnmarshallerHookFunc()))
 	}
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().Uint8(verbosityF, uint8(defaultVerbosity), verbosityFlagUsage)
+	// For testing purposes, this variable cannot be declared outside the function because Cobra
+	// mutates the value.
+	defaultVerbosity := utils.INFO
+	junoCmd.Flags().Var(&defaultVerbosity, verbosityF, verbosityFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)

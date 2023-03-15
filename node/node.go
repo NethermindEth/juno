@@ -50,9 +50,6 @@ func New(cfg *Config) (*Node, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
 	}
-	if !cfg.Verbosity.IsValid() {
-		return nil, utils.ErrUnknownLogLevel
-	}
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {

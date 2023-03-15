@@ -9,8 +9,10 @@ require (
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/golang/mock v1.6.0
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/sourcegraph/conc v0.2.0
 	github.com/spf13/cobra v1.5.0
+	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.24.0
@@ -40,7 +42,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
@@ -55,7 +56,6 @@ require (
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
