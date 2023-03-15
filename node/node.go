@@ -28,10 +28,8 @@ const (
 type Config struct {
 	LogLevel     utils.LogLevel `mapstructure:"log-level"`
 	RpcPort      uint16         `mapstructure:"rpc-port"`
-	Metrics      bool           `mapstructure:"metrics"`
 	DatabasePath string         `mapstructure:"db-path"`
 	Network      utils.Network  `mapstructure:"network"`
-	EthNode      string         `mapstructure:"eth-node"`
 	Pprof        bool           `mapstructure:"pprof"`
 }
 
