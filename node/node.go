@@ -26,7 +26,7 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	Verbosity    utils.LogLevel `mapstructure:"verbosity"`
+	LogLevel     utils.LogLevel `mapstructure:"log-level"`
 	RpcPort      uint16         `mapstructure:"rpc-port"`
 	Metrics      bool           `mapstructure:"metrics"`
 	DatabasePath string         `mapstructure:"db-path"`
@@ -57,7 +57,7 @@ func New(cfg *Config) (*Node, error) {
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-	log, err := utils.NewZapLogger(cfg.Verbosity)
+	log, err := utils.NewZapLogger(cfg.LogLevel)
 	if err != nil {
 		return nil, err
 	}
