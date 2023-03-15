@@ -28,7 +28,7 @@ type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
 
 // Config is the top-level juno configuration.
 type Config struct {
-	Verbosity    utils.LogLevel `mapstructure:"verbosity"`
+	LogLevel     utils.LogLevel `mapstructure:"log-level"`
 	RpcPort      uint16         `mapstructure:"rpc-port"`
 	Metrics      bool           `mapstructure:"metrics"`
 	DatabasePath string         `mapstructure:"db-path"`
@@ -51,9 +51,6 @@ func New(cfg *Config) (StarknetNode, error) {
 	if !utils.IsValidNetwork(cfg.Network) {
 		return nil, utils.ErrUnknownNetwork
 	}
-	if !cfg.Verbosity.IsValid() {
-		return nil, utils.ErrUnknownLogLevel
-	}
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -61,7 +58,7 @@ func New(cfg *Config) (StarknetNode, error) {
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-	log, err := utils.NewZapLogger(cfg.Verbosity)
+	log, err := utils.NewZapLogger(cfg.LogLevel)
 	if err != nil {
 		return nil, err
 	}

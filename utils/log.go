@@ -5,13 +5,16 @@ import (
 	"time"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var ErrUnknownLogLevel = errors.New("unknown log level")
+var ErrUnknownLogLevel = errors.New("unkown log level (known: debug, info, warn, error)")
 
-type LogLevel uint8
+type LogLevel int
+
+var _ pflag.Value = (*LogLevel)(nil)
 
 const (
 	DEBUG LogLevel = iota
@@ -31,12 +34,33 @@ func (l LogLevel) String() string {
 	case ERROR:
 		return "error"
 	default:
-		return ""
+		// Should not happen
+		panic(ErrUnknownLogLevel)
 	}
 }
 
-func (l LogLevel) IsValid() bool {
-	return l.String() != ""
+func (l *LogLevel) Set(s string) error {
+	switch s {
+	case "DEBUG", "debug":
+		*l = DEBUG
+	case "INFO", "info":
+		*l = INFO
+	case "WARN", "warn":
+		*l = WARN
+	case "ERROR", "error":
+		*l = ERROR
+	default:
+		return ErrUnknownLogLevel
+	}
+	return nil
+}
+
+func (l *LogLevel) Type() string {
+	return "LogLevel"
+}
+
+func (l *LogLevel) UnmarshalText(text []byte) error {
+	return l.Set(string(text))
 }
 
 type Logger interface {
