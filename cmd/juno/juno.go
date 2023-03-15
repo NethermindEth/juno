@@ -14,29 +14,22 @@ const (
 	configF   = "config"
 	logLevelF = "log-level"
 	rpcPortF  = "rpc-port"
-	metricsF  = "metrics"
 	dbPathF   = "db-path"
 	networkF  = "network"
-	ethNodeF  = "eth-node"
 	pprofF    = "pprof"
 
 	defaultConfig  = ""
 	defaultRpcPort = uint16(6060)
-	defaultMetrics = false
 	defaultDbPath  = ""
-	defaultEthNode = ""
 	defaultPprof   = false
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
 	rpcPortUsage      = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	metricsUsage = "Enables the metrics server and listens on port 9090."
 	dbPathUsage  = "Location of the database files."
 	networkUsage = "Options: mainnet, goerli, goerli2, integration."
-	ethNodeUsage = "The Ethereum endpoint to synchronise with. " +
-		"If unset feeder gateway will be used."
-	pprofUsage = "Enables the pprof server and listens on port 9080."
+	pprofUsage   = "Enables the pprof server and listens on port 9080."
 )
 
 // NewCmd returns a command that can be exected with any of the Cobra Execute* functions.
@@ -85,10 +78,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
-	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
-	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 
 	return junoCmd
