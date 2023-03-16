@@ -14,6 +14,85 @@ const (
 	contractStorageTrieHeight = 251
 )
 
+var (
+	ErrContractNotDeployed     = errors.New("contract not deployed")
+	ErrContractAlreadyDeployed = errors.New("contract already deployed")
+)
+
+// NewContract creates a contract instance at the given address.
+// Deploy should be called for contracts that were just deployed to the network.
+func NewContract(addr *felt.Felt, txn db.Transaction) (*Contract, error) {
+	contractDeployed, err := deployed(addr, txn)
+	if err != nil {
+		return nil, err
+	}
+
+	if !contractDeployed {
+		return nil, ErrContractNotDeployed
+	}
+
+	return &Contract{
+		Address: addr,
+		txn:     txn,
+	}, nil
+}
+
+// DeployContract sets up the database for a new contract.
+func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*Contract, error) {
+	contractDeployed, err := deployed(addr, txn)
+	if err != nil {
+		return nil, err
+	}
+
+	if contractDeployed {
+		return nil, ErrContractAlreadyDeployed
+	}
+
+	classHashKey := db.ContractClassHash.Key(addr.Marshal())
+	err = txn.Set(classHashKey, classHash.Marshal())
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := NewContract(addr, txn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.UpdateNonce(&felt.Zero)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+// ContractAddress computes the address of a Starknet contract.
+func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallData []*felt.Felt) *felt.Felt {
+	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
+	callDataHash := crypto.PedersenArray(constructorCallData...)
+
+	// https://docs.starknet.io/documentation/architecture_and_concepts/Contracts/contract-address
+	return crypto.PedersenArray(
+		prefix,
+		callerAddress,
+		salt,
+		classHash,
+		callDataHash,
+	)
+}
+
+func deployed(addr *felt.Felt, txn db.Transaction) (bool, error) {
+	_, err := classHash(addr, txn)
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // Contract is an instance of a [Class].
 type Contract struct {
 	// Address that this contract instance is deployed to
@@ -22,33 +101,7 @@ type Contract struct {
 	txn db.Transaction
 }
 
-// NewContract creates a contract instance at the given address.
-// Deploy should be called for contracts that were just deployed to the network.
-func NewContract(addr *felt.Felt, txn db.Transaction) *Contract {
-	return &Contract{
-		Address: addr,
-		txn:     txn,
-	}
-}
-
-// Deploy sets up the database for a new contract.
-func (c *Contract) Deploy(classHash *felt.Felt) error {
-	classHashKey := db.ContractClassHash.Key(c.Address.Marshal())
-	if err := c.txn.Get(classHashKey, func(val []byte) error {
-		return nil
-	}); err == nil {
-		// Should not happen.
-		return errors.New("existing contract")
-	} else if err = c.txn.Set(classHashKey, classHash.Marshal()); err != nil {
-		return err
-	} else if err = c.UpdateNonce(&felt.Zero); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Nonce returns the number of transactions sent from this contract.
+// Nonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
 func (c *Contract) Nonce() (nonce *felt.Felt, err error) {
 	key := db.ContractNonce.Key(c.Address.Marshal())
@@ -67,9 +120,59 @@ func (c *Contract) UpdateNonce(nonce *felt.Felt) error {
 }
 
 // ClassHash returns hash of the class that this contract instantiates.
-func (c *Contract) ClassHash() (classHash *felt.Felt, err error) {
-	key := db.ContractClassHash.Key(c.Address.Marshal())
-	err = c.txn.Get(key, func(val []byte) error {
+func (c *Contract) ClassHash() (*felt.Felt, error) {
+	return classHash(c.Address, c.txn)
+}
+
+// Root returns the root of the contract storage.
+func (c *Contract) Root() (*felt.Felt, error) {
+	if cStorage, err := storage(c.Address, c.txn); err != nil {
+		return nil, err
+	} else {
+		return cStorage.Root()
+	}
+}
+
+// UpdateStorage applies a change-set to the contract storage.
+func (c *Contract) UpdateStorage(diff []StorageDiff) error {
+	cStorage, err := storage(c.Address, c.txn)
+	if err != nil {
+		return err
+	}
+	// apply the diff
+	for _, pair := range diff {
+		if _, err := cStorage.Put(pair.Key, pair.Value); err != nil {
+			return err
+		}
+	}
+
+	// update contract storage root in the database
+	rootKeyDBKey := db.ContractRootKey.Key(c.Address.Marshal())
+	if rootKey := cStorage.RootKey(); rootKey != nil {
+		if rootKeyBytes, err := rootKey.MarshalBinary(); err != nil {
+			return err
+		} else if err := c.txn.Set(rootKeyDBKey, rootKeyBytes); err != nil {
+			return err
+		}
+	} else if err := c.txn.Delete(rootKeyDBKey); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Contract) Storage(key *felt.Felt) (*felt.Felt, error) {
+	cStorage, err := storage(c.Address, c.txn)
+	if err != nil {
+		return nil, err
+	}
+	return cStorage.Get(key)
+}
+
+// ClassHash returns hash of the class that the contract at the given address instantiates.
+func classHash(addr *felt.Felt, txn db.Transaction) (classHash *felt.Felt, err error) {
+	key := db.ContractClassHash.Key(addr.Marshal())
+	err = txn.Get(key, func(val []byte) error {
 		classHash = new(felt.Felt)
 		classHash.SetBytes(val)
 		return nil
@@ -77,13 +180,13 @@ func (c *Contract) ClassHash() (classHash *felt.Felt, err error) {
 	return
 }
 
-// Storage returns the [core.Trie] that represents the
+// storage returns the [core.Trie] that represents the
 // storage of the contract.
-func (c *Contract) Storage() (*trie.Trie, error) {
-	addrBytes := c.Address.Marshal()
+func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
+	addrBytes := addr.Marshal()
 	var contractRootKey *bitset.BitSet
 
-	if err := c.txn.Get(db.ContractRootKey.Key(addrBytes), func(val []byte) error {
+	if err := txn.Get(db.ContractRootKey.Key(addrBytes), func(val []byte) error {
 		contractRootKey = new(bitset.BitSet)
 		return contractRootKey.UnmarshalBinary(val)
 	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -91,59 +194,6 @@ func (c *Contract) Storage() (*trie.Trie, error) {
 		// database error.
 		return nil, err
 	}
-	trieTxn := NewTransactionStorage(c.txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
 	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight, contractRootKey), nil
-}
-
-// StorageRoot returns the root of the contract storage.
-func (c *Contract) StorageRoot() (*felt.Felt, error) {
-	if storage, err := c.Storage(); err != nil {
-		return nil, err
-	} else {
-		return storage.Root()
-	}
-}
-
-// UpdateStorage applies a change-set to the contract storage.
-func (c *Contract) UpdateStorage(diff []StorageDiff) error {
-	storage, err := c.Storage()
-	if err != nil {
-		return err
-	}
-
-	// apply the diff
-	for _, pair := range diff {
-		if _, err = storage.Put(pair.Key, pair.Value); err != nil {
-			return err
-		}
-	}
-
-	// update contract storage root in the database
-	rootKeyDbKey := db.ContractRootKey.Key(c.Address.Marshal())
-	if rootKey := storage.RootKey(); rootKey != nil {
-		if rootKeyBytes, err := rootKey.MarshalBinary(); err != nil {
-			return err
-		} else if err = c.txn.Set(rootKeyDbKey, rootKeyBytes); err != nil {
-			return err
-		}
-	} else if err = c.txn.Delete(rootKeyDbKey); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ContractAddress computes the address of a Starknet contract.
-func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallData []*felt.Felt) *felt.Felt {
-	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
-	callDataHash := crypto.PedersenArray(constructorCallData...)
-
-	// https://docs.starknet.io/documentation/architecture_and_concepts/Contracts/contract-address
-	return crypto.PedersenArray(
-		prefix,
-		callerAddress,
-		salt,
-		classHash,
-		callDataHash,
-	)
 }

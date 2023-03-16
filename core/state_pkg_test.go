@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
@@ -20,10 +19,10 @@ func TestState_PutNewContract(t *testing.T) {
 	classHash, _ := new(felt.Felt).SetRandom()
 
 	_, err := state.ContractClass(addr)
-	assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	assert.EqualError(t, err, ErrContractNotDeployed.Error())
 
 	assert.Equal(t, nil, state.putNewContract(addr, classHash))
-	assert.EqualError(t, state.putNewContract(addr, classHash), "existing contract")
+	assert.EqualError(t, state.putNewContract(addr, classHash), ErrContractAlreadyDeployed.Error())
 
 	got, err := state.ContractClass(addr)
 	assert.Equal(t, nil, err)
