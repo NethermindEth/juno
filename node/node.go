@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -26,6 +27,10 @@ type StarknetNode interface {
 
 type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
 
+const (
+	defaultPprofPort = uint16(9080)
+)
+
 // Config is the top-level juno configuration.
 type Config struct {
 	Verbosity    utils.LogLevel `mapstructure:"verbosity"`
@@ -34,6 +39,7 @@ type Config struct {
 	DatabasePath string         `mapstructure:"db-path"`
 	Network      utils.Network  `mapstructure:"network"`
 	EthNode      string         `mapstructure:"eth-node"`
+	Pprof        bool           `mapstructure:"pprof"`
 }
 
 type Node struct {
@@ -152,7 +158,8 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 	http := makeHttp(n.cfg.RpcPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
-	n.services = []service.Service{synchronizer, http}
+	profiler := pprof.New(n.cfg.Pprof, defaultPprofPort, n.log)
+	n.services = []service.Service{synchronizer, http, profiler}
 
 	ctx, cancel := context.WithCancel(ctx)
 

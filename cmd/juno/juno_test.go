@@ -75,6 +75,7 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 		defaultDbPath := ""
 		defaultNetwork := utils.MAINNET
 		defaultEthNode := ""
+		defaultPprof := false
 
 		tests := map[string]struct {
 			cfgFile         func(t *testing.T, cfg string) (string, func())
@@ -90,7 +91,9 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 					RpcPort:      defaultRpcPort,
 					Metrics:      defaultMetrics,
 					DatabasePath: defaultDbPath,
-					Network:      defaultNetwork, EthNode: defaultEthNode,
+					Network:      defaultNetwork,
+					EthNode:      defaultEthNode,
+					Pprof:        defaultPprof,
 				},
 			},
 			"config file path is empty string": {
@@ -100,7 +103,9 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 					RpcPort:      defaultRpcPort,
 					Metrics:      defaultMetrics,
 					DatabasePath: defaultDbPath,
-					Network:      defaultNetwork, EthNode: defaultEthNode,
+					Network:      defaultNetwork,
+					EthNode:      defaultEthNode,
+					Pprof:        defaultPprof,
 				},
 			},
 			"config file doesn't exist": {
@@ -114,7 +119,9 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 					Verbosity: defaultVerbosity,
 					RpcPort:   defaultRpcPort,
 					Metrics:   defaultMetrics,
-					Network:   defaultNetwork, EthNode: defaultEthNode,
+					Network:   defaultNetwork,
+					EthNode:   defaultEthNode,
+					Pprof:     defaultPprof,
 				},
 			},
 			"config file with all settings but without any other flags": {
@@ -125,6 +132,7 @@ metrics: true
 db-path: /home/.juno
 network: 2
 eth-node: "https://some-ethnode:5673"
+pprof: true
 `,
 				expectedConfig: &node.Config{
 					Verbosity:    utils.DEBUG,
@@ -133,6 +141,7 @@ eth-node: "https://some-ethnode:5673"
 					DatabasePath: "/home/.juno",
 					Network:      utils.GOERLI2,
 					EthNode:      "https://some-ethnode:5673",
+					Pprof:        true,
 				},
 			},
 			"config file with some settings but without any other flags": {
@@ -148,13 +157,14 @@ metrics: true
 					DatabasePath: defaultDbPath,
 					Network:      defaultNetwork,
 					EthNode:      defaultEthNode,
+					Pprof:        defaultPprof,
 				},
 			},
 			"all flags without config file": {
 				inputArgs: []string{
 					"--verbosity", "0", "--rpc-port", "4576",
 					"--metrics", "--db-path", "/home/.juno", "--network", "1",
-					"--eth-node", "https://some-ethnode:5673",
+					"--eth-node", "https://some-ethnode:5673", "--pprof", "true",
 				},
 				expectedConfig: &node.Config{
 					Verbosity:    utils.DEBUG,
@@ -163,12 +173,13 @@ metrics: true
 					DatabasePath: "/home/.juno",
 					Network:      utils.GOERLI,
 					EthNode:      "https://some-ethnode:5673",
+					Pprof:        true,
 				},
 			},
 			"some flags without config file": {
 				inputArgs: []string{
 					"--verbosity", "0", "--rpc-port", "4576", "--db-path", "/home/.juno",
-					"--network", "3",
+					"--network", "3", "--pprof",
 				},
 				expectedConfig: &node.Config{
 					Verbosity:    utils.DEBUG,
@@ -177,6 +188,7 @@ metrics: true
 					DatabasePath: "/home/.juno",
 					Network:      utils.INTEGRATION,
 					EthNode:      defaultEthNode,
+					Pprof:        true,
 				},
 			},
 			"all setting set in both config file and flags": {
@@ -187,11 +199,12 @@ metrics: true
 db-path: /home/config-file/.juno
 network: 1
 eth-node: "https://some-ethnode:5673"
+pprof: true
 `,
 				inputArgs: []string{
 					"--verbosity", "3", "--rpc-port", "4577",
 					"--metrics", "--db-path", "/home/flag/.juno", "--network", "3",
-					"--eth-node", "https://some-ethnode:5674",
+					"--eth-node", "https://some-ethnode:5674", "--pprof",
 				},
 				expectedConfig: &node.Config{
 					Verbosity:    utils.ERROR,
@@ -200,6 +213,7 @@ eth-node: "https://some-ethnode:5673"
 					DatabasePath: "/home/flag/.juno",
 					Network:      utils.INTEGRATION,
 					EthNode:      "https://some-ethnode:5674",
+					Pprof:        true,
 				},
 			},
 			"some setting set in both config file and flags": {
@@ -219,6 +233,7 @@ network: 1
 					DatabasePath: "/home/flag/.juno",
 					Network:      utils.GOERLI,
 					EthNode:      "https://some-ethnode:5674",
+					Pprof:        false,
 				},
 			},
 			"some setting set in default, config file and flags": {
@@ -226,7 +241,7 @@ network: 1
 				cfgFileContents: `network: 2`,
 				inputArgs: []string{
 					"--metrics", "--db-path", "/home/flag/.juno", "--eth-node",
-					"https://some-ethnode:5674",
+					"https://some-ethnode:5674", "--pprof", "true",
 				},
 				expectedConfig: &node.Config{
 					Verbosity:    defaultVerbosity,
@@ -235,6 +250,7 @@ network: 1
 					DatabasePath: "/home/flag/.juno",
 					Network:      utils.GOERLI2,
 					EthNode:      "https://some-ethnode:5674",
+					Pprof:        true,
 				},
 			},
 		}

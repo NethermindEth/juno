@@ -31,6 +31,7 @@ const (
 	dbPathF    = "db-path"
 	networkF   = "network"
 	ethNodeF   = "eth-node"
+	pprofF     = "pprof"
 
 	defaultConfig    = ""
 	defaultVerbosity = utils.INFO
@@ -39,6 +40,7 @@ const (
 	defaultDbPath    = ""
 	defaultNetwork   = utils.MAINNET
 	defaultEthNode   = ""
+	defaultPprof     = false
 
 	configFlagUsage    = "The yaml configuration file."
 	verbosityFlagUsage = `Verbosity of the logs. Options:
@@ -58,6 +60,7 @@ const (
 3 = integration`
 	ethNodeUsage = "The Ethereum endpoint to synchronise with. " +
 		"If unset feeder gateway will be used."
+	pprofUsage = "Enables the pprof server and listens on port 9080."
 )
 
 var (
@@ -79,6 +82,7 @@ func NewCmd(newNodeFn node.NewStarknetNodeFn) *cobra.Command {
 	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
 	junoCmd.Flags().Uint8(networkF, uint8(defaultNetwork), networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 
 	junoCmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		v := viper.New()
