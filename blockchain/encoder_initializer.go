@@ -18,6 +18,8 @@ func registerCoreTypesToEncoder() {
 			reflect.TypeOf(core.InvokeTransaction{}),
 			reflect.TypeOf(core.L1HandlerTransaction{}),
 			reflect.TypeOf(core.DeployAccountTransaction{}),
+			reflect.TypeOf(core.Cairo0Class{}),
+			reflect.TypeOf(core.Cairo1Class{}),
 		}
 
 		for _, t := range types {

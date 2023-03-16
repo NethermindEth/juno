@@ -54,7 +54,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 
 			// There are classes in deployed transactions which refer to class hash that are no present in declared
 			// classes. Thus, we need to fetch all the classes which are referenced in deployed contracts
-			referencedClasses := make(map[felt.Felt]*core.Class)
+			referencedClasses := make(map[felt.Felt]core.Class)
 			for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
 				referencedClasses[*deployedContract.ClassHash] = nil
 			}
@@ -79,7 +79,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 }
 
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	declaredClasses map[felt.Felt]*core.Class, resetStreams context.CancelFunc,
+	declaredClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
 	return func() {

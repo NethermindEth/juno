@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -255,18 +256,53 @@ func adaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTra
 
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
-func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error) {
+func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
 	response, err := f.client.ClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err
 	}
 
-	return adaptClass(response)
+	if response.V1 != nil {
+		return adaptCairo1Class(response.V1)
+	} else if response.V0 != nil {
+		return adaptCairo0Class(response.V0)
+	} else {
+		return nil, errors.New("empty class")
+	}
 }
 
-func adaptClass(response *feeder.ClassDefinition) (*core.Class, error) {
-	class := new(core.Class)
+func adaptCairo1Class(response *feeder.SierraDefinition) (core.Class, error) {
+	var err error
 
+	class := new(core.Cairo1Class)
+	class.SemanticVersion = response.Version
+	class.Program = response.Program
+	class.ProgramHash = crypto.PoseidonArray(class.Program...)
+
+	class.Abi = response.Abi
+	class.AbiHash, err = crypto.StarknetKeccak([]byte(class.Abi))
+	if err != nil {
+		return nil, err
+	}
+
+	class.EntryPoints.External = make([]core.SierraEntryPoint, len(response.EntryPoints.External))
+	for index, v := range response.EntryPoints.External {
+		class.EntryPoints.External[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+	}
+	class.EntryPoints.L1Handler = make([]core.SierraEntryPoint, len(response.EntryPoints.L1Handler))
+	for index, v := range response.EntryPoints.L1Handler {
+		class.EntryPoints.L1Handler[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+	}
+	class.EntryPoints.Constructor = make([]core.SierraEntryPoint, len(response.EntryPoints.Constructor))
+	for index, v := range response.EntryPoints.Constructor {
+		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+	}
+
+	return class, nil
+}
+
+func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
+	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 
 	class.Externals = []core.EntryPoint{}

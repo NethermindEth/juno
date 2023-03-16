@@ -51,7 +51,7 @@ func TestProgramHash(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			programHash, err := feeder.ProgramHash(classDefinition)
+			programHash, err := feeder.ProgramHash(classDefinition.V0)
 			if err != nil {
 				t.Fatalf("unexpected error while computing program hash: %s", err)
 			}

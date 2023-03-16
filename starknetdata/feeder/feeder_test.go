@@ -124,7 +124,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 }
 
-func TestClass(t *testing.T) {
+func TestClassV0(t *testing.T) {
 	classHashes := []string{
 		"0x79e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
 		"0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0",
@@ -142,40 +142,42 @@ func TestClass(t *testing.T) {
 			hash := hexToFelt(t, hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			class, err := adapter.Class(ctx, hash)
+			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
+			class, ok := classGeneric.(*core.Cairo0Class)
+			require.True(t, ok)
 
-			for i, v := range response.EntryPoints.External {
+			for i, v := range response.V0.EntryPoints.External {
 				assert.Equal(t, v.Selector, class.Externals[i].Selector)
 				assert.Equal(t, v.Offset, class.Externals[i].Offset)
 			}
-			assert.Equal(t, len(response.EntryPoints.External), len(class.Externals))
+			assert.Equal(t, len(response.V0.EntryPoints.External), len(class.Externals))
 
-			for i, v := range response.EntryPoints.L1Handler {
+			for i, v := range response.V0.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, class.L1Handlers[i].Selector)
 				assert.Equal(t, v.Offset, class.L1Handlers[i].Offset)
 			}
-			assert.Equal(t, len(response.EntryPoints.L1Handler), len(class.L1Handlers))
+			assert.Equal(t, len(response.V0.EntryPoints.L1Handler), len(class.L1Handlers))
 
-			for i, v := range response.EntryPoints.Constructor {
+			for i, v := range response.V0.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, class.Constructors[i].Selector)
 				assert.Equal(t, v.Offset, class.Constructors[i].Offset)
 			}
-			assert.Equal(t, len(response.EntryPoints.Constructor), len(class.Constructors))
+			assert.Equal(t, len(response.V0.EntryPoints.Constructor), len(class.Constructors))
 
-			for i, v := range response.Program.Builtins {
+			for i, v := range response.V0.Program.Builtins {
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), class.Builtins[i])
 			}
-			assert.Equal(t, len(response.Program.Builtins), len(class.Builtins))
+			assert.Equal(t, len(response.V0.Program.Builtins), len(class.Builtins))
 
-			for i, v := range response.Program.Data {
+			for i, v := range response.V0.Program.Data {
 				expected, err := new(felt.Felt).SetString(v)
 				assert.NoError(t, err)
 				assert.Equal(t, expected, class.Bytecode[i])
 			}
-			assert.Equal(t, len(response.Program.Data), len(class.Bytecode))
+			assert.Equal(t, len(response.V0.Program.Data), len(class.Bytecode))
 
-			programHash, err := feeder.ProgramHash(response)
+			programHash, err := feeder.ProgramHash(response.V0)
 			assert.NoError(t, err)
 			assert.Equal(t, programHash, class.ProgramHash)
 		})

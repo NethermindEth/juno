@@ -6,7 +6,13 @@ import (
 )
 
 // Class unambiguously defines a [Contract]'s semantics.
-type Class struct {
+type Class interface {
+	Version() uint64
+	Hash() *felt.Felt
+}
+
+// Cairo0Class unambiguously defines a [Contract]'s semantics.
+type Cairo0Class struct {
 	Abi any
 	// External functions defined in the class.
 	Externals []EntryPoint
@@ -30,7 +36,11 @@ type EntryPoint struct {
 	Offset *felt.Felt
 }
 
-func (c *Class) Hash() *felt.Felt {
+func (c *Cairo0Class) Version() uint64 {
+	return 0
+}
+
+func (c *Cairo0Class) Hash() *felt.Felt {
 	return crypto.PedersenArray(
 		&felt.Zero,
 		crypto.PedersenArray(flatten(c.Externals)...),
@@ -49,6 +59,51 @@ func flatten(entryPoints []EntryPoint) []*felt.Felt {
 		// influences the class hash.
 		result[2*i] = entryPoint.Selector
 		result[2*i+1] = entryPoint.Offset
+	}
+	return result
+}
+
+// Cairo1Class unambiguously defines a [Contract]'s semantics.
+type Cairo1Class struct {
+	Abi         string
+	AbiHash     *felt.Felt
+	EntryPoints struct {
+		Constructor []SierraEntryPoint
+		External    []SierraEntryPoint
+		L1Handler   []SierraEntryPoint
+	}
+	Program         []*felt.Felt
+	ProgramHash     *felt.Felt
+	SemanticVersion string
+}
+
+type SierraEntryPoint struct {
+	Index    uint64
+	Selector *felt.Felt
+}
+
+func (c *Cairo1Class) Version() uint64 {
+	return 1
+}
+
+func (c *Cairo1Class) Hash() *felt.Felt {
+	return crypto.PoseidonArray(
+		new(felt.Felt).SetBytes([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
+		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.External)...),
+		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.L1Handler)...),
+		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.Constructor)...),
+		c.AbiHash,
+		c.ProgramHash,
+	)
+}
+
+func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
+	result := make([]*felt.Felt, len(entryPoints)*2)
+	for i, entryPoint := range entryPoints {
+		// It is important that Selector is first because the order
+		// influences the class hash.
+		result[2*i] = entryPoint.Selector
+		result[2*i+1] = new(felt.Felt).SetUint64(entryPoint.Index)
 	}
 	return result
 }
