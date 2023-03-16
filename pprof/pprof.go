@@ -37,7 +37,7 @@ func (p *Profiler) Run(ctx context.Context) error {
 	}
 
 	go func() {
-		p.log.Infow("Starting pprof...", p.server.Addr)
+		p.log.Infow("Starting pprof...", "address", p.server.Addr)
 		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			p.log.Errorw("Pprof server error", "err", err)
 		}
