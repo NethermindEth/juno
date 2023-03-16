@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -58,29 +57,6 @@ type BuiltinInstanceCounter struct {
 	Output     uint64
 	Pedersen   uint64
 	RangeCheck uint64
-}
-
-func init() {
-	err := encoder.RegisterType(reflect.TypeOf(DeclareTransaction{}))
-	if err != nil {
-		panic(err)
-	}
-	err = encoder.RegisterType(reflect.TypeOf(DeployTransaction{}))
-	if err != nil {
-		panic(err)
-	}
-	err = encoder.RegisterType(reflect.TypeOf(InvokeTransaction{}))
-	if err != nil {
-		panic(err)
-	}
-	err = encoder.RegisterType(reflect.TypeOf(L1HandlerTransaction{}))
-	if err != nil {
-		panic(err)
-	}
-	err = encoder.RegisterType(reflect.TypeOf(DeployAccountTransaction{}))
-	if err != nil {
-		panic(err)
-	}
 }
 
 type TransactionReceipt struct {
