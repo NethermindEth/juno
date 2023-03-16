@@ -98,6 +98,8 @@ linters:
     - unparam
     - unused
     - whitespace
+    - tparallel
+    - gci
 
   # don't enable:
   # - asciicheck
