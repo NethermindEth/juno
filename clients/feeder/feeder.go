@@ -238,6 +238,7 @@ type Transaction struct {
 	CallData            []*felt.Felt `json:"calldata"`
 	EntryPointSelector  *felt.Felt   `json:"entry_point_selector"`
 	Nonce               *felt.Felt   `json:"nonce"`
+	CompiledClassHash   *felt.Felt   `json:"compiled_class_hash"`
 }
 
 type TransactionStatus struct {

@@ -194,6 +194,9 @@ type DeclareTransaction struct {
 	// then the transaction version increases.
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
 	Version *felt.Felt
+
+	// Version 2 fields
+	CompiledClassHash *felt.Felt
 }
 
 func (d *DeclareTransaction) Hash() *felt.Felt {
@@ -287,6 +290,18 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.MaxFee,
 			n.ChainId(),
 			d.Nonce,
+		), nil
+	} else if d.Version.Equal(new(felt.Felt).SetUint64(2)) {
+		return crypto.PedersenArray(
+			declareFelt,
+			d.Version,
+			d.SenderAddress,
+			&felt.Zero,
+			crypto.PedersenArray(d.ClassHash),
+			d.MaxFee,
+			n.ChainId(),
+			d.Nonce,
+			d.CompiledClassHash,
 		), nil
 	}
 	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
