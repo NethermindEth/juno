@@ -49,12 +49,3 @@ func DataDir(operatingSystem, userDataDir, homeDir string) string {
 	}
 	return filepath.Join(homeDir, local, share, juno)
 }
-
-func CreateDir(dirPath string) error {
-	if _, err := os.Stat(dirPath); err != nil {
-		if err = os.MkdirAll(dirPath, os.ModePerm); err != nil {
-			return err
-		}
-	}
-	return nil
-}
