@@ -151,22 +151,16 @@ func adaptTransaction(t core.Transaction) *Transaction {
 func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	sig := t.Signature()
 	invTxn := &Transaction{
-		Type:      TxnInvoke,
-		Hash:      t.Hash(),
-		MaxFee:    t.MaxFee,
-		Version:   t.Version,
-		Signature: &sig,
-		Nonce:     t.Nonce,
-		Calldata:  &t.CallData,
-	}
-
-	if t.Version.IsZero() {
-		invTxn.ContractAddress = t.ContractAddress
-		invTxn.EntryPointSelector = t.EntryPointSelector
-	} else if t.Version.IsOne() {
-		invTxn.SenderAddress = t.ContractAddress
-	} else {
-		panic("invalid invoke txn version")
+		Type:               TxnInvoke,
+		Hash:               t.Hash(),
+		MaxFee:             t.MaxFee,
+		Version:            t.Version,
+		Signature:          &sig,
+		Nonce:              t.Nonce,
+		Calldata:           &t.CallData,
+		ContractAddress:    t.ContractAddress,
+		SenderAddress:      t.SenderAddress,
+		EntryPointSelector: t.EntryPointSelector,
 	}
 
 	return invTxn
