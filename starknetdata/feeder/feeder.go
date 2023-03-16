@@ -196,6 +196,7 @@ func adaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 		Nonce:                t.Nonce,
 		Version:              t.Version,
 		ClassHash:            t.ClassHash,
+		CompiledClassHash:    t.CompiledClassHash,
 	}
 }
 
