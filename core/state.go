@@ -127,7 +127,7 @@ func (s *State) putStateStorage(state *trie.Trie) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]*Class) error {
+func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err

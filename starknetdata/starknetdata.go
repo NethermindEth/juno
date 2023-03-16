@@ -13,6 +13,6 @@ import (
 type StarknetData interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error)
 	Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error)
-	Class(ctx context.Context, classHash *felt.Felt) (*core.Class, error)
+	Class(ctx context.Context, classHash *felt.Felt) (core.Class, error)
 	StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error)
 }
