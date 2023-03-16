@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -109,6 +110,8 @@ func TestTransactionEncoding(t *testing.T) {
 }
 
 func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
+	require.NoError(t, encoder.RegisterType(reflect.TypeOf(input)))
+
 	data, err := encoder.Marshal(input)
 	require.NoError(t, err)
 

@@ -1,0 +1,30 @@
+package blockchain
+
+import (
+	"reflect"
+	"sync"
+
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/encoder"
+)
+
+var once sync.Once
+
+func registerCoreTypesToEncoder() {
+	once.Do(func() {
+		types := []reflect.Type{
+			reflect.TypeOf(core.DeclareTransaction{}),
+			reflect.TypeOf(core.DeployTransaction{}),
+			reflect.TypeOf(core.InvokeTransaction{}),
+			reflect.TypeOf(core.L1HandlerTransaction{}),
+			reflect.TypeOf(core.DeployAccountTransaction{}),
+		}
+
+		for _, t := range types {
+			err := encoder.RegisterType(t)
+			if err != nil {
+				panic(err)
+			}
+		}
+	})
+}
