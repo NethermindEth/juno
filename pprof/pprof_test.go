@@ -19,7 +19,7 @@ func TestPprofServerEnabled(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	url := fmt.Sprintf("http://localhost:%s/debug/pprof/", strconv.Itoa(int(port)))
 	t.Run("create a new Pprof instance and run it", func(t *testing.T) {
-		profiler := pprof.New(true, port, log)
+		profiler := pprof.New(true, log)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -43,7 +43,7 @@ func TestPprofServerDisabled(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	url := fmt.Sprintf("http://localhost:%s/debug/pprof/", strconv.Itoa(int(port)))
 	t.Run("create a new Pprof instance with enabled set to false and ensure it doesn't start", func(t *testing.T) {
-		profiler := pprof.New(false, port, log)
+		profiler := pprof.New(false, log)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		go func() {

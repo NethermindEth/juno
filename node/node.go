@@ -27,10 +27,6 @@ type StarknetNode interface {
 
 type NewStarknetNodeFn func(cfg *Config) (StarknetNode, error)
 
-const (
-	defaultPprofPort = uint16(9080)
-)
-
 // Config is the top-level juno configuration.
 type Config struct {
 	Verbosity    utils.LogLevel `mapstructure:"verbosity"`
@@ -158,7 +154,7 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 	http := makeHttp(n.cfg.RpcPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
-	profiler := pprof.New(n.cfg.Pprof, defaultPprofPort, n.log)
+	profiler := pprof.New(n.cfg.Pprof, n.log)
 	n.services = []service.Service{synchronizer, http, profiler}
 
 	ctx, cancel := context.WithCancel(ctx)

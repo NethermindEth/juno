@@ -3,7 +3,6 @@ package pprof
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
@@ -17,9 +16,9 @@ type Profiler struct {
 	server  *http.Server
 }
 
-func New(enabled bool, port uint16, log utils.SimpleLogger) *Profiler {
+func New(enabled bool, log utils.SimpleLogger) *Profiler {
 	server := &http.Server{
-		Addr:              "localhost:" + strconv.Itoa(int(port)),
+		Addr:              "localhost:0", // Have kernel select arbitrary open port
 		Handler:           http.DefaultServeMux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
