@@ -5,8 +5,6 @@ juno: ## compile
 	@mkdir -p build
 	@go build -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
-all: juno
-
 generate: ## generate
 	mkdir -p mocks
 	go generate ./...
@@ -28,7 +26,7 @@ test-cover: ## tests with coverage
 	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-gofumpt install-mockgen ## install some project dependencies
+install-deps: | install-mockgen install-golangci-lint## install some project dependencies
 
 install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
@@ -36,15 +34,17 @@ install-gofumpt:
 install-mockgen:
 	go install github.com/golang/mock/mockgen@latest
 
+install-golangci-lint:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+
+lint: install-golangci-lint
+	golangci-lint run
+
 tidy: ## add missing and remove unused modules
 	 go mod tidy
 
 format: ## run go formatter
 	gofumpt -l -w .
-
-format-check: ## check formatting
-	# assert `gofumpt -l` produces no output
-	test ! $$(gofumpt -l . | tee /dev/stderr)
 
 clean: ## clean project builds
 	@rm -rf ./build
