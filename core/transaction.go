@@ -164,6 +164,8 @@ type InvokeTransaction struct {
 	// Version 1 fields
 	// The transaction nonce.
 	Nonce *felt.Felt
+	// The address of the sender of this transaction
+	SenderAddress *felt.Felt
 }
 
 func (i *InvokeTransaction) Hash() *felt.Felt {
@@ -260,7 +262,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 		return crypto.PedersenArray(
 			invokeFelt,
 			i.Version,
-			i.ContractAddress,
+			i.SenderAddress,
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,

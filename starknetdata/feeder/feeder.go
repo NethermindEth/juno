@@ -211,15 +211,24 @@ func adaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
 }
 
 func adaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
+	// pre-v0.11.0 used ContractAddress as SenderAddress for invoke v1
+	contractAddress := t.ContractAddress
+	senderAddress := t.SenderAddress
+	if t.Version.IsOne() && senderAddress == nil {
+		senderAddress = contractAddress
+		contractAddress = nil
+	}
+
 	return &core.InvokeTransaction{
 		TransactionHash:      t.Hash,
-		ContractAddress:      t.ContractAddress,
+		ContractAddress:      contractAddress,
 		EntryPointSelector:   t.EntryPointSelector,
 		Nonce:                t.Nonce,
 		CallData:             t.CallData,
 		TransactionSignature: t.Signature,
 		MaxFee:               t.MaxFee,
 		Version:              t.Version,
+		SenderAddress:        senderAddress,
 	}
 }
 
