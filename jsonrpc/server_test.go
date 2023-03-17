@@ -68,9 +68,9 @@ func TestHandle(t *testing.T) {
 		{
 			"method",
 			[]jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
-			func(num *int, shouldError bool, msg string) (any, *jsonrpc.Error) {
+			func(num *int, shouldError bool, data any) (any, *jsonrpc.Error) {
 				if shouldError {
-					return nil, &jsonrpc.Error{Code: 44, Message: msg}
+					return nil, &jsonrpc.Error{Code: 44, Message: "Expected Error", Data: data}
 				}
 				return struct {
 					Doubled int `json:"doubled"`
@@ -110,31 +110,31 @@ func TestHandle(t *testing.T) {
 	}{
 		"invalid json": {
 			req: `{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"invalid character ']' looking for beginning of object key string"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string"},"id":null}`,
 		},
 		"invalid json batch path": {
 			req: `[{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"invalid character ']' looking for beginning of object key string"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string"},"id":null}`,
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":1}`,
 		},
 		"wrong version with null id": {
 			req: `{"jsonrpc" : "1.0", "id" : null}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":null}`,
 		},
 		"non existent method": {
 			req: `{"jsonrpc" : "2.0", "method" : "doesnotexits" , "id" : 2}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"method not found"},"id":2}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":2}`,
 		},
 		"missing param(s)": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"missing/unexpected params in list"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"too many params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"missing/unexpected params in list"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
@@ -142,7 +142,7 @@ func TestHandle(t *testing.T) {
 		},
 		"list params, should soft error": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, true, "error message"] , "id" : 4}`,
-			res: `{"jsonrpc":"2.0","error":{"code":44,"message":"error message"},"id":4}`,
+			res: `{"jsonrpc":"2.0","error":{"code":44,"message":"Expected Error","data":"error message"},"id":4}`,
 		},
 		"named params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method",
@@ -157,16 +157,16 @@ func TestHandle(t *testing.T) {
 		"named params, should soft error": {
 			req: `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5, "shouldError" : true } , "id" : 22}`,
-			res: `{"jsonrpc":"2.0","error":{"code":44,"message":""},"id":22}`,
+			res: `{"jsonrpc":"2.0","error":{"code":44,"message":"Expected Error"},"id":22}`,
 		},
 		"missing nonoptional param": {
 			req: " \r\t\n" + `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "shouldError" : true } , "id" : 22}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"missing non-optional param"},"id":22}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param"},"id":22}`,
 		},
 		"empty batch": {
 			req: `[]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"empty batch"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"empty batch"},"id":null}`,
 		},
 		"single request in batch": {
 			req: " \r\t\n" + `[{"jsonrpc" : "2.0", "method" : "method",
@@ -187,7 +187,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 } , "id" : 7},
 					{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 } , "id" : 6}]`,
-			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5},{"jsonrpc":"2.0","error":{"code":-32601,"message":"method not found"},"id":7},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
+			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5},{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":7},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"notification": {
 			req: `{"jsonrpc" : "2.0", "method" : "method","params" : { "num" : 5, "shouldError" : false, "msg": "error message" }}`,
@@ -200,7 +200,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 } , "id" : "7"},
 					{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 } , "id" : 6}]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32601,"message":"method not found"},"id":"7"},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":"7"},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"batch with all notifs": {
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
@@ -214,13 +214,13 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null}]`,
 		},
 		"no method": {
 			req: `{
 					"jsonrpc" : "2.0"
 				}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"no method specified"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"no method specified"},"id":null}`,
 		},
 		"number param": {
 			req: `
@@ -229,7 +229,7 @@ func TestHandle(t *testing.T) {
 					"method" : "rpc_call",
 					"params" : 44
 				}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"params should be an array or an object"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"params should be an array or an object"},"id":null}`,
 		},
 		"string param": {
 			req: `
@@ -238,7 +238,7 @@ func TestHandle(t *testing.T) {
 					"method" : "rpc_call",
 					"params" : "44"
 				}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"params should be an array or an object"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"params should be an array or an object"},"id":null}`,
 		},
 		"array id": {
 			req: `
@@ -248,7 +248,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "malatya" : "44"},
 					"id"     : [37]
 				}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"id should be a string or an integer"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
 		"map id": {
 			req: `
@@ -258,7 +258,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "malatya" : "44"},
 					"id"     : { "44" : "37"}
 				}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"id should be a string or an integer"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
 		"float id": {
 			req: `
@@ -268,18 +268,18 @@ func TestHandle(t *testing.T) {
 					"params" : { "malatya" : "44"},
 					"id"     : 44.37
 				}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"id should be a string or an integer"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
 		"wrong param type": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : ["3", false, "error message"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
 		},
 		"multiple versions in batch": {
 			req: `[{"jsonrpc" : "1.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
 					{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 } , "id" : 6}]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		// spec tests
 		"rpc call with positional parameters 1": {
@@ -308,26 +308,26 @@ func TestHandle(t *testing.T) {
 		},
 		"method not found": {
 			req: `{"jsonrpc": "2.0", "method": "notfound", "id": "1"}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"method not found"},"id":"1"}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":"1"}`,
 		},
 		"rpc call with invalid JSON": {
 			req: `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"invalid character 'p' after object key:value pair"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character 'p' after object key:value pair"},"id":null}`,
 		},
 		"rpc call Batch, invalid JSON:": {
 			req: `[
   {"jsonrpc": "2.0", "method": "sum", "params": [1,2,4], "id": "1"},
   {"jsonrpc": "2.0", "method"
 ]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"invalid character ']' after object key"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' after object key"},"id":null}`,
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
 		},
 		"rpc call with invalid Batch": {
 			req: `[1,2,3]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
 		},
 	}
 

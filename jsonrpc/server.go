@@ -11,21 +11,6 @@ import (
 	"strings"
 )
 
-// Todo: add rpcErr type which implements Error() to return short string representation of the error. For example:
-//   - ErrInvalidJson.Error() = "Parse error"
-//   - ErrInvalidRequest.Error() = "Invalid Request"
-//   - ErrMethodNotFound.Error() = "Method Not Found"
-//   - ErrInvalidParams.Error() = "Invalid Params"
-//   - ErrInternal.Error() = "Internal Error"
-//
-// More contextual information can then be passed through Data field of Error as follows:
-//
-//	Error {
-//	  Code: ErrInvalidRequest,
-//	  Message: ErrInvalidRequest.Error(),
-//	  Data: err.Error(), // These are golang errors to provide more information
-//	}
-
 const (
 	InvalidJson    = -32700 // Invalid JSON was received by the server.
 	InvalidRequest = -32600 // The JSON sent is not a valid Request object.
@@ -54,6 +39,21 @@ type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data,omitempty"`
+}
+
+func rpcErr(code int, data any) *Error {
+	switch code {
+	case InvalidJson:
+		return &Error{Code: InvalidJson, Message: "Parse error", Data: data}
+	case InvalidRequest:
+		return &Error{Code: InvalidRequest, Message: "Invalid Request", Data: data}
+	case MethodNotFound:
+		return &Error{Code: MethodNotFound, Message: "Method Not Found", Data: data}
+	case InvalidParams:
+		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
+	default:
+		return &Error{Code: InternalError, Message: "Internal Error", Data: data}
+	}
 }
 
 func (r *request) isSane() error {
@@ -154,12 +154,12 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 	if !requestIsBatch {
 		req := new(request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			res.Error = &Error{Code: InvalidJson, Message: jsonErr.Error()}
+			res.Error = rpcErr(InvalidJson, jsonErr.Error())
 		} else if resObject, handleErr := s.handleRequest(req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidId) {
 				res.Id = req.Id
 			}
-			res.Error = &Error{Code: InvalidRequest, Message: handleErr.Error()}
+			res.Error = rpcErr(InvalidRequest, handleErr.Error())
 		} else {
 			res = resObject
 		}
@@ -168,9 +168,9 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 		var batchRes []json.RawMessage
 
 		if batchJsonErr := dec.Decode(&batchReq); batchJsonErr != nil {
-			res.Error = &Error{Code: InvalidJson, Message: batchJsonErr.Error()}
+			res.Error = rpcErr(InvalidJson, batchJsonErr.Error())
 		} else if len(batchReq) == 0 {
-			res.Error = &Error{Code: InvalidRequest, Message: "empty batch"}
+			res.Error = rpcErr(InvalidRequest, "empty batch")
 		} else {
 			for _, rawReq := range batchReq { // todo: handle async
 				var resObject *response
@@ -182,7 +182,7 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 				if jsonErr := reqDec.Decode(req); jsonErr != nil {
 					resObject = &response{
 						Version: "2.0",
-						Error:   &Error{Code: InvalidRequest, Message: jsonErr.Error()},
+						Error:   rpcErr(InvalidRequest, jsonErr.Error()),
 					}
 				} else {
 					var handleErr error
@@ -190,7 +190,7 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 					if handleErr != nil {
 						resObject = &response{
 							Version: "2.0",
-							Error:   &Error{Code: InvalidRequest, Message: handleErr.Error()},
+							Error:   rpcErr(InvalidRequest, handleErr.Error()),
 						}
 						if !errors.Is(handleErr, ErrInvalidId) {
 							resObject.Id = req.Id
@@ -254,19 +254,13 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 
 	calledMethod, found := s.methods[req.Method]
 	if !found {
-		res.Error = &Error{
-			Code:    MethodNotFound,
-			Message: "method not found",
-		}
+		res.Error = rpcErr(MethodNotFound, nil)
 		return res, nil
 	}
 
 	args, err := buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
 	if err != nil {
-		res.Error = &Error{
-			Code:    InvalidParams,
-			Message: err.Error(),
-		}
+		res.Error = rpcErr(InvalidParams, err.Error())
 		return res, nil
 	}
 
