@@ -19,8 +19,8 @@ const (
 	pprofF    = "pprof"
 
 	defaultConfig  = ""
-	defaultRpcPort = uint16(6060)
-	defaultDbPath  = ""
+	defaultRPCPort = uint16(6060)
+	defaultDBPath  = ""
 	defaultPprof   = false
 
 	configFlagUsage   = "The yaml configuration file."
@@ -77,8 +77,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
-	junoCmd.Flags().Uint16(rpcPortF, defaultRpcPort, rpcPortUsage)
-	junoCmd.Flags().String(dbPathF, defaultDbPath, dbPathUsage)
+	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
+	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 
