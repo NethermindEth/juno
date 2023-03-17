@@ -142,25 +142,14 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for classHash, class := range declaredClasses {
-		classKey := db.Class.Key(classHash.Marshal())
-
-		if err := s.txn.Get(classKey, func(val []byte) error {
-			return nil
-		}); errors.Is(err, db.ErrKeyNotFound) {
-			classEncoded, err := encoder.Marshal(class)
-			if err != nil {
-				return err
-			}
-
-			if err := s.txn.Set(classKey, classEncoded); err != nil {
-				return err
-			}
+		if err = s.putClass(&classHash, class); err != nil {
+			return err
 		}
 	}
 
 	// register deployed contracts
 	for _, contract := range update.StateDiff.DeployedContracts {
-		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
+		if err = s.putNewContract(contract.Address, contract.ClassHash); err != nil {
 			return err
 		}
 	}
@@ -194,6 +183,25 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		}
 	}
 	return nil
+}
+
+func (s *State) putClass(classHash *felt.Felt, class Class) error {
+	classKey := db.Class.Key(classHash.Marshal())
+
+	err := s.txn.Get(classKey, func(val []byte) error {
+		return nil
+	})
+
+	if errors.Is(err, db.ErrKeyNotFound) {
+		classEncoded, encErr := encoder.Marshal(class)
+		if encErr != nil {
+			return encErr
+		}
+
+		return s.txn.Set(classKey, classEncoded)
+	} else {
+		return err
+	}
 }
 
 // updateContractStorage applies the diff set to the Trie of the

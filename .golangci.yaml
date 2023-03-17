@@ -23,6 +23,7 @@ linters-settings:
       - performance
       - style
     disabled-checks:
+      - sloppyReassign
       - dupImport # https://github.com/go-critic/go-critic/issues/845
       - ifElseChain
       - octalLiteral
