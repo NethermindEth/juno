@@ -21,8 +21,8 @@ func TestConfigPrecedence(t *testing.T) {
 	// checks on the config, those will be checked by the StarknetNode
 	// implementation.
 	defaultLogLevel := utils.INFO
-	defaultRpcPort := uint16(6060)
-	defaultDbPath := ""
+	defaultRPCPort := uint16(6060)
+	defaultDBPath := ""
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
 
@@ -37,8 +37,8 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
 				LogLevel:     defaultLogLevel,
-				RpcPort:      defaultRpcPort,
-				DatabasePath: defaultDbPath,
+				RpcPort:      defaultRPCPort,
+				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
 			},
@@ -47,8 +47,8 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
 				LogLevel:     defaultLogLevel,
-				RpcPort:      defaultRpcPort,
-				DatabasePath: defaultDbPath,
+				RpcPort:      defaultRPCPort,
+				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
 			},
@@ -62,7 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
 				LogLevel: defaultLogLevel,
-				RpcPort:  defaultRpcPort,
+				RpcPort:  defaultRPCPort,
 				Network:  defaultNetwork,
 			},
 		},
@@ -90,7 +90,7 @@ rpc-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
 				RpcPort:      4576,
-				DatabasePath: defaultDbPath,
+				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
 			},
@@ -161,7 +161,7 @@ network: goerli
 			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:     defaultLogLevel,
-				RpcPort:      defaultRpcPort,
+				RpcPort:      defaultRPCPort,
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.GOERLI2,
 				Pprof:        true,
