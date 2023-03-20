@@ -2,8 +2,8 @@ package trie
 
 import (
 	"encoding/hex"
-	"fmt"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
@@ -41,7 +41,7 @@ func (m *memStorage) Get(key *bitset.BitSet) (*Node, error) {
 
 	value, found := m.storage[hex.EncodeToString(keyEnc)]
 	if !found {
-		return nil, fmt.Errorf("key not found")
+		return nil, db.ErrKeyNotFound
 	}
 
 	v := new(Node)
