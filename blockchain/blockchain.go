@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -15,18 +14,6 @@ import (
 )
 
 const lenOfByteSlice = 8
-
-type ErrIncompatibleBlockAndStateUpdate struct {
-	Err error
-}
-
-func (e ErrIncompatibleBlockAndStateUpdate) Error() string {
-	return fmt.Sprintf("incompatible block and state update: %v", e.Err)
-}
-
-func (e ErrIncompatibleBlockAndStateUpdate) Unwrap() error {
-	return e.Err
-}
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
@@ -464,10 +451,10 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
 func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) error {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return ErrIncompatibleBlockAndStateUpdate{errors.New("block hashes do not match")}
+		return errors.New("block hashes do not match")
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return ErrIncompatibleBlockAndStateUpdate{errors.New("block's GlobalStateRoot does not match state update's NewRoot")}
+		return errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
 	return core.VerifyBlockHash(block, b.network)
 }
