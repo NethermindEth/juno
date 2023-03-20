@@ -14,16 +14,6 @@ import (
 
 var ErrUnknownTransaction = errors.New("unknown transaction")
 
-type ErrInvalidTransactionVersion struct {
-	t Transaction
-	v string
-}
-
-func (e ErrInvalidTransactionVersion) Error() string {
-	return fmt.Sprintf("invalid Transaction verions. Type: %v, Version: %v", reflect.TypeOf(e.t),
-		e.t)
-}
-
 type Event struct {
 	Data []*felt.Felt
 	From *felt.Felt
@@ -241,6 +231,10 @@ var (
 	deployAccountFelt = new(felt.Felt).SetBytes([]byte("deploy_account"))
 )
 
+func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
+	return fmt.Errorf("invalid Transaction (type: %v) verion: %v", reflect.TypeOf(t), version.Text(felt.Base10))
+}
+
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
 	if i.Version.IsZero() {
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
@@ -257,7 +251,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.Nonce,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{i, i.Version.Text(felt.Base10)}
+	return nil, errInvalidTransactionVersion(i, i.Version)
 }
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
@@ -288,7 +282,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.CompiledClassHash,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(felt.Base10)}
+	return nil, errInvalidTransactionVersion(d, d.Version)
 }
 
 func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
@@ -309,7 +303,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 			l.Nonce,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{l, l.Version.Text(felt.Base10)}
+	return nil, errInvalidTransactionVersion(l, l.Version)
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) (*felt.Felt, error) {
@@ -328,7 +322,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			d.Nonce,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(felt.Base10)}
+	return nil, errInvalidTransactionVersion(d, d.Version)
 }
 
 type ErrCantVerifyTransactionHash struct {
