@@ -9,8 +9,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-var ErrCantVerifyBlockHash = errors.New("can not verify hash in block header")
-
 type Header struct {
 	// The hash of this block
 	Hash *felt.Felt
@@ -130,7 +128,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 			return nil
 		}
 	}
-	return ErrCantVerifyBlockHash
+	return errors.New("can not verify hash in block header")
 }
 
 // blockHash computes the block hash, with option to override sequence address
