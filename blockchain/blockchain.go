@@ -28,18 +28,6 @@ func (e ErrIncompatibleBlockAndStateUpdate) Unwrap() error {
 	return e.Err
 }
 
-type ErrIncompatibleBlock struct {
-	Err error
-}
-
-func (e ErrIncompatibleBlock) Error() string {
-	return fmt.Sprintf("incompatible block: %v", e.Err.Error())
-}
-
-func (e ErrIncompatibleBlock) Unwrap() error {
-	return e.Err
-}
-
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
 	Height() (height uint64, err error)
@@ -299,24 +287,17 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 
 	if head == nil {
 		if block.Number != 0 {
-			return ErrIncompatibleBlock{
-				errors.New("cannot insert a block with number more than 0 in an empty blockchain"),
-			}
+			return errors.New("cannot insert a block with number more than 0 in an empty blockchain")
 		}
 		if !block.ParentHash.Equal(new(felt.Felt).SetUint64(0)) {
-			return ErrIncompatibleBlock{errors.New(
-				"cannot insert a block with non-zero parent hash in an empty blockchain")}
+			return errors.New("cannot insert a block with non-zero parent hash in an empty blockchain")
 		}
 	} else {
 		if head.Number+1 != block.Number {
-			return ErrIncompatibleBlock{
-				errors.New("block number difference between head and incoming block is not 1"),
-			}
+			return errors.New("block number difference between head and incoming block is not 1")
 		}
 		if !block.ParentHash.Equal(head.Hash) {
-			return ErrIncompatibleBlock{
-				errors.New("block's parent hash does not match head block hash"),
-			}
+			return errors.New("block's parent hash does not match head block hash")
 		}
 	}
 
