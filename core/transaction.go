@@ -12,8 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var ErrUnknownTransaction = errors.New("unknown transaction")
-
 type Event struct {
 	Data []*felt.Felt
 	From *felt.Felt
@@ -220,7 +218,7 @@ func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, erro
 	case *DeployAccountTransaction:
 		return deployAccountTransactionHash(t, n)
 	default:
-		return nil, ErrUnknownTransaction
+		return nil, errors.New("unknown transaction")
 	}
 }
 

@@ -187,7 +187,7 @@ func adaptTransaction(transaction *feeder.Transaction) (core.Transaction, error)
 	case "L1_HANDLER":
 		return adaptL1HandlerTransaction(transaction), nil
 	default:
-		return nil, core.ErrUnknownTransaction
+		return nil, errors.New("unknown transaction")
 	}
 }
 
