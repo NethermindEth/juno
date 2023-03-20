@@ -3,6 +3,7 @@ package core
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -51,7 +52,7 @@ func TestState_Root(t *testing.T) {
 
 	kBits := key.Bits()
 	newRootPath := bitset.FromWithLength(stateTrieHeight, kBits[:])
-	expectedRoot := expectedRootNode.Hash(newRootPath)
+	expectedRoot := expectedRootNode.Hash(newRootPath, crypto.Pedersen)
 
 	actualRoot, err := state.Root()
 	assert.Equal(t, nil, err)

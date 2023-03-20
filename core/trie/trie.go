@@ -17,6 +17,8 @@ type Storage interface {
 	Delete(key *bitset.BitSet) error
 }
 
+type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
 // This implementation allows for a "flat" storage by keying nodes on their path rather than
@@ -38,20 +40,30 @@ type Trie struct {
 	height  uint
 	rootKey *bitset.BitSet
 	storage Storage
+	hash    hashFunc
 }
 
-func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+func NewTriePedersen(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+	return newTrie(storage, height, rootKey, crypto.Pedersen)
+}
+
+func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+	return newTrie(storage, height, rootKey, crypto.Poseidon)
+}
+
+func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc) *Trie {
 	// Todo: set max height to 251 and set max key value accordingly
 	return &Trie{
 		storage: storage,
 		height:  height,
 		rootKey: rootKey,
+		hash:    hash,
 	}
 }
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTrie(height uint, do func(*Trie) error) error {
-	return do(NewTrie(newMemStorage(), height, nil))
+	return do(NewTriePedersen(newMemStorage(), height, nil))
 }
 
 // feltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
@@ -313,7 +325,7 @@ func (t *Trie) propagateValues(affectedNodes []storageNode) error {
 			leftPath := path(cur.node.Left, cur.key)
 			rightPath := path(cur.node.Right, cur.key)
 
-			cur.node.Value = crypto.Pedersen(left.Hash(leftPath), right.Hash(rightPath))
+			cur.node.Value = t.hash(left.Hash(leftPath, t.hash), right.Hash(rightPath, t.hash))
 		}
 
 		if err := t.storage.Put(cur.key, cur.node); err != nil {
@@ -336,7 +348,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	}
 
 	path := path(t.rootKey, nil)
-	return root.Hash(path), nil
+	return root.Hash(path, t.hash), nil
 }
 
 // RootKey returns db key of the [Trie] root node
