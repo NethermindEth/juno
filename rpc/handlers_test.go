@@ -821,7 +821,23 @@ func TestStateUpdate(t *testing.T) {
 				rpcUpdate.StateDiff.DeployedContracts[index].ClassHash)
 		}
 
-		assert.Equal(t, coreUpdate.StateDiff.DeclaredV0Classes, rpcUpdate.StateDiff.DeclaredClasses)
+		assert.Equal(t, coreUpdate.StateDiff.DeclaredV0Classes, rpcUpdate.StateDiff.DeprecatedDeclaredClasses)
+
+		assert.Equal(t, len(coreUpdate.StateDiff.ReplacedClasses), len(rpcUpdate.StateDiff.ReplacedClasses))
+		for index := range rpcUpdate.StateDiff.ReplacedClasses {
+			assert.Equal(t, coreUpdate.StateDiff.ReplacedClasses[index].Address,
+				rpcUpdate.StateDiff.ReplacedClasses[index].ContractAddress)
+			assert.Equal(t, coreUpdate.StateDiff.ReplacedClasses[index].ClassHash,
+				rpcUpdate.StateDiff.ReplacedClasses[index].ClassHash)
+		}
+
+		assert.Equal(t, len(coreUpdate.StateDiff.DeclaredV1Classes), len(rpcUpdate.StateDiff.DeclaredClasses))
+		for index := range rpcUpdate.StateDiff.DeclaredClasses {
+			assert.Equal(t, coreUpdate.StateDiff.DeclaredV1Classes[index].CompiledClassHash,
+				rpcUpdate.StateDiff.DeclaredClasses[index].CompiledClassHash)
+			assert.Equal(t, coreUpdate.StateDiff.DeclaredV1Classes[index].ClassHash,
+				rpcUpdate.StateDiff.DeclaredClasses[index].ClassHash)
+		}
 	}
 
 	t.Run("latest", func(t *testing.T) {
@@ -847,5 +863,29 @@ func TestStateUpdate(t *testing.T) {
 		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Hash: update21656.BlockHash})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
+	})
+
+	t.Run("post v0.11.0", func(t *testing.T) {
+		integrationClient, integrationCloser := feeder.NewTestClient(utils.INTEGRATION)
+		defer integrationCloser()
+		integGw := adaptfeeder.New(integrationClient)
+
+		for name, height := range map[string]uint64{
+			"declared Cairo0 classes": 283746,
+			"declared Cairo1 classes": 283364,
+			"replaced classes":        283428,
+		} {
+			t.Run(name, func(t *testing.T) {
+				gwUpdate, err := integGw.StateUpdate(context.Background(), height)
+				require.NoError(t, err)
+
+				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
+
+				update, rpcErr := handler.StateUpdate(&rpc.BlockID{Number: height})
+				require.Nil(t, rpcErr)
+
+				checkUpdate(t, gwUpdate, update)
+			})
+		}
 	})
 }

@@ -2,7 +2,7 @@ package rpc
 
 import "github.com/NethermindEth/juno/core/felt"
 
-// https://github.com/starkware-libs/starknet-specs/blob/ed85de6a701c966ec7395b0df4c8bd62f3cddbcd/api/starknet_api_openrpc.json#L844
+// https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash"`
 	NewRoot   *felt.Felt `json:"new_root"`
@@ -11,10 +11,12 @@ type StateUpdate struct {
 }
 
 type StateDiff struct {
-	StorageDiffs      []StorageDiff      `json:"storage_diffs"`
-	Nonces            []Nonce            `json:"nonces"`
-	DeployedContracts []DeployedContract `json:"deployed_contracts"`
-	DeclaredClasses   []*felt.Felt       `json:"declared_contract_hashes"`
+	StorageDiffs              []StorageDiff      `json:"storage_diffs"`
+	Nonces                    []Nonce            `json:"nonces"`
+	DeployedContracts         []DeployedContract `json:"deployed_contracts"`
+	DeprecatedDeclaredClasses []*felt.Felt       `json:"deprecated_declared_classes"`
+	DeclaredClasses           []DeclaredClass    `json:"declared_classes"`
+	ReplacedClasses           []ReplacedClass    `json:"replaced_classes"`
 }
 
 type Nonce struct {
@@ -35,4 +37,14 @@ type Entry struct {
 type DeployedContract struct {
 	Address   *felt.Felt `json:"address"`
 	ClassHash *felt.Felt `json:"class_hash"`
+}
+
+type ReplacedClass struct {
+	ContractAddress *felt.Felt `json:"contract_address"`
+	ClassHash       *felt.Felt `json:"class_hash"`
+}
+
+type DeclaredClass struct {
+	ClassHash         *felt.Felt `json:"class_hash"`
+	CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
 }

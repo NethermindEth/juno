@@ -322,12 +322,12 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 		return nil, ErrBlockNotFound
 	}
 
-	nonces := []Nonce{}
+	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
 		nonces = append(nonces, Nonce{ContractAddress: new(felt.Felt).Set(&addr), Nonce: nonce})
 	}
 
-	storageDiffs := []StorageDiff{}
+	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
 		entries := make([]Entry, len(diffs))
 
@@ -338,9 +338,28 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 		storageDiffs = append(storageDiffs, StorageDiff{Address: new(felt.Felt).Set(&addr), StorageEntries: entries})
 	}
 
-	deployedContracts := make([]DeployedContract, len(update.StateDiff.DeployedContracts))
-	for index, deployedContract := range update.StateDiff.DeployedContracts {
-		deployedContracts[index] = DeployedContract{Address: deployedContract.Address, ClassHash: deployedContract.ClassHash}
+	deployedContracts := make([]DeployedContract, 0, len(update.StateDiff.DeployedContracts))
+	for _, deployedContract := range update.StateDiff.DeployedContracts {
+		deployedContracts = append(deployedContracts, DeployedContract{
+			Address:   deployedContract.Address,
+			ClassHash: deployedContract.ClassHash,
+		})
+	}
+
+	declaredClasses := make([]DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
+	for _, declaredClass := range update.StateDiff.DeclaredV1Classes {
+		declaredClasses = append(declaredClasses, DeclaredClass{
+			ClassHash:         declaredClass.ClassHash,
+			CompiledClassHash: declaredClass.CompiledClassHash,
+		})
+	}
+
+	replacedClasses := make([]ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
+	for _, replacedClass := range update.StateDiff.ReplacedClasses {
+		replacedClasses = append(replacedClasses, ReplacedClass{
+			ClassHash:       replacedClass.ClassHash,
+			ContractAddress: replacedClass.Address,
+		})
 	}
 
 	return &StateUpdate{
@@ -348,10 +367,12 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 		OldRoot:   update.OldRoot,
 		NewRoot:   update.NewRoot,
 		StateDiff: &StateDiff{
-			DeclaredClasses:   update.StateDiff.DeclaredV0Classes, // todo: update according to v0.11.0
-			Nonces:            nonces,
-			StorageDiffs:      storageDiffs,
-			DeployedContracts: deployedContracts,
+			DeprecatedDeclaredClasses: update.StateDiff.DeclaredV0Classes,
+			DeclaredClasses:           declaredClasses,
+			ReplacedClasses:           replacedClasses,
+			Nonces:                    nonces,
+			StorageDiffs:              storageDiffs,
+			DeployedContracts:         deployedContracts,
 		},
 	}, nil
 }
