@@ -162,7 +162,7 @@ func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 	for i := 0; i <= c.maxRetries; i++ {
 		select {
 		case <-ctx.Done():
-			return nil, errors.New("canceled")
+			return nil, ctx.Err()
 		case <-time.After(wait):
 			var req *http.Request
 			req, err = http.NewRequestWithContext(ctx, "GET", queryURL, http.NoBody)
