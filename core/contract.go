@@ -10,9 +10,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-const (
-	contractStorageTrieHeight = 251
-)
+const contractStorageTrieHeight = 251
 
 var (
 	ErrContractNotDeployed     = errors.New("contract not deployed")
@@ -126,11 +124,11 @@ func (c *Contract) ClassHash() (*felt.Felt, error) {
 
 // Root returns the root of the contract storage.
 func (c *Contract) Root() (*felt.Felt, error) {
-	if cStorage, err := storage(c.Address, c.txn); err != nil {
+	cStorage, err := storage(c.Address, c.txn)
+	if err != nil {
 		return nil, err
-	} else {
-		return cStorage.Root()
 	}
+	return cStorage.Root()
 }
 
 // UpdateStorage applies a change-set to the contract storage.

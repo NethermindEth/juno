@@ -12,25 +12,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-const (
-	stateTrieHeight = 251
-	// Fields of state metadata table
-	stateRootKey = "rootKey"
-)
-
-type ErrMismatchedRoot struct {
-	Want  *felt.Felt
-	Got   *felt.Felt
-	IsOld bool
-}
-
-func (e *ErrMismatchedRoot) Error() string {
-	newOld := " new "
-	if e.IsOld {
-		newOld = " old "
-	}
-	return fmt.Sprintf("mismatched %s root: want %s, got %s", newOld, e.Want.String(), e.Got.String())
-}
+const stateTrieHeight = 251
 
 type State struct {
 	txn db.Transaction
@@ -40,57 +22,52 @@ func NewState(txn db.Transaction) *State {
 	return &State{txn: txn}
 }
 
-func CalculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
-	commitment := crypto.Pedersen(classHash, storageRoot)
-	commitment = crypto.Pedersen(commitment, nonce)
-	return crypto.Pedersen(commitment, &felt.Zero)
-}
-
-// putNewContract creates a contract storage instance in the state and
-// stores the relation between contract address and class hash to be
-// queried later on with [GetContractClass].
+// putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
+// queried later with [GetContractClass].
 func (s *State) putNewContract(addr, classHash *felt.Felt) error {
-	if contract, err := DeployContract(addr, classHash, s.txn); err != nil {
+	contract, err := DeployContract(addr, classHash, s.txn)
+	if err != nil {
 		return err
-	} else {
-		return s.updateContractCommitment(contract)
 	}
+	return s.updateContractCommitment(contract)
 }
 
-// ContractClass returns class hash of a contract at a given address.
-func (s *State) ContractClass(addr *felt.Felt) (*felt.Felt, error) {
-	if contract, err := NewContract(addr, s.txn); err != nil {
+// ContractClassHash returns class hash of a contract at a given address.
+func (s *State) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+	contract, err := NewContract(addr, s.txn)
+	if err != nil {
 		return nil, err
-	} else {
-		return contract.ClassHash()
 	}
+	return contract.ClassHash()
 }
 
 // ContractNonce returns nonce of a contract at a given address.
 func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
-	if contract, err := NewContract(addr, s.txn); err != nil {
+	contract, err := NewContract(addr, s.txn)
+	if err != nil {
 		return nil, err
-	} else {
-		return contract.Nonce()
 	}
+	return contract.Nonce()
 }
 
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
-	storage, err := s.stateStorage()
+	storage, err := s.storage()
 	if err != nil {
 		return nil, err
 	}
 	return storage.Root()
 }
 
-// stateStorage returns a [core.Trie] that represents the Starknet
-// global state in the given Txn context
-func (s *State) stateStorage() (*trie.Trie, error) {
+// storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
+func (s *State) storage() (*trie.Trie, error) {
 	tTxn := NewTransactionStorage(s.txn, []byte{byte(db.StateTrie)})
 
 	rootKey, err := s.rootKey()
 	if err != nil {
+		if !errors.Is(db.ErrKeyNotFound, err) {
+			return nil, err
+		}
 		rootKey = nil
 	}
 
@@ -99,24 +76,27 @@ func (s *State) stateStorage() (*trie.Trie, error) {
 
 // rootKey returns key to the root node in the given Txn context.
 func (s *State) rootKey() (key *bitset.BitSet, err error) {
-	err = s.txn.Get(db.State.Key([]byte(stateRootKey)), func(val []byte) error {
+	err = s.txn.Get(db.StateRootKey.Key(), func(val []byte) error {
 		key = new(bitset.BitSet)
 		return key.UnmarshalBinary(val)
 	})
 	return
 }
 
-// putStateStorage updates the fields related to the state trie root in
+// updateStateRootDBKey updates the fields related to the state trie root in
 // the given Txn context.
-func (s *State) putStateStorage(state *trie.Trie) error {
-	rootKeyDbKey := db.State.Key([]byte(stateRootKey))
+func (s *State) updateStateRootDBKey(state *trie.Trie) error {
+	rootKeyDBKey := db.StateRootKey.Key()
 	if rootKey := state.RootKey(); rootKey != nil {
-		if rootKeyBytes, err := rootKey.MarshalBinary(); err != nil {
-			return err
-		} else if err = s.txn.Set(rootKeyDbKey, rootKeyBytes); err != nil {
+		rootKeyBytes, err := rootKey.MarshalBinary()
+		if err != nil {
 			return err
 		}
-	} else if err := s.txn.Delete(rootKeyDbKey); err != nil {
+
+		if err := s.txn.Set(rootKeyDBKey, rootKeyBytes); err != nil {
+			return err
+		}
+	} else if err := s.txn.Delete(rootKeyDBKey); err != nil {
 		return err
 	}
 
@@ -133,14 +113,11 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		return err
 	}
 	if !update.OldRoot.Equal(currentRoot) {
-		return &ErrMismatchedRoot{
-			Want:  update.OldRoot,
-			Got:   currentRoot,
-			IsOld: true,
-		}
+		return fmt.Errorf("state's current root: %s does not match state update's old root: %s", currentRoot, update.OldRoot)
 	}
 
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
+	// Todo: add test cases for retrieving Classes when State struct is extended to return Classes.
 	for classHash, class := range declaredClasses {
 		if err = s.putClass(&classHash, class); err != nil {
 			return err
@@ -176,11 +153,7 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		return err
 	}
 	if !update.NewRoot.Equal(newRoot) {
-		return &ErrMismatchedRoot{
-			Want:  update.NewRoot,
-			Got:   newRoot,
-			IsOld: false,
-		}
+		return fmt.Errorf("state's new root: %s does not match state update's new root: %s", newRoot, update.NewRoot)
 	}
 	return nil
 }
@@ -236,23 +209,35 @@ func (s *State) updateContractNonce(addr, nonce *felt.Felt) error {
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
 func (s *State) updateContractCommitment(contract *Contract) error {
-	if storageRoot, err := contract.Root(); err != nil {
+	root, err := contract.Root()
+	if err != nil {
 		return err
-	} else if classHash, err := contract.ClassHash(); err != nil {
-		return err
-	} else if nonce, err := contract.Nonce(); err != nil {
-		return err
-	} else {
-		commitment := CalculateContractCommitment(storageRoot, classHash, nonce)
-		state, err := s.stateStorage()
-		if err != nil {
-			return err
-		}
-
-		if _, err = state.Put(contract.Address, commitment); err != nil {
-			return err
-		}
-
-		return s.putStateStorage(state)
 	}
+
+	cHash, err := contract.ClassHash()
+	if err != nil {
+		return err
+	}
+
+	nonce, err := contract.Nonce()
+	if err != nil {
+		return err
+	}
+
+	commitment := calculateContractCommitment(root, cHash, nonce)
+
+	state, err := s.storage()
+	if err != nil {
+		return err
+	}
+
+	if _, err = state.Put(contract.Address, commitment); err != nil {
+		return err
+	}
+
+	return s.updateStateRootDBKey(state)
+}
+
+func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
+	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }

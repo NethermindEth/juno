@@ -163,7 +163,7 @@ func TestNonceAndClassHash(t *testing.T) {
 	})
 }
 
-func TestUpdateAndGet(t *testing.T) {
+func TestUpdateStorageAndStorage(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	defer func() {
 		require.NoError(t, testDB.Close())
