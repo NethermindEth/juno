@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -13,15 +12,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 )
-
-type ErrSyncFailed struct {
-	Height uint64
-	Err    error
-}
-
-func (e ErrSyncFailed) Error() string {
-	return fmt.Sprintf("Sync failed on block #%d with %s", e.Height, e.Err.Error())
-}
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
@@ -45,7 +35,9 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream, errChan chan ErrSyncFailed) stream.Callback {
+func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
+	resetStreams context.CancelFunc,
+) stream.Callback {
 	for {
 		select {
 		case <-ctx.Done():
@@ -78,21 +70,17 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 			}
 
 			return func() {
-				verifiers.Go(func() stream.Callback { return s.verifierTask(ctx, block, stateUpdate, referencedClasses, errChan) })
+				verifiers.Go(func() stream.Callback {
+					return s.verifierTask(ctx, block, stateUpdate, referencedClasses, resetStreams)
+				})
 			}
 		}
 	}
 }
 
-// tryError tries to send the error to the errChan if ctx is not canceled
-func tryError(ctx context.Context, errChan chan ErrSyncFailed, err ErrSyncFailed) {
-	select {
-	case <-ctx.Done():
-	case errChan <- err:
-	}
-}
-
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]*core.Class, errChan chan ErrSyncFailed) stream.Callback {
+func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
+	declaredClasses map[felt.Felt]*core.Class, resetStreams context.CancelFunc,
+) stream.Callback {
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
 	return func() {
 		select {
@@ -107,7 +95,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					}
 				} else {
 					s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
-					tryError(ctx, errChan, ErrSyncFailed{block.Number, err})
+					resetStreams()
 					return
 				}
 			}
@@ -115,7 +103,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number,
 					"hash", block.Hash.ShortString(), "err", err.Error())
-				tryError(ctx, errChan, ErrSyncFailed{block.Number, err})
+				resetStreams()
 				return
 			}
 
@@ -134,7 +122,6 @@ func (s *Synchronizer) nextHeight() uint64 {
 }
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
-	errChan := make(chan ErrSyncFailed, 1)
 	fetchers := stream.New().WithMaxGoroutines(runtime.NumCPU())
 	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
 
@@ -143,20 +130,22 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 
 	for {
 		select {
-		case <-errChan:
-			streamCancel() // cancel all running tasks
-			streamCtx, streamCancel = context.WithCancel(syncCtx)
-			nextHeight = s.nextHeight()
-			s.log.Warnw("Rolling back sync process", "height", nextHeight)
-		case <-syncCtx.Done():
-			fetchers.Wait()
-			verifiers.Wait()
-			return
+		case <-streamCtx.Done():
+			select {
+			case <-syncCtx.Done():
+				streamCancel()
+				fetchers.Wait()
+				verifiers.Wait()
+				return
+			default:
+				streamCtx, streamCancel = context.WithCancel(syncCtx)
+				nextHeight = s.nextHeight()
+				s.log.Warnw("Rolling back sync process", "height", nextHeight)
+			}
 		default:
-			curHeight := nextHeight
-			curStreamCtx := streamCtx
+			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
-				return s.fetcherTask(curStreamCtx, curHeight, verifiers, errChan)
+				return s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
 			})
 			nextHeight++
 		}
