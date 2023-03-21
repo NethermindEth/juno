@@ -33,7 +33,7 @@ func TestTrieTxn(t *testing.T) {
 
 		got, err := tTxn.Get(key)
 		assert.NoError(t, err)
-		assert.Equal(t, true, got.Equal(node))
+		assert.Equal(t, node, got)
 
 		return err
 	}))
@@ -54,7 +54,7 @@ func TestTrieTxn(t *testing.T) {
 		tTxn := &TransactionStorage{txn, prefix}
 
 		got, err := tTxn.Get(key)
-		assert.Equal(t, true, got.Equal(node))
+		assert.Equal(t, node, got)
 
 		return err
 	}))
