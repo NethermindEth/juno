@@ -77,9 +77,7 @@ func TestNodeMarshalAndUnmarshalBinary(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error but got %s", err)
 				}
-				if !test.node.Equal(unmarshalled) {
-					t.Errorf("expected node: %v but got %v", test.node, unmarshalled)
-				}
+				assert.Equal(t, test.node, *unmarshalled)
 			})
 		}
 	})
@@ -171,5 +169,5 @@ func TestNodeHash(t *testing.T) {
 	}
 	path := bitset.FromWithLength(6, []uint64{42})
 
-	assert.Equal(t, true, expected.Equal(node.Hash(path, crypto.Pedersen)), "TestTrieNode_Hash failed")
+	assert.Equal(t, expected, node.Hash(path, crypto.Pedersen), "TestTrieNode_Hash failed")
 }

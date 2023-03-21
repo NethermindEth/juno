@@ -48,8 +48,3 @@ func (n *Node) Hash(path *bitset.BitSet, hashFunc hashFunc) *felt.Felt {
 	pathFelt.SetUint64(uint64(path.Len()))
 	return hash.Add(hash, pathFelt)
 }
-
-// Equal checks for equality of two [Node]s
-func (n *Node) Equal(other *Node) bool {
-	return n.Value.Equal(other.Value) && n.Left.Equal(other.Left) && n.Right.Equal(n.Right)
-}
