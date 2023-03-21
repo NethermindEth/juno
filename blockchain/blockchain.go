@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -56,6 +57,25 @@ type Reader interface {
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
+}
+
+var supportedStarknetVersion = semver.MustParse("0.10.3")
+
+func checkBlockVersion(protocolVersion string) error {
+	if protocolVersion == "" {
+		return nil
+	}
+
+	blockVer, err := semver.NewVersion(protocolVersion)
+	if err != nil {
+		return err
+	}
+
+	if blockVer.GreaterThan(supportedStarknetVersion) {
+		return errors.New("unsupported block version")
+	}
+
+	return nil
 }
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
@@ -237,6 +257,10 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
+	if err := checkBlockVersion(block.ProtocolVersion); err != nil {
+		return err
+	}
+
 	head, err := b.head(txn)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return err

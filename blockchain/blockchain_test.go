@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -140,7 +141,21 @@ func TestVerifyBlock(t *testing.T) {
 	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
+	t.Run("error if version is invalid", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = "notasemver"
+		require.Error(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
+	})
+
+	t.Run("error if version is unsupported", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = "99.0.0"
+		semver.MustParse(mainnetBlock0.ProtocolVersion)
+		require.Error(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
+	})
+
+	t.Run("no error with no version string", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = ""
+		require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
+	})
 
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
