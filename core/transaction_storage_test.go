@@ -11,65 +11,69 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTransactionStorage(t *testing.T) {
 	testDb := pebble.NewMemTest()
 	prefix := []byte{37, 44}
-
 	key := bitset.New(44)
-	node := new(trie.Node)
-	node.Value, _ = new(felt.Felt).SetRandom()
 
-	// put a node
-	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
-		tTxn := core.NewTransactionStorage(txn, prefix)
+	value, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
 
-		return tTxn.Put(key, node)
-	}))
+	node := &trie.Node{
+		Value: value,
+	}
 
-	// get node
-	assert.NoError(t, testDb.View(func(txn db.Transaction) error {
-		tTxn := core.NewTransactionStorage(txn, prefix)
+	t.Run("put a node", func(t *testing.T) {
+		require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+			tTxn := core.NewTransactionStorage(txn, prefix)
+			return tTxn.Put(key, node)
+		}))
+	})
 
-		got, err := tTxn.Get(key)
-		assert.NoError(t, err)
-		assert.Equal(t, node, got)
+	t.Run("get a node", func(t *testing.T) {
+		require.NoError(t, testDb.View(func(txn db.Transaction) error {
+			tTxn := core.NewTransactionStorage(txn, prefix)
+			got, err := tTxn.Get(key)
+			require.NoError(t, err)
+			assert.Equal(t, node, got)
+			return err
+		}))
+	})
 
-		return err
-	}))
+	t.Run("roll back on error", func(t *testing.T) {
+		// Successfully delete a node and return an error to force a roll back.
+		require.Error(t, testDb.Update(func(txn db.Transaction) error {
+			tTxn := core.NewTransactionStorage(txn, prefix)
+			err := tTxn.Delete(key)
+			require.NoError(t, err)
+			return errors.New("should rollback")
+		}))
 
-	// in case of an error, tx should roll back
-	assert.Error(t, testDb.Update(func(txn db.Transaction) error {
-		tTxn := core.NewTransactionStorage(txn, prefix)
+		// If the transaction was properly rolled back, the node that we
+		// "deleted" should still exist in the db.
+		require.NoError(t, testDb.View(func(txn db.Transaction) error {
+			tTxn := core.NewTransactionStorage(txn, prefix)
+			got, err := tTxn.Get(key)
+			assert.Equal(t, node, got)
+			return err
+		}))
+	})
 
-		if err := tTxn.Delete(key); err != nil {
-			t.Error(err)
-		}
+	t.Run("delete a node", func(t *testing.T) {
+		// Delete a node.
+		require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+			tTxn := core.NewTransactionStorage(txn, prefix)
+			return tTxn.Delete(key)
+		}))
 
-		return errors.New("should rollback")
-	}))
-
-	// should still be able to get the node
-	assert.NoError(t, testDb.View(func(txn db.Transaction) error {
-		tTxn := core.NewTransactionStorage(txn, prefix)
-
-		got, err := tTxn.Get(key)
-		assert.Equal(t, node, got)
-
-		return err
-	}))
-
-	// successful delete
-	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
-		tTxn := core.NewTransactionStorage(txn, prefix)
-		return tTxn.Delete(key)
-	}))
-
-	// should error with key not found
-	assert.EqualError(t, testDb.View(func(txn db.Transaction) error {
-		tTxn := core.NewTransactionStorage(txn, prefix)
-		_, err := tTxn.Get(key)
-		return err
-	}), db.ErrKeyNotFound.Error())
+		// Node should no longer exist in the database.
+		require.EqualError(t, testDb.View(func(txn db.Transaction) error {
+			tTxn := core.NewTransactionStorage(txn, prefix)
+			_, err := tTxn.Get(key)
+			return err
+		}), db.ErrKeyNotFound.Error())
+	})
 }
