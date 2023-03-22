@@ -1,9 +1,10 @@
-package core
+package core_test
 
 import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -12,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTrieTxn(t *testing.T) {
+func TestTransactionStorage(t *testing.T) {
 	testDb := pebble.NewMemTest()
 	prefix := []byte{37, 44}
 
@@ -22,14 +23,14 @@ func TestTrieTxn(t *testing.T) {
 
 	// put a node
 	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
-		tTxn := &TransactionStorage{txn, prefix}
+		tTxn := core.NewTransactionStorage(txn, prefix)
 
 		return tTxn.Put(key, node)
 	}))
 
 	// get node
 	assert.NoError(t, testDb.View(func(txn db.Transaction) error {
-		tTxn := &TransactionStorage{txn, prefix}
+		tTxn := core.NewTransactionStorage(txn, prefix)
 
 		got, err := tTxn.Get(key)
 		assert.NoError(t, err)
@@ -40,7 +41,7 @@ func TestTrieTxn(t *testing.T) {
 
 	// in case of an error, tx should roll back
 	assert.Error(t, testDb.Update(func(txn db.Transaction) error {
-		tTxn := &TransactionStorage{txn, prefix}
+		tTxn := core.NewTransactionStorage(txn, prefix)
 
 		if err := tTxn.Delete(key); err != nil {
 			t.Error(err)
@@ -51,7 +52,7 @@ func TestTrieTxn(t *testing.T) {
 
 	// should still be able to get the node
 	assert.NoError(t, testDb.View(func(txn db.Transaction) error {
-		tTxn := &TransactionStorage{txn, prefix}
+		tTxn := core.NewTransactionStorage(txn, prefix)
 
 		got, err := tTxn.Get(key)
 		assert.Equal(t, node, got)
@@ -61,13 +62,13 @@ func TestTrieTxn(t *testing.T) {
 
 	// successful delete
 	assert.NoError(t, testDb.Update(func(txn db.Transaction) error {
-		tTxn := &TransactionStorage{txn, prefix}
+		tTxn := core.NewTransactionStorage(txn, prefix)
 		return tTxn.Delete(key)
 	}))
 
 	// should error with key not found
 	assert.EqualError(t, testDb.View(func(txn db.Transaction) error {
-		tTxn := &TransactionStorage{txn, prefix}
+		tTxn := core.NewTransactionStorage(txn, prefix)
 		_, err := tTxn.Get(key)
 		return err
 	}), db.ErrKeyNotFound.Error())
