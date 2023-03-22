@@ -543,3 +543,12 @@ func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey
 	})
 	return r, err
 }
+
+type StateReaderCloser = func() error
+
+// StateReader returns a state reader and a close function to release the resources associated with the reader
+func (b *Blockchain) StateReader() (core.StateReader, StateReaderCloser) {
+	txn := b.database.NewTransaction(false)
+
+	return core.NewState(txn), txn.Discard
+}

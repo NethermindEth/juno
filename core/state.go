@@ -14,6 +14,12 @@ import (
 
 const stateTrieHeight = 251
 
+type StateReader interface {
+	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+}
+
 type State struct {
 	txn db.Transaction
 }
@@ -48,6 +54,16 @@ func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 		return nil, err
 	}
 	return contract.Nonce()
+}
+
+// ContractStorage returns value of a key in the storage of the contract at the given address.
+func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+	contract, err := NewContract(addr, s.txn)
+	if err != nil {
+		return nil, err
+	}
+
+	return contract.Storage(key)
 }
 
 // Root returns the state commitment.
