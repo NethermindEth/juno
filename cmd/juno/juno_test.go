@@ -193,7 +193,9 @@ network: goerli
 	}
 }
 
-func tempCfgFile(t *testing.T, cfg string) (string, func()) {
+type deleteTempFile func()
+
+func tempCfgFile(t *testing.T, cfg string) (string, deleteTempFile) {
 	f, err := os.CreateTemp("", "junoCfg.*.yaml")
 	require.NoError(t, err)
 

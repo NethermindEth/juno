@@ -42,7 +42,7 @@ func TestGetBlockByNumber(t *testing.T) {
 
 			expectedEventCount := uint64(0)
 			for _, r := range response.Receipts {
-				expectedEventCount = expectedEventCount + uint64(len(r.Events))
+				expectedEventCount += uint64(len(r.Events))
 			}
 
 			assert.True(t, block.Hash.Equal(response.Hash))
@@ -89,28 +89,28 @@ func TestStateUpdate(t *testing.T) {
 				assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredClasses))
 				for idx := range response.StateDiff.DeclaredContracts {
 					resp := response.StateDiff.DeclaredContracts[idx]
-					core := feederUpdate.StateDiff.DeclaredClasses[idx]
-					assert.True(t, resp.Equal(core))
+					coreDeclaredClass := feederUpdate.StateDiff.DeclaredClasses[idx]
+					assert.True(t, resp.Equal(coreDeclaredClass))
 				}
 
 				assert.Equal(t, len(response.StateDiff.Nonces), len(feederUpdate.StateDiff.Nonces))
 				for keyStr, gw := range response.StateDiff.Nonces {
-					key, _ := new(felt.Felt).SetString(keyStr)
-					core := feederUpdate.StateDiff.Nonces[*key]
-					assert.True(t, gw.Equal(core))
+					key := hexToFelt(t, keyStr)
+					coreNonce := feederUpdate.StateDiff.Nonces[*key]
+					assert.True(t, gw.Equal(coreNonce))
 				}
 
 				assert.Equal(t, len(response.StateDiff.DeployedContracts), len(feederUpdate.StateDiff.DeployedContracts))
 				for idx := range response.StateDiff.DeployedContracts {
 					gw := response.StateDiff.DeployedContracts[idx]
-					core := feederUpdate.StateDiff.DeployedContracts[idx]
-					assert.True(t, gw.ClassHash.Equal(core.ClassHash))
-					assert.True(t, gw.Address.Equal(core.Address))
+					coreDeployedContract := feederUpdate.StateDiff.DeployedContracts[idx]
+					assert.True(t, gw.ClassHash.Equal(coreDeployedContract.ClassHash))
+					assert.True(t, gw.Address.Equal(coreDeployedContract.Address))
 				}
 
 				assert.Equal(t, len(response.StateDiff.StorageDiffs), len(feederUpdate.StateDiff.StorageDiffs))
 				for keyStr, diffs := range response.StateDiff.StorageDiffs {
-					key, _ := new(felt.Felt).SetString(keyStr)
+					key := hexToFelt(t, keyStr)
 					coreDiffs := feederUpdate.StateDiff.StorageDiffs[*key]
 					assert.Equal(t, true, len(diffs) > 0)
 					assert.Equal(t, len(diffs), len(coreDiffs))

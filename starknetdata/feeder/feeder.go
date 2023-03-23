@@ -47,7 +47,7 @@ func adaptBlock(response *feeder.Block) (*core.Block, error) {
 			return nil, err
 		}
 		receipts[i] = adaptTransactionReceipt(response.Receipts[i])
-		eventCount = eventCount + uint64(len(response.Receipts[i].Events))
+		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
 	return &core.Block{

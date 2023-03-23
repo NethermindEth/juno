@@ -29,11 +29,11 @@ func NewMem() (db.DB, error) {
 
 // NewMemTest opens a new in-memory database, panics on error
 func NewMemTest() db.DB {
-	db, err := NewMem()
+	memDB, err := NewMem()
 	if err != nil {
 		panic(err)
 	}
-	return db
+	return memDB
 }
 
 func newPebble(path string, options *pebble.Options) (db.DB, error) {
@@ -45,22 +45,22 @@ func newPebble(path string, options *pebble.Options) (db.DB, error) {
 }
 
 // NewTransaction : see db.DB.NewTransaction
-func (db *DB) NewTransaction(update bool) db.Transaction {
+func (d *DB) NewTransaction(update bool) db.Transaction {
 	txn := &Transaction{}
 	if update {
-		db.wMutex.Lock()
-		txn.lock = db.wMutex
-		txn.batch = db.pebble.NewIndexedBatch()
+		d.wMutex.Lock()
+		txn.lock = d.wMutex
+		txn.batch = d.pebble.NewIndexedBatch()
 	} else {
-		txn.snapshot = db.pebble.NewSnapshot()
+		txn.snapshot = d.pebble.NewSnapshot()
 	}
 
 	return txn
 }
 
 // Close : see io.Closer.Close
-func (db *DB) Close() error {
-	return db.pebble.Close()
+func (d *DB) Close() error {
+	return d.pebble.Close()
 }
 
 // View : see db.DB.View
@@ -84,6 +84,6 @@ func (d *DB) Update(fn func(txn db.Transaction) error) (err error) {
 }
 
 // Impl : see db.DB.Impl
-func (db *DB) Impl() any {
-	return db.pebble
+func (d *DB) Impl() any {
+	return d.pebble
 }
