@@ -171,7 +171,7 @@ func TestClassV0(t *testing.T) {
 			assert.Equal(t, len(response.V0.Program.Builtins), len(class.Builtins))
 
 			for i, v := range response.V0.Program.Data {
-				expected, err := new(felt.Felt).SetString(v)
+				expected := hexToFelt(t, v)
 				assert.NoError(t, err)
 				assert.Equal(t, expected, class.Bytecode[i])
 			}

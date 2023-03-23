@@ -540,11 +540,12 @@ func TestState(t *testing.T) {
 	RunOnTempTrie(251, func(state *Trie) error {
 		for addr, dif := range addresses {
 			RunOnTempTrie(251, func(contractState *Trie) error {
+				key, val := new(felt.Felt), new(felt.Felt)
 				for _, slot := range dif {
-					key, err := new(felt.Felt).SetString(slot.key)
+					_, err = key.SetString(slot.key)
 					require.NoError(t, err)
 
-					val, err := new(felt.Felt).SetString(slot.val)
+					_, err = val.SetString(slot.val)
 					require.NoError(t, err)
 
 					_, err = contractState.Put(key, val)
@@ -558,15 +559,16 @@ func TestState(t *testing.T) {
 				   31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280  :  6fe0662f4be66647b4508a53a08e13e7d1ffb2b19e93fa9dc991153f3a447d
 				*/
 
-				key, err := new(felt.Felt).SetString(addr)
+				key, err = new(felt.Felt).SetString(addr)
 				require.NoError(t, err)
 
-				contractRoot, err := contractState.Root()
+				var contractRoot *felt.Felt
+				contractRoot, err = contractState.Root()
 				require.NoError(t, err)
 
 				fmt.Println(addr, " : ", contractRoot.String())
 
-				val := crypto.Pedersen(contractHash, contractRoot)
+				val = crypto.Pedersen(contractHash, contractRoot)
 				val = crypto.Pedersen(val, new(felt.Felt))
 				val = crypto.Pedersen(val, new(felt.Felt))
 
@@ -596,17 +598,21 @@ func TestPutZero(t *testing.T) {
 	var keys []*felt.Felt
 	// put random 64 keys and record roots
 	for i := 0; i < 64; i++ {
-		key, err := new(felt.Felt).SetRandom()
+		key, value := new(felt.Felt), new(felt.Felt)
+
+		_, err = key.SetRandom()
 		require.NoError(t, err)
 
-		value, err := new(felt.Felt).SetRandom()
+		_, err = value.SetRandom()
 		require.NoError(t, err)
 
 		_, err = trie.Put(key, value)
 		require.NoError(t, err)
 
 		keys = append(keys, key)
-		root, err := trie.Root()
+
+		var root *felt.Felt
+		root, err = trie.Root()
 		require.NoError(t, err)
 
 		roots = append(roots, root)
@@ -624,14 +630,15 @@ func TestPutZero(t *testing.T) {
 
 	assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
 
+	var gotRoot *felt.Felt
 	// put zero in reverse order and check roots still match
 	for i := 0; i < 64; i++ {
-		root := roots[len(roots)-1-i]
+		root = roots[len(roots)-1-i]
 
-		actual, err := trie.Root()
+		gotRoot, err = trie.Root()
 		require.NoError(t, err)
 
-		assert.Equal(t, true, actual.Equal(root))
+		assert.Equal(t, root, gotRoot)
 
 		key := keys[len(keys)-1-i]
 		trie.Put(key, new(felt.Felt))
