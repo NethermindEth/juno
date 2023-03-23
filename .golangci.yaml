@@ -80,7 +80,6 @@ linters:
     - gocritic
     - gocyclo
     - gofumpt
-    - goimports
     - gomnd
     - goprintffuncname
     - gosec
