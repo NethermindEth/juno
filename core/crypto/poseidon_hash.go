@@ -93,7 +93,7 @@ func init() {
 			if err != nil {
 				panic(key)
 			}
-			if keyStr != key.Text(10) {
+			if keyStr != key.Text(felt.Base10) {
 				panic("round key not in stark field " + keyStr)
 			}
 

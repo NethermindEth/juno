@@ -249,7 +249,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.Nonce,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{i, i.Version.Text(10)}
+	return nil, ErrInvalidTransactionVersion{i, i.Version.Text(felt.Base10)}
 }
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
@@ -280,7 +280,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.CompiledClassHash,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
+	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(felt.Base10)}
 }
 
 func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
@@ -301,7 +301,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 			l.Nonce,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{l, l.Version.Text(10)}
+	return nil, ErrInvalidTransactionVersion{l, l.Version.Text(felt.Base10)}
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) (*felt.Felt, error) {
@@ -320,7 +320,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			d.Nonce,
 		), nil
 	}
-	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(10)}
+	return nil, ErrInvalidTransactionVersion{d, d.Version.Text(felt.Base10)}
 }
 
 type ErrCantVerifyTransactionHash struct {
