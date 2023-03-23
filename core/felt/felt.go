@@ -6,9 +6,8 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/fxamacker/cbor/v2"
-
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
+	"github.com/fxamacker/cbor/v2"
 )
 
 type Felt struct {

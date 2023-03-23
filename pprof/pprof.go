@@ -3,12 +3,12 @@ package pprof
 import (
 	"context"
 	"net/http"
+	// #nosec G108
+	_ "net/http/pprof"
 	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
-	// #nosec G108
-	_ "net/http/pprof"
 )
 
 type Profiler struct {
