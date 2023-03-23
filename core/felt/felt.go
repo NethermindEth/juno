@@ -22,6 +22,11 @@ func NewFelt(element *fp.Element) *Felt {
 }
 
 const (
+	Base16 = 16
+	Base10 = 10
+)
+
+const (
 	Limbs = fp.Limbs // number of 64 bits words needed to represent a Element
 	Bits  = fp.Bits  // number of bits needed to represent a Element
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
@@ -84,7 +89,7 @@ func (z *Felt) SetString(number string) (*Felt, error) {
 	defer bigIntPool.Put(vv)
 
 	if _, ok := vv.SetString(number, 0); !ok {
-		if _, ok := vv.SetString(number, 16); !ok {
+		if _, ok := vv.SetString(number, Base16); !ok {
 			return z, errors.New("can't parse into a big.Int: " + number)
 		}
 	}
@@ -112,14 +117,15 @@ func (z *Felt) SetRandom() (*Felt, error) {
 
 // String forwards the call to underlying field element implementation
 func (z *Felt) String() string {
-	return "0x" + z.val.Text(16)
+	return "0x" + z.val.Text(Base16)
 }
 
 // ShortString prints the felt to a string in a shortened format
 func (z *Felt) ShortString() string {
-	hex := z.val.Text(16)
+	shortFelt := 8
+	hex := z.val.Text(Base16)
 
-	if len(hex) <= 8 {
+	if len(hex) <= shortFelt {
 		return fmt.Sprintf("0x%s", hex)
 	}
 	return fmt.Sprintf("0x%s...%s", hex[:4], hex[len(hex)-4:])

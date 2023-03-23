@@ -30,11 +30,11 @@ func (n *Node) Hash(path *bitset.BitSet, hashFunc hashFunc) *felt.Felt {
 	}
 
 	pathWords := path.Bytes()
-	if len(pathWords) > 4 {
+	if len(pathWords) > felt.Limbs {
 		panic("key too long to fit in Felt")
 	}
 
-	var pathBytes [32]byte
+	var pathBytes [felt.Bytes]byte
 	for idx, word := range pathWords {
 		startBytes := 24 - (idx * 8)
 		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)

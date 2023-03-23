@@ -12,7 +12,7 @@ var (
 	ts = cbor.NewTagSet()
 	// https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
 	// 65536-15309735 	Unassigned
-	tagNum  = uint64(65536)
+	tagNum  uint64 = 65536
 	encMode cbor.EncMode
 	decMode cbor.DecMode
 )
