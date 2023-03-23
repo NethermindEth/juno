@@ -8,10 +8,23 @@ import (
 )
 
 func TestKey(t *testing.T) {
-	key := db.StateRootKey.Key([]byte{1})
-	assert.Equal(t, []byte{byte(db.StateRootKey), 1}, key)
-	key = db.StateRootKey.Key([]byte{1}, []byte{2})
-	assert.Equal(t, []byte{byte(db.StateRootKey), 1, 2}, key)
-	key = db.StateTrie.Key([]byte{1}, []byte{2})
-	assert.Equal(t, []byte{byte(db.StateTrie), 1, 2}, key)
+	t.Run("bucket with no key", func(t *testing.T) {
+		key := db.StateRootKey.Key()
+		assert.Equal(t, []byte{byte(db.StateRootKey)}, key)
+	})
+	t.Run("bucket with nil key", func(t *testing.T) {
+		key := db.StateRootKey.Key(nil)
+		assert.Equal(t, []byte{byte(db.StateRootKey)}, key)
+	})
+	t.Run("bucket with multiple keys", func(t *testing.T) {
+		keys := [][]byte{{}, {0}, {0, 1, 2, 3, 4}, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}
+
+		for _, k := range keys {
+			t.Run(string(rune(len(k))), func(t *testing.T) {
+				expectedKey := []byte{byte(db.StateTrie)}
+				expectedKey = append(expectedKey, k...)
+				assert.Equal(t, expectedKey, db.StateTrie.Key(k))
+			})
+		}
+	})
 }
