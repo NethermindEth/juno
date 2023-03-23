@@ -292,7 +292,6 @@ func TestBlockWithTxs(t *testing.T) {
 			require.Nil(t, err)
 
 			assert.Equal(t, txn, blockWithTxs.Transactions[i])
-
 		}
 	}
 

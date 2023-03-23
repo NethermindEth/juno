@@ -41,7 +41,6 @@ func DataDir(operatingSystem, userDataDir, homeDir string) string {
 			return ""
 		}
 		return filepath.Join(userDataDir, juno)
-
 	}
 
 	if userDataDir != "" {
