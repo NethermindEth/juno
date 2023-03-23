@@ -55,11 +55,11 @@ func BenchmarkPoseidonArray(b *testing.B) {
 	createRandomFelts := func(n int) []*felt.Felt {
 		var felts []*felt.Felt
 		for i := 0; i < n; i++ {
-			f, err := new(felt.Felt).SetRandom()
+			randF, err := new(felt.Felt).SetRandom()
 			if err != nil {
 				b.Fatalf("error while generating random felt: %x", err)
 			}
-			felts = append(felts, f)
+			felts = append(felts, randF)
 		}
 		return felts
 	}

@@ -130,7 +130,6 @@ func (n *Node) Run(ctx context.Context) {
 	if err != nil {
 		n.log.Errorw("Error opening DB", "err", err)
 		return
-
 	}
 
 	defer func() {
@@ -140,10 +139,14 @@ func (n *Node) Run(ctx context.Context) {
 	}()
 
 	n.blockchain = blockchain.New(n.db, n.cfg.Network)
+
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
+
 	http := makeHttp(n.cfg.RpcPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
+
 	profiler := pprof.New(n.cfg.Pprof, defaultPprofPort, n.log)
+
 	n.services = []service.Service{synchronizer, http, profiler}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -158,10 +161,11 @@ func (n *Node) Run(ctx context.Context) {
 			}
 		})
 	}
+	defer wg.Wait()
 
 	<-ctx.Done()
+	cancel()
 	n.log.Infow("Shutting down Juno...")
-	wg.Wait()
 }
 
 func (n *Node) Config() Config {
