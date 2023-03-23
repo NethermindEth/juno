@@ -3,6 +3,7 @@ module github.com/NethermindEth/juno
 go 1.18
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/bits-and-blooms/bitset v1.5.0
 	github.com/cockroachdb/pebble v0.0.0-20230209222158-0568b5fd3d14
 	github.com/consensys/gnark-crypto v0.9.1
