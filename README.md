@@ -50,11 +50,16 @@
 make juno
 ./build/juno
 ```
+Use the `--help` flag for configuration information.
+Flags and their values can also be placed in a `.yaml` file that is passed in through `--config`.
 
 ### Run with Docker
 
+To run Juno with Docker, use the following command. Make sure to create the `/home/juno` directory on your local machine before running the command.
+
 ```shell
-docker run -it \
+docker run -d \
+  -name juno \
   -p 6060:6060 \
   -v /home/juno:/var/lib/juno \
   nethermindeth/juno \
@@ -62,10 +67,11 @@ docker run -it \
   --db-path /var/lib/juno
 ```
 
-Before running the docker run command, please ensure that the directory `/home/juno` exists on your local machine.
+To view logs from the Docker container, use the following command:
 
-Use the `--help` flag for configuration information.
-Flags and their values can also be placed in a `.yaml` file that is passed in through `--config`.
+```shell
+docker logs -f juno
+```
 
 ## ✔ Supported Features
 
