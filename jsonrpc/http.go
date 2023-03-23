@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/NethermindEth/juno/utils"
 )
@@ -18,14 +19,16 @@ type Http struct {
 }
 
 func NewHttp(port uint16, methods []Method, log utils.SimpleLogger) *Http {
+	headerTimeout := 1 * time.Second
 	h := &Http{
 		rpc: NewServer(),
-		http: &http.Server{
-			Addr: fmt.Sprintf(":%d", port),
-		},
 		log: log,
 	}
-	h.http.Handler = h
+	h.http = &http.Server{
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           h,
+		ReadHeaderTimeout: headerTimeout,
+	}
 	for _, method := range methods {
 		err := h.rpc.RegisterMethod(method)
 		if err != nil {
