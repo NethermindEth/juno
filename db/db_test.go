@@ -40,7 +40,7 @@ func TestCloseAndJoinOnError(t *testing.T) {
 		t.Run("original error is non-nil", func(t *testing.T) {
 			err := errors.New("some error")
 			db.CloseAndWrapOnError(closeAndError, &err)
-			assert.EqualError(t, err, fmt.Sprintf(`failed to close because "%v" with existing err "%s"`, "close error",
+			assert.EqualError(t, err, fmt.Sprintf(`failed to close because "%v" with existing err "%v"`, "close error",
 				"some error"))
 			assert.EqualError(t, errors.Unwrap(err), "some error")
 		})

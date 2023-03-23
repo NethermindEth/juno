@@ -64,12 +64,12 @@ func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
 
-// NewTestClient returns a client and a function to close a test server.
-func NewTestClient(network utils.Network) (*Client, func()) {
-	srv := newTestServer(network)
-	client := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
+type closeTestClient func()
 
-	return client, srv.Close
+// NewTestClient returns a client and a function to close a test server.
+func NewTestClient(network utils.Network) (*Client, closeTestClient) {
+	srv := newTestServer(network)
+	return NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0), srv.Close
 }
 
 func newTestServer(network utils.Network) *httptest.Server {
@@ -120,9 +120,9 @@ func newTestServer(network utils.Network) *httptest.Server {
 	}))
 }
 
-func NewClient(url string) *Client {
+func NewClient(clientURL string) *Client {
 	return &Client{
-		url:        url,
+		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
 		maxRetries: 35, // ~35 minutes with default backoff and maxWait (block time on mainnet is 20-30 minutes)
@@ -161,7 +161,7 @@ func (c *Client) get(ctx context.Context, queryUrl string) ([]byte, error) {
 			return nil, errors.New("canceled")
 		case <-time.After(wait):
 			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, "GET", queryUrl, nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", queryUrl, http.NoBody)
 			if err != nil {
 				return nil, err
 			}

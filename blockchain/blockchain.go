@@ -508,9 +508,10 @@ func transactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (
 
 // transactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func transactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (transaction core.Transaction, err error) {
-	return transaction, txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
+	err = txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &transaction)
 	})
+	return transaction, err
 }
 
 // transactionByHash gets the transaction for a given hash.
@@ -537,7 +538,8 @@ func receiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionReceip
 
 // receiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.
 func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (r *core.TransactionReceipt, err error) {
-	return r, txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
+	err = txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &r)
 	})
+	return r, err
 }

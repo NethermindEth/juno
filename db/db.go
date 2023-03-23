@@ -76,6 +76,7 @@ type Transaction interface {
 	Impl() any
 }
 
+//nolint:gocritic //ptrToRefParam for existingErr is intentional
 func CloseAndWrapOnError(closeFn func() error, existingErr *error) {
 	if closeErr := closeFn(); closeErr != nil {
 		if *existingErr != nil {

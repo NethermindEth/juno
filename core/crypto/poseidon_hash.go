@@ -51,7 +51,7 @@ func hadesPermutation(state []felt.Felt) {
 var two = new(felt.Felt).SetUint64(2)
 
 // https://github.com/starkware-libs/cairo-lang/blob/12ca9e91bbdc8a423c63280949c7e34382792067/src/starkware/cairo/common/builtin_poseidon/poseidon.cairo#L5
-func Poseidon(x *felt.Felt, y *felt.Felt) *felt.Felt {
+func Poseidon(x, y *felt.Felt) *felt.Felt {
 	state := []felt.Felt{*x, *y, *two}
 	hadesPermutation(state)
 	return new(felt.Felt).Set(&state[0])

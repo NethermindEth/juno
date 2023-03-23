@@ -15,10 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const mockUrl = "https://mock_feeder.io/"
-
-func testClient(url string) *feeder.Client {
-	return feeder.NewClient(url).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+func testClient(clientURL string) *feeder.Client {
+	return feeder.NewClient(clientURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
 }
 
 func TestStateUpdateUnmarshal(t *testing.T) {
@@ -411,20 +409,17 @@ func TestStateUpdate(t *testing.T) {
 	assert.Equal(t, nil, err, "Unexpected error")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/get_state_update":
-			{
-				queryMap, err := url.ParseQuery(r.URL.RawQuery)
-				assert.Equal(t, nil, err, "No Query value")
-				queryBlockNumebr := queryMap["blockNumber"]
-				t.Log(queryBlockNumebr[0])
-				if queryBlockNumebr[0] == "10" {
-					w.WriteHeader(200)
-					marshedUpdate, _ := json.Marshal(update)
-					w.Write(marshedUpdate)
-				} else {
-					w.WriteHeader(404)
-				}
+		if r.URL.Path == "/get_state_update" {
+			queryMap, err := url.ParseQuery(r.URL.RawQuery)
+			assert.Equal(t, nil, err, "No Query value")
+			queryBlockNumebr := queryMap["blockNumber"]
+			t.Log(queryBlockNumebr[0])
+			if queryBlockNumebr[0] == "10" {
+				w.WriteHeader(200)
+				marshedUpdate, _ := json.Marshal(update)
+				w.Write(marshedUpdate)
+			} else {
+				w.WriteHeader(404)
 			}
 		}
 	}))
@@ -477,21 +472,17 @@ func TestTransaction(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/get_transaction":
-			{
-				queryMap, err := url.ParseQuery(r.URL.RawQuery)
-				assert.Equal(t, nil, err, "No Query value")
-				transactionHash := queryMap["transactionHash"]
-				t.Log(transactionHash[0])
-				if transactionHash[0] == "0x0" {
-					w.WriteHeader(200)
-					marshaledStr, _ := json.Marshal(transactionStatus)
-					w.Write(marshaledStr)
-
-				} else {
-					w.WriteHeader(404)
-				}
+		if r.URL.Path == "/get_transaction" {
+			queryMap, err := url.ParseQuery(r.URL.RawQuery)
+			assert.Equal(t, nil, err, "No Query value")
+			transactionHash := queryMap["transactionHash"]
+			t.Log(transactionHash[0])
+			if transactionHash[0] == "0x0" {
+				w.WriteHeader(200)
+				marshaledStr, _ := json.Marshal(transactionStatus)
+				w.Write(marshaledStr)
+			} else {
+				w.WriteHeader(404)
 			}
 		}
 	}))

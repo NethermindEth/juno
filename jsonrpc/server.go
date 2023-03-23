@@ -60,7 +60,7 @@ func (r *request) isSane() error {
 	if r.Version != "2.0" {
 		return errors.New("unsupported RPC request version")
 	}
-	if len(r.Method) <= 0 {
+	if r.Method == "" {
 		return errors.New("no method specified")
 	}
 
@@ -338,7 +338,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 		}
 		return args, nil
 	default:
-		// Todo: return InternalError
+		// Todo: consider returning InternalError
 		return nil, errors.New("impossible param type: check request.isSane")
 	}
 }

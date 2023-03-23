@@ -157,7 +157,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) Put(key *felt.Felt, value *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	// Todo: check key is not bigger than max key value for a trie height.
 	old := new(felt.Felt)
 	nodeKey := t.feltToBitSet(key)

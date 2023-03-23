@@ -47,9 +47,9 @@ type BlockId struct {
 }
 
 func (b *BlockId) UnmarshalJSON(data []byte) error {
-	if "\"latest\"" == string(data) {
+	if string(data) == `"latest"` {
 		b.Latest = true
-	} else if "\"pending\"" == string(data) {
+	} else if string(data) == `"pending"` {
 		b.Pending = true
 	} else {
 		jsonObject := make(map[string]json.RawMessage)

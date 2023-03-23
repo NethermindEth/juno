@@ -22,7 +22,7 @@ func PedersenArray(elems ...*felt.Felt) *felt.Felt {
 //
 // [Pedersen hash]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#pedersen_hash
 // [reference implementation]: https://github.com/starkware-libs/cairo-lang/blob/de741b92657f245a50caab99cfaef093152fd8be/src/starkware/crypto/signature/fast_pedersen_hash.py
-func Pedersen(a *felt.Felt, b *felt.Felt) *felt.Felt {
+func Pedersen(a, b *felt.Felt) *felt.Felt {
 	hash := pedersenhash.Pedersen(a.Impl(), b.Impl())
 	return felt.NewFelt(hash)
 }
