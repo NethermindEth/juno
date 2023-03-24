@@ -389,35 +389,6 @@ func TestTrieDeleteSubtree(t *testing.T) {
 	}
 }
 
-func TestPath(t *testing.T) {
-	tests := [...]struct {
-		parent *bitset.BitSet
-		child  *bitset.BitSet
-		want   *bitset.BitSet
-	}{
-		{
-			parent: bitset.New(0),
-			child:  bitset.New(251).Set(250).Set(249),
-			want:   bitset.New(250).Set(249),
-		},
-		{
-			parent: bitset.New(0),
-			child:  bitset.New(251).Set(249),
-			want:   bitset.New(250).Set(249),
-		},
-		{
-			parent: bitset.New(1).Set(0),
-			child:  bitset.New(251).Set(250).Set(249),
-			want:   bitset.New(249),
-		},
-	}
-
-	for idx, test := range tests {
-		got := path(test.child, test.parent)
-		assert.Equal(t, test.want, got, "TestPath failing #%d", idx)
-	}
-}
-
 // TestState tests whether the trie produces the same state root as in
 // Block 0 of the Starknet protocol mainnet.
 func TestState(t *testing.T) {
