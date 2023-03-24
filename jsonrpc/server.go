@@ -12,27 +12,27 @@ import (
 )
 
 const (
-	InvalidJson    = -32700 // Invalid JSON was received by the server.
+	InvalidJSON    = -32700 // Invalid JSON was received by the server.
 	InvalidRequest = -32600 // The JSON sent is not a valid Request object.
 	MethodNotFound = -32601 // The method does not exist / is not available.
 	InvalidParams  = -32602 // Invalid method parameter(s).
 	InternalError  = -32603 // Internal JSON-RPC error.
 )
 
-var ErrInvalidId = errors.New("id should be a string or an integer")
+var ErrInvalidID = errors.New("id should be a string or an integer")
 
 type request struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Params  any    `json:"params,omitempty"`
-	Id      any    `json:"id,omitempty"`
+	ID      any    `json:"id,omitempty"`
 }
 
 type response struct {
 	Version string `json:"jsonrpc"`
 	Result  any    `json:"result,omitempty"`
 	Error   *Error `json:"error,omitempty"`
-	Id      any    `json:"id"`
+	ID      any    `json:"id"`
 }
 
 type Error struct {
@@ -43,8 +43,8 @@ type Error struct {
 
 func rpcErr(code int, data any) *Error {
 	switch code {
-	case InvalidJson:
-		return &Error{Code: InvalidJson, Message: "Parse error", Data: data}
+	case InvalidJSON:
+		return &Error{Code: InvalidJSON, Message: "Parse error", Data: data}
 	case InvalidRequest:
 		return &Error{Code: InvalidRequest, Message: "Invalid Request", Data: data}
 	case MethodNotFound:
@@ -71,11 +71,11 @@ func (r *request) isSane() error {
 		}
 	}
 
-	if r.Id != nil {
-		idType := reflect.TypeOf(r.Id)
-		floating := idType.Name() == "Number" && strings.Contains(r.Id.(json.Number).String(), ".")
+	if r.ID != nil {
+		idType := reflect.TypeOf(r.ID)
+		floating := idType.Name() == "Number" && strings.Contains(r.ID.(json.Number).String(), ".")
 		if (idType.Kind() != reflect.String && idType.Name() != "Number") || floating {
-			return ErrInvalidId
+			return ErrInvalidID
 		}
 	}
 
@@ -154,10 +154,10 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 	if !requestIsBatch {
 		req := new(request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			res.Error = rpcErr(InvalidJson, jsonErr.Error())
+			res.Error = rpcErr(InvalidJSON, jsonErr.Error())
 		} else if resObject, handleErr := s.handleRequest(req); handleErr != nil {
-			if !errors.Is(handleErr, ErrInvalidId) {
-				res.Id = req.Id
+			if !errors.Is(handleErr, ErrInvalidID) {
+				res.ID = req.ID
 			}
 			res.Error = rpcErr(InvalidRequest, handleErr.Error())
 		} else {
@@ -167,8 +167,8 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 		var batchReq []json.RawMessage
 		var batchRes []json.RawMessage
 
-		if batchJsonErr := dec.Decode(&batchReq); batchJsonErr != nil {
-			res.Error = rpcErr(InvalidJson, batchJsonErr.Error())
+		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
+			res.Error = rpcErr(InvalidJSON, batchJSONErr.Error())
 		} else if len(batchReq) == 0 {
 			res.Error = rpcErr(InvalidRequest, "empty batch")
 		} else {
@@ -192,8 +192,8 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 							Version: "2.0",
 							Error:   rpcErr(InvalidRequest, handleErr.Error()),
 						}
-						if !errors.Is(handleErr, ErrInvalidId) {
-							resObject.Id = req.Id
+						if !errors.Is(handleErr, ErrInvalidID) {
+							resObject.ID = req.ID
 						}
 					}
 				}
@@ -249,7 +249,7 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 
 	res := &response{
 		Version: "2.0",
-		Id:      req.Id,
+		ID:      req.ID,
 	}
 
 	calledMethod, found := s.methods[req.Method]
@@ -265,7 +265,7 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 	}
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
-	if res.Id == nil { // notification
+	if res.ID == nil { // notification
 		return nil, nil
 	}
 

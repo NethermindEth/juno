@@ -138,7 +138,7 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 	metaInfo := networkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainId())
+		return pre07Hash(b, network.ChainID())
 	}
 	return post07Hash(b, overrideSeqAddr)
 }

@@ -11,30 +11,30 @@ import (
 
 func TestBlockId(t *testing.T) {
 	tests := map[string]struct {
-		blockIdJson     string
-		expectedBlockId rpc.BlockId
+		blockIDJSON     string
+		expectedBlockID rpc.BlockID
 	}{
 		"latest": {
-			blockIdJson: "\"latest\"",
-			expectedBlockId: rpc.BlockId{
+			blockIDJSON: "\"latest\"",
+			expectedBlockID: rpc.BlockID{
 				Latest: true,
 			},
 		},
 		"pending": {
-			blockIdJson: "\"pending\"",
-			expectedBlockId: rpc.BlockId{
+			blockIDJSON: "\"pending\"",
+			expectedBlockID: rpc.BlockID{
 				Pending: true,
 			},
 		},
 		"number": {
-			blockIdJson: `{ "block_number" : 123123 }`,
-			expectedBlockId: rpc.BlockId{
+			blockIDJSON: `{ "block_number" : 123123 }`,
+			expectedBlockID: rpc.BlockID{
 				Number: 123123,
 			},
 		},
 		"hash": {
-			blockIdJson: `{ "block_hash" : "0x123" }`,
-			expectedBlockId: rpc.BlockId{
+			blockIDJSON: `{ "block_hash" : "0x123" }`,
+			expectedBlockID: rpc.BlockID{
 				Hash: new(felt.Felt).SetUint64(0x123),
 			},
 		},
@@ -43,37 +43,37 @@ func TestBlockId(t *testing.T) {
 		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			var blockId rpc.BlockId
-			require.NoError(t, blockId.UnmarshalJSON([]byte(test.blockIdJson)))
-			assert.Equal(t, test.expectedBlockId, blockId)
+			var blockID rpc.BlockID
+			require.NoError(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
+			assert.Equal(t, test.expectedBlockID, blockID)
 		})
 	}
 
 	failingTests := map[string]struct {
-		blockIdJson string
+		blockIDJSON string
 	}{
 		"unknown tag": {
-			blockIdJson: "\"unknown tag\"",
+			blockIDJSON: "\"unknown tag\"",
 		},
 		"an empyt json object": {
-			blockIdJson: "{  }",
+			blockIDJSON: "{  }",
 		},
 		"a json list": {
-			blockIdJson: "[  ]",
+			blockIDJSON: "[  ]",
 		},
 		"cannot parse number": {
-			blockIdJson: `{ "block_number" : asd }`,
+			blockIDJSON: `{ "block_number" : asd }`,
 		},
 		"cannot parse hash": {
-			blockIdJson: `{ "block_hash" : asd }`,
+			blockIDJSON: `{ "block_hash" : asd }`,
 		},
 	}
 	for name, test := range failingTests {
 		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			var blockId rpc.BlockId
-			assert.Error(t, blockId.UnmarshalJSON([]byte(test.blockIdJson)))
+			var blockID rpc.BlockID
+			assert.Error(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
 		})
 	}
 }

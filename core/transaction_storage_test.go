@@ -15,7 +15,7 @@ import (
 )
 
 func TestTransactionStorage(t *testing.T) {
-	testDb := pebble.NewMemTest()
+	testDB := pebble.NewMemTest()
 	prefix := []byte{37, 44}
 	key := bitset.New(44)
 
@@ -27,14 +27,14 @@ func TestTransactionStorage(t *testing.T) {
 	}
 
 	t.Run("put a node", func(t *testing.T) {
-		require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := core.NewTransactionStorage(txn, prefix)
 			return tTxn.Put(key, node)
 		}))
 	})
 
 	t.Run("get a node", func(t *testing.T) {
-		require.NoError(t, testDb.View(func(txn db.Transaction) error {
+		require.NoError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := core.NewTransactionStorage(txn, prefix)
 			got, err := tTxn.Get(key)
 			require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestTransactionStorage(t *testing.T) {
 
 	t.Run("roll back on error", func(t *testing.T) {
 		// Successfully delete a node and return an error to force a roll back.
-		require.Error(t, testDb.Update(func(txn db.Transaction) error {
+		require.Error(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := core.NewTransactionStorage(txn, prefix)
 			err := tTxn.Delete(key)
 			require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestTransactionStorage(t *testing.T) {
 
 		// If the transaction was properly rolled back, the node that we
 		// "deleted" should still exist in the db.
-		require.NoError(t, testDb.View(func(txn db.Transaction) error {
+		require.NoError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := core.NewTransactionStorage(txn, prefix)
 			got, err := tTxn.Get(key)
 			assert.Equal(t, node, got)
@@ -64,13 +64,13 @@ func TestTransactionStorage(t *testing.T) {
 
 	t.Run("delete a node", func(t *testing.T) {
 		// Delete a node.
-		require.NoError(t, testDb.Update(func(txn db.Transaction) error {
+		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := core.NewTransactionStorage(txn, prefix)
 			return tTxn.Delete(key)
 		}))
 
 		// Node should no longer exist in the database.
-		require.EqualError(t, testDb.View(func(txn db.Transaction) error {
+		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := core.NewTransactionStorage(txn, prefix)
 			_, err := tTxn.Get(key)
 			return err

@@ -86,7 +86,7 @@ func TestStateUpdateUnmarshal(t *testing.T) {
 }
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
-	declareJson := []byte(`{
+	declareJSON := []byte(`{
       "transaction_hash":"0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d",
       "version":"0x1",
       "max_fee":"0x5af3107a4000",
@@ -100,7 +100,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
       "type":"DECLARE"
    }`)
 	var declareTx feeder.Transaction
-	err := json.Unmarshal(declareJson, &declareTx)
+	err := json.Unmarshal(declareJSON, &declareTx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -117,7 +117,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 }
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
-	invokeJson := []byte(`{
+	invokeJSON := []byte(`{
       "transaction_hash":"0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
       "version":"0x44",
       "max_fee":"0x37",
@@ -133,7 +133,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
       "type":"INVOKE_FUNCTION"
    }`)
 	var invokeTx feeder.Transaction
-	err := json.Unmarshal(invokeJson, &invokeTx)
+	err := json.Unmarshal(invokeJSON, &invokeTx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -151,7 +151,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 }
 
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	deployJson := []byte(`{
+	deployJSON := []byte(`{
       "transaction_hash":"0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
       "version":"0x0",
       "contract_address":"0x7cc55b21de4b7d6d7389df3b27de950924ac976d263ac8d71022d0b18155fc",
@@ -166,7 +166,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
       "type":"DEPLOY"
    }`)
 	var deployTx feeder.Transaction
-	err := json.Unmarshal(deployJson, &deployTx)
+	err := json.Unmarshal(deployJSON, &deployTx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -185,7 +185,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 }
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
-	deployJson := []byte(`{
+	deployJSON := []byte(`{
       "transaction_hash":"0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e",
       "version":"0x1",
       "max_fee":"0x59f5f9f474b0",
@@ -207,7 +207,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
       "type":"DEPLOY_ACCOUNT"
    }`)
 	var deployTx feeder.Transaction
-	err := json.Unmarshal(deployJson, &deployTx)
+	err := json.Unmarshal(deployJSON, &deployTx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -233,7 +233,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 }
 
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	handlerJson := []byte(`{
+	handlerJSON := []byte(`{
       "transaction_hash":"0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190",
       "version":"0x0",
       "contract_address":"0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82",
@@ -248,7 +248,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
       "type":"L1_HANDLER"
    }`)
 	var handlerTx feeder.Transaction
-	err := json.Unmarshal(handlerJson, &handlerTx)
+	err := json.Unmarshal(handlerJSON, &handlerTx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -370,8 +370,8 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 			t.Errorf("The code did not panic")
 		}
 	}()
-	baseUrl := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseUrl)
+	baseURL := "https\t://mock_feeder.io"
+	client := feeder.NewClient(baseURL)
 	_, _ = client.Block(context.Background(), 0)
 }
 
@@ -498,16 +498,16 @@ func TestTransaction(t *testing.T) {
 	}))
 	defer srv.Close()
 	t.Run("Test normal case", func(t *testing.T) {
-		transaction_hash, _ := new(felt.Felt).SetString("0x00")
+		transactionHash, _ := new(felt.Felt).SetString("0x00")
 		client := testClient(srv.URL)
-		actualStatus, err := client.Transaction(context.Background(), transaction_hash)
+		actualStatus, err := client.Transaction(context.Background(), transactionHash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.Equal(t, transactionStatus, *actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
-		transaction_hash, _ := new(felt.Felt).SetString("0xffff")
+		transactionHash, _ := new(felt.Felt).SetString("0xffff")
 		client := testClient(srv.URL)
-		actualStatus, err := client.Transaction(context.Background(), transaction_hash)
+		actualStatus, err := client.Transaction(context.Background(), transactionHash)
 		assert.Nil(t, actualStatus, "Unexpected error")
 		assert.NotNil(t, err)
 	})

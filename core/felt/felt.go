@@ -31,7 +31,7 @@ const (
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
 )
 
-// zero felt constant
+// Zero felt constant
 var Zero = Felt{}
 
 var bigIntPool = sync.Pool{

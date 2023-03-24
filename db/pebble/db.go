@@ -37,10 +37,10 @@ func NewMemTest() db.DB {
 }
 
 func newPebble(path string, options *pebble.Options) (db.DB, error) {
-	if pDb, err := pebble.Open(path, options); err != nil {
+	if pDB, err := pebble.Open(path, options); err != nil {
 		return nil, err
 	} else {
-		return &DB{pDb, new(sync.Mutex)}, nil
+		return &DB{pDB, new(sync.Mutex)}, nil
 	}
 }
 

@@ -12,15 +12,15 @@ import (
 
 const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
 
-type Http struct {
+type HTTP struct {
 	rpc  *Server
 	http *http.Server
 	log  utils.SimpleLogger
 }
 
-func NewHttp(port uint16, methods []Method, log utils.SimpleLogger) *Http {
+func NewHTTP(port uint16, methods []Method, log utils.SimpleLogger) *HTTP {
 	headerTimeout := 1 * time.Second
-	h := &Http{
+	h := &HTTP{
 		rpc: NewServer(),
 		log: log,
 	}
@@ -39,7 +39,7 @@ func NewHttp(port uint16, methods []Method, log utils.SimpleLogger) *Http {
 }
 
 // Run starts to listen for HTTP requests
-func (h *Http) Run(ctx context.Context) error {
+func (h *HTTP) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
 	go func() {
@@ -56,7 +56,7 @@ func (h *Http) Run(ctx context.Context) error {
 }
 
 // ServeHTTP processes an incoming HTTP request
-func (h *Http) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 		req.Close = true

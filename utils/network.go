@@ -42,28 +42,28 @@ func (n Network) String() string {
 	}
 }
 
-func (l *Network) Set(s string) error {
+func (n *Network) Set(s string) error {
 	switch s {
 	case "MAINNET", "mainnet":
-		*l = MAINNET
+		*n = MAINNET
 	case "GOERLI", "goerli":
-		*l = GOERLI
+		*n = GOERLI
 	case "GOERLI2", "goerli2":
-		*l = GOERLI2
+		*n = GOERLI2
 	case "INTEGRATION", "integration":
-		*l = INTEGRATION
+		*n = INTEGRATION
 	default:
 		return ErrUnknownNetwork
 	}
 	return nil
 }
 
-func (l *Network) Type() string {
+func (n *Network) Type() string {
 	return "Network"
 }
 
-func (l *Network) UnmarshalText(text []byte) error {
-	return l.Set(string(text))
+func (n *Network) UnmarshalText(text []byte) error {
+	return n.Set(string(text))
 }
 
 func (n Network) URL() string {
@@ -82,7 +82,7 @@ func (n Network) URL() string {
 	}
 }
 
-func (n Network) ChainId() *felt.Felt {
+func (n Network) ChainID() *felt.Felt {
 	switch n {
 	case GOERLI:
 		return new(felt.Felt).SetBytes([]byte("SN_GOERLI"))

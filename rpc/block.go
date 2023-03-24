@@ -39,14 +39,14 @@ type BlockNumberAndHash struct {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
-type BlockId struct {
+type BlockID struct {
 	Pending bool
 	Latest  bool
 	Hash    *felt.Felt
 	Number  uint64
 }
 
-func (b *BlockId) UnmarshalJSON(data []byte) error {
+func (b *BlockID) UnmarshalJSON(data []byte) error {
 	if string(data) == `"latest"` {
 		b.Latest = true
 	} else if string(data) == `"pending"` {
