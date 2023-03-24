@@ -2,19 +2,10 @@ package trie
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/bits-and-blooms/bitset"
 )
-
-type ErrMalformedNode struct {
-	reason string
-}
-
-func (e ErrMalformedNode) Error() string {
-	return fmt.Sprintf("malformed node: %s", e.reason)
-}
 
 // A Node represents a node in the [Trie]
 type Node struct {
