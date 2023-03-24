@@ -1,6 +1,8 @@
 package crypto
 
 import (
+	"sync"
+
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -41,6 +43,7 @@ func round(state []felt.Felt, full bool, index int) {
 }
 
 func hadesPermutation(state []felt.Felt) {
+	initialiseRoundKeys.Do(setRoundKeys)
 	totalRounds := fullRounds + partialRounds
 	for i := 0; i < totalRounds; i++ {
 		full := (i < fullRounds/2) || (totalRounds-i <= fullRounds/2)
@@ -83,9 +86,12 @@ func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
 	return new(felt.Felt).Set(&state[0])
 }
 
-var roundKeys = [][]felt.Felt{}
+var (
+	initialiseRoundKeys sync.Once
+	roundKeys           = [][]felt.Felt{}
+)
 
-func init() {
+func setRoundKeys() {
 	for _, keysStr := range roundKeysSpec {
 		curRound := []felt.Felt{}
 		for _, keyStr := range keysStr {
