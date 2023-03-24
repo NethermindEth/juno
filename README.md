@@ -141,6 +141,7 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
         * [ ] `starknet_getClass`
         * [ ] `starknet_getClassHashAt`
         * [ ] `starknet_getClassAt`
+        * [ ] `starknet_getNonce`
         * [ ] `starknet_syncing`
         * [ ] `starknet_pendingTransactions` (this will not be implemented since we don’t plan to implement `pending` tag)
         
