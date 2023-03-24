@@ -15,7 +15,7 @@ import (
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	txnHash, _ := new(felt.Felt).SetString("0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -36,7 +36,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	txnHash, _ := new(felt.Felt).SetString("0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -58,7 +58,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	txnHash, _ := new(felt.Felt).SetString("0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -80,7 +80,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	txnHash, _ := new(felt.Felt).SetString("0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -110,7 +110,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	txnHash, _ := new(felt.Felt).SetString("0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -132,7 +132,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	block, err := client.Block(context.Background(), 11817)
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	block, err := client.Block(context.Background(), 19199)
 	if err != nil {
@@ -173,7 +173,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 
 func TestClassV0Unmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	class, err := client.ClassDefinition(context.Background(), hash)
@@ -196,7 +196,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 
 func TestClassV1Unmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	hash, _ := new(felt.Felt).SetString("0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
 	class, err := client.ClassDefinition(context.Background(), hash)
@@ -239,7 +239,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 
 func TestStateUpdate(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		stateUpdate, err := client.StateUpdate(context.Background(), 0)
@@ -270,7 +270,7 @@ func TestStateUpdate(t *testing.T) {
 
 func TestTransaction(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		transactionHash, _ := new(felt.Felt).SetString("0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
@@ -288,7 +288,7 @@ func TestTransaction(t *testing.T) {
 
 func TestBlock(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		blcokNumber := uint64(11817)
@@ -307,7 +307,7 @@ func TestBlock(t *testing.T) {
 
 func TestClassDefinition(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
@@ -331,7 +331,7 @@ func TestHttpError(t *testing.T) {
 		callCount[r.URL.String()]++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
@@ -366,7 +366,7 @@ func TestBackoffFailure(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 		try += 1
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
