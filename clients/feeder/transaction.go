@@ -1,8 +1,6 @@
 package feeder
 
 import (
-	"math/big"
-
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -27,8 +25,8 @@ type Transaction struct {
 type TransactionStatus struct {
 	Status           string       `json:"status"`
 	BlockHash        *felt.Felt   `json:"block_hash"`
-	BlockNumber      *big.Int     `json:"block_number"`
-	TransactionIndex *big.Int     `json:"transaction_index"`
+	BlockNumber      uint64       `json:"block_number"`
+	TransactionIndex uint64       `json:"transaction_index"`
 	Transaction      *Transaction `json:"transaction"`
 }
 
