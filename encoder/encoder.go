@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/fxamacker/cbor/v2"
@@ -17,7 +18,9 @@ var (
 	decMode cbor.DecMode
 )
 
-func initEncModes() {
+var initialiseEncoder sync.Once
+
+func initEncAndDecModes() {
 	var err error
 	encMode, err = cbor.CanonicalEncOptions().EncModeWithTags(ts)
 	if err != nil {
@@ -38,22 +41,20 @@ func RegisterType(rType reflect.Type) error {
 	); err != nil {
 		return err
 	}
-	initEncModes()
+	initEncAndDecModes()
 	tagNum++
 	return nil
 }
 
-func init() {
-	initEncModes()
-}
-
 // Marshal returns encoding of param v
 func Marshal(v any) ([]byte, error) {
+	initialiseEncoder.Do(initEncAndDecModes)
 	return encMode.Marshal(v)
 }
 
 // Unmarshal decodes param v from []byte b
 func Unmarshal(b []byte, v any) error {
+	initialiseEncoder.Do(initEncAndDecModes)
 	return decMode.Unmarshal(b, v)
 }
 
