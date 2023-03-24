@@ -38,7 +38,7 @@ install-golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
 
 lint:
-	which golangci-lint || ./install-golangci-lint.sh
+	@which golangci-lint || make install-golangci-lint
 	golangci-lint run
 
 tidy: ## add missing and remove unused modules
