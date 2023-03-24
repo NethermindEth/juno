@@ -382,7 +382,14 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 
 	root, err := t.storage.Get(t.rootKey)
 	path := path(t.rootKey, parentP)
-	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n", strings.Repeat("\t", level), t.rootKey.String(), t.rootKey.Len(), path.String(), path.Len(), root.Value.String())
+	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n",
+		strings.Repeat("\t", level),
+		t.rootKey.String(),
+		t.rootKey.Len(),
+		path.String(),
+		path.Len(),
+		root.Value.String(),
+	)
 	if err != nil {
 		return
 	}
