@@ -59,13 +59,16 @@ var _ Reader = (*Blockchain)(nil)
 type Blockchain struct {
 	network  utils.Network
 	database db.DB
+
+	log utils.SimpleLogger
 }
 
-func New(database db.DB, network utils.Network) *Blockchain {
+func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
 	registerCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
 		network:  network,
+		log:      log,
 	}
 }
 
@@ -454,14 +457,37 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate) error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate, classes map[felt.Felt]core.Class) error {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return errors.New("block hashes do not match")
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
 		return errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
-	return core.VerifyBlockHash(block, b.network)
+
+	if cErr := core.VerifyClassHashes(classes); cErr != nil {
+		if errors.As(cErr, new(core.CantVerifyClassHashError)) {
+			for ; cErr != nil; cErr = errors.Unwrap(cErr) {
+				b.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
+					block.Hash.ShortString(), "error", cErr.Error())
+			}
+		} else {
+			return cErr
+		}
+	}
+
+	if bErr := core.VerifyBlockHash(block, b.network); bErr != nil {
+		if errors.As(bErr, new(core.CantVerifyTransactionHashError)) {
+			for ; bErr != nil; bErr = errors.Unwrap(bErr) {
+				b.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
+					block.Hash.ShortString(), "error", bErr.Error())
+			}
+		} else {
+			return bErr
+		}
+	}
+
+	return nil
 }
 
 type txAndReceiptDBKey struct {

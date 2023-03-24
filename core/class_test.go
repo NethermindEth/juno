@@ -2,6 +2,8 @@ package core_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -143,4 +145,92 @@ func checkClassSymmetry(t *testing.T, input core.Class) {
 	default:
 		assert.Fail(t, "not a class")
 	}
+}
+
+func TestVerifyClassHash(t *testing.T) {
+	type Tests struct {
+		name      string
+		classHash *felt.Felt
+		class     core.Class
+		wantErr   error
+	}
+
+	findMatch := func(t *testing.T, tests []Tests, class core.Class) *Tests {
+		t.Helper()
+		for _, test := range tests {
+			if reflect.DeepEqual(test.class, class) {
+				return &test
+			}
+		}
+		return nil
+	}
+
+	client, closeFn := feeder.NewTestClient(utils.GOERLI)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	classHash0 := utils.HexToFelt(t, "0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
+	class0, err := gw.Class(context.Background(), classHash0)
+	require.NoError(t, err)
+
+	classHash1 := utils.HexToFelt(t, "0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3")
+	class1, err := gw.Class(context.Background(), classHash1)
+	require.NoError(t, err)
+
+	t.Run("class(es) with error", func(t *testing.T) {
+		tests := []Tests{
+			{
+				name:      "error if class is nil",
+				classHash: &felt.Zero,
+				class:     nil,
+				wantErr:   fmt.Errorf("cannot verify class hash: class is nil"),
+			},
+			{
+				name:      "error if expected hash is not equal to gotten hash",
+				classHash: utils.HexToFelt(t, "0xab"),
+				class:     class0,
+				wantErr: fmt.Errorf("cannot verify class hash: calculated hash: %v, received hash: %v", classHash0.String(),
+					utils.HexToFelt(t, "0xab").String()),
+			},
+			{
+				name:      "no error if expected hash is equal to gotten hash",
+				classHash: classHash1,
+				class:     class1,
+				wantErr:   nil,
+			},
+		}
+
+		classMap := make(map[felt.Felt]core.Class, 3)
+		for _, tt := range tests {
+			classMap[*tt.classHash] = tt.class
+		}
+
+		vErr := core.VerifyClassHashes(classMap)
+		require.Error(t, vErr)
+
+		count := 0
+		if errors.As(vErr, new(core.CantVerifyClassHashError)) {
+			for ; vErr != nil; vErr = errors.Unwrap(vErr) {
+				err := vErr.(core.CantVerifyClassHashError)
+
+				tt := findMatch(t, tests, err.Class())
+				t.Run(tt.name, func(t *testing.T) {
+					assert.EqualError(t, vErr, tt.wantErr.Error())
+				})
+				count++
+			}
+		}
+		// A case which doesn't return an error is included in tests to make sure the number of wrapped errors is correct.
+		assert.Equal(t, 2, count)
+	})
+
+	t.Run("class(es) with no error", func(t *testing.T) {
+		classMap := map[felt.Felt]core.Class{
+			*classHash0: class0,
+			*classHash1: class1,
+		}
+
+		assert.NoError(t, core.VerifyClassHashes(classMap))
+	})
 }

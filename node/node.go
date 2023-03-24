@@ -138,7 +138,7 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
-	n.blockchain = blockchain.New(n.db, n.cfg.Network)
+	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
 
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
