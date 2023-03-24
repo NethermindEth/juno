@@ -16,6 +16,7 @@ import (
 )
 
 func TestBlockHash(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		number uint64
 		chain  utils.Network
@@ -158,7 +159,7 @@ func TestBlockHash(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			client, closeFn := feeder.NewTestClient(tc.chain)
-			defer closeFn()
+			t.Cleanup(closeFn)
 			gw := adaptfeeder.New(client)
 
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
@@ -181,7 +182,7 @@ func TestBlockHash(t *testing.T) {
 	require.NoError(t, err)
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
@@ -195,7 +196,7 @@ func TestBlockHash(t *testing.T) {
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
 		client, closeFn := feeder.NewTestClient(utils.GOERLI)
-		defer closeFn()
+		t.Cleanup(closeFn)
 		goerliGW := adaptfeeder.New(client)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)

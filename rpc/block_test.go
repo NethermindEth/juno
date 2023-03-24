@@ -10,6 +10,7 @@ import (
 )
 
 func TestBlockId(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		blockIDJSON     string
 		expectedBlockID rpc.BlockID
