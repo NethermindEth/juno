@@ -176,6 +176,7 @@ func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 				if res.StatusCode == http.StatusOK {
 					resBytes, err = io.ReadAll(res.Body)
 					if err != nil {
+						res.Body.Close()
 						return nil, err
 					}
 
