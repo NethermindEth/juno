@@ -1,13 +1,11 @@
-package trie
+package trie_test
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/bits-and-blooms/bitset"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,56 +21,64 @@ import (
 //   - [*] Add more complicated Put and Delete scenarios
 func TestTriePut(t *testing.T) {
 	t.Run("put zero to empty tree", func(t *testing.T) {
-		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+			key := new(felt.Felt).SetUint64(1)
+			zeroVal := new(felt.Felt).SetUint64(0)
 
-		key := new(felt.Felt).SetUint64(1)
-		zeroVal := new(felt.Felt).SetUint64(0)
+			oldVal, err := tempTrie.Put(key, zeroVal)
+			require.NoError(t, err)
 
-		oldVal, err := tempTrie.Put(key, zeroVal)
-		require.NoError(t, err)
+			assert.Nil(t, oldVal)
 
-		assert.Nil(t, oldVal)
+			return nil
+		}))
 	})
 
 	t.Run("put zero value", func(t *testing.T) {
-		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
-		keyNum, err := strconv.ParseUint("1101", 2, 64)
-		require.NoError(t, err)
+		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+			keyNum, err := strconv.ParseUint("1101", 2, 64)
+			require.NoError(t, err)
 
-		key := new(felt.Felt).SetUint64(keyNum)
-		zeroVal := new(felt.Felt).SetUint64(0)
+			key := new(felt.Felt).SetUint64(keyNum)
+			zeroVal := new(felt.Felt).SetUint64(0)
 
-		_, err = tempTrie.Put(key, zeroVal)
-		require.NoError(t, err)
+			_, err = tempTrie.Put(key, zeroVal)
+			require.NoError(t, err)
 
-		value, err := tempTrie.Get(key)
-		// should return an error when try to access a non-exist key
-		assert.Error(t, err)
-		// after empty, the return value and Trie's root should be nil
-		assert.Nil(t, value)
-		assert.Nil(t, tempTrie.rootKey)
+			value, err := tempTrie.Get(key)
+			// should return an error when try to access a non-exist key
+			assert.Error(t, err)
+			// after empty, the return value and Trie's root should be nil
+			assert.Nil(t, value)
+			assert.Nil(t, tempTrie.RootKey())
+
+			return nil
+		}))
 	})
 
 	t.Run("put to replace an existed value", func(t *testing.T) {
-		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
-		keyNum, err := strconv.ParseUint("1101", 2, 64)
-		require.NoError(t, err)
+		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+			keyNum, err := strconv.ParseUint("1101", 2, 64)
+			require.NoError(t, err)
 
-		key := new(felt.Felt).SetUint64(keyNum)
-		val := new(felt.Felt).SetUint64(1)
+			key := new(felt.Felt).SetUint64(keyNum)
+			val := new(felt.Felt).SetUint64(1)
 
-		_, err = tempTrie.Put(key, val)
-		require.NoError(t, err)
+			_, err = tempTrie.Put(key, val)
+			require.NoError(t, err)
 
-		newVal := new(felt.Felt).SetUint64(2)
+			newVal := new(felt.Felt).SetUint64(2)
 
-		_, err = tempTrie.Put(key, newVal)
-		require.NoError(t, err, "update a new value at an exist key")
+			_, err = tempTrie.Put(key, newVal)
+			require.NoError(t, err, "update a new value at an exist key")
 
-		value, err := tempTrie.Get(key)
-		require.NoError(t, err)
+			value, err := tempTrie.Get(key)
+			require.NoError(t, err)
 
-		assert.Equal(t, newVal, value)
+			assert.Equal(t, newVal, value)
+
+			return nil
+		}))
 	})
 }
 
@@ -118,128 +124,159 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
-			// Build a basic trie
-			_, err := tempTrie.Put(leftKey, leftVal)
-			require.NoError(t, err)
-
-			_, err = tempTrie.Put(rightKey, rightVal)
-			require.NoError(t, err)
-
-			for _, key := range test.deleteKeys {
-				_, err := tempTrie.Put(key, zeroVal)
+			require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+				// Build a basic trie
+				_, err := tempTrie.Put(leftKey, leftVal)
 				require.NoError(t, err)
 
-				val, err := tempTrie.Get(key)
+				_, err = tempTrie.Put(rightKey, rightVal)
+				require.NoError(t, err)
 
-				assert.Error(t, err, "should return an error when access a deleted key")
-				assert.Nil(t, val, "should return an nil value when access a deleted key")
-			}
+				for _, key := range test.deleteKeys {
+					_, err := tempTrie.Put(key, zeroVal)
+					require.NoError(t, err)
 
-			// Check the final rootKey
-			assert.Equal(t, tempTrie.feltToBitSet(test.expectRootKey), tempTrie.rootKey)
+					val, err := tempTrie.Get(key)
+
+					assert.Error(t, err, "should return an error when access a deleted key")
+					assert.Nil(t, val, "should return an nil value when access a deleted key")
+				}
+
+				// Check the final rootKey
+
+				if test.expectRootKey != nil {
+					expectKeyBytes := test.expectRootKey.Bits()
+					assert.Equal(t, expectKeyBytes[:], tempTrie.RootKey().Bytes())
+				} else {
+					assert.Nil(t, tempTrie.RootKey())
+				}
+
+				return nil
+			}))
 		})
 	}
 }
 
 func TestPutZero(t *testing.T) {
-	storage := newMemStorage()
-	trie := NewTriePedersen(storage, 251, nil)
-	emptyRoot, err := trie.Root()
-	require.NoError(t, err)
-
-	var roots []*felt.Felt
-	var keys []*felt.Felt
-	// put random 64 keys and record roots
-	for i := 0; i < 64; i++ {
-		key, value := new(felt.Felt), new(felt.Felt)
-
-		_, err = key.SetRandom()
+	require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+		emptyRoot, err := tempTrie.Root()
 		require.NoError(t, err)
+		var roots []*felt.Felt
+		var keys []*felt.Felt
 
-		_, err = value.SetRandom()
-		require.NoError(t, err)
+		// put random 64 keys and record roots
+		for i := 0; i < 64; i++ {
+			key, value := new(felt.Felt), new(felt.Felt)
 
-		_, err = trie.Put(key, value)
-		require.NoError(t, err)
+			_, err = key.SetRandom()
+			require.NoError(t, err)
 
-		keys = append(keys, key)
+			_, err = value.SetRandom()
+			require.NoError(t, err)
 
-		var root *felt.Felt
-		root, err = trie.Root()
-		require.NoError(t, err)
+			_, err = tempTrie.Put(key, value)
+			require.NoError(t, err)
 
-		roots = append(roots, root)
-	}
+			keys = append(keys, key)
 
-	key, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+			var root *felt.Felt
+			root, err = tempTrie.Root()
+			require.NoError(t, err)
 
-	// adding a zero value should not change Trie
-	_, err = trie.Put(key, new(felt.Felt))
-	require.NoError(t, err)
+			roots = append(roots, root)
+		}
 
-	root, err := trie.Root()
-	require.NoError(t, err)
+		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
+			var key, root *felt.Felt
+			key, err = new(felt.Felt).SetRandom()
+			require.NoError(t, err)
 
-	assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+			_, err = tempTrie.Put(key, new(felt.Felt))
+			require.NoError(t, err)
 
-	var gotRoot *felt.Felt
-	// put zero in reverse order and check roots still match
-	for i := 0; i < 64; i++ {
-		root = roots[len(roots)-1-i]
+			root, err = tempTrie.Root()
+			require.NoError(t, err)
 
-		gotRoot, err = trie.Root()
-		require.NoError(t, err)
+			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+		})
 
-		assert.Equal(t, root, gotRoot)
+		t.Run("remove keys one by one, check roots", func(t *testing.T) {
+			var gotRoot *felt.Felt
+			// put zero in reverse order and check roots still match
+			for i := 0; i < 64; i++ {
+				root := roots[len(roots)-1-i]
 
-		key := keys[len(keys)-1-i]
-		_, err = trie.Put(key, new(felt.Felt))
-		require.NoError(t, err)
-	}
+				gotRoot, err = tempTrie.Root()
+				require.NoError(t, err)
 
-	actualEmptyRoot, err := trie.Root()
-	require.NoError(t, err)
+				assert.Equal(t, root, gotRoot)
 
-	assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
-	assert.Zero(t, len(storage.storage)) // storage should be empty
+				key := keys[len(keys)-1-i]
+				_, err = tempTrie.Put(key, new(felt.Felt))
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("empty roots should match", func(t *testing.T) {
+			actualEmptyRoot, err := tempTrie.Root()
+			require.NoError(t, err)
+
+			assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
+		})
+		return nil
+	}))
 }
 
 func TestOldData(t *testing.T) {
-	tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
-	key := new(felt.Felt).SetUint64(12)
-	old := new(felt.Felt)
+	require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+		key := new(felt.Felt).SetUint64(12)
+		old := new(felt.Felt)
 
-	was, err := tempTrie.Put(key, old)
-	require.NoError(t, err)
+		t.Run("put zero to empty key, expect no change", func(t *testing.T) {
+			was, err := tempTrie.Put(key, old)
+			require.NoError(t, err)
+			assert.Nil(t, was) // no change
+		})
 
-	assert.Nil(t, was) // no change
+		t.Run("put non-zero to empty key, expect zero", func(t *testing.T) {
+			was, err := tempTrie.Put(key, old)
+			require.NoError(t, err)
+			assert.Nil(t, was) // no change
 
-	was, err = tempTrie.Put(key, new(felt.Felt).SetUint64(1))
-	require.NoError(t, err)
+			newVal := new(felt.Felt).SetUint64(1)
+			was, err = tempTrie.Put(key, newVal)
+			require.NoError(t, err)
 
-	assert.Equal(t, old, was)
+			assert.Equal(t, old, was)
+			old.Set(newVal)
+		})
 
-	old.SetUint64(1)
+		t.Run("change value of a key, expect old value", func(t *testing.T) {
+			newVal := new(felt.Felt).SetUint64(2)
+			was, err := tempTrie.Put(key, newVal)
+			require.NoError(t, err)
 
-	was, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
-	require.NoError(t, err)
+			assert.Equal(t, old, was)
+			old.Set(newVal)
+		})
 
-	assert.Equal(t, old, was)
+		t.Run("delete key, expect old value", func(t *testing.T) {
+			// put zero value to delete current key
+			was, err := tempTrie.Put(key, &felt.Zero)
+			require.NoError(t, err)
 
-	old.SetUint64(2)
+			assert.Equal(t, old, was)
+		})
 
-	// put zero value to delete current key
-	was, err = tempTrie.Put(key, new(felt.Felt))
-	require.NoError(t, err)
+		t.Run("delete non-existent key, expect no change", func(t *testing.T) {
+			// put zero again to check old data
+			was, err := tempTrie.Put(key, new(felt.Felt))
+			require.NoError(t, err)
 
-	assert.Equal(t, old, was)
+			// there should no old data to return
+			assert.Nil(t, was)
+		})
 
-	// put zero again to check old data
-	was, err = tempTrie.Put(key, new(felt.Felt))
-	require.NoError(t, err)
-
-	// there should no old data to return
-	assert.Nil(t, was)
+		return nil
+	}))
 }
