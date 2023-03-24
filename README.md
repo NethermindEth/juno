@@ -129,13 +129,35 @@ docker logs -f juno
 
 ### Phase 2
 
-* [ ] Integrate cairo vm
-* [ ] Verification
-    * [ ] L1 verification
-    * [ ] Execution of all transactions from feeder gateway
-* [ ] Full RPC (according to 0.11.0)
-* [ ] Start p2p discussions
-* [ ] Infura and Alchemy integrations
+The focus of Phase 2 will be to Verify the state from layer 1 and implement the remaining JSON-RPC endpoints.
+
+* [ ] Starknet 0.11 support
+    * [ ] Poseidon state tree support
+* [ ] Blockchain: implement blockchain reorganization logic.
+* [ ] Synchronisation: implement verification of state from layer 1.
+* [ ] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
+    * [ ] Implement the remaining endpoints:
+        * [ ] `starknet_getStorageAt`
+        * [ ] `starknet_getClass`
+        * [ ] `starknet_getClassHashAt`
+        * [ ] `starknet_getClassAt`
+        * [ ] `starknet_syncing`
+        * [ ] `starknet_pendingTransactions` (this will not be implemented since we don’t plan to implement `pending` tag)
+        
+        Requires Pagination
+        
+        * [ ] `starknet_getEvents`
+        
+        Requires Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
+        
+        * [ ] `starknet_call`
+        * [ ] `starknet_estimateFee`
+        
+* [ ] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
+    * [ ] `starknet_addInvokeTransaction`
+    * [ ] `starknet_addDeclareTransaction`
+    * [ ] `starknet_addDeployAccountTransaction`
+    
 
 ## 👍 Contribute
 
