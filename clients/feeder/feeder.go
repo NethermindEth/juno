@@ -158,6 +158,7 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 	var res *http.Response
 	var err error
+	var resBytes []byte
 	wait := time.Duration(0)
 	for i := 0; i <= c.maxRetries; i++ {
 		select {
@@ -171,10 +172,21 @@ func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 			}
 
 			res, err = c.client.Do(req)
-			if err == nil && res != nil && res.StatusCode == http.StatusOK {
-				return io.ReadAll(res.Body)
-			} else if res != nil && res.StatusCode != http.StatusOK {
-				err = errors.New(res.Status)
+			if err == nil {
+				if res.StatusCode == http.StatusOK {
+					resBytes, err = io.ReadAll(res.Body)
+					if err != nil {
+						return nil, err
+					}
+
+					res.Body.Close()
+					return resBytes, nil
+				}
+
+				if res.StatusCode != http.StatusOK {
+					err = errors.New(res.Status)
+				}
+				res.Body.Close()
 			}
 
 			if wait < c.minWait {
