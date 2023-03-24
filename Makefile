@@ -26,7 +26,7 @@ test-cover: ## tests with coverage
 	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-mockgen install-golangci-lint## install some project dependencies
+install-deps: | install-gofumpt install-mockgen install-golangci-lint## install some project dependencies
 
 install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
@@ -38,7 +38,7 @@ install-golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
 
 lint:
-	which golangci-lint || ./install-golangci-lint.sh
+	@which golangci-lint || make install-golangci-lint
 	golangci-lint run
 
 tidy: ## add missing and remove unused modules
