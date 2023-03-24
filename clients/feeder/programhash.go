@@ -120,7 +120,7 @@ func reformatHint(hints Hints) string {
 		}
 		// remove trailing newline
 		buf.Truncate(buf.Len() - 1)
-		if int(key) != len(keys)-1 {
+		if key != len(keys)-1 {
 			buf.WriteString(",")
 		}
 	}
