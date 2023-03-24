@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -203,27 +202,6 @@ func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 	return nil, err
 }
 
-// StateUpdate object returned by the feeder in JSON format for "get_state_update" endpoint
-type StateUpdate struct {
-	BlockHash *felt.Felt `json:"block_hash"`
-	NewRoot   *felt.Felt `json:"new_root"`
-	OldRoot   *felt.Felt `json:"old_root"`
-
-	StateDiff struct {
-		StorageDiffs map[string][]struct {
-			Key   *felt.Felt `json:"key"`
-			Value *felt.Felt `json:"value"`
-		} `json:"storage_diffs"`
-
-		Nonces            map[string]*felt.Felt `json:"nonces"`
-		DeployedContracts []struct {
-			Address   *felt.Felt `json:"address"`
-			ClassHash *felt.Felt `json:"class_hash"`
-		} `json:"deployed_contracts"`
-		DeclaredContracts []*felt.Felt `json:"declared_contracts"`
-	} `json:"state_diff"`
-}
-
 func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
@@ -238,32 +216,6 @@ func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpd
 		}
 		return update, nil
 	}
-}
-
-// Transaction object returned by the feeder in JSON format for multiple endpoints
-type Transaction struct {
-	Hash                *felt.Felt   `json:"transaction_hash"`
-	Version             *felt.Felt   `json:"version"`
-	ContractAddress     *felt.Felt   `json:"contract_address"`
-	ContractAddressSalt *felt.Felt   `json:"contract_address_salt"`
-	ClassHash           *felt.Felt   `json:"class_hash"`
-	ConstructorCallData []*felt.Felt `json:"constructor_calldata"`
-	Type                string       `json:"type"`
-	SenderAddress       *felt.Felt   `json:"sender_address"`
-	MaxFee              *felt.Felt   `json:"max_fee"`
-	Signature           []*felt.Felt `json:"signature"`
-	CallData            []*felt.Felt `json:"calldata"`
-	EntryPointSelector  *felt.Felt   `json:"entry_point_selector"`
-	Nonce               *felt.Felt   `json:"nonce"`
-	CompiledClassHash   *felt.Felt   `json:"compiled_class_hash"`
-}
-
-type TransactionStatus struct {
-	Status           string       `json:"status"`
-	BlockHash        *felt.Felt   `json:"block_hash"`
-	BlockNumber      *big.Int     `json:"block_number"`
-	TransactionIndex *big.Int     `json:"transaction_index"`
-	Transaction      *Transaction `json:"transaction"`
 }
 
 func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
@@ -282,66 +234,6 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 	}
 }
 
-type Event struct {
-	From *felt.Felt   `json:"from_address"`
-	Data []*felt.Felt `json:"data"`
-	Keys []*felt.Felt `json:"keys"`
-}
-
-type L1ToL2Message struct {
-	From     string       `json:"from_address"`
-	Payload  []*felt.Felt `json:"payload"`
-	Selector *felt.Felt   `json:"selector"`
-	To       *felt.Felt   `json:"to_address"`
-	Nonce    *felt.Felt   `json:"nonce"`
-}
-
-type L2ToL1Message struct {
-	From    *felt.Felt   `json:"from_address"`
-	Payload []*felt.Felt `json:"payload"`
-	To      string       `json:"to_address"`
-}
-
-type ExecutionResources struct {
-	Steps                  uint64                 `json:"n_steps"`
-	BuiltinInstanceCounter BuiltinInstanceCounter `json:"builtin_instance_counter"`
-	MemoryHoles            uint64                 `json:"n_memory_holes"`
-}
-
-type BuiltinInstanceCounter struct {
-	Pedersen   uint64 `json:"pedersen_builtin"`
-	RangeCheck uint64 `json:"range_check_builtin"`
-	Bitwise    uint64 `json:"bitwise_builtin"`
-	Output     uint64 `json:"output_builtin"`
-	Ecsda      uint64 `json:"ecdsa_builtin"`
-	EcOp       uint64 `json:"ec_op_builtin"`
-}
-
-type TransactionReceipt struct {
-	ActualFee          *felt.Felt          `json:"actual_fee"`
-	Events             []*Event            `json:"events"`
-	ExecutionResources *ExecutionResources `json:"execution_resources"`
-	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
-	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages"`
-	TransactionHash    *felt.Felt          `json:"transaction_hash"`
-	TransactionIndex   uint64              `json:"transaction_index"`
-}
-
-// Block object returned by the feeder in JSON format for "get_block" endpoint
-type Block struct {
-	Hash             *felt.Felt            `json:"block_hash"`
-	ParentHash       *felt.Felt            `json:"parent_block_hash"`
-	Number           uint64                `json:"block_number"`
-	StateRoot        *felt.Felt            `json:"state_root"`
-	Status           string                `json:"status"`
-	GasPrice         *felt.Felt            `json:"gas_price"`
-	Transactions     []*Transaction        `json:"transactions"`
-	Timestamp        uint64                `json:"timestamp"`
-	Version          string                `json:"starknet_version"`
-	Receipts         []*TransactionReceipt `json:"transaction_receipts"`
-	SequencerAddress *felt.Felt            `json:"sequencer_address"`
-}
-
 func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
@@ -356,70 +248,6 @@ func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) 
 		}
 		return block, nil
 	}
-}
-
-type EntryPoint struct {
-	Selector *felt.Felt `json:"selector"`
-	Offset   *felt.Felt `json:"offset"`
-}
-
-type (
-	Hints       map[uint64]interface{}
-	Identifiers map[string]struct {
-		CairoType   string         `json:"cairo_type,omitempty"`
-		Decorators  *[]interface{} `json:"decorators,omitempty"`
-		Destination string         `json:"destination,omitempty"`
-		FullName    string         `json:"full_name,omitempty"`
-		Members     *interface{}   `json:"members,omitempty"`
-		Pc          *uint64        `json:"pc,omitempty"`
-		References  *[]interface{} `json:"references,omitempty"`
-		Size        *uint64        `json:"size,omitempty"`
-		Type        string         `json:"type,omitempty"`
-		Value       json.Number    `json:"value,omitempty"`
-	}
-	Program struct {
-		Attributes       interface{} `json:"attributes,omitempty"`
-		Builtins         []string    `json:"builtins"`
-		CompilerVersion  string      `json:"compiler_version,omitempty"`
-		Data             []string    `json:"data"`
-		DebugInfo        interface{} `json:"debug_info"`
-		Hints            Hints       `json:"hints"`
-		Identifiers      Identifiers `json:"identifiers"`
-		MainScope        interface{} `json:"main_scope"`
-		Prime            string      `json:"prime"`
-		ReferenceManager interface{} `json:"reference_manager"`
-	}
-)
-
-type SierraDefinition struct {
-	Abi         string `json:"abi"`
-	EntryPoints struct {
-		Constructor []SierraEntryPoint `json:"CONSTRUCTOR"`
-		External    []SierraEntryPoint `json:"EXTERNAL"`
-		L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program []*felt.Felt `json:"sierra_program"`
-	Version string       `json:"contract_class_version"`
-}
-
-type SierraEntryPoint struct {
-	Index    uint64     `json:"function_idx"`
-	Selector *felt.Felt `json:"selector"`
-}
-
-type Cairo0Definition struct {
-	Abi         any `json:"abi"`
-	EntryPoints struct {
-		Constructor []EntryPoint `json:"CONSTRUCTOR"`
-		External    []EntryPoint `json:"EXTERNAL"`
-		L1Handler   []EntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program Program `json:"program"`
-}
-
-type ClassDefinition struct {
-	V0 *Cairo0Definition
-	V1 *SierraDefinition
 }
 
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
