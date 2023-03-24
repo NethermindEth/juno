@@ -59,7 +59,7 @@ To run Juno with Docker, use the following command. Make sure to create the `/ho
 
 ```shell
 docker run -d \
-  -name juno \
+  --name juno \
   -p 6060:6060 \
   -v /home/juno:/var/lib/juno \
   nethermindeth/juno \
