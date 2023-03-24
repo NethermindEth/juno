@@ -9,3 +9,4 @@ coverage:
       default:
         target: 80%
         threshold: 1%
+        only_pulls: true
