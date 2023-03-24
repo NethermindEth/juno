@@ -150,6 +150,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "INVOKE_FUNCTION", invokeTx.Type)
 }
 
+//nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
 	deployJSON := []byte(`{
       "transaction_hash":"0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
@@ -232,6 +233,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "DEPLOY_ACCOUNT", deployTx.Type)
 }
 
+//nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	handlerJSON := []byte(`{
       "transaction_hash":"0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190",
@@ -408,6 +410,7 @@ func TestStateUpdate(t *testing.T) {
 	err := json.Unmarshal(jsonData, &update)
 	assert.Equal(t, nil, err, "Unexpected error")
 
+	//nolint:dupl
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/get_state_update" {
 			queryMap, err := url.ParseQuery(r.URL.RawQuery)
@@ -477,10 +480,11 @@ func TestTransaction(t *testing.T) {
 	err := json.Unmarshal(jsonTransactionStatus, &transactionStatus)
 	assert.NoError(t, err)
 
+	//nolint:dupl
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/get_transaction" {
 			queryMap, err := url.ParseQuery(r.URL.RawQuery)
-			assert.NoError(t, err, "No Query value")
+			require.NoError(t, err, "No Query value")
 
 			transactionHash := queryMap["transactionHash"]
 			t.Log(transactionHash[0])
