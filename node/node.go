@@ -27,7 +27,7 @@ const (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel     utils.LogLevel `mapstructure:"log-level"`
-	RpcPort      uint16         `mapstructure:"rpc-port"`
+	RPCPort      uint16         `mapstructure:"rpc-port"`
 	DatabasePath string         `mapstructure:"db-path"`
 	Network      utils.Network  `mapstructure:"network"`
 	Pprof        bool           `mapstructure:"pprof"`
@@ -62,11 +62,11 @@ func New(cfg *Config) (*Node, error) {
 	}, nil
 }
 
-func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.Http {
-	return jsonrpc.NewHttp(port, []jsonrpc.Method{
+func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
+	return jsonrpc.NewHTTP(port, []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
-			Handler: rpcHandler.ChainId,
+			Handler: rpcHandler.ChainID,
 		},
 		{
 			Name:    "starknet_blockNumber",
@@ -104,7 +104,7 @@ func makeHttp(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 		{
 			Name:    "starknet_getTransactionByBlockIdAndIndex",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: rpcHandler.TransactionByBlockIdAndIndex,
+			Handler: rpcHandler.TransactionByBlockIDAndIndex,
 		},
 		{
 			Name:    "starknet_getStateUpdate",
@@ -143,7 +143,7 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 
-	http := makeHttp(n.cfg.RpcPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
 
 	profiler := pprof.New(n.cfg.Pprof, defaultPprofPort, n.log)
 

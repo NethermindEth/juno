@@ -31,8 +31,8 @@ func New(bcReader blockchain.Reader, n utils.Network) *Handler {
 	}
 }
 
-func (h *Handler) ChainId() (*felt.Felt, *jsonrpc.Error) {
-	return h.network.ChainId(), nil
+func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
+	return h.network.ChainID(), nil
 }
 
 func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
@@ -52,8 +52,8 @@ func (h *Handler) BlockNumberAndHash() (*BlockNumberAndHash, *jsonrpc.Error) {
 	}
 }
 
-func (h *Handler) BlockWithTxHashes(id *BlockId) (*BlockWithTxHashes, *jsonrpc.Error) {
-	block, err := h.blockById(id)
+func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	block, err := h.blockByID(id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -81,8 +81,8 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 	}
 }
 
-func (h *Handler) BlockWithTxs(id *BlockId) (*BlockWithTxs, *jsonrpc.Error) {
-	block, err := h.blockById(id)
+func (h *Handler) BlockWithTxs(id *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	block, err := h.blockByID(id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -188,7 +188,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return txn
 }
 
-func (h *Handler) blockById(id *BlockId) (*core.Block, error) {
+func (h *Handler) blockByID(id *BlockID) (*core.Block, error) {
 	if id.Latest {
 		return h.bcReader.Head()
 	} else if id.Hash != nil {
@@ -200,7 +200,7 @@ func (h *Handler) blockById(id *BlockId) (*core.Block, error) {
 	}
 }
 
-func (h *Handler) blockHeaderById(id *BlockId) (*core.Header, error) {
+func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 	if id.Latest {
 		return h.bcReader.HeadsHeader()
 	} else if id.Hash != nil {
@@ -222,17 +222,17 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 }
 
 // BlockTransactionCount https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
-func (h *Handler) BlockTransactionCount(id *BlockId) (uint64, *jsonrpc.Error) {
-	header, err := h.blockHeaderById(id)
+func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
+	header, err := h.blockHeaderByID(id)
 	if header == nil || err != nil {
 		return 0, ErrBlockNotFound
 	}
 	return header.TransactionCount, nil
 }
 
-// TransactionByBlockIdAndIndex https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIdAndIndex(id *BlockId, txIndex int) (*Transaction, *jsonrpc.Error) {
-	header, err := h.blockHeaderById(id)
+// TransactionByBlockIDAndIndex https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
+func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+	header, err := h.blockHeaderByID(id)
 	if header == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -296,7 +296,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
-func (h *Handler) StateUpdate(id *BlockId) (*StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 	var update *core.StateUpdate
 	var err error
 	if id.Latest {

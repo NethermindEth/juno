@@ -155,7 +155,7 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *Client) get(ctx context.Context, queryUrl string) ([]byte, error) {
+func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
@@ -165,7 +165,7 @@ func (c *Client) get(ctx context.Context, queryUrl string) ([]byte, error) {
 			return nil, errors.New("canceled")
 		case <-time.After(wait):
 			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, "GET", queryUrl, http.NoBody)
+			req, err = http.NewRequestWithContext(ctx, "GET", queryURL, http.NoBody)
 			if err != nil {
 				return nil, err
 			}
@@ -212,11 +212,11 @@ type StateUpdate struct {
 }
 
 func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
-	queryUrl := c.buildQueryString("get_state_update", map[string]string{
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	if body, err := c.get(ctx, queryUrl); err != nil {
+	if body, err := c.get(ctx, queryURL); err != nil {
 		return nil, err
 	} else {
 		update := new(StateUpdate)
@@ -254,11 +254,11 @@ type TransactionStatus struct {
 }
 
 func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
-	queryUrl := c.buildQueryString("get_transaction", map[string]string{
+	queryURL := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
 
-	if body, err := c.get(ctx, queryUrl); err != nil {
+	if body, err := c.get(ctx, queryURL); err != nil {
 		return nil, err
 	} else {
 		txStatus := new(TransactionStatus)
@@ -330,11 +330,11 @@ type Block struct {
 }
 
 func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) {
-	queryUrl := c.buildQueryString("get_block", map[string]string{
+	queryURL := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	if body, err := c.get(ctx, queryUrl); err != nil {
+	if body, err := c.get(ctx, queryURL); err != nil {
 		return nil, err
 	} else {
 		block := new(Block)
@@ -424,11 +424,11 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 }
 
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
-	queryUrl := c.buildQueryString("get_class_by_hash", map[string]string{
+	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": classHash.String(),
 	})
 
-	if body, err := c.get(ctx, queryUrl); err != nil {
+	if body, err := c.get(ctx, queryURL); err != nil {
 		return nil, err
 	} else {
 		class := new(ClassDefinition)

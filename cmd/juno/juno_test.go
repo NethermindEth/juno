@@ -37,7 +37,7 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
 				LogLevel:     defaultLogLevel,
-				RpcPort:      defaultRPCPort,
+				RPCPort:      defaultRPCPort,
 				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
@@ -47,7 +47,7 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
 				LogLevel:     defaultLogLevel,
-				RpcPort:      defaultRPCPort,
+				RPCPort:      defaultRPCPort,
 				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
@@ -62,7 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
 				LogLevel: defaultLogLevel,
-				RpcPort:  defaultRPCPort,
+				RPCPort:  defaultRPCPort,
 				Network:  defaultNetwork,
 			},
 		},
@@ -76,7 +76,7 @@ pprof: true
 `,
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
-				RpcPort:      4576,
+				RPCPort:      4576,
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI2,
 				Pprof:        true,
@@ -89,7 +89,7 @@ rpc-port: 4576
 `,
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
-				RpcPort:      4576,
+				RPCPort:      4576,
 				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
@@ -102,7 +102,7 @@ rpc-port: 4576
 			},
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
-				RpcPort:      4576,
+				RPCPort:      4576,
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        true,
@@ -115,7 +115,7 @@ rpc-port: 4576
 			},
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
-				RpcPort:      4576,
+				RPCPort:      4576,
 				DatabasePath: "/home/.juno",
 				Network:      utils.INTEGRATION,
 			},
@@ -134,7 +134,7 @@ pprof: true
 			},
 			expectedConfig: &node.Config{
 				LogLevel:     utils.ERROR,
-				RpcPort:      4577,
+				RPCPort:      4577,
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.INTEGRATION,
 				Pprof:        true,
@@ -149,7 +149,7 @@ network: goerli
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
 				LogLevel:     utils.WARN,
-				RpcPort:      4576,
+				RPCPort:      4576,
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        defaultPprof,
@@ -161,7 +161,7 @@ network: goerli
 			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:     defaultLogLevel,
-				RpcPort:      defaultRPCPort,
+				RPCPort:      defaultRPCPort,
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.GOERLI2,
 				Pprof:        true,
