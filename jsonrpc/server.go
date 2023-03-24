@@ -104,7 +104,7 @@ func NewServer() *Server {
 	}
 }
 
-// RegisterMethod verifies and creates an endpoint that the server recognizes.
+// RegisterMethod verifies and creates an endpoint that the server recognises.
 //
 // - name is the method name
 // - handler is the function to be called when a request is received for the

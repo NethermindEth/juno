@@ -17,7 +17,7 @@ var noop = func(val []byte) error {
 }
 
 func TestTransaction(t *testing.T) {
-	t.Run("new transaction can retrieve exising value", func(t *testing.T) {
+	t.Run("new transaction can retrieve existing value", func(t *testing.T) {
 		testDB := pebble.NewMemTest()
 		defer func() {
 			require.NoError(t, testDB.Close())
