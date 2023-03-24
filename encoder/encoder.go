@@ -57,7 +57,7 @@ func Unmarshal(b []byte, v any) error {
 	return decMode.Unmarshal(b, v)
 }
 
-// TestSymmetry checks if a type can be marshaled and unmarshalled with no issues
+// TestSymmetry checks if a type can be marshalled and unmarshalled with no issues
 func TestSymmetry(t *testing.T, value any) {
 	cborBytes, err := cbor.Marshal(value)
 	assert.NoError(t, err)

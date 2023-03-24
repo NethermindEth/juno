@@ -59,7 +59,7 @@ linters-settings:
   lll:
     line-length: 140
   misspell:
-    locale: US
+    locale: UK
   nolintlint:
     allow-unused: false # report any unused nolint directives
     require-explanation: false # don't require an explanation for nolint directives
