@@ -255,7 +255,9 @@ func TestSeek(t *testing.T) {
 	}()
 
 	txn := testDb.NewTransaction(true)
-	defer txn.Discard()
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
 
 	require.NoError(t, txn.Set([]byte{1}, []byte{1}))
 	require.NoError(t, txn.Set([]byte{3}, []byte{3}))

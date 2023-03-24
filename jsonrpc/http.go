@@ -72,6 +72,9 @@ func (h *Http) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 	}
 	if resp != nil {
-		writer.Write(resp)
+		_, err = writer.Write(resp)
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }

@@ -23,244 +23,230 @@ import (
 //   - [*] Add more complicated Put and Delete scenarios
 func TestTriePut(t *testing.T) {
 	t.Run("put zero to empty tree", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			key := new(felt.Felt).SetUint64(1)
-			zeroVal := new(felt.Felt).SetUint64(0)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
 
-			oldVal, err := trie.Put(key, zeroVal)
-			require.NoError(t, err)
+		key := new(felt.Felt).SetUint64(1)
+		zeroVal := new(felt.Felt).SetUint64(0)
 
-			assert.Nil(t, oldVal)
+		oldVal, err := tempTrie.Put(key, zeroVal)
+		require.NoError(t, err)
 
-			return nil
-		})
+		assert.Nil(t, oldVal)
 	})
+
 	t.Run("put to empty tree", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			keyNum, err := strconv.ParseUint("1101", 2, 64)
-			require.NoError(t, err)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		keyNum, err := strconv.ParseUint("1101", 2, 64)
+		require.NoError(t, err)
 
-			key := new(felt.Felt).SetUint64(keyNum)
-			val := new(felt.Felt).SetUint64(11)
+		key := new(felt.Felt).SetUint64(keyNum)
+		val := new(felt.Felt).SetUint64(11)
 
-			_, err = trie.Put(key, val)
-			require.NoError(t, err)
+		_, err = tempTrie.Put(key, val)
+		require.NoError(t, err)
 
-			value, err := trie.Get(key)
-			require.NoError(t, err)
+		value, err := tempTrie.Get(key)
+		require.NoError(t, err)
 
-			assert.Equal(t, val, value, "key-val not match")
-			assert.Equal(t, trie.feltToBitSet(key), trie.rootKey, "root key not match single node's key")
-
-			return nil
-		})
+		assert.Equal(t, val, value, "key-val not match")
+		assert.Equal(t, tempTrie.feltToBitSet(key), tempTrie.rootKey, "root key not match single node's key")
 	})
 
 	t.Run("put zero value", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			keyNum, err := strconv.ParseUint("1101", 2, 64)
-			require.NoError(t, err)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		keyNum, err := strconv.ParseUint("1101", 2, 64)
+		require.NoError(t, err)
 
-			key := new(felt.Felt).SetUint64(keyNum)
-			zeroVal := new(felt.Felt).SetUint64(0)
+		key := new(felt.Felt).SetUint64(keyNum)
+		zeroVal := new(felt.Felt).SetUint64(0)
 
-			_, err = trie.Put(key, zeroVal)
-			require.NoError(t, err)
+		_, err = tempTrie.Put(key, zeroVal)
+		require.NoError(t, err)
 
-			value, err := trie.Get(key)
-			// should return an error when try to access a non-exist key
-			assert.Error(t, err)
-			// after empty, the return value and Trie's root should be nil
-			assert.Nil(t, value)
-			assert.Nil(t, trie.rootKey)
-
-			return nil
-		})
+		value, err := tempTrie.Get(key)
+		// should return an error when try to access a non-exist key
+		assert.Error(t, err)
+		// after empty, the return value and Trie's root should be nil
+		assert.Nil(t, value)
+		assert.Nil(t, tempTrie.rootKey)
 	})
+
 	t.Run("put to replace an existed value", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			keyNum, err := strconv.ParseUint("1101", 2, 64)
-			require.NoError(t, err)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		keyNum, err := strconv.ParseUint("1101", 2, 64)
+		require.NoError(t, err)
 
-			key := new(felt.Felt).SetUint64(keyNum)
-			val := new(felt.Felt).SetUint64(1)
+		key := new(felt.Felt).SetUint64(keyNum)
+		val := new(felt.Felt).SetUint64(1)
 
-			_, err = trie.Put(key, val)
-			require.NoError(t, err)
+		_, err = tempTrie.Put(key, val)
+		require.NoError(t, err)
 
-			newVal := new(felt.Felt).SetUint64(2)
+		newVal := new(felt.Felt).SetUint64(2)
 
-			_, err = trie.Put(key, newVal)
-			require.NoError(t, err, "update a new value at an exist key")
+		_, err = tempTrie.Put(key, newVal)
+		require.NoError(t, err, "update a new value at an exist key")
 
-			value, err := trie.Get(key)
-			require.NoError(t, err)
+		value, err := tempTrie.Get(key)
+		require.NoError(t, err)
 
-			assert.Equal(t, newVal, value)
-
-			return nil
-		})
+		assert.Equal(t, newVal, value)
 	})
+
 	t.Run("put a left then a right node", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			// First put a left node
-			leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
-			require.NoError(t, err)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		// First put a left node
+		leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
+		require.NoError(t, err)
 
-			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
-			leftVal := new(felt.Felt).SetUint64(12)
+		leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+		leftVal := new(felt.Felt).SetUint64(12)
 
-			_, err = trie.Put(leftKey, leftVal)
-			require.NoError(t, err)
+		_, err = tempTrie.Put(leftKey, leftVal)
+		require.NoError(t, err)
 
-			// Then put a right node
-			rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
-			require.NoError(t, err)
+		// Then put a right node
+		rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
+		require.NoError(t, err)
 
-			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-			rightVal := new(felt.Felt).SetUint64(22)
+		rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+		rightVal := new(felt.Felt).SetUint64(22)
 
-			_, err = trie.Put(rightKey, rightVal)
-			require.NoError(t, err)
+		_, err = tempTrie.Put(rightKey, rightVal)
+		require.NoError(t, err)
 
-			// Check parent and its left right children
-			commonKey, isSame := findCommonKey(trie.feltToBitSet(leftKey), trie.feltToBitSet(rightKey))
-			require.False(t, isSame)
+		// Check parent and its left right children
+		commonKey, isSame := findCommonKey(tempTrie.feltToBitSet(leftKey), tempTrie.feltToBitSet(rightKey))
+		require.False(t, isSame)
 
-			// Common key should be 0b100, length 251-2;
-			expectKey := bitset.New(251 - 2).Set(2)
+		// Common key should be 0b100, length 251-2;
+		expectKey := bitset.New(251 - 2).Set(2)
 
-			assert.Equal(t, expectKey, commonKey)
+		assert.Equal(t, expectKey, commonKey)
 
-			// Current rootKey should be the common key
-			assert.Equal(t, expectKey, trie.rootKey)
+		// Current rootKey should be the common key
+		assert.Equal(t, expectKey, tempTrie.rootKey)
 
-			parentNode, err := trie.storage.Get(commonKey)
-			require.NoError(t, err)
+		parentNode, err := tempTrie.storage.Get(commonKey)
+		require.NoError(t, err)
 
-			assert.Equal(t, trie.feltToBitSet(leftKey), parentNode.Left)
-			assert.Equal(t, trie.feltToBitSet(rightKey), parentNode.Right)
-
-			return nil
-		})
+		assert.Equal(t, tempTrie.feltToBitSet(leftKey), parentNode.Left)
+		assert.Equal(t, tempTrie.feltToBitSet(rightKey), parentNode.Right)
 	})
+
 	t.Run("put a right node then a left node", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			// First put a right node
-			rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
-			require.NoError(t, err)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		// First put a right node
+		rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
+		require.NoError(t, err)
 
-			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-			rightVal := new(felt.Felt).SetUint64(22)
-			_, err = trie.Put(rightKey, rightVal)
-			require.NoError(t, err)
+		rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+		rightVal := new(felt.Felt).SetUint64(22)
+		_, err = tempTrie.Put(rightKey, rightVal)
+		require.NoError(t, err)
 
-			// Then put a left node
-			leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
-			require.NoError(t, err)
+		// Then put a left node
+		leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
+		require.NoError(t, err)
 
-			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
-			leftVal := new(felt.Felt).SetUint64(12)
+		leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+		leftVal := new(felt.Felt).SetUint64(12)
 
-			_, err = trie.Put(leftKey, leftVal)
-			require.NoError(t, err)
+		_, err = tempTrie.Put(leftKey, leftVal)
+		require.NoError(t, err)
 
-			// Check parent and its left right children
-			commonKey, isSame := findCommonKey(trie.feltToBitSet(leftKey), trie.feltToBitSet(rightKey))
-			require.False(t, isSame)
+		// Check parent and its left right children
+		commonKey, isSame := findCommonKey(tempTrie.feltToBitSet(leftKey), tempTrie.feltToBitSet(rightKey))
+		require.False(t, isSame)
 
-			expectKey := bitset.New(251 - 2).Set(2)
+		expectKey := bitset.New(251 - 2).Set(2)
 
-			assert.Equal(t, expectKey, commonKey)
+		assert.Equal(t, expectKey, commonKey)
 
-			parentNode, err := trie.storage.Get(commonKey)
-			require.NoError(t, err)
+		parentNode, err := tempTrie.storage.Get(commonKey)
+		require.NoError(t, err)
 
-			assert.Equal(t, trie.feltToBitSet(leftKey), parentNode.Left)
-			assert.Equal(t, trie.feltToBitSet(rightKey), parentNode.Right)
-
-			return nil
-		})
+		assert.Equal(t, tempTrie.feltToBitSet(leftKey), parentNode.Left)
+		assert.Equal(t, tempTrie.feltToBitSet(rightKey), parentNode.Right)
 	})
+
 	t.Run("Add new key to different branches", func(t *testing.T) {
-		RunOnTempTrie(251, func(trie *Trie) error {
-			// left branch
-			leftKeyNum, err := strconv.ParseUint("100", 2, 64)
+		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+		// left branch
+		leftKeyNum, err := strconv.ParseUint("100", 2, 64)
+		require.NoError(t, err)
+
+		leftKey := new(felt.Felt).SetUint64(leftKeyNum)
+		leftVal := new(felt.Felt).SetUint64(12)
+
+		// right branch
+		rightKeyNum, err := strconv.ParseUint("111", 2, 64)
+		require.NoError(t, err)
+
+		rightKey := new(felt.Felt).SetUint64(rightKeyNum)
+		rightVal := new(felt.Felt).SetUint64(22)
+
+		// Build a basic trie
+		_, err = tempTrie.Put(leftKey, leftVal)
+		require.NoError(t, err)
+
+		_, err = tempTrie.Put(rightKey, rightVal)
+		require.NoError(t, err)
+
+		t.Run("Add to left branch", func(t *testing.T) {
+			newKeyNum, err := strconv.ParseUint("101", 2, 64)
 			require.NoError(t, err)
 
-			leftKey := new(felt.Felt).SetUint64(leftKeyNum)
-			leftVal := new(felt.Felt).SetUint64(12)
+			newKey := new(felt.Felt).SetUint64(newKeyNum)
+			newVal := new(felt.Felt).SetUint64(12)
 
-			// right branch
-			rightKeyNum, err := strconv.ParseUint("111", 2, 64)
+			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
 
-			rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-			rightVal := new(felt.Felt).SetUint64(22)
+			commonKey := bitset.New(251 - 1).Set(1)
 
-			// Build a basic trie
-			_, err = trie.Put(leftKey, leftVal)
+			parentNode, err := tempTrie.storage.Get(commonKey)
 			require.NoError(t, err)
 
-			_, err = trie.Put(rightKey, rightVal)
+			assert.Equal(t, tempTrie.feltToBitSet(leftKey), parentNode.Left)
+			assert.Equal(t, tempTrie.feltToBitSet(newKey), parentNode.Right)
+		})
+		t.Run("Add to right branch", func(t *testing.T) {
+			newKeyNum, err := strconv.ParseUint("110", 2, 64)
 			require.NoError(t, err)
 
-			t.Run("Add to left branch", func(t *testing.T) {
-				newKeyNum, err := strconv.ParseUint("101", 2, 64)
-				require.NoError(t, err)
+			newKey := new(felt.Felt).SetUint64(newKeyNum)
+			newVal := new(felt.Felt).SetUint64(12)
 
-				newKey := new(felt.Felt).SetUint64(newKeyNum)
-				newVal := new(felt.Felt).SetUint64(12)
+			_, err = tempTrie.Put(newKey, newVal)
+			require.NoError(t, err)
 
-				_, err = trie.Put(newKey, newVal)
-				require.NoError(t, err)
+			commonKey := bitset.New(251 - 1).Set(0).Set(1)
+			parentNode, err := tempTrie.storage.Get(commonKey)
+			require.NoError(t, err)
 
-				commonKey := bitset.New(251 - 1).Set(1)
+			assert.Equal(t, tempTrie.feltToBitSet(newKey), parentNode.Left)
+			assert.Equal(t, tempTrie.feltToBitSet(rightKey), parentNode.Right)
+		})
+		t.Run("Add new node as parent sibling", func(t *testing.T) {
+			newKeyNum, err := strconv.ParseUint("000", 2, 64)
+			require.NoError(t, err)
 
-				parentNode, err := trie.storage.Get(commonKey)
-				require.NoError(t, err)
+			newKey := new(felt.Felt).SetUint64(newKeyNum)
+			newVal := new(felt.Felt).SetUint64(12)
 
-				assert.Equal(t, trie.feltToBitSet(leftKey), parentNode.Left)
-				assert.Equal(t, trie.feltToBitSet(newKey), parentNode.Right)
-			})
-			t.Run("Add to right branch", func(t *testing.T) {
-				newKeyNum, err := strconv.ParseUint("110", 2, 64)
-				require.NoError(t, err)
+			_, err = tempTrie.Put(newKey, newVal)
+			require.NoError(t, err)
 
-				newKey := new(felt.Felt).SetUint64(newKeyNum)
-				newVal := new(felt.Felt).SetUint64(12)
+			commonKey := bitset.New(251 - 3)
+			parentNode, err := tempTrie.storage.Get(commonKey)
+			require.NoError(t, err)
 
-				_, err = trie.Put(newKey, newVal)
-				require.NoError(t, err)
+			assert.Equal(t, tempTrie.feltToBitSet(newKey), parentNode.Left)
 
-				commonKey := bitset.New(251 - 1).Set(0).Set(1)
-				parentNode, err := trie.storage.Get(commonKey)
-				require.NoError(t, err)
+			expectRightKey := bitset.New(251 - 2).Set(0)
 
-				assert.Equal(t, trie.feltToBitSet(newKey), parentNode.Left)
-				assert.Equal(t, trie.feltToBitSet(rightKey), parentNode.Right)
-			})
-			t.Run("Add new node as parent sibling", func(t *testing.T) {
-				newKeyNum, err := strconv.ParseUint("000", 2, 64)
-				require.NoError(t, err)
-
-				newKey := new(felt.Felt).SetUint64(newKeyNum)
-				newVal := new(felt.Felt).SetUint64(12)
-
-				_, err = trie.Put(newKey, newVal)
-				require.NoError(t, err)
-
-				commonKey := bitset.New(251 - 3)
-				parentNode, err := trie.storage.Get(commonKey)
-				require.NoError(t, err)
-
-				assert.Equal(t, trie.feltToBitSet(newKey), parentNode.Left)
-
-				expectRightKey := bitset.New(251 - 2).Set(0)
-
-				assert.Equal(t, expectRightKey, parentNode.Right)
-			})
-			return nil
+			assert.Equal(t, expectRightKey, parentNode.Right)
 		})
 	})
 }
@@ -307,29 +293,26 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			RunOnTempTrie(251, func(trie *Trie) error {
-				// Build a basic trie
-				_, err := trie.Put(leftKey, leftVal)
+			tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+			// Build a basic trie
+			_, err := tempTrie.Put(leftKey, leftVal)
+			require.NoError(t, err)
+
+			_, err = tempTrie.Put(rightKey, rightVal)
+			require.NoError(t, err)
+
+			for _, key := range test.deleteKeys {
+				_, err := tempTrie.Put(key, zeroVal)
 				require.NoError(t, err)
 
-				_, err = trie.Put(rightKey, rightVal)
-				require.NoError(t, err)
+				val, err := tempTrie.Get(key)
 
-				for _, key := range test.deleteKeys {
-					_, err := trie.Put(key, zeroVal)
-					require.NoError(t, err)
+				assert.Error(t, err, "should return an error when access a deleted key")
+				assert.Nil(t, val, "should return an nil value when access a deleted key")
+			}
 
-					val, err := trie.Get(key)
-
-					assert.Error(t, err, "should return an error when access a deleted key")
-					assert.Nil(t, val, "should return an nil value when access a deleted key")
-				}
-
-				// Check the final rootKey
-				assert.Equal(t, trie.feltToBitSet(test.expectRootKey), trie.rootKey)
-
-				return nil
-			})
+			// Check the final rootKey
+			assert.Equal(t, tempTrie.feltToBitSet(test.expectRootKey), tempTrie.rootKey)
 		})
 	}
 }
@@ -378,33 +361,30 @@ func TestTrieDeleteSubtree(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			RunOnTempTrie(251, func(trie *Trie) error {
-				// Build a basic trie
-				_, err := trie.Put(leftLeftKey, leftLeftVal)
-				require.NoError(t, err)
+			tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+			// Build a basic trie
+			_, err := tempTrie.Put(leftLeftKey, leftLeftVal)
+			require.NoError(t, err)
 
-				_, err = trie.Put(leftRightKey, leftRightVal)
-				require.NoError(t, err)
+			_, err = tempTrie.Put(leftRightKey, leftRightVal)
+			require.NoError(t, err)
 
-				_, err = trie.Put(rightKey, rightVal)
-				require.NoError(t, err)
+			_, err = tempTrie.Put(rightKey, rightVal)
+			require.NoError(t, err)
 
-				// Delete the node on left sub branch
-				_, err = trie.Put(test.deleteKey, zeroVal)
-				require.NoError(t, err)
+			// Delete the node on left sub branch
+			_, err = tempTrie.Put(test.deleteKey, zeroVal)
+			require.NoError(t, err)
 
-				newRootKey := bitset.New(251 - 2).Set(0)
+			newRootKey := bitset.New(251 - 2).Set(0)
 
-				assert.Equal(t, newRootKey, trie.rootKey)
+			assert.Equal(t, newRootKey, tempTrie.rootKey)
 
-				rootNode, err := trie.storage.Get(newRootKey)
-				require.NoError(t, err)
+			rootNode, err := tempTrie.storage.Get(newRootKey)
+			require.NoError(t, err)
 
-				assert.Equal(t, trie.feltToBitSet(rightKey), rootNode.Right)
-				assert.Equal(t, trie.feltToBitSet(test.expectLeft), rootNode.Left)
-
-				return nil
-			})
+			assert.Equal(t, tempTrie.feltToBitSet(rightKey), rootNode.Right)
+			assert.Equal(t, tempTrie.feltToBitSet(test.expectLeft), rootNode.Left)
 		})
 	}
 }
@@ -537,55 +517,51 @@ func TestState(t *testing.T) {
 	contractHash, err := new(felt.Felt).SetString("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	require.NoError(t, err)
 
-	RunOnTempTrie(251, func(state *Trie) error {
-		for addr, dif := range addresses {
-			RunOnTempTrie(251, func(contractState *Trie) error {
-				key, val := new(felt.Felt), new(felt.Felt)
-				for _, slot := range dif {
-					_, err = key.SetString(slot.key)
-					require.NoError(t, err)
+	tempState := NewTriePedersen(newMemStorage(), 251, nil)
 
-					_, err = val.SetString(slot.val)
-					require.NoError(t, err)
+	for addr, dif := range addresses {
+		tempContractState := NewTriePedersen(newMemStorage(), 251, nil)
 
-					_, err = contractState.Put(key, val)
-					require.NoError(t, err)
-				}
-				/*
-				   735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c  :  15c52969f4ae2ad48bf324e21b8c06ce8abcbc492263072a8de9c7f0bfa3c81
-				   20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6  :  4532b9a656bd6074c2ddb1b884fb976eb055cd4d37e093448ce3f223864ccc4
-				   6ee3440b08a9c805305449ec7f7003f27e9f7e287b83610952ec36bdc5a6bae  :  51c6b823cbf53c47ab7b34cddf1d9c0286fbb9d72ab29f2b577da0308cb1a07
-				   31c887d82502ceb218c06ebb46198da3f7b92864a8223746bc836dda3e34b52  :  2eb33f71cbf096ea6b3a55ba19fb31efc31184caca6482bc89c7708c2cbb420
-				   31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280  :  6fe0662f4be66647b4508a53a08e13e7d1ffb2b19e93fa9dc991153f3a447d
-				*/
+		key, val := new(felt.Felt), new(felt.Felt)
+		for _, slot := range dif {
+			_, err = key.SetString(slot.key)
+			require.NoError(t, err)
 
-				key, err = new(felt.Felt).SetString(addr)
-				require.NoError(t, err)
+			_, err = val.SetString(slot.val)
+			require.NoError(t, err)
 
-				var contractRoot *felt.Felt
-				contractRoot, err = contractState.Root()
-				require.NoError(t, err)
-
-				fmt.Println(addr, " : ", contractRoot.String())
-
-				val = crypto.Pedersen(contractHash, contractRoot)
-				val = crypto.Pedersen(val, new(felt.Felt))
-				val = crypto.Pedersen(val, new(felt.Felt))
-
-				_, err = state.Put(key, val)
-				require.NoError(t, err)
-
-				return nil
-			})
+			_, err = tempContractState.Put(key, val)
+			require.NoError(t, err)
 		}
+		/*
+		   735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c  :  15c52969f4ae2ad48bf324e21b8c06ce8abcbc492263072a8de9c7f0bfa3c81
+		   20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6  :  4532b9a656bd6074c2ddb1b884fb976eb055cd4d37e093448ce3f223864ccc4
+		   6ee3440b08a9c805305449ec7f7003f27e9f7e287b83610952ec36bdc5a6bae  :  51c6b823cbf53c47ab7b34cddf1d9c0286fbb9d72ab29f2b577da0308cb1a07
+		   31c887d82502ceb218c06ebb46198da3f7b92864a8223746bc836dda3e34b52  :  2eb33f71cbf096ea6b3a55ba19fb31efc31184caca6482bc89c7708c2cbb420
+		   31c9cdb9b00cb35cf31c05855c0ec3ecf6f7952a1ce6e3c53c3455fcd75a280  :  6fe0662f4be66647b4508a53a08e13e7d1ffb2b19e93fa9dc991153f3a447d
+		*/
 
-		got, err := state.Root()
+		key, err = new(felt.Felt).SetString(addr)
 		require.NoError(t, err)
 
-		assert.Equal(t, want, got)
+		var contractRoot *felt.Felt
+		contractRoot, err = tempContractState.Root()
+		require.NoError(t, err)
 
-		return nil
-	})
+		fmt.Println(addr, " : ", contractRoot.String())
+
+		val = crypto.Pedersen(contractHash, contractRoot)
+		val = crypto.Pedersen(val, new(felt.Felt))
+		val = crypto.Pedersen(val, new(felt.Felt))
+
+		_, err = tempState.Put(key, val)
+		require.NoError(t, err)
+	}
+
+	got, err := tempState.Root()
+	require.NoError(t, err)
+
+	assert.Equal(t, want, got)
 }
 
 func TestPutZero(t *testing.T) {
@@ -641,7 +617,8 @@ func TestPutZero(t *testing.T) {
 		assert.Equal(t, root, gotRoot)
 
 		key := keys[len(keys)-1-i]
-		trie.Put(key, new(felt.Felt))
+		_, err = trie.Put(key, new(felt.Felt))
+		require.NoError(t, err)
 	}
 
 	actualEmptyRoot, err := trie.Root()
@@ -652,42 +629,39 @@ func TestPutZero(t *testing.T) {
 }
 
 func TestOldData(t *testing.T) {
-	RunOnTempTrie(251, func(trie *Trie) error {
-		key := new(felt.Felt).SetUint64(12)
-		old := new(felt.Felt)
+	tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
+	key := new(felt.Felt).SetUint64(12)
+	old := new(felt.Felt)
 
-		was, err := trie.Put(key, old)
-		require.NoError(t, err)
+	was, err := tempTrie.Put(key, old)
+	require.NoError(t, err)
 
-		assert.Nil(t, was) // no change
+	assert.Nil(t, was) // no change
 
-		was, err = trie.Put(key, new(felt.Felt).SetUint64(1))
-		require.NoError(t, err)
+	was, err = tempTrie.Put(key, new(felt.Felt).SetUint64(1))
+	require.NoError(t, err)
 
-		assert.Equal(t, old, was)
+	assert.Equal(t, old, was)
 
-		old.SetUint64(1)
+	old.SetUint64(1)
 
-		was, err = trie.Put(key, new(felt.Felt).SetUint64(2))
-		require.NoError(t, err)
+	was, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
+	require.NoError(t, err)
 
-		assert.Equal(t, old, was)
+	assert.Equal(t, old, was)
 
-		old.SetUint64(2)
+	old.SetUint64(2)
 
-		// put zero value to delete current key
-		was, err = trie.Put(key, new(felt.Felt))
-		require.NoError(t, err)
+	// put zero value to delete current key
+	was, err = tempTrie.Put(key, new(felt.Felt))
+	require.NoError(t, err)
 
-		assert.Equal(t, old, was)
+	assert.Equal(t, old, was)
 
-		// put zero again to check old data
-		was, err = trie.Put(key, new(felt.Felt))
-		require.NoError(t, err)
+	// put zero again to check old data
+	was, err = tempTrie.Put(key, new(felt.Felt))
+	require.NoError(t, err)
 
-		// there should no old data to return
-		assert.Nil(t, was)
-
-		return nil
-	})
+	// there should no old data to return
+	assert.Nil(t, was)
 }
