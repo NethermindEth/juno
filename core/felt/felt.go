@@ -48,9 +48,9 @@ func (z *Felt) Impl() *fp.Element {
 // UnmarshalJSON accepts numbers and strings as input.
 // See Element.SetString for valid prefixes (0x, 0b, ...).
 // If there is an error, we try to explicitly unmarshal from hex before
-// returning an error. This implementation is taken from [gnark-crypto].
+// returning an error. This implementation is based on [gnark-crypto]'s UnmarshalJSON.
 //
-// [gnark-crypto]: https://github.com/ConsenSys/gnark-crypto/blob/9fd0a7de2044f088a29cfac373da73d868230148/ecc/stark-curve/fp/element.go#L1028-L1056
+// [gnark-crypto]: https://github.com/ConsenSys/gnark-crypto/blob/master/ecc/stark-curve/fp/element.go
 func (z *Felt) UnmarshalJSON(data []byte) error {
 	s := string(data)
 	if len(s) > fp.Bits*3 {

@@ -221,7 +221,11 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 	return adaptTransaction(txn), nil
 }
 
-// BlockTransactionCount https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
+// BlockTransactionCount returns the number of transactions in a block
+// identified by the given BlockID.
+//
+// It follows the specification found here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
 func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 	header, err := h.blockHeaderByID(id)
 	if header == nil || err != nil {

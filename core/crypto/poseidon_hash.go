@@ -53,7 +53,9 @@ func hadesPermutation(state []felt.Felt) {
 
 var two = new(felt.Felt).SetUint64(2)
 
-// https://github.com/starkware-libs/cairo-lang/blob/12ca9e91bbdc8a423c63280949c7e34382792067/src/starkware/cairo/common/builtin_poseidon/poseidon.cairo#L5
+// Poseidon implements the [Poseidon hash].
+//
+// [Poseidon hash]: https://docs.starknet.io/documentation/architecture_and_concepts/Hashing/hash-functions/#poseidon_hash
 func Poseidon(x, y *felt.Felt) *felt.Felt {
 	state := []felt.Felt{*x, *y, *two}
 	hadesPermutation(state)
@@ -66,7 +68,9 @@ var one = new(felt.Felt).SetUint64(1)
 // If len(elems) is odd, pads with [1]
 // If len(elems) is even, pads with [1, 0]
 //
-// https://github.com/starkware-libs/cairo-lang/blob/12ca9e91bbdc8a423c63280949c7e34382792067/src/starkware/cairo/common/builtin_poseidon/poseidon.cairo#L28
+// PoseidonArray implements [Poseidon array hashing].
+//
+// [Poseidon array hashing]: https://docs.starknet.io/documentation/architecture_and_concepts/Hashing/hash-functions/#poseidon_array_hash
 func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
 	state := []felt.Felt{{}, {}, {}}
 
