@@ -1,4 +1,4 @@
-package trie
+package trie_test
 
 import (
 	"encoding/hex"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,7 +16,7 @@ func TestNodeHash(t *testing.T) {
 	valueBytes, _ := hex.DecodeString("1234ABCD")
 	expected, _ := new(felt.Felt).SetString("0x1d937094c09b5f8e26a662d21911871e3cbc6858d55cc49af9848ea6fed4e9")
 
-	node := Node{
+	node := trie.Node{
 		Value: new(felt.Felt).SetBytes(valueBytes),
 	}
 	path := bitset.FromWithLength(6, []uint64{42})
