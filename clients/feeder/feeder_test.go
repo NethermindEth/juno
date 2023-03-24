@@ -13,11 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func hexToFelt(t *testing.T, hex string) *felt.Felt {
+	f, err := new(felt.Felt).SetString(hex)
+	require.NoError(t, err)
+	return f
+}
+
 func TestDeclareTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	txnHash, _ := new(felt.Felt).SetString("0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
+	txnHash := hexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
 	status, err := client.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
@@ -38,7 +44,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	txnHash, _ := new(felt.Felt).SetString("0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
+	txnHash := hexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
 	status, err := client.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
@@ -60,7 +66,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	txnHash, _ := new(felt.Felt).SetString("0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
+	txnHash := hexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
 	status, err := client.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
@@ -82,7 +88,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	txnHash, _ := new(felt.Felt).SetString("0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
+	txnHash := hexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
 	status, err := client.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
@@ -112,7 +118,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	txnHash, _ := new(felt.Felt).SetString("0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
+	txnHash := hexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
 	status, err := client.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
@@ -175,7 +181,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	hash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
+	hash := hexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	class, err := client.ClassDefinition(context.Background(), hash)
 	if err != nil {
 		t.Error(err)
@@ -198,7 +204,7 @@ func TestClassV1Unmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
 	t.Cleanup(closeFn)
 
-	hash, _ := new(felt.Felt).SetString("0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
+	hash := hexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
 	class, err := client.ClassDefinition(context.Background(), hash)
 	if err != nil {
 		t.Error(err)
@@ -273,7 +279,7 @@ func TestTransaction(t *testing.T) {
 	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		transactionHash, _ := new(felt.Felt).SetString("0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
+		transactionHash := hexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
 		assert.NoError(t, err)
 		assert.NotNil(t, actualStatus)
@@ -310,7 +316,7 @@ func TestClassDefinition(t *testing.T) {
 	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		classHash, _ := new(felt.Felt).SetString("0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
+		classHash := hexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 
 		actualClass, err := client.ClassDefinition(context.Background(), classHash)
 		assert.Equal(t, nil, err, "Unexpected error")
