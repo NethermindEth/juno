@@ -143,16 +143,11 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
         * [ ] `starknet_getClassAt`
         * [ ] `starknet_getNonce`
         * [ ] `starknet_syncing`
-        * [ ] `starknet_pendingTransactions` (this will not be implemented since we don’t plan to implement `pending` tag)
-        
-        Requires Pagination
-        
         * [ ] `starknet_getEvents`
         
-        Requires Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
-        
-        * [ ] `starknet_call`
-        * [ ] `starknet_estimateFee`
+* [ ] Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
+  * [ ] `starknet_call`
+  * [ ] `starknet_estimateFee`
         
 * [ ] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
     * [ ] `starknet_addInvokeTransaction`
