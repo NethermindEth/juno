@@ -101,14 +101,17 @@ type Contract struct {
 
 // Nonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func (c *Contract) Nonce() (nonce *felt.Felt, err error) {
+func (c *Contract) Nonce() (*felt.Felt, error) {
 	key := db.ContractNonce.Key(c.Address.Marshal())
-	err = c.txn.Get(key, func(val []byte) error {
+	var nonce *felt.Felt
+	if err := c.txn.Get(key, func(val []byte) error {
 		nonce = new(felt.Felt)
 		nonce.SetBytes(val)
 		return nil
-	})
-	return
+	}); err != nil {
+		return nil, err
+	}
+	return nonce, nil
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -168,14 +171,17 @@ func (c *Contract) Storage(key *felt.Felt) (*felt.Felt, error) {
 }
 
 // ClassHash returns hash of the class that the contract at the given address instantiates.
-func classHash(addr *felt.Felt, txn db.Transaction) (classHash *felt.Felt, err error) {
+func classHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 	key := db.ContractClassHash.Key(addr.Marshal())
-	err = txn.Get(key, func(val []byte) error {
+	var classHash *felt.Felt
+	if err := txn.Get(key, func(val []byte) error {
 		classHash = new(felt.Felt)
 		classHash.SetBytes(val)
 		return nil
-	})
-	return
+	}); err != nil {
+		return nil, err
+	}
+	return classHash, nil
 }
 
 // storage returns the [core.Trie] that represents the

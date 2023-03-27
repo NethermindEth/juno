@@ -47,17 +47,20 @@ func (t *TransactionStorage) Put(key *bitset.BitSet, value *trie.Node) error {
 	return t.txn.Set(dbKey, valueBytes)
 }
 
-func (t *TransactionStorage) Get(key *bitset.BitSet) (node *trie.Node, err error) {
+func (t *TransactionStorage) Get(key *bitset.BitSet) (*trie.Node, error) {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return nil, err
 	}
 
-	err = t.txn.Get(dbKey, func(val []byte) error {
+	var node *trie.Node
+	if err = t.txn.Get(dbKey, func(val []byte) error {
 		node = new(trie.Node)
 		return encoder.Unmarshal(val, node)
-	})
-	return
+	}); err != nil {
+		return nil, err
+	}
+	return node, err
 }
 
 func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
