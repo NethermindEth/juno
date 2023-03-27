@@ -79,9 +79,9 @@ func TestStateUpdate(t *testing.T) {
 			assert.True(t, response.OldRoot.Equal(feederUpdate.OldRoot))
 			assert.True(t, response.BlockHash.Equal(feederUpdate.BlockHash))
 
-			assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredV0Classes))
-			for idx := range response.StateDiff.DeclaredContracts {
-				resp := response.StateDiff.DeclaredContracts[idx]
+			assert.Equal(t, len(response.StateDiff.OldDeclaredContracts), len(feederUpdate.StateDiff.DeclaredV0Classes))
+			for idx := range response.StateDiff.OldDeclaredContracts {
+				resp := response.StateDiff.OldDeclaredContracts[idx]
 				coreDeclaredClass := feederUpdate.StateDiff.DeclaredV0Classes[idx]
 				assert.True(t, resp.Equal(coreDeclaredClass))
 			}
@@ -229,7 +229,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, responseTx.Hash, invokeTx.Hash())
-		assert.Equal(t, responseTx.ContractAddress, invokeTx.SenderAddress)
+		assert.Equal(t, responseTx.SenderAddress, invokeTx.SenderAddress)
 		assert.Equal(t, responseTx.EntryPointSelector, invokeTx.EntryPointSelector)
 		assert.Equal(t, responseTx.Nonce, invokeTx.Nonce)
 		assert.Equal(t, responseTx.CallData, invokeTx.CallData)

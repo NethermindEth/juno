@@ -243,7 +243,7 @@ func TestStateUpdate(t *testing.T) {
 		assert.Equal(t, "0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6", stateUpdate.NewRoot.String())
 		assert.Equal(t, "0x0", stateUpdate.OldRoot.String())
 		assert.Equal(t, 0, len(stateUpdate.StateDiff.Nonces))
-		assert.Equal(t, 0, len(stateUpdate.StateDiff.DeclaredContracts))
+		assert.Equal(t, 0, len(stateUpdate.StateDiff.OldDeclaredContracts))
 		assert.Equal(t, 5, len(stateUpdate.StateDiff.DeployedContracts))
 		assert.Equal(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6", stateUpdate.StateDiff.DeployedContracts[0].Address.String())
 		assert.Equal(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8", stateUpdate.StateDiff.DeployedContracts[0].ClassHash.String())

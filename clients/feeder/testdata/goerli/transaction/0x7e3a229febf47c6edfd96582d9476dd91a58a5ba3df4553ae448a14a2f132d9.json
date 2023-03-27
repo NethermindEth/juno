@@ -1,5 +1,5 @@
 {
-    "status": "ACCEPTED_ON_L2",
+    "status": "ACCEPTED_ON_L1",
     "block_hash": "0x556a2b9a97e9a98eedf7cb50e89a070fa38dca85b2df3414d3d0b5c52edfacf",
     "block_number": 637906,
     "transaction_index": 17,
@@ -12,7 +12,7 @@
             "0x212662654f6348d7fb03861e0d03bc43031c6a8a983633a82675dc93664da8f"
         ],
         "nonce": "0xa",
-        "contract_address": "0x129bba3acd6e303901a778594108e529d5e67f26d514384c3899db44e537010",
+        "sender_address": "0x129bba3acd6e303901a778594108e529d5e67f26d514384c3899db44e537010",
         "calldata": [
             "0x1",
             "0x5dc687af554664861727c909269dbc339e876bc70352efd64b8d057ddfb285",
