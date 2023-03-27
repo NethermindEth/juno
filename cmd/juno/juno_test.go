@@ -173,7 +173,7 @@ network: goerli
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
 				fileN, cleanup := tempCfgFile(t, tc.cfgFileContents)
-				defer cleanup()
+				t.Cleanup(cleanup)
 				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
 			}
 
@@ -199,10 +199,10 @@ func tempCfgFile(t *testing.T, cfg string) (string, deleteTempFile) {
 	f, err := os.CreateTemp("", "junoCfg.*.yaml")
 	require.NoError(t, err)
 
-	defer func() {
+	t.Cleanup(func() {
 		err = f.Close()
 		require.NoError(t, err)
-	}()
+	})
 
 	_, err = f.WriteString(cfg)
 	require.NoError(t, err)

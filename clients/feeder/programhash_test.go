@@ -12,7 +12,7 @@ import (
 
 func TestProgramHash(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.GOERLI)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	hexToFelt := func(t *testing.T, hex string) *felt.Felt {
 		f, err := new(felt.Felt).SetString(hex)
 		require.NoError(t, err)

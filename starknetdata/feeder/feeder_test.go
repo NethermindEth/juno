@@ -29,7 +29,7 @@ func TestGetBlockByNumber(t *testing.T) {
 	}
 
 	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	defer serverClose()
+	t.Cleanup(serverClose)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -70,7 +70,7 @@ func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
 	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	defer serverClose()
+	t.Cleanup(serverClose)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -133,7 +133,7 @@ func TestClassV0(t *testing.T) {
 	}
 
 	client, serverClose := feeder.NewTestClient(utils.GOERLI)
-	defer serverClose()
+	t.Cleanup(serverClose)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -186,11 +186,11 @@ func TestClassV0(t *testing.T) {
 
 func TestTransaction(t *testing.T) {
 	clientGoerli, serverClose := feeder.NewTestClient(utils.GOERLI)
-	defer serverClose()
+	t.Cleanup(serverClose)
 	adapterGoerli := adaptfeeder.New(clientGoerli)
 
 	clientMainnet, serverClose := feeder.NewTestClient(utils.MAINNET)
-	defer serverClose()
+	t.Cleanup(serverClose)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := context.Background()

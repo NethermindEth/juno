@@ -21,7 +21,7 @@ import (
 
 func TestNew(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 
 func TestHeight(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
@@ -79,7 +79,7 @@ func TestBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client, closeFn := feeder.NewTestClient(utils.MAINNET)
-		defer closeFn()
+		t.Cleanup(closeFn)
 		gw := adaptfeeder.New(client)
 
 		block, err := gw.BlockByNumber(context.Background(), 0)
@@ -132,7 +132,7 @@ func TestVerifyBlock(t *testing.T) {
 	})
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 
 	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
@@ -182,7 +182,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 
 	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
@@ -219,7 +219,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 
 	block0, err := gw.BlockByNumber(context.Background(), 0)
@@ -281,7 +281,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET)
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {

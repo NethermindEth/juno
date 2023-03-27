@@ -17,7 +17,7 @@ import (
 
 func TestClassV0Hash(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.GOERLI)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	gw := adaptfeeder.New(client)
 	tests := []struct {
@@ -50,7 +50,7 @@ func TestClassV0Hash(t *testing.T) {
 
 func TestClassV1Hash(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
-	defer closeFn()
+	t.Cleanup(closeFn)
 
 	gw := adaptfeeder.New(client)
 	tests := []struct {
