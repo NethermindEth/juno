@@ -199,7 +199,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, responseTx.Hash, invokeTx.Hash())
-		assert.Equal(t, responseTx.ContractAddress, invokeTx.SenderAddress)
+		assert.Equal(t, responseTx.SenderAddress, invokeTx.SenderAddress)
 		assert.Equal(t, responseTx.EntryPointSelector, invokeTx.EntryPointSelector)
 		assert.Equal(t, responseTx.Nonce, invokeTx.Nonce)
 		assert.Equal(t, responseTx.CallData, invokeTx.CallData)
