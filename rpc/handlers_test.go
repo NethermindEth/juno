@@ -177,6 +177,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	latestBlockHash := latestBlock.Hash
 
 	checkLatestBlock := func(t *testing.T, b *rpc.BlockWithTxHashes) {
+		t.Helper()
 		assert.Equal(t, latestBlock.Number, b.Number)
 		assert.Equal(t, latestBlock.Hash, b.Hash)
 		assert.Equal(t, latestBlock.GlobalStateRoot, b.NewRoot)
@@ -282,6 +283,7 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpc.BlockWithTxHashes, blockWithTxs *rpc.BlockWithTxs) {
+		t.Helper()
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
 
@@ -791,6 +793,7 @@ func TestStateUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
+		t.Helper()
 		assert.Equal(t, coreUpdate.BlockHash, rpcUpdate.BlockHash)
 		assert.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)
 		assert.Equal(t, coreUpdate.OldRoot, rpcUpdate.OldRoot)

@@ -39,7 +39,7 @@ func TestClassV0Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := hexToFelt(t, tt.classHash)
+			hash := utils.HexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
 			assert.NoError(t, err)
 			got := class.Hash()
@@ -64,7 +64,7 @@ func TestClassV1Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := hexToFelt(t, tt.classHash)
+			hash := utils.HexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
 			require.NoError(t, err)
 			got := class.Hash()
@@ -83,20 +83,20 @@ func TestClassEncoding(t *testing.T) {
 			class: &core.Cairo0Class{
 				Abi: "abi",
 				Externals: []core.EntryPoint{
-					{Selector: hexToFelt(t, "0x44"), Offset: hexToFelt(t, "0x37")},
+					{Selector: utils.HexToFelt(t, "0x44"), Offset: utils.HexToFelt(t, "0x37")},
 				},
 				L1Handlers:   []core.EntryPoint{},
 				Constructors: []core.EntryPoint{},
-				Builtins:     []*felt.Felt{hexToFelt(t, "0xDEADBEEF")},
-				ProgramHash:  hexToFelt(t, "0xBEEFDEAD"),
-				Bytecode:     []*felt.Felt{hexToFelt(t, "0xDEAD"), hexToFelt(t, "0xBEEF")},
+				Builtins:     []*felt.Felt{utils.HexToFelt(t, "0xDEADBEEF")},
+				ProgramHash:  utils.HexToFelt(t, "0xBEEFDEAD"),
+				Bytecode:     []*felt.Felt{utils.HexToFelt(t, "0xDEAD"), utils.HexToFelt(t, "0xBEEF")},
 			},
 		},
 		{
 			name: "V1",
 			class: &core.Cairo1Class{
 				Abi:     "abi",
-				AbiHash: hexToFelt(t, "0xDEADBEEF"),
+				AbiHash: utils.HexToFelt(t, "0xDEADBEEF"),
 				EntryPoints: struct {
 					Constructor []core.SierraEntryPoint
 					External    []core.SierraEntryPoint
@@ -106,13 +106,13 @@ func TestClassEncoding(t *testing.T) {
 					External: []core.SierraEntryPoint{
 						{
 							Index:    1,
-							Selector: hexToFelt(t, "0xDEADBEEF"),
+							Selector: utils.HexToFelt(t, "0xDEADBEEF"),
 						},
 					},
 					L1Handler: []core.SierraEntryPoint{},
 				},
-				Program:         []*felt.Felt{hexToFelt(t, "0xDEAD"), hexToFelt(t, "0xBEEF")},
-				ProgramHash:     hexToFelt(t, "0xBEEFDEAD"),
+				Program:         []*felt.Felt{utils.HexToFelt(t, "0xDEAD"), utils.HexToFelt(t, "0xBEEF")},
+				ProgramHash:     utils.HexToFelt(t, "0xBEEFDEAD"),
 				SemanticVersion: "0.1.0",
 			},
 		},
@@ -126,6 +126,7 @@ func TestClassEncoding(t *testing.T) {
 }
 
 func checkClassSymmetry(t *testing.T, input core.Class) {
+	t.Helper()
 	require.NoError(t, encoder.RegisterType(reflect.TypeOf(input)))
 
 	data, err := encoder.Marshal(input)

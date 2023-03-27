@@ -60,12 +60,6 @@ func TestGetBlockByNumber(t *testing.T) {
 	}
 }
 
-func hexToFelt(t *testing.T, hex string) *felt.Felt {
-	f, err := new(felt.Felt).SetString(hex)
-	require.NoError(t, err)
-	return f
-}
-
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
@@ -95,7 +89,7 @@ func TestStateUpdate(t *testing.T) {
 
 				assert.Equal(t, len(response.StateDiff.Nonces), len(feederUpdate.StateDiff.Nonces))
 				for keyStr, gw := range response.StateDiff.Nonces {
-					key := hexToFelt(t, keyStr)
+					key := utils.HexToFelt(t, keyStr)
 					coreNonce := feederUpdate.StateDiff.Nonces[*key]
 					assert.True(t, gw.Equal(coreNonce))
 				}
@@ -110,7 +104,7 @@ func TestStateUpdate(t *testing.T) {
 
 				assert.Equal(t, len(response.StateDiff.StorageDiffs), len(feederUpdate.StateDiff.StorageDiffs))
 				for keyStr, diffs := range response.StateDiff.StorageDiffs {
-					key := hexToFelt(t, keyStr)
+					key := utils.HexToFelt(t, keyStr)
 					coreDiffs := feederUpdate.StateDiff.StorageDiffs[*key]
 					assert.Equal(t, true, len(diffs) > 0)
 					assert.Equal(t, len(diffs), len(coreDiffs))
@@ -139,7 +133,7 @@ func TestClassV0(t *testing.T) {
 
 	for _, hashString := range classHashes {
 		t.Run("hash "+hashString, func(t *testing.T) {
-			hash := hexToFelt(t, hashString)
+			hash := utils.HexToFelt(t, hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
 			classGeneric, err := adapter.Class(ctx, hash)
@@ -171,7 +165,7 @@ func TestClassV0(t *testing.T) {
 			assert.Equal(t, len(response.V0.Program.Builtins), len(class.Builtins))
 
 			for i, v := range response.V0.Program.Data {
-				expected := hexToFelt(t, v)
+				expected := utils.HexToFelt(t, v)
 				assert.NoError(t, err)
 				assert.Equal(t, expected, class.Bytecode[i])
 			}
@@ -196,7 +190,7 @@ func TestTransaction(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
-		hash := hexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
+		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -218,7 +212,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
-		hash := hexToFelt(t, "0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
+		hash := utils.HexToFelt(t, "0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -238,7 +232,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("deploy account transaction", func(t *testing.T) {
-		hash := hexToFelt(t, "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
+		hash := utils.HexToFelt(t, "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
 		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -261,7 +255,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
-		hash := hexToFelt(t, "0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
+		hash := utils.HexToFelt(t, "0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -282,7 +276,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("l1handler transaction", func(t *testing.T) {
-		hash := hexToFelt(t, "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
+		hash := utils.HexToFelt(t, "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
 		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction

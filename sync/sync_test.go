@@ -26,8 +26,9 @@ func TestSyncBlocks(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
-	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {
-		return assert.NoError(t, func() error {
+	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
+		t.Helper()
+		assert.NoError(t, func() error {
 			headBlock, err := bc.Head()
 			require.NoError(t, err)
 
