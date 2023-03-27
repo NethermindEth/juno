@@ -172,8 +172,7 @@ network: goerli
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
-				fileN, cleanup := tempCfgFile(t, tc.cfgFileContents)
-				t.Cleanup(cleanup)
+				fileN := tempCfgFile(t, tc.cfgFileContents)
 				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
 			}
 
@@ -193,25 +192,20 @@ network: goerli
 	}
 }
 
-type deleteTempFile func()
+func tempCfgFile(t *testing.T, cfg string) string {
+	t.Helper()
 
-func tempCfgFile(t *testing.T, cfg string) (string, deleteTempFile) {
-	f, err := os.CreateTemp("", "junoCfg.*.yaml")
+	f, err := os.CreateTemp(t.TempDir(), "junoCfg.*.yaml")
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		err = f.Close()
-		require.NoError(t, err)
+		require.NoError(t, f.Close())
 	})
 
 	_, err = f.WriteString(cfg)
 	require.NoError(t, err)
 
-	err = f.Sync()
-	require.NoError(t, err)
+	require.NoError(t, f.Sync())
 
-	return f.Name(), func() {
-		err = os.Remove(f.Name())
-		require.NoError(t, err)
-	}
+	return f.Name()
 }

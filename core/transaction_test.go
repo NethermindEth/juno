@@ -110,6 +110,7 @@ func TestTransactionEncoding(t *testing.T) {
 }
 
 func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
+	t.Helper()
 	require.NoError(t, encoder.RegisterType(reflect.TypeOf(input)))
 
 	data, err := encoder.Marshal(input)
