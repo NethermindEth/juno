@@ -216,24 +216,16 @@ func adaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
 }
 
 func adaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
-	// pre-v0.11.0 used ContractAddress as SenderAddress for invoke v1
-	contractAddress := t.ContractAddress
-	senderAddress := t.SenderAddress
-	if t.Version.IsOne() && senderAddress == nil {
-		senderAddress = contractAddress
-		contractAddress = nil
-	}
-
 	return &core.InvokeTransaction{
 		TransactionHash:      t.Hash,
-		ContractAddress:      contractAddress,
+		ContractAddress:      t.ContractAddress,
 		EntryPointSelector:   t.EntryPointSelector,
 		Nonce:                t.Nonce,
 		CallData:             t.CallData,
 		TransactionSignature: t.Signature,
 		MaxFee:               t.MaxFee,
 		Version:              t.Version,
-		SenderAddress:        senderAddress,
+		SenderAddress:        t.SenderAddress,
 	}
 }
 
@@ -362,10 +354,7 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.Sta
 
 func adaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
-	stateDiff.DeclaredV0Classes = response.StateDiff.DeclaredContracts
-	if stateDiff.DeclaredV0Classes == nil {
-		stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts // post-v0.11.0 StateUpdate
-	}
+	stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts
 
 	stateDiff.DeclaredV1Classes = make([]core.DeclaredV1Class, len(response.StateDiff.DeclaredClasses))
 	for index, declaredV1Class := range response.StateDiff.DeclaredClasses {
