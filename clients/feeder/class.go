@@ -69,3 +69,17 @@ type ClassDefinition struct {
 	V0 *Cairo0Definition
 	V1 *SierraDefinition
 }
+
+func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
+	jsonMap := make(map[string]any)
+	if err := json.Unmarshal(data, &jsonMap); err != nil {
+		return err
+	}
+
+	if _, found := jsonMap["sierra_program"]; found {
+		c.V1 = new(SierraDefinition)
+		return json.Unmarshal(data, c.V1)
+	}
+	c.V0 = new(Cairo0Definition)
+	return json.Unmarshal(data, c.V0)
+}
