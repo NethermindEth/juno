@@ -21,10 +21,10 @@ import (
 
 func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	defer closeFn()
+	t.Cleanup(closeFn)
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) bool {
 		return assert.NoError(t, func() error {

@@ -23,7 +23,7 @@ func TestChainId(t *testing.T) {
 	for _, n := range []utils.Network{utils.MAINNET, utils.GOERLI, utils.GOERLI2, utils.INTEGRATION} {
 		t.Run(n.String(), func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
-			defer mockCtrl.Finish()
+			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			handler := rpc.New(mockReader, n)
@@ -37,7 +37,7 @@ func TestChainId(t *testing.T) {
 
 func TestBlockNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
@@ -63,7 +63,7 @@ func TestBlockNumber(t *testing.T) {
 
 func TestBlockNumberAndHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
@@ -78,7 +78,7 @@ func TestBlockNumberAndHash(t *testing.T) {
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
 		client, closeServer := feeder.NewTestClient(utils.MAINNET)
-		defer closeServer()
+		t.Cleanup(closeServer)
 		gw := adaptfeeder.New(client)
 
 		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
@@ -96,13 +96,13 @@ func TestBlockNumberAndHash(t *testing.T) {
 
 func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.GOERLI)
 
 	client, closeServer := feeder.NewTestClient(utils.GOERLI)
-	defer closeServer()
+	t.Cleanup(closeServer)
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(485004)
@@ -162,13 +162,13 @@ func TestBlockTransactionCount(t *testing.T) {
 
 func TestBlockWithTxHashes(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.GOERLI)
 
 	client, closeServer := feeder.NewTestClient(utils.GOERLI)
-	defer closeServer()
+	t.Cleanup(closeServer)
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(485004)
@@ -243,13 +243,13 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 func TestBlockWithTxs(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
 
 	client, closeServer := feeder.NewTestClient(utils.MAINNET)
-	defer closeServer()
+	t.Cleanup(closeServer)
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(16697)
@@ -349,11 +349,11 @@ func TestBlockWithTxs(t *testing.T) {
 
 func TestTransactionByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 
 	client, closeServer := feeder.NewTestClient(utils.MAINNET)
-	defer closeServer()
+	t.Cleanup(closeServer)
 	mainnetGw := adaptfeeder.New(client)
 
 	handler := rpc.New(mockReader, utils.MAINNET)
@@ -543,11 +543,11 @@ func TestTransactionByHash(t *testing.T) {
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	client, closer := feeder.NewTestClient(utils.MAINNET)
-	defer closer()
+	t.Cleanup(closer)
 	mainnetGw := adaptfeeder.New(client)
 
 	latestBlockNumber := 19199
@@ -669,7 +669,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 func TestTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
@@ -684,7 +684,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	})
 
 	client, closer := feeder.NewTestClient(utils.MAINNET)
-	defer closer()
+	t.Cleanup(closer)
 	mainnetGw := adaptfeeder.New(client)
 
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
@@ -754,7 +754,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 func TestStateUpdate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, utils.MAINNET)
@@ -784,7 +784,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	client, closer := feeder.NewTestClient(utils.MAINNET)
-	defer closer()
+	t.Cleanup(closer)
 	mainnetGw := adaptfeeder.New(client)
 
 	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)

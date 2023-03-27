@@ -55,14 +55,14 @@ func TestContractAddress(t *testing.T) {
 
 func TestNewContract(t *testing.T) {
 	testDB := pebble.NewMemTest()
-	defer func() {
+	t.Cleanup(func() {
 		require.NoError(t, testDB.Close())
-	}()
+	})
 
 	txn := testDB.NewTransaction(true)
-	defer func() {
+	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-	}()
+	})
 	addr := new(felt.Felt).SetUint64(234)
 	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
 
@@ -132,9 +132,9 @@ func TestNewContract(t *testing.T) {
 
 func TestNonceAndClassHash(t *testing.T) {
 	testDB := pebble.NewMemTest()
-	defer func() {
+	t.Cleanup(func() {
 		require.NoError(t, testDB.Close())
-	}()
+	})
 
 	txn := testDB.NewTransaction(true)
 	addr := new(felt.Felt).SetUint64(44)
@@ -165,9 +165,9 @@ func TestNonceAndClassHash(t *testing.T) {
 
 func TestUpdateStorageAndStorage(t *testing.T) {
 	testDB := pebble.NewMemTest()
-	defer func() {
+	t.Cleanup(func() {
 		require.NoError(t, testDB.Close())
-	}()
+	})
 
 	txn := testDB.NewTransaction(true)
 	addr := new(felt.Felt).SetUint64(44)

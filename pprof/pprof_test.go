@@ -20,7 +20,7 @@ func TestPprofServerEnabled(t *testing.T) {
 	t.Run("create a new Pprof instance and run it", func(t *testing.T) {
 		profiler := pprof.New(true, port, log)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		t.Cleanup(cancel)
 
 		go func() {
 			err := profiler.Run(ctx)
@@ -39,7 +39,7 @@ func TestPprofServerDisabled(t *testing.T) {
 	t.Run("create a new Pprof instance with enabled set to false and ensure it doesn't start", func(t *testing.T) {
 		profiler := pprof.New(false, port, log)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		t.Cleanup(cancel)
 		go func() {
 			err := profiler.Run(ctx)
 			require.NoError(t, err)
