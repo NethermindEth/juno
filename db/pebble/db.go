@@ -8,6 +8,8 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 )
 
+var _ db.DB = (*DB)(nil)
+
 type DB struct {
 	pebble *pebble.DB
 	wMutex *sync.Mutex

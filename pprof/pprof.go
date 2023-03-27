@@ -8,8 +8,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 )
+
+var _ service.Service = (*Profiler)(nil)
 
 type Profiler struct {
 	enabled bool

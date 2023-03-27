@@ -8,10 +8,13 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 )
+
+var _ service.Service = (*Synchronizer)(nil)
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
