@@ -91,7 +91,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			return
 		default:
 			if err != nil {
-				if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
+				if errors.As(err, new(core.CantVerifyTransactionHashError)) {
 					for ; err != nil; err = errors.Unwrap(err) {
 						s.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
 							block.Hash.ShortString(), "error", err.Error())

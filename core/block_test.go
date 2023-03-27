@@ -167,7 +167,7 @@ func TestBlockHash(t *testing.T) {
 
 			err = core.VerifyBlockHash(block, tc.chain)
 			if err != nil {
-				if errors.As(err, new(core.ErrCantVerifyTransactionHash)) {
+				if errors.As(err, new(core.CantVerifyTransactionHashError)) {
 					for ; err != nil; err = errors.Unwrap(err) {
 						t.Log(err)
 					}
