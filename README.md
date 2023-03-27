@@ -131,7 +131,7 @@ docker logs -f juno
 
 The focus of Phase 2 will be to Verify the state from layer 1 and implement the remaining JSON-RPC endpoints.
 
-* [ ] Starknet 0.11 support
+* [ ] Starknet v0.11.0 support
     * [ ] Poseidon state tree support
 * [ ] Blockchain: implement blockchain reorganization logic.
 * [ ] Synchronisation: implement verification of state from layer 1.
