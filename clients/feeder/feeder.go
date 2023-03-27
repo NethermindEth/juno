@@ -250,20 +250,6 @@ func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) 
 	}
 }
 
-func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
-	jsonMap := make(map[string]any)
-	if err := json.Unmarshal(data, &jsonMap); err != nil {
-		return err
-	}
-
-	if _, found := jsonMap["sierra_program"]; found {
-		c.V1 = new(SierraDefinition)
-		return json.Unmarshal(data, c.V1)
-	}
-	c.V0 = new(Cairo0Definition)
-	return json.Unmarshal(data, c.V0)
-}
-
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": classHash.String(),
