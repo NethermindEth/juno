@@ -11,6 +11,8 @@ import (
 
 var ErrDiscardedTransaction = errors.New("discarded txn")
 
+var _ db.Transaction = (*Transaction)(nil)
+
 type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot

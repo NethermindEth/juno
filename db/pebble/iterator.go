@@ -1,6 +1,11 @@
 package pebble
 
-import "github.com/cockroachdb/pebble"
+import (
+	"github.com/NethermindEth/juno/db"
+	"github.com/cockroachdb/pebble"
+)
+
+var _ db.Iterator = (*iterator)(nil)
 
 type iterator struct {
 	iter *pebble.Iterator

@@ -5,6 +5,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var (
+	_ Class = (*Cairo0Class)(nil)
+	_ Class = (*Cairo1Class)(nil)
+)
+
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64

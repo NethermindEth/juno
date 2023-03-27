@@ -78,6 +78,8 @@ func checkBlockVersion(protocolVersion string) error {
 	return nil
 }
 
+var _ Reader = (*Blockchain)(nil)
+
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network  utils.Network

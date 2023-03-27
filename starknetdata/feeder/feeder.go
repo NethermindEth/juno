@@ -8,8 +8,11 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+var _ starknetdata.StarknetData = (*Feeder)(nil)
 
 type Feeder struct {
 	client *feeder.Client

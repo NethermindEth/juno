@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 )
 
 const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
+
+var _ service.Service = (*HTTP)(nil)
 
 type HTTP struct {
 	rpc  *Server

@@ -73,6 +73,14 @@ type Transaction interface {
 	Signature() []*felt.Felt
 }
 
+var (
+	_ Transaction = (*DeployTransaction)(nil)
+	_ Transaction = (*DeployAccountTransaction)(nil)
+	_ Transaction = (*DeclareTransaction)(nil)
+	_ Transaction = (*InvokeTransaction)(nil)
+	_ Transaction = (*L1HandlerTransaction)(nil)
+)
+
 type DeployTransaction struct {
 	TransactionHash *felt.Felt
 	// A random number used to distinguish between different instances of the contract.
