@@ -257,8 +257,8 @@ func TestStateUpdate(t *testing.T) {
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		stateUpdate, err := client.StateUpdate(context.Background(), 1000000)
-		assert.Nil(t, stateUpdate, "Unexpected error")
-		assert.NotNil(t, err)
+		assert.Nil(t, stateUpdate)
+		assert.Error(t, err)
 	})
 }
 
@@ -269,13 +269,13 @@ func TestTransaction(t *testing.T) {
 	t.Run("Test normal case", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0xffff")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
-		assert.Nil(t, actualStatus, "Unexpected error")
+		assert.Nil(t, actualStatus)
 		assert.Error(t, err)
 	})
 }
@@ -294,8 +294,8 @@ func TestBlock(t *testing.T) {
 		blcokNumber := uint64(1000000)
 
 		actualBlock, err := client.Block(context.Background(), blcokNumber)
-		assert.Nil(t, actualBlock, "Unexpected error")
-		assert.NotNil(t, err)
+		assert.Nil(t, actualBlock)
+		assert.Error(t, err)
 	})
 }
 
@@ -313,8 +313,8 @@ func TestClassDefinition(t *testing.T) {
 	t.Run("Test classHash not find", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x000")
 		actualClass, err := client.ClassDefinition(context.Background(), classHash)
-		assert.Nil(t, actualClass, "Unexpected error")
-		assert.NotNil(t, err)
+		assert.Nil(t, actualClass)
+		assert.Error(t, err)
 	})
 }
 

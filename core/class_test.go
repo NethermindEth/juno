@@ -41,7 +41,7 @@ func TestClassV0Hash(t *testing.T) {
 		t.Run("ClassHash", func(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			got := class.Hash()
 			assert.Equal(t, hash, got)
 		})

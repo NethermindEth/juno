@@ -7,6 +7,7 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -62,10 +63,10 @@ func Unmarshal(b []byte, v any) error {
 func TestSymmetry(t *testing.T, value any) {
 	t.Helper()
 	cborBytes, err := cbor.Marshal(value)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	unmarshaled := reflect.New(reflect.TypeOf(value))
 	err = cbor.Unmarshal(cborBytes, unmarshaled.Interface())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, value, unmarshaled.Elem().Interface())
 }

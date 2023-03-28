@@ -75,43 +75,41 @@ func TestStateUpdate(t *testing.T) {
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
 
-			if assert.NoError(t, err) {
-				assert.True(t, response.NewRoot.Equal(feederUpdate.NewRoot))
-				assert.True(t, response.OldRoot.Equal(feederUpdate.OldRoot))
-				assert.True(t, response.BlockHash.Equal(feederUpdate.BlockHash))
+			assert.True(t, response.NewRoot.Equal(feederUpdate.NewRoot))
+			assert.True(t, response.OldRoot.Equal(feederUpdate.OldRoot))
+			assert.True(t, response.BlockHash.Equal(feederUpdate.BlockHash))
 
-				assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredClasses))
-				for idx := range response.StateDiff.DeclaredContracts {
-					resp := response.StateDiff.DeclaredContracts[idx]
-					coreDeclaredClass := feederUpdate.StateDiff.DeclaredClasses[idx]
-					assert.True(t, resp.Equal(coreDeclaredClass))
-				}
+			assert.Equal(t, len(response.StateDiff.DeclaredContracts), len(feederUpdate.StateDiff.DeclaredClasses))
+			for idx := range response.StateDiff.DeclaredContracts {
+				resp := response.StateDiff.DeclaredContracts[idx]
+				coreDeclaredClass := feederUpdate.StateDiff.DeclaredClasses[idx]
+				assert.True(t, resp.Equal(coreDeclaredClass))
+			}
 
-				assert.Equal(t, len(response.StateDiff.Nonces), len(feederUpdate.StateDiff.Nonces))
-				for keyStr, gw := range response.StateDiff.Nonces {
-					key := utils.HexToFelt(t, keyStr)
-					coreNonce := feederUpdate.StateDiff.Nonces[*key]
-					assert.True(t, gw.Equal(coreNonce))
-				}
+			assert.Equal(t, len(response.StateDiff.Nonces), len(feederUpdate.StateDiff.Nonces))
+			for keyStr, gw := range response.StateDiff.Nonces {
+				key := utils.HexToFelt(t, keyStr)
+				coreNonce := feederUpdate.StateDiff.Nonces[*key]
+				assert.True(t, gw.Equal(coreNonce))
+			}
 
-				assert.Equal(t, len(response.StateDiff.DeployedContracts), len(feederUpdate.StateDiff.DeployedContracts))
-				for idx := range response.StateDiff.DeployedContracts {
-					gw := response.StateDiff.DeployedContracts[idx]
-					coreDeployedContract := feederUpdate.StateDiff.DeployedContracts[idx]
-					assert.True(t, gw.ClassHash.Equal(coreDeployedContract.ClassHash))
-					assert.True(t, gw.Address.Equal(coreDeployedContract.Address))
-				}
+			assert.Equal(t, len(response.StateDiff.DeployedContracts), len(feederUpdate.StateDiff.DeployedContracts))
+			for idx := range response.StateDiff.DeployedContracts {
+				gw := response.StateDiff.DeployedContracts[idx]
+				coreDeployedContract := feederUpdate.StateDiff.DeployedContracts[idx]
+				assert.True(t, gw.ClassHash.Equal(coreDeployedContract.ClassHash))
+				assert.True(t, gw.Address.Equal(coreDeployedContract.Address))
+			}
 
-				assert.Equal(t, len(response.StateDiff.StorageDiffs), len(feederUpdate.StateDiff.StorageDiffs))
-				for keyStr, diffs := range response.StateDiff.StorageDiffs {
-					key := utils.HexToFelt(t, keyStr)
-					coreDiffs := feederUpdate.StateDiff.StorageDiffs[*key]
-					assert.Equal(t, true, len(diffs) > 0)
-					assert.Equal(t, len(diffs), len(coreDiffs))
-					for idx := range diffs {
-						assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))
-						assert.Equal(t, true, diffs[idx].Value.Equal(coreDiffs[idx].Value))
-					}
+			assert.Equal(t, len(response.StateDiff.StorageDiffs), len(feederUpdate.StateDiff.StorageDiffs))
+			for keyStr, diffs := range response.StateDiff.StorageDiffs {
+				key := utils.HexToFelt(t, keyStr)
+				coreDiffs := feederUpdate.StateDiff.StorageDiffs[*key]
+				assert.Equal(t, true, len(diffs) > 0)
+				assert.Equal(t, len(diffs), len(coreDiffs))
+				for idx := range diffs {
+					assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))
+					assert.Equal(t, true, diffs[idx].Value.Equal(coreDiffs[idx].Value))
 				}
 			}
 		})
@@ -166,13 +164,12 @@ func TestClassV0(t *testing.T) {
 
 			for i, v := range response.V0.Program.Data {
 				expected := utils.HexToFelt(t, v)
-				assert.NoError(t, err)
 				assert.Equal(t, expected, class.Bytecode[i])
 			}
 			assert.Equal(t, len(response.V0.Program.Data), len(class.Bytecode))
 
 			programHash, err := feeder.ProgramHash(response.V0)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, programHash, class.ProgramHash)
 		})
 	}
