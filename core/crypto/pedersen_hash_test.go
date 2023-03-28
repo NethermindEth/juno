@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 func TestPedersen(t *testing.T) {
@@ -104,10 +105,10 @@ func TestPedersenArray(t *testing.T) {
 	for _, test := range tests {
 		var data []*felt.Felt
 		for _, item := range test.input {
-			elem, _ := new(felt.Felt).SetString(item)
+			elem := utils.HexToFelt(t, item)
 			data = append(data, elem)
 		}
-		want, _ := new(felt.Felt).SetString(test.want)
+		want := utils.HexToFelt(t, test.want)
 		got := crypto.PedersenArray(data...)
 		if !got.Equal(want) {
 			t.Errorf("PedersenArray(%x) = %x, want %x", data, got, want)

@@ -277,7 +277,9 @@ func TestSeek(t *testing.T) {
 	})
 
 	t.Run("key returns nil when seeking nonexistent data", func(t *testing.T) {
-		iter, _ := txn.NewIterator()
+		iter, err := txn.NewIterator()
+		require.NoError(t, err)
+
 		t.Cleanup(func() {
 			require.NoError(t, iter.Close())
 		})
