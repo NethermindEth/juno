@@ -20,7 +20,7 @@ import (
 //   - [ ] Add more test cases with different heights
 //   - [*] Add more complicated Put and Delete scenarios
 func TestTriePut(t *testing.T) {
-	t.Run("put zero to empty tree", func(t *testing.T) {
+	t.Run("put zero to empty trie", func(t *testing.T) {
 		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
 			key := new(felt.Felt).SetUint64(1)
 			zeroVal := new(felt.Felt).SetUint64(0)

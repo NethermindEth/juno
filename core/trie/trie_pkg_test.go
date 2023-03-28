@@ -11,7 +11,7 @@ import (
 )
 
 func TestTrieKeys(t *testing.T) {
-	t.Run("put to empty tree", func(t *testing.T) {
+	t.Run("put to empty trie", func(t *testing.T) {
 		tempTrie := NewTriePedersen(newMemStorage(), 251, nil)
 		keyNum, err := strconv.ParseUint("1101", 2, 64)
 		require.NoError(t, err)
