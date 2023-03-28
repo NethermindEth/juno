@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStarknetKeccak(t *testing.T) {
@@ -24,13 +26,10 @@ func TestStarknetKeccak(t *testing.T) {
 		t.Run(test.input, func(t *testing.T) {
 			t.Parallel()
 			d, err := crypto.StarknetKeccak([]byte(test.input))
-			if err != nil {
-				t.Fatalf("expected no error but got %s", err)
-			}
+			require.NoError(t, err)
+
 			got := fmt.Sprintf("%x", d.Bytes())
-			if test.want != got {
-				t.Errorf("expected hash for \"%s\" = %q but got %q", test.input, test.want, got)
-			}
+			assert.Equal(t, test.want, got)
 		})
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProgramHash(t *testing.T) {
@@ -35,22 +37,18 @@ func TestProgramHash(t *testing.T) {
 		},
 	}
 
+	t.Parallel()
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			classDefinition, err := client.ClassDefinition(context.Background(),
-				utils.HexToFelt(t, tt.classHash))
-			if err != nil {
-				t.Fatal(err)
-			}
+			t.Parallel()
+			classDefinition, err := client.ClassDefinition(context.Background(), utils.HexToFelt(t, tt.classHash))
+			require.NoError(t, err)
 
 			programHash, err := feeder.ProgramHash(classDefinition.V0)
-			if err != nil {
-				t.Fatalf("unexpected error while computing program hash: %s", err)
-			}
+			require.NoError(t, err)
 
-			if !programHash.Equal(tt.want) {
-				t.Errorf("wrong hash: got %s, want %s", programHash.String(), tt.want.String())
-			}
+			assert.Equal(t, tt.want, programHash)
 		})
 	}
 }
