@@ -1,0 +1,44 @@
+name: Deploy Juno
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch'
+        required: true
+      network:
+        description: 'Network'
+        required: false
+        default: 'mainnet'
+        enum: ['mainnet', 'goerli', 'goerli2', 'integration']
+
+jobs:
+  build_image_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trigger build_and_push_docker_image
+      id: trigger-build
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: Build and publish Docker image
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        inputs: '{"tag": "${{ github.actor }}-${{ github.sha }}"}'
+        
+    - name: Wait for build_and_push_docker_image workflow to complete
+      uses: fountainhead/action-wait-for-check@v1.1.0
+      id: wait-for-build
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        checkName: build_and_push_docker_image
+        intervalSeconds: 60
+        timeoutSeconds: 1500
+        
+    - name: Trigger Run Juno workflow when image is pushed with success
+      if: steps.wait-for-build.outputs.conclusion == 'success'
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: Run Juno
+        repo: NethermindEth/juno-smoke-tests
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        inputs: '{"container_tag": "${{ github.actor }}-${{ github.sha }}", "network": "{{ github.event.inputs.network }}"}'
+        ref: main
