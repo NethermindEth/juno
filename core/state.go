@@ -152,8 +152,7 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
-	}
-	if !update.OldRoot.Equal(currentRoot) {
+	} else if !update.OldRoot.Equal(currentRoot) {
 		return fmt.Errorf("state's current root: %s does not match state update's old root: %s", currentRoot, update.OldRoot)
 	}
 
@@ -169,44 +168,48 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		return err
 	}
 
-	// register deployed contracts
-	for _, contract := range update.StateDiff.DeployedContracts {
-		if err = s.putNewContract(contract.Address, contract.ClassHash); err != nil {
-			return err
-		}
-	}
-
-	// replace contract instances
-	for _, replace := range update.StateDiff.ReplacedClasses {
-		if err = s.replaceContract(replace.Address, replace.ClassHash); err != nil {
-			return err
-		}
-	}
-
-	// update contract nonces
-	for addr, nonce := range update.StateDiff.Nonces {
-		if err = s.updateContractNonce(&addr, nonce); err != nil {
-			return err
-		}
-	}
-
-	// update contract storages
-	for addr, diff := range update.StateDiff.StorageDiffs {
-		if err != nil {
-			return err
-		}
-		if err = s.updateContractStorage(&addr, diff); err != nil {
-			return err
-		}
+	if err = s.updateContracts(update.StateDiff); err != nil {
+		return err
 	}
 
 	newRoot, err := s.Root()
 	if err != nil {
 		return err
-	}
-	if !update.NewRoot.Equal(newRoot) {
+	} else if !update.NewRoot.Equal(newRoot) {
 		return fmt.Errorf("state's new root: %s does not match state update's new root: %s", newRoot, update.NewRoot)
 	}
+	return nil
+}
+
+func (s *State) updateContracts(diff *StateDiff) error {
+	// register deployed contracts
+	for _, contract := range diff.DeployedContracts {
+		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
+			return err
+		}
+	}
+
+	// replace contract instances
+	for _, replace := range diff.ReplacedClasses {
+		if err := s.replaceContract(replace.Address, replace.ClassHash); err != nil {
+			return err
+		}
+	}
+
+	// update contract nonces
+	for addr, nonce := range diff.Nonces {
+		if err := s.updateContractNonce(&addr, nonce); err != nil {
+			return err
+		}
+	}
+
+	// update contract storages
+	for addr, storageDiff := range diff.StorageDiffs {
+		if err := s.updateContractStorage(&addr, storageDiff); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
