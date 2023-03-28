@@ -15,6 +15,9 @@ clean-testcache:
 test: clean-testcache ## tests
 	go test ./...
 
+test-cached: ## tests with existing cache
+	go test ./...
+
 test-race: clean-testcache
 	go test ./... -race
 
