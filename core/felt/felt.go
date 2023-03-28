@@ -220,3 +220,8 @@ func (z *Felt) Mul(x, y *Felt) *Felt {
 	z.val.Mul(&x.val, &y.val)
 	return z
 }
+
+// Cmp forwards the call to underlying field element implementation
+func (z *Felt) Cmp(x *Felt) int {
+	return z.val.Cmp(&x.val)
+}
