@@ -145,9 +145,11 @@ func (n *Node) Run(ctx context.Context) {
 
 	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
 
-	profiler := pprof.New(n.cfg.Pprof, defaultPprofPort, n.log)
+	n.services = []service.Service{synchronizer, http}
 
-	n.services = []service.Service{synchronizer, http, profiler}
+	if n.cfg.Pprof {
+		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
