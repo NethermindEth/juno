@@ -175,9 +175,8 @@ func (s *State) putClass(classHash *felt.Felt, class Class) error {
 		}
 
 		return s.txn.Set(classKey, classEncoded)
-	} else {
-		return err
 	}
+	return err
 }
 
 // updateContractStorage applies the diff set to the Trie of the

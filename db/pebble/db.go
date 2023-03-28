@@ -39,11 +39,11 @@ func NewMemTest() db.DB {
 }
 
 func newPebble(path string, options *pebble.Options) (db.DB, error) {
-	if pDB, err := pebble.Open(path, options); err != nil {
+	pDB, err := pebble.Open(path, options)
+	if err != nil {
 		return nil, err
-	} else {
-		return &DB{pDB, new(sync.Mutex)}, nil
 	}
+	return &DB{pDB, new(sync.Mutex)}, nil
 }
 
 // NewTransaction : see db.DB.NewTransaction

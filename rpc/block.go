@@ -55,20 +55,19 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 		jsonObject := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(data, &jsonObject); err != nil {
 			return err
-		} else {
-			hash, ok := jsonObject["block_hash"]
-			if ok {
-				b.Hash = new(felt.Felt)
-				return json.Unmarshal(hash, b.Hash)
-			}
-
-			number, ok := jsonObject["block_number"]
-			if ok {
-				return json.Unmarshal(number, &b.Number)
-			}
-
-			return errors.New("cannot unmarshal block id")
 		}
+		hash, ok := jsonObject["block_hash"]
+		if ok {
+			b.Hash = new(felt.Felt)
+			return json.Unmarshal(hash, b.Hash)
+		}
+
+		number, ok := jsonObject["block_number"]
+		if ok {
+			return json.Unmarshal(number, &b.Number)
+		}
+
+		return errors.New("cannot unmarshal block id")
 	}
 	return nil
 }

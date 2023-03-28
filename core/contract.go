@@ -150,9 +150,12 @@ func (c *Contract) UpdateStorage(diff []StorageDiff) error {
 	// update contract storage root in the database
 	rootKeyDBKey := db.ContractRootKey.Key(c.Address.Marshal())
 	if rootKey := cStorage.RootKey(); rootKey != nil {
-		if rootKeyBytes, err := rootKey.MarshalBinary(); err != nil {
+		rootKeyBytes, err := rootKey.MarshalBinary()
+		if err != nil {
 			return err
-		} else if err := c.txn.Set(rootKeyDBKey, rootKeyBytes); err != nil {
+		}
+
+		if err := c.txn.Set(rootKeyDBKey, rootKeyBytes); err != nil {
 			return err
 		}
 	} else if err := c.txn.Delete(rootKeyDBKey); err != nil {

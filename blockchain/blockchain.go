@@ -129,11 +129,11 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
-	if height, err := b.height(txn); err != nil {
+	height, err := b.height(txn)
+	if err != nil {
 		return nil, err
-	} else {
-		return blockByNumber(txn, height)
 	}
+	return blockByNumber(txn, height)
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
@@ -308,9 +308,12 @@ func storeBlockHeader(txn db.Transaction, header *core.Header) error {
 		return err
 	}
 
-	if headerBytes, err := encoder.Marshal(header); err != nil {
+	headerBytes, err := encoder.Marshal(header)
+	if err != nil {
 		return err
-	} else if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes); err != nil {
+	}
+
+	if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes); err != nil {
 		return err
 	}
 
@@ -416,9 +419,11 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
-	if updateBytes, err := encoder.Marshal(update); err != nil {
+	updateBytes, err := encoder.Marshal(update)
+	if err != nil {
 		return err
-	} else if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
+	}
+	if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
 		return err
 	}
 
@@ -496,15 +501,19 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 		return err
 	}
 
-	if txnBytes, err := encoder.Marshal(t); err != nil {
+	txnBytes, err := encoder.Marshal(t)
+	if err != nil {
 		return err
-	} else if err = txn.Set(db.TransactionsByBlockNumberAndIndex.Key(bnIndexBytes), txnBytes); err != nil {
+	}
+	if err = txn.Set(db.TransactionsByBlockNumberAndIndex.Key(bnIndexBytes), txnBytes); err != nil {
 		return err
 	}
 
-	if rBytes, err := encoder.Marshal(r); err != nil {
+	rBytes, err := encoder.Marshal(r)
+	if err != nil {
 		return err
-	} else if err = txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes); err != nil {
+	}
+	if err = txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes); err != nil {
 		return err
 	}
 	return nil
@@ -542,15 +551,22 @@ func transactionByHash(txn db.Transaction, hash *felt.Felt) (core.Transaction, e
 
 // receiptByHash gets the transaction receipt for a given hash.
 func receiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
-	if bnIndex, err := transactionBlockNumberAndIndexByHash(txn, hash); err != nil {
+	bnIndex, err := transactionBlockNumberAndIndexByHash(txn, hash)
+	if err != nil {
 		return nil, nil, 0, err
-	} else if receipt, err := receiptByBlockNumberAndIndex(txn, bnIndex); err != nil {
-		return nil, nil, 0, err
-	} else if header, err := blockHeaderByNumber(txn, bnIndex.Number); err != nil {
-		return nil, nil, 0, err
-	} else {
-		return receipt, header.Hash, header.Number, nil
 	}
+
+	receipt, err := receiptByBlockNumberAndIndex(txn, bnIndex)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	header, err := blockHeaderByNumber(txn, bnIndex.Number)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	return receipt, header.Hash, header.Number, nil
 }
 
 // receiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.

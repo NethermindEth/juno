@@ -207,15 +207,16 @@ func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpd
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	if body, err := c.get(ctx, queryURL); err != nil {
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
 		return nil, err
-	} else {
-		update := new(StateUpdate)
-		if err = json.Unmarshal(body, update); err != nil {
-			return nil, err
-		}
-		return update, nil
 	}
+
+	update := new(StateUpdate)
+	if err = json.Unmarshal(body, update); err != nil {
+		return nil, err
+	}
+	return update, nil
 }
 
 func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
@@ -223,15 +224,16 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 		"transactionHash": transactionHash.String(),
 	})
 
-	if body, err := c.get(ctx, queryURL); err != nil {
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
 		return nil, err
-	} else {
-		txStatus := new(TransactionStatus)
-		if err = json.Unmarshal(body, txStatus); err != nil {
-			return nil, err
-		}
-		return txStatus, nil
 	}
+
+	txStatus := new(TransactionStatus)
+	if err = json.Unmarshal(body, txStatus); err != nil {
+		return nil, err
+	}
+	return txStatus, nil
 }
 
 func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) {
@@ -239,15 +241,16 @@ func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) 
 		"blockNumber": strconv.FormatUint(blockNumber, 10),
 	})
 
-	if body, err := c.get(ctx, queryURL); err != nil {
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
 		return nil, err
-	} else {
-		block := new(Block)
-		if err = json.Unmarshal(body, block); err != nil {
-			return nil, err
-		}
-		return block, nil
 	}
+
+	block := new(Block)
+	if err = json.Unmarshal(body, block); err != nil {
+		return nil, err
+	}
+	return block, nil
 }
 
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
@@ -255,13 +258,14 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*Cl
 		"classHash": classHash.String(),
 	})
 
-	if body, err := c.get(ctx, queryURL); err != nil {
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
 		return nil, err
-	} else {
-		class := new(ClassDefinition)
-		if err = json.Unmarshal(body, class); err != nil {
-			return nil, err
-		}
-		return class, nil
 	}
+
+	class := new(ClassDefinition)
+	if err = json.Unmarshal(body, class); err != nil {
+		return nil, err
+	}
+	return class, nil
 }

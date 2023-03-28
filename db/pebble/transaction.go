@@ -45,16 +45,16 @@ func (t *Transaction) Discard() error {
 func (t *Transaction) Commit() error {
 	if t.batch != nil {
 		return db.CloseAndWrapOnError(t.Discard, t.batch.Commit(pebble.Sync))
-	} else {
-		return db.CloseAndWrapOnError(t.Discard, ErrDiscardedTransaction)
 	}
+	return db.CloseAndWrapOnError(t.Discard, ErrDiscardedTransaction)
 }
 
 // Set : see db.Transaction.Set
 func (t *Transaction) Set(key, val []byte) error {
 	if t.batch == nil {
 		return errors.New("read only transaction")
-	} else if len(key) == 0 {
+	}
+	if len(key) == 0 {
 		return errors.New("empty key")
 	}
 	return t.batch.Set(key, val, pebble.Sync)
@@ -95,11 +95,12 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 func (t *Transaction) Impl() any {
 	if t.batch != nil {
 		return t.batch
-	} else if t.snapshot != nil {
-		return t.snapshot
-	} else {
-		return nil
 	}
+
+	if t.snapshot != nil {
+		return t.snapshot
+	}
+	return nil
 }
 
 // NewIterator : see db.Transaction.NewIterator
