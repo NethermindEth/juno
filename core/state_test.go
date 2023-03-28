@@ -39,7 +39,7 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
-		require.NoError(t, state.Update(su0, nil))
+		require.NoError(t, state.Update(0, su0, nil))
 		gotNewRoot, err := state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su0.NewRoot, gotNewRoot)
@@ -51,7 +51,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot: oldRoot,
 		}
 		expectedErr := fmt.Sprintf("state's current root: %s does not match state update's old root: %s", su0.NewRoot, oldRoot)
-		require.EqualError(t, state.Update(su, nil), expectedErr)
+		require.EqualError(t, state.Update(1, su, nil), expectedErr)
 	})
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
@@ -62,16 +62,16 @@ func TestUpdate(t *testing.T) {
 			StateDiff: new(core.StateDiff),
 		}
 		expectedErr := fmt.Sprintf("state's new root: %s does not match state update's new root: %s", su0.NewRoot, newRoot)
-		require.EqualError(t, state.Update(su, nil), expectedErr)
+		require.EqualError(t, state.Update(1, su, nil), expectedErr)
 	})
 
 	t.Run("non-empty state updated multiple times", func(t *testing.T) {
-		require.NoError(t, state.Update(su1, nil))
+		require.NoError(t, state.Update(1, su1, nil))
 		gotNewRoot, err := state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su1.NewRoot, gotNewRoot)
 
-		require.NoError(t, state.Update(su2, nil))
+		require.NoError(t, state.Update(2, su2, nil))
 		gotNewRoot, err = state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, gotNewRoot)
@@ -98,8 +98,8 @@ func TestContractClassHash(t *testing.T) {
 	su1, err := gw.StateUpdate(context.Background(), 1)
 	require.NoError(t, err)
 
-	require.NoError(t, state.Update(su0, nil))
-	require.NoError(t, state.Update(su1, nil))
+	require.NoError(t, state.Update(0, su0, nil))
+	require.NoError(t, state.Update(1, su1, nil))
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
 
@@ -144,7 +144,7 @@ func TestNonce(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, state.Update(su, nil))
+	require.NoError(t, state.Update(0, su, nil))
 
 	t.Run("newly deployed contract has zero nonce", func(t *testing.T) {
 		nonce, err := state.ContractNonce(addr)
@@ -162,10 +162,63 @@ func TestNonce(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(su, nil))
+		require.NoError(t, state.Update(1, su, nil))
 
 		gotNonce, err := state.ContractNonce(addr)
 		require.NoError(t, err)
 		assert.Equal(t, expectedNonce, gotNonce)
+	})
+}
+
+func TestHistory(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	state := core.NewState(txn)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, state.Update(0, su0, nil))
+
+	contractAddr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+	changedLoc := utils.HexToFelt(t, "0x5")
+	t.Run("should return an error for a location that changed on the given height", func(t *testing.T) {
+		_, err = state.ContractStorageAt(contractAddr, changedLoc, 0)
+		require.EqualError(t, err, "check head state")
+	})
+
+	t.Run("should return an error for not changed location", func(t *testing.T) {
+		_, err := state.ContractStorageAt(contractAddr, utils.HexToFelt(t, "0xDEADBEEF"), 0)
+		require.EqualError(t, err, "check head state")
+	})
+
+	// update the same location again
+	su := &core.StateUpdate{
+		NewRoot: utils.HexToFelt(t, "0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c"),
+		OldRoot: su0.NewRoot,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt][]core.StorageDiff{
+				*contractAddr: {
+					{
+						Key:   changedLoc,
+						Value: utils.HexToFelt(t, "0x44"),
+					},
+				},
+			},
+		},
+	}
+	require.NoError(t, state.Update(1, su, nil))
+
+	t.Run("should give old value for a location that changed after the given height", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
+		require.NoError(t, err)
+		require.Equal(t, oldValue, utils.HexToFelt(t, "0x22b"))
 	})
 }

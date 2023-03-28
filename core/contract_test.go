@@ -12,6 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var NoopOnValueChanged = func(location, oldValue *felt.Felt) error {
+	return nil
+}
+
 func TestContractAddress(t *testing.T) {
 	tests := []struct {
 		callerAddress       *felt.Felt
@@ -87,7 +91,7 @@ func TestNewContract(t *testing.T) {
 			oldRoot, err := contract.Root()
 			require.NoError(t, err)
 
-			require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}))
+			require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}, NoopOnValueChanged))
 
 			newContract, err := core.NewContract(addr, txn)
 			require.NoError(t, err)
@@ -120,7 +124,7 @@ func TestNewContract(t *testing.T) {
 			assert.Error(t, contract.UpdateNonce(&felt.Zero))
 		})
 		t.Run("UpdateStorage()", func(t *testing.T) {
-			assert.Error(t, contract.UpdateStorage(nil))
+			assert.Error(t, contract.UpdateStorage(nil, NoopOnValueChanged))
 		})
 	})
 }
@@ -175,7 +179,7 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 		oldRoot, err := contract.Root()
 		require.NoError(t, err)
 
-		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}))
+		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}, NoopOnValueChanged))
 
 		gotValue, err := contract.Storage(addr)
 		require.NoError(t, err)
@@ -187,7 +191,7 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 	})
 
 	t.Run("delete key from storage with storage diff", func(t *testing.T) {
-		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: new(felt.Felt)}}))
+		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: new(felt.Felt)}}, NoopOnValueChanged))
 
 		_, err := contract.Storage(addr)
 		require.EqualError(t, err, db.ErrKeyNotFound.Error())

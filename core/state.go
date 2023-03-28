@@ -15,11 +15,15 @@ import (
 const stateTrieHeight = 251
 
 type State struct {
+	*History
 	txn db.Transaction
 }
 
 func NewState(txn db.Transaction) *State {
-	return &State{txn: txn}
+	return &State{
+		History: NewHistory(txn),
+		txn:     txn,
+	}
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
@@ -110,7 +114,7 @@ func (s *State) updateStateRootDBKey(state *trie.Trie) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
+func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -146,7 +150,7 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		if err != nil {
 			return err
 		}
-		if err = s.updateContractStorage(&addr, diff); err != nil {
+		if err = s.updateContractStorage(&addr, diff, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -181,13 +185,17 @@ func (s *State) putClass(classHash *felt.Felt, class Class) error {
 
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff) error {
+func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff, blockNumber uint64) error {
 	contract, err := NewContract(addr, s.txn)
 	if err != nil {
 		return err
 	}
 
-	if err := contract.UpdateStorage(diff); err != nil {
+	onValueChanged := func(location, oldValue *felt.Felt) error {
+		return s.LogContractStorage(addr, location, oldValue, blockNumber)
+	}
+
+	if err = contract.UpdateStorage(diff, onValueChanged); err != nil {
 		return err
 	}
 

@@ -230,7 +230,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, dec
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(stateUpdate, declaredClasses); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, declaredClasses); err != nil {
 			return err
 		}
 		if err := storeBlockHeader(txn, block.Header); err != nil {
