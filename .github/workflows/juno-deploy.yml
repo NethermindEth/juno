@@ -3,9 +3,6 @@ name: Deploy Juno
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Branch'
-        required: true
       network:
         description: 'Network'
         required: false
@@ -22,6 +19,7 @@ jobs:
       with:
         workflow: Build and publish Docker image
         token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        ref: ${{ github.ref }}
         inputs: '{"tag": "${{ github.actor }}-${{ github.sha }}"}'
         
     - name: Wait for build_and_push_docker_image workflow to complete
@@ -40,5 +38,5 @@ jobs:
         workflow: Run Juno
         repo: NethermindEth/juno-smoke-tests
         token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
-        inputs: '{"container_tag": "${{ github.actor }}-${{ github.sha }}", "network": "{{ github.event.inputs.network }}"}'
+        inputs: '{"container_tag": "${{ github.actor }}-${{ github.sha }}", "network": "${{ github.event.inputs.network }}"}'
         ref: main
