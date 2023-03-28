@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 
 		chain = blockchain.New(testDB, utils.MAINNET)
 		b, err := chain.Head()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, block0, b)
 	})
 }
@@ -69,7 +69,7 @@ func TestHeight(t *testing.T) {
 
 		chain = blockchain.New(testDB, utils.MAINNET)
 		height, err := chain.Height()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
 	})
 }
@@ -215,15 +215,15 @@ func TestStore(t *testing.T) {
 		require.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
 		headBlock, err := chain.Head()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, block0, headBlock)
 
 		root, err := chain.StateCommitment()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, stateUpdate0.NewRoot, root)
 
 		got0Block, err := chain.BlockByNumber(0)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, block0, got0Block)
 
 		got0Update, err := chain.StateUpdateByHash(block0.Hash)
@@ -242,15 +242,15 @@ func TestStore(t *testing.T) {
 		require.NoError(t, chain.Store(block1, stateUpdate1, nil))
 
 		headBlock, err := chain.Head()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, block1, headBlock)
 
 		root, err := chain.StateCommitment()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1.NewRoot, root)
 
 		got1Block, err := chain.BlockByNumber(1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, block1, got1Block)
 
 		got1Update, err := chain.StateUpdateByNumber(1)

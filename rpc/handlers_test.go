@@ -56,7 +56,7 @@ func TestBlockNumber(t *testing.T) {
 		mockReader.EXPECT().Height().Return(expectedHeight, nil)
 
 		num, err := handler.BlockNumber()
-		assert.Nil(t, err)
+		require.Nil(t, err)
 		assert.Equal(t, expectedHeight, num)
 	})
 }
@@ -89,7 +89,7 @@ func TestBlockNumberAndHash(t *testing.T) {
 		mockReader.EXPECT().Head().Return(expectedBlock, nil)
 
 		hashAndNum, rpcErr := handler.BlockNumberAndHash()
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
 	})
 }
@@ -139,7 +139,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Latest: true})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
 
@@ -147,7 +147,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Hash: latestBlockHash})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
 
@@ -155,7 +155,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Number: latestBlockNumber})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
 }
@@ -218,7 +218,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil)
 
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
 	})
@@ -227,7 +227,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
 
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: latestBlockHash})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
 	})
@@ -236,7 +236,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
 
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
 	})
@@ -313,10 +313,10 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Latest: true})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
@@ -325,10 +325,10 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: latestBlockHash})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Hash: latestBlockHash})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
@@ -337,10 +337,10 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Number: latestBlockNumber})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
@@ -616,10 +616,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			})
 
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Latest: true}, index)
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
 	})
@@ -638,10 +638,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			})
 
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Hash: latestBlockHash}, index)
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
 	})
@@ -660,10 +660,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			})
 
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
 	})
@@ -829,7 +829,7 @@ func TestStateUpdate(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
 
 		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Latest: true})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
 
@@ -837,7 +837,7 @@ func TestStateUpdate(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
 
 		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Number: uint64(21656)})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
 
@@ -845,7 +845,7 @@ func TestStateUpdate(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByHash(update21656.BlockHash).Return(update21656, nil)
 
 		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Hash: update21656.BlockHash})
-		assert.Nil(t, rpcErr)
+		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
 }
