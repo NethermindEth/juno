@@ -287,4 +287,14 @@ func TestMaxTrieHeight(t *testing.T) {
 			return nil
 		}))
 	})
+
+	t.Run("insert invalid key", func(t *testing.T) {
+		height := uint64(felt.Bits)
+		require.NoError(t, trie.RunOnTempTrie(uint(height), func(tt *trie.Trie) error {
+			badKey := new(felt.Felt).Sub(&felt.Zero, new(felt.Felt).SetUint64(1))
+			_, err := tt.Put(badKey, new(felt.Felt))
+			assert.Error(t, err)
+			return nil
+		}))
+	})
 }

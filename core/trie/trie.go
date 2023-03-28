@@ -3,6 +3,7 @@ package trie
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -39,6 +40,7 @@ type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 type Trie struct {
 	height  uint
 	rootKey *bitset.BitSet
+	maxKey  *felt.Felt
 	storage Storage
 	hash    hashFunc
 }
@@ -56,10 +58,15 @@ func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
 
+	// maxKey is 2^height - 1
+	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
+	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
+
 	return &Trie{
 		storage: storage,
 		height:  height,
 		rootKey: rootKey,
+		maxKey:  maxKey,
 		hash:    hash,
 	}, nil
 }
@@ -164,8 +171,13 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 }
 
 // Put updates the corresponding `value` for a `key`
+//
+//nolint:gocyclo
 func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
-	// Todo: check key is not bigger than max key value for a trie height.
+	if key.Cmp(t.maxKey) > 0 {
+		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
+	}
+
 	old := new(felt.Felt)
 	nodeKey := t.feltToBitSet(key)
 	node := &Node{
