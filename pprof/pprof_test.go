@@ -12,22 +12,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPprofServerEnabled(t *testing.T) {
+func TestPprofServer(t *testing.T) {
 	port := uint16(9050)
 	log := utils.NewNopZapLogger()
 	url := fmt.Sprintf("http://localhost:%d/debug/pprof/", port)
-	t.Run("create a new Pprof instance and run it", func(t *testing.T) {
-		profiler := pprof.New(port, log)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		t.Cleanup(cancel)
+	profiler := pprof.New(port, log)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
 
-		go func() {
-			err := profiler.Run(ctx)
-			require.NoError(t, err)
-		}()
+	go func() {
+		err := profiler.Run(ctx)
+		require.NoError(t, err)
+	}()
 
-		waitForServerReady(t, url, time.Second)
-	})
+	waitForServerReady(t, url, time.Second)
 }
 
 func waitForServerReady(t *testing.T, url string, timeout time.Duration) {
@@ -45,7 +43,6 @@ func waitForServerReady(t *testing.T, url string, timeout time.Duration) {
 		require.NoError(t, reqErr)
 
 		resp, err := client.Do(req)
-		require.NoError(t, err)
 		if err == nil && resp.StatusCode == http.StatusOK {
 			resp.Body.Close()
 			return
