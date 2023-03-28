@@ -122,9 +122,12 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 			overrideSeq = fallbackSeq
 		}
 
-		if hash, err := blockHash(b, network, overrideSeq); err != nil {
+		hash, err := blockHash(b, network, overrideSeq)
+		if err != nil {
 			return err
-		} else if hash.Equal(b.Hash) {
+		}
+
+		if hash.Equal(b.Hash) {
 			return nil
 		}
 	}

@@ -225,16 +225,15 @@ func isBatch(reader *bufio.Reader) bool {
 		char, err := reader.Peek(1)
 		if err != nil {
 			break
-		} else if char[0] == ' ' || char[0] == '\t' || char[0] == '\r' || char[0] == '\n' {
+		}
+		if char[0] == ' ' || char[0] == '\t' || char[0] == '\r' || char[0] == '\n' {
 			if discarded, err := reader.Discard(1); discarded != 1 || err != nil {
 				break
 			}
 			continue
-		} else {
-			return char[0] == '['
 		}
+		return char[0] == '['
 	}
-
 	return false
 }
 

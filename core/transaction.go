@@ -234,10 +234,11 @@ func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
 }
 
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
-	if i.Version.IsZero() {
+	switch {
+	case i.Version.IsZero():
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
 		return i.TransactionHash, nil
-	} else if i.Version.IsOne() {
+	case i.Version.IsOne():
 		return crypto.PedersenArray(
 			invokeFelt,
 			i.Version,
@@ -248,15 +249,17 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			n.ChainID(),
 			i.Nonce,
 		), nil
+	default:
+		return nil, errInvalidTransactionVersion(i, i.Version)
 	}
-	return nil, errInvalidTransactionVersion(i, i.Version)
 }
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
-	if d.Version.IsZero() {
+	switch {
+	case d.Version.IsZero():
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
 		return d.TransactionHash, nil
-	} else if d.Version.IsOne() {
+	case d.Version.IsOne():
 		return crypto.PedersenArray(
 			declareFelt,
 			d.Version,
@@ -267,7 +270,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			n.ChainID(),
 			d.Nonce,
 		), nil
-	} else if d.Version.Equal(new(felt.Felt).SetUint64(2)) {
+	case d.Version.Equal(new(felt.Felt).SetUint64(2)):
 		return crypto.PedersenArray(
 			declareFelt,
 			d.Version,
@@ -279,12 +282,15 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.Nonce,
 			d.CompiledClassHash,
 		), nil
+
+	default:
+		return nil, errInvalidTransactionVersion(d, d.Version)
 	}
-	return nil, errInvalidTransactionVersion(d, d.Version)
 }
 
 func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
-	if l.Version.IsZero() {
+	switch {
+	case l.Version.IsZero():
 		// There are some l1 handler transaction which do not return a nonce and for some random
 		// transaction the following hash fails.
 		if l.Nonce == nil {
@@ -300,8 +306,9 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 			n.ChainID(),
 			l.Nonce,
 		), nil
+	default:
+		return nil, errInvalidTransactionVersion(l, l.Version)
 	}
-	return nil, errInvalidTransactionVersion(l, l.Version)
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) (*felt.Felt, error) {
@@ -360,9 +367,11 @@ func verifyTransactions(txs []Transaction, n utils.Network) error {
 }
 
 func verifyTransactionHash(t Transaction, n utils.Network) *CantVerifyTransactionHashError {
-	if calculatedTxHash, err := transactionHash(t, n); err != nil {
+	calculatedTxHash, err := transactionHash(t, n)
+	if err != nil {
 		return &CantVerifyTransactionHashError{t: t, hashFailure: err}
-	} else if !calculatedTxHash.Equal(t.Hash()) {
+	}
+	if !calculatedTxHash.Equal(t.Hash()) {
 		return &CantVerifyTransactionHashError{t: t}
 	}
 	return nil

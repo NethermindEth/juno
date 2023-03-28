@@ -45,11 +45,11 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 }
 
 func (h *Handler) BlockNumberAndHash() (*BlockNumberAndHash, *jsonrpc.Error) {
-	if block, err := h.bcReader.Head(); err != nil {
+	block, err := h.bcReader.Head()
+	if err != nil {
 		return nil, ErrNoBlock
-	} else {
-		return &BlockNumberAndHash{Number: block.Number, Hash: block.Hash}, nil
 	}
+	return &BlockNumberAndHash{Number: block.Number, Hash: block.Hash}, nil
 }
 
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
@@ -182,32 +182,33 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 
 	if t.Version.Equal(new(felt.Felt).SetUint64(2)) {
 		txn.CompiledClassHash = nil // todo: add when we have support for Declare V2
-	} else if !t.Version.IsZero() && !t.Version.IsOne() {
-		panic("invalid invoke txn version")
 	}
+
 	return txn
 }
 
 func (h *Handler) blockByID(id *BlockID) (*core.Block, error) {
-	if id.Latest {
+	switch {
+	case id.Latest:
 		return h.bcReader.Head()
-	} else if id.Hash != nil {
+	case id.Hash != nil:
 		return h.bcReader.BlockByHash(id.Hash)
-	} else if id.Pending {
+	case id.Pending:
 		return nil, ErrPendingNotSupported
-	} else {
+	default:
 		return h.bcReader.BlockByNumber(id.Number)
 	}
 }
 
 func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
-	if id.Latest {
+	switch {
+	case id.Latest:
 		return h.bcReader.HeadsHeader()
-	} else if id.Hash != nil {
+	case id.Hash != nil:
 		return h.bcReader.BlockHeaderByHash(id.Hash)
-	} else if id.Pending {
+	case id.Pending:
 		return nil, ErrPendingNotSupported
-	} else {
+	default:
 		return h.bcReader.BlockHeaderByNumber(id.Number)
 	}
 }

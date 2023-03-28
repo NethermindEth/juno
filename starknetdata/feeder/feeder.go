@@ -265,11 +265,12 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, e
 		return nil, err
 	}
 
-	if response.V1 != nil {
+	switch {
+	case response.V1 != nil:
 		return adaptCairo1Class(response.V1)
-	} else if response.V0 != nil {
+	case response.V0 != nil:
 		return adaptCairo0Class(response.V0)
-	} else {
+	default:
 		return nil, errors.New("empty class")
 	}
 }
