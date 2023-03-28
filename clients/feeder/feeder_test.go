@@ -154,9 +154,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	t.Cleanup(closeFn)
 
 	block, err := client.Block(context.Background(), 19199)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, "0x41811b69473f26503e0375806ee97d05951ccc7840e3d2bbe14ffb2522e5be1", block.Hash.String())
 	assert.Equal(t, "0x68427fb6f1f5e687fbd779b3cc0d4ee31b49575ed0f8c749f827e4a45611efc", block.ParentHash.String())
@@ -177,9 +175,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 
 	hash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	class, err := client.ClassDefinition(context.Background(), hash)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	assert.NotNil(t, class.V0)
 	assert.Nil(t, class.V1)
@@ -200,9 +196,7 @@ func TestClassV1Unmarshal(t *testing.T) {
 
 	hash := utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
 	class, err := client.ClassDefinition(context.Background(), hash)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	assert.NotNil(t, class.V1)
 	assert.Nil(t, class.V0)
@@ -229,7 +223,7 @@ func TestClassV1Unmarshal(t *testing.T) {
 func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
+			require.Fail(t, "The code did not panic")
 		}
 	}()
 	baseURL := "https\t://mock_feeder.io"

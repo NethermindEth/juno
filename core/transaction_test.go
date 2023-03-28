@@ -131,6 +131,6 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 	case *core.L1HandlerTransaction:
 		assert.Equal(t, input, v)
 	default:
-		t.Error("not a transaction")
+		assert.Fail(t, "not a transaction")
 	}
 }

@@ -141,6 +141,6 @@ func checkClassSymmetry(t *testing.T, input core.Class) {
 	case *core.Cairo1Class:
 		assert.Equal(t, input, v)
 	default:
-		t.Error("not a class")
+		assert.Fail(t, "not a class")
 	}
 }

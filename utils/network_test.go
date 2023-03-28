@@ -35,7 +35,7 @@ func TestNetwork(t *testing.T) {
 			case utils.INTEGRATION:
 				assert.Equal(t, "https://external.integration.starknet.io/feeder_gateway/", n.URL())
 			default:
-				t.Error("unexpected network")
+				assert.Fail(t, "unexpected network")
 			}
 		}
 	})
@@ -51,7 +51,7 @@ func TestNetwork(t *testing.T) {
 			case utils.INTEGRATION:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION")), n.ChainID())
 			default:
-				t.Error("unexpected network")
+				assert.Fail(t, "unexpected network")
 			}
 		}
 	})
