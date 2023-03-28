@@ -17,14 +17,20 @@ func TestStarknetKeccak(t *testing.T) {
 		{"starknet", "014909ac0d4a034239ea4f7265fac97d189ff7430fec65bce3879ab4b5a8d058"},
 		{"keccak", "0335a135a69c769066bbb4d17b2fa3ec922c028d4e4bf9d0402e6f7c12b31813"},
 	}
+	t.Parallel()
+
 	for _, test := range tests {
-		d, err := crypto.StarknetKeccak([]byte(test.input))
-		if err != nil {
-			t.Fatalf("expected no error but got %s", err)
-		}
-		got := fmt.Sprintf("%x", d.Bytes())
-		if test.want != got {
-			t.Errorf("expected hash for \"%s\" = %q but got %q", test.input, test.want, got)
-		}
+		test := test
+		t.Run(test.input, func(t *testing.T) {
+			t.Parallel()
+			d, err := crypto.StarknetKeccak([]byte(test.input))
+			if err != nil {
+				t.Fatalf("expected no error but got %s", err)
+			}
+			got := fmt.Sprintf("%x", d.Bytes())
+			if test.want != got {
+				t.Errorf("expected hash for \"%s\" = %q but got %q", test.input, test.want, got)
+			}
+		})
 	}
 }
