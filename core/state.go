@@ -71,7 +71,7 @@ func (s *State) storage() (*trie.Trie, error) {
 		rootKey = nil
 	}
 
-	return trie.NewTriePedersen(tTxn, stateTrieHeight, rootKey), nil
+	return trie.NewTriePedersen(tTxn, stateTrieHeight, rootKey)
 }
 
 // rootKey returns key to the root node in the given Txn context.

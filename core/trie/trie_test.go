@@ -280,3 +280,11 @@ func TestOldData(t *testing.T) {
 		return nil
 	}))
 }
+
+func TestMaxTrieHeight(t *testing.T) {
+	t.Run("create trie with invalid height", func(t *testing.T) {
+		assert.Error(t, trie.RunOnTempTrie(felt.Bits+1, func(_ *trie.Trie) error {
+			return nil
+		}))
+	})
+}

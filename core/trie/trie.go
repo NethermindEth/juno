@@ -43,27 +43,34 @@ type Trie struct {
 	hash    hashFunc
 }
 
-func NewTriePedersen(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+func NewTriePedersen(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
 	return newTrie(storage, height, rootKey, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) *Trie {
+func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
 	return newTrie(storage, height, rootKey, crypto.Poseidon)
 }
 
-func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc) *Trie {
-	// Todo: set max height to 251 and set max key value accordingly
+func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc) (*Trie, error) {
+	if height > felt.Bits {
+		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
+	}
+
 	return &Trie{
 		storage: storage,
 		height:  height,
 		rootKey: rootKey,
 		hash:    hash,
-	}
+	}, nil
 }
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTrie(height uint, do func(*Trie) error) error {
-	return do(NewTriePedersen(newMemStorage(), height, nil))
+	trie, err := NewTriePedersen(newMemStorage(), height, nil)
+	if err != nil {
+		return err
+	}
+	return do(trie)
 }
 
 // feltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
