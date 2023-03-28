@@ -19,12 +19,31 @@ var (
 	leafVersion  = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
 )
 
+var _ StateHistoryReader = (*State)(nil)
+
+type StateHistoryReader interface {
+	StateReader
+
+	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	// todo: extend
+}
+
+type StateReader interface {
+	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+}
+
 type State struct {
+	*History
 	txn db.Transaction
 }
 
 func NewState(txn db.Transaction) *State {
-	return &State{txn: txn}
+	return &State{
+		History: NewHistory(txn),
+		txn:     txn,
+	}
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
@@ -53,6 +72,16 @@ func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 		return nil, err
 	}
 	return contract.Nonce()
+}
+
+// ContractStorage returns value of a key in the storage of the contract at the given address.
+func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+	contract, err := NewContract(addr, s.txn)
+	if err != nil {
+		return nil, err
+	}
+
+	return contract.Storage(key)
 }
 
 // Root returns the state commitment.
@@ -149,7 +178,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
+func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -169,7 +198,7 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 		return err
 	}
 
-	if err = s.updateContracts(update.StateDiff); err != nil {
+	if err = s.updateContracts(blockNumber, update.StateDiff); err != nil {
 		return err
 	}
 
@@ -182,7 +211,7 @@ func (s *State) Update(update *StateUpdate, declaredClasses map[felt.Felt]Class)
 	return nil
 }
 
-func (s *State) updateContracts(diff *StateDiff) error {
+func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 	// register deployed contracts
 	for _, contract := range diff.DeployedContracts {
 		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
@@ -206,7 +235,11 @@ func (s *State) updateContracts(diff *StateDiff) error {
 
 	// update contract storages
 	for addr, storageDiff := range diff.StorageDiffs {
-		if err := s.updateContractStorage(&addr, storageDiff); err != nil {
+		onValueChanged := func(location, oldValue *felt.Felt) error {
+			return s.LogContractStorage(&addr, location, oldValue, blockNumber)
+		}
+
+		if err := s.updateContractStorage(&addr, storageDiff, onValueChanged); err != nil {
 			return err
 		}
 	}
@@ -248,13 +281,13 @@ func (s *State) putClass(classHash *felt.Felt, class Class) error {
 
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff) error {
+func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff, onChanged OnValueChanged) error {
 	contract, err := NewContract(addr, s.txn)
 	if err != nil {
 		return err
 	}
 
-	if err := contract.UpdateStorage(diff); err != nil {
+	if err = contract.UpdateStorage(diff, onChanged); err != nil {
 		return err
 	}
 
