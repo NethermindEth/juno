@@ -279,7 +279,7 @@ func TestTransaction(t *testing.T) {
 		assert.NotNil(t, actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
-		transactionHash, _ := new(felt.Felt).SetString("0xffff")
+		transactionHash := utils.HexToFelt(t, "0xffff")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
 		assert.Nil(t, actualStatus, "Unexpected error")
 		assert.Error(t, err)
@@ -317,7 +317,7 @@ func TestClassDefinition(t *testing.T) {
 		assert.NotNil(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
-		classHash, _ := new(felt.Felt).SetString("0x000")
+		classHash := utils.HexToFelt(t, "0x000")
 		actualClass, err := client.ClassDefinition(context.Background(), classHash)
 		assert.Nil(t, actualClass, "Unexpected error")
 		assert.NotNil(t, err)
