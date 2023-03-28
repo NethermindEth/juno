@@ -15,12 +15,11 @@ import (
 var _ service.Service = (*Profiler)(nil)
 
 type Profiler struct {
-	enabled bool
-	log     utils.SimpleLogger
-	server  *http.Server
+	log    utils.SimpleLogger
+	server *http.Server
 }
 
-func New(enabled bool, port uint16, log utils.SimpleLogger) *Profiler {
+func New(port uint16, log utils.SimpleLogger) *Profiler {
 	server := &http.Server{
 		Addr:              "localhost:" + strconv.Itoa(int(port)),
 		Handler:           http.DefaultServeMux,
@@ -28,17 +27,12 @@ func New(enabled bool, port uint16, log utils.SimpleLogger) *Profiler {
 	}
 
 	return &Profiler{
-		enabled: enabled,
-		server:  server,
-		log:     log,
+		server: server,
+		log:    log,
 	}
 }
 
 func (p *Profiler) Run(ctx context.Context) error {
-	if !p.enabled {
-		return nil
-	}
-
 	go func() {
 		p.log.Infow("Starting pprof...", "address", p.server.Addr)
 		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -47,6 +41,5 @@ func (p *Profiler) Run(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
-	p.log.Infow("Shutting down pprof...")
 	return p.server.Shutdown(context.Background())
 }
