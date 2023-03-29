@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -86,9 +87,13 @@ func TestSyncBlocks(t *testing.T) {
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
+		var rwMutex sync.RWMutex
 		syncingHeight := uint64(0)
 
 		mockSNData.EXPECT().BlockByNumber(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.Block, error) {
+			rwMutex.RLock()
+			defer rwMutex.RUnlock()
+
 			// reject any other requests
 			if height != syncingHeight {
 				return nil, errors.New("try again")
@@ -98,6 +103,8 @@ func TestSyncBlocks(t *testing.T) {
 
 		reqCount := 0
 		mockSNData.EXPECT().StateUpdate(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.StateUpdate, error) {
+			rwMutex.RLock()
+
 			// reject any other requests
 			if height != syncingHeight {
 				return nil, errors.New("try again")
@@ -106,6 +113,7 @@ func TestSyncBlocks(t *testing.T) {
 			reqCount++
 			ret, err := gw.StateUpdate(context.Background(), syncingHeight)
 			require.NoError(t, err)
+			rwMutex.RUnlock()
 
 			if reqCount == 1 {
 				return nil, errors.New("try again")
@@ -115,7 +123,9 @@ func TestSyncBlocks(t *testing.T) {
 				ret.OldRoot = new(felt.Felt).SetUint64(1) // fail store
 			} else {
 				reqCount = 0
+				rwMutex.Lock()
 				syncingHeight++
+				rwMutex.Unlock()
 			}
 
 			return ret, nil
