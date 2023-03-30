@@ -6,7 +6,14 @@ on:
       tag:
         description: 'Enter an image tag e.g v0.1.0'
         required: true
-
+      repo_type:
+        description: 'Choose repository type'
+        type: choice
+        required: false
+        default: 'non-official'
+        options:
+        - official
+        - non-official
 jobs:
   build_and_push_docker_image:
     if: github.repository_owner == 'NethermindEth'
@@ -30,7 +37,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: nethermindeth/juno:${{ github.event.inputs.tag }}
+          tags: ${{ github.event.inputs.repo_type == 'official' && 'nethermind/juno' || 'nethermindeth/juno' }}:${{ github.event.inputs.tag }}
           
       - name: Clean up environment
         if: always()
