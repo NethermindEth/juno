@@ -388,3 +388,13 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 		},
 	}, nil
 }
+
+// Syncing returns the syncing status of the node.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
+func (h *Handler) Syncing() SyncState {
+	return SyncState{
+		False: false,
+	}
+}
