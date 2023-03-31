@@ -61,7 +61,7 @@ func TestBlockNumber(t *testing.T) {
 	})
 }
 
-func TestBlockNumberAndHash(t *testing.T) {
+func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -71,7 +71,7 @@ func TestBlockNumberAndHash(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
 
-		block, err := handler.BlockNumberAndHash()
+		block, err := handler.BlockHashAndNumber()
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrNoBlock, err)
 	})
@@ -84,11 +84,11 @@ func TestBlockNumberAndHash(t *testing.T) {
 		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
 		require.NoError(t, err)
 
-		expectedBlockHashAndNumber := &rpc.BlockNumberAndHash{Number: expectedBlock.Number, Hash: expectedBlock.Hash}
+		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
 
 		mockReader.EXPECT().Head().Return(expectedBlock, nil)
 
-		hashAndNum, rpcErr := handler.BlockNumberAndHash()
+		hashAndNum, rpcErr := handler.BlockHashAndNumber()
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
 	})
