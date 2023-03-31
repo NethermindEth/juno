@@ -36,19 +36,19 @@ func (m *MockStarknetData) EXPECT() *MockStarknetDataMockRecorder {
 	return m.recorder
 }
 
-// BlockByNumber mocks base method.
-func (m *MockStarknetData) BlockByNumber(arg0 context.Context, arg1 uint64) (*core.Block, error) {
+// BlockByID mocks base method.
+func (m *MockStarknetData) BlockByID(arg0 context.Context, arg1 string) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockByNumber", arg0, arg1)
+	ret := m.ctrl.Call(m, "BlockByID", arg0, arg1)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// BlockByNumber indicates an expected call of BlockByNumber.
-func (mr *MockStarknetDataMockRecorder) BlockByNumber(arg0, arg1 interface{}) *gomock.Call {
+// BlockByID indicates an expected call of BlockByID.
+func (mr *MockStarknetDataMockRecorder) BlockByID(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).BlockByNumber), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByID", reflect.TypeOf((*MockStarknetData)(nil).BlockByID), arg0, arg1)
 }
 
 // Class mocks base method.

@@ -140,6 +140,21 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockReader)(nil).Height))
 }
 
+// HighestBlockHeader mocks base method.
+func (m *MockReader) HighestBlockHeader() (*core.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HighestBlockHeader")
+	ret0, _ := ret[0].(*core.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HighestBlockHeader indicates an expected call of HighestBlockHeader.
+func (mr *MockReaderMockRecorder) HighestBlockHeader() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockReader)(nil).HighestBlockHeader))
+}
+
 // Receipt mocks base method.
 func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()
@@ -155,6 +170,21 @@ func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.F
 func (mr *MockReaderMockRecorder) Receipt(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), arg0)
+}
+
+// StartingBlockNumber mocks base method.
+func (m *MockReader) StartingBlockNumber() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartingBlockNumber")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StartingBlockNumber indicates an expected call of StartingBlockNumber.
+func (mr *MockReaderMockRecorder) StartingBlockNumber() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockNumber", reflect.TypeOf((*MockReader)(nil).StartingBlockNumber))
 }
 
 // StateUpdateByHash mocks base method.

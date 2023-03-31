@@ -24,10 +24,10 @@ func New(client *feeder.Client) *Feeder {
 	}
 }
 
-// BlockByNumber gets the block for a given block number from the feeder,
+// BlockByID gets the block for a given block id from the feeder,
 // then adapts it to the core.Block type.
-func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	response, err := f.client.Block(ctx, blockNumber)
+func (f *Feeder) BlockByID(ctx context.Context, blockID string) (*core.Block, error) {
+	response, err := f.client.Block(ctx, blockID)
 	if err != nil {
 		return nil, err
 	}

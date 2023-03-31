@@ -36,6 +36,7 @@ type Config struct {
 type Node struct {
 	cfg        *Config
 	db         db.DB
+	memDB      db.DB
 	blockchain *blockchain.Blockchain
 
 	services []service.Service
@@ -136,13 +137,22 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
+	n.memDB, err = pebble.NewMem()
+	if err != nil {
+		n.log.Errorw("Error opening memory DB", "err", err)
+		return
+	}
+
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
 		}
+		if closeErr := n.memDB.Close(); closeErr != nil {
+			n.log.Errorw("Error while closing the memory DB", "err", closeErr)
+		}
 	}()
 
-	n.blockchain = blockchain.New(n.db, n.cfg.Network)
+	n.blockchain = blockchain.New(n.db, n.memDB, n.cfg.Network)
 
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)

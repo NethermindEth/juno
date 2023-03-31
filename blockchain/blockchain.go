@@ -26,6 +26,8 @@ type Reader interface {
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
+	HighestBlockHeader() (header *core.Header, err error)
+	StartingBlockNumber() (number uint64, err error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
@@ -57,15 +59,17 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  utils.Network
-	database db.DB
+	database    db.DB
+	memDatabase db.DB
+	network     utils.Network
 }
 
-func New(database db.DB, network utils.Network) *Blockchain {
+func New(database, memDatabase db.DB, network utils.Network) *Blockchain {
 	registerCoreTypesToEncoder()
 	return &Blockchain{
-		database: database,
-		network:  network,
+		database:    database,
+		memDatabase: memDatabase,
+		network:     network,
 	}
 }
 
@@ -134,6 +138,24 @@ func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
 		return nil, err
 	}
 	return blockByNumber(txn, height)
+}
+
+func (b *Blockchain) StartingBlockNumber() (uint64, error) {
+	var number uint64
+	return number, b.memDatabase.View(func(txn db.Transaction) error {
+		var err error
+		number, err = startingBlockNumber(txn)
+		return err
+	})
+}
+
+func (b *Blockchain) HighestBlockHeader() (*core.Header, error) {
+	var header *core.Header
+	return header, b.memDatabase.View(func(txn db.Transaction) error {
+		var err error
+		header, err = highestBlockHeader(txn)
+		return err
+	})
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
@@ -333,6 +355,25 @@ func blockHeaderByNumber(txn db.Transaction, number uint64) (*core.Header, error
 		return nil, err
 	}
 	return header, nil
+}
+
+func startingBlockNumber(txn db.Transaction) (uint64, error) {
+	var blockNumber uint64
+	if err := txn.Get(db.StartingBlockNumber.Key(), func(val []byte) error {
+		blockNumber = binary.BigEndian.Uint64(val)
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return blockNumber, nil
+}
+
+func highestBlockHeader(txn db.Transaction) (*core.Header, error) {
+	var header *core.Header
+	return header, txn.Get(db.HighestBlockHeader.Key(), func(val []byte) error {
+		header = new(core.Header)
+		return encoder.Unmarshal(val, header)
+	})
 }
 
 func blockHeaderByHash(txn db.Transaction, hash *felt.Felt) (*core.Header, error) {
@@ -576,4 +617,24 @@ func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey
 		return encoder.Unmarshal(val, &r)
 	})
 	return r, err
+}
+
+// StoreStartingBlockHash stores the block hash at which the node started synching
+func (b *Blockchain) StoreStartingBlockNumber(number uint64) error {
+	return b.memDatabase.Update(func(txn db.Transaction) error {
+		numberBin := make([]byte, lenOfByteSlice)
+		binary.BigEndian.PutUint64(numberBin, number)
+		return txn.Set(db.StartingBlockNumber.Key(), numberBin)
+	})
+}
+
+// StoreHighestBlockHeader stores the header of the estimated highest block to be synchronised
+func (b *Blockchain) StoreHighestBlockHeader(header *core.Header) error {
+	return b.memDatabase.Update(func(txn db.Transaction) error {
+		headerBytes, err := encoder.Marshal(header)
+		if err != nil {
+			return err
+		}
+		return txn.Set(db.HighestBlockHeader.Key(), headerBytes)
+	})
 }

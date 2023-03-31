@@ -11,7 +11,7 @@ import (
 //
 //go:generate mockgen -destination=../mocks/mock_starknetdata.go -package=mocks github.com/NethermindEth/juno/starknetdata StarknetData
 type StarknetData interface {
-	BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error)
+	BlockByID(ctx context.Context, blockID string) (*core.Block, error)
 	Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error)
 	Class(ctx context.Context, classHash *felt.Felt) (core.Class, error)
 	StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error)

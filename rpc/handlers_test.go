@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -81,7 +82,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 		t.Cleanup(closeServer)
 		gw := adaptfeeder.New(client)
 
-		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
+		expectedBlock, err := gw.BlockByID(context.Background(), strconv.Itoa(147))
 		require.NoError(t, err)
 
 		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
@@ -106,7 +107,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(485004)
-	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	latestBlock, err := gw.BlockByID(context.Background(), strconv.FormatUint(latestBlockNumber, 10))
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 	expectedCount := latestBlock.TransactionCount
@@ -135,7 +136,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	t.Run("blockId - latest", func(t *testing.T) {
+	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Latest: true})
@@ -143,7 +144,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		assert.Equal(t, expectedCount, count)
 	})
 
-	t.Run("blockId - hash", func(t *testing.T) {
+	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Hash: latestBlockHash})
@@ -151,7 +152,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		assert.Equal(t, expectedCount, count)
 	})
 
-	t.Run("blockId - number", func(t *testing.T) {
+	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Number: latestBlockNumber})
@@ -172,7 +173,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(485004)
-	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	latestBlock, err := gw.BlockByID(context.Background(), strconv.FormatUint(latestBlockNumber, 10))
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -214,7 +215,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	t.Run("blockId - latest", func(t *testing.T) {
+	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil)
 
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
@@ -223,7 +224,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkLatestBlock(t, block)
 	})
 
-	t.Run("blockId - hash", func(t *testing.T) {
+	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
 
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: latestBlockHash})
@@ -232,7 +233,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkLatestBlock(t, block)
 	})
 
-	t.Run("blockId - number", func(t *testing.T) {
+	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
 
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
@@ -254,7 +255,7 @@ func TestBlockWithTxs(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(16697)
-	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	latestBlock, err := gw.BlockByID(context.Background(), strconv.FormatUint(latestBlockNumber, 10))
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -309,7 +310,7 @@ func TestBlockWithTxs(t *testing.T) {
 		return nil, errors.New("txn not found")
 	}).Times(len(latestBlock.Transactions) * 3)
 
-	t.Run("blockId - latest", func(t *testing.T) {
+	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
@@ -321,7 +322,7 @@ func TestBlockWithTxs(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
 
-	t.Run("blockId - hash", func(t *testing.T) {
+	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: latestBlockHash})
@@ -333,7 +334,7 @@ func TestBlockWithTxs(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
 
-	t.Run("blockId - number", func(t *testing.T) {
+	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
@@ -553,7 +554,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	latestBlockNumber := 19199
-	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+	latestBlock, err := mainnetGw.BlockByID(context.Background(), strconv.Itoa(19199))
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -602,7 +603,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, rpc.ErrInvalidTxIndex, rpcErr)
 	})
 
-	t.Run("blockId - latest", func(t *testing.T) {
+	t.Run("blockID - latest", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
@@ -624,7 +625,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, txn1, txn2)
 	})
 
-	t.Run("blockId - hash", func(t *testing.T) {
+	t.Run("blockID - hash", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
@@ -646,7 +647,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, txn1, txn2)
 	})
 
-	t.Run("blockId - number", func(t *testing.T) {
+	t.Run("blockID - number", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		mockReader.EXPECT().BlockHeaderByNumber(uint64(latestBlockNumber)).Return(latestBlock.Header, nil)
@@ -689,7 +690,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	t.Cleanup(closer)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByID(context.Background(), strconv.Itoa(0))
 	require.NoError(t, err)
 
 	tests := map[string]struct {
@@ -847,5 +848,70 @@ func TestStateUpdate(t *testing.T) {
 		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Hash: update21656.BlockHash})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
+	})
+}
+
+func TestSyncing(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, utils.MAINNET)
+	defaultState := false
+
+	t.Run("undefined starting block", func(t *testing.T) {
+		mockReader.EXPECT().StartingBlockNumber().Return(uint64(0), errors.New("undefined starting block"))
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().StartingBlockNumber().Return(uint64(0), nil)
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(0)).Return(nil, errors.New("empty blockchain"))
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	t.Run("undefined highest block", func(t *testing.T) {
+		mockReader.EXPECT().StartingBlockNumber().Return(uint64(0), nil)
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{}, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		mockReader.EXPECT().HighestBlockHeader().Return(nil, errors.New("undefined highest block"))
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	t.Run("block height is greater than highest block", func(t *testing.T) {
+		mockReader.EXPECT().StartingBlockNumber().Return(uint64(0), nil)
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{}, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+		mockReader.EXPECT().HighestBlockHeader().Return(&core.Header{Number: 0}, nil)
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	t.Run("syncing", func(t *testing.T) {
+		mockReader.EXPECT().StartingBlockNumber().Return(uint64(0), nil)
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{Hash: &felt.Zero}, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
+		mockReader.EXPECT().HighestBlockHeader().Return(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}, nil)
+
+		expectedSyncing := &rpc.SyncState{
+			Status: &rpc.SyncStatus{
+				StartingBlockHash:   &felt.Zero,
+				StartingBlockNumber: "0x" + strconv.FormatUint(uint64(0), 16),
+				CurrentBlockHash:    new(felt.Felt).SetUint64(1),
+				CurrentBlockNumber:  "0x" + strconv.FormatUint(uint64(1), 16),
+				HighestBlockHash:    new(felt.Felt).SetUint64(2),
+				HighestBlockNumber:  "0x" + strconv.FormatUint(uint64(2), 16),
+			},
+		}
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, expectedSyncing, syncing)
 	})
 }

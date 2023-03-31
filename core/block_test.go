@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -162,7 +163,7 @@ func TestBlockHash(t *testing.T) {
 			t.Cleanup(closeFn)
 			gw := adaptfeeder.New(client)
 
-			block, err := gw.BlockByNumber(context.Background(), tc.number)
+			block, err := gw.BlockByID(context.Background(), strconv.FormatUint(tc.number, 10))
 			require.NoError(t, err)
 
 			err = core.VerifyBlockHash(block, tc.chain)
@@ -185,7 +186,7 @@ func TestBlockHash(t *testing.T) {
 	t.Cleanup(closeFn)
 	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		mainnetBlock1, err := mainnetGW.BlockByID(context.Background(), strconv.FormatUint(1, 10))
 		require.NoError(t, err)
 
 		mainnetBlock1.Hash = h1
@@ -198,14 +199,14 @@ func TestBlockHash(t *testing.T) {
 		client, closeFn := feeder.NewTestClient(utils.GOERLI)
 		t.Cleanup(closeFn)
 		goerliGW := adaptfeeder.New(client)
-		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
+		block119802, err := goerliGW.BlockByID(context.Background(), strconv.FormatUint(119802, 10))
 		require.NoError(t, err)
 
 		assert.NoError(t, core.VerifyBlockHash(block119802, utils.GOERLI))
 	})
 
 	t.Run("error if len of transactions do not match len of receipts", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		mainnetBlock1, err := mainnetGW.BlockByID(context.Background(), strconv.FormatUint(1, 10))
 		require.NoError(t, err)
 
 		mainnetBlock1.Transactions = mainnetBlock1.Transactions[:len(mainnetBlock1.Transactions)-1]
@@ -218,7 +219,7 @@ func TestBlockHash(t *testing.T) {
 
 	t.Run("error if hash of transaction doesn't match corresponding receipt hash",
 		func(t *testing.T) {
-			mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+			mainnetBlock1, err := mainnetGW.BlockByID(context.Background(), strconv.FormatUint(1, 10))
 			require.NoError(t, err)
 
 			mainnetBlock1.Receipts[1].TransactionHash = h1

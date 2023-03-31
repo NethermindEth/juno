@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"strconv"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -46,11 +47,15 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		case <-ctx.Done():
 			return func() {}
 		default:
-			block, err := s.StarknetData.BlockByNumber(ctx, height)
+			block, err := s.StarknetData.BlockByID(ctx, strconv.FormatUint(height, 10))
 			if err != nil {
 				continue
 			}
 			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
+			if err != nil {
+				continue
+			}
+			highestBlock, err := s.StarknetData.BlockByID(ctx, "latest")
 			if err != nil {
 				continue
 			}
@@ -74,14 +79,14 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, block, stateUpdate, referencedClasses, resetStreams)
+					return s.verifierTask(ctx, block, stateUpdate, highestBlock.Header, referencedClasses, resetStreams)
 				})
 			}
 		}
 	}
 }
 
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
+func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate, highestBlockHeader *core.Header,
 	declaredClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
@@ -110,6 +115,12 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
+			err = s.Blockchain.StoreHighestBlockHeader(highestBlockHeader)
+			if err != nil {
+				s.log.Warnw("Failed storing highest block header", "number", highestBlockHeader.Number,
+					"hash", highestBlockHeader.Hash.ShortString(), "err", err.Error())
+			}
+
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
@@ -129,7 +140,13 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
 
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
+
 	nextHeight := s.nextHeight()
+	err := s.Blockchain.StoreStartingBlockNumber(nextHeight)
+	if err != nil {
+		s.log.Warnw("Failed storing starting block number", "err", err.Error())
+		return
+	}
 
 	for {
 		select {

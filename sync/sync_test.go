@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func TestSyncBlocks(t *testing.T) {
 			height := int(headBlock.Number)
 			assert.Equal(t, 2, height)
 			for height >= 0 {
-				b, err := gw.BlockByNumber(context.Background(), uint64(height))
+				b, err := gw.BlockByID(context.Background(), strconv.Itoa(height))
 				if err != nil {
 					return err
 				}
@@ -53,7 +54,7 @@ func TestSyncBlocks(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest()
-		bc := blockchain.New(testDB, utils.MAINNET)
+		bc := blockchain.New(testDB, pebble.NewMemTest(), utils.MAINNET)
 		synchronizer := New(bc, gw, log)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
@@ -65,8 +66,8 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest()
-		bc := blockchain.New(testDB, utils.MAINNET)
-		b0, err := gw.BlockByNumber(context.Background(), 0)
+		bc := blockchain.New(testDB, pebble.NewMemTest(), utils.MAINNET)
+		b0, err := gw.BlockByID(context.Background(), strconv.FormatUint(0, 10))
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
@@ -83,22 +84,29 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
 		testDB := pebble.NewMemTest()
-		bc := blockchain.New(testDB, utils.MAINNET)
+		bc := blockchain.New(testDB, pebble.NewMemTest(), utils.MAINNET)
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
 		var rwMutex sync.RWMutex
 		syncingHeight := uint64(0)
 
-		mockSNData.EXPECT().BlockByNumber(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.Block, error) {
+		mockSNData.EXPECT().BlockByID(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height string) (*core.Block, error) {
 			rwMutex.RLock()
 			defer rwMutex.RUnlock()
 
-			// reject any other requests
-			if height != syncingHeight {
-				return nil, errors.New("try again")
+			if height != "latest" {
+				h, err := strconv.Atoi(height)
+				require.NoError(t, err)
+
+				// reject any other requests
+				if uint64(h) != syncingHeight {
+					return nil, errors.New("try again")
+				}
+				return gw.BlockByID(context.Background(), strconv.FormatUint(syncingHeight, 10))
+			} else {
+				return gw.BlockByID(context.Background(), "latest")
 			}
-			return gw.BlockByNumber(context.Background(), syncingHeight)
 		}).AnyTimes()
 
 		reqCount := 0
@@ -130,6 +138,7 @@ func TestSyncBlocks(t *testing.T) {
 
 			return ret, nil
 		}).AnyTimes()
+
 		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.Class, error) {
 			return gw.Class(ctx, hash)
 		}).AnyTimes()

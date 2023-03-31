@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -393,8 +394,36 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
-func (h *Handler) Syncing() SyncState {
-	return SyncState{
-		False: false,
+func (h *Handler) Syncing() (*SyncState, *jsonrpc.Error) {
+	defaultState := false
+	defaultSyncState := &SyncState{False: &defaultState}
+	startingBlockNumber, err := h.bcReader.StartingBlockNumber()
+	if err != nil {
+		return defaultSyncState, nil
 	}
+	startingBlockHash, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber)
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	head, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	highestBlockHeader, err := h.bcReader.HighestBlockHeader()
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	if highestBlockHeader.Number < head.Number {
+		return defaultSyncState, nil
+	}
+	return &SyncState{
+		Status: &SyncStatus{
+			StartingBlockHash:   startingBlockHash.Hash,
+			StartingBlockNumber: "0x" + strconv.FormatUint(startingBlockNumber, 16),
+			CurrentBlockHash:    head.Hash,
+			CurrentBlockNumber:  "0x" + strconv.FormatUint(head.Number, 16),
+			HighestBlockHash:    highestBlockHeader.Hash,
+			HighestBlockNumber:  "0x" + strconv.FormatUint(highestBlockHeader.Number, 16),
+		},
+	}, nil
 }

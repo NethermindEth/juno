@@ -34,10 +34,11 @@ func TestGetBlockByNumber(t *testing.T) {
 	ctx := context.Background()
 
 	for _, test := range tests {
-		t.Run("mainnet block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
-			response, err := client.Block(ctx, test.number)
+		blockID := strconv.FormatUint(test.number, 10)
+		t.Run("mainnet block number "+blockID, func(t *testing.T) {
+			response, err := client.Block(ctx, blockID)
 			require.NoError(t, err)
-			block, err := adapter.BlockByNumber(ctx, test.number)
+			block, err := adapter.BlockByID(ctx, blockID)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)
