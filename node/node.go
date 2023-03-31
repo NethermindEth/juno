@@ -74,7 +74,7 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
-			Handler: rpcHandler.BlockNumberAndHash,
+			Handler: rpcHandler.BlockHashAndNumber,
 		},
 		{
 			Name:    "starknet_getBlockWithTxHashes",

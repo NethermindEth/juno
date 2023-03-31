@@ -33,9 +33,9 @@ func (s Status) MarshalJSON() ([]byte, error) {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L520-L534
-type BlockNumberAndHash struct {
-	Number uint64     `json:"block_number"`
+type BlockHashAndNumber struct {
 	Hash   *felt.Felt `json:"block_hash"`
+	Number uint64     `json:"block_number"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
