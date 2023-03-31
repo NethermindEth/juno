@@ -89,3 +89,25 @@ func (h *History) ContractStorageAt(contractAddress, storageLocation *felt.Felt,
 
 	return new(felt.Felt).SetBytes(value), nil
 }
+
+func nonceLogKey(contractAddress *felt.Felt) []byte {
+	return db.ContractNonceHistory.Key(contractAddress.Marshal())
+}
+
+func (h *History) LogContractNonce(contractAddress, oldValue *felt.Felt, height uint64) error {
+	return h.logOldValue(nonceLogKey(contractAddress), oldValue.Marshal(), height)
+}
+
+func (h *History) DeleteContractNonceLog(contractAddress *felt.Felt, height uint64) error {
+	return h.deleteLog(nonceLogKey(contractAddress), height)
+}
+
+func (h *History) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
+	key := nonceLogKey(contractAddress)
+	value, err := h.valueAt(key, height)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(felt.Felt).SetBytes(value), nil
+}
