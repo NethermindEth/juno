@@ -25,6 +25,7 @@ type StateHistoryReader interface {
 	StateReader
 
 	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
 	// todo: extend
 }
 
@@ -228,7 +229,12 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 
 	// update contract nonces
 	for addr, nonce := range diff.Nonces {
-		if err := s.updateContractNonce(&addr, nonce); err != nil {
+		oldNonce, err := s.updateContractNonce(&addr, nonce)
+		if err != nil {
+			return err
+		}
+
+		if err = s.LogContractNonce(&addr, oldNonce, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -296,17 +302,26 @@ func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff, onCha
 
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
-func (s *State) updateContractNonce(addr, nonce *felt.Felt) error {
+func (s *State) updateContractNonce(addr, nonce *felt.Felt) (*felt.Felt, error) {
 	contract, err := NewContract(addr, s.txn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := contract.UpdateNonce(nonce); err != nil {
-		return err
+	oldNonce, err := contract.Nonce()
+	if err != nil {
+		return nil, err
 	}
 
-	return s.updateContractCommitment(contract)
+	if err = contract.UpdateNonce(nonce); err != nil {
+		return nil, err
+	}
+
+	if err = s.updateContractCommitment(contract); err != nil {
+		return nil, err
+	}
+
+	return oldNonce, nil
 }
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
