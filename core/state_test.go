@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -52,7 +53,7 @@ func TestUpdate(t *testing.T) {
 		su := &core.StateUpdate{
 			OldRoot: oldRoot,
 		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match state update's old root: %s", su0.NewRoot, oldRoot)
+		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, oldRoot)
 		require.EqualError(t, state.Update(1, su, nil), expectedErr)
 	})
 
@@ -63,7 +64,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot:   su0.NewRoot,
 			StateDiff: new(core.StateDiff),
 		}
-		expectedErr := fmt.Sprintf("state's new root: %s does not match state update's new root: %s", su0.NewRoot, newRoot)
+		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
 		require.EqualError(t, state.Update(1, su, nil), expectedErr)
 	})
 
@@ -362,4 +363,98 @@ func TestClass(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, gotCairo0Class.At)
 	assert.Equal(t, cairo0Class, gotCairo0Class.Class)
+}
+
+func TestRevert(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	state := core.NewState(txn)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, state.Update(0, su0, nil))
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(t, err)
+	require.NoError(t, state.Update(1, su1, nil))
+
+	t.Run("revert a replaced class", func(t *testing.T) {
+		addr := su1.StateDiff.DeployedContracts[0].Address
+		replaceStateUpdate := &core.StateUpdate{
+			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
+			OldRoot: su1.NewRoot,
+			StateDiff: &core.StateDiff{
+				ReplacedClasses: []core.ReplacedClass{
+					{
+						Address:   addr,
+						ClassHash: utils.HexToFelt(t, "0xDEADBEEF"),
+					},
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(2, replaceStateUpdate, nil))
+		require.NoError(t, state.Revert(2, replaceStateUpdate))
+		classHash, sErr := state.ContractClassHash(addr)
+		require.NoError(t, sErr)
+		assert.Equal(t, su1.StateDiff.DeployedContracts[0].ClassHash, classHash)
+	})
+
+	t.Run("revert a nonce update", func(t *testing.T) {
+		addr := su1.StateDiff.DeployedContracts[0].Address
+		nonceStateUpdate := &core.StateUpdate{
+			NewRoot: utils.HexToFelt(t, "0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
+			OldRoot: su1.NewRoot,
+			StateDiff: &core.StateDiff{
+				Nonces: map[felt.Felt]*felt.Felt{
+					*addr: utils.HexToFelt(t, "0xDEADBEEF"),
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(2, nonceStateUpdate, nil))
+		require.NoError(t, state.Revert(2, nonceStateUpdate))
+		nonce, sErr := state.ContractNonce(addr)
+		require.NoError(t, sErr)
+		assert.Equal(t, &felt.Zero, nonce)
+	})
+
+	su2, err := gw.StateUpdate(context.Background(), 2)
+	require.NoError(t, err)
+	t.Run("should be able to apply new update after a Revert", func(t *testing.T) {
+		require.NoError(t, state.Update(2, su2, nil))
+	})
+
+	t.Run("should be able to revert all the state", func(t *testing.T) {
+		require.NoError(t, state.Revert(2, su2))
+		root, err := state.Root()
+		require.NoError(t, err)
+		require.Equal(t, su2.OldRoot, root)
+		require.NoError(t, state.Revert(1, su1))
+		root, err = state.Root()
+		require.NoError(t, err)
+		require.Equal(t, su1.OldRoot, root)
+		require.NoError(t, state.Revert(0, su0))
+		root, err = state.Root()
+		require.NoError(t, err)
+		require.Equal(t, su0.OldRoot, root)
+	})
+
+	t.Run("empty state should mean empty db", func(t *testing.T) {
+		require.NoError(t, testDB.View(func(txn db.Transaction) error {
+			it, err := txn.NewIterator()
+			if err != nil {
+				return err
+			}
+			assert.False(t, it.Next())
+			return nil
+		}))
+	})
 }
