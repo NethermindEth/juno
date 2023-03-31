@@ -98,6 +98,22 @@ type Contract struct {
 	txn db.Transaction
 }
 
+// Purge nukes the contract instance by deleting all related data from storage
+// assumes storage is cleared in revert process
+func (c *Contract) Purge() error {
+	addrBytes := c.Address.Marshal()
+	if err := c.txn.Delete(db.ContractNonce.Key(addrBytes)); err != nil {
+		return err
+	}
+	if err := c.txn.Delete(db.ContractRootKey.Key(addrBytes)); err != nil {
+		return err
+	}
+	if err := c.txn.Delete(db.ContractClassHash.Key(addrBytes)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Nonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
 func (c *Contract) Nonce() (*felt.Felt, error) {
