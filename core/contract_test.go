@@ -209,3 +209,21 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 		assert.Equal(t, new(felt.Felt), sRoot)
 	})
 }
+
+func TestPurge(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+
+	txn := testDB.NewTransaction(true)
+	addr := new(felt.Felt).SetUint64(44)
+	classHash := new(felt.Felt).SetUint64(37)
+
+	contract, err := core.DeployContract(addr, classHash, txn)
+	require.NoError(t, err)
+
+	require.NoError(t, contract.Purge())
+	_, err = core.NewContract(addr, txn)
+	assert.ErrorIs(t, err, core.ErrContractNotDeployed)
+}
