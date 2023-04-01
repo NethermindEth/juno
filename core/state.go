@@ -26,7 +26,7 @@ type StateHistoryReader interface {
 
 	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
-	// todo: extend
+	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
 }
 
 type StateReader interface {
@@ -222,7 +222,12 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 
 	// replace contract instances
 	for _, replace := range diff.ReplacedClasses {
-		if err := s.replaceContract(replace.Address, replace.ClassHash); err != nil {
+		oldClassHash, err := s.replaceContract(replace.Address, replace.ClassHash)
+		if err != nil {
+			return err
+		}
+
+		if err = s.LogContractClassHash(replace.Address, oldClassHash, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -254,17 +259,26 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
-func (s *State) replaceContract(addr, classHash *felt.Felt) error {
+func (s *State) replaceContract(addr, classHash *felt.Felt) (*felt.Felt, error) {
 	contract, err := NewContract(addr, s.txn)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	oldClassHash, err := contract.ClassHash()
+	if err != nil {
+		return nil, err
 	}
 
 	if err = contract.Replace(classHash); err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.updateContractCommitment(contract)
+	if err = s.updateContractCommitment(contract); err != nil {
+		return nil, err
+	}
+
+	return oldClassHash, nil
 }
 
 func (s *State) putClass(classHash *felt.Felt, class Class) error {
