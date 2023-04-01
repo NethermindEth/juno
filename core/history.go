@@ -111,3 +111,25 @@ func (h *History) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*f
 
 	return new(felt.Felt).SetBytes(value), nil
 }
+
+func classHashLogKey(contractAddress *felt.Felt) []byte {
+	return db.ContractClassHashHistory.Key(contractAddress.Marshal())
+}
+
+func (h *History) LogContractClassHash(contractAddress, oldValue *felt.Felt, height uint64) error {
+	return h.logOldValue(classHashLogKey(contractAddress), oldValue.Marshal(), height)
+}
+
+func (h *History) DeleteContractClassHashLog(contractAddress *felt.Felt, height uint64) error {
+	return h.deleteLog(classHashLogKey(contractAddress), height)
+}
+
+func (h *History) ContractClassHashAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
+	key := classHashLogKey(contractAddress)
+	value, err := h.valueAt(key, height)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(felt.Felt).SetBytes(value), nil
+}
