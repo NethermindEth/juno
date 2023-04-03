@@ -34,7 +34,7 @@ type Reader interface {
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 }
 
-var supportedStarknetVersion = semver.MustParse("0.10.3")
+var supportedStarknetVersion = semver.MustParse("0.11.0")
 
 func checkBlockVersion(protocolVersion string) error {
 	if protocolVersion == "" {
