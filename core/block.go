@@ -85,9 +85,8 @@ func networkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
-// VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
-// verifiable hashes.
-func VerifyBlockHash(b *Block, network utils.Network) error {
+// VerifyBlock checks that the given block is valid.
+func VerifyBlock(b *Block, network utils.Network) error {
 	if len(b.Transactions) != len(b.Receipts) {
 		return fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -101,10 +100,16 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		}
 	}
 
-	if err := verifyTransactions(b.Transactions, network); err != nil {
+	if err := verifyBlockHash(b, network); err != nil {
 		return err
 	}
 
+	return verifyTransactions(b.Transactions, network)
+}
+
+// verifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
+// verifiable hashes.
+func verifyBlockHash(b *Block, network utils.Network) error {
 	metaInfo := networkBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
