@@ -15,7 +15,7 @@
     <img src="https://goreportcard.com/badge/github.com/NethermindEth/juno">
   </a>
   <a href="https://github.com/NethermindEth/juno/actions">
-    <img src="https://github.com/NethermindEth/juno/actions/workflows/juno-build.yml/badge.svg">
+    <img src="https://github.com/NethermindEth/juno/actions/workflows/juno-test.yml/badge.svg">
   </a>
   <a href="https://codecov.io/gh/NethermindEth/juno">
     <img src="https://codecov.io/gh/NethermindEth/juno/branch/main/graph/badge.svg">
@@ -62,7 +62,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -v /home/juno:/var/lib/juno \
-  nethermindeth/juno \
+  nethermind/juno \
   --rpc-port 6060 \
   --db-path /var/lib/juno
 ```
@@ -131,8 +131,8 @@ docker logs -f juno
 
 The focus of Phase 2 will be to Verify the state from layer 1 and implement the remaining JSON-RPC endpoints.
 
-* [ ] Starknet v0.11.0 support
-    * [ ] Poseidon state trie support
+* [X] Starknet v0.11.0 support
+    * [X] Poseidon state trie support
 * [ ] Blockchain: implement blockchain reorganization logic.
 * [ ] Synchronisation: implement verification of state from layer 1.
 * [ ] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
