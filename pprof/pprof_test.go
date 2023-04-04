@@ -43,11 +43,12 @@ func waitForServerReady(t *testing.T, url string, timeout time.Duration) {
 		require.NoError(t, reqErr)
 
 		resp, err := client.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
+		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
+		}
+		if err == nil && resp.StatusCode == http.StatusOK {
 			return
 		}
-		resp.Body.Close()
 
 		require.Greaterf(t, timeout, start, "server is not ready after %v", timeout)
 
