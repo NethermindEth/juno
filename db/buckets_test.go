@@ -9,12 +9,12 @@ import (
 
 func TestKey(t *testing.T) {
 	t.Run("bucket with no key", func(t *testing.T) {
-		key := db.StateRootKey.Key()
-		assert.Equal(t, []byte{byte(db.StateRootKey)}, key)
+		key := db.StateTrie.Key()
+		assert.Equal(t, []byte{byte(db.StateTrie)}, key)
 	})
 	t.Run("bucket with nil key", func(t *testing.T) {
-		key := db.StateRootKey.Key(nil)
-		assert.Equal(t, []byte{byte(db.StateRootKey)}, key)
+		key := db.StateTrie.Key(nil)
+		assert.Equal(t, []byte{byte(db.StateTrie)}, key)
 	})
 	t.Run("bucket with multiple keys", func(t *testing.T) {
 		keys := [][]byte{{}, {0}, {0, 1, 2, 3, 4}, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}
