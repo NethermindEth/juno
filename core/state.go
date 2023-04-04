@@ -94,18 +94,19 @@ func (s *State) Root() (*felt.Felt, error) {
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
 func (s *State) storage() (*trie.Trie, func() error, error) {
-	return s.globalTrie(db.StateTrie, db.StateRootKey, trie.NewTriePedersen)
+	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
 }
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
-	return s.globalTrie(db.ClassesTrie, db.ClassesRootKey, trie.NewTriePoseidon)
+	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
 }
 
-func (s *State) globalTrie(bucket, rootKeyBucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
-	tTxn := NewTransactionStorage(s.txn, bucket.Key())
+func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+	dbPrefix := bucket.Key()
+	tTxn := NewTransactionStorage(s.txn, dbPrefix)
 
 	// fetch root key
-	rootKeyDBKey := rootKeyBucket.Key()
+	rootKeyDBKey := dbPrefix
 	var rootKey *bitset.BitSet
 	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
 		rootKey = new(bitset.BitSet)
