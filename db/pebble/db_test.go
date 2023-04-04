@@ -350,3 +350,44 @@ func TestPrefixSearch(t *testing.T) {
 		return nil
 	}))
 }
+
+func TestNext(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+	require.NoError(t, txn.Set([]byte{0}, []byte{0}))
+	require.NoError(t, txn.Set([]byte{1}, []byte{1}))
+	require.NoError(t, txn.Set([]byte{2}, []byte{2}))
+
+	t.Run("Next() on new iterator", func(t *testing.T) {
+		it, err := txn.NewIterator()
+		require.NoError(t, err)
+
+		t.Run("new iterator should be invalid", func(t *testing.T) {
+			assert.False(t, it.Valid())
+		})
+
+		t.Run("Next() should validate iterator", func(t *testing.T) {
+			assert.True(t, it.Next())
+		})
+
+		require.NoError(t, it.Close())
+	})
+
+	t.Run("Next() should work as expected after a Seek()", func(t *testing.T) {
+		it, err := txn.NewIterator()
+		require.NoError(t, err)
+
+		require.True(t, it.Seek([]byte{0}))
+		require.True(t, it.Next())
+		require.Equal(t, []byte{1}, it.Key())
+
+		require.NoError(t, it.Close())
+	})
+}
