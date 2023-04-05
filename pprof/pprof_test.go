@@ -25,7 +25,7 @@ func TestPprofServer(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	waitForServerReady(t, url, time.Second)
+	waitForServerReady(t, url, 5*time.Second)
 }
 
 func waitForServerReady(t *testing.T, url string, timeout time.Duration) {
@@ -50,7 +50,8 @@ func waitForServerReady(t *testing.T, url string, timeout time.Duration) {
 			return
 		}
 
-		require.Greaterf(t, timeout, start, "server is not ready after %v", timeout)
+		elapsed := time.Since(start)
+		require.Greaterf(t, timeout, elapsed, "server is not ready after %v", timeout)
 
 		time.Sleep(100 * time.Millisecond)
 	}
