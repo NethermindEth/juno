@@ -499,6 +499,79 @@ func TestEvents(t *testing.T) {
 	})
 }
 
+func TestRevert(t *testing.T) {
+	testdb := pebble.NewMemTest()
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+
+		require.NoError(t, chain.Store(b, su, nil))
+	}
+
+	require.NoError(t, chain.RevertHead())
+
+	t.Run("height should rollback", func(t *testing.T) {
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), height)
+	})
+	t.Run("head should revert", func(t *testing.T) {
+		block, err := chain.Head()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), block.Number)
+	})
+	t.Run("headsheader should revert", func(t *testing.T) {
+		header, err := chain.HeadsHeader()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), header.Number)
+	})
+
+	revertedHeight := uint64(2)
+	t.Run("BlockByNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.BlockByNumber(revertedHeight)
+		require.Error(t, err)
+	})
+	t.Run("StateUpdateByNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.StateUpdateByNumber(revertedHeight)
+		require.Error(t, err)
+	})
+	t.Run("BlockHeaderByNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.BlockHeaderByNumber(revertedHeight)
+		require.Error(t, err)
+	})
+	t.Run("TransactionByBlockNumberAndIndex should fail with reverted height", func(t *testing.T) {
+		_, err := chain.TransactionByBlockNumberAndIndex(revertedHeight, 0)
+		require.Error(t, err)
+	})
+
+	require.NoError(t, chain.RevertHead())
+	require.NoError(t, chain.RevertHead())
+
+	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
+		require.NoError(t, testdb.View(func(txn db.Transaction) error {
+			it, err := txn.NewIterator()
+			if err != nil {
+				return err
+			}
+			assert.False(t, it.Next(), it.Key())
+			return nil
+		}))
+	})
+
+	t.Run("cannot revert on empty chain", func(t *testing.T) {
+		require.Error(t, chain.RevertHead())
+	})
+}
+
 func TestL1Update(t *testing.T) {
 	heads := []*core.L1Head{
 		{

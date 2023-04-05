@@ -687,3 +687,81 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilt
 
 	return newEventFilter(txn, from, keys, 0, latest), nil
 }
+
+// RevertHead reverts the head block
+func (b *Blockchain) RevertHead() error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return b.revertHead(txn)
+	})
+}
+
+func (b *Blockchain) revertHead(txn db.Transaction) error {
+	blockNumber, err := b.height(txn)
+	if err != nil {
+		return err
+	}
+	numBytes := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(numBytes, blockNumber)
+
+	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+	if err != nil {
+		return err
+	}
+
+	state := core.NewState(txn)
+	// revert state
+	if err = state.Revert(blockNumber, stateUpdate); err != nil {
+		return err
+	}
+
+	header, err := blockHeaderByNumber(txn, blockNumber)
+	if err != nil {
+		return err
+	}
+
+	// remove block header
+	if err = txn.Delete(db.BlockHeadersByNumber.Key(numBytes)); err != nil {
+		return err
+	}
+	if err = txn.Delete(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal())); err != nil {
+		return err
+	}
+
+	blockIDAndIndex := txAndReceiptDBKey{
+		Number: blockNumber,
+	}
+	// remove txs and receipts
+	for i := uint64(0); i < header.TransactionCount; i++ {
+		blockIDAndIndex.Index = i
+		var reorgedTxn core.Transaction
+		reorgedTxn, err = transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
+		if err != nil {
+			return err
+		}
+
+		keySuffix := blockIDAndIndex.MarshalBinary()
+		if err = txn.Delete(db.TransactionsByBlockNumberAndIndex.Key(keySuffix)); err != nil {
+			return err
+		}
+		if err = txn.Delete(db.ReceiptsByBlockNumberAndIndex.Key(keySuffix)); err != nil {
+			return err
+		}
+		if err = txn.Delete(db.TransactionBlockNumbersAndIndicesByHash.Key(reorgedTxn.Hash().Marshal())); err != nil {
+			return err
+		}
+	}
+
+	// remove state update
+	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
+		return err
+	}
+
+	// update chain height
+	if blockNumber == 0 {
+		return txn.Delete(db.ChainHeight.Key())
+	}
+
+	heightBin := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(heightBin, blockNumber-1)
+	return txn.Set(db.ChainHeight.Key(), heightBin)
+}
