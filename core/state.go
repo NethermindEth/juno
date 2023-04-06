@@ -246,6 +246,20 @@ func (s *State) putClass(classHash *felt.Felt, class Class) error {
 	return err
 }
 
+// Class returns the class object corresponding to the given classHash
+func (s *State) Class(classHash *felt.Felt) (Class, error) {
+	classKey := db.Class.Key(classHash.Marshal())
+
+	var class Class
+	err := s.txn.Get(classKey, func(val []byte) error {
+		return encoder.Unmarshal(val, &class)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return class, nil
+}
+
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
 func (s *State) updateContractStorage(addr *felt.Felt, diff []StorageDiff) error {

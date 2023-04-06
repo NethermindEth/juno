@@ -228,12 +228,12 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(stateUpdate, declaredClasses); err != nil {
+		if err := core.NewState(txn).Update(stateUpdate, newClasses); err != nil {
 			return err
 		}
 		if err := storeBlockHeader(txn, block.Header); err != nil {
@@ -456,23 +456,32 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 	})
 }
 
+type OnUnknownClass func(classHash *felt.Felt) (core.Class, error)
+
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate, classes map[felt.Felt]core.Class) error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
+	onUnknownClass OnUnknownClass,
+) (map[felt.Felt]core.Class, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return errors.New("block hashes do not match")
+		return nil, errors.New("block hashes do not match")
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return errors.New("block's GlobalStateRoot does not match state update's NewRoot")
+		return nil, errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
 
-	if cErr := core.VerifyClassHashes(classes); cErr != nil {
+	newClasses, err := b.fetchUnknownClasses(stateUpdate, onUnknownClass)
+	if err != nil {
+		return nil, err
+	}
+
+	if cErr := core.VerifyClassHashes(newClasses); cErr != nil {
 		if errors.As(cErr, new(core.CantVerifyClassHashError)) {
 			for ; cErr != nil; cErr = errors.Unwrap(cErr) {
 				b.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
 					block.Hash.ShortString(), "error", cErr.Error())
 			}
 		} else {
-			return cErr
+			return nil, cErr
 		}
 	}
 
@@ -483,11 +492,51 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 					block.Hash.ShortString(), "error", bErr.Error())
 			}
 		} else {
-			return bErr
+			return nil, bErr
 		}
 	}
 
-	return nil
+	return newClasses, nil
+}
+
+func (b *Blockchain) fetchUnknownClasses(stateUpdate *core.StateUpdate, onUnknownClass OnUnknownClass) (map[felt.Felt]core.Class, error) {
+	newClasses := make(map[felt.Felt]core.Class)
+	fetchIfNotFound := func(classHash *felt.Felt) error {
+		if _, ok := newClasses[*classHash]; ok {
+			return nil
+		}
+
+		return b.database.View(func(txn db.Transaction) error {
+			_, err := core.NewState(txn).Class(classHash)
+			if errors.Is(err, db.ErrKeyNotFound) {
+				class, fetchErr := onUnknownClass(classHash)
+				if fetchErr == nil {
+					newClasses[*classHash] = class
+				}
+
+				return fetchErr
+			}
+			return err
+		})
+	}
+
+	for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
+		if err := fetchIfNotFound(deployedContract.ClassHash); err != nil {
+			return nil, err
+		}
+	}
+	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
+		if err := fetchIfNotFound(classHash); err != nil {
+			return nil, err
+		}
+	}
+	for _, declaredV1 := range stateUpdate.StateDiff.DeclaredV1Classes {
+		if err := fetchIfNotFound(declaredV1.ClassHash); err != nil {
+			return nil, err
+		}
+	}
+
+	return newClasses, nil
 }
 
 type txAndReceiptDBKey struct {

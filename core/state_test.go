@@ -210,3 +210,34 @@ func TestNonce(t *testing.T) {
 		assert.Equal(t, expectedNonce, gotNonce)
 	})
 }
+
+func TestClass(t *testing.T) {
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	state := core.NewState(txn)
+
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	classHash := su0.StateDiff.DeployedContracts[0].ClassHash
+	class, err := gw.Class(context.Background(), classHash)
+	require.NoError(t, err)
+
+	require.NoError(t, state.Update(su0, map[felt.Felt]core.Class{
+		*classHash: class,
+	}))
+
+	_, err = state.Class(classHash)
+	require.NoError(t, err)
+	// todo: classes include `any` typed objects and they dont unmarshal cleanly to their original types.
+	// Assert returned class object when this limitation is fixed
+}

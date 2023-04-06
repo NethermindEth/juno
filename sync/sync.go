@@ -54,26 +54,9 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 				continue
 			}
 
-			// There are classes in deployed transactions which refer to class hash that are no present in declared
-			// classes. Thus, we need to fetch all the classes which are referenced in deployed contracts
-			referencedClasses := make(map[felt.Felt]core.Class)
-			for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
-				referencedClasses[*deployedContract.ClassHash] = nil
-			}
-			for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes { // todo: fetch v1 classes as well
-				referencedClasses[*classHash] = nil
-			}
-			for classHash := range referencedClasses {
-				class, err := s.StarknetData.Class(ctx, &classHash)
-				if err != nil {
-					continue
-				}
-				referencedClasses[classHash] = class
-			}
-
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, block, stateUpdate, referencedClasses, resetStreams)
+					return s.verifierTask(ctx, block, stateUpdate, resetStreams)
 				})
 			}
 		}
@@ -81,9 +64,13 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 }
 
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	declaredClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
+	resetStreams context.CancelFunc,
 ) stream.Callback {
-	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, declaredClasses)
+	onUnknownClass := func(classHash *felt.Felt) (core.Class, error) {
+		return s.StarknetData.Class(ctx, classHash)
+	}
+
+	newClasses, err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, onUnknownClass)
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -95,7 +82,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
+			err = s.Blockchain.Store(block, stateUpdate, newClasses)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number,
 					"hash", block.Hash.ShortString(), "err", err.Error())

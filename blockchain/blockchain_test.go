@@ -180,6 +180,16 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
+	t.Run("builds the expected new classes map", func(t *testing.T) {
+		onUnknownClass := func(classHash *felt.Felt) (core.Class, error) {
+			return gw.Class(context.Background(), classHash)
+		}
+		newClasses, err := chain.SanityCheckNewHeight(mainnetBlock0, mainnetStateUpdate0, onUnknownClass)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(newClasses))
+		assert.NotNil(t, newClasses[*mainnetStateUpdate0.StateDiff.DeployedContracts[0].ClassHash])
+	})
+
 	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
@@ -187,7 +197,8 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		require.NoError(t, err)
 
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
-		assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil), "block hashes do not match")
+		_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
+		assert.EqualError(t, err, "block hashes do not match")
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
@@ -196,8 +207,8 @@ func TestSanityCheckNewHeight(t *testing.T) {
 			require.NoError(t, err)
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
-			assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil),
-				"block's GlobalStateRoot does not match state update's NewRoot")
+			_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
+			assert.EqualError(t, err, "block's GlobalStateRoot does not match state update's NewRoot")
 		})
 }
 
