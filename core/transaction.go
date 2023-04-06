@@ -230,7 +230,7 @@ var (
 )
 
 func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
-	return fmt.Errorf("invalid Transaction (type: %v) verion: %v", reflect.TypeOf(t), version.Text(felt.Base10))
+	return fmt.Errorf("invalid Transaction (type: %v) version: %v", reflect.TypeOf(t), version.Text(felt.Base10))
 }
 
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
@@ -344,15 +344,14 @@ func (e CantVerifyTransactionHashError) Unwrap() error {
 }
 
 func (e CantVerifyTransactionHashError) Error() string {
-	errStr := fmt.Sprintf("cannot verify transaction hash(%v) of Transaction Type: %v",
-		e.t.Hash().String(), reflect.TypeOf(e.t))
-	if e.hashFailure != nil {
-		errStr = fmt.Sprintf("%v: %v", errStr, e.hashFailure.Error())
-	}
-	return errStr
+	return fmt.Sprintf("cannot verify transaction hash of Transaction Type: %v: %v", reflect.TypeOf(e.t), e.hashFailure.Error())
 }
 
-func verifyTransactions(txs []Transaction, n utils.Network) error {
+func (e CantVerifyTransactionHashError) Hash() *felt.Felt {
+	return e.t.Hash()
+}
+
+func VerifyTransactions(txs []Transaction, n utils.Network) error {
 	var head *CantVerifyTransactionHashError
 	for _, tx := range txs {
 		if err := verifyTransactionHash(tx, n); err != nil {
@@ -369,10 +368,16 @@ func verifyTransactions(txs []Transaction, n utils.Network) error {
 func verifyTransactionHash(t Transaction, n utils.Network) *CantVerifyTransactionHashError {
 	calculatedTxHash, err := transactionHash(t, n)
 	if err != nil {
-		return &CantVerifyTransactionHashError{t: t, hashFailure: err}
+		return &CantVerifyTransactionHashError{
+			t:           t,
+			hashFailure: err,
+		}
 	}
 	if !calculatedTxHash.Equal(t.Hash()) {
-		return &CantVerifyTransactionHashError{t: t}
+		return &CantVerifyTransactionHashError{
+			t:           t,
+			hashFailure: fmt.Errorf("calculated hash: %v, received hash: %v", calculatedTxHash.String(), t.Hash().String()),
+		}
 	}
 	return nil
 }

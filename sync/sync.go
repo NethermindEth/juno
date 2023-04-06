@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"errors"
 	"runtime"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -84,24 +83,18 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
-	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate)
+	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, declaredClasses)
 	return func() {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if err != nil {
-				if errors.As(err, new(core.CantVerifyTransactionHashError)) {
-					for ; err != nil; err = errors.Unwrap(err) {
-						s.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
-							block.Hash.ShortString(), "error", err.Error())
-					}
-				} else {
-					s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
-					resetStreams()
-					return
-				}
+				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
+				resetStreams()
+				return
 			}
+
 			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number,

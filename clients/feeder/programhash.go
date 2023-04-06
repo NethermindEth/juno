@@ -116,7 +116,7 @@ func reformatHint(hints Hints) string {
 		buf.WriteString(strconv.FormatUint(hint, 10))
 		buf.WriteString(`":`)
 		if err := encoder.Encode(hints[hint]); err != nil {
-			panic(err)
+			return err.Error()
 		}
 		// remove trailing newline
 		buf.Truncate(buf.Len() - 1)
