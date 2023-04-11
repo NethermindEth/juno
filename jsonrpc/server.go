@@ -278,8 +278,12 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 }
 
 func buildArguments(params, handler any, configuredParams []Parameter) ([]reflect.Value, error) {
-	var args []reflect.Value
+	args := make([]reflect.Value, 0, len(configuredParams))
 	if isNil(params) {
+		if len(configuredParams) > 0 {
+			return nil, errors.New("missing non-optional param field")
+		}
+
 		return args, nil
 	}
 
@@ -314,7 +318,6 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 			}
 			args = append(args, v)
 		}
-		return args, nil
 	case reflect.Map:
 		paramsMap := params.(map[string]any)
 
@@ -335,9 +338,9 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 
 			args = append(args, v)
 		}
-		return args, nil
 	default:
 		// Todo: consider returning InternalError
 		return nil, errors.New("impossible param type: check request.isSane")
 	}
+	return args, nil
 }
