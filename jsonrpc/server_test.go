@@ -128,6 +128,10 @@ func TestHandle(t *testing.T) {
 			req: `{"jsonrpc" : "2.0", "method" : "doesnotexits" , "id" : 2}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":2}`,
 		},
+		"no params": {
+			req: `{"jsonrpc" : "2.0", "method" : "method", "id" : 5}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param field"},"id":5}`,
+		},
 		"missing param(s)": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false] , "id" : 3}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
