@@ -1,0 +1,3 @@
+[submodule "vm/juno-starknet-rs"]
+	path = vm/juno-starknet-rs
+	url = https://github.com/NethermindEth/juno-starknet-rs.git

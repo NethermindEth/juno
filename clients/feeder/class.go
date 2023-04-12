@@ -27,14 +27,16 @@ type SierraEntryPoint struct {
 	Selector *felt.Felt `json:"selector"`
 }
 
+type EntryPoints struct {
+	Constructor []EntryPoint `json:"CONSTRUCTOR"`
+	External    []EntryPoint `json:"EXTERNAL"`
+	L1Handler   []EntryPoint `json:"L1_HANDLER"`
+}
+
 type Cairo0Definition struct {
 	Abi         json.RawMessage `json:"abi"`
-	EntryPoints struct {
-		Constructor []EntryPoint `json:"CONSTRUCTOR"`
-		External    []EntryPoint `json:"EXTERNAL"`
-		L1Handler   []EntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program json.RawMessage `json:"program"`
+	EntryPoints EntryPoints     `json:"entry_points_by_type"`
+	Program     json.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {

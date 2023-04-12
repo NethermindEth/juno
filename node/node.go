@@ -152,6 +152,11 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: rpcHandler.Events,
 		},
+		{
+			Name:    "starknet_call",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: rpcHandler.Call,
+		},
 	}, log)
 }
 

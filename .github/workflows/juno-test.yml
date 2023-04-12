@@ -14,16 +14,23 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.20.3' ]
-        os: [ ubuntu-latest, macOS-latest]
+        os: [ ubuntu-latest, macOS-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Set up go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install deps
         run: make install-deps
+      - name: Put SSL in PKG_CONFIG_PATH
+        if: runner.os == 'macOS'
+        run: |
+          echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
       - name: Tests
         run: make test-cover
       - name: Benchmark

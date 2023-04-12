@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -31,6 +32,7 @@ var (
 	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
 	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
 	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
+	ErrContractError            = &jsonrpc.Error{Code: 40, Message: "Contract error"}
 )
 
 const (
@@ -786,4 +788,29 @@ func getAddInvokeTxCode(err error) int {
 	default:
 		return jsonrpc.InternalError
 	}
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
+func (h *Handler) Call(call *FunctionCall, id *BlockID) ([]*felt.Felt, *jsonrpc.Error) {
+	state, closer, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	header, err := h.blockHeaderByID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	res, err := vm.Call(call.ContractAddress, call.EntryPointSelector, call.Calldata,
+		header.Number, header.Timestamp, state, h.network)
+	if closeErr := closer(); closeErr != nil {
+		h.log.Warnw("Failed to close state in starknet_call", "err", closeErr)
+	}
+
+	if err != nil {
+		contractErr := *ErrContractError
+		contractErr.Data = err.Error()
+		return nil, &contractErr
+	}
+	return res, nil
 }
