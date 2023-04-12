@@ -1946,3 +1946,49 @@ func TestVersion(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, version, ver)
 }
+
+func TestCall(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, "", log)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, errors.New("non-existent block hash"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, errors.New("non-existent block number"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	NoopCloser := func() error { return nil }
+
+	t.Run("call - unknown contract", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
+	})
+}

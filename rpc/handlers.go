@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -34,6 +35,7 @@ var (
 	ErrInvlaidContractClass     = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared     = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
+	ErrContractError            = &jsonrpc.Error{Code: 40, Message: "Contract error"}
 )
 
 const (
@@ -995,4 +997,45 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 
 func (h *Handler) Version() (string, *jsonrpc.Error) {
 	return h.version, nil
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
+func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	state, closer, err := h.stateByBlockID(&id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			h.log.Warnw("Failed to close state in starknet_call", "err", closeErr)
+		}
+	}()
+
+	header, err := h.blockHeaderByID(&id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	_, err = state.ContractClassHash(&call.ContractAddress)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	blockNumber := header.Number
+	if id.Pending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+	res, err := vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata,
+		blockNumber, header.Timestamp, state, h.network)
+
+	if err != nil {
+		contractErr := *ErrContractError
+		contractErr.Data = err.Error()
+		return nil, &contractErr
+	}
+	return res, nil
 }

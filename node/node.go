@@ -233,6 +233,11 @@ func makeHTTP(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLo
 			Name:    "juno_version",
 			Handler: rpcHandler.Version,
 		},
+		{
+			Name:    "starknet_call",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: rpcHandler.Call,
+		},
 	}, log)
 }
 

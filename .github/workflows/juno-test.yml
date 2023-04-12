@@ -22,6 +22,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install deps
         run: make install-deps
       - name: Tests
