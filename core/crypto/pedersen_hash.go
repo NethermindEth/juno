@@ -15,7 +15,7 @@ func PedersenArray(elems ...*felt.Felt) *felt.Felt {
 		fpElements[i] = elem.Impl()
 	}
 	hash := pedersenhash.PedersenArray(fpElements...)
-	return felt.NewFelt(hash)
+	return felt.NewFelt(&hash)
 }
 
 // Pedersen implements the [Pedersen hash].
@@ -23,5 +23,5 @@ func PedersenArray(elems ...*felt.Felt) *felt.Felt {
 // [Pedersen hash]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#pedersen_hash
 func Pedersen(a, b *felt.Felt) *felt.Felt {
 	hash := pedersenhash.Pedersen(a.Impl(), b.Impl())
-	return felt.NewFelt(hash)
+	return felt.NewFelt(&hash)
 }
