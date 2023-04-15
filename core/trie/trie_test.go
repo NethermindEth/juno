@@ -297,3 +297,22 @@ func TestMaxTrieHeight(t *testing.T) {
 		}))
 	})
 }
+
+func BenchmarkTriePut(b *testing.B) {
+	keys := make([]*felt.Felt, 0, b.N)
+	for i := 0; i < b.N; i++ {
+		rnd, err := new(felt.Felt).SetRandom()
+		require.NoError(b, err)
+		keys = append(keys, rnd)
+	}
+
+	one := new(felt.Felt).SetUint64(1)
+	require.NoError(b, trie.RunOnTempTrie(251, func(t *trie.Trie) error {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := t.Put(keys[i], one)
+			require.NoError(b, err)
+		}
+		return nil
+	}))
+}
