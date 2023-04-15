@@ -210,6 +210,6 @@ func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 		// database error.
 		return nil, err
 	}
-	trieTxn := NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := trie.NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
 	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight, contractRootKey)
 }
