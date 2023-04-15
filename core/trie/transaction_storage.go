@@ -1,13 +1,12 @@
-package core
+package trie
 
 import (
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
 
-var _ trie.Storage = (*TransactionStorage)(nil)
+var _ Storage = (*TransactionStorage)(nil)
 
 // TransactionStorage is a database transaction on a trie.
 type TransactionStorage struct {
@@ -33,7 +32,7 @@ func (t *TransactionStorage) dbKey(key *bitset.BitSet) ([]byte, error) {
 	return append(t.prefix, keyBytes...), nil
 }
 
-func (t *TransactionStorage) Put(key *bitset.BitSet, value *trie.Node) error {
+func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return err
@@ -47,15 +46,15 @@ func (t *TransactionStorage) Put(key *bitset.BitSet, value *trie.Node) error {
 	return t.txn.Set(dbKey, valueBytes)
 }
 
-func (t *TransactionStorage) Get(key *bitset.BitSet) (*trie.Node, error) {
+func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 	dbKey, err := t.dbKey(key)
 	if err != nil {
 		return nil, err
 	}
 
-	var node *trie.Node
+	var node *Node
 	if err = t.txn.Get(dbKey, func(val []byte) error {
-		node = new(trie.Node)
+		node = new(Node)
 		return encoder.Unmarshal(val, node)
 	}); err != nil {
 		return nil, err

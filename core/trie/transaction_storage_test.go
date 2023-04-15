@@ -1,10 +1,9 @@
-package core_test
+package trie_test
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -28,14 +27,14 @@ func TestTransactionStorage(t *testing.T) {
 
 	t.Run("put a node", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-			tTxn := core.NewTransactionStorage(txn, prefix)
+			tTxn := trie.NewTransactionStorage(txn, prefix)
 			return tTxn.Put(key, node)
 		}))
 	})
 
 	t.Run("get a node", func(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			tTxn := core.NewTransactionStorage(txn, prefix)
+			tTxn := trie.NewTransactionStorage(txn, prefix)
 			got, err := tTxn.Get(key)
 			require.NoError(t, err)
 			assert.Equal(t, node, got)
@@ -46,7 +45,7 @@ func TestTransactionStorage(t *testing.T) {
 	t.Run("roll back on error", func(t *testing.T) {
 		// Successfully delete a node and return an error to force a roll back.
 		require.Error(t, testDB.Update(func(txn db.Transaction) error {
-			tTxn := core.NewTransactionStorage(txn, prefix)
+			tTxn := trie.NewTransactionStorage(txn, prefix)
 			err := tTxn.Delete(key)
 			require.NoError(t, err)
 			return errors.New("should rollback")
@@ -55,7 +54,7 @@ func TestTransactionStorage(t *testing.T) {
 		// If the transaction was properly rolled back, the node that we
 		// "deleted" should still exist in the db.
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			tTxn := core.NewTransactionStorage(txn, prefix)
+			tTxn := trie.NewTransactionStorage(txn, prefix)
 			got, err := tTxn.Get(key)
 			assert.Equal(t, node, got)
 			return err
@@ -65,13 +64,13 @@ func TestTransactionStorage(t *testing.T) {
 	t.Run("delete a node", func(t *testing.T) {
 		// Delete a node.
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-			tTxn := core.NewTransactionStorage(txn, prefix)
+			tTxn := trie.NewTransactionStorage(txn, prefix)
 			return tTxn.Delete(key)
 		}))
 
 		// Node should no longer exist in the database.
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
-			tTxn := core.NewTransactionStorage(txn, prefix)
+			tTxn := trie.NewTransactionStorage(txn, prefix)
 			_, err := tTxn.Get(key)
 			return err
 		}), db.ErrKeyNotFound.Error())
