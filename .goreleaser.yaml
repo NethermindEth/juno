@@ -1,0 +1,76 @@
+project_name: juno
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+release:
+  draft: true
+  prerelease: auto
+  mode: append
+  header: |
+    ## Some title ({{ .Date }})
+
+    Welcome to this new release!
+
+  footer: |
+    ## Thanks!
+
+    Those were the changes on {{ .Tag }}!
+
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: ./cmd/juno/juno.go
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+dockers:
+- image_templates:
+  - "nethermind/juno:v{{ .Version }}-amd64"
+  use: buildx
+  dockerfile: goreleaser.Dockerfile
+  build_flag_templates:
+  - "--platform=linux/amd64"
+- image_templates:
+  - "nethermind/juno:v{{ .Version }}-arm64"
+  use: buildx
+  goarch: arm64
+  dockerfile: goreleaser.Dockerfile
+  build_flag_templates:
+  - "--platform=linux/arm64/v8"
+
+docker_manifests:
+- name_template: "nethermind/juno:v{{ .Version }}"
+  image_templates:
+  - "nethermind/juno:v{{ .Version }}-amd64"
+  - "nethermind/juno:v{{ .Version }}-arm64"
+- name_template: "nethermind/juno:latest"
+  image_templates:
+  - "nethermind/juno:v{{ .Version }}-amd64"
+  - "nethermind/juno:v{{ .Version }}-arm64"
+  
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+    - goos: windows
+      format: zip
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
