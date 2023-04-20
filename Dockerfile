@@ -1,5 +1,5 @@
 # Stage 1: Build golang dependencies and binaries
-FROM golang:1.19-alpine AS build
+FROM golang:1.20.3-alpine AS build
 
 # Install Alpine Dependencies
 RUN apk update && \
