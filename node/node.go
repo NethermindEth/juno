@@ -111,6 +111,10 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: rpcHandler.StateUpdate,
 		},
+		{
+			Name:    "starknet_syncing",
+			Handler: rpcHandler.Syncing,
+		},
 	}, log)
 }
 
@@ -143,7 +147,7 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network), n.log)
 
 	n.services = []service.Service{synchronizer, http}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -20,14 +21,16 @@ var (
 )
 
 type Handler struct {
-	bcReader blockchain.Reader
-	network  utils.Network
+	bcReader     blockchain.Reader
+	synchronizer *sync.Synchronizer
+	network      utils.Network
 }
 
-func New(bcReader blockchain.Reader, n utils.Network) *Handler {
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network) *Handler {
 	return &Handler{
-		bcReader: bcReader,
-		network:  n,
+		bcReader:     bcReader,
+		synchronizer: synchronizer,
+		network:      n,
 	}
 }
 
@@ -406,6 +409,44 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 			Nonces:                    nonces,
 			StorageDiffs:              storageDiffs,
 			DeployedContracts:         deployedContracts,
+		},
+	}, nil
+}
+
+// Syncing returns the syncing status of the node.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
+func (h *Handler) Syncing() (*SyncState, *jsonrpc.Error) {
+	defaultSyncState := &SyncState{False: new(bool)}
+
+	startingBlockNumber := h.synchronizer.StartingBlockNumber
+	if startingBlockNumber == nil {
+		return defaultSyncState, nil
+	}
+	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(*startingBlockNumber)
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	head, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	highestBlockHeader := h.synchronizer.HighestBlockHeader
+	if highestBlockHeader == nil {
+		return defaultSyncState, nil
+	}
+	if highestBlockHeader.Number < head.Number {
+		return defaultSyncState, nil
+	}
+	return &SyncState{
+		Status: &SyncStatus{
+			StartingBlockHash:   startingBlockHeader.Hash,
+			StartingBlockNumber: NumAsHex(startingBlockHeader.Number),
+			CurrentBlockHash:    head.Hash,
+			CurrentBlockNumber:  NumAsHex(head.Number),
+			HighestBlockHash:    highestBlockHeader.Hash,
+			HighestBlockNumber:  NumAsHex(highestBlockHeader.Number),
 		},
 	}, nil
 }

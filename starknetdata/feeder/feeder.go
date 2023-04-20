@@ -3,6 +3,7 @@ package feeder
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -27,7 +28,17 @@ func New(client *feeder.Client) *Feeder {
 // BlockByNumber gets the block for a given block number from the feeder,
 // then adapts it to the core.Block type.
 func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	response, err := f.client.Block(ctx, blockNumber)
+	return f.block(ctx, strconv.FormatUint(blockNumber, 10))
+}
+
+// BlockLatest gets the latest block from the feeder,
+// then adapts it to the core.Block type.
+func (f *Feeder) BlockLatest(ctx context.Context) (*core.Block, error) {
+	return f.block(ctx, "latest")
+}
+
+func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
+	response, err := f.client.Block(ctx, blockID)
 	if err != nil {
 		return nil, err
 	}
