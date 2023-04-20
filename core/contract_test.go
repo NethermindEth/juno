@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -197,8 +196,9 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 	t.Run("delete key from storage with storage diff", func(t *testing.T) {
 		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: new(felt.Felt)}}))
 
-		_, err := contract.Storage(addr)
-		require.EqualError(t, err, db.ErrKeyNotFound.Error())
+		val, err := contract.Storage(addr)
+		require.NoError(t, err)
+		require.Equal(t, &felt.Zero, val)
 
 		sRoot, err := contract.Root()
 		require.NoError(t, err)

@@ -2,12 +2,14 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -167,6 +169,9 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	value, err := t.storage.Get(t.feltToBitSet(key))
 	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return &felt.Zero, nil
+		}
 		return nil, err
 	}
 	return value.Value, nil

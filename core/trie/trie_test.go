@@ -46,10 +46,9 @@ func TestTriePut(t *testing.T) {
 			require.NoError(t, err)
 
 			value, err := tempTrie.Get(key)
-			// should return an error when try to access a non-exist key
-			assert.Error(t, err)
-			// after empty, the return value and Trie's root should be nil
-			assert.Nil(t, value)
+			assert.NoError(t, err)
+			assert.Equal(t, &felt.Zero, value)
+			// Trie's root should be nil
 			assert.Nil(t, tempTrie.RootKey())
 
 			return nil
@@ -138,8 +137,8 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 					val, err := tempTrie.Get(key)
 
-					assert.Error(t, err, "should return an error when access a deleted key")
-					assert.Nil(t, val, "should return an nil value when access a deleted key")
+					assert.NoError(t, err, "shouldnt return an error when access a deleted key")
+					assert.Equal(t, &felt.Zero, val, "should return zero value when access a deleted key")
 				}
 
 				// Check the final rootKey
