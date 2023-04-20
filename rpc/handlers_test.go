@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestChainId(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
-			handler := rpc.New(mockReader, n)
+			handler := rpc.New(mockReader, nil, n)
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
@@ -40,7 +41,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -66,7 +67,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
@@ -99,7 +100,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.GOERLI)
+	handler := rpc.New(mockReader, nil, utils.GOERLI)
 
 	client, closeServer := feeder.NewTestClient(utils.GOERLI)
 	t.Cleanup(closeServer)
@@ -165,7 +166,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.GOERLI)
+	handler := rpc.New(mockReader, nil, utils.GOERLI)
 
 	client, closeServer := feeder.NewTestClient(utils.GOERLI)
 	t.Cleanup(closeServer)
@@ -247,7 +248,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	client, closeServer := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeServer)
@@ -358,7 +359,7 @@ func TestTransactionByHash(t *testing.T) {
 	t.Cleanup(closeServer)
 	mainnetGw := adaptfeeder.New(client)
 
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -557,7 +558,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
@@ -674,7 +675,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -759,7 +760,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Height().Return(uint64(0), errors.New("empty blockchain"))
@@ -887,5 +888,72 @@ func TestStateUpdate(t *testing.T) {
 				checkUpdate(t, gwUpdate, update)
 			})
 		}
+	})
+}
+
+func TestSyncing(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	client, closeServer := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeServer)
+
+	gw := adaptfeeder.New(client)
+	log := utils.NewNopZapLogger()
+	synchronizer := sync.New(nil, gw, log)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, synchronizer, utils.MAINNET)
+	defaultState := false
+
+	t.Run("undefined starting block", func(t *testing.T) {
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+
+	startingBlock := uint64(0)
+	synchronizer.StartingBlockNumber = &startingBlock
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(nil, errors.New("empty blockchain"))
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	t.Run("undefined highest block", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	t.Run("block height is greater than highest block", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+	})
+	synchronizer.HighestBlockHeader = &core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}
+	t.Run("syncing", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
+
+		expectedSyncing := &rpc.SyncState{
+			Status: &rpc.SyncStatus{
+				StartingBlockHash:   &felt.Zero,
+				StartingBlockNumber: rpc.NumAsHex(startingBlock),
+				CurrentBlockHash:    new(felt.Felt).SetUint64(1),
+				CurrentBlockNumber:  rpc.NumAsHex(1),
+				HighestBlockHash:    new(felt.Felt).SetUint64(2),
+				HighestBlockNumber:  rpc.NumAsHex(2),
+			},
+		}
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, expectedSyncing, syncing)
 	})
 }

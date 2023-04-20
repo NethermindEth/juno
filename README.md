@@ -137,12 +137,12 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
 * [ ] Synchronisation: implement verification of state from layer 1.
 * [ ] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
     * [ ] Implement the remaining endpoints:
+        * [X] `starknet_syncing`
         * [ ] `starknet_getStorageAt`
         * [ ] `starknet_getClass`
         * [ ] `starknet_getClassHashAt`
         * [ ] `starknet_getClassAt`
         * [ ] `starknet_getNonce`
-        * [ ] `starknet_syncing`
         * [ ] `starknet_getEvents`
 * [ ] Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
   * [ ] `starknet_call`

@@ -127,6 +127,10 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.Class(ctx, hash)
 		}).AnyTimes()
 
+		mockSNData.EXPECT().BlockLatest(gomock.Any()).DoAndReturn(func(ctx context.Context) (*core.Block, error) {
+			return gw.BlockLatest(context.Background())
+		}).AnyTimes()
+
 		synchronizer := New(bc, mockSNData, log)
 		ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 

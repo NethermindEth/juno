@@ -236,9 +236,9 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 	return txStatus, nil
 }
 
-func (c *Client) Block(ctx context.Context, blockNumber uint64) (*Block, error) {
+func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
-		"blockNumber": strconv.FormatUint(blockNumber, 10),
+		"blockNumber": blockID,
 	})
 
 	body, err := c.get(ctx, queryURL)

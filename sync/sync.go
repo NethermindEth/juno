@@ -17,8 +17,10 @@ var _ service.Service = (*Synchronizer)(nil)
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
-	Blockchain   *blockchain.Blockchain
-	StarknetData starknetdata.StarknetData
+	Blockchain          *blockchain.Blockchain
+	StarknetData        starknetdata.StarknetData
+	StartingBlockNumber *uint64
+	HighestBlockHeader  *core.Header
 
 	log utils.SimpleLogger
 }
@@ -94,13 +96,20 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-
 			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number,
 					"hash", block.Hash.ShortString(), "err", err.Error())
 				resetStreams()
 				return
+			}
+
+			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number < block.Number {
+				highestBlock, err := s.StarknetData.BlockLatest(ctx)
+				if err != nil {
+					s.log.Warnw("Failed fetching latest block", "err", err.Error())
+				}
+				s.HighestBlockHeader = highestBlock.Header
 			}
 
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
@@ -118,11 +127,19 @@ func (s *Synchronizer) nextHeight() uint64 {
 }
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
+	defer func() {
+		s.StartingBlockNumber = nil
+		s.HighestBlockHeader = nil
+	}()
+
 	fetchers := stream.New().WithMaxGoroutines(runtime.NumCPU())
 	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
 
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
+
 	nextHeight := s.nextHeight()
+	startingHeight := nextHeight
+	s.StartingBlockNumber = &startingHeight
 
 	for {
 		select {
