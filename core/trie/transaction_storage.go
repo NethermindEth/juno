@@ -94,3 +94,7 @@ func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 	}
 	return t.txn.Delete(buffer.Bytes())
 }
+
+func newMemStorage() Storage {
+	return NewTransactionStorage(db.NewMemTransaction(), nil)
+}
