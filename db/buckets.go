@@ -25,6 +25,7 @@ const (
 	ContractStorageHistory
 	ContractNonceHistory
 	ContractClassHashHistory
+	ContractDeploymentHeight
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

@@ -263,3 +263,56 @@ func TestStateHistory(t *testing.T) {
 		require.Equal(t, oldValue, utils.HexToFelt(t, "0x22b"))
 	})
 }
+
+func TestContractIsDeployedAt(t *testing.T) {
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	state := core.NewState(txn)
+
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(t, err)
+
+	require.NoError(t, state.Update(0, su0, nil))
+	require.NoError(t, state.Update(1, su1, nil))
+
+	t.Run("deployed on genesis", func(t *testing.T) {
+		deployedOn0 := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn0, 0)
+		require.NoError(t, err)
+		assert.True(t, deployed)
+
+		deployed, err = state.ContractIsAlreadyDeployedAt(deployedOn0, 1)
+		require.NoError(t, err)
+		assert.True(t, deployed)
+	})
+
+	t.Run("deployed after genesis", func(t *testing.T) {
+		deployedOn1 := utils.HexToFelt(t, "0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
+		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn1, 0)
+		require.NoError(t, err)
+		assert.False(t, deployed)
+
+		deployed, err = state.ContractIsAlreadyDeployedAt(deployedOn1, 1)
+		require.NoError(t, err)
+		assert.True(t, deployed)
+	})
+
+	t.Run("not deployed", func(t *testing.T) {
+		notDeployed := utils.HexToFelt(t, "0xDEADBEEF")
+		deployed, err := state.ContractIsAlreadyDeployedAt(notDeployed, 1)
+		require.NoError(t, err)
+		assert.False(t, deployed)
+	})
+}

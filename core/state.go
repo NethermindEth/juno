@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -28,6 +29,7 @@ type StateHistoryReader interface {
 	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
 }
 
 type StateReader interface {
@@ -50,11 +52,18 @@ func NewState(txn db.Transaction) *State {
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
 // queried later with [GetContractClass].
-func (s *State) putNewContract(addr, classHash *felt.Felt) error {
+func (s *State) putNewContract(addr, classHash *felt.Felt, blockNumber uint64) error {
 	contract, err := DeployContract(addr, classHash, s.txn)
 	if err != nil {
 		return err
 	}
+
+	var numBytes [8]byte
+	binary.BigEndian.PutUint64(numBytes[:], blockNumber)
+	if err = s.txn.Set(db.ContractDeploymentHeight.Key(addr.Marshal()), numBytes[:]); err != nil {
+		return err
+	}
+
 	return s.updateContractCommitment(contract)
 }
 
@@ -216,7 +225,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 	// register deployed contracts
 	for _, contract := range diff.DeployedContracts {
-		if err := s.putNewContract(contract.Address, contract.ClassHash); err != nil {
+		if err := s.putNewContract(contract.Address, contract.ClassHash, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -389,4 +398,19 @@ func (s *State) updateDeclaredClasses(declaredClasses []DeclaredV1Class) error {
 	}
 
 	return classesCloser()
+}
+
+// ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
+func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+	var deployedAt uint64
+	if err := s.txn.Get(db.ContractDeploymentHeight.Key(addr.Marshal()), func(bytes []byte) error {
+		deployedAt = binary.BigEndian.Uint64(bytes)
+		return nil
+	}); err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return deployedAt <= blockNumber, nil
 }
