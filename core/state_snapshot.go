@@ -19,6 +19,10 @@ func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader 
 }
 
 func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+	if err := s.checkDeployed(addr); err != nil {
+		return nil, err
+	}
+
 	val, err := s.state.ContractClassHashAt(addr, s.blockNumber)
 	if err != nil {
 		if errors.Is(err, ErrCheckHeadState) {
@@ -30,6 +34,10 @@ func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 }
 
 func (s *stateSnapshot) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+	if err := s.checkDeployed(addr); err != nil {
+		return nil, err
+	}
+
 	val, err := s.state.ContractNonceAt(addr, s.blockNumber)
 	if err != nil {
 		if errors.Is(err, ErrCheckHeadState) {
@@ -41,6 +49,10 @@ func (s *stateSnapshot) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 }
 
 func (s *stateSnapshot) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+	if err := s.checkDeployed(addr); err != nil {
+		return nil, err
+	}
+
 	val, err := s.state.ContractStorageAt(addr, key, s.blockNumber)
 	if err != nil {
 		if errors.Is(err, ErrCheckHeadState) {
@@ -49,4 +61,16 @@ func (s *stateSnapshot) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error
 		return nil, err
 	}
 	return val, nil
+}
+
+func (s *stateSnapshot) checkDeployed(addr *felt.Felt) error {
+	isDeployed, err := s.state.ContractIsAlreadyDeployedAt(addr, s.blockNumber)
+	if err != nil {
+		return err
+	}
+
+	if !isDeployed {
+		return ErrContractNotDeployed
+	}
+	return nil
 }

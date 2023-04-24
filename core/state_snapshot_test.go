@@ -16,9 +16,11 @@ func TestStateSnapshot(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	deployedHeight := uint64(3)
 	changeHeight := uint64(10)
-	snapshotBefore := core.NewStateSnapshot(mockState, changeHeight-1)
-	snapshotAfter := core.NewStateSnapshot(mockState, changeHeight+1)
+	snapshotBeforeDeployment := core.NewStateSnapshot(mockState, deployedHeight-1)
+	snapshotBeforeChange := core.NewStateSnapshot(mockState, deployedHeight)
+	snapshotAfterChange := core.NewStateSnapshot(mockState, changeHeight+1)
 
 	historyValue := new(felt.Felt).SetUint64(1)
 	doAtReq := func(addr *felt.Felt, at uint64) (*felt.Felt, error) {
@@ -32,6 +34,9 @@ func TestStateSnapshot(t *testing.T) {
 		return historyValue, nil
 	}
 
+	mockState.EXPECT().ContractIsAlreadyDeployedAt(gomock.Any(), gomock.Any()).DoAndReturn(func(addr *felt.Felt, height uint64) (bool, error) {
+		return deployedHeight <= height, nil
+	}).AnyTimes()
 	mockState.EXPECT().ContractClassHashAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()
 	mockState.EXPECT().ContractNonceAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()
 	mockState.EXPECT().ContractStorageAt(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -57,40 +62,55 @@ func TestStateSnapshot(t *testing.T) {
 	addr, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 	t.Run("class hash", func(t *testing.T) {
+		t.Run("contract is not deployed", func(t *testing.T) {
+			_, err := snapshotBeforeDeployment.ContractClassHash(addr)
+			require.ErrorIs(t, err, core.ErrContractNotDeployed)
+		})
+
 		t.Run("correct value is in history", func(t *testing.T) {
-			got, err := snapshotBefore.ContractClassHash(addr)
+			got, err := snapshotBeforeChange.ContractClassHash(addr)
 			require.NoError(t, err)
 			require.Equal(t, historyValue, got)
 		})
 
 		t.Run("correct value is in HEAD", func(t *testing.T) {
-			got, err := snapshotAfter.ContractClassHash(addr)
+			got, err := snapshotAfterChange.ContractClassHash(addr)
 			require.NoError(t, err)
 			require.Equal(t, headValue, got)
 		})
 	})
 	t.Run("nonce", func(t *testing.T) {
+		t.Run("contract is not deployed", func(t *testing.T) {
+			_, err := snapshotBeforeDeployment.ContractNonce(addr)
+			require.ErrorIs(t, err, core.ErrContractNotDeployed)
+		})
+
 		t.Run("correct value is in history", func(t *testing.T) {
-			got, err := snapshotBefore.ContractNonce(addr)
+			got, err := snapshotBeforeChange.ContractNonce(addr)
 			require.NoError(t, err)
 			require.Equal(t, historyValue, got)
 		})
 
 		t.Run("correct value is in HEAD", func(t *testing.T) {
-			got, err := snapshotAfter.ContractNonce(addr)
+			got, err := snapshotAfterChange.ContractNonce(addr)
 			require.NoError(t, err)
 			require.Equal(t, headValue, got)
 		})
 	})
 	t.Run("storage value", func(t *testing.T) {
+		t.Run("contract is not deployed", func(t *testing.T) {
+			_, err := snapshotBeforeDeployment.ContractStorage(addr, addr)
+			require.ErrorIs(t, err, core.ErrContractNotDeployed)
+		})
+
 		t.Run("correct value is in history", func(t *testing.T) {
-			got, err := snapshotBefore.ContractStorage(addr, addr)
+			got, err := snapshotBeforeChange.ContractStorage(addr, addr)
 			require.NoError(t, err)
 			require.Equal(t, historyValue, got)
 		})
 
 		t.Run("correct value is in HEAD", func(t *testing.T) {
-			got, err := snapshotAfter.ContractStorage(addr, addr)
+			got, err := snapshotAfterChange.ContractStorage(addr, addr)
 			require.NoError(t, err)
 			require.Equal(t, headValue, got)
 		})
@@ -98,15 +118,15 @@ func TestStateSnapshot(t *testing.T) {
 
 	t.Run("history returns some error", func(t *testing.T) {
 		t.Run("class hash", func(t *testing.T) {
-			_, err := snapshotAfter.ContractClassHash(&felt.Zero)
+			_, err := snapshotAfterChange.ContractClassHash(&felt.Zero)
 			require.EqualError(t, err, "some error")
 		})
 		t.Run("nonce", func(t *testing.T) {
-			_, err := snapshotAfter.ContractNonce(&felt.Zero)
+			_, err := snapshotAfterChange.ContractNonce(&felt.Zero)
 			require.EqualError(t, err, "some error")
 		})
 		t.Run("storage value", func(t *testing.T) {
-			_, err := snapshotAfter.ContractStorage(&felt.Zero, &felt.Zero)
+			_, err := snapshotAfterChange.ContractStorage(&felt.Zero, &felt.Zero)
 			require.EqualError(t, err, "some error")
 		})
 	})
