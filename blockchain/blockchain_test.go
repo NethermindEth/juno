@@ -333,3 +333,60 @@ func TestTransactionAndReceipt(t *testing.T) {
 		}
 	})
 }
+
+func TestState(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	t.Run("head with no blocks", func(t *testing.T) {
+		_, _, err := chain.HeadState()
+		require.Error(t, err)
+	})
+
+	var existingBlockHash *felt.Felt
+	for i := uint64(0); i < 2; i++ {
+		block, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+
+		require.NoError(t, chain.Store(block, su, nil))
+		existingBlockHash = block.Hash
+	}
+
+	t.Run("head with blocks", func(t *testing.T) {
+		_, closer, err := chain.HeadState()
+		require.NoError(t, err)
+		require.NoError(t, closer())
+	})
+
+	t.Run("existing height", func(t *testing.T) {
+		_, closer, err := chain.StateAtBlockNumber(1)
+		require.NoError(t, err)
+		require.NoError(t, closer())
+	})
+
+	t.Run("non-existent height", func(t *testing.T) {
+		_, _, err := chain.StateAtBlockNumber(10)
+		require.Error(t, err)
+	})
+
+	t.Run("existing hash", func(t *testing.T) {
+		_, closer, err := chain.StateAtBlockHash(existingBlockHash)
+		require.NoError(t, err)
+		require.NoError(t, closer())
+	})
+
+	t.Run("non-existent hash", func(t *testing.T) {
+		hash, _ := new(felt.Felt).SetRandom()
+		_, _, err := chain.StateAtBlockHash(hash)
+		require.Error(t, err)
+	})
+}

@@ -21,6 +21,7 @@ var (
 
 var _ StateHistoryReader = (*State)(nil)
 
+//go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
 type StateHistoryReader interface {
 	StateReader
 

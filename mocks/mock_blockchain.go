@@ -110,6 +110,22 @@ func (mr *MockReaderMockRecorder) Head() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Head", reflect.TypeOf((*MockReader)(nil).Head))
 }
 
+// HeadState mocks base method.
+func (m *MockReader) HeadState() (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HeadState")
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// HeadState indicates an expected call of HeadState.
+func (mr *MockReaderMockRecorder) HeadState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadState", reflect.TypeOf((*MockReader)(nil).HeadState))
+}
+
 // HeadsHeader mocks base method.
 func (m *MockReader) HeadsHeader() (*core.Header, error) {
 	m.ctrl.T.Helper()
@@ -155,6 +171,38 @@ func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.F
 func (mr *MockReaderMockRecorder) Receipt(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), arg0)
+}
+
+// StateAtBlockHash mocks base method.
+func (m *MockReader) StateAtBlockHash(arg0 *felt.Felt) (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StateAtBlockHash", arg0)
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// StateAtBlockHash indicates an expected call of StateAtBlockHash.
+func (mr *MockReaderMockRecorder) StateAtBlockHash(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockHash", reflect.TypeOf((*MockReader)(nil).StateAtBlockHash), arg0)
+}
+
+// StateAtBlockNumber mocks base method.
+func (m *MockReader) StateAtBlockNumber(arg0 uint64) (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StateAtBlockNumber", arg0)
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// StateAtBlockNumber indicates an expected call of StateAtBlockNumber.
+func (mr *MockReaderMockRecorder) StateAtBlockNumber(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).StateAtBlockNumber), arg0)
 }
 
 // StateUpdateByHash mocks base method.
