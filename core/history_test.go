@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStorageValueAt(t *testing.T) {
+func TestHistory(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
@@ -19,78 +19,87 @@ func TestStorageValueAt(t *testing.T) {
 	})
 
 	history := core.NewHistory(txn)
-
 	contractAddress := new(felt.Felt).SetUint64(123)
-	location := new(felt.Felt).SetUint64(456)
 
-	t.Run("no history", func(t *testing.T) {
-		_, err := history.ContractStorageAt(contractAddress, location, 1)
-		assert.EqualError(t, err, "check head state")
-	})
+	for desc, test := range map[string]struct {
+		logger  func(location, oldValue *felt.Felt, height uint64) error
+		getter  func(location *felt.Felt, height uint64) (*felt.Felt, error)
+		deleter func(location *felt.Felt, height uint64) error
+	}{
+		"contract storage": {
+			logger: func(location, oldValue *felt.Felt, height uint64) error {
+				return history.LogContractStorage(contractAddress, location, oldValue, height)
+			},
+			getter: func(location *felt.Felt, height uint64) (*felt.Felt, error) {
+				return history.ContractStorageAt(contractAddress, location, height)
+			},
+			deleter: func(location *felt.Felt, height uint64) error {
+				return history.DeleteContractStorageLog(contractAddress, location, height)
+			},
+		},
+		"contract nonce": {
+			logger:  history.LogContractNonce,
+			getter:  history.ContractNonceAt,
+			deleter: history.DeleteContractNonceLog,
+		},
+		"contract class hash": {
+			logger:  history.LogContractClassHash,
+			getter:  history.ContractClassHashAt,
+			deleter: history.DeleteContractClassHashLog,
+		},
+	} {
+		location := new(felt.Felt).SetUint64(456)
 
-	value := new(felt.Felt).SetUint64(789)
+		t.Run(desc, func(t *testing.T) {
+			t.Run("no history", func(t *testing.T) {
+				_, err := test.getter(location, 1)
+				assert.EqualError(t, err, "check head state")
+			})
 
-	t.Run("log value changed at height 5 and 10", func(t *testing.T) {
-		assert.NoError(t, history.LogContractStorage(contractAddress, location, &felt.Zero, 5))
-		assert.NoError(t, history.LogContractStorage(contractAddress, location, value, 10))
-	})
+			value := new(felt.Felt).SetUint64(789)
 
-	t.Run("get value before height 5", func(t *testing.T) {
-		oldValue, err := history.ContractStorageAt(contractAddress, location, 1)
-		require.NoError(t, err)
-		assert.Equal(t, &felt.Zero, oldValue)
-	})
+			t.Run("log value changed at height 5 and 10", func(t *testing.T) {
+				assert.NoError(t, test.logger(location, &felt.Zero, 5))
+				assert.NoError(t, test.logger(location, value, 10))
+			})
 
-	t.Run("get value between height 5-10 ", func(t *testing.T) {
-		oldValue, err := history.ContractStorageAt(contractAddress, location, 7)
-		require.NoError(t, err)
-		assert.Equal(t, value, oldValue)
-	})
+			t.Run("get value before height 5", func(t *testing.T) {
+				oldValue, err := test.getter(location, 1)
+				require.NoError(t, err)
+				assert.Equal(t, &felt.Zero, oldValue)
+			})
 
-	t.Run("get value on height that change happened ", func(t *testing.T) {
-		oldValue, err := history.ContractStorageAt(contractAddress, location, 5)
-		require.NoError(t, err)
-		assert.Equal(t, value, oldValue)
+			t.Run("get value between height 5-10 ", func(t *testing.T) {
+				oldValue, err := test.getter(location, 7)
+				require.NoError(t, err)
+				assert.Equal(t, value, oldValue)
+			})
 
-		_, err = history.ContractStorageAt(contractAddress, location, 10)
-		assert.EqualError(t, err, "check head state")
-	})
+			t.Run("get value on height that change happened ", func(t *testing.T) {
+				oldValue, err := test.getter(location, 5)
+				require.NoError(t, err)
+				assert.Equal(t, value, oldValue)
 
-	t.Run("get value after height 10 ", func(t *testing.T) {
-		_, err := history.ContractStorageAt(contractAddress, location, 13)
-		assert.EqualError(t, err, "check head state")
-	})
+				_, err = test.getter(location, 10)
+				assert.EqualError(t, err, "check head state")
+			})
 
-	t.Run("get a random location ", func(t *testing.T) {
-		_, err := history.ContractStorageAt(contractAddress, new(felt.Felt).SetUint64(37), 13)
-		assert.EqualError(t, err, "check head state")
-	})
-}
+			t.Run("get value after height 10 ", func(t *testing.T) {
+				_, err := test.getter(location, 13)
+				assert.EqualError(t, err, "check head state")
+			})
 
-func TestDeleteContractStorageLog(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	txn := testDB.NewTransaction(true)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
-	})
+			t.Run("get a random location ", func(t *testing.T) {
+				_, err := test.getter(new(felt.Felt).SetUint64(37), 13)
+				assert.EqualError(t, err, "check head state")
+			})
 
-	history := core.NewHistory(txn)
+			require.NoError(t, test.deleter(location, 10))
 
-	contractAddress := new(felt.Felt).SetUint64(123)
-	location := new(felt.Felt).SetUint64(456)
-	assert.NoError(t, history.LogContractStorage(contractAddress, location, &felt.Zero, 5))
-
-	t.Run("get before delete", func(t *testing.T) {
-		oldValue, err := history.ContractStorageAt(contractAddress, location, 2)
-		require.NoError(t, err)
-		assert.Equal(t, &felt.Zero, oldValue)
-	})
-
-	require.NoError(t, history.DeleteContractStorageLog(contractAddress, location, 5))
-
-	t.Run("get after delete", func(t *testing.T) {
-		_, err := history.ContractStorageAt(contractAddress, location, 2)
-		assert.EqualError(t, err, "check head state")
-	})
+			t.Run("get after delete", func(t *testing.T) {
+				_, err := test.getter(location, 7)
+				assert.EqualError(t, err, "check head state")
+			})
+		})
+	}
 }
