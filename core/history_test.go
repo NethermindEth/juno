@@ -53,7 +53,7 @@ func TestHistory(t *testing.T) {
 		t.Run(desc, func(t *testing.T) {
 			t.Run("no history", func(t *testing.T) {
 				_, err := test.getter(location, 1)
-				assert.EqualError(t, err, "check head state")
+				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 
 			value := new(felt.Felt).SetUint64(789)
@@ -81,24 +81,24 @@ func TestHistory(t *testing.T) {
 				assert.Equal(t, value, oldValue)
 
 				_, err = test.getter(location, 10)
-				assert.EqualError(t, err, "check head state")
+				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 
 			t.Run("get value after height 10 ", func(t *testing.T) {
 				_, err := test.getter(location, 13)
-				assert.EqualError(t, err, "check head state")
+				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 
 			t.Run("get a random location ", func(t *testing.T) {
 				_, err := test.getter(new(felt.Felt).SetUint64(37), 13)
-				assert.EqualError(t, err, "check head state")
+				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 
 			require.NoError(t, test.deleter(location, 10))
 
 			t.Run("get after delete", func(t *testing.T) {
 				_, err := test.getter(location, 7)
-				assert.EqualError(t, err, "check head state")
+				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 		})
 	}

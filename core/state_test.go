@@ -232,12 +232,12 @@ func TestStateHistory(t *testing.T) {
 	changedLoc := utils.HexToFelt(t, "0x5")
 	t.Run("should return an error for a location that changed on the given height", func(t *testing.T) {
 		_, err = state.ContractStorageAt(contractAddr, changedLoc, 0)
-		require.EqualError(t, err, "check head state")
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
 	})
 
 	t.Run("should return an error for not changed location", func(t *testing.T) {
 		_, err := state.ContractStorageAt(contractAddr, utils.HexToFelt(t, "0xDEADBEEF"), 0)
-		require.EqualError(t, err, "check head state")
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
 	})
 
 	// update the same location again

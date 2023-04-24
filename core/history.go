@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+var ErrCheckHeadState = errors.New("check head state")
+
 type History struct {
 	txn db.Transaction
 }
@@ -61,7 +63,7 @@ func (h *History) valueAt(key []byte, height uint64) ([]byte, error) {
 		return val, nil
 	}
 
-	return nil, db.CloseAndWrapOnError(it.Close, errors.New("check head state"))
+	return nil, db.CloseAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
 func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {

@@ -32,6 +32,10 @@ type Reader interface {
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
+
+	HeadState() (core.StateReader, StateCloser, error)
+	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
+	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 }
 
 var supportedStarknetVersion = semver.MustParse("0.11.0")
@@ -602,4 +606,39 @@ func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey
 		return encoder.Unmarshal(val, &r)
 	})
 	return r, err
+}
+
+type StateCloser = func() error
+
+// HeadState returns a StateReader that provides a stable view to the latest state
+func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
+	txn := b.database.NewTransaction(false)
+	_, err := b.height(txn)
+	if err != nil {
+		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewState(txn), txn.Discard, nil
+}
+
+// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
+func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
+	txn := b.database.NewTransaction(false)
+	_, err := blockHeaderByNumber(txn, blockNumber)
+	if err != nil {
+		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewStateSnapshot(core.NewState(txn), blockNumber), txn.Discard, nil
+}
+
+// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
+func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+	txn := b.database.NewTransaction(false)
+	header, err := blockHeaderByHash(txn, blockHash)
+	if err != nil {
+		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewStateSnapshot(core.NewState(txn), header.Number), txn.Discard, nil
 }
