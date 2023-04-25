@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -141,10 +140,19 @@ func TestVerifyBlock(t *testing.T) {
 		require.Error(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
 	})
 
-	t.Run("error if version is unsupported", func(t *testing.T) {
+	t.Run("needs padding", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = "99.0" // should be padded to "99.0.0"
+		require.EqualError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil), "unsupported block version")
+	})
+
+	t.Run("needs truncating", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = "99.0.0.0" // last 0 digit should be ignored
+		require.EqualError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil), "unsupported block version")
+	})
+
+	t.Run("greater than supportedStarknetVersion", func(t *testing.T) {
 		mainnetBlock0.ProtocolVersion = "99.0.0"
-		semver.MustParse(mainnetBlock0.ProtocolVersion)
-		require.Error(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
+		require.EqualError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil), "unsupported block version")
 	})
 
 	t.Run("no error with no version string", func(t *testing.T) {

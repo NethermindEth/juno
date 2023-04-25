@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -41,7 +42,13 @@ func checkBlockVersion(protocolVersion string) error {
 		return nil
 	}
 
-	blockVer, err := semver.NewVersion(protocolVersion)
+	sep := "."
+	digits := strings.Split(protocolVersion, sep)
+	// pad with 3 zeros in case version has less than 3 digits
+	digits = append(digits, []string{"0", "0", "0"}...)
+
+	// get first 3 digits only
+	blockVer, err := semver.NewVersion(strings.Join(digits[:3], sep))
 	if err != nil {
 		return err
 	}
