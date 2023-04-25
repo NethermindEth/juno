@@ -2,12 +2,12 @@ package feeder_test
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -230,18 +230,14 @@ func TestClassV0(t *testing.T) {
 			}
 			assert.Equal(t, len(response.V0.EntryPoints.Constructor), len(class.Constructors))
 
-			for i, v := range response.V0.Program.Builtins {
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), class.Builtins[i])
-			}
-			assert.Equal(t, len(response.V0.Program.Builtins), len(class.Builtins))
+			var program feeder.Program
+			require.NoError(t, json.Unmarshal(response.V0.Program, &program))
 
-			for i, v := range response.V0.Program.Data {
-				expected := utils.HexToFelt(t, v)
-				assert.Equal(t, expected, class.Bytecode[i])
-			}
-			assert.Equal(t, len(response.V0.Program.Data), len(class.Bytecode))
+			assert.NotNil(t, class.BuiltinsHash)
+			assert.NotNil(t, class.BytecodeHash)
+			assert.NotEmpty(t, class.Program)
 
-			programHash, err := feeder.ProgramHash(response.V0)
+			programHash, err := feeder.ProgramHash(&program, response.V0.Abi)
 			require.NoError(t, err)
 			assert.Equal(t, programHash, class.ProgramHash)
 		})

@@ -2,6 +2,7 @@ package feeder_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -45,7 +46,10 @@ func TestProgramHash(t *testing.T) {
 			classDefinition, err := client.ClassDefinition(context.Background(), utils.HexToFelt(t, tt.classHash))
 			require.NoError(t, err)
 
-			programHash, err := feeder.ProgramHash(classDefinition.V0)
+			var program feeder.Program
+			require.NoError(t, json.Unmarshal(classDefinition.V0.Program, &program))
+
+			programHash, err := feeder.ProgramHash(&program, classDefinition.V0.Abi)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.want, programHash)
