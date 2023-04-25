@@ -61,60 +61,47 @@ func TestStateSnapshot(t *testing.T) {
 
 	addr, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
-	t.Run("class hash", func(t *testing.T) {
-		t.Run("contract is not deployed", func(t *testing.T) {
-			_, err := snapshotBeforeDeployment.ContractClassHash(addr)
-			require.ErrorIs(t, err, core.ErrContractNotDeployed)
-		})
 
-		t.Run("correct value is in history", func(t *testing.T) {
-			got, err := snapshotBeforeChange.ContractClassHash(addr)
-			require.NoError(t, err)
-			require.Equal(t, historyValue, got)
+	for desc, test := range map[string]struct {
+		snapshot core.StateReader
+		checker  func(*testing.T, *felt.Felt, error)
+	}{
+		"contract is not deployed": {
+			snapshot: snapshotBeforeDeployment,
+			checker: func(t *testing.T, _ *felt.Felt, err error) {
+				require.ErrorIs(t, err, core.ErrContractNotDeployed)
+			},
+		},
+		"correct value is in history": {
+			snapshot: snapshotBeforeChange,
+			checker: func(t *testing.T, got *felt.Felt, err error) {
+				require.NoError(t, err)
+				require.Equal(t, historyValue, got)
+			},
+		},
+		"correct value is in HEAD": {
+			snapshot: snapshotAfterChange,
+			checker: func(t *testing.T, got *felt.Felt, err error) {
+				require.NoError(t, err)
+				require.Equal(t, headValue, got)
+			},
+		},
+	} {
+		t.Run(desc, func(t *testing.T) {
+			t.Run("class hash", func(t *testing.T) {
+				got, err := test.snapshot.ContractClassHash(addr)
+				test.checker(t, got, err)
+			})
+			t.Run("nonce", func(t *testing.T) {
+				got, err := test.snapshot.ContractNonce(addr)
+				test.checker(t, got, err)
+			})
+			t.Run("storage value", func(t *testing.T) {
+				got, err := test.snapshot.ContractStorage(addr, addr)
+				test.checker(t, got, err)
+			})
 		})
-
-		t.Run("correct value is in HEAD", func(t *testing.T) {
-			got, err := snapshotAfterChange.ContractClassHash(addr)
-			require.NoError(t, err)
-			require.Equal(t, headValue, got)
-		})
-	})
-	t.Run("nonce", func(t *testing.T) {
-		t.Run("contract is not deployed", func(t *testing.T) {
-			_, err := snapshotBeforeDeployment.ContractNonce(addr)
-			require.ErrorIs(t, err, core.ErrContractNotDeployed)
-		})
-
-		t.Run("correct value is in history", func(t *testing.T) {
-			got, err := snapshotBeforeChange.ContractNonce(addr)
-			require.NoError(t, err)
-			require.Equal(t, historyValue, got)
-		})
-
-		t.Run("correct value is in HEAD", func(t *testing.T) {
-			got, err := snapshotAfterChange.ContractNonce(addr)
-			require.NoError(t, err)
-			require.Equal(t, headValue, got)
-		})
-	})
-	t.Run("storage value", func(t *testing.T) {
-		t.Run("contract is not deployed", func(t *testing.T) {
-			_, err := snapshotBeforeDeployment.ContractStorage(addr, addr)
-			require.ErrorIs(t, err, core.ErrContractNotDeployed)
-		})
-
-		t.Run("correct value is in history", func(t *testing.T) {
-			got, err := snapshotBeforeChange.ContractStorage(addr, addr)
-			require.NoError(t, err)
-			require.Equal(t, historyValue, got)
-		})
-
-		t.Run("correct value is in HEAD", func(t *testing.T) {
-			got, err := snapshotAfterChange.ContractStorage(addr, addr)
-			require.NoError(t, err)
-			require.Equal(t, headValue, got)
-		})
-	})
+	}
 
 	t.Run("history returns some error", func(t *testing.T) {
 		t.Run("class hash", func(t *testing.T) {
