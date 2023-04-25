@@ -12,13 +12,11 @@ import (
 )
 
 type ContractCode struct {
-	Abi     interface{} `json:"abi"`
-	Program *Program    `json:"program"`
+	Abi     json.RawMessage `json:"abi"`
+	Program *Program        `json:"program"`
 }
 
-func ProgramHash(contractDefinition *Cairo0Definition) (*felt.Felt, error) {
-	program := contractDefinition.Program
-
+func ProgramHash(program *Program, abi json.RawMessage) (*felt.Felt, error) {
 	// make debug info None
 	program.DebugInfo = nil
 
@@ -50,8 +48,8 @@ func ProgramHash(contractDefinition *Cairo0Definition) (*felt.Felt, error) {
 	}
 
 	contractCode := new(ContractCode)
-	contractCode.Abi = contractDefinition.Abi
-	contractCode.Program = &program
+	contractCode.Abi = abi
+	contractCode.Program = program
 
 	programBytes, err := contractCode.Marshal()
 	if err != nil {

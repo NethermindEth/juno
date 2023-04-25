@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -83,15 +84,15 @@ func TestClassEncoding(t *testing.T) {
 		{
 			name: "V0",
 			class: &core.Cairo0Class{
-				Abi: "abi",
+				Abi: json.RawMessage("abi"),
 				Externals: []core.EntryPoint{
 					{Selector: utils.HexToFelt(t, "0x44"), Offset: utils.HexToFelt(t, "0x37")},
 				},
 				L1Handlers:   []core.EntryPoint{},
 				Constructors: []core.EntryPoint{},
-				Builtins:     []*felt.Felt{utils.HexToFelt(t, "0xDEADBEEF")},
+				BuiltinsHash: utils.HexToFelt(t, "0xDEADBEEF"),
 				ProgramHash:  utils.HexToFelt(t, "0xBEEFDEAD"),
-				Bytecode:     []*felt.Felt{utils.HexToFelt(t, "0xDEAD"), utils.HexToFelt(t, "0xBEEF")},
+				BytecodeHash: utils.HexToFelt(t, "0xDEAD"),
 			},
 		},
 		{
