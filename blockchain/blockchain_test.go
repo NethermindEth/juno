@@ -117,12 +117,12 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{Number: 10}}
-		assert.EqualError(t, chain.VerifyBlock(block), "cannot insert a block with number more than 0 in an empty blockchain")
+		assert.EqualError(t, chain.VerifyBlock(block), "expected block #0, got block #10")
 	})
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{ParentHash: h1}}
-		assert.EqualError(t, chain.VerifyBlock(block), "cannot insert a block with non-zero parent hash in an empty blockchain")
+		assert.EqualError(t, chain.VerifyBlock(block), "block's parent hash does not match head block hash")
 	})
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
@@ -163,7 +163,7 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
 			incomingBlock := &core.Block{Header: &core.Header{Number: 10}}
-			assert.EqualError(t, chain.VerifyBlock(incomingBlock), "block number difference between head and incoming block is not 1")
+			assert.EqualError(t, chain.VerifyBlock(incomingBlock), "expected block #1, got block #10")
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
