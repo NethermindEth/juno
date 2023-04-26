@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -40,7 +41,10 @@ type Reader interface {
 	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
 }
 
-var supportedStarknetVersion = semver.MustParse("0.11.2")
+var (
+	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
+	supportedStarknetVersion  = semver.MustParse("0.11.2")
+)
 
 func checkBlockVersion(protocolVersion string) error {
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
@@ -294,25 +298,22 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 		return err
 	}
 
+	expectedBlockNumber := uint64(0)
+	expectedParentHash := &felt.Zero
+
 	head, err := b.head(txn)
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+	if err == nil {
+		expectedBlockNumber = head.Number + 1
+		expectedParentHash = head.Hash
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
 
-	if head == nil {
-		if block.Number != 0 {
-			return errors.New("cannot insert a block with number more than 0 in an empty blockchain")
-		}
-		if !block.ParentHash.Equal(new(felt.Felt).SetUint64(0)) {
-			return errors.New("cannot insert a block with non-zero parent hash in an empty blockchain")
-		}
-	} else {
-		if head.Number+1 != block.Number {
-			return errors.New("block number difference between head and incoming block is not 1")
-		}
-		if !block.ParentHash.Equal(head.Hash) {
-			return errors.New("block's parent hash does not match head block hash")
-		}
+	if expectedBlockNumber != block.Number {
+		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
+	}
+	if !block.ParentHash.Equal(expectedParentHash) {
+		return ErrParentDoesNotMatchHead
 	}
 
 	return nil
