@@ -27,7 +27,7 @@ func TestChainId(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
-			handler := rpc.New(mockReader, nil, n)
+			handler := rpc.New(mockReader, nil, n, nil)
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
@@ -41,7 +41,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -67,7 +67,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
@@ -100,7 +100,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.GOERLI)
+	handler := rpc.New(mockReader, nil, utils.GOERLI, nil)
 
 	client, closeServer := feeder.NewTestClient(utils.GOERLI)
 	t.Cleanup(closeServer)
@@ -166,7 +166,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.GOERLI)
+	handler := rpc.New(mockReader, nil, utils.GOERLI, nil)
 
 	client, closeServer := feeder.NewTestClient(utils.GOERLI)
 	t.Cleanup(closeServer)
@@ -248,7 +248,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	client, closeServer := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeServer)
@@ -359,7 +359,7 @@ func TestTransactionByHash(t *testing.T) {
 	t.Cleanup(closeServer)
 	mainnetGw := adaptfeeder.New(client)
 
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -558,7 +558,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
@@ -675,7 +675,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -760,7 +760,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Height().Return(uint64(0), errors.New("empty blockchain"))
@@ -903,7 +903,7 @@ func TestSyncing(t *testing.T) {
 	synchronizer := sync.New(nil, gw, log)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, synchronizer, utils.MAINNET)
+	handler := rpc.New(mockReader, synchronizer, utils.MAINNET, nil)
 	defaultState := false
 
 	t.Run("undefined starting block", func(t *testing.T) {
@@ -963,7 +963,8 @@ func TestNonce(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, utils.MAINNET, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))

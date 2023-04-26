@@ -25,13 +25,15 @@ type Handler struct {
 	bcReader     blockchain.Reader
 	synchronizer *sync.Synchronizer
 	network      utils.Network
+	log          utils.Logger
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network) *Handler {
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, logger utils.Logger) *Handler {
 	return &Handler{
 		bcReader:     bcReader,
 		synchronizer: synchronizer,
 		network:      n,
+		log:          logger,
 	}
 }
 
@@ -475,13 +477,10 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 		return nil, ErrBlockNotFound
 	}
 
-	defer func() {
-		if stateCloser != nil {
-			stateCloser()
-		}
-	}()
-
 	nonce, err := stateReader.ContractNonce(address)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader", "err", closerErr)
+	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
