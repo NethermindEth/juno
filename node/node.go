@@ -152,7 +152,7 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, n.log), n.log)
 
 	n.services = []service.Service{synchronizer, http}
 
