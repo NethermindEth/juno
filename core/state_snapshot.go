@@ -74,3 +74,15 @@ func (s *stateSnapshot) checkDeployed(addr *felt.Felt) error {
 	}
 	return nil
 }
+
+func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+	declaredClass, err := s.state.Class(classHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.blockNumber < declaredClass.At {
+		return nil, errors.New("contract not found")
+	}
+	return declaredClass, nil
+}

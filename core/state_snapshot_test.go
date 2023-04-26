@@ -117,4 +117,24 @@ func TestStateSnapshot(t *testing.T) {
 			require.EqualError(t, err, "some error")
 		})
 	})
+
+	declareHeight := deployedHeight
+	mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{At: declareHeight}, nil).AnyTimes()
+
+	t.Run("before class is declared", func(t *testing.T) {
+		_, err := snapshotBeforeDeployment.Class(addr)
+		require.EqualError(t, err, "contract not found")
+	})
+
+	t.Run("on height that class is declared", func(t *testing.T) {
+		declared, err := snapshotBeforeChange.Class(addr)
+		require.NoError(t, err)
+		require.Equal(t, declareHeight, declared.At)
+	})
+
+	t.Run("after class is declared", func(t *testing.T) {
+		declared, err := snapshotAfterChange.Class(addr)
+		require.NoError(t, err)
+		require.Equal(t, declareHeight, declared.At)
+	})
 }
