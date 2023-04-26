@@ -139,9 +139,9 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
     * [ ] Implement the remaining endpoints:
         * [X] `starknet_syncing`
         * [X] `starknet_getNonce`
-        * [ ] `starknet_getStorageAt`
+        * [X] `starknet_getStorageAt`
+        * [X] `starknet_getClassHashAt`
         * [ ] `starknet_getClass`
-        * [ ] `starknet_getClassHashAt`
         * [ ] `starknet_getClassAt`
         * [ ] `starknet_getEvents`
 * [ ] Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
