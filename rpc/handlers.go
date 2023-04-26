@@ -487,3 +487,24 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 
 	return nonce, nil
 }
+
+// StorageAt gets the value of the storage at the given address and key.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
+func (h *Handler) StorageAt(id *BlockID, address, key *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	value, err := stateReader.ContractStorage(address, key)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getStorageAt", "err", closerErr)
+	}
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	return value, nil
+}
