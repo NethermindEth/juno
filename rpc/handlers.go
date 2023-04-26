@@ -508,3 +508,24 @@ func (h *Handler) StorageAt(id *BlockID, address, key *felt.Felt) (*felt.Felt, *
 
 	return value, nil
 }
+
+// ClassHashAt gets the class hash for the contract deployed at the given address in the given block.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
+func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	classHash, err := stateReader.ContractClassHash(address)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getClassHashAt", "err", closerErr)
+	}
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	return classHash, nil
+}
