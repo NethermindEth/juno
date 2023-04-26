@@ -36,6 +36,7 @@ type StateReader interface {
 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+	Class(classHash *felt.Felt) (*DeclaredClass, error)
 }
 
 type State struct {
@@ -315,6 +316,20 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 		return s.txn.Set(classKey, classEncoded)
 	}
 	return err
+}
+
+// Class returns the class object corresponding to the given classHash
+func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+	classKey := db.Class.Key(classHash.Marshal())
+
+	var class DeclaredClass
+	err := s.txn.Get(classKey, func(val []byte) error {
+		return encoder.Unmarshal(val, &class)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &class, nil
 }
 
 // updateContractStorage applies the diff set to the Trie of the
