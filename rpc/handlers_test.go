@@ -1188,3 +1188,97 @@ func TestClassHashAt(t *testing.T) {
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 }
+
+func TestClass(t *testing.T) {
+	integrationClient, integrationCloser := feeder.NewTestClient(utils.INTEGRATION)
+	t.Cleanup(integrationCloser)
+	integGw := adaptfeeder.New(integrationClient)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
+		class, err := integGw.Class(context.Background(), classHash)
+		return &core.DeclaredClass{Class: class, At: 0}, err
+	}).AnyTimes()
+	mockReader.EXPECT().HeadState().Return(mockState, func() error {
+		return nil
+	}, nil).AnyTimes()
+	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
+	handler := rpc.New(mockReader, nil, utils.MAINNET, utils.NewNopZapLogger())
+
+	latest := &rpc.BlockID{Latest: true}
+
+	t.Run("sierra class", func(t *testing.T) {
+		hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+
+		coreClass, err := integGw.Class(context.Background(), hash)
+		require.NoError(t, err)
+
+		class, rpcErr := handler.Class(latest, hash)
+		require.Nil(t, rpcErr)
+		cairo1Class := coreClass.(*core.Cairo1Class)
+		assert.Equal(t, cairo1Class.Program, class.SierraProgram)
+		assert.Equal(t, cairo1Class.Abi, class.Abi.(string))
+		assert.Equal(t, cairo1Class.SemanticVersion, class.ContractClassVersion)
+
+		require.Equal(t, len(cairo1Class.EntryPoints.L1Handler), len(class.EntryPoints.L1Handler))
+		for idx := range cairo1Class.EntryPoints.L1Handler {
+			assert.Nil(t, class.EntryPoints.L1Handler[idx].Offset)
+			assert.Equal(t, cairo1Class.EntryPoints.L1Handler[idx].Index, *class.EntryPoints.L1Handler[idx].Index)
+			assert.Equal(t, cairo1Class.EntryPoints.L1Handler[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		}
+
+		require.Equal(t, len(cairo1Class.EntryPoints.Constructor), len(class.EntryPoints.Constructor))
+		for idx := range cairo1Class.EntryPoints.Constructor {
+			assert.Nil(t, class.EntryPoints.Constructor[idx].Offset)
+			assert.Equal(t, cairo1Class.EntryPoints.Constructor[idx].Index, *class.EntryPoints.Constructor[idx].Index)
+			assert.Equal(t, cairo1Class.EntryPoints.Constructor[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		}
+
+		require.Equal(t, len(cairo1Class.EntryPoints.External), len(class.EntryPoints.External))
+		for idx := range cairo1Class.EntryPoints.External {
+			assert.Nil(t, class.EntryPoints.External[idx].Offset)
+			assert.Equal(t, cairo1Class.EntryPoints.External[idx].Index, *class.EntryPoints.External[idx].Index)
+			assert.Equal(t, cairo1Class.EntryPoints.External[idx].Selector, class.EntryPoints.External[idx].Selector)
+		}
+	})
+
+	t.Run("casm class", func(t *testing.T) {
+		hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+
+		coreClass, err := integGw.Class(context.Background(), hash)
+		require.NoError(t, err)
+
+		class, rpcErr := handler.Class(latest, hash)
+		require.Nil(t, rpcErr)
+
+		cairo0Class := coreClass.(*core.Cairo0Class)
+		assert.Equal(t, cairo0Class.Program, class.Program)
+		assert.Equal(t, cairo0Class.Abi, class.Abi.(json.RawMessage))
+
+		require.Equal(t, len(cairo0Class.L1Handlers), len(class.EntryPoints.L1Handler))
+		for idx := range cairo0Class.L1Handlers {
+			assert.Nil(t, class.EntryPoints.L1Handler[idx].Index)
+			assert.Equal(t, cairo0Class.L1Handlers[idx].Offset, class.EntryPoints.L1Handler[idx].Offset)
+			assert.Equal(t, cairo0Class.L1Handlers[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		}
+
+		require.Equal(t, len(cairo0Class.Constructors), len(class.EntryPoints.Constructor))
+		for idx := range cairo0Class.Constructors {
+			assert.Nil(t, class.EntryPoints.Constructor[idx].Index)
+			assert.Equal(t, cairo0Class.Constructors[idx].Offset, class.EntryPoints.Constructor[idx].Offset)
+			assert.Equal(t, cairo0Class.Constructors[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		}
+
+		require.Equal(t, len(cairo0Class.Externals), len(class.EntryPoints.External))
+		for idx := range cairo0Class.Externals {
+			assert.Nil(t, class.EntryPoints.External[idx].Index)
+			assert.Equal(t, cairo0Class.Externals[idx].Offset, class.EntryPoints.External[idx].Offset)
+			assert.Equal(t, cairo0Class.Externals[idx].Selector, class.EntryPoints.External[idx].Selector)
+		}
+	})
+}

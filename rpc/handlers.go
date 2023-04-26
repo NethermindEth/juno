@@ -14,11 +14,12 @@ import (
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
 
-	ErrBlockNotFound    = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrContractNotFound = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrTxnHashNotFound  = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
-	ErrNoBlock          = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex   = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrBlockNotFound     = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrContractNotFound  = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrTxnHashNotFound   = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrNoBlock           = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidTxIndex    = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
 )
 
 type Handler struct {
@@ -479,7 +480,7 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 
 	nonce, err := stateReader.ContractNonce(address)
 	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader", "err", closerErr)
+		h.log.Errorw("Error closing state reader in getNonce", "err", closerErr)
 	}
 	if err != nil {
 		return nil, ErrContractNotFound
@@ -528,4 +529,97 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	}
 
 	return classHash, nil
+}
+
+// Class gets the contract class definition in the given block associated with the given hash
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
+func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
+	state, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	declared, err := state.Class(classHash)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getClass", "err", closerErr)
+	}
+
+	if err != nil {
+		return nil, ErrClassHashNotFound
+	}
+
+	var rpcClass *Class
+	switch c := declared.Class.(type) {
+	case *core.Cairo0Class:
+		rpcClass = &Class{
+			Abi:         c.Abi,
+			Program:     c.Program,
+			EntryPoints: EntryPoints{},
+		}
+
+		rpcClass.EntryPoints.Constructor = make([]EntryPoint, 0, len(c.Constructors))
+		for _, entryPoint := range c.Constructors {
+			rpcClass.EntryPoints.Constructor = append(rpcClass.EntryPoints.Constructor, EntryPoint{
+				Offset:   entryPoint.Offset,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.L1Handler = make([]EntryPoint, 0, len(c.L1Handlers))
+		for _, entryPoint := range c.L1Handlers {
+			rpcClass.EntryPoints.L1Handler = append(rpcClass.EntryPoints.L1Handler, EntryPoint{
+				Offset:   entryPoint.Offset,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.External = make([]EntryPoint, 0, len(c.Externals))
+		for _, entryPoint := range c.Externals {
+			rpcClass.EntryPoints.External = append(rpcClass.EntryPoints.External, EntryPoint{
+				Offset:   entryPoint.Offset,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+	case *core.Cairo1Class:
+		rpcClass = &Class{
+			Abi:                  c.Abi,
+			SierraProgram:        c.Program,
+			ContractClassVersion: c.SemanticVersion,
+			EntryPoints:          EntryPoints{},
+		}
+
+		rpcClass.EntryPoints.Constructor = make([]EntryPoint, 0, len(c.EntryPoints.Constructor))
+		for _, entryPoint := range c.EntryPoints.Constructor {
+			index := entryPoint.Index
+			rpcClass.EntryPoints.Constructor = append(rpcClass.EntryPoints.Constructor, EntryPoint{
+				Index:    &index,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.L1Handler = make([]EntryPoint, 0, len(c.EntryPoints.L1Handler))
+		for _, entryPoint := range c.EntryPoints.L1Handler {
+			index := entryPoint.Index
+			rpcClass.EntryPoints.L1Handler = append(rpcClass.EntryPoints.L1Handler, EntryPoint{
+				Index:    &index,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.External = make([]EntryPoint, 0, len(c.EntryPoints.External))
+		for _, entryPoint := range c.EntryPoints.External {
+			index := entryPoint.Index
+			rpcClass.EntryPoints.External = append(rpcClass.EntryPoints.External, EntryPoint{
+				Index:    &index,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+	default:
+		return nil, ErrClassHashNotFound
+	}
+
+	return rpcClass, nil
 }
