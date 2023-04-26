@@ -623,3 +623,15 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Err
 
 	return rpcClass, nil
 }
+
+// ClassAt gets the contract class definition in the given block instantiated by the given contract address
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L329
+func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
+	classHash, err := h.ClassHashAt(id, address)
+	if err != nil {
+		return nil, err
+	}
+	return h.Class(id, classHash)
+}
