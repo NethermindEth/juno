@@ -14,10 +14,11 @@ import (
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
 
-	ErrBlockNotFound   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrTxnHashNotFound = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
-	ErrNoBlock         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrBlockNotFound    = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrContractNotFound = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrTxnHashNotFound  = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrNoBlock          = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidTxIndex   = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
 )
 
 type Handler struct {
@@ -449,4 +450,41 @@ func (h *Handler) Syncing() (*SyncState, *jsonrpc.Error) {
 			HighestBlockNumber:  NumAsHex(highestBlockHeader.Number),
 		},
 	}, nil
+}
+
+func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, error) {
+	switch {
+	case id.Latest:
+		return h.bcReader.HeadState()
+	case id.Hash != nil:
+		return h.bcReader.StateAtBlockHash(id.Hash)
+	case id.Pending:
+		return nil, nil, ErrPendingNotSupported
+	default:
+		return h.bcReader.StateAtBlockNumber(id.Number)
+	}
+}
+
+// Nonce returns the nonce associated with the given address in the given block number
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
+func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	defer func() {
+		if stateCloser != nil {
+			stateCloser()
+		}
+	}()
+
+	nonce, err := stateReader.ContractNonce(address)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	return nonce, nil
 }
