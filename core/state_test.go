@@ -3,12 +3,14 @@ package core_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -315,4 +317,49 @@ func TestContractIsDeployedAt(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, deployed)
 	})
+}
+
+func TestClass(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0Class, err := gw.Class(context.Background(), cairo0Hash)
+	require.NoError(t, err)
+	cairo1Hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1Class, err := gw.Class(context.Background(), cairo0Hash)
+	require.NoError(t, err)
+
+	err = encoder.RegisterType(reflect.TypeOf(cairo0Class))
+	if err != nil {
+		require.Contains(t, err.Error(), "already exists in TagSet")
+	}
+	err = encoder.RegisterType(reflect.TypeOf(cairo1Hash))
+	if err != nil {
+		require.Contains(t, err.Error(), "already exists in TagSet")
+	}
+
+	state := core.NewState(txn)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
+		*cairo0Hash: cairo0Class,
+		*cairo1Hash: cairo1Class,
+	}))
+
+	gotCairo1Class, err := state.Class(cairo1Hash)
+	require.NoError(t, err)
+	assert.Zero(t, gotCairo1Class.At)
+	assert.Equal(t, cairo1Class, gotCairo1Class.Class)
+	gotCairo0Class, err := state.Class(cairo0Hash)
+	require.NoError(t, err)
+	assert.Zero(t, gotCairo0Class.At)
+	assert.Equal(t, cairo0Class, gotCairo0Class.Class)
 }

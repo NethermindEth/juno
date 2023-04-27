@@ -36,6 +36,7 @@ type StateReader interface {
 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+	Class(classHash *felt.Felt) (*DeclaredClass, error)
 }
 
 type State struct {
@@ -200,7 +201,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	// Todo: add test cases for retrieving Classes when State struct is extended to return Classes.
 	for classHash, class := range declaredClasses {
-		if err = s.putClass(&classHash, class); err != nil {
+		if err = s.putClass(&classHash, class, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -291,7 +292,12 @@ func (s *State) replaceContract(addr, classHash *felt.Felt) (*felt.Felt, error) 
 	return oldClassHash, nil
 }
 
-func (s *State) putClass(classHash *felt.Felt, class Class) error {
+type DeclaredClass struct {
+	At    uint64
+	Class Class
+}
+
+func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.Class.Key(classHash.Marshal())
 
 	err := s.txn.Get(classKey, func(val []byte) error {
@@ -299,7 +305,10 @@ func (s *State) putClass(classHash *felt.Felt, class Class) error {
 	})
 
 	if errors.Is(err, db.ErrKeyNotFound) {
-		classEncoded, encErr := encoder.Marshal(class)
+		classEncoded, encErr := encoder.Marshal(DeclaredClass{
+			At:    declaredAt,
+			Class: class,
+		})
 		if encErr != nil {
 			return encErr
 		}
@@ -307,6 +316,20 @@ func (s *State) putClass(classHash *felt.Felt, class Class) error {
 		return s.txn.Set(classKey, classEncoded)
 	}
 	return err
+}
+
+// Class returns the class object corresponding to the given classHash
+func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+	classKey := db.Class.Key(classHash.Marshal())
+
+	var class DeclaredClass
+	err := s.txn.Get(classKey, func(val []byte) error {
+		return encoder.Unmarshal(val, &class)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &class, nil
 }
 
 // updateContractStorage applies the diff set to the Trie of the

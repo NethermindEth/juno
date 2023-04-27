@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -20,7 +21,7 @@ type Class interface {
 
 // Cairo0Class unambiguously defines a [Contract]'s semantics.
 type Cairo0Class struct {
-	Abi any
+	Abi json.RawMessage
 	// External functions defined in the class.
 	Externals []EntryPoint
 	// Functions that receive L1 messages. See
@@ -28,11 +29,14 @@ type Cairo0Class struct {
 	L1Handlers []EntryPoint
 	// Constructors for the class. Currently, only one is allowed.
 	Constructors []EntryPoint
-	// An ascii-encoded array of builtin names imported by the class.
-	Builtins []*felt.Felt
+	// Hash of the ascii-encoded array of builtin names imported by the class.
+	BuiltinsHash *felt.Felt
 	// The starknet_keccak hash of the ".json" file compiler output.
 	ProgramHash *felt.Felt
-	Bytecode    []*felt.Felt
+	// Hash of the class bytecode
+	BytecodeHash *felt.Felt
+	// Base64 encoding of compressed Program
+	Program string
 }
 
 // EntryPoint uniquely identifies a Cairo function to execute.
@@ -53,9 +57,9 @@ func (c *Cairo0Class) Hash() *felt.Felt {
 		crypto.PedersenArray(flatten(c.Externals)...),
 		crypto.PedersenArray(flatten(c.L1Handlers)...),
 		crypto.PedersenArray(flatten(c.Constructors)...),
-		crypto.PedersenArray(c.Builtins...),
+		c.BuiltinsHash,
 		c.ProgramHash,
-		crypto.PedersenArray(c.Bytecode...),
+		c.BytecodeHash,
 	)
 }
 

@@ -7,6 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -32,6 +33,21 @@ func NewMockStateHistoryReader(ctrl *gomock.Controller) *MockStateHistoryReader 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateHistoryReader) EXPECT() *MockStateHistoryReaderMockRecorder {
 	return m.recorder
+}
+
+// Class mocks base method.
+func (m *MockStateHistoryReader) Class(arg0 *felt.Felt) (*core.DeclaredClass, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Class", arg0)
+	ret0, _ := ret[0].(*core.DeclaredClass)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Class indicates an expected call of Class.
+func (mr *MockStateHistoryReaderMockRecorder) Class(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStateHistoryReader)(nil).Class), arg0)
 }
 
 // ContractClassHash mocks base method.
