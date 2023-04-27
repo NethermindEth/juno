@@ -146,3 +146,45 @@ func TestSyncBlocks(t *testing.T) {
 		testBlockchain(t, bc)
 	})
 }
+
+func TestReorg(t *testing.T) {
+	mainClient, mainCloseFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(mainCloseFn)
+	mainGw := adaptfeeder.New(mainClient)
+
+	integClient, integCloseFn := feeder.NewTestClient(utils.INTEGRATION)
+	t.Cleanup(integCloseFn)
+	integGw := adaptfeeder.New(integClient)
+
+	testDB := pebble.NewMemTest()
+
+	t.Run("sync to integration for 2 blocks", func(t *testing.T) {
+		bc := blockchain.New(testDB, utils.INTEGRATION, utils.NewNopZapLogger())
+		synchronizer := New(bc, integGw, utils.NewNopZapLogger())
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		require.NoError(t, synchronizer.Run(ctx))
+		cancel()
+	})
+
+	t.Run("resync to mainnet with the same db", func(t *testing.T) {
+		bc := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+
+		t.Run("head is INTEGRATION", func(t *testing.T) {
+			head, err := bc.HeadsHeader()
+			require.NoError(t, err)
+			require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
+		})
+
+		synchronizer := New(bc, mainGw, utils.NewNopZapLogger())
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		require.NoError(t, synchronizer.Run(ctx))
+		cancel()
+
+		t.Run("head is now MAINNET", func(t *testing.T) {
+			head, err := bc.HeadsHeader()
+			require.NoError(t, err)
+			require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
+		})
+	})
+}
