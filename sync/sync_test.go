@@ -21,6 +21,8 @@ import (
 )
 
 func TestSyncBlocks(t *testing.T) {
+	t.Parallel()
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -52,6 +54,7 @@ func TestSyncBlocks(t *testing.T) {
 	}
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
+		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 		synchronizer := New(bc, gw, log)
@@ -64,6 +67,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
+		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 		b0, err := gw.BlockByNumber(context.Background(), 0)
@@ -82,6 +86,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
+		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 
@@ -132,7 +137,7 @@ func TestSyncBlocks(t *testing.T) {
 		}).AnyTimes()
 
 		synchronizer := New(bc, mockSNData, log)
-		ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
