@@ -7,6 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
 	gomock "github.com/golang/mock/gomock"
@@ -93,6 +94,37 @@ func (m *MockReader) BlockHeaderByNumber(arg0 uint64) (*core.Header, error) {
 func (mr *MockReaderMockRecorder) BlockHeaderByNumber(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), arg0)
+}
+
+// EventFilter mocks base method.
+func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 []*felt.Felt) (*blockchain.EventFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EventFilter", arg0, arg1)
+	ret0, _ := ret[0].(*blockchain.EventFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EventFilter indicates an expected call of EventFilter.
+func (mr *MockReaderMockRecorder) EventFilter(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), arg0, arg1)
+}
+
+// Events mocks base method.
+func (m *MockReader) Events(arg0 *blockchain.EventFilter, arg1 *blockchain.ContinuationToken, arg2 uint64) ([]*blockchain.FilteredEvent, *blockchain.ContinuationToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Events", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*blockchain.FilteredEvent)
+	ret1, _ := ret[1].(*blockchain.ContinuationToken)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Events indicates an expected call of Events.
+func (mr *MockReaderMockRecorder) Events(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockReader)(nil).Events), arg0, arg1, arg2)
 }
 
 // Head mocks base method.

@@ -37,6 +37,8 @@ type Reader interface {
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+
+	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
 }
 
 var supportedStarknetVersion = semver.MustParse("0.11.0")
@@ -367,14 +369,28 @@ func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 
 	block := new(core.Block)
 	block.Header = header
+	block.Transactions, err = transactionsByBlockNumber(txn, number)
+	if err != nil {
+		return nil, err
+	}
 
+	block.Receipts, err = receiptsByBlockNumber(txn, number)
+	if err != nil {
+		return nil, err
+	}
+	return block, nil
+}
+
+func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
 	iterator, err := txn.NewIterator()
 	if err != nil {
 		return nil, err
 	}
 
+	var txs []core.Transaction
 	numBytes := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(numBytes, number)
+
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
 		if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
@@ -391,10 +407,27 @@ func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 			return nil, db.CloseAndWrapOnError(iterator.Close, err)
 		}
 
-		block.Transactions = append(block.Transactions, tx)
+		txs = append(txs, tx)
 	}
 
-	prefix = db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
+	if err = iterator.Close(); err != nil {
+		return nil, err
+	}
+
+	return txs, nil
+}
+
+func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.TransactionReceipt, error) {
+	iterator, err := txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+
+	var receipts []*core.TransactionReceipt
+	numBytes := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(numBytes, number)
+
+	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
 		if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
 			break
@@ -410,13 +443,14 @@ func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 			return nil, db.CloseAndWrapOnError(iterator.Close, err)
 		}
 
-		block.Receipts = append(block.Receipts, receipt)
+		receipts = append(receipts, receipt)
 	}
 
-	if err := iterator.Close(); err != nil {
+	if err = iterator.Close(); err != nil {
 		return nil, err
 	}
-	return block, nil
+
+	return receipts, nil
 }
 
 // blockByHash retrieves a block from database by its hash
@@ -648,4 +682,10 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 	}
 
 	return core.NewStateSnapshot(core.NewState(txn), header.Number), txn.Discard, nil
+}
+
+// EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
+func (b *Blockchain) EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error) {
+	txn := b.database.NewTransaction(false)
+	return NewEventFilter(txn, from, keys), nil
 }
