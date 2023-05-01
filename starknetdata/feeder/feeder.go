@@ -80,6 +80,7 @@ func adaptBlock(response *feeder.Block) (*core.Block, error) {
 			SequencerAddress: response.SequencerAddress,
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
+			EventsBloom:      core.EventsBloom(receipts),
 		},
 		Transactions: txns,
 		Receipts:     receipts,

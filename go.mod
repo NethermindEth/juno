@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/bits-and-blooms/bitset v1.7.0
+	github.com/bits-and-blooms/bloom/v3 v3.4.0
 	github.com/cockroachdb/pebble v0.0.0-20230209222158-0568b5fd3d14
 	github.com/consensys/gnark-crypto v0.10.1-0.20230414110055-e500f2f0ff3a
 	github.com/ethereum/go-ethereum v1.10.26

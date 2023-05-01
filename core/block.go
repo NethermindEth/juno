@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 type Header struct {
@@ -30,6 +31,8 @@ type Header struct {
 	ProtocolVersion string
 	// Extraneous data that might be useful for running transactions
 	ExtraData *felt.Felt
+	// Bloom filter on the events emitted this block
+	EventsBloom *bloom.BloomFilter
 }
 
 type Block struct {
