@@ -40,4 +40,4 @@ jobs:
         env:
           TARGET_BLOCK: 100
           TIMEOUT: 5m
-          NETWORK: mainnet
+          JUNO_PARAMETERS: "--network mainnet"
