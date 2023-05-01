@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -69,6 +70,13 @@ var (
 	_ Transaction = (*DeclareTransaction)(nil)
 	_ Transaction = (*InvokeTransaction)(nil)
 	_ Transaction = (*L1HandlerTransaction)(nil)
+)
+
+const (
+	// Calculated at https://hur.st/bloomfilter/?n=1000&p=&m=8192&k=
+	// provides 1 in 51 possibility of false positives for approximately 1000 elements
+	eventsBloomLength    = 8192
+	eventsBloomHashFuncs = 6
 )
 
 type DeployTransaction struct {
@@ -462,4 +470,25 @@ func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 		commitment = root
 		return nil
 	})
+}
+
+func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
+	filter := bloom.New(eventsBloomLength, eventsBloomHashFuncs)
+	var bloomLogBuffer [felt.Bytes * 2]byte
+	for _, receipt := range receipts {
+		for _, event := range receipt.Events {
+			fromBytes := event.From.Bytes()
+			copy(bloomLogBuffer[:felt.Bytes], fromBytes[:])
+			// add `from` only, to match while filtering with no keys
+			filter.Add(fromBytes[:])
+
+			for _, key := range event.Keys {
+				// concatenate from + event key and add it to bloom
+				keyBytes := key.Bytes()
+				copy(bloomLogBuffer[felt.Bytes:], keyBytes[:])
+				filter.Add(bloomLogBuffer[:])
+			}
+		}
+	}
+	return filter
 }
