@@ -45,6 +45,7 @@ func TestBlockByNumber(t *testing.T) {
 				expectedEventCount += uint64(len(r.Events))
 			}
 
+			assert.NotNil(t, block.EventsBloom)
 			assert.True(t, block.Hash.Equal(response.Hash))
 			assert.True(t, block.ParentHash.Equal(response.ParentHash))
 			assert.Equal(t, response.Number, block.Number)
@@ -88,6 +89,7 @@ func TestBlockLatest(t *testing.T) {
 				expectedEventCount += uint64(len(r.Events))
 			}
 
+			assert.NotNil(t, block.EventsBloom)
 			assert.True(t, block.Hash.Equal(response.Hash))
 			assert.True(t, block.ParentHash.Equal(response.ParentHash))
 			assert.Equal(t, response.Number, block.Number)
