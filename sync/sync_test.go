@@ -94,7 +94,7 @@ func TestSyncBlocks(t *testing.T) {
 
 		syncingHeight := uint64(0)
 
-		mockSNData.EXPECT().BlockByNumber(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.Block, error) {
+		mockSNData.EXPECT().BlockByNumber(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.Block, error) {
 			curHeight := atomic.LoadUint64(&syncingHeight)
 			// reject any other requests
 			if height != curHeight {
@@ -104,7 +104,7 @@ func TestSyncBlocks(t *testing.T) {
 		}).AnyTimes()
 
 		reqCount := 0
-		mockSNData.EXPECT().StateUpdate(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.StateUpdate, error) {
+		mockSNData.EXPECT().StateUpdate(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, error) {
 			curHeight := atomic.LoadUint64(&syncingHeight)
 			// reject any other requests
 			if height != curHeight {
@@ -115,13 +115,14 @@ func TestSyncBlocks(t *testing.T) {
 			ret, err := gw.StateUpdate(context.Background(), curHeight)
 			require.NoError(t, err)
 
-			if reqCount == 1 {
+			switch reqCount {
+			case 1:
 				return nil, errors.New("try again")
-			} else if reqCount == 2 {
+			case 2:
 				ret.BlockHash = new(felt.Felt) // fail sanity checks
-			} else if reqCount == 3 {
+			case 3:
 				ret.OldRoot = new(felt.Felt).SetUint64(1) // fail store
-			} else {
+			default:
 				reqCount = 0
 				atomic.AddUint64(&syncingHeight, 1)
 			}
