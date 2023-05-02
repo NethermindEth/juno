@@ -7,9 +7,11 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -1339,5 +1341,120 @@ func TestClassAt(t *testing.T) {
 
 		cairo0Class := coreClass.(*core.Cairo0Class)
 		assertEqualCairo0Class(t, cairo0Class, class)
+	})
+}
+
+func TestEvents(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
+
+	client, closeFn := feeder.NewTestClient(utils.GOERLI2)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	for i := 0; i < 7; i++ {
+		b, err := gw.BlockByNumber(context.Background(), uint64(i))
+		require.NoError(t, err)
+		s, err := gw.StateUpdate(context.Background(), uint64(i))
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, s, nil))
+	}
+
+	handler := rpc.New(chain, nil, utils.MAINNET, utils.NewNopZapLogger())
+	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+	args := &rpc.EventsArg{
+		EventFilter: rpc.EventFilter{
+			FromBlock: &rpc.BlockID{Number: 0},
+			ToBlock:   &rpc.BlockID{Latest: true},
+			Address:   from,
+			Keys:      []*felt.Felt{},
+		},
+		ResultPageRequest: rpc.ResultPageRequest{
+			ChunkSize:         100,
+			ContinuationToken: "",
+		},
+	}
+
+	t.Run("filter non-existent", func(t *testing.T) {
+		t.Run("block number", func(t *testing.T) {
+			args.ToBlock = &rpc.BlockID{Number: 55}
+			_, err := handler.Events(args)
+			require.Equal(t, rpc.ErrBlockNotFound, err)
+		})
+
+		t.Run("block hash", func(t *testing.T) {
+			args.ToBlock = &rpc.BlockID{Hash: new(felt.Felt).SetUint64(55)}
+			_, err := handler.Events(args)
+			require.Equal(t, rpc.ErrBlockNotFound, err)
+		})
+	})
+
+	t.Run("filter with no keys", func(t *testing.T) {
+		var allEvents []*rpc.EmittedEvent
+		t.Run("get all events without pagination", func(t *testing.T) {
+			args.ToBlock = &rpc.BlockID{Latest: true}
+			events, err := handler.Events(args)
+			require.Nil(t, err)
+			require.Len(t, events.Events, 3)
+			require.Empty(t, events.ContinuationToken)
+			allEvents = events.Events
+		})
+
+		t.Run("accumulate events with pagination", func(t *testing.T) {
+			var accEvents []*rpc.EmittedEvent
+			args.ChunkSize = 1
+
+			for i := 0; i < len(allEvents)+1; i++ {
+				events, err := handler.Events(args)
+				require.Nil(t, err)
+				accEvents = append(accEvents, events.Events...)
+				args.ContinuationToken = events.ContinuationToken
+				if args.ContinuationToken == "" {
+					break
+				}
+			}
+			require.Equal(t, allEvents, accEvents)
+		})
+	})
+
+	t.Run("filter with keys", func(t *testing.T) {
+		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+
+		t.Run("get all events without pagination", func(t *testing.T) {
+			args.ChunkSize = 100
+			args.Keys = append(args.Keys, key)
+			events, err := handler.Events(args)
+			require.Nil(t, err)
+			require.Len(t, events.Events, 1)
+			require.Empty(t, events.ContinuationToken)
+
+			require.Equal(t, from, events.Events[0].From)
+			require.Equal(t, []*felt.Felt{key}, events.Events[0].Keys)
+			require.Equal(t, []*felt.Felt{
+				utils.HexToFelt(t, "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8"),
+				utils.HexToFelt(t, "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8"),
+			}, events.Events[0].Data)
+			require.Equal(t, uint64(5), events.Events[0].BlockNumber)
+			require.Equal(t, utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14"), events.Events[0].BlockHash)
+			require.Equal(t, utils.HexToFelt(t, "0x6d1431d875ba082365b888c1651e026012a94172b04589c91c2adeb6c1b7ace"), events.Events[0].TransactionHash)
+		})
+	})
+
+	t.Run("large page size", func(t *testing.T) {
+		args.ChunkSize = 10240 + 1
+		events, err := handler.Events(args)
+		require.Equal(t, rpc.ErrPageSizeTooBig, err)
+		require.Nil(t, events)
+	})
+
+	t.Run("too many keys", func(t *testing.T) {
+		args.ChunkSize = 2
+		args.Keys = make([]*felt.Felt, 1024+1)
+		events, err := handler.Events(args)
+		require.Equal(t, rpc.ErrTooManyKeysInFilter, err)
+		require.Nil(t, events)
 	})
 }
