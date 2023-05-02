@@ -14,12 +14,21 @@ import (
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
 
-	ErrBlockNotFound     = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrContractNotFound  = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrTxnHashNotFound   = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
-	ErrNoBlock           = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex    = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
-	ErrClassHashNotFound = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	ErrBlockNotFound            = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrContractNotFound         = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrNoBlock                  = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidTxIndex           = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound        = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	ErrInvalidContinuationToken = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
+	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
+	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
+)
+
+const (
+	maxEventChunkSize  = 10240
+	maxEventFilterKeys = 1024
 )
 
 type Handler struct {
@@ -632,4 +641,88 @@ func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Err
 		return nil, err
 	}
 	return h.Class(id, classHash)
+}
+
+// Events gets the events matching a filter
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
+func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
+	if args.ChunkSize > maxEventChunkSize {
+		return nil, ErrPageSizeTooBig
+	} else if len(args.Keys) > maxEventFilterKeys {
+		return nil, ErrTooManyKeysInFilter
+	}
+
+	height, err := h.bcReader.Height()
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	defer func() {
+		if closerErr := filter.Close(); closerErr != nil {
+			h.log.Errorw("Error closing event filter in events", "err", closerErr)
+		}
+	}()
+
+	var cToken *blockchain.ContinuationToken
+	if len(args.ContinuationToken) > 0 {
+		cToken = new(blockchain.ContinuationToken)
+		if err = cToken.FromString(args.ContinuationToken); err != nil {
+			return nil, ErrInvalidContinuationToken
+		}
+	}
+
+	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
+	for _, fEvent := range filteredEvents {
+		emittedEvents = append(emittedEvents, &EmittedEvent{
+			BlockNumber:     fEvent.BlockNumber,
+			BlockHash:       fEvent.BlockHash,
+			TransactionHash: fEvent.TransactionHash,
+			Event: &Event{
+				From: fEvent.From,
+				Keys: fEvent.Keys,
+				Data: fEvent.Data,
+			},
+		})
+	}
+
+	cTokenStr := ""
+	if cToken != nil {
+		cTokenStr = cToken.String()
+	}
+	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
+}
+
+func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, latestHeight uint64) error {
+	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
+		switch {
+		case id.Latest:
+			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
+		case id.Hash != nil:
+			return filter.SetRangeEndBlockByHash(filterRange, id.Hash)
+		case id.Pending:
+			return ErrPendingNotSupported
+		default:
+			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
+		}
+	}
+	if err := set(blockchain.EventFilterFrom, fromID); err != nil {
+		return err
+	}
+	return set(blockchain.EventFilterTo, toID)
 }

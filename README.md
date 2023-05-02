@@ -96,6 +96,7 @@ docker logs -f juno
   - `starknet_getClass`
   - `starknet_getClassAt`
   - `starknet_syncing`
+  - `starknet_getEvents`
 
 ## 🛣 Roadmap
 
@@ -149,7 +150,7 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
         * [X] `starknet_getClassHashAt`
         * [X] `starknet_getClass`
         * [X] `starknet_getClassAt`
-        * [ ] `starknet_getEvents`
+        * [X] `starknet_getEvents`
 * [ ] Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
   * [ ] `starknet_call`
   * [ ] `starknet_estimateFee`
