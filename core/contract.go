@@ -143,9 +143,9 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	}
 	// apply the diff
 	for _, pair := range diff {
-		oldValue, err := cStorage.Put(pair.Key, pair.Value)
-		if err != nil {
-			return err
+		oldValue, pErr := cStorage.Put(pair.Key, pair.Value)
+		if pErr != nil {
+			return pErr
 		}
 
 		if oldValue != nil {
@@ -153,6 +153,10 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 				return err
 			}
 		}
+	}
+
+	if err = cStorage.Commit(); err != nil {
+		return err
 	}
 
 	// update contract storage root in the database

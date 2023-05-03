@@ -166,6 +166,10 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// prep closer
 	closer := func() error {
+		if err = gTrie.Commit(); err != nil {
+			return err
+		}
+
 		resultingRootKey := gTrie.RootKey()
 		// no updates on the trie, short circuit and return
 		if resultingRootKey.Equal(rootKey) {
