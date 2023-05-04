@@ -11,3 +11,4 @@ coverage:
 ignore:
   - mocks
   - l1/internal/contract/starknet.go
+  - grpc/gen/*

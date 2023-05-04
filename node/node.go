@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
@@ -34,6 +35,7 @@ const (
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
 	RPCPort             uint16         `mapstructure:"rpc-port"`
+	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
@@ -49,11 +51,13 @@ type Node struct {
 
 	services []service.Service
 	log      utils.Logger
+
+	version string
 }
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config) (*Node, error) {
+func New(cfg *Config, version string) (*Node, error) {
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -66,8 +70,9 @@ func New(cfg *Config) (*Node, error) {
 		return nil, err
 	}
 	return &Node{
-		cfg: cfg,
-		log: log,
+		cfg:     cfg,
+		log:     log,
+		version: version,
 	}, nil
 }
 
@@ -232,6 +237,10 @@ func (n *Node) Run(ctx context.Context) {
 
 	if n.cfg.Pprof {
 		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
+	}
+
+	if n.cfg.GRPCPort > 0 {
+		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
