@@ -150,7 +150,7 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, false)
+	dbLog, err := utils.NewZapLogger(utils.ERROR, n.cfg.Color)
 	if err != nil {
 		n.log.Errorw("Error creating DB logger", "err", err)
 		return

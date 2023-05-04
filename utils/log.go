@@ -94,9 +94,8 @@ func NewNopZapLogger() *ZapLogger {
 func NewZapLogger(logLevel LogLevel, color bool) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Encoding = "console"
-	if color {
-		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	} else {
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	if !color {
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

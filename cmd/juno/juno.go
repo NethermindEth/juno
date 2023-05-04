@@ -37,7 +37,7 @@ const (
 	defaultRPCPort = uint16(6060)
 	defaultDBPath  = ""
 	defaultPprof   = false
-	defaultColor   = false
+	defaultColor   = true
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -46,7 +46,7 @@ const (
 	dbPathUsage  = "Location of the database files."
 	networkUsage = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage   = "Enables the pprof server and listens on port 9080."
-	colorUsage   = "Enables colorized outputs (ANSI Escape Codes)."
+	colorUsage   = "Uses --color=false command to disable colorized outputs (ANSI Escape Codes)."
 )
 
 var Version string
