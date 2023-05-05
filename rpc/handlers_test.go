@@ -904,12 +904,12 @@ func TestSyncing(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, synchronizer, utils.MAINNET, nil)
-	defaultState := false
+	defaultSyncState := false
 
 	t.Run("undefined starting block", func(t *testing.T) {
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
 	startingBlock := uint64(0)
@@ -919,7 +919,7 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	t.Run("undefined highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
@@ -927,7 +927,7 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	t.Run("block height is greater than highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
@@ -935,22 +935,20 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.SyncState{False: &defaultState}, syncing)
+		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	synchronizer.HighestBlockHeader = &core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}
 	t.Run("syncing", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
 
-		expectedSyncing := &rpc.SyncState{
-			Status: &rpc.SyncStatus{
-				StartingBlockHash:   &felt.Zero,
-				StartingBlockNumber: rpc.NumAsHex(startingBlock),
-				CurrentBlockHash:    new(felt.Felt).SetUint64(1),
-				CurrentBlockNumber:  rpc.NumAsHex(1),
-				HighestBlockHash:    new(felt.Felt).SetUint64(2),
-				HighestBlockNumber:  rpc.NumAsHex(2),
-			},
+		expectedSyncing := &rpc.Sync{
+			StartingBlockHash:   &felt.Zero,
+			StartingBlockNumber: rpc.NumAsHex(startingBlock),
+			CurrentBlockHash:    new(felt.Felt).SetUint64(1),
+			CurrentBlockNumber:  rpc.NumAsHex(1),
+			HighestBlockHash:    new(felt.Felt).SetUint64(2),
+			HighestBlockNumber:  rpc.NumAsHex(2),
 		}
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
