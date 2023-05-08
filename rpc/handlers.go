@@ -491,7 +491,7 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
-func (h *Handler) StorageAt(id *BlockID, address, key *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(id)
 	if err != nil {
 		return nil, ErrBlockNotFound
