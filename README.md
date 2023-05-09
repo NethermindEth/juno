@@ -90,6 +90,12 @@ docker logs -f juno
   - `starknet_getBlockTransactionCount`
   - `starknet_getTransactionByBlockIdAndIndex`
   - `starknet_getStateUpdate`
+  - `starknet_getNonce`
+  - `starknet_getStorageAt`
+  - `starknet_getClassHashAt`
+  - `starknet_getClass`
+  - `starknet_getClassAt`
+  - `starknet_syncing`
 
 ## 🛣 Roadmap
 
