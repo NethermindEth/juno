@@ -88,10 +88,6 @@ type FilteredEvent struct {
 func (f *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
 
-	var bloomLogBuffer [felt.Bytes * 2]byte
-	fromBytes := f.From.Bytes()
-	copy(bloomLogBuffer[:felt.Bytes], fromBytes[:])
-
 	filterKeysMap := make(map[felt.Felt]bool, len(f.Keys))
 	for _, key := range f.Keys {
 		filterKeysMap[*key] = true
@@ -108,20 +104,23 @@ func (f *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 			return nil, nil, err
 		}
 
-		// test `from` only by default because empty filter keys means match all
-		possiblyMatches := header.EventsBloom.Test(fromBytes[:])
+		// test `from` only by default if it's not nil because empty filter keys means match all
+		possiblyMatches := true
+		if f.From != nil {
+			fromBytes := f.From.Bytes()
+			possiblyMatches = header.EventsBloom.Test(fromBytes[:])
+		}
 		for key := range filterKeysMap {
 			keyBytes := key.Bytes()
-			copy(bloomLogBuffer[felt.Bytes:], keyBytes[:])
 
 			// check if block possibly contains the event we are looking for
-			possiblyMatches = header.EventsBloom.Test(bloomLogBuffer[:])
+			possiblyMatches = header.EventsBloom.Test(keyBytes[:])
 			if possiblyMatches {
 				break
 			}
 		}
 
-		// bloom filter says no events match the filter, skip this block entirely
+		// bloom filter says no events match the filter, skip this block entirely if from is not nil
 		if !possiblyMatches {
 			continue
 		}
@@ -159,7 +158,7 @@ func (f *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, hea
 				continue
 			}
 
-			if !event.From.Equal(f.From) {
+			if f.From != nil && !event.From.Equal(f.From) {
 				processedEvents++
 				continue
 			}

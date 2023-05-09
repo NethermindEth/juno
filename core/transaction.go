@@ -447,19 +447,14 @@ func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 
 func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
 	filter := bloom.New(eventsBloomLength, eventsBloomHashFuncs)
-	var bloomLogBuffer [felt.Bytes * 2]byte
+
 	for _, receipt := range receipts {
 		for _, event := range receipt.Events {
 			fromBytes := event.From.Bytes()
-			copy(bloomLogBuffer[:felt.Bytes], fromBytes[:])
-			// add `from` only, to match while filtering with no keys
-			filter.Add(fromBytes[:])
-
+			filter.TestOrAdd(fromBytes[:])
 			for _, key := range event.Keys {
-				// concatenate from + event key and add it to bloom
 				keyBytes := key.Bytes()
-				copy(bloomLogBuffer[felt.Bytes:], keyBytes[:])
-				filter.Add(bloomLogBuffer[:])
+				filter.TestOrAdd(keyBytes[:])
 			}
 		}
 	}
