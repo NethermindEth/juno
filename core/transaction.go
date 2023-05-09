@@ -385,13 +385,17 @@ func verifyTransactionHash(t Transaction, n utils.Network) *CantVerifyTransactio
 const commitmentTrieHeight uint = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
-// transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction) (*felt.Felt, error) {
+// transaction hashes and signatures in a block. Transaction signitures are only included if
+// specified in the blockHashMetaInfo (except for InvokeTransaction which are always included).
+func transactionCommitment(transactions []Transaction, metaInfo *blockHashMetaInfo) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
-			if _, ok := transaction.(*InvokeTransaction); ok {
+
+			if txType, ok := transaction.(*InvokeTransaction); ok {
+				signatureHash = crypto.PedersenArray(transaction.Signature()...)
+			} else if metaInfo.TxTypesForCommitment[txType] {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
 

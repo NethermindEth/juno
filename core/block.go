@@ -39,9 +39,10 @@ type Block struct {
 }
 
 type blockHashMetaInfo struct {
-	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
-	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
-	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
+	First07Block             uint64               // First block that uses the post-0.7.0 block hash algorithm
+	UnverifiableRange        []uint64             // Range of blocks that are not verifiable
+	FallBackSequencerAddress *felt.Felt           // The sequencer address to use for blocks that do not have one
+	TxTypesForCommitment     map[Transaction]bool // (Non-invoke) Transaction types to be included in the transactionCommitment
 }
 
 func networkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
@@ -139,14 +140,14 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 	metaInfo := networkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainID())
+		return pre07Hash(b, network.ChainID(), metaInfo)
 	}
-	return post07Hash(b, overrideSeqAddr)
+	return post07Hash(b, overrideSeqAddr, metaInfo)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
-	txCommitment, err := transactionCommitment(b.Transactions)
+func pre07Hash(b *Block, chain *felt.Felt, metaInfo *blockHashMetaInfo) (*felt.Felt, error) {
+	txCommitment, err := transactionCommitment(b.Transactions, metaInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -168,13 +169,13 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt, metaInfo *blockHashMetaInfo) (*felt.Felt, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions)
+	txCommitment, err := transactionCommitment(b.Transactions, metaInfo)
 	if err != nil {
 		return nil, err
 	}
