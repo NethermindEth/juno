@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -39,10 +40,9 @@ type Block struct {
 }
 
 type blockHashMetaInfo struct {
-	First07Block             uint64               // First block that uses the post-0.7.0 block hash algorithm
-	UnverifiableRange        []uint64             // Range of blocks that are not verifiable
-	FallBackSequencerAddress *felt.Felt           // The sequencer address to use for blocks that do not have one
-	TxTypesForCommitment     map[Transaction]bool // (Non-invoke) Transaction types to be included in the transactionCommitment
+	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
+	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
+	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
 func networkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
@@ -139,15 +139,39 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	metaInfo := networkBlockHashMetaInfo(network)
 
-	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainID(), metaInfo)
+	blockVersion, err := blockVersion(b)
+	if err != nil {
+		return nil, err
 	}
-	return post07Hash(b, overrideSeqAddr, metaInfo)
+
+	if b.Number < metaInfo.First07Block {
+		return pre07Hash(b, network.ChainID(), blockVersion)
+	}
+	return post07Hash(b, overrideSeqAddr, blockVersion)
+}
+
+// blockVersion gets the block/starknet version, defaulting to "0.0.0" if it's not specified.
+func blockVersion(b *Block) (*semver.Version, error) {
+
+	var starknetVersion string
+
+	// Account for the fact that some feeders have not specified the block/starknet version
+	if b.Header.ProtocolVersion == "" {
+		starknetVersion = "0.0.0"
+	} else {
+		starknetVersion = b.Header.ProtocolVersion
+	}
+	blockVersion, err := semver.NewVersion(starknetVersion)
+	if err != nil {
+		return nil, err
+	}
+	return blockVersion, nil
+
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt, metaInfo *blockHashMetaInfo) (*felt.Felt, error) {
-	txCommitment, err := transactionCommitment(b.Transactions, metaInfo)
+func pre07Hash(b *Block, chain *felt.Felt, blockVersion *semver.Version) (*felt.Felt, error) {
+	txCommitment, err := transactionCommitment(b.Transactions, blockVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -169,13 +193,13 @@ func pre07Hash(b *Block, chain *felt.Felt, metaInfo *blockHashMetaInfo) (*felt.F
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block, overrideSeqAddr *felt.Felt, metaInfo *blockHashMetaInfo) (*felt.Felt, error) {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt, blockVersion *semver.Version) (*felt.Felt, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions, metaInfo)
+	txCommitment, err := transactionCommitment(b.Transactions, blockVersion)
 	if err != nil {
 		return nil, err
 	}

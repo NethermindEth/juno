@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -385,18 +386,28 @@ func verifyTransactionHash(t Transaction, n utils.Network) *CantVerifyTransactio
 const commitmentTrieHeight uint = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
-// transaction hashes and signatures in a block. Transaction signitures are only included if
-// specified in the blockHashMetaInfo (except for InvokeTransaction which are always included).
-func transactionCommitment(transactions []Transaction, metaInfo *blockHashMetaInfo) (*felt.Felt, error) {
+// transaction hashes and signatures in a block.
+func transactionCommitment(transactions []Transaction, blockVersion *semver.Version) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
 
-			if txType, ok := transaction.(*InvokeTransaction); ok {
-				signatureHash = crypto.PedersenArray(transaction.Signature()...)
-			} else if metaInfo.TxTypesForCommitment[txType] {
-				signatureHash = crypto.PedersenArray(transaction.Signature()...)
+			versionConstraint, _ := semver.NewConstraint(">=0.11.0")
+
+			if versionConstraint.Check(blockVersion) {
+				switch tx := transaction.(type) {
+				case *InvokeTransaction:
+					signatureHash = crypto.PedersenArray(tx.Signature()...)
+				case *DeployAccountTransaction:
+					signatureHash = crypto.PedersenArray(tx.Signature()...)
+				case *DeclareTransaction:
+					signatureHash = crypto.PedersenArray(tx.Signature()...)
+				}
+			} else {
+				if _, ok := transaction.(*InvokeTransaction); ok {
+					signatureHash = crypto.PedersenArray(transaction.Signature()...)
+				}
 			}
 
 			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
