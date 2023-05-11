@@ -9,6 +9,8 @@ import (
 	"io"
 	"reflect"
 	"strings"
+
+	"github.com/go-playground/validator/v10"
 )
 
 const (
@@ -96,6 +98,8 @@ type Method struct {
 type Server struct {
 	methods map[string]Method
 }
+
+var validate = validator.New()
 
 // NewServer instantiates a JSONRPC server
 func NewServer() *Server {
@@ -298,6 +302,12 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 		err = json.Unmarshal(valueMarshaled, handlerParam.Interface())
 		if err != nil {
 			return reflect.ValueOf(nil), err
+		}
+
+		if err = validate.Struct(handlerParam.Elem().Interface()); err != nil {
+			if _, ok := err.(validator.ValidationErrors); ok {
+				return reflect.ValueOf(nil), err
+			}
 		}
 
 		return handlerParam.Elem(), nil
