@@ -293,26 +293,6 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 
 	handlerType := reflect.TypeOf(handler)
 
-	handlerParamValue := func(param any, t reflect.Type) (reflect.Value, error) {
-		handlerParam := reflect.New(t)
-		valueMarshaled, err := json.Marshal(param) // we have to marshal the value into JSON again
-		if err != nil {
-			return reflect.ValueOf(nil), err
-		}
-		err = json.Unmarshal(valueMarshaled, handlerParam.Interface())
-		if err != nil {
-			return reflect.ValueOf(nil), err
-		}
-
-		if err = validate.Struct(handlerParam.Elem().Interface()); err != nil {
-			if _, ok := err.(validator.ValidationErrors); ok {
-				return reflect.ValueOf(nil), err
-			}
-		}
-
-		return handlerParam.Elem(), nil
-	}
-
 	switch reflect.TypeOf(params).Kind() {
 	case reflect.Slice:
 		paramsList := params.([]any)
@@ -322,7 +302,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 		}
 
 		for i, param := range paramsList {
-			v, err := handlerParamValue(param, handlerType.In(i))
+			v, err := parseParam(param, handlerType.In(i))
 			if err != nil {
 				return nil, err
 			}
@@ -335,7 +315,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 			var v reflect.Value
 			if param, found := paramsMap[configuredParam.Name]; found {
 				var err error
-				v, err = handlerParamValue(param, handlerType.In(i))
+				v, err = parseParam(param, handlerType.In(i))
 				if err != nil {
 					return nil, err
 				}
@@ -353,4 +333,24 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 		return nil, errors.New("impossible param type: check request.isSane")
 	}
 	return args, nil
+}
+
+func parseParam(param any, t reflect.Type) (reflect.Value, error) {
+	handlerParam := reflect.New(t)
+	valueMarshaled, err := json.Marshal(param) // we have to marshal the value into JSON again
+	if err != nil {
+		return reflect.ValueOf(nil), err
+	}
+	err = json.Unmarshal(valueMarshaled, handlerParam.Interface())
+	if err != nil {
+		return reflect.ValueOf(nil), err
+	}
+
+	if err = validate.Struct(handlerParam.Elem().Interface()); err != nil {
+		if _, ok := err.(validator.ValidationErrors); ok {
+			return reflect.ValueOf(nil), err
+		}
+	}
+
+	return handlerParam.Elem(), nil
 }
