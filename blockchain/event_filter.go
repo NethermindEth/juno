@@ -26,11 +26,12 @@ const (
 	To
 )
 
-func NewEventFilter(txn db.Transaction, from *felt.Felt, keys []*felt.Felt) *EventFilter {
+func NewEventFilter(txn db.Transaction, from *felt.Felt, keys []*felt.Felt, latest uint64) *EventFilter {
 	return &EventFilter{
-		txn:  txn,
-		From: from,
-		Keys: keys,
+		txn:     txn,
+		From:    from,
+		Keys:    keys,
+		ToBlock: latest,
 	}
 }
 
