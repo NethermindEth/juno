@@ -91,11 +91,11 @@ func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
 }
 
-func NewZapLogger(logLevel LogLevel, color bool) (*ZapLogger, error) {
+func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Encoding = "console"
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	if !color {
+	if !colour {
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

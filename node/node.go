@@ -31,7 +31,7 @@ type Config struct {
 	DatabasePath string         `mapstructure:"db-path"`
 	Network      utils.Network  `mapstructure:"network"`
 	Pprof        bool           `mapstructure:"pprof"`
-	Color        bool           `mapstructure:"color"`
+	Colour       bool           `mapstructure:"colour"`
 }
 
 type Node struct {
@@ -53,7 +53,7 @@ func New(cfg *Config) (*Node, error) {
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Color)
+	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, n.cfg.Color)
+	dbLog, err := utils.NewZapLogger(utils.ERROR, n.cfg.Colour)
 	if err != nil {
 		n.log.Errorw("Error creating DB logger", "err", err)
 		return
