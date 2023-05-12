@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -387,23 +388,20 @@ const commitmentTrieHeight uint = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction, blockVersion *semver.Version) (*felt.Felt, error) {
+func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+
+		blockVersionPost011, err := blockVersionPost011(protocolVersion)
+		if err != nil {
+			return err
+		}
+
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
 
-			versionConstraint, _ := semver.NewConstraint(">=0.11.0")
-
-			if versionConstraint.Check(blockVersion) {
-				switch tx := transaction.(type) {
-				case *InvokeTransaction:
-					signatureHash = crypto.PedersenArray(tx.Signature()...)
-				case *DeployAccountTransaction:
-					signatureHash = crypto.PedersenArray(tx.Signature()...)
-				case *DeclareTransaction:
-					signatureHash = crypto.PedersenArray(tx.Signature()...)
-				}
+			if blockVersionPost011 {
+				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			} else {
 				if _, ok := transaction.(*InvokeTransaction); ok {
 					signatureHash = crypto.PedersenArray(transaction.Signature()...)
@@ -422,6 +420,30 @@ func transactionCommitment(transactions []Transaction, blockVersion *semver.Vers
 		commitment = root
 		return nil
 	})
+}
+
+// blockVersionPost011 determines if the blocks protocolVersion is >=0.11.0.
+func blockVersionPost011(protocolVersion string) (bool, error) {
+
+	versionConstraint, _ := semver.NewConstraint(">=0.11.0")
+	var blockVersion *semver.Version
+	var err error
+
+	if protocolVersion == "" {
+		blockVersion, _ = semver.NewVersion("0.0.0")
+	} else {
+		sep := "."
+		digits := strings.Split(protocolVersion, sep)
+		// pad with 3 zeros in case version has less than 3 digits
+		digits = append(digits, []string{"0", "0", "0"}...)
+
+		// get first 3 digits only
+		blockVersion, err = semver.NewVersion(strings.Join(digits[:3], sep))
+		if err != nil {
+			return false, err
+		}
+	}
+	return versionConstraint.Check(blockVersion), nil
 }
 
 // eventCommitment computes the event commitment for a block.

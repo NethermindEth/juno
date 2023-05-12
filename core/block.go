@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -139,39 +138,15 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	metaInfo := networkBlockHashMetaInfo(network)
 
-	blockVersion, err := blockVersion(b)
-	if err != nil {
-		return nil, err
-	}
-
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainID(), blockVersion)
+		return pre07Hash(b, network.ChainID())
 	}
-	return post07Hash(b, overrideSeqAddr, blockVersion)
-}
-
-// blockVersion gets the block/starknet version, defaulting to "0.0.0" if it's not specified.
-func blockVersion(b *Block) (*semver.Version, error) {
-
-	var starknetVersion string
-
-	// Account for the fact that some feeders have not specified the block/starknet version
-	if b.Header.ProtocolVersion == "" {
-		starknetVersion = "0.0.0"
-	} else {
-		starknetVersion = b.Header.ProtocolVersion
-	}
-	blockVersion, err := semver.NewVersion(starknetVersion)
-	if err != nil {
-		return nil, err
-	}
-	return blockVersion, nil
-
+	return post07Hash(b, overrideSeqAddr)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt, blockVersion *semver.Version) (*felt.Felt, error) {
-	txCommitment, err := transactionCommitment(b.Transactions, blockVersion)
+func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
+	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -193,13 +168,13 @@ func pre07Hash(b *Block, chain *felt.Felt, blockVersion *semver.Version) (*felt.
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block, overrideSeqAddr *felt.Felt, blockVersion *semver.Version) (*felt.Felt, error) {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions, blockVersion)
+	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}
