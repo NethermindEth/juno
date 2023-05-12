@@ -1392,10 +1392,32 @@ func TestEvents(t *testing.T) {
 		})
 	})
 
+	t.Run("filter with no from_block", func(t *testing.T) {
+		args.FromBlock = nil
+		args.ToBlock = &rpc.BlockID{Latest: true}
+		_, err := handler.Events(args)
+		require.Nil(t, err)
+	})
+
+	t.Run("filter with no to_block", func(t *testing.T) {
+		args.FromBlock = &rpc.BlockID{Number: 0}
+		args.ToBlock = nil
+		_, err := handler.Events(args)
+		require.Nil(t, err)
+	})
+
+	t.Run("filter with no address", func(t *testing.T) {
+		args.ToBlock = &rpc.BlockID{Latest: true}
+		args.Address = nil
+		_, err := handler.Events(args)
+		require.Nil(t, err)
+	})
+
 	t.Run("filter with no keys", func(t *testing.T) {
 		var allEvents []*rpc.EmittedEvent
 		t.Run("get all events without pagination", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Latest: true}
+			args.Address = from
 			events, err := handler.Events(args)
 			require.Nil(t, err)
 			require.Len(t, events.Events, 3)

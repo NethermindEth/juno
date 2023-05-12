@@ -26,11 +26,13 @@ const (
 	EventFilterTo
 )
 
-func NewEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys []*felt.Felt) *EventFilter {
+func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys []*felt.Felt, fromBlock, toBlock uint64) *EventFilter {
 	return &EventFilter{
 		txn:             txn,
 		contractAddress: contractAddress,
 		keys:            keys,
+		fromBlock:       fromBlock,
+		toBlock:         toBlock,
 	}
 }
 
@@ -88,10 +90,6 @@ type FilteredEvent struct {
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
 
-	var bloomLogBuffer [felt.Bytes * 2]byte
-	fromBytes := e.contractAddress.Bytes()
-	copy(bloomLogBuffer[:felt.Bytes], fromBytes[:])
-
 	filterKeysMap := make(map[felt.Felt]bool, len(e.keys))
 	for _, key := range e.keys {
 		filterKeysMap[*key] = true
@@ -109,20 +107,26 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 			return nil, nil, err
 		}
 
-		// test `from` only by default because empty filter keys means match all
-		possibleMatches := header.EventsBloom.Test(fromBytes[:])
+		possibleMatches := true
+		if e.contractAddress != nil {
+			addrBytes := e.contractAddress.Bytes()
+			possibleMatches = header.EventsBloom.Test(addrBytes[:])
+			// bloom filter says no events from this contract
+			if !possibleMatches {
+				continue
+			}
+		}
 		for key := range filterKeysMap {
 			keyBytes := key.Bytes()
-			copy(bloomLogBuffer[felt.Bytes:], keyBytes[:])
 
 			// check if block possibly contains the event we are looking for
-			possibleMatches = header.EventsBloom.Test(bloomLogBuffer[:])
+			possibleMatches = header.EventsBloom.Test(keyBytes[:])
 			if possibleMatches {
 				break
 			}
 		}
 
-		// bloom filter says no events match the filter, skip this block entirely
+		// bloom filter says no events match the filter, skip this block entirely if from is not nil
 		if !possibleMatches {
 			continue
 		}
@@ -160,7 +164,7 @@ func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, hea
 				continue
 			}
 
-			if !event.From.Equal(e.contractAddress) {
+			if e.contractAddress != nil && !event.From.Equal(e.contractAddress) {
 				processedEvents++
 				continue
 			}
