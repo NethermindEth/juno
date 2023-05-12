@@ -710,6 +710,10 @@ func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
 
 func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, latestHeight uint64) error {
 	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
+		if id == nil {
+			return nil
+		}
+
 		switch {
 		case id.Latest:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
