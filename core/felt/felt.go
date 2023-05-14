@@ -225,3 +225,14 @@ func (z *Felt) Mul(x, y *Felt) *Felt {
 func (z *Felt) Cmp(x *Felt) int {
 	return z.val.Cmp(&x.val)
 }
+
+// SetBigInt forwards the call to underlying field element implementation
+func (z *Felt) SetBigInt(v *big.Int) *Felt {
+	z.val.SetBigInt(v)
+	return z
+}
+
+// Uint64 forwards the call to underlying field element implementation
+func (z *Felt) Uint64() uint64 {
+	return z.val.Uint64()
+}

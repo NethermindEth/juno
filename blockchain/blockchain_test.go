@@ -498,3 +498,26 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.Close())
 	})
 }
+
+func TestL1Update(t *testing.T) {
+	heads := []*core.L1Head{
+		{
+			BlockNumber: 1,
+			StateRoot:   new(felt.Felt).SetUint64(2),
+		},
+		{
+			BlockNumber: 2,
+			StateRoot:   new(felt.Felt).SetUint64(3),
+		},
+	}
+
+	for _, head := range heads {
+		t.Run(fmt.Sprintf("update L1 head to block %d", head.BlockNumber), func(t *testing.T) {
+			chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, utils.NewNopZapLogger())
+			require.NoError(t, chain.SetL1Head(head))
+			got, err := chain.L1Head()
+			require.NoError(t, err)
+			assert.Equal(t, head, got)
+		})
+	}
+}

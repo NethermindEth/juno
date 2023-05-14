@@ -30,12 +30,14 @@ const (
 	rpcPortF  = "rpc-port"
 	dbPathF   = "db-path"
 	networkF  = "network"
+	ethNodeF  = "eth-node"
 	pprofF    = "pprof"
 	colourF   = "colour"
 
 	defaultConfig  = ""
 	defaultRPCPort = uint16(6060)
 	defaultDBPath  = ""
+	defaultEthNode = ""
 	defaultPprof   = false
 	defaultColour  = true
 
@@ -47,6 +49,8 @@ const (
 	networkUsage = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage   = "Enables the pprof server and listens on port 9080."
 	colourUsage  = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 )
 
 var Version string
@@ -127,6 +131,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
+	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 

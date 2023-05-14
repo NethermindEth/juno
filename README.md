@@ -62,8 +62,12 @@ docker run -d \
   -v /home/juno:/var/lib/juno \
   nethermind/juno \
   --rpc-port 6060 \
-  --db-path /var/lib/juno
+  --db-path /var/lib/juno \
+  --eth-node <YOUR-ETH-NODE>
 ```
+
+You should replace `<YOUR-ETH-NODE> `with your actual Ethereum node address.
+If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
 
 To view logs from the Docker container, use the following command:
 
@@ -139,7 +143,7 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
 * [X] Starknet v0.11.0 support
     * [X] Poseidon state trie support
 * [ ] Blockchain: implement blockchain reorganization logic.
-* [ ] Synchronisation: implement verification of state from layer 1.
+* [X] Synchronisation: implement verification of state from layer 1.
 * [ ] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
     * [ ] Implement the remaining endpoints:
         * [X] `starknet_syncing`
