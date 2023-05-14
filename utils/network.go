@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/pflag"
 )
 
@@ -105,4 +106,23 @@ func (n Network) ChainID() *felt.Felt {
 		// Should not happen.
 		panic(ErrUnknownNetwork)
 	}
+}
+
+func (n Network) CoreContractAddress() (common.Address, error) {
+	var address common.Address
+	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
+	switch n {
+	case MAINNET:
+		address = common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
+	case GOERLI:
+		address = common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e")
+	case GOERLI2:
+		address = common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c")
+	case INTEGRATION:
+		return common.Address{}, errors.New("l1 contract is not available on the integration network")
+	default:
+		// Should not happen.
+		return common.Address{}, ErrUnknownNetwork
+	}
+	return address, nil
 }

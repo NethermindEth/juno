@@ -9,3 +9,6 @@ coverage:
         target: 62%
         threshold: 2%
         only_pulls: true
+ignore:
+  - mocks
+  - l1/internal/contract/starknet.go

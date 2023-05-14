@@ -229,6 +229,28 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	})
 }
 
+func (b *Blockchain) L1Head() (*core.L1Head, error) {
+	var update *core.L1Head
+	if err := b.database.View(func(txn db.Transaction) error {
+		return txn.Get(db.L1Height.Key(), func(updateBytes []byte) error {
+			return encoder.Unmarshal(updateBytes, &update)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return update, nil
+}
+
+func (b *Blockchain) SetL1Head(update *core.L1Head) error {
+	updateBytes, err := encoder.Marshal(update)
+	if err != nil {
+		return err
+	}
+	return b.database.Update(func(txn db.Transaction) error {
+		return txn.Set(db.L1Height.Key(), updateBytes)
+	})
+}
+
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
