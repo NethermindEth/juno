@@ -154,10 +154,9 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
+func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
 	var res *http.Response
 	var err error
-	var resBytes []byte
 	wait := time.Duration(0)
 	for i := 0; i <= c.maxRetries; i++ {
 		select {
@@ -173,14 +172,7 @@ func (c *Client) get(ctx context.Context, queryURL string) ([]byte, error) {
 			res, err = c.client.Do(req)
 			if err == nil {
 				if res.StatusCode == http.StatusOK {
-					resBytes, err = io.ReadAll(res.Body)
-					if err != nil {
-						res.Body.Close()
-						return nil, err
-					}
-
-					res.Body.Close()
-					return resBytes, nil
+					return res.Body, nil
 				}
 
 				if res.StatusCode != http.StatusOK {
@@ -211,9 +203,10 @@ func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpd
 	if err != nil {
 		return nil, err
 	}
+	defer body.Close()
 
 	update := new(StateUpdate)
-	if err = json.Unmarshal(body, update); err != nil {
+	if err = json.NewDecoder(body).Decode(update); err != nil {
 		return nil, err
 	}
 	return update, nil
@@ -228,9 +221,10 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 	if err != nil {
 		return nil, err
 	}
+	defer body.Close()
 
 	txStatus := new(TransactionStatus)
-	if err = json.Unmarshal(body, txStatus); err != nil {
+	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
 		return nil, err
 	}
 	return txStatus, nil
@@ -245,9 +239,10 @@ func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer body.Close()
 
 	block := new(Block)
-	if err = json.Unmarshal(body, block); err != nil {
+	if err = json.NewDecoder(body).Decode(block); err != nil {
 		return nil, err
 	}
 	return block, nil
@@ -262,9 +257,10 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*Cl
 	if err != nil {
 		return nil, err
 	}
+	defer body.Close()
 
 	class := new(ClassDefinition)
-	if err = json.Unmarshal(body, class); err != nil {
+	if err = json.NewDecoder(body).Decode(class); err != nil {
 		return nil, err
 	}
 	return class, nil
