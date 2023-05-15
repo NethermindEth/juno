@@ -152,6 +152,12 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.INTEGRATION,
 			name:   "Block 283364 with Declare v2",
 		},
+		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=286310"
+		{
+			number: 286310,
+			chain:  utils.INTEGRATION,
+			name:   "Block 286310 with version 0.11.1",
+		},
 	}
 
 	for _, testcase := range tests {

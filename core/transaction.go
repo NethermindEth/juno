@@ -392,7 +392,9 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 
-		blockVersionPost011, err := blockVersionPost011(protocolVersion)
+		versionConstraint := semver.MustParse("0.11.1")
+
+		blockVersion, err := ParseBlockVersion(protocolVersion)
 		if err != nil {
 			return err
 		}
@@ -400,7 +402,7 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
 
-			if blockVersionPost011 {
+			if blockVersion.GreaterThan(versionConstraint) {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			} else {
 				if _, ok := transaction.(*InvokeTransaction); ok {
@@ -422,34 +424,24 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 	})
 }
 
-// blockVersionPost011 determines if the blocks protocolVersion is >=0.11.1.
-func blockVersionPost011(protocolVersion string) (bool, error) {
-
-	versionConstraint, _ := semver.NewConstraint(">=0.11.1")
+// ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
+func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	var blockVersion *semver.Version
 	var err error
 
 	if protocolVersion == "" {
 		blockVersion, _ = semver.NewVersion("0.0.0")
 	} else {
-		blockVersion, err = parseBlockVersion(protocolVersion)
+		sep := "."
+		digits := strings.Split(protocolVersion, sep)
+		// pad with 3 zeros in case version has less than 3 digits
+		digits = append(digits, []string{"0", "0", "0"}...)
+
+		// get first 3 digits only
+		blockVersion, err = semver.NewVersion(strings.Join(digits[:3], sep))
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-	}
-	return versionConstraint.Check(blockVersion), nil
-}
-
-func parseBlockVersion(version string) (*semver.Version, error) {
-	sep := "."
-	digits := strings.Split(version, sep)
-	// pad with 3 zeros in case version has less than 3 digits
-	digits = append(digits, []string{"0", "0", "0"}...)
-
-	// get first 3 digits only
-	blockVersion, err := semver.NewVersion(strings.Join(digits[:3], sep))
-	if err != nil {
-		return nil, err
 	}
 	return blockVersion, nil
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -42,17 +41,8 @@ type Reader interface {
 var supportedStarknetVersion = semver.MustParse("0.11.0")
 
 func checkBlockVersion(protocolVersion string) error {
-	if protocolVersion == "" {
-		return nil
-	}
 
-	sep := "."
-	digits := strings.Split(protocolVersion, sep)
-	// pad with 3 zeros in case version has less than 3 digits
-	digits = append(digits, []string{"0", "0", "0"}...)
-
-	// get first 3 digits only
-	blockVer, err := semver.NewVersion(strings.Join(digits[:3], sep))
+	blockVer, err := core.ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err
 	}
