@@ -41,7 +41,6 @@ type Reader interface {
 var supportedStarknetVersion = semver.MustParse("0.11.0")
 
 func checkBlockVersion(protocolVersion string) error {
-
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err

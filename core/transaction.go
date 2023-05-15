@@ -391,7 +391,6 @@ const commitmentTrieHeight uint = 64
 func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
-
 		versionConstraint := semver.MustParse("0.11.1")
 
 		blockVersion, err := ParseBlockVersion(protocolVersion)
@@ -426,7 +425,6 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 
 // ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
 func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
-
 	if protocolVersion == "" {
 		return semver.NewVersion("0.0.0")
 	}
@@ -438,7 +436,6 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 
 	// get first 3 digits only
 	return semver.NewVersion(strings.Join(digits[:3], sep))
-
 }
 
 // eventCommitment computes the event commitment for a block.
