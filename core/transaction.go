@@ -422,10 +422,10 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 	})
 }
 
-// blockVersionPost011 determines if the blocks protocolVersion is >=0.11.0.
+// blockVersionPost011 determines if the blocks protocolVersion is >=0.11.1.
 func blockVersionPost011(protocolVersion string) (bool, error) {
 
-	versionConstraint, _ := semver.NewConstraint(">=0.11.0")
+	versionConstraint, _ := semver.NewConstraint(">=0.11.1")
 	var blockVersion *semver.Version
 	var err error
 
