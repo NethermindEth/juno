@@ -108,8 +108,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err.Error())
+				} else {
+					s.HighestBlockHeader = highestBlock.Header
 				}
-				s.HighestBlockHeader = highestBlock.Header
 			}
 
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
