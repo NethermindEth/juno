@@ -432,18 +432,26 @@ func blockVersionPost011(protocolVersion string) (bool, error) {
 	if protocolVersion == "" {
 		blockVersion, _ = semver.NewVersion("0.0.0")
 	} else {
-		sep := "."
-		digits := strings.Split(protocolVersion, sep)
-		// pad with 3 zeros in case version has less than 3 digits
-		digits = append(digits, []string{"0", "0", "0"}...)
-
-		// get first 3 digits only
-		blockVersion, err = semver.NewVersion(strings.Join(digits[:3], sep))
+		blockVersion, err = parseBlockVersion(protocolVersion)
 		if err != nil {
 			return false, err
 		}
 	}
 	return versionConstraint.Check(blockVersion), nil
+}
+
+func parseBlockVersion(version string) (*semver.Version, error) {
+	sep := "."
+	digits := strings.Split(version, sep)
+	// pad with 3 zeros in case version has less than 3 digits
+	digits = append(digits, []string{"0", "0", "0"}...)
+
+	// get first 3 digits only
+	blockVersion, err := semver.NewVersion(strings.Join(digits[:3], sep))
+	if err != nil {
+		return nil, err
+	}
+	return blockVersion, nil
 }
 
 // eventCommitment computes the event commitment for a block.
