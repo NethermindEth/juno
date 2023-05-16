@@ -38,7 +38,7 @@ type Reader interface {
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 }
 
-var supportedStarknetVersion = semver.MustParse("0.11.0")
+var supportedStarknetVersion = semver.MustParse("0.11.1")
 
 func checkBlockVersion(protocolVersion string) error {
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
