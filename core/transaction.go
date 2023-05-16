@@ -407,7 +407,7 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
 
-			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
+			if _, err = trie.Put(new(felt.Felt).SetUint64(uint64(i)),
 				crypto.Pedersen(transaction.Hash(), signatureHash)); err != nil {
 				return err
 			}
