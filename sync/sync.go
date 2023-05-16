@@ -2,11 +2,13 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"runtime"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
@@ -56,36 +58,76 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 				continue
 			}
 
-			// There are classes in deployed transactions which refer to class hash that are no present in declared
-			// classes. Thus, we need to fetch all the classes which are referenced in deployed contracts
-			referencedClasses := make(map[felt.Felt]core.Class)
-			for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
-				referencedClasses[*deployedContract.ClassHash] = nil
-			}
-			for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes { // todo: fetch v1 classes as well
-				referencedClasses[*classHash] = nil
-			}
-			for classHash := range referencedClasses {
-				class, err := s.StarknetData.Class(ctx, &classHash)
-				if err != nil {
-					continue
-				}
-				referencedClasses[classHash] = class
+			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
+			if err != nil {
+				continue
 			}
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, block, stateUpdate, referencedClasses, resetStreams)
+					return s.verifierTask(ctx, block, stateUpdate, newClasses, resetStreams)
 				})
 			}
 		}
 	}
 }
 
+func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
+	state, closer, err := s.Blockchain.HeadState()
+	if err != nil {
+		// if err is db.ErrKeyNotFound we are on an empty DB
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, err
+		}
+		closer = func() error {
+			return nil
+		}
+	}
+
+	newClasses := make(map[felt.Felt]core.Class)
+	fetchIfNotFound := func(classHash *felt.Felt) error {
+		if _, ok := newClasses[*classHash]; ok {
+			return nil
+		}
+
+		stateErr := db.ErrKeyNotFound
+		if state != nil {
+			_, stateErr = state.Class(classHash)
+		}
+
+		if errors.Is(stateErr, db.ErrKeyNotFound) {
+			class, fetchErr := s.StarknetData.Class(ctx, classHash)
+			if fetchErr == nil {
+				newClasses[*classHash] = class
+			}
+			return fetchErr
+		}
+		return stateErr
+	}
+
+	for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
+		if err = fetchIfNotFound(deployedContract.ClassHash); err != nil {
+			return nil, db.CloseAndWrapOnError(closer, err)
+		}
+	}
+	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
+		if err = fetchIfNotFound(classHash); err != nil {
+			return nil, db.CloseAndWrapOnError(closer, err)
+		}
+	}
+	for _, declaredV1 := range stateUpdate.StateDiff.DeclaredV1Classes {
+		if err = fetchIfNotFound(declaredV1.ClassHash); err != nil {
+			return nil, db.CloseAndWrapOnError(closer, err)
+		}
+	}
+
+	return newClasses, db.CloseAndWrapOnError(closer, nil)
+}
+
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	declaredClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
+	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
-	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, declaredClasses)
+	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -96,7 +138,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			err := s.Blockchain.Store(block, stateUpdate, declaredClasses)
+			err = s.Blockchain.Store(block, stateUpdate, newClasses)
 			if err != nil {
 				s.log.Warnw("Failed storing Block", "number", block.Number,
 					"hash", block.Hash.ShortString(), "err", err.Error())

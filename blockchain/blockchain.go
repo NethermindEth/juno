@@ -230,12 +230,12 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, declaredClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, declaredClasses); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
 		if err := storeBlockHeader(txn, block.Header); err != nil {
@@ -491,7 +491,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate, classes map[felt.Felt]core.Class) error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return errors.New("block hashes do not match")
 	}
@@ -499,7 +499,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
 
-	if cErr := core.VerifyClassHashes(classes); cErr != nil {
+	if cErr := core.VerifyClassHashes(newClasses); cErr != nil {
 		if errors.As(cErr, new(core.CantVerifyClassHashError)) {
 			for ; cErr != nil; cErr = errors.Unwrap(cErr) {
 				b.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
