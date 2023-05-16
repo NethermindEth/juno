@@ -403,10 +403,8 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 
 			if blockVersion.GreaterThan(versionConstraint) {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
-			} else {
-				if _, ok := transaction.(*InvokeTransaction); ok {
-					signatureHash = crypto.PedersenArray(transaction.Signature()...)
-				}
+			} else if _, ok := transaction.(*InvokeTransaction); ok {
+				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
 
 			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
