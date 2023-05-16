@@ -25,6 +25,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultDBPath := ""
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
+	defaultColour := true
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -41,6 +42,7 @@ func TestConfigPrecedence(t *testing.T) {
 				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
+				Colour:       defaultColour,
 			},
 		},
 		"config file path is empty string": {
@@ -51,6 +53,7 @@ func TestConfigPrecedence(t *testing.T) {
 				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
+				Colour:       defaultColour,
 			},
 		},
 		"config file doesn't exist": {
@@ -64,6 +67,7 @@ func TestConfigPrecedence(t *testing.T) {
 				LogLevel: defaultLogLevel,
 				RPCPort:  defaultRPCPort,
 				Network:  defaultNetwork,
+				Colour:   defaultColour,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -80,6 +84,7 @@ pprof: true
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI2,
 				Pprof:        true,
+				Colour:       defaultColour,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -93,6 +98,7 @@ rpc-port: 4576
 				DatabasePath: defaultDBPath,
 				Network:      defaultNetwork,
 				Pprof:        defaultPprof,
+				Colour:       defaultColour,
 			},
 		},
 		"all flags without config file": {
@@ -106,6 +112,7 @@ rpc-port: 4576
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        true,
+				Colour:       defaultColour,
 			},
 		},
 		"some flags without config file": {
@@ -118,6 +125,7 @@ rpc-port: 4576
 				RPCPort:      4576,
 				DatabasePath: "/home/.juno",
 				Network:      utils.INTEGRATION,
+				Colour:       defaultColour,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -138,6 +146,7 @@ pprof: true
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.INTEGRATION,
 				Pprof:        true,
+				Colour:       defaultColour,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -153,6 +162,7 @@ network: goerli
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        defaultPprof,
+				Colour:       defaultColour,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -165,6 +175,7 @@ network: goerli
 				DatabasePath: "/home/flag/.juno",
 				Network:      utils.GOERLI2,
 				Pprof:        true,
+				Colour:       defaultColour,
 			},
 		},
 	}

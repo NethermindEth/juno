@@ -91,10 +91,13 @@ func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
 }
 
-func NewZapLogger(logLevel LogLevel) (*ZapLogger, error) {
+func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Encoding = "console"
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	if !colour {
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
