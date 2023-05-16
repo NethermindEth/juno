@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -142,6 +143,11 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Handler: rpcHandler.ClassAt,
 		},
 		{
+			Name:    "starknet_addInvokeTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
+			Handler: rpcHandler.AddInvokeTransaction,
+		},
+		{
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: rpcHandler.Events,
@@ -175,10 +181,11 @@ func (n *Node) Run(ctx context.Context) {
 
 	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
 
-	client := feeder.NewClient(n.cfg.Network.URL())
+	client := feeder.NewClient(n.cfg.Network.FeederURL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
+	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, n.log), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log), n.log)
 
 	n.services = []service.Service{synchronizer, http}
 

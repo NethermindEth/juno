@@ -111,22 +111,6 @@ func (mr *MockReaderMockRecorder) EventFilter(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), arg0, arg1)
 }
 
-// Events mocks base method.
-func (m *MockReader) Events(arg0 *blockchain.EventFilter, arg1 *blockchain.ContinuationToken, arg2 uint64) ([]*blockchain.FilteredEvent, *blockchain.ContinuationToken, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Events", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*blockchain.FilteredEvent)
-	ret1, _ := ret[1].(*blockchain.ContinuationToken)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// Events indicates an expected call of Events.
-func (mr *MockReaderMockRecorder) Events(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockReader)(nil).Events), arg0, arg1, arg2)
-}
-
 // Head mocks base method.
 func (m *MockReader) Head() (*core.Block, error) {
 	m.ctrl.T.Helper()

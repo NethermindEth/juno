@@ -20,7 +20,7 @@ var (
 )
 
 const (
-	MAINNET Network = iota
+	MAINNET Network = iota + 1
 	GOERLI
 	GOERLI2
 	INTEGRATION
@@ -66,20 +66,31 @@ func (n *Network) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 
-func (n Network) URL() string {
+// baseURL returns the base URL without endpoint
+func (n Network) baseURL() string {
 	switch n {
 	case GOERLI:
-		return "https://alpha4.starknet.io/feeder_gateway/"
+		return "https://alpha4.starknet.io/"
 	case MAINNET:
-		return "https://alpha-mainnet.starknet.io/feeder_gateway/"
+		return "https://alpha-mainnet.starknet.io/"
 	case GOERLI2:
-		return "https://alpha4-2.starknet.io/feeder_gateway/"
+		return "https://alpha4-2.starknet.io/"
 	case INTEGRATION:
-		return "https://external.integration.starknet.io/feeder_gateway/"
+		return "https://external.integration.starknet.io/"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
 	}
+}
+
+// FeederURL returns URL for read commands
+func (n Network) FeederURL() string {
+	return n.baseURL() + "feeder_gateway/"
+}
+
+// GatewayURL returns URL for write commands
+func (n Network) GatewayURL() string {
+	return n.baseURL() + "gateway/"
 }
 
 func (n Network) ChainID() *felt.Felt {
