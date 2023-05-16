@@ -21,7 +21,7 @@ type Profiler struct {
 
 func New(port uint16, log utils.SimpleLogger) *Profiler {
 	server := &http.Server{
-		Addr:              "localhost:" + strconv.Itoa(int(port)),
+		Addr:              "0.0.0.0:" + strconv.Itoa(int(port)),
 		Handler:           http.DefaultServeMux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
