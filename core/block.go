@@ -146,7 +146,7 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
-	txCommitment, err := transactionCommitment(b.Transactions)
+	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions)
+	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}

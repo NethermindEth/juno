@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -386,12 +388,22 @@ const commitmentTrieHeight uint = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction) (*felt.Felt, error) {
+func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+		versionConstraint := semver.MustParse("0.11.1")
+
+		blockVersion, err := ParseBlockVersion(protocolVersion)
+		if err != nil {
+			return err
+		}
+
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
-			if _, ok := transaction.(*InvokeTransaction); ok {
+
+			if blockVersion.GreaterThan(versionConstraint) {
+				signatureHash = crypto.PedersenArray(transaction.Signature()...)
+			} else if _, ok := transaction.(*InvokeTransaction); ok {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
 
@@ -407,6 +419,21 @@ func transactionCommitment(transactions []Transaction) (*felt.Felt, error) {
 		commitment = root
 		return nil
 	})
+}
+
+// ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
+func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
+	if protocolVersion == "" {
+		return semver.NewVersion("0.0.0")
+	}
+
+	sep := "."
+	digits := strings.Split(protocolVersion, sep)
+	// pad with 3 zeros in case version has less than 3 digits
+	digits = append(digits, []string{"0", "0", "0"}...)
+
+	// get first 3 digits only
+	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
 // eventCommitment computes the event commitment for a block.
