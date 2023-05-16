@@ -153,7 +153,7 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
   * [ ] `starknet_call`
   * [ ] `starknet_estimateFee`
 * [ ] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
-    * [ ] `starknet_addInvokeTransaction`
+    * [X] `starknet_addInvokeTransaction`
     * [ ] `starknet_addDeclareTransaction`
     * [ ] `starknet_addDeployAccountTransaction`
     

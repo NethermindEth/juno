@@ -1,14 +1,19 @@
 package rpc
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/go-playground/validator/v10"
 )
 
 var (
@@ -32,18 +37,26 @@ const (
 )
 
 type Handler struct {
-	bcReader     blockchain.Reader
-	synchronizer *sync.Synchronizer
-	network      utils.Network
-	log          utils.Logger
+	bcReader      blockchain.Reader
+	synchronizer  *sync.Synchronizer
+	network       utils.Network
+	gatewayClient gateway.Gateway
+	log           utils.Logger
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, logger utils.Logger) *Handler {
+func New(
+	bcReader blockchain.Reader,
+	synchronizer *sync.Synchronizer,
+	n utils.Network,
+	gatewayClient gateway.Gateway,
+	logger utils.Logger,
+) *Handler {
 	return &Handler{
-		bcReader:     bcReader,
-		synchronizer: synchronizer,
-		network:      n,
-		log:          logger,
+		bcReader:      bcReader,
+		synchronizer:  synchronizer,
+		network:       n,
+		log:           logger,
+		gatewayClient: gatewayClient,
 	}
 }
 
@@ -730,4 +743,61 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 		return err
 	}
 	return set(blockchain.EventFilterTo, toID)
+}
+
+// AddInvokeTransaction relays an invoke transaction to the gateway.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
+func (h *Handler) AddInvokeTransaction(invokeTx *gateway.BroadcastedInvokeTxn) (*AddInvokeTransactionResponse, *jsonrpc.Error) {
+	invokeTx.Type = "INVOKE_FUNCTION"
+
+	validate := validator.New()
+	if err := validate.Struct(invokeTx); err != nil {
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InvalidParams,
+			Message: fmt.Sprintf("{'%s': ['Missing data for required field.']}", err.(validator.ValidationErrors)[0].Field()),
+			Data:    nil,
+		}
+	}
+
+	if invokeTx.Version != "0x1" {
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InvalidParams,
+			Message: fmt.Sprintf("Transaction version '%s' not supported. Supported versions: '0x1'", invokeTx.Version),
+			Data:    nil,
+		}
+	}
+
+	if invokeTx.MaxFee.ShortString() == "0x0" {
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InvalidParams,
+			Message: "max_fee must be bigger than 0.\n0 >= 0",
+			Data:    nil,
+		}
+	}
+
+	resp, err := h.gatewayClient.AddInvokeTransaction(context.TODO(), invokeTx)
+	if err != nil {
+		return nil, &jsonrpc.Error{
+			Code:    getAddInvokeTxCode(err),
+			Message: err.Error(),
+			Data:    nil,
+		}
+	}
+
+	return &AddInvokeTransactionResponse{
+		TransactionHash: resp.TransactionHash,
+	}, nil
+}
+
+// getAddInvokeTxCode returns the relevant Code for a given addInvokeTx error
+func getAddInvokeTxCode(err error) int {
+	if strings.Contains(err.Error(), "contract address") && strings.Contains(err.Error(), "is out of range") {
+		return jsonrpc.InvalidParams
+	} else if strings.Contains(err.Error(), "Fee") && strings.Contains(err.Error(), "is out of range") {
+		return jsonrpc.InvalidParams
+	} else {
+		return jsonrpc.InternalError
+	}
 }

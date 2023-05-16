@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -203,7 +204,7 @@ func adaptTransaction(transaction *feeder.Transaction) (core.Transaction, error)
 	case "L1_HANDLER":
 		return adaptL1HandlerTransaction(transaction), nil
 	default:
-		return nil, errors.New("unknown transaction")
+		return nil, fmt.Errorf("unknown transaction type %q", txType)
 	}
 }
 
