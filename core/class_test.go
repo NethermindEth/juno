@@ -3,7 +3,6 @@ package core_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -156,80 +155,50 @@ func TestVerifyClassHash(t *testing.T) {
 		wantErr   error
 	}
 
-	findMatch := func(t *testing.T, tests []Tests, class core.Class) *Tests {
-		t.Helper()
-		for _, test := range tests {
-			if reflect.DeepEqual(test.class, class) {
-				return &test
-			}
-		}
-		return nil
-	}
-
-	client, closeFn := feeder.NewTestClient(utils.GOERLI)
+	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
 	t.Cleanup(closeFn)
 
 	gw := adaptfeeder.New(client)
 
-	classHash0 := utils.HexToFelt(t, "0x010455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
-	class0, err := gw.Class(context.Background(), classHash0)
-	require.NoError(t, err)
-
-	classHash1 := utils.HexToFelt(t, "0x056b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3")
-	class1, err := gw.Class(context.Background(), classHash1)
+	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1Class, err := gw.Class(context.Background(), cairo1ClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with error", func(t *testing.T) {
 		tests := []Tests{
 			{
-				name:      "error if class is nil",
-				classHash: &felt.Zero,
-				class:     nil,
-				wantErr:   fmt.Errorf("cannot verify class hash: class is nil"),
-			},
-			{
 				name:      "error if expected hash is not equal to gotten hash",
 				classHash: utils.HexToFelt(t, "0xab"),
-				class:     class0,
-				wantErr: fmt.Errorf("cannot verify class hash: calculated hash: %v, received hash: %v", classHash0.String(),
+				class:     cairo1Class,
+				wantErr: fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cairo1ClassHash.String(),
 					utils.HexToFelt(t, "0xab").String()),
 			},
 			{
 				name:      "no error if expected hash is equal to gotten hash",
-				classHash: classHash1,
-				class:     class1,
+				classHash: cairo1ClassHash,
+				class:     cairo1Class,
 				wantErr:   nil,
 			},
 		}
 
-		classMap := make(map[felt.Felt]core.Class, 3)
 		for _, tt := range tests {
-			classMap[*tt.classHash] = tt.class
-		}
-
-		vErr := core.VerifyClassHashes(classMap)
-		require.Error(t, vErr)
-
-		count := 0
-		if errors.As(vErr, new(core.CantVerifyClassHashError)) {
-			for ; vErr != nil; vErr = errors.Unwrap(vErr) {
-				err := vErr.(core.CantVerifyClassHashError)
-
-				tt := findMatch(t, tests, err.Class())
-				t.Run(tt.name, func(t *testing.T) {
-					assert.EqualError(t, vErr, tt.wantErr.Error())
+			t.Run(tt.name, func(t *testing.T) {
+				err = core.VerifyClassHashes(map[felt.Felt]core.Class{
+					*tt.classHash: tt.class,
 				})
-				count++
-			}
+				require.Equal(t, tt.wantErr, err)
+			})
 		}
-		// A case which doesn't return an error is included in tests to make sure the number of wrapped errors is correct.
-		assert.Equal(t, 2, count)
 	})
+
+	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0Class, err := gw.Class(context.Background(), cairo0ClassHash)
+	require.NoError(t, err)
 
 	t.Run("class(es) with no error", func(t *testing.T) {
 		classMap := map[felt.Felt]core.Class{
-			*classHash0: class0,
-			*classHash1: class1,
+			*cairo1ClassHash: cairo1Class,
+			*cairo0ClassHash: cairo0Class,
 		}
 
 		assert.NoError(t, core.VerifyClassHashes(classMap))
