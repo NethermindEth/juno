@@ -16,7 +16,6 @@ var (
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
-	Hash() *felt.Felt
 }
 
 // Cairo0Class unambiguously defines a [Contract]'s semantics.
@@ -29,12 +28,6 @@ type Cairo0Class struct {
 	L1Handlers []EntryPoint
 	// Constructors for the class. Currently, only one is allowed.
 	Constructors []EntryPoint
-	// Hash of the ascii-encoded array of builtin names imported by the class.
-	BuiltinsHash *felt.Felt
-	// The starknet_keccak hash of the ".json" file compiler output.
-	ProgramHash *felt.Felt
-	// Hash of the class bytecode
-	BytecodeHash *felt.Felt
 	// Base64 encoding of compressed Program
 	Program string
 }
@@ -49,29 +42,6 @@ type EntryPoint struct {
 
 func (c *Cairo0Class) Version() uint64 {
 	return 0
-}
-
-func (c *Cairo0Class) Hash() *felt.Felt {
-	return crypto.PedersenArray(
-		&felt.Zero,
-		crypto.PedersenArray(flatten(c.Externals)...),
-		crypto.PedersenArray(flatten(c.L1Handlers)...),
-		crypto.PedersenArray(flatten(c.Constructors)...),
-		c.BuiltinsHash,
-		c.ProgramHash,
-		c.BytecodeHash,
-	)
-}
-
-func flatten(entryPoints []EntryPoint) []*felt.Felt {
-	result := make([]*felt.Felt, len(entryPoints)*2)
-	for i, entryPoint := range entryPoints {
-		// It is important that Selector is first because the order
-		// influences the class hash.
-		result[2*i] = entryPoint.Selector
-		result[2*i+1] = entryPoint.Offset
-	}
-	return result
 }
 
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
