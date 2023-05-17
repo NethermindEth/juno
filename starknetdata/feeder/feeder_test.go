@@ -235,13 +235,7 @@ func TestClassV0(t *testing.T) {
 			var program feeder.Program
 			require.NoError(t, json.Unmarshal(response.V0.Program, &program))
 
-			assert.NotNil(t, class.BuiltinsHash)
-			assert.NotNil(t, class.BytecodeHash)
 			assert.NotEmpty(t, class.Program)
-
-			programHash, err := feeder.ProgramHash(&program, response.V0.Abi)
-			require.NoError(t, err)
-			assert.Equal(t, programHash, class.ProgramHash)
 		})
 	}
 }

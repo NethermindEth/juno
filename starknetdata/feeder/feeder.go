@@ -337,36 +337,12 @@ func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 		return nil, err
 	}
 
-	builtins := make([]*felt.Felt, 0, len(program.Builtins))
-	for _, v := range program.Builtins {
-		builtin := new(felt.Felt).SetBytes([]byte(v))
-		builtins = append(builtins, builtin)
-	}
-	class.BuiltinsHash = crypto.PedersenArray(builtins...)
-
-	var err error
-	class.ProgramHash, err = feeder.ProgramHash(&program, response.Abi)
-	if err != nil {
-		return nil, err
-	}
-
-	bytecode := make([]*felt.Felt, 0, len(program.Data))
-	for _, v := range program.Data {
-		datum, fErr := new(felt.Felt).SetString(v)
-		if fErr != nil {
-			return nil, fErr
-		}
-
-		bytecode = append(bytecode, datum)
-	}
-	class.BytecodeHash = crypto.PedersenArray(bytecode...)
-
 	var compressedBuffer bytes.Buffer
 	gzipWriter := gzip.NewWriter(&compressedBuffer)
-	if _, err = gzipWriter.Write(response.Program); err != nil {
+	if _, err := gzipWriter.Write(response.Program); err != nil {
 		return nil, err
 	}
-	if err = gzipWriter.Close(); err != nil {
+	if err := gzipWriter.Close(); err != nil {
 		return nil, err
 	}
 
