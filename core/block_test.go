@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -178,15 +177,7 @@ func TestBlockHash(t *testing.T) {
 			require.NoError(t, err)
 
 			err = core.VerifyBlockHash(block, tc.chain)
-			if err != nil {
-				if errors.As(err, new(core.CantVerifyTransactionHashError)) {
-					for ; err != nil; err = errors.Unwrap(err) {
-						t.Log(err)
-					}
-				} else {
-					assert.NoError(t, err)
-				}
-			}
+			assert.NoError(t, err)
 		})
 	}
 

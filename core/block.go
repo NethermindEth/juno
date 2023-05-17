@@ -104,7 +104,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		}
 	}
 
-	if err := VerifyTransactions(b.Transactions, network); err != nil {
+	if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
 		return err
 	}
 
