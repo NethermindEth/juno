@@ -340,53 +340,25 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 	return nil, errInvalidTransactionVersion(d, d.Version)
 }
 
-type CantVerifyTransactionHashError struct {
-	t           Transaction
-	hashFailure error
-	next        *CantVerifyTransactionHashError
-}
-
-func (e CantVerifyTransactionHashError) Unwrap() error {
-	if e.next != nil {
-		return *e.next
-	}
-	return nil
-}
-
-func (e CantVerifyTransactionHashError) Error() string {
-	return fmt.Sprintf("cannot verify transaction hash of Transaction Type: %v: %v", reflect.TypeOf(e.t), e.hashFailure.Error())
-}
-
-func (e CantVerifyTransactionHashError) Hash() *felt.Felt {
-	return e.t.Hash()
-}
-
-func VerifyTransactions(txs []Transaction, n utils.Network) error {
-	var head *CantVerifyTransactionHashError
-	for _, tx := range txs {
-		if err := verifyTransactionHash(tx, n); err != nil {
-			err.next = head
-			head = err
-		}
-	}
-	if head != nil {
-		return *head
-	}
-	return nil
-}
-
-func verifyTransactionHash(t Transaction, n utils.Network) *CantVerifyTransactionHashError {
-	calculatedTxHash, err := transactionHash(t, n)
+func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion string) error {
+	blockVersion, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
-		return &CantVerifyTransactionHashError{
-			t:           t,
-			hashFailure: err,
-		}
+		return err
 	}
-	if !calculatedTxHash.Equal(t.Hash()) {
-		return &CantVerifyTransactionHashError{
-			t:           t,
-			hashFailure: fmt.Errorf("calculated hash: %v, received hash: %v", calculatedTxHash.String(), t.Hash().String()),
+
+	// blockVersion < 0.11.0
+	// only start verifying transaction hashes after 0.11.0
+	if blockVersion.Compare(semver.MustParse("0.11.0")) == -1 {
+		return nil
+	}
+
+	for _, t := range txs {
+		calculatedTxHash, hErr := transactionHash(t, n)
+		if hErr != nil {
+			return fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %v", t.Hash().String(), hErr.Error())
+		}
+		if !calculatedTxHash.Equal(t.Hash()) {
+			return fmt.Errorf("cannot verify transaction hash of Transaction %v", t.Hash().String())
 		}
 	}
 	return nil

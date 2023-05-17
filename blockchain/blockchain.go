@@ -503,18 +503,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return err
 	}
 
-	if bErr := core.VerifyBlockHash(block, b.network); bErr != nil {
-		if errors.As(bErr, new(core.CantVerifyTransactionHashError)) {
-			for ; bErr != nil; bErr = errors.Unwrap(bErr) {
-				b.log.Debugw("Sanity checks failed", "number", block.Number, "hash",
-					block.Hash.ShortString(), "error", bErr.Error())
-			}
-		} else {
-			return bErr
-		}
-	}
-
-	return nil
+	return core.VerifyBlockHash(block, b.network)
 }
 
 type txAndReceiptDBKey struct {
