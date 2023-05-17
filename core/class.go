@@ -119,57 +119,18 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 	return result
 }
 
-type CantVerifyClassHashError struct {
-	c           Class
-	hashFailure error
-	next        *CantVerifyClassHashError
-}
-
-func (e CantVerifyClassHashError) Unwrap() error {
-	if e.next != nil {
-		return *e.next
-	}
-	return nil
-}
-
-func (e CantVerifyClassHashError) Error() string {
-	return fmt.Sprintf("cannot verify class hash: %s", e.hashFailure)
-}
-
-func (e CantVerifyClassHashError) Class() Class {
-	return e.c
-}
-
-func verifyClassHash(c Class, hash *felt.Felt) *CantVerifyClassHashError {
-	if c == nil {
-		return &CantVerifyClassHashError{
-			hashFailure: fmt.Errorf("class is nil"),
-		}
-	}
-
-	cHash := c.Hash()
-	if !cHash.Equal(hash) {
-		return &CantVerifyClassHashError{
-			c:           c,
-			hashFailure: fmt.Errorf("calculated hash: %v, received hash: %v", cHash.String(), hash.String()),
-		}
-	}
-
-	return nil
-}
-
 func VerifyClassHashes(classes map[felt.Felt]Class) error {
-	var head *CantVerifyClassHashError
 	for hash, class := range classes {
-		if err := verifyClassHash(class, &hash); err != nil {
-			err.next = head
-			head = err
+		cairo1Class, ok := class.(*Cairo1Class)
+		// cairo0 classes are deprecated and hard to verify their hash, just ignore them
+		if !ok {
+			return nil
+		}
+
+		cHash := cairo1Class.Hash()
+		if !cHash.Equal(&hash) {
+			return fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cHash.String(), hash.String())
 		}
 	}
-
-	if head != nil {
-		return *head
-	}
-
 	return nil
 }
