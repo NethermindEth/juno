@@ -346,11 +346,12 @@ func parseParam(param any, t reflect.Type) (reflect.Value, error) {
 		return reflect.ValueOf(nil), err
 	}
 
-	if err = validate.Struct(handlerParam.Elem().Interface()); err != nil {
+	elem := handlerParam.Elem()
+	if err = validate.Struct(elem.Interface()); err != nil {
 		if _, ok := err.(validator.ValidationErrors); ok {
 			return reflect.ValueOf(nil), err
 		}
 	}
 
-	return handlerParam.Elem(), nil
+	return elem, nil
 }
