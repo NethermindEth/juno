@@ -40,7 +40,7 @@ type Reader interface {
 	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
 }
 
-var supportedStarknetVersion = semver.MustParse("0.11.1")
+var supportedStarknetVersion = semver.MustParse("0.11.2")
 
 func checkBlockVersion(protocolVersion string) error {
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
