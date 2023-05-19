@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -179,45 +178,35 @@ func TestVerifyTransactionHash(t *testing.T) {
 		tests := map[felt.Felt]struct {
 			name    string
 			wantErr error
+			txn     core.Transaction
 		}{
 			*badTxn0.Hash(): {
-				name: "Declare - error if transaction hash calculation failed",
-				wantErr: fmt.Errorf("cannot verify transaction hash of Transaction Type: %v: invalid Transaction (type: %v) version: %v",
-					reflect.TypeOf(badTxn0), reflect.TypeOf(badTxn0), 3),
+				name:    "Declare - error if transaction hash calculation failed",
+				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: invalid Transaction (type: *core.DeclareTransaction) version: 3", badTxn0.Hash().String()),
+				txn:     badTxn0,
 			},
 			*badTxn1.Hash(): {
-				name: "Deploy - error if transaction hashes don't match",
-				wantErr: fmt.Errorf("cannot verify transaction hash of Transaction Type: %v: %v", reflect.TypeOf(badTxn1),
-					fmt.Sprintf("calculated hash: %v, received hash: %v", txn3.Hash().String(), badTxn1.Hash().String())),
+				name:    "Deploy - error if transaction hashes don't match",
+				wantErr: fmt.Errorf("cannot verify transaction hash of Transaction %v", badTxn1.Hash().String()),
+				txn:     badTxn1,
 			},
 			*txn2.Hash(): {
 				name:    "DeployAccount - no error if transaction hashes match",
 				wantErr: nil,
+				txn:     txn2,
 			},
 		}
 
-		txns := []core.Transaction{badTxn0, badTxn1, txn2}
-		tErr := core.VerifyTransactions(txns, utils.MAINNET)
-		require.Error(t, tErr)
-
-		count := 0
-		if errors.As(tErr, new(core.CantVerifyTransactionHashError)) {
-			for ; tErr != nil; tErr = errors.Unwrap(tErr) {
-				err := tErr.(core.CantVerifyTransactionHashError)
-				test := tests[*err.Hash()]
-				t.Run(test.name, func(t *testing.T) {
-					assert.EqualError(t, tErr, test.wantErr.Error())
-				})
-				count++
-			}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, utils.MAINNET, "99.99.99")
+				require.Equal(t, test.wantErr, tErr)
+			})
 		}
-
-		// A case which doesn't return an error is included in tests to make sure the number of wrapped errors is correct.
-		assert.Equal(t, 2, count)
 	})
 
 	t.Run("does not contain bad transaction(s)", func(t *testing.T) {
 		txns := []core.Transaction{txn0, txn1, txn2, txn3, txn4}
-		assert.NoError(t, core.VerifyTransactions(txns, utils.MAINNET))
+		assert.NoError(t, core.VerifyTransactions(txns, utils.MAINNET, "99.99.99"))
 	})
 }

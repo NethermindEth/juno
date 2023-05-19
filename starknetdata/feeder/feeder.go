@@ -1,8 +1,13 @@
 package feeder
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"strconv"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -27,7 +32,17 @@ func New(client *feeder.Client) *Feeder {
 // BlockByNumber gets the block for a given block number from the feeder,
 // then adapts it to the core.Block type.
 func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	response, err := f.client.Block(ctx, blockNumber)
+	return f.block(ctx, strconv.FormatUint(blockNumber, 10))
+}
+
+// BlockLatest gets the latest block from the feeder,
+// then adapts it to the core.Block type.
+func (f *Feeder) BlockLatest(ctx context.Context) (*core.Block, error) {
+	return f.block(ctx, "latest")
+}
+
+func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
+	response, err := f.client.Block(ctx, blockID)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +80,7 @@ func adaptBlock(response *feeder.Block) (*core.Block, error) {
 			SequencerAddress: response.SequencerAddress,
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
+			EventsBloom:      core.EventsBloom(receipts),
 		},
 		Transactions: txns,
 		Receipts:     receipts,
@@ -316,27 +332,24 @@ func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	class.Builtins = []*felt.Felt{}
-	for _, v := range response.Program.Builtins {
-		builtin := new(felt.Felt).SetBytes([]byte(v))
-		class.Builtins = append(class.Builtins, builtin)
-	}
-
-	var err error
-	class.ProgramHash, err = feeder.ProgramHash(response)
-	if err != nil {
+	var program feeder.Program
+	if err := json.Unmarshal(response.Program, &program); err != nil {
 		return nil, err
 	}
 
-	class.Bytecode = []*felt.Felt{}
-	for _, v := range response.Program.Data {
-		datum, err := new(felt.Felt).SetString(v)
-		if err != nil {
-			return nil, err
-		}
-
-		class.Bytecode = append(class.Bytecode, datum)
+	var compressedBuffer bytes.Buffer
+	gzipWriter := gzip.NewWriter(&compressedBuffer)
+	if _, err := gzipWriter.Write(response.Program); err != nil {
+		return nil, err
 	}
+	if err := gzipWriter.Close(); err != nil {
+		return nil, err
+	}
+
+	compressedProgram := compressedBuffer.Bytes()
+	base64Program := make([]byte, base64.StdEncoding.EncodedLen(len(compressedProgram)))
+	base64.StdEncoding.Encode(base64Program, compressedProgram)
+	class.Program = string(base64Program)
 
 	return class, nil
 }

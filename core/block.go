@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 type Header struct {
@@ -30,6 +31,8 @@ type Header struct {
 	ProtocolVersion string
 	// Extraneous data that might be useful for running transactions
 	ExtraData *felt.Felt
+	// Bloom filter on the events emitted this block
+	EventsBloom *bloom.BloomFilter
 }
 
 type Block struct {
@@ -101,7 +104,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		}
 	}
 
-	if err := VerifyTransactions(b.Transactions, network); err != nil {
+	if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
 		return err
 	}
 
@@ -146,7 +149,7 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
-	txCommitment, err := transactionCommitment(b.Transactions)
+	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +177,7 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions)
+	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}

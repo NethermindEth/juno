@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -141,10 +140,19 @@ func TestVerifyBlock(t *testing.T) {
 		require.Error(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
 	})
 
-	t.Run("error if version is unsupported", func(t *testing.T) {
+	t.Run("needs padding", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = "99.0" // should be padded to "99.0.0"
+		require.EqualError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil), "unsupported block version")
+	})
+
+	t.Run("needs truncating", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = "99.0.0.0" // last 0 digit should be ignored
+		require.EqualError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil), "unsupported block version")
+	})
+
+	t.Run("greater than supportedStarknetVersion", func(t *testing.T) {
 		mainnetBlock0.ProtocolVersion = "99.0.0"
-		semver.MustParse(mainnetBlock0.ProtocolVersion)
-		require.Error(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
+		require.EqualError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil), "unsupported block version")
 	})
 
 	t.Run("no error with no version string", func(t *testing.T) {
@@ -331,5 +339,162 @@ func TestTransactionAndReceipt(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestState(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	t.Run("head with no blocks", func(t *testing.T) {
+		_, _, err := chain.HeadState()
+		require.Error(t, err)
+	})
+
+	var existingBlockHash *felt.Felt
+	for i := uint64(0); i < 2; i++ {
+		block, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+
+		require.NoError(t, chain.Store(block, su, nil))
+		existingBlockHash = block.Hash
+	}
+
+	t.Run("head with blocks", func(t *testing.T) {
+		_, closer, err := chain.HeadState()
+		require.NoError(t, err)
+		require.NoError(t, closer())
+	})
+
+	t.Run("existing height", func(t *testing.T) {
+		_, closer, err := chain.StateAtBlockNumber(1)
+		require.NoError(t, err)
+		require.NoError(t, closer())
+	})
+
+	t.Run("non-existent height", func(t *testing.T) {
+		_, _, err := chain.StateAtBlockNumber(10)
+		require.Error(t, err)
+	})
+
+	t.Run("existing hash", func(t *testing.T) {
+		_, closer, err := chain.StateAtBlockHash(existingBlockHash)
+		require.NoError(t, err)
+		require.NoError(t, closer())
+	})
+
+	t.Run("non-existent hash", func(t *testing.T) {
+		hash, _ := new(felt.Felt).SetRandom()
+		_, _, err := chain.StateAtBlockHash(hash)
+		require.Error(t, err)
+	})
+}
+
+func TestEvents(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
+
+	client, closeFn := feeder.NewTestClient(utils.GOERLI2)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	for i := 0; i < 7; i++ {
+		b, err := gw.BlockByNumber(context.Background(), uint64(i))
+		require.NoError(t, err)
+		s, err := gw.StateUpdate(context.Background(), uint64(i))
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, s, nil))
+	}
+
+	t.Run("filter non-existent", func(t *testing.T) {
+		filter, err := chain.EventFilter(nil, nil)
+
+		t.Run("block number", func(t *testing.T) {
+			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
+			require.Error(t, err)
+			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, uint64(44))
+			require.Error(t, err)
+		})
+
+		t.Run("block hash", func(t *testing.T) {
+			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, &felt.Zero)
+			require.Error(t, err)
+			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom, &felt.Zero)
+			require.Error(t, err)
+		})
+
+		require.NoError(t, filter.Close())
+	})
+
+	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+	t.Run("filter with no keys", func(t *testing.T) {
+		filter, err := chain.EventFilter(from, []*felt.Felt{})
+		require.NoError(t, err)
+
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
+
+		allEvents := []*blockchain.FilteredEvent{}
+		t.Run("get all events without pagination", func(t *testing.T) {
+			events, cToken, eErr := filter.Events(nil, 10)
+			require.Empty(t, cToken)
+			require.NoError(t, eErr)
+			require.Len(t, events, 3)
+			for _, event := range events {
+				assert.Equal(t, from, event.From)
+			}
+
+			allEvents = events
+		})
+
+		t.Run("accumulate events with pagination", func(t *testing.T) {
+			for _, chunkSize := range []uint64{1, 2} {
+				var accEvents []*blockchain.FilteredEvent
+				var lastToken *blockchain.ContinuationToken
+				var gotEvents []*blockchain.FilteredEvent
+				for i := 0; i < len(allEvents)+1; i++ {
+					gotEvents, lastToken, err = filter.Events(lastToken, chunkSize)
+					require.NoError(t, err)
+					accEvents = append(accEvents, gotEvents...)
+					if lastToken == nil {
+						break
+					}
+				}
+				assert.Equal(t, allEvents, accEvents)
+			}
+		})
+
+		require.NoError(t, filter.Close())
+	})
+
+	t.Run("filter with keys", func(t *testing.T) {
+		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		filter, err := chain.EventFilter(from, []*felt.Felt{key})
+		require.NoError(t, err)
+
+		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
+			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterTo,
+			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+
+		t.Run("get all events without pagination", func(t *testing.T) {
+			events, cToken, err := filter.Events(nil, 10)
+			require.Empty(t, cToken)
+			require.NoError(t, err)
+			require.Len(t, events, 1)
+		})
+		require.NoError(t, filter.Close())
 	})
 }

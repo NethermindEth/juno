@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"io"
 	"reflect"
 	"sync"
 	"testing"
@@ -69,4 +70,24 @@ func TestSymmetry(t *testing.T, value any) {
 	err = cbor.Unmarshal(cborBytes, unmarshaled.Interface())
 	require.NoError(t, err)
 	assert.Equal(t, value, unmarshaled.Elem().Interface())
+}
+
+type Encoder interface {
+	Encode(v any) error
+}
+
+// NewEncoder returns a new encoder that writes to w
+func NewEncoder(w io.Writer) Encoder {
+	initialiseEncoder.Do(initEncAndDecModes)
+	return encMode.NewEncoder(w)
+}
+
+type Decoder interface {
+	Decode(v any) error
+}
+
+// NewDecoder returns a new decoder that reads from r
+func NewDecoder(r io.Reader) Decoder {
+	initialiseEncoder.Do(initEncAndDecModes)
+	return decMode.NewDecoder(r)
 }

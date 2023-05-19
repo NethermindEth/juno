@@ -56,13 +56,13 @@ type SierraEntryPoint struct {
 }
 
 type Cairo0Definition struct {
-	Abi         any `json:"abi"`
+	Abi         json.RawMessage `json:"abi"`
 	EntryPoints struct {
 		Constructor []EntryPoint `json:"CONSTRUCTOR"`
 		External    []EntryPoint `json:"EXTERNAL"`
 		L1Handler   []EntryPoint `json:"L1_HANDLER"`
 	} `json:"entry_points_by_type"`
-	Program Program `json:"program"`
+	Program json.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {

@@ -76,10 +76,19 @@ func TestLogLevelType(t *testing.T) {
 	assert.Equal(t, "LogLevel", new(utils.LogLevel).Type())
 }
 
-func TestZap(t *testing.T) {
+func TestZapWithColour(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level)
+			_, err := utils.NewZapLogger(level, true)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestZapWithoutColour(t *testing.T) {
+	for level, str := range levelStrings {
+		t.Run("level: "+str, func(t *testing.T) {
+			_, err := utils.NewZapLogger(level, false)
 			assert.NoError(t, err)
 		})
 	}

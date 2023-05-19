@@ -133,16 +133,25 @@ func (c *Contract) Root() (*felt.Felt, error) {
 	return cStorage.Root()
 }
 
+type OnValueChanged = func(location, oldValue *felt.Felt) error
+
 // UpdateStorage applies a change-set to the contract storage.
-func (c *Contract) UpdateStorage(diff []StorageDiff) error {
+func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	cStorage, err := storage(c.Address, c.txn)
 	if err != nil {
 		return err
 	}
 	// apply the diff
 	for _, pair := range diff {
-		if _, err := cStorage.Put(pair.Key, pair.Value); err != nil {
+		oldValue, err := cStorage.Put(pair.Key, pair.Value)
+		if err != nil {
 			return err
+		}
+
+		if oldValue != nil {
+			if err = cb(pair.Key, oldValue); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -210,6 +219,6 @@ func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 		// database error.
 		return nil, err
 	}
-	trieTxn := NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := trie.NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
 	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight, contractRootKey)
 }

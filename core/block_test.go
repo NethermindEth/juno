@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -152,6 +151,18 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.INTEGRATION,
 			name:   "Block 283364 with Declare v2",
 		},
+		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=286310"
+		{
+			number: 286310,
+			chain:  utils.INTEGRATION,
+			name:   "Block 286310 with version 0.11.1",
+		},
+		// "https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=110238"
+		{
+			number: 110238,
+			chain:  utils.GOERLI2,
+			name:   "Block 110238 with version 0.11.1",
+		},
 	}
 
 	for _, testcase := range tests {
@@ -166,15 +177,7 @@ func TestBlockHash(t *testing.T) {
 			require.NoError(t, err)
 
 			err = core.VerifyBlockHash(block, tc.chain)
-			if err != nil {
-				if errors.As(err, new(core.CantVerifyTransactionHashError)) {
-					for ; err != nil; err = errors.Unwrap(err) {
-						t.Log(err)
-					}
-				} else {
-					assert.NoError(t, err)
-				}
-			}
+			assert.NoError(t, err)
 		})
 	}
 

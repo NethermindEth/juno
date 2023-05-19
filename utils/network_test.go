@@ -42,14 +42,12 @@ func TestNetwork(t *testing.T) {
 	t.Run("chainId", func(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
-			case utils.GOERLI:
+			case utils.GOERLI, utils.INTEGRATION:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainID())
 			case utils.MAINNET:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.ChainID())
 			case utils.GOERLI2:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainID())
-			case utils.INTEGRATION:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION")), n.ChainID())
 			default:
 				assert.Fail(t, "unexpected network")
 			}

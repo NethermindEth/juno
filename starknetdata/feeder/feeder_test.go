@@ -2,19 +2,19 @@ package feeder_test
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetBlockByNumber(t *testing.T) {
+func TestBlockByNumber(t *testing.T) {
 	tests := []struct {
 		number          uint64
 		protocolVersion string
@@ -35,7 +35,7 @@ func TestGetBlockByNumber(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("mainnet block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
-			response, err := client.Block(ctx, test.number)
+			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, test.number)
 			require.NoError(t, err)
@@ -45,6 +45,51 @@ func TestGetBlockByNumber(t *testing.T) {
 				expectedEventCount += uint64(len(r.Events))
 			}
 
+			assert.NotNil(t, block.EventsBloom)
+			assert.True(t, block.Hash.Equal(response.Hash))
+			assert.True(t, block.ParentHash.Equal(response.ParentHash))
+			assert.Equal(t, response.Number, block.Number)
+			assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
+			assert.Equal(t, response.Timestamp, block.Timestamp)
+			assert.Equal(t, len(response.Transactions), len(block.Transactions))
+			assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
+			assert.Equal(t, len(response.Receipts), len(block.Receipts))
+			assert.Equal(t, expectedEventCount, block.EventCount)
+			assert.Equal(t, test.protocolVersion, block.ProtocolVersion)
+			assert.Nil(t, block.ExtraData)
+		})
+	}
+}
+
+func TestBlockLatest(t *testing.T) {
+	tests := []struct {
+		id              string
+		protocolVersion string
+	}{
+		{
+			id:              "latest",
+			protocolVersion: "0.11.0",
+		},
+	}
+
+	client, serverClose := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(serverClose)
+	adapter := adaptfeeder.New(client)
+	ctx := context.Background()
+
+	for _, test := range tests {
+		t.Run("latest block", func(t *testing.T) {
+			response, err := client.Block(ctx, test.id)
+			require.NoError(t, err)
+			block, err := adapter.BlockLatest(ctx)
+			require.NoError(t, err)
+
+			expectedEventCount := uint64(0)
+			for _, r := range response.Receipts {
+				expectedEventCount += uint64(len(r.Events))
+			}
+
+			assert.NotNil(t, block.EventsBloom)
 			assert.True(t, block.Hash.Equal(response.Hash))
 			assert.True(t, block.ParentHash.Equal(response.ParentHash))
 			assert.Equal(t, response.Number, block.Number)
@@ -187,20 +232,10 @@ func TestClassV0(t *testing.T) {
 			}
 			assert.Equal(t, len(response.V0.EntryPoints.Constructor), len(class.Constructors))
 
-			for i, v := range response.V0.Program.Builtins {
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte(v)), class.Builtins[i])
-			}
-			assert.Equal(t, len(response.V0.Program.Builtins), len(class.Builtins))
+			var program feeder.Program
+			require.NoError(t, json.Unmarshal(response.V0.Program, &program))
 
-			for i, v := range response.V0.Program.Data {
-				expected := utils.HexToFelt(t, v)
-				assert.Equal(t, expected, class.Bytecode[i])
-			}
-			assert.Equal(t, len(response.V0.Program.Data), len(class.Bytecode))
-
-			programHash, err := feeder.ProgramHash(response.V0)
-			require.NoError(t, err)
-			assert.Equal(t, programHash, class.ProgramHash)
+			assert.NotEmpty(t, class.Program)
 		})
 	}
 }

@@ -46,10 +46,9 @@ func TestTriePut(t *testing.T) {
 			require.NoError(t, err)
 
 			value, err := tempTrie.Get(key)
-			// should return an error when try to access a non-exist key
-			assert.Error(t, err)
-			// after empty, the return value and Trie's root should be nil
-			assert.Nil(t, value)
+			assert.NoError(t, err)
+			assert.Equal(t, &felt.Zero, value)
+			// Trie's root should be nil
 			assert.Nil(t, tempTrie.RootKey())
 
 			return nil
@@ -138,8 +137,8 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 					val, err := tempTrie.Get(key)
 
-					assert.Error(t, err, "should return an error when access a deleted key")
-					assert.Nil(t, val, "should return an nil value when access a deleted key")
+					assert.NoError(t, err, "shouldnt return an error when access a deleted key")
+					assert.Equal(t, &felt.Zero, val, "should return zero value when access a deleted key")
 				}
 
 				// Check the final rootKey
@@ -297,4 +296,23 @@ func TestMaxTrieHeight(t *testing.T) {
 			return nil
 		}))
 	})
+}
+
+func BenchmarkTriePut(b *testing.B) {
+	keys := make([]*felt.Felt, 0, b.N)
+	for i := 0; i < b.N; i++ {
+		rnd, err := new(felt.Felt).SetRandom()
+		require.NoError(b, err)
+		keys = append(keys, rnd)
+	}
+
+	one := new(felt.Felt).SetUint64(1)
+	require.NoError(b, trie.RunOnTempTrie(251, func(t *trie.Trie) error {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := t.Put(keys[i], one)
+			require.NoError(b, err)
+		}
+		return nil
+	}))
 }

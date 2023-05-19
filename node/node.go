@@ -31,6 +31,7 @@ type Config struct {
 	DatabasePath string         `mapstructure:"db-path"`
 	Network      utils.Network  `mapstructure:"network"`
 	Pprof        bool           `mapstructure:"pprof"`
+	Colour       bool           `mapstructure:"colour"`
 }
 
 type Node struct {
@@ -52,7 +53,7 @@ func New(cfg *Config) (*Node, error) {
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-	log, err := utils.NewZapLogger(cfg.LogLevel)
+	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +75,7 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
-			Handler: rpcHandler.BlockNumberAndHash,
+			Handler: rpcHandler.BlockHashAndNumber,
 		},
 		{
 			Name:    "starknet_getBlockWithTxHashes",
@@ -111,6 +112,40 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: rpcHandler.StateUpdate,
 		},
+		{
+			Name:    "starknet_syncing",
+			Handler: rpcHandler.Syncing,
+		},
+		{
+			Name:    "starknet_getNonce",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: rpcHandler.Nonce,
+		},
+		{
+			Name:    "starknet_getStorageAt",
+			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
+			Handler: rpcHandler.StorageAt,
+		},
+		{
+			Name:    "starknet_getClassHashAt",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: rpcHandler.ClassHashAt,
+		},
+		{
+			Name:    "starknet_getClass",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
+			Handler: rpcHandler.Class,
+		},
+		{
+			Name:    "starknet_getClassAt",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: rpcHandler.ClassAt,
+		},
+		{
+			Name:    "starknet_getEvents",
+			Params:  []jsonrpc.Parameter{{Name: "filter"}},
+			Handler: rpcHandler.Events,
+		},
 	}, log)
 }
 
@@ -120,7 +155,7 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR)
+	dbLog, err := utils.NewZapLogger(utils.ERROR, n.cfg.Colour)
 	if err != nil {
 		n.log.Errorw("Error creating DB logger", "err", err)
 		return
@@ -143,7 +178,7 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.URL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, n.cfg.Network), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, n.log), n.log)
 
 	n.services = []service.Service{synchronizer, http}
 

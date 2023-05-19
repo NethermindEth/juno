@@ -7,34 +7,58 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
 
-	ErrBlockNotFound   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrTxnHashNotFound = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
-	ErrNoBlock         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrBlockNotFound            = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrContractNotFound         = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrNoBlock                  = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidTxIndex           = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound        = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	ErrInvalidContinuationToken = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
+	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
+	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
+)
+
+const (
+	maxEventChunkSize  = 10240
+	maxEventFilterKeys = 1024
 )
 
 type Handler struct {
-	bcReader blockchain.Reader
-	network  utils.Network
+	bcReader     blockchain.Reader
+	synchronizer *sync.Synchronizer
+	network      utils.Network
+	log          utils.Logger
 }
 
-func New(bcReader blockchain.Reader, n utils.Network) *Handler {
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, logger utils.Logger) *Handler {
 	return &Handler{
-		bcReader: bcReader,
-		network:  n,
+		bcReader:     bcReader,
+		synchronizer: synchronizer,
+		network:      n,
+		log:          logger,
 	}
 }
 
+// ChainID returns the chain ID of the currently configured network.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
 	return h.network.ChainID(), nil
 }
 
+// BlockNumber returns the latest synced block number.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L500
 func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 	num, err := h.bcReader.Height()
 	if err != nil {
@@ -44,14 +68,22 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 	return num, nil
 }
 
-func (h *Handler) BlockNumberAndHash() (*BlockNumberAndHash, *jsonrpc.Error) {
+// BlockHashAndNumber returns the block hash and number of the latest synced block.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L517
+func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 	block, err := h.bcReader.Head()
 	if err != nil {
 		return nil, ErrNoBlock
 	}
-	return &BlockNumberAndHash{Number: block.Number, Hash: block.Hash}, nil
+	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
 }
 
+// BlockWithTxHashes returns the block information with transaction hashes given a block ID.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	block, err := h.blockByID(id)
 	if block == nil || err != nil {
@@ -81,6 +113,10 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 	}
 }
 
+// BlockWithTxs returns the block information with full transactions given a block ID.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
 func (h *Handler) BlockWithTxs(id *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	block, err := h.blockByID(id)
 	if block == nil || err != nil {
@@ -213,7 +249,10 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 	}
 }
 
-// TransactionByHash https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
+// TransactionByHash returns the details of a transaction identified by the given hash.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
 func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
@@ -225,7 +264,7 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 // BlockTransactionCount returns the number of transactions in a block
 // identified by the given BlockID.
 //
-// It follows the specification found here:
+// It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
 func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 	header, err := h.blockHeaderByID(id)
@@ -235,7 +274,11 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 	return header.TransactionCount, nil
 }
 
-// TransactionByBlockIDAndIndex https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
+// TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
+// BlockID and index.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
 func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
 	header, err := h.blockHeaderByID(id)
 	if header == nil || err != nil {
@@ -254,7 +297,10 @@ func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Trans
 	return adaptTransaction(txn), nil
 }
 
-// TransactionReceiptByHash https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
+// TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
 	txn, rpcErr := h.TransactionByHash(hash)
 	if rpcErr != nil {
@@ -300,6 +346,9 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 	}, nil
 }
 
+// StateUpdate returns the state update identified by the given BlockID.
+//
+// It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
 func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 	var update *core.StateUpdate
@@ -375,4 +424,309 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 			DeployedContracts:         deployedContracts,
 		},
 	}, nil
+}
+
+// Syncing returns the syncing status of the node.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
+func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
+	defaultSyncState := &Sync{Syncing: new(bool)}
+
+	startingBlockNumber := h.synchronizer.StartingBlockNumber
+	if startingBlockNumber == nil {
+		return defaultSyncState, nil
+	}
+	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(*startingBlockNumber)
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	head, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return defaultSyncState, nil
+	}
+	highestBlockHeader := h.synchronizer.HighestBlockHeader
+	if highestBlockHeader == nil {
+		return defaultSyncState, nil
+	}
+	if highestBlockHeader.Number < head.Number {
+		return defaultSyncState, nil
+	}
+	return &Sync{
+		StartingBlockHash:   startingBlockHeader.Hash,
+		StartingBlockNumber: NumAsHex(startingBlockHeader.Number),
+		CurrentBlockHash:    head.Hash,
+		CurrentBlockNumber:  NumAsHex(head.Number),
+		HighestBlockHash:    highestBlockHeader.Hash,
+		HighestBlockNumber:  NumAsHex(highestBlockHeader.Number),
+	}, nil
+}
+
+func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, error) {
+	switch {
+	case id.Latest:
+		return h.bcReader.HeadState()
+	case id.Hash != nil:
+		return h.bcReader.StateAtBlockHash(id.Hash)
+	case id.Pending:
+		return nil, nil, ErrPendingNotSupported
+	default:
+		return h.bcReader.StateAtBlockNumber(id.Number)
+	}
+}
+
+// Nonce returns the nonce associated with the given address in the given block number
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
+func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	nonce, err := stateReader.ContractNonce(address)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getNonce", "err", closerErr)
+	}
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	return nonce, nil
+}
+
+// StorageAt gets the value of the storage at the given address and key.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
+func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	value, err := stateReader.ContractStorage(address, key)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getStorageAt", "err", closerErr)
+	}
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	return value, nil
+}
+
+// ClassHashAt gets the class hash for the contract deployed at the given address in the given block.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
+func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	classHash, err := stateReader.ContractClassHash(address)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getClassHashAt", "err", closerErr)
+	}
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	return classHash, nil
+}
+
+// Class gets the contract class definition in the given block associated with the given hash
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
+func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
+	state, stateCloser, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	declared, err := state.Class(classHash)
+	if closerErr := stateCloser(); closerErr != nil {
+		h.log.Errorw("Error closing state reader in getClass", "err", closerErr)
+	}
+
+	if err != nil {
+		return nil, ErrClassHashNotFound
+	}
+
+	var rpcClass *Class
+	switch c := declared.Class.(type) {
+	case *core.Cairo0Class:
+		rpcClass = &Class{
+			Abi:         c.Abi,
+			Program:     c.Program,
+			EntryPoints: EntryPoints{},
+		}
+
+		rpcClass.EntryPoints.Constructor = make([]EntryPoint, 0, len(c.Constructors))
+		for _, entryPoint := range c.Constructors {
+			rpcClass.EntryPoints.Constructor = append(rpcClass.EntryPoints.Constructor, EntryPoint{
+				Offset:   entryPoint.Offset,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.L1Handler = make([]EntryPoint, 0, len(c.L1Handlers))
+		for _, entryPoint := range c.L1Handlers {
+			rpcClass.EntryPoints.L1Handler = append(rpcClass.EntryPoints.L1Handler, EntryPoint{
+				Offset:   entryPoint.Offset,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.External = make([]EntryPoint, 0, len(c.Externals))
+		for _, entryPoint := range c.Externals {
+			rpcClass.EntryPoints.External = append(rpcClass.EntryPoints.External, EntryPoint{
+				Offset:   entryPoint.Offset,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+	case *core.Cairo1Class:
+		rpcClass = &Class{
+			Abi:                  c.Abi,
+			SierraProgram:        c.Program,
+			ContractClassVersion: c.SemanticVersion,
+			EntryPoints:          EntryPoints{},
+		}
+
+		rpcClass.EntryPoints.Constructor = make([]EntryPoint, 0, len(c.EntryPoints.Constructor))
+		for _, entryPoint := range c.EntryPoints.Constructor {
+			index := entryPoint.Index
+			rpcClass.EntryPoints.Constructor = append(rpcClass.EntryPoints.Constructor, EntryPoint{
+				Index:    &index,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.L1Handler = make([]EntryPoint, 0, len(c.EntryPoints.L1Handler))
+		for _, entryPoint := range c.EntryPoints.L1Handler {
+			index := entryPoint.Index
+			rpcClass.EntryPoints.L1Handler = append(rpcClass.EntryPoints.L1Handler, EntryPoint{
+				Index:    &index,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+		rpcClass.EntryPoints.External = make([]EntryPoint, 0, len(c.EntryPoints.External))
+		for _, entryPoint := range c.EntryPoints.External {
+			index := entryPoint.Index
+			rpcClass.EntryPoints.External = append(rpcClass.EntryPoints.External, EntryPoint{
+				Index:    &index,
+				Selector: entryPoint.Selector,
+			})
+		}
+
+	default:
+		return nil, ErrClassHashNotFound
+	}
+
+	return rpcClass, nil
+}
+
+// ClassAt gets the contract class definition in the given block instantiated by the given contract address
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L329
+func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
+	classHash, err := h.ClassHashAt(id, address)
+	if err != nil {
+		return nil, err
+	}
+	return h.Class(id, classHash)
+}
+
+// Events gets the events matching a filter
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
+func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
+	if args.ChunkSize > maxEventChunkSize {
+		return nil, ErrPageSizeTooBig
+	} else if len(args.Keys) > maxEventFilterKeys {
+		return nil, ErrTooManyKeysInFilter
+	}
+
+	height, err := h.bcReader.Height()
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	defer func() {
+		if closerErr := filter.Close(); closerErr != nil {
+			h.log.Errorw("Error closing event filter in events", "err", closerErr)
+		}
+	}()
+
+	var cToken *blockchain.ContinuationToken
+	if len(args.ContinuationToken) > 0 {
+		cToken = new(blockchain.ContinuationToken)
+		if err = cToken.FromString(args.ContinuationToken); err != nil {
+			return nil, ErrInvalidContinuationToken
+		}
+	}
+
+	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
+	for _, fEvent := range filteredEvents {
+		emittedEvents = append(emittedEvents, &EmittedEvent{
+			BlockNumber:     fEvent.BlockNumber,
+			BlockHash:       fEvent.BlockHash,
+			TransactionHash: fEvent.TransactionHash,
+			Event: &Event{
+				From: fEvent.From,
+				Keys: fEvent.Keys,
+				Data: fEvent.Data,
+			},
+		})
+	}
+
+	cTokenStr := ""
+	if cToken != nil {
+		cTokenStr = cToken.String()
+	}
+	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
+}
+
+func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, latestHeight uint64) error {
+	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
+		if id == nil {
+			return nil
+		}
+
+		switch {
+		case id.Latest:
+			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
+		case id.Hash != nil:
+			return filter.SetRangeEndBlockByHash(filterRange, id.Hash)
+		case id.Pending:
+			return ErrPendingNotSupported
+		default:
+			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
+		}
+	}
+	if err := set(blockchain.EventFilterFrom, fromID); err != nil {
+		return err
+	}
+	return set(blockchain.EventFilterTo, toID)
 }

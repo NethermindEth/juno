@@ -1,16 +1,15 @@
-name: Deploy Juno
+name: upgrade nodes on test env
 
 on:
-  workflow_dispatch:
-    inputs:
-      network:
-        description: 'Network'
-        required: false
-        default: 'mainnet'
-        enum: ['mainnet', 'goerli', 'goerli2', 'integration']
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - created
 
 jobs:
-  build_image_and_deploy:
+  upgrade_nodes_on_test_env:
     runs-on: ubuntu-latest
     steps:
     - name: Trigger build_and_push_docker_image
@@ -21,7 +20,7 @@ jobs:
         token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
         ref: ${{ github.ref }}
         inputs: '{"tag": "${{ github.actor }}-${{ github.sha }}"}'
-        
+
     - name: Wait for build_and_push_docker_image workflow to complete
       uses: fountainhead/action-wait-for-check@v1.1.0
       id: wait-for-build
@@ -30,13 +29,17 @@ jobs:
         checkName: build_and_push_docker_image
         intervalSeconds: 60
         timeoutSeconds: 1500
-        
-    - name: Trigger Run Juno workflow when image is pushed with success
+
+    - name: Trigger upgrade juno nodes workflow when image is pushed with success
       if: steps.wait-for-build.outputs.conclusion == 'success'
       uses: benc-uk/workflow-dispatch@v1
       with:
-        workflow: Run Juno
+        workflow: upgrade juno nodes
         repo: NethermindEth/juno-smoke-tests
         token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
-        inputs: '{"container_tag": "${{ github.actor }}-${{ github.sha }}", "network": "${{ github.event.inputs.network }}"}'
+        inputs: >
+          {
+            "container_tag": "${{ github.actor }}-${{ github.sha }}",
+            "environment": "${{ github.event_name == 'push' && 'staging' || github.event_name == 'release' && 'release' }}"
+          }
         ref: main

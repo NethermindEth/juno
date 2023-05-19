@@ -4,11 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -67,6 +70,13 @@ var (
 	_ Transaction = (*DeclareTransaction)(nil)
 	_ Transaction = (*InvokeTransaction)(nil)
 	_ Transaction = (*L1HandlerTransaction)(nil)
+)
+
+const (
+	// Calculated at https://hur.st/bloomfilter/?n=1000&p=&m=8192&k=
+	// provides 1 in 51 possibility of false positives for approximately 1000 elements
+	eventsBloomLength    = 8192
+	eventsBloomHashFuncs = 6
 )
 
 type DeployTransaction struct {
@@ -330,53 +340,25 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 	return nil, errInvalidTransactionVersion(d, d.Version)
 }
 
-type CantVerifyTransactionHashError struct {
-	t           Transaction
-	hashFailure error
-	next        *CantVerifyTransactionHashError
-}
-
-func (e CantVerifyTransactionHashError) Unwrap() error {
-	if e.next != nil {
-		return *e.next
-	}
-	return nil
-}
-
-func (e CantVerifyTransactionHashError) Error() string {
-	return fmt.Sprintf("cannot verify transaction hash of Transaction Type: %v: %v", reflect.TypeOf(e.t), e.hashFailure.Error())
-}
-
-func (e CantVerifyTransactionHashError) Hash() *felt.Felt {
-	return e.t.Hash()
-}
-
-func VerifyTransactions(txs []Transaction, n utils.Network) error {
-	var head *CantVerifyTransactionHashError
-	for _, tx := range txs {
-		if err := verifyTransactionHash(tx, n); err != nil {
-			err.next = head
-			head = err
-		}
-	}
-	if head != nil {
-		return *head
-	}
-	return nil
-}
-
-func verifyTransactionHash(t Transaction, n utils.Network) *CantVerifyTransactionHashError {
-	calculatedTxHash, err := transactionHash(t, n)
+func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion string) error {
+	blockVersion, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
-		return &CantVerifyTransactionHashError{
-			t:           t,
-			hashFailure: err,
-		}
+		return err
 	}
-	if !calculatedTxHash.Equal(t.Hash()) {
-		return &CantVerifyTransactionHashError{
-			t:           t,
-			hashFailure: fmt.Errorf("calculated hash: %v, received hash: %v", calculatedTxHash.String(), t.Hash().String()),
+
+	// blockVersion < 0.11.0
+	// only start verifying transaction hashes after 0.11.0
+	if blockVersion.Compare(semver.MustParse("0.11.0")) == -1 {
+		return nil
+	}
+
+	for _, t := range txs {
+		calculatedTxHash, hErr := transactionHash(t, n)
+		if hErr != nil {
+			return fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %v", t.Hash().String(), hErr.Error())
+		}
+		if !calculatedTxHash.Equal(t.Hash()) {
+			return fmt.Errorf("cannot verify transaction hash of Transaction %v", t.Hash().String())
 		}
 	}
 	return nil
@@ -386,16 +368,26 @@ const commitmentTrieHeight uint = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction) (*felt.Felt, error) {
+func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
+	v0_11_1 := semver.MustParse("0.11.1")
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+		blockVersion, err := ParseBlockVersion(protocolVersion)
+		if err != nil {
+			return err
+		}
+
 		for i, transaction := range transactions {
 			signatureHash := crypto.PedersenArray()
-			if _, ok := transaction.(*InvokeTransaction); ok {
+
+			// blockVersion >= 0.11.1
+			if blockVersion.Compare(v0_11_1) != -1 {
+				signatureHash = crypto.PedersenArray(transaction.Signature()...)
+			} else if _, ok := transaction.(*InvokeTransaction); ok {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
 
-			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)),
+			if _, err = trie.Put(new(felt.Felt).SetUint64(uint64(i)),
 				crypto.Pedersen(transaction.Hash(), signatureHash)); err != nil {
 				return err
 			}
@@ -407,6 +399,21 @@ func transactionCommitment(transactions []Transaction) (*felt.Felt, error) {
 		commitment = root
 		return nil
 	})
+}
+
+// ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
+func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
+	if protocolVersion == "" {
+		return semver.NewVersion("0.0.0")
+	}
+
+	sep := "."
+	digits := strings.Split(protocolVersion, sep)
+	// pad with 3 zeros in case version has less than 3 digits
+	digits = append(digits, []string{"0", "0", "0"}...)
+
+	// get first 3 digits only
+	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
 // eventCommitment computes the event commitment for a block.
@@ -435,4 +442,20 @@ func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 		commitment = root
 		return nil
 	})
+}
+
+func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
+	filter := bloom.New(eventsBloomLength, eventsBloomHashFuncs)
+
+	for _, receipt := range receipts {
+		for _, event := range receipt.Events {
+			fromBytes := event.From.Bytes()
+			filter.TestOrAdd(fromBytes[:])
+			for _, key := range event.Keys {
+				keyBytes := key.Bytes()
+				filter.TestOrAdd(keyBytes[:])
+			}
+		}
+	}
+	return filter
 }

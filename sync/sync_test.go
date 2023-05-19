@@ -21,6 +21,8 @@ import (
 )
 
 func TestSyncBlocks(t *testing.T) {
+	t.Parallel()
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -52,6 +54,7 @@ func TestSyncBlocks(t *testing.T) {
 	}
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
+		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 		synchronizer := New(bc, gw, log)
@@ -64,6 +67,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
+		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 		b0, err := gw.BlockByNumber(context.Background(), 0)
@@ -82,6 +86,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
+		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 
@@ -89,7 +94,7 @@ func TestSyncBlocks(t *testing.T) {
 
 		syncingHeight := uint64(0)
 
-		mockSNData.EXPECT().BlockByNumber(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.Block, error) {
+		mockSNData.EXPECT().BlockByNumber(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.Block, error) {
 			curHeight := atomic.LoadUint64(&syncingHeight)
 			// reject any other requests
 			if height != curHeight {
@@ -99,7 +104,7 @@ func TestSyncBlocks(t *testing.T) {
 		}).AnyTimes()
 
 		reqCount := 0
-		mockSNData.EXPECT().StateUpdate(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, height uint64) (*core.StateUpdate, error) {
+		mockSNData.EXPECT().StateUpdate(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, error) {
 			curHeight := atomic.LoadUint64(&syncingHeight)
 			// reject any other requests
 			if height != curHeight {
@@ -110,13 +115,14 @@ func TestSyncBlocks(t *testing.T) {
 			ret, err := gw.StateUpdate(context.Background(), curHeight)
 			require.NoError(t, err)
 
-			if reqCount == 1 {
+			switch reqCount {
+			case 1:
 				return nil, errors.New("try again")
-			} else if reqCount == 2 {
+			case 2:
 				ret.BlockHash = new(felt.Felt) // fail sanity checks
-			} else if reqCount == 3 {
+			case 3:
 				ret.OldRoot = new(felt.Felt).SetUint64(1) // fail store
-			} else {
+			default:
 				reqCount = 0
 				atomic.AddUint64(&syncingHeight, 1)
 			}
@@ -127,8 +133,12 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.Class(ctx, hash)
 		}).AnyTimes()
 
+		mockSNData.EXPECT().BlockLatest(gomock.Any()).DoAndReturn(func(ctx context.Context) (*core.Block, error) {
+			return gw.BlockLatest(context.Background())
+		}).AnyTimes()
+
 		synchronizer := New(bc, mockSNData, log)
-		ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()

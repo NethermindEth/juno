@@ -64,6 +64,9 @@ func TestServer_RegisterMethod(t *testing.T) {
 }
 
 func TestHandle(t *testing.T) {
+	type validationStruct struct {
+		A int `validate:"min=1"`
+	}
 	methods := []jsonrpc.Method{
 		{
 			"method",
@@ -96,6 +99,20 @@ func TestHandle(t *testing.T) {
 			[]jsonrpc.Parameter{},
 			func() (int, *jsonrpc.Error) {
 				return 0, nil
+			},
+		},
+		{
+			"validation",
+			[]jsonrpc.Parameter{{Name: "param"}},
+			func(v validationStruct) (int, *jsonrpc.Error) {
+				return v.A, nil
+			},
+		},
+		{
+			"validationPointer",
+			[]jsonrpc.Parameter{{Name: "param"}},
+			func(v *validationStruct) (int, *jsonrpc.Error) {
+				return v.A, nil
 			},
 		},
 	}
@@ -284,6 +301,22 @@ func TestHandle(t *testing.T) {
 					{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 } , "id" : 6}]`,
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
+		},
+		"invalid value in struct": {
+			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+		},
+		"valid value in struct": {
+			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+		},
+		"invalid value in struct pointer": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 0} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+		},
+		"valid value in struct pointer": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 1} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
 		// spec tests
 		"rpc call with positional parameters 1": {

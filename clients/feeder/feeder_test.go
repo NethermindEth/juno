@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -134,7 +135,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	block, err := client.Block(context.Background(), 11817)
+	block, err := client.Block(context.Background(), strconv.Itoa(11817))
 	require.NoError(t, err)
 
 	assert.Equal(t, "0x24c692acaed3b486990bd9d2b2fbbee802b37b3bd79c59f295bad3277200a83", block.Hash.String())
@@ -153,7 +154,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	block, err := client.Block(context.Background(), 19199)
+	block, err := client.Block(context.Background(), strconv.Itoa(19199))
 	require.NoError(t, err)
 
 	assert.Equal(t, "0x41811b69473f26503e0375806ee97d05951ccc7840e3d2bbe14ffb2522e5be1", block.Hash.String())
@@ -185,9 +186,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 	assert.Equal(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.V0.EntryPoints.Constructor[0].Selector.String())
 	assert.Equal(t, 1, len(class.V0.EntryPoints.L1Handler))
 	assert.Equal(t, 1, len(class.V0.EntryPoints.External))
-	assert.Equal(t, 250, len(class.V0.Program.Data))
-	assert.Equal(t, []string{"pedersen", "range_check"}, class.V0.Program.Builtins)
-	assert.Equal(t, "0.10.1", class.V0.Program.CompilerVersion)
+	assert.NotEmpty(t, class.V0.Program)
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
@@ -228,7 +227,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 	}()
 	baseURL := "https\t://mock_feeder.io"
 	client := feeder.NewClient(baseURL)
-	_, _ = client.Block(context.Background(), 0)
+	_, _ = client.Block(context.Background(), strconv.Itoa(0))
 }
 
 func TestStateUpdate(t *testing.T) {
@@ -308,17 +307,19 @@ func TestBlock(t *testing.T) {
 	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		blcokNumber := uint64(11817)
-		actualBlock, err := client.Block(context.Background(), blcokNumber)
+		actualBlock, err := client.Block(context.Background(), strconv.Itoa(11817))
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualBlock)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
-		blcokNumber := uint64(1000000)
-
-		actualBlock, err := client.Block(context.Background(), blcokNumber)
+		actualBlock, err := client.Block(context.Background(), strconv.Itoa(1000000))
 		assert.Nil(t, actualBlock)
 		assert.Error(t, err)
+	})
+	t.Run("Test latest block", func(t *testing.T) {
+		actualBlock, err := client.Block(context.Background(), "latest")
+		assert.Equal(t, nil, err, "Unexpected error")
+		assert.NotNil(t, actualBlock)
 	})
 }
 
@@ -352,7 +353,7 @@ func TestHttpError(t *testing.T) {
 	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
-		_, err := client.Block(context.Background(), 0)
+		_, err := client.Block(context.Background(), strconv.Itoa(0))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
@@ -387,7 +388,7 @@ func TestBackoffFailure(t *testing.T) {
 
 	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
-	_, err := c.Block(context.Background(), 0)
+	_, err := c.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
