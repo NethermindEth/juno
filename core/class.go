@@ -56,6 +56,7 @@ type Cairo1Class struct {
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
+	Compiled        json.RawMessage
 }
 
 type SierraEntryPoint struct {

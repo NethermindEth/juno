@@ -275,7 +275,12 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, e
 
 	switch {
 	case response.V1 != nil:
-		return adaptCairo1Class(response.V1)
+		compiledClass, cErr := f.client.CompiledClassDefinition(ctx, classHash)
+		if cErr != nil {
+			return nil, cErr
+		}
+
+		return adaptCairo1Class(response.V1, compiledClass)
 	case response.V0 != nil:
 		return adaptCairo0Class(response.V0)
 	default:
@@ -283,7 +288,7 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, e
 	}
 }
 
-func adaptCairo1Class(response *feeder.SierraDefinition) (core.Class, error) {
+func adaptCairo1Class(response *feeder.SierraDefinition, compiledClass json.RawMessage) (core.Class, error) {
 	var err error
 
 	class := new(core.Cairo1Class)
@@ -310,6 +315,9 @@ func adaptCairo1Class(response *feeder.SierraDefinition) (core.Class, error) {
 		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
 	}
 
+	if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
+		return nil, err
+	}
 	return class, nil
 }
 
