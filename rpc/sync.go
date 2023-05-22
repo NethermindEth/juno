@@ -17,11 +17,11 @@ func (n NumAsHex) MarshalJSON() ([]byte, error) {
 type Sync struct {
 	Syncing             *bool      `json:"-"`
 	StartingBlockHash   *felt.Felt `json:"starting_block_hash,omitempty"`
-	StartingBlockNumber NumAsHex   `json:"starting_block_number,omitempty"`
+	StartingBlockNumber *NumAsHex  `json:"starting_block_num,omitempty"`
 	CurrentBlockHash    *felt.Felt `json:"current_block_hash,omitempty"`
-	CurrentBlockNumber  NumAsHex   `json:"current_block_number,omitempty"`
+	CurrentBlockNumber  *NumAsHex  `json:"current_block_num,omitempty"`
 	HighestBlockHash    *felt.Felt `json:"highest_block_hash,omitempty"`
-	HighestBlockNumber  NumAsHex   `json:"highest_block_number,omitempty"`
+	HighestBlockNumber  *NumAsHex  `json:"highest_block_num,omitempty"`
 }
 
 func (s Sync) MarshalJSON() ([]byte, error) {

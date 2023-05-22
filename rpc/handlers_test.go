@@ -944,13 +944,16 @@ func TestSyncing(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
 
+		startingBlockNumberAsHex := rpc.NumAsHex(startingBlock)
+		currentBlockNumberAsHex := rpc.NumAsHex(1)
+		highestBlockNumberAsHex := rpc.NumAsHex(2)
 		expectedSyncing := &rpc.Sync{
 			StartingBlockHash:   &felt.Zero,
-			StartingBlockNumber: rpc.NumAsHex(startingBlock),
+			StartingBlockNumber: &startingBlockNumberAsHex,
 			CurrentBlockHash:    new(felt.Felt).SetUint64(1),
-			CurrentBlockNumber:  rpc.NumAsHex(1),
+			CurrentBlockNumber:  &currentBlockNumberAsHex,
 			HighestBlockHash:    new(felt.Felt).SetUint64(2),
-			HighestBlockNumber:  rpc.NumAsHex(2),
+			HighestBlockNumber:  &highestBlockNumberAsHex,
 		}
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
