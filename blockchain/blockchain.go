@@ -386,9 +386,9 @@ func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 			break
 		}
 
-		val, err := iterator.Value()
-		if err != nil {
-			return nil, db.CloseAndWrapOnError(iterator.Close, err)
+		val, vErr := iterator.Value()
+		if vErr != nil {
+			return nil, db.CloseAndWrapOnError(iterator.Close, vErr)
 		}
 
 		var tx core.Transaction
@@ -422,9 +422,9 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 			break
 		}
 
-		val, err := iterator.Value()
-		if err != nil {
-			return nil, db.CloseAndWrapOnError(iterator.Close, err)
+		val, vErr := iterator.Value()
+		if vErr != nil {
+			return nil, db.CloseAndWrapOnError(iterator.Close, vErr)
 		}
 
 		receipt := new(core.TransactionReceipt)
