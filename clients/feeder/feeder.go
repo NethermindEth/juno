@@ -101,6 +101,9 @@ func newTestServer(network utils.Network) *httptest.Server {
 		case strings.HasSuffix(r.URL.Path, "get_class_by_hash"):
 			dir = "class"
 			queryArg = "classHash"
+		case strings.HasSuffix(r.URL.Path, "get_compiled_class_by_class_hash"):
+			dir = "compiled_class"
+			queryArg = "classHash"
 		}
 
 		fileName, found := queryMap[queryArg]
@@ -261,6 +264,24 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*Cl
 
 	class := new(ClassDefinition)
 	if err = json.NewDecoder(body).Decode(class); err != nil {
+		return nil, err
+	}
+	return class, nil
+}
+
+func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (json.RawMessage, error) {
+	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
+		"classHash": classHash.String(),
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	var class json.RawMessage
+	if err = json.NewDecoder(body).Decode(&class); err != nil {
 		return nil, err
 	}
 	return class, nil
