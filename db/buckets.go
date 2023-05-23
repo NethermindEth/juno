@@ -27,6 +27,7 @@ const (
 	ContractClassHashHistory
 	ContractDeploymentHeight
 	L1Height
+	SchemaVersion
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
