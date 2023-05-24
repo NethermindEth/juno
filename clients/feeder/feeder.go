@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -212,9 +211,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	return nil, err
 }
 
-func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
+func (c *Client) StateUpdate(ctx context.Context, blockID string) (*StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		"blockNumber": strconv.FormatUint(blockNumber, 10),
+		"blockNumber": blockID,
 	})
 
 	body, err := c.get(ctx, queryURL)
