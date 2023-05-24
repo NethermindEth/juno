@@ -59,7 +59,7 @@ func TestSyncBlocks(t *testing.T) {
 		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
-		synchronizer := New(bc, gw, log)
+		synchronizer := New(bc, gw, log, time.Duration(0))
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -78,7 +78,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, s0, nil))
 
-		synchronizer := New(bc, gw, log)
+		synchronizer := New(bc, gw, log, time.Duration(0))
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -139,7 +139,7 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.BlockLatest(context.Background())
 		}).AnyTimes()
 
-		synchronizer := New(bc, mockSNData, log)
+		synchronizer := New(bc, mockSNData, log, time.Duration(0))
 		ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -163,7 +163,7 @@ func TestReorg(t *testing.T) {
 
 	// sync to integration for 2 blocks
 	bc := blockchain.New(testDB, utils.INTEGRATION, utils.NewNopZapLogger())
-	synchronizer := New(bc, integGw, utils.NewNopZapLogger())
+	synchronizer := New(bc, integGw, utils.NewNopZapLogger(), time.Duration(0))
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -178,7 +178,7 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
-		synchronizer = New(bc, mainGw, utils.NewNopZapLogger())
+		synchronizer = New(bc, mainGw, utils.NewNopZapLogger(), time.Duration(0))
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
@@ -188,4 +188,27 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
 	})
+}
+
+func TestPending(t *testing.T) {
+	t.Parallel()
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest()
+	log := utils.NewNopZapLogger()
+	bc := blockchain.New(testDB, utils.MAINNET, log)
+	synchronizer := New(bc, gw, log, time.Millisecond*100)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	require.NoError(t, synchronizer.Run(ctx))
+	cancel()
+
+	head, err := bc.HeadsHeader()
+	require.NoError(t, err)
+	pending, err := bc.Pending()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, pending.Block.ParentHash)
 }

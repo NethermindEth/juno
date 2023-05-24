@@ -68,7 +68,7 @@ func TestBlockLatest(t *testing.T) {
 	}{
 		{
 			id:              "latest",
-			protocolVersion: "0.11.0",
+			protocolVersion: "",
 		},
 	}
 
