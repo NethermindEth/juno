@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -31,13 +32,14 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel     utils.LogLevel `mapstructure:"log-level"`
-	RPCPort      uint16         `mapstructure:"rpc-port"`
-	DatabasePath string         `mapstructure:"db-path"`
-	Network      utils.Network  `mapstructure:"network"`
-	EthNode      string         `mapstructure:"eth-node"`
-	Pprof        bool           `mapstructure:"pprof"`
-	Colour       bool           `mapstructure:"colour"`
+	LogLevel            utils.LogLevel `mapstructure:"log-level"`
+	RPCPort             uint16         `mapstructure:"rpc-port"`
+	DatabasePath        string         `mapstructure:"db-path"`
+	Network             utils.Network  `mapstructure:"network"`
+	EthNode             string         `mapstructure:"eth-node"`
+	Pprof               bool           `mapstructure:"pprof"`
+	Colour              bool           `mapstructure:"colour"`
+	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 }
 
 type Node struct {
@@ -197,7 +199,7 @@ func (n *Node) Run(ctx context.Context) {
 	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
 
 	client := feeder.NewClient(n.cfg.Network.FeederURL())
-	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
+	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log, n.cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
 
 	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log), n.log)

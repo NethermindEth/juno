@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -903,7 +904,7 @@ func TestSyncing(t *testing.T) {
 
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	synchronizer := sync.New(nil, gw, log)
+	synchronizer := sync.New(nil, gw, log, time.Duration(0))
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, synchronizer, utils.MAINNET, nil, nil)
