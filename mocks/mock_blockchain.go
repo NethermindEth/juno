@@ -172,6 +172,21 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockReader)(nil).Height))
 }
 
+// Pending mocks base method.
+func (m *MockReader) Pending() (blockchain.Pending, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pending")
+	ret0, _ := ret[0].(blockchain.Pending)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Pending indicates an expected call of Pending.
+func (mr *MockReaderMockRecorder) Pending() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pending", reflect.TypeOf((*MockReader)(nil).Pending))
+}
+
 // Receipt mocks base method.
 func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()
