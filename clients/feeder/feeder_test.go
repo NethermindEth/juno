@@ -236,7 +236,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Cleanup(closeFn)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		stateUpdate, err := client.StateUpdate(context.Background(), 0)
+		stateUpdate, err := client.StateUpdate(context.Background(), "0")
 		require.NoError(t, err)
 
 		assert.Equal(t, "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943", stateUpdate.BlockHash.String())
@@ -256,7 +256,7 @@ func TestStateUpdate(t *testing.T) {
 		assert.Equal(t, "0x64", diff[0].Value.String())
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
-		stateUpdate, err := client.StateUpdate(context.Background(), 1000000)
+		stateUpdate, err := client.StateUpdate(context.Background(), "1000000")
 		assert.Nil(t, stateUpdate)
 		assert.Error(t, err)
 	})
@@ -266,19 +266,19 @@ func TestStateUpdate(t *testing.T) {
 		t.Cleanup(closer)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
-			update, err := client.StateUpdate(context.Background(), 283746)
+			update, err := client.StateUpdate(context.Background(), "283746")
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.OldDeclaredContracts)
 		})
 
 		t.Run("declared Cairo1 classes", func(t *testing.T) {
-			update, err := client.StateUpdate(context.Background(), 283364)
+			update, err := client.StateUpdate(context.Background(), "283364")
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.DeclaredClasses)
 		})
 
 		t.Run("replaced classes", func(t *testing.T) {
-			update, err := client.StateUpdate(context.Background(), 283428)
+			update, err := client.StateUpdate(context.Background(), "283428")
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.ReplacedClasses)
 		})
@@ -369,7 +369,7 @@ func TestHttpError(t *testing.T) {
 	})
 
 	t.Run("HTTP err in GetStateUpdate", func(t *testing.T) {
-		_, err := client.StateUpdate(context.Background(), 0)
+		_, err := client.StateUpdate(context.Background(), "0")
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
