@@ -39,6 +39,8 @@ type Reader interface {
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 
 	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
+
+	Pending() (Pending, error)
 }
 
 var (
@@ -271,6 +273,10 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		}
 
 		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+			return err
+		}
+
+		if err := txn.Delete(db.Pending.Key()); err != nil {
 			return err
 		}
 
@@ -747,6 +753,11 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 		return err
 	}
 
+	// remove pending
+	if err := txn.Delete(db.Pending.Key()); err != nil {
+		return err
+	}
+
 	// update chain height
 	if blockNumber == 0 {
 		return txn.Delete(db.ChainHeight.Key())
@@ -755,4 +766,52 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	heightBin := make([]byte, lenOfByteSlice)
 	binary.BigEndian.PutUint64(heightBin, blockNumber-1)
 	return txn.Set(db.ChainHeight.Key(), heightBin)
+}
+
+// StorePending stores a pending block given that it is for the next height
+func (b *Blockchain) StorePending(pending *Pending) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		expectedParent := new(felt.Felt)
+		expectedOldRoot := new(felt.Felt)
+		head, err := b.head(txn)
+		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+			return err
+		} else if err == nil {
+			expectedParent = head.Hash
+			expectedOldRoot = head.GlobalStateRoot
+		}
+
+		if !expectedParent.Equal(pending.Block.ParentHash) || !expectedOldRoot.Equal(pending.StateUpdate.OldRoot) {
+			return errors.New("pending block parent is not our local HEAD")
+		}
+
+		existingPending, err := pendingBlock(txn)
+		if err == nil && existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
+			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+		}
+
+		pendingBytes, err := encoder.Marshal(pending)
+		if err != nil {
+			return err
+		}
+		return txn.Set(db.Pending.Key(), pendingBytes)
+	})
+}
+
+func pendingBlock(txn db.Transaction) (Pending, error) {
+	var pending Pending
+	err := txn.Get(db.Pending.Key(), func(bytes []byte) error {
+		return encoder.Unmarshal(bytes, &pending)
+	})
+	return pending, err
+}
+
+// Pending returns the pending block from the database
+func (b *Blockchain) Pending() (Pending, error) {
+	var pending Pending
+	return pending, b.database.View(func(txn db.Transaction) error {
+		var err error
+		pending, err = pendingBlock(txn)
+		return err
+	})
 }

@@ -594,3 +594,67 @@ func TestL1Update(t *testing.T) {
 		})
 	}
 }
+
+func TestPending(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	b, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	t.Run("store genesis as pending", func(t *testing.T) {
+		pendingGenesis := blockchain.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, chain.StorePending(&pendingGenesis))
+
+		gotPending, pErr := chain.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, pendingGenesis, gotPending)
+	})
+
+	t.Run("storing genesis as an accepted block should clear pending", func(t *testing.T) {
+		require.NoError(t, chain.Store(b, su, nil))
+		_, pErr := chain.Pending()
+		require.ErrorIs(t, pErr, db.ErrKeyNotFound)
+	})
+
+	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 2)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 2)
+		require.NoError(t, err)
+
+		notExpectedPending := blockchain.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.EqualError(t, chain.StorePending(&notExpectedPending), "pending block parent is not our local HEAD")
+	})
+
+	t.Run("store expected pending block", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 1)
+		require.NoError(t, err)
+
+		expectedPending := blockchain.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, chain.StorePending(&expectedPending))
+
+		gotPending, pErr := chain.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, expectedPending, gotPending)
+	})
+}
