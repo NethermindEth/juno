@@ -163,6 +163,18 @@ func TestBlockTransactionCount(t *testing.T) {
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			Block: latestBlock,
+		}, nil)
+
+		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
 }
 
 func TestBlockWithTxHashes(t *testing.T) {
@@ -183,7 +195,11 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	checkLatestBlock := func(t *testing.T, b *rpc.BlockWithTxHashes) {
 		t.Helper()
-		assert.Equal(t, latestBlock.Number, b.Number)
+		if latestBlock.Hash != nil {
+			assert.Equal(t, latestBlock.Number, *b.Number)
+		} else {
+			assert.Nil(t, b.Number)
+		}
 		assert.Equal(t, latestBlock.Hash, b.Hash)
 		assert.Equal(t, latestBlock.GlobalStateRoot, b.NewRoot)
 		assert.Equal(t, latestBlock.ParentHash, b.ParentHash)
@@ -243,6 +259,18 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
+		checkLatestBlock(t, block)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			Block: latestBlock,
+		}, nil)
+
+		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
 		checkLatestBlock(t, block)
 	})
 }
@@ -312,7 +340,7 @@ func TestBlockWithTxs(t *testing.T) {
 			return tx, nil
 		}
 		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 3)
+	}).Times(len(latestBlock.Transactions) * 4)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
@@ -349,6 +377,22 @@ func TestBlockWithTxs(t *testing.T) {
 
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
+
+		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			Block: latestBlock,
+		}, nil).Times(2)
+
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
+
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
@@ -590,8 +634,6 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("negative index", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Latest: true}, -1)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpc.ErrInvalidTxIndex, rpcErr)
@@ -665,6 +707,28 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			})
 
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
+		require.Nil(t, rpcErr)
+
+		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
+		require.Nil(t, rpcErr)
+
+		assert.Equal(t, txn1, txn2)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		index := rand.Intn(int(latestBlock.TransactionCount))
+
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			Block: latestBlock,
+		}, nil)
+		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
+			func(hash *felt.Felt) (core.Transaction, error) {
+				return latestBlock.Transactions[index], nil
+			})
+
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Pending: true}, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
@@ -892,6 +956,18 @@ func TestStateUpdate(t *testing.T) {
 				checkUpdate(t, gwUpdate, update)
 			})
 		}
+	})
+
+	t.Run("pending", func(t *testing.T) {
+		update21656.BlockHash = nil
+		update21656.NewRoot = nil
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			StateUpdate: update21656,
+		}, nil)
+
+		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
+		checkUpdate(t, update21656, update)
 	})
 }
 
@@ -1601,5 +1677,39 @@ func TestAddDeployAccountTransaction(t *testing.T) {
 		require.Nil(t, handlerErr)
 		assert.Equal(t, expectedDeployResp.TransactionHash, resp.TransactionHash)
 		assert.Equal(t, expectedDeployResp.ContractAddress, resp.ContractAddress)
+	})
+}
+
+func TestPendingTransactions(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, log)
+
+	t.Run("no pending", func(t *testing.T) {
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{}, errors.New("no pending"))
+
+		txns, err := handler.PendingTransactions()
+		require.Nil(t, err)
+		require.Empty(t, txns)
+	})
+
+	t.Run("with pending", func(t *testing.T) {
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			Block: &core.Block{
+				Transactions: []core.Transaction{
+					&core.InvokeTransaction{
+						TransactionHash: utils.HexToFelt(t, "0xdeadbeef"),
+					},
+				},
+			},
+		}, nil)
+
+		txns, err := handler.PendingTransactions()
+		require.Nil(t, err)
+		require.Len(t, txns, 1)
+		require.Equal(t, "deadbeef", txns[0].Hash.Text(16))
 	})
 }

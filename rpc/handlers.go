@@ -106,18 +106,28 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 		txnHashes[index] = txn.Hash()
 	}
 
+	status := StatusAcceptedL2
+	if id.Pending {
+		status = StatusPending
+	}
 	return &BlockWithTxHashes{
-		Status:      StatusAcceptedL2, // todo
+		Status:      status,
 		BlockHeader: adaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
 
 func adaptBlockHeader(header *core.Header) BlockHeader {
+	var blockNumber *uint64
+	// if header.Hash == nil it's a pending block
+	if header.Hash != nil {
+		blockNumber = &header.Number
+	}
+
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
-		Number:           header.Number,
+		Number:           blockNumber,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
 		SequencerAddress: header.SequencerAddress,
@@ -139,8 +149,12 @@ func (h *Handler) BlockWithTxs(id *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		txs[index] = adaptTransaction(txn)
 	}
 
+	status := StatusAcceptedL2
+	if id.Pending {
+		status = StatusPending
+	}
 	return &BlockWithTxs{
-		Status:       StatusAcceptedL2, // todo
+		Status:       status,
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
@@ -238,7 +252,12 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, error) {
 	case id.Hash != nil:
 		return h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
-		return nil, ErrPendingNotSupported
+		pending, err := h.bcReader.Pending()
+		if err != nil {
+			return nil, err
+		}
+
+		return pending.Block, nil
 	default:
 		return h.bcReader.BlockByNumber(id.Number)
 	}
@@ -251,7 +270,12 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 	case id.Hash != nil:
 		return h.bcReader.BlockHeaderByHash(id.Hash)
 	case id.Pending:
-		return nil, ErrPendingNotSupported
+		pending, err := h.bcReader.Pending()
+		if err != nil {
+			return nil, err
+		}
+
+		return pending.Block.Header, nil
 	default:
 		return h.bcReader.BlockHeaderByNumber(id.Number)
 	}
@@ -288,13 +312,26 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
 func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+	if txIndex < 0 {
+		return nil, ErrInvalidTxIndex
+	}
+
+	if id.Pending {
+		pending, err := h.bcReader.Pending()
+		if err != nil {
+			return nil, ErrBlockNotFound
+		}
+
+		if uint64(txIndex) > pending.Block.TransactionCount {
+			return nil, ErrInvalidTxIndex
+		}
+
+		return adaptTransaction(pending.Block.Transactions[txIndex]), nil
+	}
+
 	header, err := h.blockHeaderByID(id)
 	if header == nil || err != nil {
 		return nil, ErrBlockNotFound
-	}
-
-	if txIndex < 0 {
-		return nil, ErrInvalidTxIndex
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
@@ -341,13 +378,17 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		contractAddress = nil
 	}
 
+	var receiptBlockNumber *uint64
+	if blockHash != nil {
+		receiptBlockNumber = &blockNumber
+	}
 	return &TransactionReceipt{
 		Status:          StatusAcceptedL2, // todo
 		Type:            txn.Type,
 		Hash:            txn.Hash,
 		ActualFee:       receipt.Fee,
 		BlockHash:       blockHash,
-		BlockNumber:     blockNumber,
+		BlockNumber:     receiptBlockNumber,
 		MessagesSent:    messages,
 		Events:          events,
 		ContractAddress: contractAddress,
@@ -368,7 +409,11 @@ func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
 			update, err = h.bcReader.StateUpdateByNumber(height)
 		}
 	} else if id.Pending {
-		err = ErrPendingNotSupported
+		var pending blockchain.Pending
+		pending, err = h.bcReader.Pending()
+		if err == nil {
+			update = pending.StateUpdate
+		}
 	} else if id.Hash != nil {
 		update, err = h.bcReader.StateUpdateByHash(id.Hash)
 	} else {
@@ -481,7 +526,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 	case id.Hash != nil:
 		return h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		return nil, nil, ErrPendingNotSupported
+		return h.bcReader.PendingState()
 	default:
 		return h.bcReader.StateAtBlockNumber(id.Number)
 	}
@@ -805,4 +850,21 @@ func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*De
 	}
 
 	return deployResp, nil
+}
+
+// PendingTransactions gets the transactions in the pending block
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/aaea417f193bbec87b59455128d4b09a06876c28/api/starknet_api_openrpc.json#L602-L616
+func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
+	var pendingTxns []*Transaction
+
+	pending, err := h.bcReader.Pending()
+	if err == nil {
+		pendingTxns = make([]*Transaction, 0, len(pending.Block.Transactions))
+		for _, txn := range pending.Block.Transactions {
+			pendingTxns = append(pendingTxns, adaptTransaction(txn))
+		}
+	}
+	return pendingTxns, nil
 }

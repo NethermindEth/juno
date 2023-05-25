@@ -4,8 +4,8 @@ import "github.com/NethermindEth/juno/core/felt"
 
 // https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909
 type StateUpdate struct {
-	BlockHash *felt.Felt `json:"block_hash"`
-	NewRoot   *felt.Felt `json:"new_root"`
+	BlockHash *felt.Felt `json:"block_hash,omitempty"`
+	NewRoot   *felt.Felt `json:"new_root,omitempty"`
 	OldRoot   *felt.Felt `json:"old_root"`
 	StateDiff *StateDiff `json:"state_diff"`
 }

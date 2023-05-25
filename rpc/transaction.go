@@ -69,8 +69,8 @@ type TransactionReceipt struct {
 	Hash            *felt.Felt      `json:"transaction_hash"`
 	ActualFee       *felt.Felt      `json:"actual_fee"`
 	Status          Status          `json:"status"`
-	BlockHash       *felt.Felt      `json:"block_hash"`
-	BlockNumber     uint64          `json:"block_number"`
+	BlockHash       *felt.Felt      `json:"block_hash,omitempty"`
+	BlockNumber     *uint64         `json:"block_number,omitempty"`
 	MessagesSent    []*MsgToL1      `json:"messages_sent"`
 	Events          []*Event        `json:"events"`
 	ContractAddress *felt.Felt      `json:"contract_address,omitempty"`
