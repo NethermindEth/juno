@@ -657,4 +657,18 @@ func TestPending(t *testing.T) {
 		require.NoError(t, pErr)
 		assert.Equal(t, expectedPending, gotPending)
 	})
+
+	t.Run("fetch a txn from pending block", func(t *testing.T) {
+		hash := utils.HexToFelt(t, "0x2f07a65f9f7a6445b2a0b1fb90ef12f5fd3b94128d06a67712efd3b2f163533")
+		tx, tErr := chain.TransactionByHash(hash)
+		require.NoError(t, tErr)
+		assert.Equal(t, hash, tx.Hash())
+		t.Run("receipt", func(t *testing.T) {
+			r, blockHash, blockNumber, rErr := chain.Receipt(hash)
+			require.NoError(t, rErr)
+			assert.Nil(t, blockHash)
+			assert.Zero(t, blockNumber)
+			assert.Equal(t, hash, r.TransactionHash)
+		})
+	})
 }
