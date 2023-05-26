@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 var errChunkSizeReached = errors.New("chunk size reached")
@@ -38,10 +39,6 @@ func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys []*felt
 
 // SetRangeEndBlockByNumber sets an end of the block range by block number
 func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error {
-	_, err := blockHeaderByNumber(e.txn, blockNumber)
-	if err != nil {
-		return err
-	}
 	if filterRange == EventFilterFrom {
 		e.fromBlock = blockNumber
 	} else if filterRange == EventFilterTo {
@@ -89,6 +86,21 @@ type FilteredEvent struct {
 
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
+	latest, err := chainHeight(e.txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var pending Pending
+	if e.toBlock > latest {
+		e.toBlock = latest + 1
+		pending, err = pendingBlock(e.txn)
+		if errors.Is(err, db.ErrKeyNotFound) {
+			e.toBlock = latest
+		} else if err != nil {
+			return nil, nil, err
+		}
+	}
 
 	filterKeysMap := make(map[felt.Felt]bool, len(e.keys))
 	for _, key := range e.keys {
@@ -102,37 +114,33 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	}
 
 	for ; curBlock <= e.toBlock; curBlock++ {
-		header, err := blockHeaderByNumber(e.txn, curBlock)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		possibleMatches := true
-		if e.contractAddress != nil {
-			addrBytes := e.contractAddress.Bytes()
-			possibleMatches = header.EventsBloom.Test(addrBytes[:])
-			// bloom filter says no events from this contract
-			if !possibleMatches {
-				continue
+		var header *core.Header
+		if curBlock != latest+1 {
+			header, err = blockHeaderByNumber(e.txn, curBlock)
+			if err != nil {
+				return nil, nil, err
 			}
-		}
-		for key := range filterKeysMap {
-			keyBytes := key.Bytes()
-
-			// check if block possibly contains the event we are looking for
-			possibleMatches = header.EventsBloom.Test(keyBytes[:])
-			if possibleMatches {
-				break
-			}
+		} else {
+			header = pending.Block.Header
 		}
 
 		// bloom filter says no events match the filter, skip this block entirely if from is not nil
-		if !possibleMatches {
+		if possibleMatches := e.testBloom(header.EventsBloom, filterKeysMap); !possibleMatches {
 			continue
 		}
 
+		var receipts []*core.TransactionReceipt
+		if curBlock != latest+1 {
+			receipts, err = receiptsByBlockNumber(e.txn, header.Number)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			receipts = pending.Block.Receipts
+		}
+
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.appendBlockEvents(matchedEvents, header, filterKeysMap, cToken, chunkSize)
+		matchedEvents, processedEvents, err = e.appendBlockEvents(matchedEvents, header, receipts, filterKeysMap, cToken, chunkSize)
 		if err != nil {
 			if errors.Is(err, errChunkSizeReached) {
 				return matchedEvents, &ContinuationToken{
@@ -146,14 +154,32 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	return matchedEvents, nil, nil
 }
 
-func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header,
-	keysMap map[felt.Felt]bool, cToken *ContinuationToken, chunkSize uint64,
-) ([]*FilteredEvent, uint64, error) {
-	receipts, err := receiptsByBlockNumber(e.txn, header.Number)
-	if err != nil {
-		return nil, 0, err
+func (e *EventFilter) testBloom(bloomFilter *bloom.BloomFilter, keysMap map[felt.Felt]bool) bool {
+	possibleMatches := true
+	if e.contractAddress != nil {
+		addrBytes := e.contractAddress.Bytes()
+		possibleMatches = bloomFilter.Test(addrBytes[:])
+		// bloom filter says no events from this contract
+		if !possibleMatches {
+			return possibleMatches
+		}
+	}
+	for key := range keysMap {
+		keyBytes := key.Bytes()
+
+		// check if block possibly contains the event we are looking for
+		possibleMatches = bloomFilter.Test(keyBytes[:])
+		if possibleMatches {
+			return possibleMatches
+		}
 	}
 
+	return possibleMatches
+}
+
+func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header,
+	receipts []*core.TransactionReceipt, keysMap map[felt.Felt]bool, cToken *ContinuationToken, chunkSize uint64,
+) ([]*FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
 		for _, event := range receipt.Events {
