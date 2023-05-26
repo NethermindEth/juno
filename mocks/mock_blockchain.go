@@ -187,6 +187,22 @@ func (mr *MockReaderMockRecorder) Pending() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pending", reflect.TypeOf((*MockReader)(nil).Pending))
 }
 
+// PendingState mocks base method.
+func (m *MockReader) PendingState() (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingState")
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PendingState indicates an expected call of PendingState.
+func (mr *MockReaderMockRecorder) PendingState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingState", reflect.TypeOf((*MockReader)(nil).PendingState))
+}
+
 // Receipt mocks base method.
 func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()
