@@ -415,7 +415,15 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, err)
 		s, err := gw.StateUpdate(context.Background(), uint64(i))
 		require.NoError(t, err)
-		require.NoError(t, chain.Store(b, s, nil))
+
+		if b.Number < 6 {
+			require.NoError(t, chain.Store(b, s, nil))
+		} else {
+			require.NoError(t, chain.StorePending(&blockchain.Pending{
+				Block:       b,
+				StateUpdate: s,
+			}))
+		}
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
@@ -423,9 +431,9 @@ func TestEvents(t *testing.T) {
 
 		t.Run("block number", func(t *testing.T) {
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
-			require.Error(t, err)
+			require.NoError(t, err)
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, uint64(44))
-			require.Error(t, err)
+			require.NoError(t, err)
 		})
 
 		t.Run("block hash", func(t *testing.T) {

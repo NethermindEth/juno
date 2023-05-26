@@ -101,12 +101,12 @@ func (b *Blockchain) Height() (uint64, error) {
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
-		height, err = b.height(txn)
+		height, err = chainHeight(txn)
 		return err
 	})
 }
 
-func (b *Blockchain) height(txn db.Transaction) (uint64, error) {
+func chainHeight(txn db.Transaction) (uint64, error) {
 	var height uint64
 	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
@@ -126,7 +126,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	var header *core.Header
 	return header, b.database.View(func(txn db.Transaction) error {
-		height, err := b.height(txn)
+		height, err := chainHeight(txn)
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
-	height, err := b.height(txn)
+	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -683,7 +683,7 @@ type StateCloser = func() error
 // HeadState returns a StateReader that provides a stable view to the latest state
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	txn := b.database.NewTransaction(false)
-	_, err := b.height(txn)
+	_, err := chainHeight(txn)
 	if err != nil {
 		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
 	}
@@ -716,7 +716,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error) {
 	txn := b.database.NewTransaction(false)
-	latest, err := b.height(txn)
+	latest, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +732,7 @@ func (b *Blockchain) RevertHead() error {
 }
 
 func (b *Blockchain) revertHead(txn db.Transaction) error {
-	blockNumber, err := b.height(txn)
+	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
 	}

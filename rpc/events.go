@@ -26,7 +26,7 @@ type EventsChunk struct {
 
 type EmittedEvent struct {
 	*Event
-	BlockNumber     uint64     `json:"block_number"`
-	BlockHash       *felt.Felt `json:"block_hash"`
+	BlockNumber     *uint64    `json:"block_number,omitempty"`
+	BlockHash       *felt.Felt `json:"block_hash,omitempty"`
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }

@@ -1450,10 +1450,20 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, err)
 		s, err := gw.StateUpdate(context.Background(), uint64(i))
 		require.NoError(t, err)
-		require.NoError(t, chain.Store(b, s, nil))
+
+		if b.Number < 6 {
+			require.NoError(t, chain.Store(b, s, nil))
+		} else {
+			b.Hash = nil
+			b.GlobalStateRoot = nil
+			require.NoError(t, chain.StorePending(&blockchain.Pending{
+				Block:       b,
+				StateUpdate: s,
+			}))
+		}
 	}
 
-	handler := rpc.New(chain, nil, utils.MAINNET, nil, utils.NewNopZapLogger())
+	handler := rpc.New(chain, nil, utils.GOERLI2, nil, utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	args := &rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
@@ -1471,8 +1481,9 @@ func TestEvents(t *testing.T) {
 	t.Run("filter non-existent", func(t *testing.T) {
 		t.Run("block number", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Number: 55}
-			_, err := handler.Events(args)
-			require.Equal(t, rpc.ErrBlockNotFound, err)
+			events, err := handler.Events(args)
+			require.Nil(t, err)
+			require.Len(t, events.Events, 3)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
@@ -1505,12 +1516,12 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with no keys", func(t *testing.T) {
 		var allEvents []*rpc.EmittedEvent
-		t.Run("get all events without pagination", func(t *testing.T) {
+		t.Run("get canonical events without pagination", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Latest: true}
 			args.Address = from
 			events, err := handler.Events(args)
 			require.Nil(t, err)
-			require.Len(t, events.Events, 3)
+			require.Len(t, events.Events, 2)
 			require.Empty(t, events.ContinuationToken)
 			allEvents = events.Events
 		})
@@ -1549,7 +1560,7 @@ func TestEvents(t *testing.T) {
 				utils.HexToFelt(t, "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8"),
 				utils.HexToFelt(t, "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8"),
 			}, events.Events[0].Data)
-			require.Equal(t, uint64(5), events.Events[0].BlockNumber)
+			require.Equal(t, uint64(5), *events.Events[0].BlockNumber)
 			require.Equal(t, utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14"), events.Events[0].BlockHash)
 			require.Equal(t, utils.HexToFelt(t, "0x6d1431d875ba082365b888c1651e026012a94172b04589c91c2adeb6c1b7ace"), events.Events[0].TransactionHash)
 		})
@@ -1568,6 +1579,27 @@ func TestEvents(t *testing.T) {
 		events, err := handler.Events(args)
 		require.Equal(t, rpc.ErrTooManyKeysInFilter, err)
 		require.Nil(t, events)
+	})
+
+	t.Run("get pending events without pagination", func(t *testing.T) {
+		args = &rpc.EventsArg{
+			EventFilter: rpc.EventFilter{
+				FromBlock: &rpc.BlockID{Pending: true},
+				ToBlock:   &rpc.BlockID{Pending: true},
+			},
+			ResultPageRequest: rpc.ResultPageRequest{
+				ChunkSize:         100,
+				ContinuationToken: "",
+			},
+		}
+		events, err := handler.Events(args)
+		require.Nil(t, err)
+		require.Len(t, events.Events, 1)
+		require.Empty(t, events.ContinuationToken)
+
+		assert.Nil(t, events.Events[0].BlockHash)
+		assert.Nil(t, events.Events[0].BlockNumber)
+		assert.Equal(t, utils.HexToFelt(t, "0x5fe34d6903420e489b6faa8804c7a1af311446934bac1ba1e79b53cee61756c"), events.Events[0].TransactionHash)
 	})
 }
 

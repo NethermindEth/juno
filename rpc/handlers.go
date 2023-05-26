@@ -746,8 +746,13 @@ func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
 
 	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
 	for _, fEvent := range filteredEvents {
+
+		var blockNumber *uint64
+		if fEvent.BlockHash != nil {
+			blockNumber = &fEvent.BlockNumber
+		}
 		emittedEvents = append(emittedEvents, &EmittedEvent{
-			BlockNumber:     fEvent.BlockNumber,
+			BlockNumber:     blockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
 			Event: &Event{
@@ -777,7 +782,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 		case id.Hash != nil:
 			return filter.SetRangeEndBlockByHash(filterRange, id.Hash)
 		case id.Pending:
-			return ErrPendingNotSupported
+			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
 		default:
 			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
 		}
