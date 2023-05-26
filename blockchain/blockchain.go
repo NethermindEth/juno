@@ -37,6 +37,7 @@ type Reader interface {
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+	PendingState() (core.StateReader, StateCloser, error)
 
 	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
 
@@ -852,4 +853,18 @@ func (b *Blockchain) Pending() (Pending, error) {
 		pending, err = pendingBlock(txn)
 		return err
 	})
+}
+
+// PendingState returns the state resulting from execution of the pending block
+func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
+	txn := b.database.NewTransaction(false)
+	pending, err := pendingBlock(txn)
+	if err != nil {
+		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+	}
+
+	return NewPendingState(
+		pending,
+		core.NewState(txn),
+	), txn.Discard, nil
 }

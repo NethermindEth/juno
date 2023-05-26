@@ -641,6 +641,11 @@ func TestPending(t *testing.T) {
 		require.EqualError(t, chain.StorePending(&notExpectedPending), "pending block parent is not our local HEAD")
 	})
 
+	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+		_, _, err = chain.PendingState()
+		require.Error(t, err)
+	})
+
 	t.Run("store expected pending block", func(t *testing.T) {
 		b, err = gw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -670,5 +675,13 @@ func TestPending(t *testing.T) {
 			assert.Zero(t, blockNumber)
 			assert.Equal(t, hash, r.TransactionHash)
 		})
+	})
+
+	t.Run("get pending state", func(t *testing.T) {
+		_, pendingStateCloser, pErr := chain.PendingState()
+		t.Cleanup(func() {
+			require.NoError(t, pendingStateCloser())
+		})
+		require.NoError(t, pErr)
 	})
 }
