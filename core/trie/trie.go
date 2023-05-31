@@ -99,18 +99,27 @@ func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) {
-	divergentBit := uint(0)
-
-	for divergentBit <= shorterKey.Len() &&
-		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
-		divergentBit++
-	}
-
+	divergentBit := findDivergentBit(longerKey, shorterKey)
 	commonKey := shorterKey.Clone()
 	for i := uint(0); i < shorterKey.Len()-divergentBit+1; i++ {
 		commonKey.DeleteAt(0)
 	}
 	return commonKey, divergentBit == shorterKey.Len()+1
+}
+
+func findDivergentBit(longerKey, shorterKey *bitset.BitSet) uint {
+	divergentBit := uint(0)
+	// todo: use NextSetMany for performance
+	for divergentBit <= shorterKey.Len() &&
+		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
+		divergentBit++
+	}
+	return divergentBit
+}
+
+func isSubset(longerKey, shorterKey *bitset.BitSet) bool {
+	divergentBit := findDivergentBit(longerKey, shorterKey)
+	return divergentBit == shorterKey.Len()+1
 }
 
 // path returns the path as mentioned in the [specification] for commitment calculations.
@@ -152,7 +161,7 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 			node: node,
 		})
 
-		_, subset := findCommonKey(key, cur)
+		subset := isSubset(key, cur)
 		if cur.Len() >= key.Len() || !subset {
 			return nodes, nil
 		}
@@ -289,7 +298,7 @@ func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
 	shouldUpdate := false
 	for _, dirtyNode := range t.dirtyNodes {
 		if key.Len() < dirtyNode.Len() {
-			_, shouldUpdate = findCommonKey(dirtyNode, key)
+			shouldUpdate = isSubset(dirtyNode, key)
 			if shouldUpdate {
 				break
 			}
