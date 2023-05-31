@@ -36,10 +36,10 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 }
 
 // AddInvokeTransaction mocks base method.
-func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *gateway.BroadcastedInvokeTxn) (*gateway.InvokeResponse, error) {
+func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *gateway.BroadcastedInvokeTxn) (*gateway.InvokeTxResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddInvokeTransaction", arg0, arg1)
-	ret0, _ := ret[0].(*gateway.InvokeResponse)
+	ret0, _ := ret[0].(*gateway.InvokeTxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
