@@ -26,3 +26,8 @@ type BroadcastedInvokeTxn struct {
 	Type string `json:"type" validate:"required"`
 	InvokeTxnV1
 }
+
+type InvokeTxResponse struct {
+	Code            string     `json:"code"`
+	TransactionHash *felt.Felt `json:"transaction_hash"`
+}

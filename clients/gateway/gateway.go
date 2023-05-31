@@ -16,7 +16,7 @@ import (
 
 //go:generate mockgen -destination=../../mocks/mock_gateway.go -package=mocks github.com/NethermindEth/juno/clients/gateway Gateway
 type Gateway interface {
-	AddInvokeTransaction(context.Context, *BroadcastedInvokeTxn) (*InvokeResponse, error)
+	AddInvokeTransaction(context.Context, *BroadcastedInvokeTxn) (*InvokeTxResponse, error)
 }
 
 type Client struct {
@@ -36,7 +36,7 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	}
 }
 
-func (c *Client) AddInvokeTransaction(ctx context.Context, txn *BroadcastedInvokeTxn) (*InvokeResponse, error) {
+func (c *Client) AddInvokeTransaction(ctx context.Context, txn *BroadcastedInvokeTxn) (*InvokeTxResponse, error) {
 	endpoint := c.url + "/add_transaction"
 
 	body, err := c.post(ctx, endpoint, txn)
@@ -45,7 +45,7 @@ func (c *Client) AddInvokeTransaction(ctx context.Context, txn *BroadcastedInvok
 	}
 	defer body.Close()
 
-	var resp InvokeResponse
+	var resp InvokeTxResponse
 	if err = json.NewDecoder(body).Decode(&resp); err != nil {
 		return nil, err
 	}

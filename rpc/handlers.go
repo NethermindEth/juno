@@ -44,11 +44,7 @@ type Handler struct {
 	log           utils.Logger
 }
 
-func New(
-	bcReader blockchain.Reader,
-	synchronizer *sync.Synchronizer,
-	n utils.Network,
-	gatewayClient gateway.Gateway,
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, gatewayClient gateway.Gateway,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
