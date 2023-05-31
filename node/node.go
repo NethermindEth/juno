@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/NethermindEth/juno/p2p"
 	"path/filepath"
 	"reflect"
 
@@ -161,6 +162,11 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
+	p2pClient, err := p2p.Start()
+	if err != nil {
+		panic(err)
+	}
+
 	n.db, err = pebble.New(n.cfg.DatabasePath, dbLog)
 	if err != nil {
 		n.log.Errorw("Error opening DB", "err", err)
@@ -176,7 +182,9 @@ func (n *Node) Run(ctx context.Context) {
 	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
 
 	client := feeder.NewClient(n.cfg.Network.URL())
-	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
+	starkdata := adaptfeeder.New(client)
+	starkdatap2p := p2p.NewStarknetDataAdapter(starkdata, p2pClient)
+	synchronizer := sync.New(n.blockchain, starkdatap2p, n.log)
 
 	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, n.log), n.log)
 
