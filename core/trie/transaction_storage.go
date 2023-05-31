@@ -28,12 +28,14 @@ func getBuffer() *bytes.Buffer {
 type TransactionStorage struct {
 	txn    db.Transaction
 	prefix []byte
+	cache  map[string]*Node
 }
 
 func NewTransactionStorage(txn db.Transaction, prefix []byte) *TransactionStorage {
 	return &TransactionStorage{
 		txn:    txn,
 		prefix: prefix,
+		cache:  map[string]*Node{},
 	}
 }
 
@@ -64,7 +66,15 @@ func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
 	}
 
 	encodedBytes := buffer.Bytes()
-	return t.txn.Set(encodedBytes[:keyLen], encodedBytes[keyLen:])
+	if err = t.txn.Set(encodedBytes[:keyLen], encodedBytes[keyLen:]); err != nil {
+		return err
+	}
+
+	if t.cache != nil {
+		keyStr := string(encodedBytes[:keyLen])
+		t.cache[keyStr] = value
+	}
+	return nil
 }
 
 func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
@@ -75,12 +85,24 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 		return nil, err
 	}
 
+	if t.cache != nil {
+		keyStr := buffer.String()
+		if node, hit := t.cache[keyStr]; hit {
+			return node, nil
+		}
+	}
+
 	var node *Node
 	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
 		node = new(Node)
 		return encoder.Unmarshal(val, node)
 	}); err != nil {
 		return nil, err
+	}
+
+	if t.cache != nil {
+		keyStr := buffer.String()
+		t.cache[keyStr] = node
 	}
 	return node, err
 }
@@ -92,9 +114,20 @@ func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 	if err != nil {
 		return err
 	}
-	return t.txn.Delete(buffer.Bytes())
+
+	if err = t.txn.Delete(buffer.Bytes()); err != nil {
+		return err
+	}
+
+	if t.cache != nil {
+		keyStr := buffer.String()
+		delete(t.cache, keyStr)
+	}
+	return nil
 }
 
 func newMemStorage() Storage {
-	return NewTransactionStorage(db.NewMemTransaction(), nil)
+	return &TransactionStorage{
+		txn: db.NewMemTransaction(),
+	}
 }
