@@ -61,7 +61,7 @@ func TestAddInvokeTx(t *testing.T) {
 		resp, err := client.AddInvokeTransaction(context.Background(), invokeTx)
 
 		assert.Nil(t, resp)
-		assert.Equal(t, err, errors.New("Transaction version '0x0' not supported. Supported versions: '0x1'"))
+		assert.Equal(t, err, errors.New("Transaction version 0x0 is not supported. Supported versions: [1]."))
 	})
 
 	t.Run("Incorrect max-fee", func(t *testing.T) {
