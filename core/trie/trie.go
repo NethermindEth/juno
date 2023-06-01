@@ -45,6 +45,8 @@ type Trie struct {
 	maxKey  *felt.Felt
 	storage Storage
 	hash    hashFunc
+
+	dirtyNodes []*bitset.BitSet
 }
 
 type NewTrieFunc func(Storage, uint, *bitset.BitSet) (*Trie, error)
@@ -97,18 +99,27 @@ func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) {
-	divergentBit := uint(0)
-
-	for divergentBit <= shorterKey.Len() &&
-		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
-		divergentBit++
-	}
-
+	divergentBit := findDivergentBit(longerKey, shorterKey)
 	commonKey := shorterKey.Clone()
 	for i := uint(0); i < shorterKey.Len()-divergentBit+1; i++ {
 		commonKey.DeleteAt(0)
 	}
 	return commonKey, divergentBit == shorterKey.Len()+1
+}
+
+func findDivergentBit(longerKey, shorterKey *bitset.BitSet) uint {
+	divergentBit := uint(0)
+	// todo: use NextSetMany for performance
+	for divergentBit <= shorterKey.Len() &&
+		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
+		divergentBit++
+	}
+	return divergentBit
+}
+
+func isSubset(longerKey, shorterKey *bitset.BitSet) bool {
+	divergentBit := findDivergentBit(longerKey, shorterKey)
+	return divergentBit == shorterKey.Len()+1
 }
 
 // path returns the path as mentioned in the [specification] for commitment calculations.
@@ -150,7 +161,7 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 			node: node,
 		})
 
-		_, subset := findCommonKey(key, cur)
+		subset := isSubset(key, cur)
 		if cur.Len() >= key.Len() || !subset {
 			return nodes, nil
 		}
@@ -191,174 +202,175 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		Value: value,
 	}
 
-	// empty trie, make new value root
-	if t.rootKey == nil {
-		if value.IsZero() {
-			return nil, nil // no-op
-		}
-
-		if err := t.propagateValues([]storageNode{
-			{key: nodeKey, node: node},
-		}); err != nil {
-			return nil, err
-		}
-		t.rootKey = nodeKey
-		return old, nil
-	}
-
 	nodes, err := t.nodesFromRoot(nodeKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Replace if key already exist
-	sibling := &nodes[len(nodes)-1]
-	if nodeKey.Equal(sibling.key) {
-		old = sibling.node.Value // record old value to return to caller
-		sibling.node = node
+	// empty trie, make new value root
+	if len(nodes) == 0 {
 		if value.IsZero() {
-			if err = t.deleteLast(nodes); err != nil {
+			return nil, nil // no-op
+		}
+
+		if err = t.storage.Put(nodeKey, node); err != nil {
+			return nil, err
+		}
+		t.rootKey = nodeKey
+		return old, nil
+	} else {
+		// Replace if key already exist
+		sibling := nodes[len(nodes)-1]
+		if nodeKey.Equal(sibling.key) {
+			old = sibling.node.Value // record old value to return to caller
+			if value.IsZero() {
+				if err = t.deleteLast(nodes); err != nil {
+					return nil, err
+				}
+				return old, nil
+			}
+
+			if err = t.storage.Put(nodeKey, node); err != nil {
 				return nil, err
 			}
-		} else if err = t.propagateValues(nodes); err != nil {
+			t.dirtyNodes = append(t.dirtyNodes, nodeKey)
+			return old, nil
+		} else if value.IsZero() {
+			// trying to insert 0 to a key that does not exist
+			return nil, nil // no-op
+		}
+
+		commonKey, _ := findCommonKey(nodeKey, sibling.key)
+		newParent := &Node{}
+		var leftChild, rightChild *Node
+		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+			newParent.Left, newParent.Right = sibling.key, nodeKey
+			leftChild, rightChild = sibling.node, node
+		} else {
+			newParent.Left, newParent.Right = nodeKey, sibling.key
+			leftChild, rightChild = node, sibling.node
+		}
+
+		leftPath := path(newParent.Left, commonKey)
+		rightPath := path(newParent.Right, commonKey)
+
+		newParent.Value = t.hash(leftChild.Hash(leftPath, t.hash), rightChild.Hash(rightPath, t.hash))
+		if err = t.storage.Put(commonKey, newParent); err != nil {
+			return nil, err
+		}
+
+		if len(nodes) > 1 { // sibling has a parent
+			siblingParent := nodes[len(nodes)-2]
+
+			// replace the link to our sibling with the new parent
+			if siblingParent.node.Left.Equal(sibling.key) {
+				siblingParent.node.Left = commonKey
+			} else {
+				siblingParent.node.Right = commonKey
+			}
+
+			if err = t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
+				return nil, err
+			}
+			t.dirtyNodes = append(t.dirtyNodes, commonKey)
+		} else {
+			t.rootKey = commonKey
+		}
+
+		if err = t.storage.Put(nodeKey, node); err != nil {
 			return nil, err
 		}
 		return old, nil
 	}
+}
 
-	// trying to insert 0 to a key that does not exist
-	if value.IsZero() {
-		return nil, nil // no-op
+func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
+	node, err := t.storage.Get(key)
+	if err != nil {
+		return nil, err
 	}
 
-	commonKey, _ := findCommonKey(nodeKey, sibling.key)
-	newParent := &Node{
-		Value: new(felt.Felt),
-	}
-	if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
-		newParent.Left, newParent.Right = sibling.key, nodeKey
-	} else {
-		newParent.Left, newParent.Right = nodeKey, sibling.key
+	// leaf node
+	if key.Len() == t.height {
+		return node, nil
 	}
 
-	makeRoot := len(nodes) == 1
-	if !makeRoot { // sibling has a parent
-		siblingParent := &nodes[len(nodes)-2]
-
-		// replace the link to our sibling with the new parent
-		if siblingParent.node.Left.Equal(sibling.key) {
-			siblingParent.node.Left = commonKey
-		} else {
-			siblingParent.node.Right = commonKey
+	shouldUpdate := false
+	for _, dirtyNode := range t.dirtyNodes {
+		if key.Len() < dirtyNode.Len() {
+			shouldUpdate = isSubset(dirtyNode, key)
+			if shouldUpdate {
+				break
+			}
 		}
 	}
 
-	// replace sibling with new parent
-	nodes[len(nodes)-1] = storageNode{
-		key: commonKey, node: newParent,
+	if !shouldUpdate {
+		return node, nil
 	}
-	// add new node to steps
-	nodes = append(nodes, storageNode{
-		key: nodeKey, node: node,
-	})
 
-	// push commitment changes
-	if err = t.propagateValues(nodes); err != nil {
+	leftChild, err := t.updateValueIfDirty(node.Left)
+	if err != nil {
 		return nil, err
-	} else if makeRoot {
-		t.rootKey = commonKey
 	}
-	return old, nil
+	rightChild, err := t.updateValueIfDirty(node.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	leftPath := path(node.Left, key)
+	rightPath := path(node.Right, key)
+
+	node.Value = t.hash(leftChild.Hash(leftPath, t.hash), rightChild.Hash(rightPath, t.hash))
+
+	if err = t.storage.Put(key, node); err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
-// deleteLast deletes the last node in the given list and recalculates commitment
-func (t *Trie) deleteLast(affectedNodes []storageNode) error {
-	last := affectedNodes[len(affectedNodes)-1]
+// deleteLast deletes the last node in the given list
+func (t *Trie) deleteLast(nodes []storageNode) error {
+	last := nodes[len(nodes)-1]
 	if err := t.storage.Delete(last.key); err != nil {
 		return err
 	}
 
-	if len(affectedNodes) == 1 { // deleted node was root
+	if len(nodes) == 1 { // deleted node was root
 		t.rootKey = nil
+		return nil
+	}
+
+	// parent now has only a single child, so delete
+	parent := nodes[len(nodes)-2]
+	if err := t.storage.Delete(parent.key); err != nil {
+		return err
+	}
+
+	var siblingKey *bitset.BitSet
+	if parent.node.Left.Equal(last.key) {
+		siblingKey = parent.node.Right
 	} else {
-		// parent now has only a single child, so delete
-		parent := affectedNodes[len(affectedNodes)-2]
-		if err := t.storage.Delete(parent.key); err != nil {
-			return err
-		}
-
-		var siblingKey *bitset.BitSet
-		if parent.node.Left.Equal(last.key) {
-			siblingKey = parent.node.Right
-		} else {
-			siblingKey = parent.node.Left
-		}
-
-		if len(affectedNodes) == 2 { // sibling should become root
-			t.rootKey = siblingKey
-		} else { // sibling should link to grandparent (len(affectedNodes) > 2)
-			grandParent := &affectedNodes[len(affectedNodes)-3]
-			// replace link to parent with a link to sibling
-			if grandParent.node.Left.Equal(parent.key) {
-				grandParent.node.Left = siblingKey
-			} else {
-				grandParent.node.Right = siblingKey
-			}
-
-			if sibling, err := t.storage.Get(siblingKey); err != nil {
-				return err
-			} else {
-				// rebuild the list of affected nodes
-				affectedNodes = affectedNodes[:len(affectedNodes)-2] // drop last and parent
-				// add sibling
-				affectedNodes = append(affectedNodes, storageNode{
-					key:  siblingKey,
-					node: sibling,
-				})
-
-				// finally recalculate commitment
-				return t.propagateValues(affectedNodes)
-			}
-		}
+		siblingKey = parent.node.Left
 	}
 
-	return nil
-}
-
-// Recalculates [Trie] commitment by propagating `bottom` values as described in the [docs]
-//
-// [docs]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func (t *Trie) propagateValues(affectedNodes []storageNode) error {
-	for idx := len(affectedNodes) - 1; idx >= 0; idx-- {
-		cur := affectedNodes[idx]
-
-		if (cur.node.Left == nil) != (cur.node.Right == nil) {
-			panic("should not happen")
-		}
-
-		if cur.node.Left != nil || cur.node.Right != nil {
-			// todo: one of the children is already in affectedNodes, use that instead of fetching from storage
-			left, err := t.storage.Get(cur.node.Left)
-			if err != nil {
-				return err
-			}
-
-			right, err := t.storage.Get(cur.node.Right)
-			if err != nil {
-				return err
-			}
-
-			leftPath := path(cur.node.Left, cur.key)
-			rightPath := path(cur.node.Right, cur.key)
-
-			cur.node.Value = t.hash(left.Hash(leftPath, t.hash), right.Hash(rightPath, t.hash))
-		}
-
-		if err := t.storage.Put(cur.key, cur.node); err != nil {
-			return err
-		}
+	if len(nodes) == 2 { // sibling should become root
+		t.rootKey = siblingKey
+		return nil
+	}
+	// sibling should link to grandparent (len(affectedNodes) > 2)
+	grandParent := &nodes[len(nodes)-3]
+	// replace link to parent with a link to sibling
+	if grandParent.node.Left.Equal(parent.key) {
+		grandParent.node.Left = siblingKey
+	} else {
+		grandParent.node.Right = siblingKey
 	}
 
+	if err := t.storage.Put(grandParent.key, grandParent.node); err != nil {
+		return err
+	}
+	t.dirtyNodes = append(t.dirtyNodes, siblingKey)
 	return nil
 }
 
@@ -368,13 +380,20 @@ func (t *Trie) Root() (*felt.Felt, error) {
 		return new(felt.Felt), nil
 	}
 
-	root, err := t.storage.Get(t.rootKey)
+	root, err := t.updateValueIfDirty(t.rootKey)
 	if err != nil {
 		return nil, err
 	}
+	t.dirtyNodes = nil
 
 	path := path(t.rootKey, nil)
 	return root.Hash(path, t.hash), nil
+}
+
+// Commit forces root calculation
+func (t *Trie) Commit() error {
+	_, err := t.Root()
+	return err
 }
 
 // RootKey returns db key of the [Trie] root node
