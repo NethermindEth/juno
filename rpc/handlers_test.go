@@ -1504,7 +1504,12 @@ func TestAddInvokeTransaction(t *testing.T) {
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
 
 	t.Run("required fields are missing", func(t *testing.T) {
-		_, err := handler.AddInvokeTransaction(&gateway.BroadcastedInvokeTxn{})
+		invokeTx := &gateway.BroadcastedInvokeTxn{}
+
+		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+			Return(nil, errors.New("['Missing data for required field.']"))
+
+		_, err := handler.AddInvokeTransaction(invokeTx)
 		require.NotNil(t, err)
 		assert.Equal(t, jsonrpc.InvalidParams, err.Code)
 	})
@@ -1529,8 +1534,10 @@ func TestAddInvokeTransaction(t *testing.T) {
 	t.Run("Max Fee must be non-zero", func(t *testing.T) {
 		invokeTx := generateAddInvokeTx()
 		invokeTx.MaxFee.Set(&felt.Zero)
-		resp, handlerErr := handler.AddInvokeTransaction(invokeTx)
+		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+			Return(nil, errors.New("max_fee must be bigger than 0.\n0 >= 0"))
 
+		resp, handlerErr := handler.AddInvokeTransaction(invokeTx)
 		require.Nil(t, resp)
 		assert.Equal(t, handlerErr.Code, jsonrpc.InvalidParams)
 		assert.Equal(t, handlerErr.Message, "max_fee must be bigger than 0.\n0 >= 0")
@@ -1540,6 +1547,9 @@ func TestAddInvokeTransaction(t *testing.T) {
 	t.Run("Version must be 0x1", func(t *testing.T) {
 		invokeTx := generateAddInvokeTx()
 		invokeTx.Version = "0x0"
+		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+			Return(nil, errors.New("Transaction version '0x0' not supported. Supported versions: '0x1'"))
+
 		resp, handlerErr := handler.AddInvokeTransaction(invokeTx)
 
 		require.Nil(t, resp)
@@ -1550,8 +1560,8 @@ func TestAddInvokeTransaction(t *testing.T) {
 }
 
 func generateAddInvokeTx() *gateway.BroadcastedInvokeTxn {
-	maxFee, _ := new(felt.Felt).SetString("0x1")
-	nonce, _ := new(felt.Felt).SetString("1")
+	maxFee := new(felt.Felt).SetUint64(0x1)
+	nonce := new(felt.Felt).SetUint64(1)
 	senderAddress, _ := new(felt.Felt).SetRandom()
 
 	return &gateway.BroadcastedInvokeTxn{
