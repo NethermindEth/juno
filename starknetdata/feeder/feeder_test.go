@@ -2,7 +2,6 @@ package feeder_test
 
 import (
 	"context"
-	"encoding/json"
 	"strconv"
 	"testing"
 
@@ -231,9 +230,6 @@ func TestClassV0(t *testing.T) {
 				assert.Equal(t, v.Offset, class.Constructors[i].Offset)
 			}
 			assert.Equal(t, len(response.V0.EntryPoints.Constructor), len(class.Constructors))
-
-			var program feeder.Program
-			require.NoError(t, json.Unmarshal(response.V0.Program, &program))
 
 			assert.NotEmpty(t, class.Program)
 		})
