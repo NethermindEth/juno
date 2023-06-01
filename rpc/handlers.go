@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -13,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/go-playground/validator/v10"
 )
 
 var (
@@ -751,31 +749,6 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 func (h *Handler) AddInvokeTransaction(invokeTx *gateway.BroadcastedInvokeTxn) (*AddInvokeTransactionResponse, *jsonrpc.Error) {
 	invokeTx.Type = "INVOKE_FUNCTION"
 
-	validate := validator.New()
-	if err := validate.Struct(invokeTx); err != nil {
-		return nil, &jsonrpc.Error{
-			Code:    jsonrpc.InvalidParams,
-			Message: fmt.Sprintf("{'%s': ['Missing data for required field.']}", err.(validator.ValidationErrors)[0].Field()),
-			Data:    nil,
-		}
-	}
-
-	if invokeTx.Version != "0x1" {
-		return nil, &jsonrpc.Error{
-			Code:    jsonrpc.InvalidParams,
-			Message: fmt.Sprintf("Transaction version '%s' not supported. Supported versions: '0x1'", invokeTx.Version),
-			Data:    nil,
-		}
-	}
-
-	if invokeTx.MaxFee.ShortString() == "0x0" {
-		return nil, &jsonrpc.Error{
-			Code:    jsonrpc.InvalidParams,
-			Message: "max_fee must be bigger than 0.\n0 >= 0",
-			Data:    nil,
-		}
-	}
-
 	resp, err := h.gatewayClient.AddInvokeTransaction(context.TODO(), invokeTx)
 	if err != nil {
 		return nil, &jsonrpc.Error{
@@ -795,6 +768,12 @@ func getAddInvokeTxCode(err error) int {
 	if strings.Contains(err.Error(), "contract address") && strings.Contains(err.Error(), "is out of range") {
 		return jsonrpc.InvalidParams
 	} else if strings.Contains(err.Error(), "Fee") && strings.Contains(err.Error(), "is out of range") {
+		return jsonrpc.InvalidParams
+	} else if strings.Contains(err.Error(), "Missing data for required field") {
+		return jsonrpc.InvalidParams
+	} else if strings.Contains(err.Error(), "not supported. Supported versions") {
+		return jsonrpc.InvalidParams
+	} else if strings.Contains(err.Error(), "max_fee must be bigger than 0.\n0 >= ") {
 		return jsonrpc.InvalidParams
 	} else {
 		return jsonrpc.InternalError

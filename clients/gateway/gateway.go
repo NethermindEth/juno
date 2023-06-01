@@ -8,10 +8,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/go-playground/validator/v10"
 )
 
 //go:generate mockgen -destination=../../mocks/mock_gateway.go -package=mocks github.com/NethermindEth/juno/clients/gateway Gateway
@@ -20,10 +24,77 @@ type Gateway interface {
 }
 
 type Client struct {
-	url     string
-	client  *http.Client
-	timeout time.Duration
-	log     utils.SimpleLogger
+	url        string
+	client     *http.Client
+	timeout    time.Duration
+	log        utils.SimpleLogger
+	backoff    Backoff
+	maxRetries int
+}
+
+type (
+	Backoff         func(wait time.Duration) time.Duration
+	closeTestClient func()
+)
+
+func (c *Client) WithBackoff(b Backoff) *Client {
+	c.backoff = b
+	return c
+}
+
+func (c *Client) WithMaxRetries(num int) *Client {
+	c.maxRetries = num
+	return c
+}
+
+func NopBackoff(d time.Duration) time.Duration {
+	return 0
+}
+
+// NewTestClient returns a client and a function to close a test server.
+func NewTestClient(network utils.Network) (*Client, closeTestClient) {
+	srv := newTestServer(network)
+	return NewClient(srv.URL, utils.NewNopZapLogger()).WithBackoff(NopBackoff).WithMaxRetries(0), srv.Close
+}
+
+func newTestServer(network utils.Network) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		invokeTx := new(BroadcastedInvokeTxn)
+		err := json.NewDecoder(r.Body).Decode(&invokeTx)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, err = w.Write([]byte(err.Error()))
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			return
+		}
+
+		if err = checkAddInvokeTx(invokeTx); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, err = w.Write([]byte(err.Error()))
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			return
+		}
+
+		txHash := crypto.PedersenArray(
+			new(felt.Felt).SetBytes([]byte("invoke")),
+			new(felt.Felt).SetBytes([]byte(invokeTx.Version)),
+			invokeTx.SenderAddress,
+			new(felt.Felt),
+			crypto.PedersenArray(invokeTx.Calldata...),
+			invokeTx.MaxFee,
+			network.ChainID(),
+			invokeTx.Nonce,
+		)
+		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q}", txHash.String())
+		_, err = w.Write([]byte(resp))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
 }
 
 func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
@@ -51,6 +122,24 @@ func (c *Client) AddInvokeTransaction(ctx context.Context, txn *BroadcastedInvok
 	}
 
 	return &resp, nil
+}
+
+// checkAddInvokeTx checks invoke-transactions for validation and version errors, etc.
+func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
+	validate := validator.New()
+	if err := validate.Struct(txn); err != nil {
+		return fmt.Errorf("{'%s': ['Missing data for required field.']}", err.(validator.ValidationErrors)[0].Field())
+	}
+
+	if txn.Version != "0x1" {
+		return fmt.Errorf("Transaction version '%s' not supported. Supported versions: '0x1'", txn.Version)
+	}
+
+	if txn.MaxFee.ShortString() == "0x0" {
+		return fmt.Errorf("max_fee must be bigger than 0.\n0 >= 0")
+	}
+
+	return nil
 }
 
 // post performs additional utility function over doPost method
