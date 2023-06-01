@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	defaultPprofPort   = uint16(9080)
-	l1BlockConfirmationPeriod = uint64(16)
+	defaultPprofPort          = 9080
+	l1BlockConfirmationPeriod = 16
 )
 
 // Config is the top-level juno configuration.
