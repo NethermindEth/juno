@@ -128,15 +128,17 @@ func (c *Client) AddInvokeTransaction(ctx context.Context, txn *BroadcastedInvok
 func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
 	validate := validator.New()
 	if err := validate.Struct(txn); err != nil {
-		return fmt.Errorf("{'%s': ['Missing data for required field.']}", err.(validator.ValidationErrors)[0].Field())
+		errMsg := "{\"message\": \"{%s: ['Missing data for required field.']}\"}"
+		return fmt.Errorf(errMsg, err.(validator.ValidationErrors)[0].Field())
 	}
 
 	if txn.Version != "0x1" {
-		return fmt.Errorf("Transaction version '%s' not supported. Supported versions: '0x1'", txn.Version)
+		errMsg := "{\"message\": \"Transaction version %s is not supported. Supported versions: [1].\"}"
+		return fmt.Errorf(errMsg, txn.Version)
 	}
 
 	if txn.MaxFee.ShortString() == "0x0" {
-		return fmt.Errorf("max_fee must be bigger than 0.\n0 >= 0")
+		return fmt.Errorf("{\"message\": \"max_fee must be bigger than 0.\\n0 >= 0\"}")
 	}
 
 	return nil
