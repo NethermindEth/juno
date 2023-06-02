@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/stretchr/testify/assert"
@@ -296,6 +297,41 @@ func TestMaxTrieHeight(t *testing.T) {
 			return nil
 		}))
 	})
+}
+
+func TestRoot(t *testing.T) {
+	require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+		t.Run("root on empty trie", func(t *testing.T) {
+			want := new(felt.Felt)
+			got, err := tempTrie.Root()
+			require.NoError(t, err)
+			assert.Equal(t, want, got)
+		})
+
+		t.Run("root after one insertion", func(t *testing.T) {
+			bottom := new(felt.Felt).SetUint64(1)
+			key := new(felt.Felt).SetUint64(1)
+
+			_, err := tempTrie.Put(key, bottom)
+			require.NoError(t, err)
+
+			// Update root. Ensure it matches expectations.
+			want := crypto.Pedersen(bottom, key)
+			// We inserted a leaf, so path length is the height of the trie.
+			// That's felt.Bits-1 = 251.
+			want.Add(want, new(felt.Felt).SetUint64(felt.Bits-1))
+			got, err := tempTrie.Root()
+			require.NoError(t, err)
+			assert.Equal(t, want, got)
+
+			// Recalculating after no changes should give same result.
+			got, err = tempTrie.Root()
+			require.NoError(t, err)
+			assert.Equal(t, want, got)
+		})
+
+		return nil
+	}))
 }
 
 func BenchmarkTriePut(b *testing.B) {
