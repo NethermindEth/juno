@@ -2,6 +2,7 @@ package trie
 
 import (
 	"bytes"
+	"errors"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
@@ -124,6 +125,31 @@ func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 		delete(t.cache, keyStr)
 	}
 	return nil
+}
+
+func (t *TransactionStorage) RootKey() (*bitset.BitSet, error) {
+	var rootKey *bitset.BitSet // Don't allocate until we know the root key is set.
+	if err := t.txn.Get(t.prefix, func(val []byte) error {
+		rootKey = new(bitset.BitSet) // Root key exists: now we allocate.
+		return rootKey.UnmarshalBinary(val)
+	}); err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+		return nil, err
+	}
+
+	return rootKey, nil
+}
+
+func (t *TransactionStorage) UpdateRootKey(newKey *bitset.BitSet) error {
+	if newKey == nil {
+		return t.txn.Delete(t.prefix)
+	}
+
+	newKeyBytes, err := newKey.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	return t.txn.Set(t.prefix, newKeyBytes)
 }
 
 func newMemStorage() Storage {

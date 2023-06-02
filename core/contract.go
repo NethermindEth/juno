@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
-	"github.com/bits-and-blooms/bitset"
 )
 
 const contractStorageTrieHeight = 251
@@ -155,26 +154,7 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 		}
 	}
 
-	if err = cStorage.Commit(); err != nil {
-		return err
-	}
-
-	// update contract storage root in the database
-	rootKeyDBKey := db.ContractStorage.Key(c.Address.Marshal())
-	if rootKey := cStorage.RootKey(); rootKey != nil {
-		rootKeyBytes, err := rootKey.MarshalBinary()
-		if err != nil {
-			return err
-		}
-
-		if err := c.txn.Set(rootKeyDBKey, rootKeyBytes); err != nil {
-			return err
-		}
-	} else if err := c.txn.Delete(rootKeyDBKey); err != nil {
-		return err
-	}
-
-	return nil
+	return cStorage.Commit()
 }
 
 func (c *Contract) Storage(key *felt.Felt) (*felt.Felt, error) {
@@ -213,16 +193,6 @@ func (c *Contract) Replace(classHash *felt.Felt) error {
 // storage of the contract.
 func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
-	var contractRootKey *bitset.BitSet
-
-	if err := txn.Get(db.ContractStorage.Key(addrBytes), func(val []byte) error {
-		contractRootKey = new(bitset.BitSet)
-		return contractRootKey.UnmarshalBinary(val)
-	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		// Don't continue normal operation with arbitrary
-		// database error.
-		return nil, err
-	}
 	trieTxn := trie.NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
-	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight, contractRootKey)
+	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight)
 }

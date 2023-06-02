@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/bits-and-blooms/bitset"
 )
 
 const globalTrieHeight = 251
@@ -100,7 +99,7 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 func (s *State) Root() (*felt.Felt, error) {
 	var storageRoot, classesRoot *felt.Felt
 
-	sStorage, closer, err := s.storage()
+	sStorage, err := s.storage()
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +108,11 @@ func (s *State) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	if err = closer(); err != nil {
+	if err = sStorage.Commit(); err != nil {
 		return nil, err
 	}
 
-	classes, closer, err := s.classesTrie()
+	classes, err := s.classesTrie()
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +121,7 @@ func (s *State) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	if err = closer(); err != nil {
+	if err = classes.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -134,60 +133,24 @@ func (s *State) Root() (*felt.Felt, error) {
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
-func (s *State) storage() (*trie.Trie, func() error, error) {
+func (s *State) storage() (*trie.Trie, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
 }
 
-func (s *State) classesTrie() (*trie.Trie, func() error, error) {
+func (s *State) classesTrie() (*trie.Trie, error) {
 	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
 }
 
-func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, error) {
 	dbPrefix := bucket.Key()
 	tTxn := trie.NewTransactionStorage(s.txn, dbPrefix)
 
-	// fetch root key
-	rootKeyDBKey := dbPrefix
-	var rootKey *bitset.BitSet
-	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(bitset.BitSet)
-		return rootKey.UnmarshalBinary(val)
-	})
-
-	// if some error other than "not found"
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
-		return nil, nil, err
-	}
-
-	gTrie, err := newTrie(tTxn, globalTrieHeight, rootKey)
+	gTrie, err := newTrie(tTxn, globalTrieHeight)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// prep closer
-	closer := func() error {
-		if err = gTrie.Commit(); err != nil {
-			return err
-		}
-
-		resultingRootKey := gTrie.RootKey()
-		// no updates on the trie, short circuit and return
-		if resultingRootKey.Equal(rootKey) {
-			return nil
-		}
-
-		if resultingRootKey != nil {
-			rootKeyBytes, marshalErr := resultingRootKey.MarshalBinary()
-			if marshalErr != nil {
-				return marshalErr
-			}
-
-			return s.txn.Set(rootKeyDBKey, rootKeyBytes)
-		}
-		return s.txn.Delete(rootKeyDBKey)
-	}
-
-	return gTrie, closer, nil
+	return gTrie, nil
 }
 
 // Update applies a StateUpdate to the State object. State is not
@@ -228,7 +191,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 }
 
 func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
-	stateTrie, storageCloser, err := s.storage()
+	stateTrie, err := s.storage()
 	if err != nil {
 		return err
 	}
@@ -275,7 +238,7 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 		}
 	}
 
-	return storageCloser()
+	return stateTrie.Commit()
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
@@ -408,7 +371,7 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 }
 
 func (s *State) updateDeclaredClasses(declaredClasses []DeclaredV1Class) error {
-	classesTrie, classesCloser, err := s.classesTrie()
+	classesTrie, err := s.classesTrie()
 	if err != nil {
 		return err
 	}
@@ -421,7 +384,7 @@ func (s *State) updateDeclaredClasses(declaredClasses []DeclaredV1Class) error {
 		}
 	}
 
-	return classesCloser()
+	return classesTrie.Commit()
 }
 
 // ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber

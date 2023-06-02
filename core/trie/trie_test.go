@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -300,26 +301,28 @@ func TestMaxTrieHeight(t *testing.T) {
 }
 
 func TestRoot(t *testing.T) {
-	require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
-		t.Run("root on empty trie", func(t *testing.T) {
+	height := uint(251)
+
+	require.NoError(t, trie.RunOnTempTrie(height, func(tempTrie *trie.Trie) error {
+		t.Run("empty trie", func(t *testing.T) {
 			want := new(felt.Felt)
 			got, err := tempTrie.Root()
 			require.NoError(t, err)
 			assert.Equal(t, want, got)
 		})
 
-		t.Run("root after one insertion", func(t *testing.T) {
+		t.Run("after one insertion", func(t *testing.T) {
 			bottom := new(felt.Felt).SetUint64(1)
 			key := new(felt.Felt).SetUint64(1)
 
 			_, err := tempTrie.Put(key, bottom)
 			require.NoError(t, err)
 
-			// Update root. Ensure it matches expectations.
 			want := crypto.Pedersen(bottom, key)
 			// We inserted a leaf, so path length is the height of the trie.
-			// That's felt.Bits-1 = 251.
-			want.Add(want, new(felt.Felt).SetUint64(felt.Bits-1))
+			want.Add(want, new(felt.Felt).SetUint64(uint64(height)))
+
+			// Update root.
 			got, err := tempTrie.Root()
 			require.NoError(t, err)
 			assert.Equal(t, want, got)
@@ -332,6 +335,65 @@ func TestRoot(t *testing.T) {
 
 		return nil
 	}))
+
+	// Not doing what this test requires--updating the root key on all branches--
+	// leads to some tricky errors. For example:
+	//
+	//  1. A trie is created and performs the following operations:
+	//     a. Put
+	//     b. Commit
+	//     c. Delete
+	//     d. Commit
+	//  2. A second trie is created with the same db transaction and immediately
+	//     calls [trie.Root].
+	//
+	// If the root key is not updated in the db transaction at step 1d,
+	// the second trie will initialise its root key to the wrong value
+	// (to the value the root key had at step 1b).
+	t.Run("root key is updated on all branches", func(t *testing.T) {
+		// We simulate the situation described above.
+
+		// The database transaction we will use to create both tries.
+		txn := db.NewMemTransaction()
+
+		// Step 1: Create first trie
+		tempTrie := newTriePoseidon(t, txn, height)
+
+		// Step 1a: Put
+		key := new(felt.Felt).SetUint64(1)
+		_, err := tempTrie.Put(key, new(felt.Felt).SetUint64(1))
+		require.NoError(t, err)
+
+		// Step 1b: Commit
+		require.NoError(t, tempTrie.Commit())
+
+		// Step 1c: Delete
+		_, err = tempTrie.Put(key, new(felt.Felt)) // Inserting zero felt is a deletion.
+		require.NoError(t, err)
+
+		want := new(felt.Felt)
+
+		// Step 1d: Commit
+		got, err := tempTrie.Root()
+		require.NoError(t, err)
+		// Ensure root value matches expectation.
+		assert.Equal(t, want, got)
+
+		// Step 2: Different trie created with the same db transaction and calls [trie.Root].
+		secondTrie := newTriePoseidon(t, txn, height)
+		got, err = secondTrie.Root()
+		require.NoError(t, err)
+		// Ensure root value is the same as the first trie.
+		assert.Equal(t, want, got)
+	})
+}
+
+func newTriePoseidon(t *testing.T, txn db.Transaction, height uint) *trie.Trie {
+	t.Helper()
+	tTxn := trie.NewTransactionStorage(txn, []byte("prefix"))
+	tempTrie, err := trie.NewTriePoseidon(tTxn, height)
+	require.NoError(t, err)
+	return tempTrie
 }
 
 func BenchmarkTriePut(b *testing.B) {

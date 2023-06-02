@@ -82,7 +82,7 @@ func (b *Blockchain) Network() utils.Network {
 // If blockchain is empty zero felt is returned.
 func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, b.database.View(func(txn db.Transaction) error {
+	return commitment, b.database.Update(func(txn db.Transaction) error {
 		var err error
 		commitment, err = core.NewState(txn).Root()
 		return err

@@ -18,6 +18,9 @@ type Storage interface {
 	Put(key *bitset.BitSet, value *Node) error
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
+
+	UpdateRootKey(newKey *bitset.BitSet) error
+	RootKey() (*bitset.BitSet, error)
 }
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
@@ -49,17 +52,17 @@ type Trie struct {
 	dirtyNodes []*bitset.BitSet
 }
 
-type NewTrieFunc func(Storage, uint, *bitset.BitSet) (*Trie, error)
+type NewTrieFunc func(Storage, uint) (*Trie, error)
 
-func NewTriePedersen(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
-	return newTrie(storage, height, rootKey, crypto.Pedersen)
+func NewTriePedersen(storage Storage, height uint) (*Trie, error) {
+	return newTrie(storage, height, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
-	return newTrie(storage, height, rootKey, crypto.Poseidon)
+func NewTriePoseidon(storage Storage, height uint) (*Trie, error) {
+	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc) (*Trie, error) {
+func newTrie(storage Storage, height uint, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -67,6 +70,11 @@ func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc
 	// maxKey is 2^height - 1
 	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
 	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
+
+	rootKey, err := storage.RootKey()
+	if err != nil {
+		return nil, err
+	}
 
 	return &Trie{
 		storage: storage,
@@ -79,7 +87,7 @@ func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTrie(height uint, do func(*Trie) error) error {
-	trie, err := NewTriePedersen(newMemStorage(), height, nil)
+	trie, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return err
 	}
@@ -374,8 +382,12 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 	return nil
 }
 
-// Root returns the commitment of a [Trie]
+// Root returns the commitment of a [Trie].
 func (t *Trie) Root() (*felt.Felt, error) {
+	if err := t.storage.UpdateRootKey(t.rootKey); err != nil {
+		return nil, err
+	}
+
 	if t.rootKey == nil {
 		return new(felt.Felt), nil
 	}

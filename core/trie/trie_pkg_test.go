@@ -12,7 +12,7 @@ import (
 
 func TestTrieKeys(t *testing.T) {
 	t.Run("put to empty trie", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251, nil)
+		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 		require.NoError(t, err)
 		keyNum, err := strconv.ParseUint("1101", 2, 64)
 		require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestTrieKeys(t *testing.T) {
 	})
 
 	t.Run("put a left then a right node", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251, nil)
+		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 		require.NoError(t, err)
 		// First put a left node
 		leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
@@ -73,7 +73,7 @@ func TestTrieKeys(t *testing.T) {
 	})
 
 	t.Run("put a right node then a left node", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251, nil)
+		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 		require.NoError(t, err)
 		// First put a right node
 		rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
@@ -110,7 +110,7 @@ func TestTrieKeys(t *testing.T) {
 	})
 
 	t.Run("Add new key to different branches", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251, nil)
+		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 		require.NoError(t, err)
 		// left branch
 		leftKeyNum, err := strconv.ParseUint("100", 2, 64)
@@ -235,7 +235,7 @@ func TestTrieKeysAfterDeleteSubtree(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tempTrie, err := NewTriePedersen(newMemStorage(), 251, nil)
+			tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 			require.NoError(t, err)
 			// Build a basic trie
 			_, err = tempTrie.Put(leftLeftKey, leftLeftVal)

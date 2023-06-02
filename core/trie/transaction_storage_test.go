@@ -61,6 +61,41 @@ func TestTransactionStorage(t *testing.T) {
 		}))
 	})
 
+	t.Run("get the root key", func(t *testing.T) {
+		// Root key should be empty
+		require.NoError(t, testDB.View(func(txn db.Transaction) error {
+			tTxn := trie.NewTransactionStorage(txn, prefix)
+			rootKey, err := tTxn.RootKey()
+			require.NoError(t, err)
+			assert.Nil(t, rootKey)
+			return err
+		}))
+	})
+
+	t.Run("update the root key", func(t *testing.T) {
+		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+			tTxn := trie.NewTransactionStorage(txn, prefix)
+			rootKey := bitset.New(3).Set(0)
+			err := tTxn.UpdateRootKey(rootKey)
+			require.NoError(t, err)
+
+			// Retrieve root key and ensure it matches.
+			txnRootKey, err := tTxn.RootKey()
+			require.NoError(t, err)
+			assert.Equal(t, rootKey, txnRootKey)
+
+			// Delete the root key by updating it to nil.
+			rootKey = nil
+			err = tTxn.UpdateRootKey(rootKey)
+			require.NoError(t, err)
+			txnRootKey, err = tTxn.RootKey()
+			require.NoError(t, err)
+			assert.Equal(t, rootKey, txnRootKey)
+
+			return err
+		}))
+	})
+
 	t.Run("delete a node", func(t *testing.T) {
 		// Delete a node.
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
