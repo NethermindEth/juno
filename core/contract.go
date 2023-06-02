@@ -160,7 +160,7 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	}
 
 	// update contract storage root in the database
-	rootKeyDBKey := db.ContractRootKey.Key(c.Address.Marshal())
+	rootKeyDBKey := db.ContractStorage.Key(c.Address.Marshal())
 	if rootKey := cStorage.RootKey(); rootKey != nil {
 		rootKeyBytes, err := rootKey.MarshalBinary()
 		if err != nil {
@@ -215,7 +215,7 @@ func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	var contractRootKey *bitset.BitSet
 
-	if err := txn.Get(db.ContractRootKey.Key(addrBytes), func(val []byte) error {
+	if err := txn.Get(db.ContractStorage.Key(addrBytes), func(val []byte) error {
 		contractRootKey = new(bitset.BitSet)
 		return contractRootKey.UnmarshalBinary(val)
 	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
