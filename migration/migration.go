@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 
@@ -13,6 +14,7 @@ type revision func(transaction db.Transaction) error
 // After making breaking changes to the DB layout, add new revisions to this list.
 var revisions = []revision{
 	revision0000,
+	relocateContractStorageRootKeys,
 }
 
 func MigrateIfNeeded(targetDB db.DB) error {
@@ -81,4 +83,62 @@ func revision0000(txn db.Transaction) error {
 		return db.CloseAndWrapOnError(it.Close, errors.New("initial DB should be empty"))
 	}
 	return it.Close()
+}
+
+// relocateContractStorageRootKeys moves contract root keys to new locations and deletes the previous locations.
+//
+// Before: the key to the root in a contract storage trie was stored at 1+<contractAddress>.
+// After: the key to the root of the contract storage trie is stored at 3+<contractAddress>.
+//
+// This enables us to remove the db.ContractRootKey prefix.
+func relocateContractStorageRootKeys(txn db.Transaction) error {
+	it, err := txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
+	// Modifying the db with txn.Set/Delete while iterating can cause consistency issues,
+	// so we do them separately.
+
+	// Iterate over all entries in the old bucket, copying each into memory.
+	// Even with millions of contracts, this shouldn't be too expensive.
+	oldEntries := make(map[string][]byte)
+	oldPrefix := db.Unused.Key()
+	var value []byte
+	for it.Seek(oldPrefix); it.Valid(); it.Next() {
+		// Stop iterating once we're out of the old bucket.
+		if !bytes.Equal(it.Key()[:len(oldPrefix)], oldPrefix) {
+			break
+		}
+
+		oldKey := it.Key()
+		value, err = it.Value()
+		if err != nil {
+			return db.CloseAndWrapOnError(it.Close, err)
+		}
+		oldEntries[string(oldKey)] = value
+	}
+
+	if err = it.Close(); err != nil {
+		return err
+	}
+
+	// Move the entries to their new locations.
+	for oldKey, value := range oldEntries {
+		oldKeyBytes := []byte(oldKey)
+		contractAddress, found := bytes.CutPrefix(oldKeyBytes, oldPrefix)
+		if !found {
+			// Should not happen.
+			return db.CloseAndWrapOnError(it.Close, errors.New("prefix not found"))
+		}
+
+		if err := txn.Set(db.ContractStorage.Key(contractAddress), value); err != nil {
+			return db.CloseAndWrapOnError(it.Close, err)
+		}
+		if err := txn.Delete(oldKeyBytes); err != nil {
+			return db.CloseAndWrapOnError(it.Close, err)
+		}
+	}
+
+	return nil
 }

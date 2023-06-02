@@ -9,7 +9,7 @@ type Bucket byte
 // man's bucket alternative.
 const (
 	StateTrie         Bucket = iota // state metadata (e.g., the state root)
-	ContractRootKey                 // contract storage roots
+	Unused                          // Previously held contract storage roots and is now unused. May be reused in the future.
 	ContractClassHash               // maps contract addresses and class hashes
 	ContractStorage                 // contract storages
 	Class                           // maps class hashes to classes
