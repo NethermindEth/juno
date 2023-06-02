@@ -9,7 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/clients/sequencer"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -1504,7 +1504,7 @@ func TestAddInvokeTransaction(t *testing.T) {
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
 
 	t.Run("required fields are missing", func(t *testing.T) {
-		invokeTx := &gateway.BroadcastedInvokeTxn{}
+		invokeTx := &sequencer.BroadcastedInvokeTxn{}
 
 		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
 			Return(nil, errors.New("['Missing data for required field.']"))
@@ -1519,7 +1519,7 @@ func TestAddInvokeTransaction(t *testing.T) {
 
 		txHash, err := new(felt.Felt).SetRandom()
 		require.NoError(t, err)
-		addInvokeResponse := gateway.InvokeTxResponse{
+		addInvokeResponse := sequencer.AddInvokeTxResponse{
 			TransactionHash: txHash,
 		}
 
@@ -1559,20 +1559,20 @@ func TestAddInvokeTransaction(t *testing.T) {
 	})
 }
 
-func generateAddInvokeTx() *gateway.BroadcastedInvokeTxn {
+func generateAddInvokeTx() *sequencer.BroadcastedInvokeTxn {
 	maxFee := new(felt.Felt).SetUint64(0x1)
 	nonce := new(felt.Felt).SetUint64(1)
 	senderAddress, _ := new(felt.Felt).SetRandom()
 
-	return &gateway.BroadcastedInvokeTxn{
-		BroadcastedTxn: gateway.BroadcastedTxn{
+	return &sequencer.BroadcastedInvokeTxn{
+		BroadcastedTxn: sequencer.BroadcastedTxn{
 			MaxFee:    maxFee,
 			Version:   "0x1",
 			Signature: []*felt.Felt{},
 			Nonce:     nonce,
 		},
 		Type: "INVOKE",
-		InvokeTxnV1: gateway.InvokeTxnV1{
+		InvokeTxnV1: sequencer.InvokeTxnV1{
 			SenderAddress: senderAddress,
 			Calldata:      []*felt.Felt{},
 		},

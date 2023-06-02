@@ -12,16 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/sequencer"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
 )
-
-//go:generate mockgen -destination=../../mocks/mock_gateway.go -package=mocks github.com/NethermindEth/juno/clients/gateway Gateway
-type Gateway interface {
-	AddInvokeTransaction(context.Context, *BroadcastedInvokeTxn) (*InvokeTxResponse, error)
-}
 
 type Client struct {
 	url        string
@@ -59,7 +55,7 @@ func NewTestClient(network utils.Network) (*Client, closeTestClient) {
 
 func newTestServer(network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		invokeTx := new(BroadcastedInvokeTxn)
+		invokeTx := new(sequencer.BroadcastedInvokeTxn)
 		err := json.NewDecoder(r.Body).Decode(&invokeTx)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -107,25 +103,8 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	}
 }
 
-func (c *Client) AddInvokeTransaction(ctx context.Context, txn *BroadcastedInvokeTxn) (*InvokeTxResponse, error) {
-	endpoint := c.url + "/add_transaction"
-
-	body, err := c.post(ctx, endpoint, txn)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	var resp InvokeTxResponse
-	if err = json.NewDecoder(body).Decode(&resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
-}
-
 // checkAddInvokeTx checks invoke-transactions for validation and version errors, etc.
-func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
+func checkAddInvokeTx(txn *sequencer.BroadcastedInvokeTxn) error {
 	validate := validator.New()
 	if err := validate.Struct(txn); err != nil {
 		errMsg := "{\"message\": \"{%s: ['Missing data for required field.']}\"}"
@@ -142,6 +121,23 @@ func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
 	}
 
 	return nil
+}
+
+func (c *Client) AddInvokeTransaction(ctx context.Context, txn *sequencer.BroadcastedInvokeTxn) (*sequencer.AddInvokeTxResponse, error) {
+	endpoint := c.url + "/add_transaction"
+
+	body, err := c.post(ctx, endpoint, txn)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	var resp sequencer.AddInvokeTxResponse
+	if err = json.NewDecoder(body).Decode(&resp); err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
 }
 
 // post performs additional utility function over doPost method

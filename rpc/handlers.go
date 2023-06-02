@@ -6,13 +6,18 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/clients/sequencer"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
+
+//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
+type Gateway interface {
+	AddInvokeTransaction(context.Context, *sequencer.BroadcastedInvokeTxn) (*sequencer.AddInvokeTxResponse, error)
+}
 
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
@@ -38,11 +43,11 @@ type Handler struct {
 	bcReader      blockchain.Reader
 	synchronizer  *sync.Synchronizer
 	network       utils.Network
-	gatewayClient gateway.Gateway
+	gatewayClient Gateway
 	log           utils.Logger
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, gatewayClient gateway.Gateway,
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, gatewayClient Gateway,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
@@ -746,7 +751,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
-func (h *Handler) AddInvokeTransaction(invokeTx *gateway.BroadcastedInvokeTxn) (*AddInvokeTransactionResponse, *jsonrpc.Error) {
+func (h *Handler) AddInvokeTransaction(invokeTx *sequencer.BroadcastedInvokeTxn) (*AddInvokeTransactionResponse, *jsonrpc.Error) {
 	invokeTx.Type = "INVOKE_FUNCTION"
 
 	resp, err := h.gatewayClient.AddInvokeTransaction(context.TODO(), invokeTx)

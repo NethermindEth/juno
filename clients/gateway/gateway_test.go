@@ -6,26 +6,27 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/clients/sequencer"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func generateAddInvokeTx() *gateway.BroadcastedInvokeTxn {
+func generateAddInvokeTx() *sequencer.BroadcastedInvokeTxn {
 	maxFee := new(felt.Felt).SetUint64(0x1)
 	nonce := new(felt.Felt).SetUint64(1)
 	senderAddress, _ := new(felt.Felt).SetRandom()
 
-	return &gateway.BroadcastedInvokeTxn{
-		BroadcastedTxn: gateway.BroadcastedTxn{
+	return &sequencer.BroadcastedInvokeTxn{
+		BroadcastedTxn: sequencer.BroadcastedTxn{
 			MaxFee:    maxFee,
 			Version:   "0x1",
 			Signature: []*felt.Felt{},
 			Nonce:     nonce,
 		},
 		Type: "INVOKE",
-		InvokeTxnV1: gateway.InvokeTxnV1{
+		InvokeTxnV1: sequencer.InvokeTxnV1{
 			SenderAddress: senderAddress,
 			Calldata:      []*felt.Felt{},
 		},
@@ -48,7 +49,7 @@ func TestAddInvokeTx(t *testing.T) {
 	})
 
 	t.Run("Incorrect empty request", func(t *testing.T) {
-		invokeTx := &gateway.BroadcastedInvokeTxn{}
+		invokeTx := &sequencer.BroadcastedInvokeTxn{}
 		resp, err := client.AddInvokeTransaction(context.Background(), invokeTx)
 
 		assert.Nil(t, resp)

@@ -1,4 +1,4 @@
-package gateway
+package sequencer
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
@@ -27,7 +27,7 @@ type BroadcastedInvokeTxn struct {
 	InvokeTxnV1
 }
 
-type InvokeTxResponse struct {
+type AddInvokeTxResponse struct {
 	Code            string     `json:"code"`
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
