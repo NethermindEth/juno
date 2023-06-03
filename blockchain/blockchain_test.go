@@ -268,6 +268,35 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
 	})
+
+	t.Run("error when state current root doesn't match state update's old root", func(t *testing.T) {
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
+		block0, err := gw.BlockByNumber(context.Background(), 0)
+		require.NoError(t, err)
+		su0, err := gw.StateUpdate(context.Background(), 0)
+		require.NoError(t, err)
+
+		su0.OldRoot = new(felt.Felt).SetUint64(12345)
+
+		expectedErr := fmt.Sprintf("state's current root: %s does not match state update's old root: %s", new(felt.Felt), su0.OldRoot)
+		require.EqualError(t, chain.Store(block0, su0, nil), expectedErr)
+	})
+
+	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
+		block0, err := gw.BlockByNumber(context.Background(), 0)
+		require.NoError(t, err)
+		su0, err := gw.StateUpdate(context.Background(), 0)
+		require.NoError(t, err)
+
+		su0.NewRoot = new(felt.Felt).SetUint64(12345)
+
+		// mainnet block 0 state root
+		newRoot := utils.HexToFelt(t, "0x021870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6")
+
+		expectedErr := fmt.Sprintf("state's new root: %s does not match state update's new root: %s", newRoot, su0.NewRoot)
+		require.EqualError(t, chain.Store(block0, su0, nil), expectedErr)
+	})
 }
 
 func TestTransactionAndReceipt(t *testing.T) {

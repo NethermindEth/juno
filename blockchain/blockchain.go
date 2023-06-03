@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -83,8 +84,11 @@ func (b *Blockchain) Network() utils.Network {
 func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, b.database.Update(func(txn db.Transaction) error {
-		var err error
-		commitment, err = core.NewState(txn).Root()
+		state, err := core.NewState(txn)
+		if err != nil {
+			return err
+		}
+		commitment, err = state.Root()
 		return err
 	})
 }
@@ -232,23 +236,42 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := b.verifyBlock(txn, block); err != nil {
+		var err error
+
+		if err = b.verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+		state, err := core.NewState(txn)
+		if err != nil {
 			return err
 		}
-		if err := storeBlockHeader(txn, block.Header); err != nil {
+
+		currentRoot, err := state.Root()
+		if err != nil {
+			return err
+		} else if !stateUpdate.OldRoot.Equal(currentRoot) {
+			return fmt.Errorf("state's current root: %s does not match state update's old root: %s", currentRoot, stateUpdate.OldRoot)
+		}
+		if err = state.Update(block.Number, stateUpdate.StateDiff, newClasses); err != nil {
+			return err
+		}
+		newRoot, err := state.Root()
+		if err != nil {
+			return err
+		} else if !stateUpdate.NewRoot.Equal(newRoot) {
+			return fmt.Errorf("state's new root: %s does not match state update's new root: %s", newRoot, stateUpdate.NewRoot)
+		}
+		if err = storeBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 		for i, tx := range block.Transactions {
-			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+			if err = storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
 				block.Receipts[i]); err != nil {
 				return err
 			}
 		}
 
-		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+		if err = storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
 			return err
 		}
 
@@ -630,7 +653,11 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
 	}
 
-	return core.NewState(txn), txn.Discard, nil
+	state, err := core.NewState(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return state, txn.Discard, nil
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
@@ -641,7 +668,11 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), blockNumber), txn.Discard, nil
+	state, err := core.NewState(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return core.NewStateSnapshot(state, blockNumber), txn.Discard, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
@@ -652,7 +683,11 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), header.Number), txn.Discard, nil
+	state, err := core.NewState(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return core.NewStateSnapshot(state, header.Number), txn.Discard, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain

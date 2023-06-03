@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -41,13 +40,40 @@ type StateReader interface {
 type State struct {
 	*History
 	txn db.Transaction
+
+	stateTrie   *trie.Trie
+	classesTrie *trie.Trie
 }
 
-func NewState(txn db.Transaction) *State {
-	return &State{
-		History: NewHistory(txn),
-		txn:     txn,
+func NewState(txn db.Transaction) (*State, error) {
+	makeTrie := func(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, error) {
+		dbPrefix := bucket.Key()
+		tTxn := trie.NewTransactionStorage(txn, dbPrefix)
+
+		gTrie, err := newTrie(tTxn, globalTrieHeight)
+		if err != nil {
+			return nil, err
+		}
+
+		return gTrie, nil
 	}
+
+	stateTrie, err := makeTrie(db.StateTrie, trie.NewTriePedersen)
+	if err != nil {
+		return nil, err
+	}
+
+	classesTrie, err := makeTrie(db.ClassesTrie, trie.NewTriePoseidon)
+	if err != nil {
+		return nil, err
+	}
+
+	return &State{
+		History:     NewHistory(txn),
+		txn:         txn,
+		stateTrie:   stateTrie,
+		classesTrie: classesTrie,
+	}, nil
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
@@ -98,30 +124,13 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
 	var storageRoot, classesRoot *felt.Felt
+	var err error
 
-	sStorage, err := s.storage()
-	if err != nil {
+	if storageRoot, err = s.stateTrie.Root(); err != nil {
 		return nil, err
 	}
 
-	if storageRoot, err = sStorage.Root(); err != nil {
-		return nil, err
-	}
-
-	if err = sStorage.Commit(); err != nil {
-		return nil, err
-	}
-
-	classes, err := s.classesTrie()
-	if err != nil {
-		return nil, err
-	}
-
-	if classesRoot, err = classes.Root(); err != nil {
-		return nil, err
-	}
-
-	if err = classes.Commit(); err != nil {
+	if classesRoot, err = s.classesTrie.Root(); err != nil {
 		return nil, err
 	}
 
@@ -132,38 +141,12 @@ func (s *State) Root() (*felt.Felt, error) {
 	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 }
 
-// storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
-func (s *State) storage() (*trie.Trie, error) {
-	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
-}
-
-func (s *State) classesTrie() (*trie.Trie, error) {
-	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
-}
-
-func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, error) {
-	dbPrefix := bucket.Key()
-	tTxn := trie.NewTransactionStorage(s.txn, dbPrefix)
-
-	gTrie, err := newTrie(tTxn, globalTrieHeight)
-	if err != nil {
-		return nil, err
-	}
-
-	return gTrie, nil
-}
-
 // Update applies a StateUpdate to the State object. State is not
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
-	currentRoot, err := s.Root()
-	if err != nil {
-		return err
-	} else if !update.OldRoot.Equal(currentRoot) {
-		return fmt.Errorf("state's current root: %s does not match state update's old root: %s", currentRoot, update.OldRoot)
-	}
+func (s *State) Update(blockNumber uint64, diff *StateDiff, declaredClasses map[felt.Felt]Class) error {
+	var err error
 
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	// Todo: add test cases for retrieving Classes when State struct is extended to return Classes.
@@ -173,39 +156,28 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		}
 	}
 
-	if err = s.updateDeclaredClasses(update.StateDiff.DeclaredV1Classes); err != nil {
+	if err = s.updateDeclaredClasses(diff.DeclaredV1Classes); err != nil {
 		return err
 	}
 
-	if err = s.updateContracts(blockNumber, update.StateDiff); err != nil {
+	if err = s.updateContracts(blockNumber, diff); err != nil {
 		return err
 	}
 
-	newRoot, err := s.Root()
-	if err != nil {
-		return err
-	} else if !update.NewRoot.Equal(newRoot) {
-		return fmt.Errorf("state's new root: %s does not match state update's new root: %s", newRoot, update.NewRoot)
-	}
 	return nil
 }
 
 func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
-	stateTrie, err := s.storage()
-	if err != nil {
-		return err
-	}
-
 	// register deployed contracts
 	for _, contract := range diff.DeployedContracts {
-		if err := s.putNewContract(stateTrie, contract.Address, contract.ClassHash, blockNumber); err != nil {
+		if err := s.putNewContract(s.stateTrie, contract.Address, contract.ClassHash, blockNumber); err != nil {
 			return err
 		}
 	}
 
 	// replace contract instances
 	for _, replace := range diff.ReplacedClasses {
-		oldClassHash, err := s.replaceContract(stateTrie, replace.Address, replace.ClassHash)
+		oldClassHash, err := s.replaceContract(s.stateTrie, replace.Address, replace.ClassHash)
 		if err != nil {
 			return err
 		}
@@ -217,7 +189,7 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 
 	// update contract nonces
 	for addr, nonce := range diff.Nonces {
-		oldNonce, err := s.updateContractNonce(stateTrie, &addr, nonce)
+		oldNonce, err := s.updateContractNonce(s.stateTrie, &addr, nonce)
 		if err != nil {
 			return err
 		}
@@ -233,12 +205,12 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff) error {
 			return s.LogContractStorage(&addr, location, oldValue, blockNumber)
 		}
 
-		if err := s.updateContractStorage(stateTrie, &addr, storageDiff, onValueChanged); err != nil {
+		if err := s.updateContractStorage(s.stateTrie, &addr, storageDiff, onValueChanged); err != nil {
 			return err
 		}
 	}
 
-	return stateTrie.Commit()
+	return s.stateTrie.Commit()
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
@@ -371,20 +343,16 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 }
 
 func (s *State) updateDeclaredClasses(declaredClasses []DeclaredV1Class) error {
-	classesTrie, err := s.classesTrie()
-	if err != nil {
-		return err
-	}
-
+	var err error
 	for _, declaredClass := range declaredClasses {
 		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
 		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
-		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
+		if _, err = s.classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
 			return err
 		}
 	}
 
-	return classesTrie.Commit()
+	return s.classesTrie.Commit()
 }
 
 // ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber

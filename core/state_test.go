@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -29,7 +28,8 @@ func TestUpdate(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	state := core.NewState(txn)
+	state, err := core.NewState(txn)
+	require.NoError(t, err)
 
 	su0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
@@ -41,39 +41,19 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
-		require.NoError(t, state.Update(0, su0, nil))
+		require.NoError(t, state.Update(0, su0.StateDiff, nil))
 		gotNewRoot, err := state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su0.NewRoot, gotNewRoot)
 	})
 
-	t.Run("error when state current root doesn't match state update's old root", func(t *testing.T) {
-		oldRoot := new(felt.Felt).SetBytes([]byte("some old root"))
-		su := &core.StateUpdate{
-			OldRoot: oldRoot,
-		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match state update's old root: %s", su0.NewRoot, oldRoot)
-		require.EqualError(t, state.Update(1, su, nil), expectedErr)
-	})
-
-	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
-		newRoot := new(felt.Felt).SetBytes([]byte("some new root"))
-		su := &core.StateUpdate{
-			NewRoot:   newRoot,
-			OldRoot:   su0.NewRoot,
-			StateDiff: new(core.StateDiff),
-		}
-		expectedErr := fmt.Sprintf("state's new root: %s does not match state update's new root: %s", su0.NewRoot, newRoot)
-		require.EqualError(t, state.Update(1, su, nil), expectedErr)
-	})
-
 	t.Run("non-empty state updated multiple times", func(t *testing.T) {
-		require.NoError(t, state.Update(1, su1, nil))
+		require.NoError(t, state.Update(1, su1.StateDiff, nil))
 		gotNewRoot, err := state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su1.NewRoot, gotNewRoot)
 
-		require.NoError(t, state.Update(2, su2, nil))
+		require.NoError(t, state.Update(2, su2.StateDiff, nil))
 		gotNewRoot, err = state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, gotNewRoot)
@@ -93,7 +73,7 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(3, su, nil))
+		require.NoError(t, state.Update(3, su.StateDiff, nil))
 		assert.NotEqual(t, su.NewRoot, su.OldRoot)
 	})
 }
@@ -110,7 +90,8 @@ func TestContractClassHash(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	state := core.NewState(txn)
+	state, err := core.NewState(txn)
+	require.NoError(t, err)
 
 	su0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
@@ -118,8 +99,8 @@ func TestContractClassHash(t *testing.T) {
 	su1, err := gw.StateUpdate(context.Background(), 1)
 	require.NoError(t, err)
 
-	require.NoError(t, state.Update(0, su0, nil))
-	require.NoError(t, state.Update(1, su1, nil))
+	require.NoError(t, state.Update(0, su0.StateDiff, nil))
+	require.NoError(t, state.Update(1, su1.StateDiff, nil))
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
 
@@ -153,7 +134,7 @@ func TestContractClassHash(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(2, replaceUpdate, nil))
+		require.NoError(t, state.Update(2, replaceUpdate.StateDiff, nil))
 
 		gotClassHash, err := state.ContractClassHash(su1.StateDiff.DeployedContracts[0].Address)
 		require.NoError(t, err)
@@ -169,7 +150,8 @@ func TestNonce(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	state := core.NewState(txn)
+	state, err := core.NewState(txn)
+	require.NoError(t, err)
 
 	addr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
 	root := utils.HexToFelt(t, "0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
@@ -187,7 +169,7 @@ func TestNonce(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, state.Update(0, su, nil))
+	require.NoError(t, state.Update(0, su.StateDiff, nil))
 
 	t.Run("newly deployed contract has zero nonce", func(t *testing.T) {
 		nonce, err := state.ContractNonce(addr)
@@ -205,7 +187,7 @@ func TestNonce(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(1, su, nil))
+		require.NoError(t, state.Update(1, su.StateDiff, nil))
 
 		gotNonce, err := state.ContractNonce(addr)
 		require.NoError(t, err)
@@ -225,10 +207,11 @@ func TestStateHistory(t *testing.T) {
 
 	gw := adaptfeeder.New(client)
 
-	state := core.NewState(txn)
+	state, err := core.NewState(txn)
+	require.NoError(t, err)
 	su0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, nil))
+	require.NoError(t, state.Update(0, su0.StateDiff, nil))
 
 	contractAddr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
 	changedLoc := utils.HexToFelt(t, "0x5")
@@ -257,7 +240,7 @@ func TestStateHistory(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, state.Update(1, su, nil))
+	require.NoError(t, state.Update(1, su.StateDiff, nil))
 
 	t.Run("should give old value for a location that changed after the given height", func(t *testing.T) {
 		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
@@ -278,7 +261,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	state := core.NewState(txn)
+	state, err := core.NewState(txn)
+	require.NoError(t, err)
 
 	su0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
@@ -286,8 +270,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 	su1, err := gw.StateUpdate(context.Background(), 1)
 	require.NoError(t, err)
 
-	require.NoError(t, state.Update(0, su0, nil))
-	require.NoError(t, state.Update(1, su1, nil))
+	require.NoError(t, state.Update(0, su0.StateDiff, nil))
+	require.NoError(t, state.Update(1, su1.StateDiff, nil))
 
 	t.Run("deployed on genesis", func(t *testing.T) {
 		deployedOn0 := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
@@ -346,10 +330,11 @@ func TestClass(t *testing.T) {
 		require.Contains(t, err.Error(), "already exists in TagSet")
 	}
 
-	state := core.NewState(txn)
+	state, err := core.NewState(txn)
+	require.NoError(t, err)
 	su0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
+	require.NoError(t, state.Update(0, su0.StateDiff, map[felt.Felt]core.Class{
 		*cairo0Hash: cairo0Class,
 		*cairo1Hash: cairo1Class,
 	}))
