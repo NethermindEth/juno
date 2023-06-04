@@ -42,12 +42,12 @@ type ExecutionResources struct {
 }
 
 type BuiltinInstanceCounter struct {
-	Bitwise    uint64
-	EcOp       uint64
-	Ecsda      uint64
-	Output     uint64
 	Pedersen   uint64
 	RangeCheck uint64
+	Bitwise    uint64
+	Output     uint64
+	Ecsda      uint64
+	EcOp       uint64
 }
 
 type TransactionReceipt struct {
