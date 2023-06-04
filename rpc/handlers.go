@@ -691,17 +691,13 @@ func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, ErrInternal
 	}
 
-	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
+	emittedEvents := make([]EmittedEvent, 0, len(filteredEvents))
 	for _, fEvent := range filteredEvents {
-		emittedEvents = append(emittedEvents, &EmittedEvent{
+		emittedEvents = append(emittedEvents, EmittedEvent{
 			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
-			Event: &Event{
-				From: fEvent.From,
-				Keys: fEvent.Keys,
-				Data: fEvent.Data,
-			},
+			Event:           Event(fEvent.Event),
 		})
 	}
 

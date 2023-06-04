@@ -16,8 +16,8 @@ import (
 )
 
 type Event struct {
-	Data []*felt.Felt
 	From *felt.Felt
+	Data []*felt.Felt
 	Keys []*felt.Felt
 }
 
@@ -52,7 +52,7 @@ type BuiltinInstanceCounter struct {
 
 type TransactionReceipt struct {
 	Fee                *felt.Felt
-	Events             []*Event
+	Events             []Event
 	ExecutionResources *ExecutionResources
 	L1ToL2Message      *L1ToL2Message
 	L2ToL1Message      []*L2ToL1Message

@@ -59,8 +59,8 @@ type MsgToL1 struct {
 
 type Event struct {
 	From *felt.Felt   `json:"from_address"`
-	Keys []*felt.Felt `json:"keys"`
 	Data []*felt.Felt `json:"data"`
+	Keys []*felt.Felt `json:"keys"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871

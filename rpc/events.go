@@ -20,12 +20,12 @@ type ResultPageRequest struct {
 }
 
 type EventsChunk struct {
-	Events            []*EmittedEvent `json:"events"`
-	ContinuationToken string          `json:"continuation_token,omitempty"`
+	Events            []EmittedEvent `json:"events"`
+	ContinuationToken string         `json:"continuation_token,omitempty"`
 }
 
 type EmittedEvent struct {
-	*Event
+	Event
 	BlockNumber     uint64     `json:"block_number"`
 	BlockHash       *felt.Felt `json:"block_hash"`
 	TransactionHash *felt.Felt `json:"transaction_hash"`

@@ -81,7 +81,7 @@ func (c *ContinuationToken) FromString(str string) error {
 }
 
 type FilteredEvent struct {
-	*core.Event
+	core.Event
 	BlockNumber     uint64
 	BlockHash       *felt.Felt
 	TransactionHash *felt.Felt

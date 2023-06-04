@@ -92,9 +92,9 @@ func adaptTransactionReceipt(response *feeder.TransactionReceipt) *core.Transact
 		return nil
 	}
 
-	events := make([]*core.Event, len(response.Events))
+	events := make([]core.Event, len(response.Events))
 	for i, event := range response.Events {
-		events[i] = adaptEvent(event)
+		events[i] = core.Event(event)
 	}
 
 	l2ToL1Messages := make([]*core.L2ToL1Message, len(response.L2ToL1Message))
@@ -109,18 +109,6 @@ func adaptTransactionReceipt(response *feeder.TransactionReceipt) *core.Transact
 		ExecutionResources: adaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      adaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
-	}
-}
-
-func adaptEvent(response *feeder.Event) *core.Event {
-	if response == nil {
-		return nil
-	}
-
-	return &core.Event{
-		Data: response.Data,
-		From: response.From,
-		Keys: response.Keys,
 	}
 }
 
