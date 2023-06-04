@@ -206,18 +206,15 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	sig := t.Signature()
 	txn := &Transaction{
-		Type:          TxnDeclare,
-		Hash:          t.Hash(),
-		MaxFee:        t.MaxFee,
-		Version:       t.Version,
-		Signature:     &sig,
-		Nonce:         t.Nonce,
-		ClassHash:     t.ClassHash,
-		SenderAddress: t.SenderAddress,
-	}
-
-	if t.Version.Equal(new(felt.Felt).SetUint64(2)) {
-		txn.CompiledClassHash = nil // todo: add when we have support for Declare V2
+		Type:              TxnDeclare,
+		Hash:              t.Hash(),
+		MaxFee:            t.MaxFee,
+		Version:           t.Version,
+		Signature:         &sig,
+		Nonce:             t.Nonce,
+		ClassHash:         t.ClassHash,
+		SenderAddress:     t.SenderAddress,
+		CompiledClassHash: t.CompiledClassHash,
 	}
 
 	return txn
