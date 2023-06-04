@@ -356,26 +356,17 @@ func adaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 
 	stateDiff.DeclaredV1Classes = make([]core.DeclaredV1Class, len(response.StateDiff.DeclaredClasses))
 	for index, declaredV1Class := range response.StateDiff.DeclaredClasses {
-		stateDiff.DeclaredV1Classes[index] = core.DeclaredV1Class{
-			ClassHash:         declaredV1Class.ClassHash,
-			CompiledClassHash: declaredV1Class.CompiledClassHash,
-		}
+		stateDiff.DeclaredV1Classes[index] = core.DeclaredV1Class(declaredV1Class)
 	}
 
 	stateDiff.ReplacedClasses = make([]core.ReplacedClass, len(response.StateDiff.ReplacedClasses))
 	for index, replacedClass := range response.StateDiff.ReplacedClasses {
-		stateDiff.ReplacedClasses[index] = core.ReplacedClass{
-			Address:   replacedClass.Address,
-			ClassHash: replacedClass.ClassHash,
-		}
+		stateDiff.ReplacedClasses[index] = core.ReplacedClass(replacedClass)
 	}
 
 	stateDiff.DeployedContracts = make([]core.DeployedContract, len(response.StateDiff.DeployedContracts))
 	for index, deployedContract := range response.StateDiff.DeployedContracts {
-		stateDiff.DeployedContracts[index] = core.DeployedContract{
-			Address:   deployedContract.Address,
-			ClassHash: deployedContract.ClassHash,
-		}
+		stateDiff.DeployedContracts[index] = core.DeployedContract(deployedContract)
 	}
 
 	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
@@ -394,12 +385,9 @@ func adaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 			return nil, err
 		}
 
-		stateDiff.StorageDiffs[*addr] = []core.StorageDiff{}
+		stateDiff.StorageDiffs[*addr] = make([]core.StorageDiff, 0, len(diffs))
 		for _, diff := range diffs {
-			stateDiff.StorageDiffs[*addr] = append(stateDiff.StorageDiffs[*addr], core.StorageDiff{
-				Key:   diff.Key,
-				Value: diff.Value,
-			})
+			stateDiff.StorageDiffs[*addr] = append(stateDiff.StorageDiffs[*addr], core.StorageDiff(diff))
 		}
 	}
 
