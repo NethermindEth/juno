@@ -281,15 +281,15 @@ func adaptCairo1Class(response *feeder.SierraDefinition, compiledClass json.RawM
 
 	class.EntryPoints.External = make([]core.SierraEntryPoint, len(response.EntryPoints.External))
 	for index, v := range response.EntryPoints.External {
-		class.EntryPoints.External[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+		class.EntryPoints.External[index] = core.SierraEntryPoint(v)
 	}
 	class.EntryPoints.L1Handler = make([]core.SierraEntryPoint, len(response.EntryPoints.L1Handler))
 	for index, v := range response.EntryPoints.L1Handler {
-		class.EntryPoints.L1Handler[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+		class.EntryPoints.L1Handler[index] = core.SierraEntryPoint(v)
 	}
 	class.EntryPoints.Constructor = make([]core.SierraEntryPoint, len(response.EntryPoints.Constructor))
 	for index, v := range response.EntryPoints.Constructor {
-		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+		class.EntryPoints.Constructor[index] = core.SierraEntryPoint(v)
 	}
 
 	if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
@@ -304,17 +304,17 @@ func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 
 	class.Externals = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.External {
-		class.Externals = append(class.Externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+		class.Externals = append(class.Externals, core.EntryPoint(v))
 	}
 
 	class.L1Handlers = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.L1Handler {
-		class.L1Handlers = append(class.L1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+		class.L1Handlers = append(class.L1Handlers, core.EntryPoint(v))
 	}
 
 	class.Constructors = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.Constructor {
-		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+		class.Constructors = append(class.Constructors, core.EntryPoint(v))
 	}
 
 	var program feeder.Program
