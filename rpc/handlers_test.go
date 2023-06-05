@@ -1535,16 +1535,13 @@ func TestAddInvokeTransaction(t *testing.T) {
 
 		txHash, err := new(felt.Felt).SetRandom()
 		require.NoError(t, err)
-		addInvokeResponse := core.InvokeTransaction{
-			TransactionHash: txHash,
-		}
 
 		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
-			Return(&addInvokeResponse, nil)
+			Return(txHash, nil)
 
 		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
-		require.Nil(t, handlerErr)
-		assert.Equal(t, resp.TransactionHash, addInvokeResponse.TransactionHash)
-	})
 
+		require.Nil(t, handlerErr)
+		assert.Equal(t, resp.TransactionHash, txHash)
+	})
 }
