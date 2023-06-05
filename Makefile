@@ -38,7 +38,7 @@ install-mockgen:
 	go install github.com/golang/mock/mockgen@latest
 
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
 
 lint:
 	@which golangci-lint || make install-golangci-lint
