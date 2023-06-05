@@ -1,4 +1,4 @@
-package sequencer
+package gateway
 
 import (
 	"github.com/NethermindEth/juno/core/felt"

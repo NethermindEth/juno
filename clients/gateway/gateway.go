@@ -12,10 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/clients/sequencer"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -38,7 +39,7 @@ func NewTestClient(network utils.Network) (*Client, closeTestClient) {
 
 func newTestServer(network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		invokeTx := new(sequencer.BroadcastedInvokeTxn)
+		invokeTx := new(BroadcastedInvokeTxn)
 		err := json.NewDecoder(r.Body).Decode(&invokeTx)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -87,7 +88,7 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 }
 
 // checkAddInvokeTx checks invoke-transactions for validation and version errors, etc.
-func checkAddInvokeTx(txn *sequencer.BroadcastedInvokeTxn) error {
+func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
 	validate := validator.New()
 	if err := validate.Struct(txn); err != nil {
 		errMsg := "{\"message\": \"{%s: ['Missing data for required field.']}\"}"
@@ -106,7 +107,7 @@ func checkAddInvokeTx(txn *sequencer.BroadcastedInvokeTxn) error {
 	return nil
 }
 
-func (c *Client) AddInvokeTransaction(ctx context.Context, txn *sequencer.BroadcastedInvokeTxn) (*sequencer.AddInvokeTxResponse, error) {
+func (c *Client) AddInvokeTransaction(ctx context.Context, txn *json.RawMessage) (*core.InvokeTransaction, error) {
 	endpoint := c.url + "/add_transaction"
 
 	body, err := c.post(ctx, endpoint, txn)
@@ -115,7 +116,7 @@ func (c *Client) AddInvokeTransaction(ctx context.Context, txn *sequencer.Broadc
 	}
 	defer body.Close()
 
-	var resp sequencer.AddInvokeTxResponse
+	var resp core.InvokeTransaction
 	if err = json.NewDecoder(body).Decode(&resp); err != nil {
 		return nil, err
 	}
