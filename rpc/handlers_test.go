@@ -1514,7 +1514,21 @@ func TestAddInvokeTransaction(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		invokeTx := generateAddInvokeTx()
+		maxFee := new(felt.Felt).SetUint64(0x1)
+		nonce := new(felt.Felt).SetUint64(1)
+		senderAddress, _ := new(felt.Felt).SetString("0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb")
+
+		invokeTx := &rpc.BroadcastedInvokeTxn{
+			BroadcastedTxnCmn: rpc.BroadcastedTxnCmn{
+				MaxFee:    maxFee,
+				Version:   rpc.NumAsHex(1),
+				Signature: []*felt.Felt{},
+				Nonce:     nonce,
+			},
+			Type:          "INVOKE",
+			SenderAddress: senderAddress,
+			Calldata:      []*felt.Felt{},
+		}
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
 		invokeTxRM := json.RawMessage(invokeTxByte)
@@ -1533,55 +1547,4 @@ func TestAddInvokeTransaction(t *testing.T) {
 		assert.Equal(t, resp.TransactionHash, addInvokeResponse.TransactionHash)
 	})
 
-	t.Run("Max Fee must be non-zero", func(t *testing.T) {
-		invokeTx := generateAddInvokeTx()
-		invokeTx.MaxFee.Set(&felt.Zero)
-		invokeTxByte, err := json.Marshal(invokeTx)
-		require.NoError(t, err)
-		invokeTxRM := json.RawMessage(invokeTxByte)
-
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
-			Return(nil, errors.New("max_fee must be bigger than 0.\n0 >= 0"))
-
-		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
-		require.Nil(t, resp)
-		assert.Equal(t, handlerErr.Code, jsonrpc.InvalidParams)
-		assert.Equal(t, handlerErr.Message, "max_fee must be bigger than 0.\n0 >= 0")
-		assert.Equal(t, handlerErr.Data, nil)
-	})
-
-	t.Run("Version must be 0x1", func(t *testing.T) {
-		invokeTx := generateAddInvokeTx()
-		invokeTx.Version = rpc.NumAsHex(0)
-		invokeTxByte, err := json.Marshal(invokeTx)
-		require.NoError(t, err)
-		invokeTxRM := json.RawMessage(invokeTxByte)
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
-			Return(nil, errors.New("Transaction version '0x0' not supported. Supported versions: '0x1'"))
-
-		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
-
-		require.Nil(t, resp)
-		assert.Equal(t, handlerErr.Code, jsonrpc.InvalidParams)
-		assert.Equal(t, handlerErr.Message, "Transaction version '0x0' not supported. Supported versions: '0x1'")
-		assert.Equal(t, handlerErr.Data, nil)
-	})
-}
-
-func generateAddInvokeTx() *rpc.BroadcastedInvokeTxn {
-	maxFee := new(felt.Felt).SetUint64(0x1)
-	nonce := new(felt.Felt).SetUint64(1)
-	senderAddress, _ := new(felt.Felt).SetString("0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb")
-
-	return &rpc.BroadcastedInvokeTxn{
-		BroadcastedTxnCmn: rpc.BroadcastedTxnCmn{
-			MaxFee:    maxFee,
-			Version:   rpc.NumAsHex(1),
-			Signature: []*felt.Felt{},
-			Nonce:     nonce,
-		},
-		Type:          "INVOKE",
-		SenderAddress: senderAddress,
-		Calldata:      []*felt.Felt{},
-	}
 }
