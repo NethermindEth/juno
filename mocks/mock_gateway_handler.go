@@ -9,7 +9,7 @@ import (
 	json "encoding/json"
 	reflect "reflect"
 
-	core "github.com/NethermindEth/juno/core"
+	felt "github.com/NethermindEth/juno/core/felt"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -37,10 +37,10 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 }
 
 // AddInvokeTransaction mocks base method.
-func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *json.RawMessage) (*core.InvokeTransaction, error) {
+func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *json.RawMessage) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddInvokeTransaction", arg0, arg1)
-	ret0, _ := ret[0].(*core.InvokeTransaction)
+	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

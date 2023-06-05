@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -107,7 +106,7 @@ func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
 	return nil
 }
 
-func (c *Client) AddInvokeTransaction(ctx context.Context, txn *json.RawMessage) (*core.InvokeTransaction, error) {
+func (c *Client) AddInvokeTransaction(ctx context.Context, txn *json.RawMessage) (*felt.Felt, error) {
 	endpoint := c.url + "/add_transaction"
 
 	body, err := c.post(ctx, endpoint, txn)
@@ -116,12 +115,19 @@ func (c *Client) AddInvokeTransaction(ctx context.Context, txn *json.RawMessage)
 	}
 	defer body.Close()
 
-	var resp core.InvokeTransaction
+	var resp struct {
+		TransactionHash string `json:"transaction_hash"`
+	}
 	if err = json.NewDecoder(body).Decode(&resp); err != nil {
 		return nil, err
 	}
 
-	return &resp, nil
+	txHash, err := new(felt.Felt).SetString(resp.TransactionHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return txHash, nil
 }
 
 // post performs additional utility function over doPost method

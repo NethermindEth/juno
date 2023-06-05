@@ -42,9 +42,12 @@ func TestAddInvokeTx(t *testing.T) {
 		invokeTxRM := json.RawMessage(invokeTxByte)
 		// Fix sender address so we know the transaction hash ahead of time for the test checks
 		invokeTx.SenderAddress, _ = new(felt.Felt).SetString("0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb")
+		expectedResp, _ := new(felt.Felt).SetString("0x5b113797c13a982b2bda3c52ed7fe31e494810c8937b3ec7ec4e0b21488ce87")
+
 		resp, err := client.AddInvokeTransaction(context.Background(), &invokeTxRM)
+
 		require.NoError(t, err)
-		assert.Equal(t, "0x5b113797c13a982b2bda3c52ed7fe31e494810c8937b3ec7ec4e0b21488ce87", resp.TransactionHash.String())
+		assert.Equal(t, expectedResp, resp)
 	})
 
 	t.Run("Incorrect empty request", func(t *testing.T) {

@@ -16,7 +16,7 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
-	AddInvokeTransaction(context.Context, *json.RawMessage) (*core.InvokeTransaction, error)
+	AddInvokeTransaction(context.Context, *json.RawMessage) (*felt.Felt, error)
 }
 
 var (
@@ -748,7 +748,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
-func (h *Handler) AddInvokeTransaction(invokeTx *json.RawMessage) (*core.InvokeTransaction, *jsonrpc.Error) {
+func (h *Handler) AddInvokeTransaction(invokeTx *json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
 	resp, err := h.gatewayClient.AddInvokeTransaction(context.TODO(), invokeTx)
 	if err != nil {
 		return nil, &jsonrpc.Error{
@@ -757,8 +757,7 @@ func (h *Handler) AddInvokeTransaction(invokeTx *json.RawMessage) (*core.InvokeT
 			Data:    nil,
 		}
 	}
-
-	return resp, nil
+	return &AddInvokeTxResponse{TransactionHash: resp}, nil
 }
 
 // getAddInvokeTxCode returns the relevant Code for a given addInvokeTx error
