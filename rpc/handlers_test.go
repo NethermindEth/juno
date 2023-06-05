@@ -1565,16 +1565,14 @@ func generateAddInvokeTx() *sequencer.BroadcastedInvokeTxn {
 	senderAddress, _ := new(felt.Felt).SetRandom()
 
 	return &sequencer.BroadcastedInvokeTxn{
-		BroadcastedTxn: sequencer.BroadcastedTxn{
+		BroadcastedTxnCmn: sequencer.BroadcastedTxnCmn{
 			MaxFee:    maxFee,
 			Version:   "0x1",
 			Signature: []*felt.Felt{},
 			Nonce:     nonce,
 		},
-		Type: "INVOKE",
-		InvokeTxnV1: sequencer.InvokeTxnV1{
-			SenderAddress: senderAddress,
-			Calldata:      []*felt.Felt{},
-		},
+		Type:          "INVOKE",
+		SenderAddress: senderAddress,
+		Calldata:      []*felt.Felt{},
 	}
 }

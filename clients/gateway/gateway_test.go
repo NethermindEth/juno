@@ -19,17 +19,15 @@ func generateAddInvokeTx() *sequencer.BroadcastedInvokeTxn {
 	senderAddress, _ := new(felt.Felt).SetRandom()
 
 	return &sequencer.BroadcastedInvokeTxn{
-		BroadcastedTxn: sequencer.BroadcastedTxn{
+		BroadcastedTxnCmn: sequencer.BroadcastedTxnCmn{
 			MaxFee:    maxFee,
 			Version:   "0x1",
 			Signature: []*felt.Felt{},
 			Nonce:     nonce,
 		},
-		Type: "INVOKE",
-		InvokeTxnV1: sequencer.InvokeTxnV1{
-			SenderAddress: senderAddress,
-			Calldata:      []*felt.Felt{},
-		},
+		Type:          "INVOKE",
+		SenderAddress: senderAddress,
+		Calldata:      []*felt.Felt{},
 	}
 }
 
@@ -44,7 +42,6 @@ func TestAddInvokeTx(t *testing.T) {
 		resp, err := client.AddInvokeTransaction(context.Background(), invokeTx)
 
 		require.NoError(t, err)
-		assert.Equal(t, "TRANSACTION_RECEIVED", resp.Code)
 		assert.Equal(t, "0x5b113797c13a982b2bda3c52ed7fe31e494810c8937b3ec7ec4e0b21488ce87", resp.TransactionHash.String())
 	})
 

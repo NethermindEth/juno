@@ -20,37 +20,20 @@ import (
 )
 
 type Client struct {
-	url        string
-	client     *http.Client
-	timeout    time.Duration
-	log        utils.SimpleLogger
-	backoff    Backoff
-	maxRetries int
+	url     string
+	client  *http.Client
+	timeout time.Duration
+	log     utils.SimpleLogger
 }
 
 type (
-	Backoff         func(wait time.Duration) time.Duration
 	closeTestClient func()
 )
-
-func (c *Client) WithBackoff(b Backoff) *Client {
-	c.backoff = b
-	return c
-}
-
-func (c *Client) WithMaxRetries(num int) *Client {
-	c.maxRetries = num
-	return c
-}
-
-func NopBackoff(d time.Duration) time.Duration {
-	return 0
-}
 
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(network utils.Network) (*Client, closeTestClient) {
 	srv := newTestServer(network)
-	return NewClient(srv.URL, utils.NewNopZapLogger()).WithBackoff(NopBackoff).WithMaxRetries(0), srv.Close
+	return NewClient(srv.URL, utils.NewNopZapLogger()), srv.Close
 }
 
 func newTestServer(network utils.Network) *httptest.Server {

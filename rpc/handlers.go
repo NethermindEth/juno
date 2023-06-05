@@ -751,7 +751,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
-func (h *Handler) AddInvokeTransaction(invokeTx *sequencer.BroadcastedInvokeTxn) (*AddInvokeTransactionResponse, *jsonrpc.Error) {
+func (h *Handler) AddInvokeTransaction(invokeTx *sequencer.BroadcastedInvokeTxn) (*sequencer.AddInvokeTxResponse, *jsonrpc.Error) {
 	invokeTx.Type = "INVOKE_FUNCTION"
 
 	resp, err := h.gatewayClient.AddInvokeTransaction(context.TODO(), invokeTx)
@@ -763,7 +763,7 @@ func (h *Handler) AddInvokeTransaction(invokeTx *sequencer.BroadcastedInvokeTxn)
 		}
 	}
 
-	return &AddInvokeTransactionResponse{
+	return &sequencer.AddInvokeTxResponse{
 		TransactionHash: resp.TransactionHash,
 	}, nil
 }
