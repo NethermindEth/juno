@@ -6,9 +6,10 @@ package mocks
 
 import (
 	context "context"
+	json "encoding/json"
 	reflect "reflect"
 
-	sequencer "github.com/NethermindEth/juno/clients/sequencer"
+	core "github.com/NethermindEth/juno/core"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,10 +37,10 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 }
 
 // AddInvokeTransaction mocks base method.
-func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *sequencer.BroadcastedInvokeTxn) (*sequencer.AddInvokeTxResponse, error) {
+func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *json.RawMessage) (*core.InvokeTransaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddInvokeTransaction", arg0, arg1)
-	ret0, _ := ret[0].(*sequencer.AddInvokeTxResponse)
+	ret0, _ := ret[0].(*core.InvokeTransaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

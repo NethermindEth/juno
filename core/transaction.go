@@ -125,7 +125,7 @@ func (d *DeployAccountTransaction) Signature() []*felt.Felt {
 }
 
 type InvokeTransaction struct {
-	TransactionHash *felt.Felt
+	TransactionHash *felt.Felt `json:"transaction_hash"`
 	// The arguments that are passed to the validated and execute functions.
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.

@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/sequencer"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -1504,7 +1503,7 @@ func TestAddInvokeTransaction(t *testing.T) {
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
 
 	t.Run("required fields are missing", func(t *testing.T) {
-		invokeTx := &sequencer.BroadcastedInvokeTxn{}
+		invokeTx := &json.RawMessage{}
 
 		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
 			Return(nil, errors.New("['Missing data for required field.']"))
@@ -1516,17 +1515,20 @@ func TestAddInvokeTransaction(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 		invokeTx := generateAddInvokeTx()
+		invokeTxByte, err := json.Marshal(invokeTx)
+		require.NoError(t, err)
+		invokeTxRM := json.RawMessage(invokeTxByte)
 
 		txHash, err := new(felt.Felt).SetRandom()
 		require.NoError(t, err)
-		addInvokeResponse := sequencer.AddInvokeTxResponse{
+		addInvokeResponse := core.InvokeTransaction{
 			TransactionHash: txHash,
 		}
 
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
 			Return(&addInvokeResponse, nil)
 
-		resp, handlerErr := handler.AddInvokeTransaction(invokeTx)
+		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
 		require.Nil(t, handlerErr)
 		assert.Equal(t, resp.TransactionHash, addInvokeResponse.TransactionHash)
 	})
@@ -1534,10 +1536,14 @@ func TestAddInvokeTransaction(t *testing.T) {
 	t.Run("Max Fee must be non-zero", func(t *testing.T) {
 		invokeTx := generateAddInvokeTx()
 		invokeTx.MaxFee.Set(&felt.Zero)
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+		invokeTxByte, err := json.Marshal(invokeTx)
+		require.NoError(t, err)
+		invokeTxRM := json.RawMessage(invokeTxByte)
+
+		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
 			Return(nil, errors.New("max_fee must be bigger than 0.\n0 >= 0"))
 
-		resp, handlerErr := handler.AddInvokeTransaction(invokeTx)
+		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
 		require.Nil(t, resp)
 		assert.Equal(t, handlerErr.Code, jsonrpc.InvalidParams)
 		assert.Equal(t, handlerErr.Message, "max_fee must be bigger than 0.\n0 >= 0")
@@ -1546,11 +1552,14 @@ func TestAddInvokeTransaction(t *testing.T) {
 
 	t.Run("Version must be 0x1", func(t *testing.T) {
 		invokeTx := generateAddInvokeTx()
-		invokeTx.Version = "0x0"
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+		invokeTx.Version = rpc.NumAsHex(0)
+		invokeTxByte, err := json.Marshal(invokeTx)
+		require.NoError(t, err)
+		invokeTxRM := json.RawMessage(invokeTxByte)
+		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
 			Return(nil, errors.New("Transaction version '0x0' not supported. Supported versions: '0x1'"))
 
-		resp, handlerErr := handler.AddInvokeTransaction(invokeTx)
+		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
 
 		require.Nil(t, resp)
 		assert.Equal(t, handlerErr.Code, jsonrpc.InvalidParams)
@@ -1559,15 +1568,15 @@ func TestAddInvokeTransaction(t *testing.T) {
 	})
 }
 
-func generateAddInvokeTx() *sequencer.BroadcastedInvokeTxn {
+func generateAddInvokeTx() *rpc.BroadcastedInvokeTxn {
 	maxFee := new(felt.Felt).SetUint64(0x1)
 	nonce := new(felt.Felt).SetUint64(1)
-	senderAddress, _ := new(felt.Felt).SetRandom()
+	senderAddress, _ := new(felt.Felt).SetString("0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb")
 
-	return &sequencer.BroadcastedInvokeTxn{
-		BroadcastedTxnCmn: sequencer.BroadcastedTxnCmn{
+	return &rpc.BroadcastedInvokeTxn{
+		BroadcastedTxnCmn: rpc.BroadcastedTxnCmn{
 			MaxFee:    maxFee,
-			Version:   "0x1",
+			Version:   rpc.NumAsHex(1),
 			Signature: []*felt.Felt{},
 			Nonce:     nonce,
 		},
