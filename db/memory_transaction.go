@@ -1,7 +1,6 @@
 package db
 
 import (
-	"encoding/hex"
 	"errors"
 )
 
@@ -29,17 +28,17 @@ func (t *memTransaction) Commit() error {
 }
 
 func (t *memTransaction) Set(key, val []byte) error {
-	t.storage[hex.EncodeToString(key)] = append([]byte{}, val...)
+	t.storage[string(key)] = append([]byte{}, val...)
 	return nil
 }
 
 func (t *memTransaction) Delete(key []byte) error {
-	delete(t.storage, hex.EncodeToString(key))
+	delete(t.storage, string(key))
 	return nil
 }
 
 func (t *memTransaction) Get(key []byte, cb func([]byte) error) error {
-	value, found := t.storage[hex.EncodeToString(key)]
+	value, found := t.storage[string(key)]
 	if !found {
 		return ErrKeyNotFound
 	}
