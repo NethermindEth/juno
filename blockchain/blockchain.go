@@ -129,11 +129,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 		}
 
 		header, err = blockHeaderByNumber(txn, height)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
 }
 
@@ -483,11 +479,8 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	if err != nil {
 		return err
 	}
-	if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
-		return err
-	}
 
-	return nil
+	return txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes)
 }
 
 func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
@@ -578,10 +571,7 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 	if err != nil {
 		return err
 	}
-	if err = txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes); err != nil {
-		return err
-	}
-	return nil
+	return txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes)
 }
 
 // transactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
