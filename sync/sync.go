@@ -147,7 +147,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					s.revertHead(block)
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
-						"hash", block.Hash.ShortString(), "err", err.Error())
+						"hash", block.Hash.ShortString(), "err", err)
 				}
 				resetStreams()
 				return
@@ -156,7 +156,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number < block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
 				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err.Error())
+					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
 					s.HighestBlockHeader = highestBlock.Header
 				}
@@ -226,8 +226,8 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 
 	err = s.Blockchain.RevertHead()
 	if err != nil {
-		s.log.Infow("Reverted HEAD", "reverted", localHead)
+		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
 	} else {
-		s.log.Warnw("Failed reverting HEAD", "reverted", localHead)
+		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
 }
