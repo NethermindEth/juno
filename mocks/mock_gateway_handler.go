@@ -5,11 +5,9 @@
 package mocks
 
 import (
-	context "context"
 	json "encoding/json"
 	reflect "reflect"
 
-	felt "github.com/NethermindEth/juno/core/felt"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -37,16 +35,16 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 }
 
 // AddInvokeTransaction mocks base method.
-func (m *MockGateway) AddInvokeTransaction(arg0 context.Context, arg1 *json.RawMessage) (*felt.Felt, error) {
+func (m *MockGateway) AddInvokeTransaction(arg0 json.RawMessage) (json.RawMessage, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddInvokeTransaction", arg0, arg1)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret := m.ctrl.Call(m, "AddInvokeTransaction", arg0)
+	ret0, _ := ret[0].(json.RawMessage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddInvokeTransaction indicates an expected call of AddInvokeTransaction.
-func (mr *MockGatewayMockRecorder) AddInvokeTransaction(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockGatewayMockRecorder) AddInvokeTransaction(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddInvokeTransaction", reflect.TypeOf((*MockGateway)(nil).AddInvokeTransaction), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddInvokeTransaction", reflect.TypeOf((*MockGateway)(nil).AddInvokeTransaction), arg0)
 }

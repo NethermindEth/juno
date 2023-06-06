@@ -12,11 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-
-	"github.com/go-playground/validator/v10"
 )
 
 type Client struct {
@@ -31,15 +28,15 @@ type (
 )
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(network utils.Network) (*Client, closeTestClient) {
-	srv := newTestServer(network)
+func NewTestClient() (*Client, closeTestClient) {
+	srv := newTestServer()
 	return NewClient(srv.URL, utils.NewNopZapLogger()), srv.Close
 }
 
-func newTestServer(network utils.Network) *httptest.Server {
+func newTestServer() *httptest.Server {
+	// As this is a test sever we are mimic response for one good and one bad request.
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		invokeTx := new(BroadcastedInvokeTxn)
-		err := json.NewDecoder(r.Body).Decode(&invokeTx)
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			_, err = w.Write([]byte(err.Error()))
@@ -49,25 +46,18 @@ func newTestServer(network utils.Network) *httptest.Server {
 			return
 		}
 
-		if err = checkAddInvokeTx(invokeTx); err != nil {
+		// empty request: "{}"
+		emptyReqLen := 4
+		if len(b) <= emptyReqLen {
 			w.WriteHeader(http.StatusBadRequest)
-			_, err = w.Write([]byte(err.Error()))
+			_, err = w.Write([]byte(`{"code": "Malformed Request", "message": "empty request"}`))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 			return
 		}
 
-		txHash := crypto.PedersenArray(
-			new(felt.Felt).SetBytes([]byte("invoke")),
-			new(felt.Felt).SetBytes([]byte(invokeTx.Version)),
-			invokeTx.SenderAddress,
-			new(felt.Felt),
-			crypto.PedersenArray(invokeTx.Calldata...),
-			invokeTx.MaxFee,
-			network.ChainID(),
-			invokeTx.Nonce,
-		)
+		txHash := new(felt.Felt).SetBytes([]byte("random"))
 		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q}", txHash.String())
 		_, err = w.Write([]byte(resp))
 		if err != nil {
@@ -86,53 +76,26 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	}
 }
 
-// checkAddInvokeTx checks invoke-transactions for validation and version errors, etc.
-func checkAddInvokeTx(txn *BroadcastedInvokeTxn) error {
-	validate := validator.New()
-	if err := validate.Struct(txn); err != nil {
-		errMsg := "{\"message\": \"{%s: ['Missing data for required field.']}\"}"
-		return fmt.Errorf(errMsg, err.(validator.ValidationErrors)[0].Field())
-	}
-
-	if txn.Version != "0x1" {
-		errMsg := "{\"message\": \"Transaction version %s is not supported. Supported versions: [1].\"}"
-		return fmt.Errorf(errMsg, txn.Version)
-	}
-
-	if txn.MaxFee.ShortString() == "0x0" {
-		return fmt.Errorf("{\"message\": \"max_fee must be bigger than 0.\\n0 >= 0\"}")
-	}
-
-	return nil
-}
-
-func (c *Client) AddInvokeTransaction(ctx context.Context, txn *json.RawMessage) (*felt.Felt, error) {
+func (c *Client) AddInvokeTransaction(txn json.RawMessage) (json.RawMessage, error) {
 	endpoint := c.url + "/add_transaction"
 
-	body, err := c.post(ctx, endpoint, txn)
+	body, err := c.post(endpoint, txn)
 	if err != nil {
 		return nil, err
 	}
 	defer body.Close()
 
-	var resp struct {
-		TransactionHash string `json:"transaction_hash"`
-	}
-	if err = json.NewDecoder(body).Decode(&resp); err != nil {
-		return nil, err
+	invokeRes, readErr := io.ReadAll(body)
+	if readErr != nil {
+		return nil, readErr
 	}
 
-	txHash, err := new(felt.Felt).SetString(resp.TransactionHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return txHash, nil
+	return invokeRes, nil
 }
 
 // post performs additional utility function over doPost method
-func (c *Client) post(ctx context.Context, url string, data any) (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+func (c *Client) post(url string, data any) (io.ReadCloser, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
 	resp, err := c.doPost(ctx, url, data)

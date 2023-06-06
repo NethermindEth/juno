@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -16,7 +15,7 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
-	AddInvokeTransaction(context.Context, *json.RawMessage) (*felt.Felt, error)
+	AddInvokeTransaction(json.RawMessage) (json.RawMessage, error)
 }
 
 var (
@@ -748,31 +747,43 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
-func (h *Handler) AddInvokeTransaction(invokeTx *json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
-	resp, err := h.gatewayClient.AddInvokeTransaction(context.TODO(), invokeTx)
+// Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
+// As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
+func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddInvokeTransaction(invokeTx)
 	if err != nil {
 		return nil, &jsonrpc.Error{
 			Code:    getAddInvokeTxCode(err),
 			Message: err.Error(),
-			Data:    nil,
 		}
 	}
-	return &AddInvokeTxResponse{TransactionHash: resp}, nil
+
+	invokeRes := new(AddInvokeTxResponse)
+	err = json.Unmarshal(resp, invokeRes)
+	if err != nil {
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InternalError,
+			Message: err.Error(),
+		}
+	}
+
+	return invokeRes, nil
 }
 
 // getAddInvokeTxCode returns the relevant Code for a given addInvokeTx error
 func getAddInvokeTxCode(err error) int {
-	if strings.Contains(err.Error(), "contract address") && strings.Contains(err.Error(), "is out of range") {
+	switch {
+	case strings.Contains(err.Error(), "contract address") && strings.Contains(err.Error(), "is out of range"):
 		return jsonrpc.InvalidParams
-	} else if strings.Contains(err.Error(), "Fee") && strings.Contains(err.Error(), "is out of range") {
+	case strings.Contains(err.Error(), "Fee") && strings.Contains(err.Error(), "is out of range"):
 		return jsonrpc.InvalidParams
-	} else if strings.Contains(err.Error(), "Missing data for required field") {
+	case strings.Contains(err.Error(), "Missing data for required field"):
 		return jsonrpc.InvalidParams
-	} else if strings.Contains(err.Error(), "not supported. Supported versions") {
+	case strings.Contains(err.Error(), "not supported. Supported versions"):
 		return jsonrpc.InvalidParams
-	} else if strings.Contains(err.Error(), "max_fee must be bigger than 0.\n0 >= ") {
+	case strings.Contains(err.Error(), "max_fee must be bigger than 0.\n0 >= "):
 		return jsonrpc.InvalidParams
-	} else {
+	default:
 		return jsonrpc.InternalError
 	}
 }

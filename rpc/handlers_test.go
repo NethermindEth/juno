@@ -1503,9 +1503,9 @@ func TestAddInvokeTransaction(t *testing.T) {
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
 
 	t.Run("required fields are missing", func(t *testing.T) {
-		invokeTx := &json.RawMessage{}
+		invokeTx := json.RawMessage{}
 
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), invokeTx).
+		mockGateway.EXPECT().AddInvokeTransaction(invokeTx).
 			Return(nil, errors.New("['Missing data for required field.']"))
 
 		_, err := handler.AddInvokeTransaction(invokeTx)
@@ -1514,34 +1514,39 @@ func TestAddInvokeTransaction(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		maxFee := new(felt.Felt).SetUint64(0x1)
-		nonce := new(felt.Felt).SetUint64(1)
-		senderAddress, _ := new(felt.Felt).SetString("0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb")
-
-		invokeTx := &rpc.BroadcastedInvokeTxn{
-			BroadcastedTxnCmn: rpc.BroadcastedTxnCmn{
-				MaxFee:    maxFee,
-				Version:   rpc.NumAsHex(1),
-				Signature: []*felt.Felt{},
-				Nonce:     nonce,
-			},
-			Type:          "INVOKE",
-			SenderAddress: senderAddress,
-			Calldata:      []*felt.Felt{},
-		}
+		invokeTx := `{
+  "type": "INVOKE_FUNCTION",
+  "version": "0x1",
+  "max_fee": "0x630a0aff77",
+  "signature": [
+    "3528007825596418374026627280134684856450592690572806863856267180750827721823",
+    "1245823039743824185280620435679602775503159522192240958005687298327230184621"
+  ],
+  "nonce": "0x2",
+  "sender_address": "0x3fdcbeb68e607c8febf01d7ef274cbf68091a0bd1556c0b8f8e80d732f7850f",
+  "calldata": [
+    "1",
+    "834014391734518171968827433472208778143213814961523717423700643029090972826",
+    "1530486729947006463063166157847785599120665941190480211966374137237989315360",
+    "0",
+    "1",
+    "1",
+    "1"
+  ]
+}`
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
-		invokeTxRM := json.RawMessage(invokeTxByte)
 
-		txHash, err := new(felt.Felt).SetRandom()
+		expectedInvokeResp := &rpc.AddInvokeTxResponse{
+			TransactionHash: new(felt.Felt).SetBytes([]byte("random")),
+		}
+		expectedInvokeRespB, err := json.Marshal(expectedInvokeResp)
 		require.NoError(t, err)
 
-		mockGateway.EXPECT().AddInvokeTransaction(context.TODO(), &invokeTxRM).
-			Return(txHash, nil)
+		mockGateway.EXPECT().AddInvokeTransaction(invokeTxByte).Return(expectedInvokeRespB, nil)
 
-		resp, handlerErr := handler.AddInvokeTransaction(&invokeTxRM)
-
+		resp, handlerErr := handler.AddInvokeTransaction(invokeTxByte)
 		require.Nil(t, handlerErr)
-		assert.Equal(t, resp.TransactionHash, txHash)
+		assert.Equal(t, expectedInvokeResp.TransactionHash, resp.TransactionHash)
 	})
 }
