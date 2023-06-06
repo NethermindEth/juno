@@ -75,3 +75,7 @@ type TransactionReceipt struct {
 	Events          []*Event        `json:"events"`
 	ContractAddress *felt.Felt      `json:"contract_address,omitempty"`
 }
+
+type AddInvokeTxResponse struct {
+	TransactionHash *felt.Felt `json:"transaction_hash"`
+}

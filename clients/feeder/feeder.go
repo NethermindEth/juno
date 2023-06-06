@@ -176,11 +176,10 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err == nil {
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
-				}
-
-				if res.StatusCode != http.StatusOK {
+				} else {
 					err = errors.New(res.Status)
 				}
+
 				res.Body.Close()
 			}
 
