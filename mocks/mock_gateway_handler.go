@@ -34,6 +34,21 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 	return m.recorder
 }
 
+// AddDeployAccountTransaction mocks base method.
+func (m *MockGateway) AddDeployAccountTransaction(arg0 json.RawMessage) (json.RawMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddDeployAccountTransaction", arg0)
+	ret0, _ := ret[0].(json.RawMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddDeployAccountTransaction indicates an expected call of AddDeployAccountTransaction.
+func (mr *MockGatewayMockRecorder) AddDeployAccountTransaction(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDeployAccountTransaction", reflect.TypeOf((*MockGateway)(nil).AddDeployAccountTransaction), arg0)
+}
+
 // AddInvokeTransaction mocks base method.
 func (m *MockGateway) AddInvokeTransaction(arg0 json.RawMessage) (json.RawMessage, error) {
 	m.ctrl.T.Helper()
