@@ -148,6 +148,11 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Handler: rpcHandler.AddInvokeTransaction,
 		},
 		{
+			Name:    "starknet_addDeclareTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
+			Handler: rpcHandler.AddDeclareTransaction,
+		},
+		{
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: rpcHandler.Events,

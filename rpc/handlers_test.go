@@ -1550,3 +1550,50 @@ func TestAddInvokeTransaction(t *testing.T) {
 		assert.Equal(t, expectedInvokeResp.TransactionHash, resp.TransactionHash)
 	})
 }
+
+func TestAddDeclareTransaction(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockGateway := mocks.NewMockGateway(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
+
+	declareTx := `{
+		"type": "DECLARE",
+		"version": "0x1",
+		"max_fee": "0x630a0aff77",
+	  }`
+
+	t.Run("test Error Invalid Contract Class", func(t *testing.T) {
+		declareTxByte, err := json.Marshal(declareTx)
+		require.NoError(t, err)
+
+		mockGateway.EXPECT().AddDeclareTransaction(declareTxByte).Return(nil, errors.New("Invalid contract class"))
+
+		resp, handlerErr := handler.AddDeclareTransaction(declareTxByte)
+
+		require.Nil(t, resp)
+		assert.Equal(t, handlerErr.Message, "Invalid contract class")
+		assert.Equal(t, handlerErr.Code, rpc.ErrInvlaidContractClass.Code)
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		declareTxByte, err := json.Marshal(declareTx)
+		require.NoError(t, err)
+
+		expectedDeclareResp := &rpc.DeclareTxResponse{
+			TransactionHash: new(felt.Felt).SetBytes([]byte("random")),
+			ClassHash:       new(felt.Felt).SetBytes([]byte("random")),
+		}
+		expectedDeclareRespB, err := json.Marshal(expectedDeclareResp)
+		require.NoError(t, err)
+
+		mockGateway.EXPECT().AddDeclareTransaction(declareTxByte).Return(expectedDeclareRespB, nil)
+
+		resp, handlerErr := handler.AddDeclareTransaction(declareTxByte)
+		require.Nil(t, handlerErr)
+		assert.Equal(t, expectedDeclareResp.TransactionHash, resp.TransactionHash)
+		assert.Equal(t, expectedDeclareResp.ClassHash, resp.ClassHash)
+	})
+}

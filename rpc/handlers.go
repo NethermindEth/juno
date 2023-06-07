@@ -16,6 +16,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
 	AddInvokeTransaction(json.RawMessage) (json.RawMessage, error)
+	AddDeclareTransaction(json.RawMessage) (json.RawMessage, error)
 }
 
 var (
@@ -30,6 +31,7 @@ var (
 	ErrInvalidContinuationToken = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
 	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
 	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrInvlaidContractClass     = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
 )
 
@@ -786,4 +788,36 @@ func getAddInvokeTxCode(err error) int {
 	default:
 		return jsonrpc.InternalError
 	}
+}
+
+// AddDeclareTransaction relays a declare transaction to the gateway.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L39
+// Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
+// As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
+func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddDeclareTransaction(declareTx)
+	if err != nil {
+
+		if strings.Contains(err.Error(), "Invalid contract class") {
+			return nil, ErrInvlaidContractClass
+		}
+
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InvalidParams,
+			Message: err.Error(),
+		}
+	}
+
+	declareRes := new(DeclareTxResponse)
+	err = json.Unmarshal(resp, declareRes)
+	if err != nil {
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InternalError,
+			Message: err.Error(),
+		}
+	}
+
+	return declareRes, nil
 }
