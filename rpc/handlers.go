@@ -798,7 +798,6 @@ func getAddInvokeTxCode(err error) int {
 func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*DeployAccountTxResponse, *jsonrpc.Error) {
 	resp, err := h.gatewayClient.AddDeployAccountTransaction(deployAcntTx)
 	if err != nil {
-
 		if strings.Contains(err.Error(), "Class hash not found") {
 			return nil, ErrClassHashNotFound
 		}
