@@ -33,14 +33,14 @@ message GetBlockHeaders {
   uint32 request_id = 1;
 
   oneof start_block {
-    starknet.common.FieldElement start_block = 2; //block hash of the starting block
+    starknet.common.FieldElement block_hash = 2; //block hash of the starting block
     uint64 block_number = 6;
   }
 
   uint64 count = 3; //how many block, at most, to retrieve from this requested starting point
   uint64 size_limit = 4; //limit on size of returned messages.
 
-  bool backward = 5; //TRUE iff the order of headers returned should be in descending order
+  Direction direction = 5;
 
 }
 

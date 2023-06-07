@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/starknetdata"
 	"path/filepath"
 	"reflect"
 
@@ -33,6 +34,10 @@ type Config struct {
 	Network      utils.Network  `mapstructure:"network"`
 	Pprof        bool           `mapstructure:"pprof"`
 	Colour       bool           `mapstructure:"colour"`
+	P2P          bool           `mapstructure:"p2p"`
+	P2PAddr      string         `mapstructure:"p2pAddr"`
+	P2PSync      bool           `mapstructure:"p2pSync"`
+	P2PBootPeers string         `mapstructure:"p2pBootPeers"`
 }
 
 type Node struct {
@@ -162,11 +167,6 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	p2pClient, err := p2p.Start()
-	if err != nil {
-		panic(err)
-	}
-
 	n.db, err = pebble.New(n.cfg.DatabasePath, dbLog)
 	if err != nil {
 		n.log.Errorw("Error opening DB", "err", err)
@@ -180,11 +180,21 @@ func (n *Node) Run(ctx context.Context) {
 	}()
 
 	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
-
 	client := feeder.NewClient(n.cfg.Network.URL())
-	starkdata := adaptfeeder.New(client)
-	starkdatap2p := p2p.NewStarknetDataAdapter(starkdata, p2pClient)
-	synchronizer := sync.New(n.blockchain, starkdatap2p, n.log)
+	var starkdata starknetdata.StarknetData = adaptfeeder.New(client)
+
+	if n.cfg.P2P {
+		p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers)
+		if err != nil {
+			panic(err)
+		}
+
+		if n.cfg.P2PSync {
+			starkdata = p2p.NewStarknetDataAdapter(starkdata, p2pClient)
+		}
+	}
+
+	synchronizer := sync.New(n.blockchain, starkdata, n.log)
 
 	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, n.log), n.log)
 

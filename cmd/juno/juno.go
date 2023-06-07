@@ -129,6 +129,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	junoCmd.Flags().Bool("p2p", false, "Enable p2p serving")
+	junoCmd.Flags().String("p2pAddr", "", "Specify p2p source address")
+	junoCmd.Flags().Bool("p2pSync", false, "Enable p2p sync")
+	junoCmd.Flags().String("p2pBootPeers", "", "Boot peers")
 
 	return junoCmd
 }

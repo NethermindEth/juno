@@ -41,6 +41,14 @@ type Block struct {
 	Receipts     []*TransactionReceipt
 }
 
+func (b *Block) CalculateEventCommitment() (*felt.Felt, error) {
+	return eventCommitment(b.Receipts)
+}
+
+func (b *Block) CalculateTransactionCommitment() (*felt.Felt, error) {
+	return transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
+}
+
 type blockHashMetaInfo struct {
 	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
 	UnverifiableRange        []uint64   // Range of blocks that are not verifiable

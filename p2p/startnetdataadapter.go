@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
-	"time"
 )
 
 type StartnetDataAdapter struct {
@@ -28,23 +27,27 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 		}
 	}()
 
-	for {
-		fmt.Printf("Requesting for block %d\n", blockNumber)
-		header, err := s.p2p.GetBlockHeaderByNumber(ctx, blockNumber)
-		if err == nil {
-			fmt.Printf("Header fetched %s\n", header)
-			break
-		}
-
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-
-		fmt.Printf("Error requesting header %s\n", err)
-		time.Sleep(1 * time.Second)
+	fmt.Printf("Requesting for block %d\n", blockNumber)
+	header, err := s.p2p.GetBlockHeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, err
 	}
 
-	return s.base.BlockByNumber(ctx, blockNumber)
+	block, err := s.p2p.GetBlockByHash(ctx, header.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	gatewayBlock, err := s.base.BlockByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	if block != gatewayBlock {
+		fmt.Printf("Block mismatch")
+	}
+
+	return gatewayBlock, err
 }
 
 func (s *StartnetDataAdapter) BlockLatest(ctx context.Context) (*core.Block, error) {

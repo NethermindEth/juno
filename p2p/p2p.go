@@ -4,17 +4,14 @@
 package p2p
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"github.com/klauspost/compress/zstd"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -25,122 +22,29 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-varint"
+	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/proto"
-	"io"
-	"log"
+	"os"
 	"reflect"
+	"strings"
 	"sync"
+	"time"
 )
 
 const blockSyncProto = "/core/blocks-sync/1"
 
 type P2P interface {
 	GetBlockHeaderByNumber(ctx context.Context, number uint64) (*core.Header, error)
+	GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error)
 }
 
 type P2PImpl struct {
-	host host.Host
+	host       host.Host
+	syncServer blockSyncServer
 
 	blockSyncPeers       []peer.ID
 	mtx                  *sync.Mutex
 	pickedBlockSyncPeers map[peer.ID]bool
-}
-
-func (ip *P2PImpl) handleBlockSyncRequest(request *grpcclient.Request) (*grpcclient.Response, error) {
-	if request.GetStatus() != nil {
-		return &grpcclient.Response{
-			Response: &grpcclient.Response_Status{
-				Status: &grpcclient.Status{
-					Height: 0,
-					Hash: &grpcclient.FieldElement{Elements: []byte{
-						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					}},
-				},
-			},
-		}, nil
-	}
-
-	return nil, fmt.Errorf("Unsupported request %v", request)
-}
-
-func (ip *P2PImpl) readCompressedProtobuf(stream network.Stream, request proto.Message) error {
-	reader := bufio.NewReader(stream)
-	_, err := varint.ReadUvarint(reader)
-	if err != nil {
-		return err
-	}
-
-	decoder, err := zstd.NewReader(reader)
-	if err != nil {
-		return err
-	}
-
-	msgBuff, err := io.ReadAll(decoder)
-	if err != nil {
-		return err
-	}
-
-	err = proto.Unmarshal(msgBuff, request)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ip *P2PImpl) writeCompressedProtobuf(stream network.Stream, resp proto.Message) error {
-	buff, err := proto.Marshal(resp)
-	if err != nil {
-		return err
-	}
-
-	buffer := bytes.NewBuffer(make([]byte, 0))
-	compressed, err := zstd.NewWriter(buffer)
-	if err != nil {
-		return err
-	}
-
-	_, err = compressed.Write(buff)
-	if err != nil {
-		return err
-	}
-	err = compressed.Close()
-	if err != nil {
-		return err
-	}
-
-	uvariantBuffer := varint.ToUvarint(uint64(buffer.Len()))
-	_, err = stream.Write(uvariantBuffer)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(stream, buffer)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ip *P2PImpl) handleBlockSyncStream(stream network.Stream) {
-	msg := grpcclient.Request{}
-	err := ip.readCompressedProtobuf(stream, &msg)
-	if err != nil {
-		panic(err)
-	}
-
-	resp, err := ip.handleBlockSyncRequest(&msg)
-	if err != nil {
-		panic(err)
-	}
-
-	err = ip.writeCompressedProtobuf(stream, resp)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
@@ -206,15 +110,28 @@ func (ip *P2PImpl) setupIdentity(ctx context.Context) error {
 	return nil
 }
 
-func (ip *P2PImpl) setupKademlia(ctx context.Context) error {
-	boot1, err := peer.AddrInfoFromString("/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWQGLGtoCnZ5y9En3ZHmcwKMwajZ7T2dUJYLky9zEVsaU3")
-	if err != nil {
-		return err
+func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error {
+	splitted := strings.Split(bootPeersStr, ",")
+	bootPeers := make([]peer.AddrInfo, len(splitted))
+
+	if len(splitted) == 1 && splitted[0] == "" {
+		bootPeers = make([]peer.AddrInfo, 0)
+	} else {
+		for i, peerStr := range splitted {
+			fmt.Printf("Boot peer: %s\n", peerStr)
+
+			bootAddr, err := peer.AddrInfoFromString(peerStr)
+			if err != nil {
+				return err
+			}
+
+			bootPeers[i] = *bootAddr
+		}
 	}
 
 	dhtinstance, err := dht.New(ctx, ip.host,
 		dht.ProtocolPrefix("/pathfinder/kad/1.0.0"),
-		dht.BootstrapPeers(*boot1),
+		dht.BootstrapPeers(bootPeers...),
 	)
 
 	ctx, events := dht.RegisterForLookupEvents(ctx)
@@ -283,20 +200,15 @@ func (ip *P2PImpl) GetBlockHeaderByNumber(ctx context.Context, number uint64) (*
 	return coreheader, nil
 }
 
-func fieldElementToFelt(field *grpcclient.FieldElement) *felt.Felt {
-	var thebyte [4]uint64
-
-	for i := 0; i < 4; i++ {
-		thebyte[i] = binary.BigEndian.Uint64(field.Elements[i*8 : i*8+8]) // I don't know if this is right
-	}
-
-	return felt.NewFelt((*fp.Element)(&thebyte))
+func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient.Request) (*grpcclient.Response, error) {
-	p := ip.pickBlockSyncPeer()
-	if p == nil {
-		return nil, fmt.Errorf("no block sync peer available")
+	p, err := ip.pickBlockSyncPeer(ctx)
+	if err != nil {
+		return nil, err
 	}
 	defer ip.releaseBlockSyncPeer(p)
 
@@ -311,7 +223,7 @@ func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient
 		}
 	}(stream)
 
-	err = ip.writeCompressedProtobuf(stream, request)
+	err = writeCompressedProtobuf(stream, request)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +233,7 @@ func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient
 	}
 
 	resp := &grpcclient.Response{}
-	err = ip.readCompressedProtobuf(stream, resp)
+	err = readCompressedProtobuf(stream, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -329,8 +241,22 @@ func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient
 	return resp, nil
 }
 
-func (ip *P2PImpl) pickBlockSyncPeer() *peer.ID {
-	// Not concurrent safe... just need something working right now...
+func (ip *P2PImpl) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
+	for {
+		p := ip.pickBlockSyncPeerNoWait()
+		if p != nil {
+			return p, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
 	ip.mtx.Lock()
 	defer ip.mtx.Unlock()
 	for _, p := range ip.blockSyncPeers {
@@ -349,25 +275,45 @@ func (ip *P2PImpl) releaseBlockSyncPeer(id *peer.ID) {
 	delete(ip.pickedBlockSyncPeers, *id)
 }
 
-func Start() (P2P, error) {
+func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2P, error) {
 	ctx := context.Background()
 	impl := P2PImpl{
+		syncServer: blockSyncServer{
+			blockchain: blockchain,
+		},
+
 		mtx:                  &sync.Mutex{},
 		pickedBlockSyncPeers: map[peer.ID]bool{},
 	}
 
-	// Creates a new RSA key pair for this host.
-	prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
+	prvKey, err := determineKey()
 	if err != nil {
-		log.Println(err)
+		return nil, errors.Wrap(err, "Failed to determine key")
+	}
+
+	var sourceMultiAddr multiaddr.Multiaddr
+	// 0.0.0.0 will listen on any interface device.
+	if len(addr) != 0 {
+		sourceMultiAddr, err = multiaddr.NewMultiaddr(addr)
+	} else {
+		sourceMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", 30301))
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to parse address")
+	}
+
+	pubKey := prvKey.GetPublic()
+	pid, err := peer.IDFromPublicKey(pubKey)
+	if err != nil {
 		return nil, err
 	}
 
-	// 0.0.0.0 will listen on any interface device.
-	sourceMultiAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", 30301))
+	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", pid.String()))
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String())
 
 	p2pHost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
@@ -375,24 +321,23 @@ func Start() (P2P, error) {
 	)
 	impl.host = p2pHost
 
-	// Identity
-	err = impl.setupKademlia(ctx)
+	err = impl.setupKademlia(ctx, bootPeers)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to setup kademlia")
 	}
 
 	err = impl.setupIdentity(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to setup identity protocol")
 	}
 
 	err = impl.setupGossipSub(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to setup gossibsub")
 	}
 
 	// Sync handler
-	p2pHost.SetStreamHandler(blockSyncProto, impl.handleBlockSyncStream)
+	p2pHost.SetStreamHandler(blockSyncProto, impl.syncServer.handleBlockSyncStream)
 
 	// And some other stuff
 	go func() {
@@ -406,4 +351,42 @@ func Start() (P2P, error) {
 	}()
 
 	return &impl, nil
+}
+
+func determineKey() (crypto.PrivKey, error) {
+	var prvKey crypto.PrivKey
+	var err error
+
+	if err != nil {
+		return nil, err
+	}
+
+	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
+	if !ok {
+		// Creates a new key pair for this host.
+		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+
+		prvKeyBytes, err := crypto.MarshalPrivateKey(prvKey)
+		if err != nil {
+			return nil, err
+		}
+
+		privKeyStr = hex.EncodeToString(prvKeyBytes)
+		fmt.Printf("Generated a new key. P2P_PRIVATE_KEY=%s\n", privKeyStr)
+	} else {
+		privKeyBytes, err := hex.DecodeString(privKeyStr)
+		if err != nil {
+			return nil, err
+		}
+
+		prvKey, err = crypto.UnmarshalPrivateKey(privKeyBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return prvKey, err
 }

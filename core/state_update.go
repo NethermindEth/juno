@@ -10,9 +10,12 @@ type StateUpdate struct {
 }
 
 type StateDiff struct {
-	StorageDiffs      map[felt.Felt][]StorageDiff
-	Nonces            map[felt.Felt]*felt.Felt
+	// Contract diffs
+	StorageDiffs map[felt.Felt][]StorageDiff
+	Nonces       map[felt.Felt]*felt.Felt
+
 	DeployedContracts []DeployedContract
+
 	DeclaredV0Classes []*felt.Felt
 	DeclaredV1Classes []DeclaredV1Class
 	ReplacedClasses   []ReplacedClass
