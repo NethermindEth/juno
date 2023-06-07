@@ -1505,7 +1505,7 @@ func TestAddInvokeTransaction(t *testing.T) {
 	t.Run("required fields are missing", func(t *testing.T) {
 		invokeTx := json.RawMessage{}
 
-		mockGateway.EXPECT().AddInvokeTransaction(invokeTx).
+		mockGateway.EXPECT().AddTransaction(invokeTx).
 			Return(nil, errors.New("['Missing data for required field.']"))
 
 		_, err := handler.AddInvokeTransaction(invokeTx)
@@ -1543,10 +1543,62 @@ func TestAddInvokeTransaction(t *testing.T) {
 		expectedInvokeRespB, err := json.Marshal(expectedInvokeResp)
 		require.NoError(t, err)
 
-		mockGateway.EXPECT().AddInvokeTransaction(invokeTxByte).Return(expectedInvokeRespB, nil)
+		mockGateway.EXPECT().AddTransaction(invokeTxByte).Return(expectedInvokeRespB, nil)
 
 		resp, handlerErr := handler.AddInvokeTransaction(invokeTxByte)
 		require.Nil(t, handlerErr)
 		assert.Equal(t, expectedInvokeResp.TransactionHash, resp.TransactionHash)
+	})
+}
+
+func TestAddDeployAccountTransaction(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockGateway := mocks.NewMockGateway(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
+
+	deployTx := `{
+		"type":"DEPLOY_ACCOUNT",
+		"version":"0x1",
+		"max_fee":"0xbf391377813",
+		"signature":["3181116721778572998251180091272735527476035532097685864422911613793631652139","2164526032249652743885469077097605297290471695393275387091246233695764674017"],
+		"nonce":"0x0",
+		"class_hash":"0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
+		"contract_address_salt":"0x6d44a6aecb4339e23a9619355f101cf3cb9baec289fcd9fd51486655c1bb8a8",
+		"constructor_calldata":["3586049313439572922481980579704165954735883178084413432649542503692532358709"
+	}`
+
+	t.Run("test ErrClassHashNotFound", func(t *testing.T) {
+		deployTxByte, err := json.Marshal(deployTx)
+		require.NoError(t, err)
+
+		mockGateway.EXPECT().AddTransaction(deployTxByte).Return(nil, errors.New("Class hash not found"))
+
+		resp, handlerErr := handler.AddDeployAccountTransaction(deployTxByte)
+
+		require.Nil(t, resp)
+		assert.Equal(t, handlerErr.Message, "Class hash not found")
+		assert.Equal(t, handlerErr.Code, rpc.ErrClassHashNotFound.Code)
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		deployTxByte, err := json.Marshal(deployTx)
+		require.NoError(t, err)
+
+		expectedDeployResp := &rpc.DeployAccountTxResponse{
+			TransactionHash: new(felt.Felt).SetBytes([]byte("random")),
+			ContractAddress: new(felt.Felt).SetBytes([]byte("random")),
+		}
+		expectedDeployRespB, err := json.Marshal(expectedDeployResp)
+		require.NoError(t, err)
+
+		mockGateway.EXPECT().AddTransaction(deployTxByte).Return(expectedDeployRespB, nil)
+
+		resp, handlerErr := handler.AddDeployAccountTransaction(deployTxByte)
+		require.Nil(t, handlerErr)
+		assert.Equal(t, expectedDeployResp.TransactionHash, resp.TransactionHash)
+		assert.Equal(t, expectedDeployResp.ContractAddress, resp.ContractAddress)
 	})
 }

@@ -79,3 +79,8 @@ type TransactionReceipt struct {
 type AddInvokeTxResponse struct {
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
+
+type DeployAccountTxResponse struct {
+	TransactionHash *felt.Felt `json:"transaction_hash"`
+	ContractAddress *felt.Felt `json:"contract_address"`
+}
