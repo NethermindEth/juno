@@ -799,7 +799,6 @@ func getAddInvokeTxCode(err error) int {
 func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
 	resp, err := h.gatewayClient.AddDeclareTransaction(declareTx)
 	if err != nil {
-
 		if strings.Contains(err.Error(), "Invalid contract class") {
 			return nil, ErrInvlaidContractClass
 		}
