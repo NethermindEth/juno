@@ -57,8 +57,8 @@ func newTestServer() *httptest.Server {
 			return
 		}
 
-		txHash := new(felt.Felt).SetBytes([]byte("random"))
-		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q}", txHash.String())
+		hash := new(felt.Felt).SetBytes([]byte("random"))
+		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
 		_, err = w.Write([]byte(resp))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -77,6 +77,14 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 }
 
 func (c *Client) AddInvokeTransaction(txn json.RawMessage) (json.RawMessage, error) {
+	return c.addTransaction(txn)
+}
+
+func (c *Client) AddDeployAccountTransaction(txn json.RawMessage) (json.RawMessage, error) {
+	return c.addTransaction(txn)
+}
+
+func (c *Client) addTransaction(txn json.RawMessage) (json.RawMessage, error) {
 	endpoint := c.url + "/add_transaction"
 
 	body, err := c.post(endpoint, txn)
@@ -85,12 +93,12 @@ func (c *Client) AddInvokeTransaction(txn json.RawMessage) (json.RawMessage, err
 	}
 	defer body.Close()
 
-	invokeRes, readErr := io.ReadAll(body)
+	deployRes, readErr := io.ReadAll(body)
 	if readErr != nil {
 		return nil, readErr
 	}
 
-	return invokeRes, nil
+	return deployRes, nil
 }
 
 // post performs additional utility function over doPost method

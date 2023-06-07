@@ -16,6 +16,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
 	AddInvokeTransaction(json.RawMessage) (json.RawMessage, error)
+	AddDeployAccountTransaction(json.RawMessage) (json.RawMessage, error)
 }
 
 var (
@@ -786,4 +787,35 @@ func getAddInvokeTxCode(err error) int {
 	default:
 		return jsonrpc.InternalError
 	}
+}
+
+// AddDeployAccountTransaction relays an deploy account transaction to the gateway.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L74
+// Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
+// As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
+func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*DeployAccountTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddDeployAccountTransaction(deployAcntTx)
+	if err != nil {
+		if strings.Contains(err.Error(), "Class hash not found") {
+			return nil, ErrClassHashNotFound
+		}
+
+		return nil, &jsonrpc.Error{
+			Code:    getAddInvokeTxCode(err),
+			Message: err.Error(),
+		}
+	}
+
+	deployRes := new(DeployAccountTxResponse)
+	err = json.Unmarshal(resp, deployRes)
+	if err != nil {
+		return nil, &jsonrpc.Error{
+			Code:    jsonrpc.InternalError,
+			Message: err.Error(),
+		}
+	}
+
+	return deployRes, nil
 }
