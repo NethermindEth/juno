@@ -752,19 +752,13 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
 	resp, err := h.gatewayClient.AddInvokeTransaction(invokeTx)
 	if err != nil {
-		return nil, &jsonrpc.Error{
-			Code:    getAddInvokeTxCode(err),
-			Message: err.Error(),
-		}
+		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err)
 	}
 
 	invokeRes := new(AddInvokeTxResponse)
 	err = json.Unmarshal(resp, invokeRes)
 	if err != nil {
-		return nil, &jsonrpc.Error{
-			Code:    jsonrpc.InternalError,
-			Message: err.Error(),
-		}
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err)
 	}
 
 	return invokeRes, nil
