@@ -8,10 +8,10 @@ type EventsArg struct {
 }
 
 type EventFilter struct {
-	FromBlock *BlockID     `json:"from_block"`
-	ToBlock   *BlockID     `json:"to_block"`
-	Address   *felt.Felt   `json:"address"`
-	Keys      []*felt.Felt `json:"keys"`
+	FromBlock *BlockID       `json:"from_block"`
+	ToBlock   *BlockID       `json:"to_block"`
+	Address   *felt.Felt     `json:"address"`
+	Keys      [][]*felt.Felt `json:"keys"`
 }
 
 type ResultPageRequest struct {

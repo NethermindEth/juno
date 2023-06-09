@@ -709,8 +709,14 @@ func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Err
 func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > maxEventChunkSize {
 		return nil, ErrPageSizeTooBig
-	} else if len(args.Keys) > maxEventFilterKeys {
-		return nil, ErrTooManyKeysInFilter
+	} else {
+		lenKeys := len(args.Keys)
+		for _, keys := range args.Keys {
+			lenKeys += len(keys)
+		}
+		if lenKeys > maxEventFilterKeys {
+			return nil, ErrTooManyKeysInFilter
+		}
 	}
 
 	height, err := h.bcReader.Height()
