@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,13 +36,14 @@ func init() {
 	registerMapping[*grpcclient.EthereumAddress, common.Address](protoToAddress)
 }
 
-func MapStructRet[T any](source interface{}) *T {
+func MapValueViaReflect[T any](source interface{}) T {
 	var destination T
-	MapStructs(reflect.ValueOf(source), reflect.ValueOf(&destination))
-	return &destination
+	destinationPtr := &destination
+	reflectMapValue(reflect.ValueOf(source), reflect.ValueOf(destinationPtr))
+	return destination
 }
 
-func MapStructs(sourceValue reflect.Value, destValue reflect.Value) {
+func reflectMapValue(sourceValue reflect.Value, destValue reflect.Value) {
 	sourceType := sourceValue.Type()
 	destType := destValue.Type()
 
@@ -57,10 +57,22 @@ func MapStructs(sourceValue reflect.Value, destValue reflect.Value) {
 		}
 	}
 
+	if sourceValue.Kind() == reflect.Ptr && sourceValue.IsNil() {
+		if destValue.CanAddr() {
+			destValue.Set(reflect.Zero(destType))
+		}
+		return
+	}
+
 	for sourceValue.Kind() == reflect.Ptr {
 		sourceValue = reflect.Indirect(sourceValue)
 	}
 	for destValue.Kind() == reflect.Ptr {
+		if destValue.IsNil() {
+			nval := reflect.New(destValue.Type().Elem())
+			destValue.Set(nval.Elem().Addr())
+		}
+
 		destValue = reflect.Indirect(destValue)
 	}
 
@@ -76,19 +88,15 @@ func MapStructs(sourceValue reflect.Value, destValue reflect.Value) {
 	sourceType = sourceValue.Type()
 	destType = destValue.Type()
 
-	numFields := sourceValue.NumField()
-
-	for i := 0; i < numFields; i++ {
-		sourceFieldType := sourceType.Field(i)
-		sourceField := sourceValue.Field(i)
-		destField := destValue.FieldByName(sourceFieldType.Name)
-
-		if !destField.CanSet() {
-			continue // Skip unexported fields
-		}
-
-		MapStructs(sourceField, destField)
+	switch sourceValue.Kind() {
+	case reflect.Struct:
+		mapStruct(sourceValue, destValue)
+	case reflect.Slice, reflect.Array:
+		mapArray(sourceValue, destValue)
+	default:
+		destValue.Set(sourceValue)
 	}
+
 }
 
 func mapArray(sourceField reflect.Value, destField reflect.Value) {
@@ -108,44 +116,23 @@ func mapArray(sourceField reflect.Value, destField reflect.Value) {
 		sourceElem := sourceField.Index(i)
 		destElem := destField.Index(i)
 
-		MapStructs(sourceElem, destElem) // Recursively map nested structs within the array
+		reflectMapValue(sourceElem, destElem) // Recursively map nested structs within the array
 	}
 }
 
-func coreExecutionResourcesToProtobuf(resources *core.ExecutionResources) *grpcclient.CommonTransactionReceiptProperties_ExecutionResources {
-	if resources == nil {
-		return nil
-	}
+func mapStruct(sourceValue reflect.Value, destValue reflect.Value) {
+	sourceType := sourceValue.Type()
+	numFields := sourceValue.NumField()
 
-	return &grpcclient.CommonTransactionReceiptProperties_ExecutionResources{
-		BuiltinInstanceCounter: &grpcclient.CommonTransactionReceiptProperties_BuiltinInstanceCounter{
-			Bitwise:    resources.BuiltinInstanceCounter.Bitwise,
-			EcOp:       resources.BuiltinInstanceCounter.EcOp,
-			Ecsda:      resources.BuiltinInstanceCounter.Ecsda,
-			Output:     resources.BuiltinInstanceCounter.Output,
-			Pedersen:   resources.BuiltinInstanceCounter.Pedersen,
-			RangeCheck: resources.BuiltinInstanceCounter.RangeCheck,
-		},
-		MemoryHoles: resources.MemoryHoles,
-		Steps:       resources.Steps,
-	}
-}
+	for i := 0; i < numFields; i++ {
+		sourceFieldType := sourceType.Field(i)
+		sourceField := sourceValue.Field(i)
+		destField := destValue.FieldByName(sourceFieldType.Name)
 
-func protobufToCoreExecutionResources(pbResources *grpcclient.CommonTransactionReceiptProperties_ExecutionResources) *core.ExecutionResources {
-	if pbResources == nil {
-		return nil
-	}
+		if !destField.CanSet() {
+			continue // Skip unexported fields
+		}
 
-	return &core.ExecutionResources{
-		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
-			Bitwise:    pbResources.BuiltinInstanceCounter.Bitwise,
-			EcOp:       pbResources.BuiltinInstanceCounter.EcOp,
-			Ecsda:      pbResources.BuiltinInstanceCounter.Ecsda,
-			Output:     pbResources.BuiltinInstanceCounter.Output,
-			Pedersen:   pbResources.BuiltinInstanceCounter.Pedersen,
-			RangeCheck: pbResources.BuiltinInstanceCounter.RangeCheck,
-		},
-		MemoryHoles: pbResources.MemoryHoles,
-		Steps:       pbResources.Steps,
+		reflectMapValue(sourceField, destField)
 	}
 }

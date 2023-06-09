@@ -213,10 +213,6 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
-func CalculateTransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
-	return transactionHash(transaction, n)
-}
-
 func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:

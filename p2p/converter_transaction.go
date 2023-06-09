@@ -16,17 +16,11 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		coreTx := &core.DeployTransaction{
 			ClassHash:           fieldElementToFelt(tx.Deploy.ClassHash),
 			ContractAddress:     fieldElementToFelt(tx.Deploy.ContractAddress),
-			TransactionHash:     fieldElementToFelt(tx.Deploy.Hash),
+			TransactionHash:     fieldElementToFelt(tx.Deploy.GetHash()),
 			ContractAddressSalt: fieldElementToFelt(tx.Deploy.GetContractAddressSalt()),
 			ConstructorCallData: fieldElementsToFelts(tx.Deploy.GetConstructorCalldata()), // TODO: incomplete
 			Version:             fieldElementToFelt(tx.Deploy.GetVersion()),
 		}
-
-		txHash, err := core.CalculateTransactionHash(coreTx, network)
-		if err != nil {
-			return nil, nil, err
-		}
-		coreTx.TransactionHash = txHash
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Deploy.Common)
 		return coreTx, receipt, nil
@@ -37,7 +31,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		coreTx := &core.DeployAccountTransaction{
 
 			DeployTransaction: core.DeployTransaction{
-				TransactionHash:     fieldElementToFelt(tx.DeployAccount.Hash),
+				TransactionHash:     fieldElementToFelt(tx.DeployAccount.GetHash()),
 				ContractAddressSalt: fieldElementToFelt(tx.DeployAccount.GetContractAddressSalt()),
 				ConstructorCallData: fieldElementsToFelts(tx.DeployAccount.GetConstructorCalldata()),
 				ClassHash:           fieldElementToFelt(tx.DeployAccount.GetClassHash()),
@@ -48,12 +42,6 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 			TransactionSignature: fieldElementsToFelts(tx.DeployAccount.GetSignature()),
 			Nonce:                fieldElementToFelt(tx.DeployAccount.GetNonce()),
 		}
-
-		txHash, err := core.CalculateTransactionHash(coreTx, network)
-		if err != nil {
-			return nil, nil, err
-		}
-		coreTx.TransactionHash = txHash
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.DeployAccount.Common)
 		return coreTx, receipt, nil
@@ -70,12 +58,6 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 			Version:              fieldElementToFelt(tx.Declare.GetVersion()),
 		}
 
-		txHash, err := core.CalculateTransactionHash(coreTx, network)
-		if err != nil {
-			return nil, nil, err
-		}
-		coreTx.TransactionHash = txHash
-
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Declare.Common)
 		return coreTx, receipt, nil
 
@@ -83,7 +65,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Invoke)
 
 		coreTx := &core.InvokeTransaction{
-			TransactionHash:      fieldElementToFelt(tx.Invoke.Hash),
+			TransactionHash:      fieldElementToFelt(tx.Invoke.GetHash()),
 			ContractAddress:      fieldElementToFelt(tx.Invoke.GetContractAddress()),
 			EntryPointSelector:   fieldElementToFelt(tx.Invoke.GetEntryPointSelector()),
 			CallData:             fieldElementsToFelts(tx.Invoke.GetCalldata()),
@@ -93,12 +75,6 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 			Version:              fieldElementToFelt(tx.Invoke.GetVersion()),
 		}
 
-		txHash, err := core.CalculateTransactionHash(coreTx, network)
-		if err != nil {
-			return nil, nil, err
-		}
-		coreTx.TransactionHash = txHash
-
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Invoke.Common)
 		return coreTx, receipt, nil
 
@@ -106,7 +82,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_L1Handler)
 
 		coreTx := &core.L1HandlerTransaction{
-			TransactionHash:    fieldElementToFelt(tx.L1Handler.Hash),
+			TransactionHash:    fieldElementToFelt(tx.L1Handler.GetHash()),
 			ContractAddress:    fieldElementToFelt(tx.L1Handler.GetContractAddress()),
 			EntryPointSelector: fieldElementToFelt(tx.L1Handler.GetEntryPointSelector()),
 			CallData:           fieldElementsToFelts(tx.L1Handler.GetCalldata()),
@@ -114,14 +90,8 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 			Version:            fieldElementToFelt(tx.L1Handler.GetVersion()),
 		}
 
-		txHash, err := core.CalculateTransactionHash(coreTx, network)
-		if err != nil {
-			return nil, nil, err
-		}
-		coreTx.TransactionHash = txHash
-
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.L1Handler.Common)
-		receipt.L1ToL2Message = MapStructRet[core.L1ToL2Message](txReceipt.L1Handler.L1ToL2Message)
+		receipt.L1ToL2Message = MapValueViaReflect[*core.L1ToL2Message](txReceipt.L1Handler.L1ToL2Message)
 		return coreTx, receipt, nil
 
 	default:
@@ -135,7 +105,7 @@ func coreTxToProtobufTx(transaction core.Transaction, receipt *core.TransactionR
 		ActualFee:          feltToFieldElement(receipt.Fee),
 		MessagesSent:       coreL2ToL1MessageToProtobuf(receipt.L2ToL1Message),
 		Events:             coreEventToProtobuf(receipt.Events),
-		ExecutionResources: coreExecutionResourcesToProtobuf(receipt.ExecutionResources),
+		ExecutionResources: MapValueViaReflect[*grpcclient.CommonTransactionReceiptProperties_ExecutionResources](receipt.ExecutionResources),
 	}
 
 	if deployTx, ok := transaction.(*core.DeployTransaction); ok {
@@ -245,7 +215,7 @@ func coreTxToProtobufTx(transaction core.Transaction, receipt *core.TransactionR
 				Receipt: &grpcclient.Receipt_L1Handler{
 					L1Handler: &grpcclient.L1HandlerTransactionReceipt{
 						Common:        commonReceipt,
-						L1ToL2Message: MapStructRet[grpcclient.L1HandlerTransactionReceipt_L1ToL2Message](receipt.L1ToL2Message),
+						L1ToL2Message: MapValueViaReflect[*grpcclient.L1HandlerTransactionReceipt_L1ToL2Message](receipt.L1ToL2Message),
 					},
 				},
 			}

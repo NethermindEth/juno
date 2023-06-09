@@ -7,11 +7,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -350,7 +352,82 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		}
 	}()
 
+	head, err := blockchain.Head()
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 2700; i < int(head.Number); i++ {
+		fmt.Printf("Running on block %d\n", i)
+
+		theblock, err := blockchain.BlockByNumber(uint64(i))
+		if err != nil {
+			return nil, err
+		}
+
+		err = testBlockEncoding(theblock, blockchain.Network())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &impl, nil
+}
+
+func testBlockEncoding(gatewayBlock *core.Block, network utils.Network) error {
+	protoheader, err := coreBlockToProtobufHeader(gatewayBlock)
+	if err != nil {
+		return err
+	}
+
+	protoBody := coreBlockToProtobufBody(gatewayBlock)
+
+	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, network)
+	if err != nil {
+		return err
+	}
+
+	gatewayjson, err := json.MarshalIndent(gatewayBlock, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	reencodedblockjson, err := json.MarshalIndent(newCoreBlock, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	if string(gatewayjson) != string(reencodedblockjson) {
+		for i, receipt := range gatewayBlock.Receipts {
+			tx := gatewayBlock.Transactions[i]
+
+			tx2 := newCoreBlock.Transactions[i]
+			receipt2 := newCoreBlock.Receipts[i]
+
+			if !compareAndPrintDiff(tx, tx2) {
+				thegrpctx := protoBody.Transactions[i]
+				felttx := fieldElementToFelt(thegrpctx.GetL1Handler().GetHash())
+				return fmt.Errorf("tx mismatch. %s %s", thegrpctx, felttx)
+			}
+
+			if !compareAndPrintDiff(receipt, receipt2) {
+				return errors.New("receipt mismatch")
+			}
+
+			if len(receipt.Events) > 0 {
+				txjson, _ := json.Marshal(tx)
+				treceipt, _ := json.Marshal(receipt)
+				fmt.Println(txjson)
+				fmt.Println(treceipt)
+			}
+
+		}
+
+		compareAndPrintDiff(gatewayBlock, newCoreBlock)
+		return errors.New("Mismatch")
+	}
+
+	return nil
 }
 
 func determineKey() (crypto.PrivKey, error) {

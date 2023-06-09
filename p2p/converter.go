@@ -85,7 +85,9 @@ func addressToProto(to common.Address) *grpcclient.EthereumAddress {
 
 func protoToAddress(to *grpcclient.EthereumAddress) common.Address {
 	addr := common.Address{}
-	copy(addr[:], to.Elements)
+	if to != nil {
+		copy(addr[:], to.Elements)
+	}
 	return addr
 }
 
@@ -150,7 +152,7 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *gr
 
 }
 
-func protobufHeaderToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.BlockBody, network utils.Network) (*core.Block, error) {
+func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.BlockBody, network utils.Network) (*core.Block, error) {
 	parentHash := fieldElementToFelt(header.ParentBlockHash)
 	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)
 	sequencerAddress := fieldElementToFelt(header.SequencerAddress)
@@ -176,6 +178,8 @@ func protobufHeaderToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.
 		Receipts:     make([]*core.TransactionReceipt, 0),
 	}
 
+	eventcount := 0
+
 	for i := uint32(0); i < header.TransactionCount; i++ {
 		// Assuming you have a function to convert a transaction from protobuf to core
 		transaction, receipt, err := protobufTransactionToCore(body.Transactions[i], body.Receipts[i], network)
@@ -184,7 +188,12 @@ func protobufHeaderToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.
 		}
 		block.Transactions = append(block.Transactions, transaction)
 		block.Receipts = append(block.Receipts, receipt)
+
+		eventcount = eventcount + len(receipt.Events)
 	}
+
+	block.EventCount = uint64(eventcount)
+	block.EventsBloom = core.EventsBloom(block.Receipts)
 
 	return block, nil
 }
@@ -195,7 +204,7 @@ func protobufCommonReceiptToCoreReceipt(commonReceipt *grpcclient.CommonTransact
 		Events:             coreEventFromProtobuf(commonReceipt.GetEvents()),
 		L2ToL1Message:      coreL2ToL1MessageFromProtobuf(commonReceipt.GetMessagesSent()),
 		TransactionHash:    fieldElementToFelt(commonReceipt.GetTransactionHash()),
-		ExecutionResources: protobufToCoreExecutionResources(commonReceipt.GetExecutionResources()),
+		ExecutionResources: MapValueViaReflect[*core.ExecutionResources](commonReceipt.GetExecutionResources()),
 	}
 
 	return receipt

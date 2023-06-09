@@ -46,7 +46,7 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 
 	protoBody := coreBlockToProtobufBody(gatewayBlock)
 
-	newCoreBlock, err := protobufHeaderToCoreBlock(protoheader, protoBody, s.network)
+	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, s.network)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +62,6 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 	}
 
 	if string(gatewayjson) != string(reencodedblockjson) {
-		fmt.Printf("%#v\n", gatewayBlock)
-
 		for i, receipt := range gatewayBlock.Receipts {
 			tx := gatewayBlock.Transactions[i]
 

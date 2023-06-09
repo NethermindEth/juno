@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -51,6 +52,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		default:
 			block, err := s.StarknetData.BlockByNumber(ctx, height)
 			if err != nil {
+				fmt.Printf("Error %s", err)
 				continue
 			}
 			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
