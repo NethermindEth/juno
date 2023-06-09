@@ -1470,7 +1470,7 @@ func TestEvents(t *testing.T) {
 			FromBlock: &rpc.BlockID{Number: 0},
 			ToBlock:   &rpc.BlockID{Latest: true},
 			Address:   from,
-			Keys:      []*felt.Felt{},
+			Keys:      [][]*felt.Felt{},
 		},
 		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         100,
@@ -1548,7 +1548,7 @@ func TestEvents(t *testing.T) {
 
 		t.Run("get all events without pagination", func(t *testing.T) {
 			args.ChunkSize = 100
-			args.Keys = append(args.Keys, key)
+			args.Keys = append(args.Keys, []*felt.Felt{key})
 			events, err := handler.Events(args)
 			require.Nil(t, err)
 			require.Len(t, events.Events, 1)
@@ -1575,7 +1575,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("too many keys", func(t *testing.T) {
 		args.ChunkSize = 2
-		args.Keys = make([]*felt.Felt, 1024+1)
+		args.Keys = make([][]*felt.Felt, 1024+1)
 		events, err := handler.Events(args)
 		require.Equal(t, rpc.ErrTooManyKeysInFilter, err)
 		require.Nil(t, events)

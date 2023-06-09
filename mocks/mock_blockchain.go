@@ -97,7 +97,7 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(arg0 interface{}) *gomock.
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 []*felt.Felt) (*blockchain.EventFilter, error) {
+func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 [][]*felt.Felt) (*blockchain.EventFilter, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", arg0, arg1)
 	ret0, _ := ret[0].(*blockchain.EventFilter)
