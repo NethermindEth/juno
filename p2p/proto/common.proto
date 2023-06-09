@@ -10,6 +10,7 @@ message EthereumAddress { bytes elements = 1; }
 message PeerID { bytes id = 1; }
 
 message BlockHeader {
+  FieldElement hash = 11;
   FieldElement parent_block_hash = 1;
   uint64 block_number = 2;
   FieldElement global_state_root = 3;
@@ -26,6 +27,7 @@ message BlockHeader {
 }
 
 message InvokeTransaction {
+  FieldElement hash = 8;
   FieldElement contract_address = 1;
   FieldElement entry_point_selector = 2;
   repeated FieldElement calldata = 3;
@@ -36,6 +38,7 @@ message InvokeTransaction {
 }
 
 message DeclareTransaction {
+  FieldElement hash = 8;
   ContractClass contract_class = 1;
   FieldElement sender_address = 2;
   FieldElement max_fee = 3;
@@ -45,13 +48,17 @@ message DeclareTransaction {
 }
 
 message DeployTransaction {
+  FieldElement hash = 8;
   ContractClass contract_class = 1;
   FieldElement contract_address_salt = 2;
   repeated FieldElement constructor_calldata = 3;
   FieldElement version = 4;
+  FieldElement class_hash = 5;
+  FieldElement contract_address = 6;
 }
 
 message L1HandlerTransaction {
+  FieldElement hash = 8;
   FieldElement contract_address = 1;
   FieldElement entry_point_selector = 2;
   repeated FieldElement calldata = 3;
@@ -60,6 +67,7 @@ message L1HandlerTransaction {
 }
 
 message DeployAccountTransaction {
+  FieldElement hash = 8;
   FieldElement contract_address_salt = 1;
   repeated FieldElement constructor_calldata = 2;
   FieldElement class_hash = 3;
@@ -109,6 +117,22 @@ message CommonTransactionReceiptProperties {
   FieldElement actual_fee = 2;
   repeated MessageToL1 messages_sent = 3;
   repeated Event events = 4;
+  ExecutionResources execution_resources = 5;
+
+  message ExecutionResources {
+    BuiltinInstanceCounter builtin_instance_counter = 1;
+    uint64 memory_holes = 2;
+    uint64 steps = 3;
+  }
+
+  message BuiltinInstanceCounter {
+    uint64 Bitwise = 1;
+    uint64 EcOp = 2;
+    uint64 Ecsda = 3;
+    uint64 Output = 4;
+    uint64 Pedersen = 5;
+    uint64 RangeCheck = 6;
+  }
 }
 
 message InvokeTransactionReceipt {
@@ -117,6 +141,14 @@ message InvokeTransactionReceipt {
 
 message L1HandlerTransactionReceipt {
   CommonTransactionReceiptProperties common = 1;
+  L1ToL2Message l1_to_l2_message = 2;
+  message L1ToL2Message {
+    EthereumAddress from = 1;
+    FieldElement nonce = 2;
+    repeated FieldElement payload = 3;
+    FieldElement selector = 4;
+    FieldElement to = 5;
+  }
 }
 
 message DeclareTransactionReceipt {

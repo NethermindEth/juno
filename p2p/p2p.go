@@ -140,7 +140,7 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 		fmt.Println("Listening for kad events")
 
 		for lookup := range events {
-			fmt.Printf("Got event %s", lookup)
+			fmt.Printf("Got event %v", lookup)
 		}
 	}()
 
@@ -184,7 +184,7 @@ func (ip *P2PImpl) GetBlockHeaderByNumber(ctx context.Context, number uint64) (*
 
 	// Need to make a custom hasher from the grpc header. The core.Header missed a few hashes.
 	coreheader := &core.Header{
-		// Hash: header.Hash, // Need to learn how to
+		Hash:             fieldElementToFelt(header.Hash),
 		ParentHash:       fieldElementToFelt(header.ParentBlockHash),
 		Number:           header.BlockNumber,
 		GlobalStateRoot:  fieldElementToFelt(header.GlobalStateRoot),
@@ -192,7 +192,7 @@ func (ip *P2PImpl) GetBlockHeaderByNumber(ctx context.Context, number uint64) (*
 		TransactionCount: uint64(header.TransactionCount),
 		EventCount:       uint64(header.EventCount),
 		Timestamp:        header.BlockTimestamp,
-		ProtocolVersion:  string(header.ProtocolVersion),
+		ProtocolVersion:  fmt.Sprintf("%d", header.ProtocolVersion),
 		// ExtraData:        header.ExtraData,
 		// EventsBloom:      header.EventsBloom,
 	}

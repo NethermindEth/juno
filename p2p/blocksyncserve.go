@@ -26,7 +26,7 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *grpcclient.GetBlockHeade
 	} else if blocknum, ok := request.StartBlock.(*grpcclient.GetBlockHeaders_BlockNumber); ok {
 		startblock, err = s.blockchain.BlockByNumber(blocknum.BlockNumber)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to get block by number %s", blocknum.BlockNumber)
+			return nil, errors.Wrapf(err, "unable to get block by number %d", blocknum.BlockNumber)
 		}
 	} else {
 		return nil, fmt.Errorf("unsupported startblock type %s", reflect.TypeOf(request.StartBlock))
@@ -47,12 +47,12 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *grpcclient.GetBlockHeade
 			if request.Direction == grpcclient.Direction_FORWARD {
 				startblock, err = s.blockchain.BlockByNumber(startblock.Number + 1)
 				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %s", startblock.Number+1)
+					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number+1)
 				}
 			} else {
 				startblock, err = s.blockchain.BlockByNumber(startblock.Number - 1)
 				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %s", startblock.Number-1)
+					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
 				}
 			}
 		}
@@ -82,12 +82,12 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *grpcclient.GetBlockBodie
 			if request.Direction == grpcclient.Direction_FORWARD {
 				startblock, err = s.blockchain.BlockByNumber(startblock.Number + 1)
 				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %s", startblock.Number+1)
+					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number+1)
 				}
 			} else {
 				startblock, err = s.blockchain.BlockByNumber(startblock.Number - 1)
 				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %s", startblock.Number-1)
+					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
 				}
 			}
 		}
@@ -202,18 +202,28 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *grpcclient.Request) (*
 }
 
 func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {
+	fmt.Printf("Handling block sync\n")
+
 	msg := grpcclient.Request{}
 	err := readCompressedProtobuf(stream, &msg)
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Printf("Handling block sync type %s\n", reflect.TypeOf(msg))
 	resp, err := s.HandleBlockSyncRequest(&msg)
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Printf("Writing response type %s\n", reflect.TypeOf(msg))
 	err = writeCompressedProtobuf(stream, resp)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Done %s\n", reflect.TypeOf(msg))
+	err = stream.Close()
 	if err != nil {
 		panic(err)
 	}
