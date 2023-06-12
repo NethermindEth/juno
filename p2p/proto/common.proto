@@ -10,7 +10,7 @@ message EthereumAddress { bytes elements = 1; }
 message PeerID { bytes id = 1; }
 
 message BlockHeader {
-  FieldElement hash = 11;
+  FieldElement hash = 11; // The hash can't be calculated deterministically. There can be more than on possible hash per header due to fallback sequencer address.
   FieldElement parent_block_hash = 1;
   uint64 block_number = 2;
   FieldElement global_state_root = 3;
@@ -34,8 +34,8 @@ message InvokeTransaction {
   FieldElement max_fee = 5;
   FieldElement nonce = 6;
   FieldElement version = 7;
-  FieldElement hash = 8;
-  FieldElement sender_address = 9;
+  FieldElement sender_address = 8;
+  FieldElement hash = 9; // Need to remove after regenesis
 }
 
 message DeclareTransaction {
@@ -45,8 +45,8 @@ message DeclareTransaction {
   repeated FieldElement signature = 4;
   FieldElement nonce = 5;
   FieldElement version = 6;
-  FieldElement hash = 8;
-  FieldElement compiled_class_hash = 9;
+  FieldElement compiled_class_hash = 7;
+  FieldElement hash = 8; // Need to remove after regenesis
 }
 
 message DeployTransaction {
@@ -56,16 +56,16 @@ message DeployTransaction {
   FieldElement version = 4;
   FieldElement class_hash = 5;
   FieldElement contract_address = 6;
-  FieldElement hash = 8;
+  FieldElement hash = 7; // Need to remove after regenesis
 }
 
 message L1HandlerTransaction {
-  FieldElement hash = 8;
   FieldElement contract_address = 1;
   FieldElement entry_point_selector = 2;
   repeated FieldElement calldata = 3;
   FieldElement nonce = 4;
   FieldElement version = 5;
+  FieldElement hash = 6; // Need to remove after regenesis
 }
 
 message DeployAccountTransaction {
@@ -76,7 +76,7 @@ message DeployAccountTransaction {
   repeated FieldElement signature = 5;
   FieldElement nonce = 6;
   FieldElement version = 7;
-  FieldElement hash = 8;
+  FieldElement hash = 8; // Need to remove after regenesis
   FieldElement contract_address = 9;
 }
 

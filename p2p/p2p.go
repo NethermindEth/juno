@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
@@ -358,7 +359,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 
 	blocknumchan := make(chan int)
 
-	threadcount := 1
+	threadcount := 32
 	wg := sync.WaitGroup{}
 	wg.Add(threadcount)
 	for i := 0; i < threadcount; i++ {
@@ -380,7 +381,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		}()
 	}
 
-	startblock := 77800
+	startblock := 1400
 	for i := startblock; i < int(head.Number); i++ {
 		blocknumchan <- i
 	}
@@ -426,6 +427,13 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 	}
 
 	if string(gatewayjson) != string(reencodedblockjson) {
+
+		updateBytes, err := encoder.Marshal(originalBlock)
+		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/%d.dat", originalBlock.Number), updateBytes, 0666)
+		if err != nil {
+			panic(err)
+		}
+
 		for i, receipt := range originalBlock.Receipts {
 			tx := originalBlock.Transactions[i]
 
@@ -433,22 +441,44 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 			receipt2 := newCoreBlock.Receipts[i]
 
 			if !compareAndPrintDiff(tx, tx2) {
-				thegrpctx := protoBody.Transactions[i]
-				felttx := fieldElementToFelt(thegrpctx.GetL1Handler().GetHash())
-				return fmt.Errorf("tx mismatch. %s %s", thegrpctx, felttx)
+				return errors.New("tx mismatch.")
 			}
 
 			if !compareAndPrintDiff(receipt, receipt2) {
 				return errors.New("receipt mismatch")
 			}
 
-			if len(receipt.Events) > 0 {
-				txjson, _ := json.Marshal(tx)
-				treceipt, _ := json.Marshal(receipt)
-				fmt.Println(txjson)
-				fmt.Println(treceipt)
-			}
+		}
 
+		txCommit, err := originalBlock.CalculateTransactionCommitment()
+		if err != nil {
+			return err
+		}
+
+		eCommit, err := originalBlock.CalculateEventCommitment()
+		if err != nil {
+			return err
+		}
+
+		headeragain, _ := c.coreBlockToProtobufHeader(originalBlock)
+		txCommit2 := fieldElementToFelt(headeragain.TransactionCommitment)
+		eCommit2 := fieldElementToFelt(headeragain.EventCommitment)
+		if !txCommit.Equal(txCommit2) {
+			return errors.New("Tx commit not match")
+		}
+		if !eCommit.Equal(eCommit2) {
+			return errors.New("Event commit not match")
+		}
+
+		err = core.VerifyBlockHash(originalBlock, blockchain.Network())
+		if err != nil {
+			return err
+		}
+
+		// originalHash, err := core.CalculateBlockHashWithTxCommitment(originalBlock, blockchain.Network(), txCommit, eCommit)
+		originalHash, err := core.CalculateBlockHashPlain(originalBlock, blockchain.Network())
+		if !originalHash.Equal(originalBlock.Hash) {
+			return errors.New("Recalculated hash does not match")
 		}
 
 		compareAndPrintDiff(originalBlock, newCoreBlock)
