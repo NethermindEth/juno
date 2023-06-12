@@ -213,7 +213,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			ClassHash:           v.ClassHash,
 			Version:             v.Version,
 			ContractAddressSalt: v.ContractAddressSalt,
-			ConstructorCalldata: v.ConstructorCallData,
+			ConstructorCallData: &v.ConstructorCallData,
 			ContractAddress:     v.ContractAddress,
 		}
 	case *core.InvokeTransaction:
@@ -231,7 +231,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			Nonce:               v.Nonce,
 			Type:                TxnDeployAccount,
 			ContractAddressSalt: v.ContractAddressSalt,
-			ConstructorCalldata: v.ConstructorCallData,
+			ConstructorCallData: &v.ConstructorCallData,
 			ClassHash:           v.ClassHash,
 			ContractAddress:     v.ContractAddress,
 		}
@@ -244,7 +244,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			Nonce:              v.Nonce,
 			ContractAddress:    v.ContractAddress,
 			EntryPointSelector: v.EntryPointSelector,
-			Calldata:           &v.CallData,
+			CallData:           &v.CallData,
 		}
 	default:
 		panic("not a transaction")
@@ -261,7 +261,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 		Version:            t.Version,
 		Signature:          &sig,
 		Nonce:              t.Nonce,
-		Calldata:           &t.CallData,
+		CallData:           &t.CallData,
 		ContractAddress:    t.ContractAddress,
 		SenderAddress:      t.SenderAddress,
 		EntryPointSelector: t.EntryPointSelector,
@@ -1008,7 +1008,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	}
 	defer func() {
 		if closeErr := closer(); closeErr != nil {
-			h.log.Warnw("Failed to close state in starknet_call", "err", closeErr)
+			h.log.Errorw("Failed to close state in starknet_call", "err", closeErr)
 		}
 	}()
 
@@ -1061,4 +1061,68 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (Status, *jsonrpc.Error) {
 	}
 
 	return status, nil
+}
+
+func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
+	var estimates []FeeEstimate
+	state, closer, err := h.stateByBlockID(&id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			h.log.Errorw("Failed to close state in starknet_estimateFee", "err", closeErr)
+		}
+	}()
+
+	header, err := h.blockHeaderByID(&id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	// todo: remove after the next release
+	if header.GasPrice == nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, "no gas price history for the given block")
+	}
+
+	var txns []core.Transaction
+	var classes []core.Class
+
+	for idx := range broadcastedTxns {
+		txn, declaredClass, aErr := adaptBroadcastedTransaction(&broadcastedTxns[idx], h.network)
+		if aErr != nil {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+		}
+
+		txns = append(txns, txn)
+		if declaredClass != nil {
+			classes = append(classes, declaredClass)
+		}
+	}
+
+	blockNumber := header.Number
+	if id.Pending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	gasesConsumed, err := vm.Execute(txns, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
+	if err != nil {
+		rpcErr := *ErrContractError
+		rpcErr.Data = err.Error()
+		return nil, &rpcErr
+	}
+
+	for _, gasConsumed := range gasesConsumed {
+		estimates = append(estimates, FeeEstimate{
+			GasConsumed: gasConsumed,
+			GasPrice:    header.GasPrice,
+			OverallFee:  new(felt.Felt).Mul(gasConsumed, header.GasPrice),
+		})
+	}
+
+	return estimates, nil
 }

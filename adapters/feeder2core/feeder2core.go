@@ -44,6 +44,7 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         response.GasPrice,
 		},
 		Transactions: txns,
 		Receipts:     receipts,
@@ -143,7 +144,7 @@ func AdaptTransaction(transaction *feeder.Transaction) (core.Transaction, error)
 		return AdaptDeclareTransaction(transaction), nil
 	case "DEPLOY":
 		return AdaptDeployTransaction(transaction), nil
-	case "INVOKE_FUNCTION":
+	case "INVOKE_FUNCTION", "INVOKE":
 		return AdaptInvokeTransaction(transaction), nil
 	case "DEPLOY_ACCOUNT":
 		return AdaptDeployAccountTransaction(transaction), nil
@@ -168,6 +169,9 @@ func AdaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 }
 
 func AdaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
+	if t.ContractAddress == nil {
+		t.ContractAddress = core.ContractAddress(&felt.Zero, t.ClassHash, t.ContractAddressSalt, *t.ConstructorCallData)
+	}
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
 		ContractAddressSalt: t.ContractAddressSalt,
@@ -239,8 +243,10 @@ func AdaptCairo1Class(response *feeder.SierraDefinition, compiledClass json.RawM
 		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
 	}
 
-	if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
-		return nil, err
+	if compiledClass != nil {
+		if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
+			return nil, err
+		}
 	}
 	return class, nil
 }
