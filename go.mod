@@ -24,6 +24,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	google.golang.org/grpc v1.46.2
 	google.golang.org/protobuf v1.28.0
+	nhooyr.io/websocket v1.8.7
 )
 
 require gopkg.in/yaml.v2 v2.4.0 // indirect
