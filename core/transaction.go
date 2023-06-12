@@ -213,7 +213,7 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
-func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n)
@@ -246,8 +246,15 @@ func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
 	switch {
 	case i.Version.IsZero():
-		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
-		return i.TransactionHash, nil
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.Version,
+			i.ContractAddress,
+			i.EntryPointSelector,
+			crypto.PedersenArray(i.CallData...),
+			i.MaxFee,
+			n.ChainID(),
+		), nil
 	case i.Version.IsOne():
 		return crypto.PedersenArray(
 			invokeFelt,
@@ -353,7 +360,7 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 	}
 
 	for _, t := range txs {
-		calculatedTxHash, hErr := transactionHash(t, n)
+		calculatedTxHash, hErr := TransactionHash(t, n)
 		if hErr != nil {
 			return fmt.Errorf("cannot calculate transaction hash of Transaction %s, reason: %w", t.Hash(), hErr)
 		}

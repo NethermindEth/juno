@@ -44,6 +44,7 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         response.GasPrice,
 		},
 		Transactions: txns,
 		Receipts:     receipts,
@@ -143,7 +144,7 @@ func AdaptTransaction(transaction *feeder.Transaction) (core.Transaction, error)
 		return AdaptDeclareTransaction(transaction), nil
 	case "DEPLOY":
 		return AdaptDeployTransaction(transaction), nil
-	case "INVOKE_FUNCTION":
+	case "INVOKE_FUNCTION", "INVOKE":
 		return AdaptInvokeTransaction(transaction), nil
 	case "DEPLOY_ACCOUNT":
 		return AdaptDeployAccountTransaction(transaction), nil
