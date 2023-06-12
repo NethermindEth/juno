@@ -241,6 +241,11 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
 			Handler: rpcHandler.Call,
 		},
+		{
+			Name:    "starknet_estimateFee",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: rpcHandler.EstimateFee,
+		},
 	}
 
 	jsonrpcServer := jsonrpc.NewServer().WithValidator(validator.New())
