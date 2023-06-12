@@ -119,7 +119,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Latest: true})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Latest: true})
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -127,7 +127,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -135,7 +135,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Number: uint64(328476)})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Number: uint64(328476)})
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -143,7 +143,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Latest: true})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -151,7 +151,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Hash: latestBlockHash})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Hash: latestBlockHash})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -159,7 +159,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Number: latestBlockNumber})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -171,7 +171,7 @@ func TestBlockTransactionCount(t *testing.T) {
 			Block: latestBlock,
 		}, nil)
 
-		count, rpcErr := handler.BlockTransactionCount(&rpc.BlockID{Pending: true})
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -214,7 +214,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -222,7 +222,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -230,7 +230,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: uint64(328476)})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Number: uint64(328476)})
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -238,7 +238,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil)
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
@@ -247,7 +247,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: latestBlockHash})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Hash: latestBlockHash})
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
@@ -256,7 +256,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
@@ -269,7 +269,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			Block: latestBlock,
 		}, nil)
 
-		block, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Pending: true})
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		checkLatestBlock(t, block)
 	})
@@ -294,7 +294,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
 
-		block, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Latest: true})
+		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Latest: true})
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -302,7 +302,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		block, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
+		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -310,7 +310,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		block, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Number: uint64(328476)})
+		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Number: uint64(328476)})
 		assert.Nil(t, block)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -323,7 +323,7 @@ func TestBlockWithTxs(t *testing.T) {
 		for i, txnHash := range blockWithTxHashes.TxnHashes {
 			assert.Equal(t, txnHash, blockWithTxs.Transactions[i].Hash)
 
-			txn, err := handler.TransactionByHash(blockWithTxs.Transactions[i].Hash)
+			txn, err := handler.TransactionByHash(*blockWithTxs.Transactions[i].Hash)
 			require.Nil(t, err)
 
 			assert.Equal(t, txn, blockWithTxs.Transactions[i])
@@ -345,10 +345,10 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Latest: true})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Latest: true})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
@@ -357,10 +357,10 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Hash: latestBlockHash})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Hash: latestBlockHash})
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Hash: latestBlockHash})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(rpc.BlockID{Hash: latestBlockHash})
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
@@ -369,10 +369,10 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Number: latestBlockNumber})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Number: latestBlockNumber})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(rpc.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
@@ -388,10 +388,10 @@ func TestBlockWithTxs(t *testing.T) {
 			Block: latestBlock,
 		}, nil).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&rpc.BlockID{Pending: true})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&rpc.BlockID{Pending: true})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
@@ -413,7 +413,7 @@ func TestTransactionByHash(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
 
-		tx, rpcErr := handler.TransactionByHash(txHash)
+		tx, rpcErr := handler.TransactionByHash(*txHash)
 		assert.Nil(t, tx)
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
@@ -579,7 +579,7 @@ func TestTransactionByHash(t *testing.T) {
 			expectedMap := make(map[string]any)
 			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
 
-			res, rpcErr := handler.TransactionByHash(hash)
+			res, rpcErr := handler.TransactionByHash(*hash)
 			require.Nil(t, rpcErr)
 
 			resJSON, err := json.Marshal(res)
@@ -611,7 +611,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Latest: true}, rand.Int())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -620,7 +620,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, errors.New("block not found"))
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
-			&rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
+			rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -628,13 +628,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Number: rand.Uint64()}, rand.Int())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: rand.Uint64()}, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Latest: true}, -1)
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, -1)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpc.ErrInvalidTxIndex, rpcErr)
 	})
@@ -644,7 +644,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
 			latestBlock.TransactionCount).Return(nil, errors.New("invalid index"))
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Latest: true}, len(latestBlock.Transactions))
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, len(latestBlock.Transactions))
 		assert.Nil(t, txn)
 		assert.Equal(t, rpc.ErrInvalidTxIndex, rpcErr)
 	})
@@ -662,10 +662,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Latest: true}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, index)
 		require.Nil(t, rpcErr)
 
-		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
+		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
@@ -684,10 +684,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Hash: latestBlockHash}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Hash: latestBlockHash}, index)
 		require.Nil(t, rpcErr)
 
-		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
+		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
@@ -706,10 +706,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
 		require.Nil(t, rpcErr)
 
-		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
+		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
@@ -728,10 +728,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&rpc.BlockID{Pending: true}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Pending: true}, index)
 		require.Nil(t, rpcErr)
 
-		txn2, rpcErr := handler.TransactionByHash(latestBlock.Transactions[index].Hash())
+		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, txn1, txn2)
@@ -749,7 +749,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
 
-		tx, rpcErr := handler.TransactionReceiptByHash(txHash)
+		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
@@ -810,7 +810,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			expectedMap := make(map[string]any)
 			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
 
-			receipt, err := handler.TransactionReceiptByHash(txHash)
+			receipt, err := handler.TransactionReceiptByHash(*txHash)
 			require.Nil(t, err)
 
 			receiptJSON, jsonErr := json.Marshal(receipt)
@@ -833,7 +833,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Height().Return(uint64(0), errors.New("empty blockchain"))
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Latest: true})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Latest: true})
 		assert.Nil(t, update)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -841,7 +841,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByHash(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
 		assert.Nil(t, update)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -849,7 +849,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Number: uint64(328476)})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Number: uint64(328476)})
 		assert.Nil(t, update)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -913,7 +913,7 @@ func TestStateUpdate(t *testing.T) {
 		mockReader.EXPECT().Height().Return(uint64(21656), nil)
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Latest: true})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
@@ -921,7 +921,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("by height", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Number: uint64(21656)})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Number: uint64(21656)})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
@@ -929,7 +929,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("by hash", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByHash(update21656.BlockHash).Return(update21656, nil)
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Hash: update21656.BlockHash})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Hash: update21656.BlockHash})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
@@ -950,7 +950,7 @@ func TestStateUpdate(t *testing.T) {
 
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
 
-				update, rpcErr := handler.StateUpdate(&rpc.BlockID{Number: height})
+				update, rpcErr := handler.StateUpdate(rpc.BlockID{Number: height})
 				require.Nil(t, rpcErr)
 
 				checkUpdate(t, gwUpdate, update)
@@ -965,7 +965,7 @@ func TestStateUpdate(t *testing.T) {
 			StateUpdate: update21656,
 		}, nil)
 
-		update, rpcErr := handler.StateUpdate(&rpc.BlockID{Pending: true})
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
@@ -1059,7 +1059,7 @@ func TestNonce(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Latest: true}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1067,7 +1067,7 @@ func TestNonce(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, errors.New("non-existent block hash"))
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Hash: &felt.Zero}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1075,7 +1075,7 @@ func TestNonce(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, errors.New("non-existent block number"))
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Number: 0}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1087,7 +1087,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(nil, errors.New("non-existent contract"))
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Latest: true}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
@@ -1098,7 +1098,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Latest: true}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
@@ -1107,7 +1107,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Hash: &felt.Zero}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
@@ -1116,7 +1116,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
-		nonce, rpcErr := handler.Nonce(&rpc.BlockID{Number: 0}, &felt.Zero)
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
@@ -1133,7 +1133,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Latest: true})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1141,7 +1141,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, errors.New("non-existent block hash"))
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Hash: &felt.Zero})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Hash: &felt.Zero})
 		require.Nil(t, storage)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1149,7 +1149,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, errors.New("non-existent block number"))
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Number: 0})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Number: 0})
 		require.Nil(t, storage)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1161,7 +1161,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, errors.New("non-existent contract"))
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Latest: true})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
@@ -1170,7 +1170,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(&felt.Zero, errors.New("non-existent key"))
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Latest: true})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
@@ -1181,7 +1181,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Latest: true})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storage)
 	})
@@ -1190,7 +1190,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Hash: &felt.Zero})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Hash: &felt.Zero})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storage)
 	})
@@ -1199,7 +1199,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
-		storage, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &rpc.BlockID{Number: 0})
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Number: 0})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storage)
 	})
@@ -1216,7 +1216,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Latest: true}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1224,7 +1224,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, errors.New("non-existent block hash"))
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Hash: &felt.Zero}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1232,7 +1232,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, errors.New("non-existent block number"))
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Number: 0}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -1244,7 +1244,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, errors.New("non-existent contract"))
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Latest: true}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
@@ -1255,7 +1255,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Latest: true}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
@@ -1264,7 +1264,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Hash: &felt.Zero}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
@@ -1273,7 +1273,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, NoopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
-		classHash, rpcErr := handler.ClassHashAt(&rpc.BlockID{Number: 0}, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
@@ -1353,7 +1353,7 @@ func TestClass(t *testing.T) {
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, utils.NewNopZapLogger())
 
-	latest := &rpc.BlockID{Latest: true}
+	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
@@ -1361,7 +1361,7 @@ func TestClass(t *testing.T) {
 		coreClass, err := integGw.Class(context.Background(), hash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.Class(latest, hash)
+		class, rpcErr := handler.Class(latest, *hash)
 		require.Nil(t, rpcErr)
 		cairo1Class := coreClass.(*core.Cairo1Class)
 		assertEqualCairo1Class(t, cairo1Class, class)
@@ -1373,7 +1373,7 @@ func TestClass(t *testing.T) {
 		coreClass, err := integGw.Class(context.Background(), hash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.Class(latest, hash)
+		class, rpcErr := handler.Class(latest, *hash)
 		require.Nil(t, rpcErr)
 
 		cairo0Class := coreClass.(*core.Cairo0Class)
@@ -1410,13 +1410,13 @@ func TestClassAt(t *testing.T) {
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, utils.NewNopZapLogger())
 
-	latest := &rpc.BlockID{Latest: true}
+	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
 		coreClass, err := integGw.Class(context.Background(), cairo1ClassHash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.ClassAt(latest, cairo1ContractAddress)
+		class, rpcErr := handler.ClassAt(latest, *cairo1ContractAddress)
 		require.Nil(t, rpcErr)
 		cairo1Class := coreClass.(*core.Cairo1Class)
 		assertEqualCairo1Class(t, cairo1Class, class)
@@ -1426,7 +1426,7 @@ func TestClassAt(t *testing.T) {
 		coreClass, err := integGw.Class(context.Background(), cairo0ClassHash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.ClassAt(latest, cairo0ContractAddress)
+		class, rpcErr := handler.ClassAt(latest, *cairo0ContractAddress)
 		require.Nil(t, rpcErr)
 
 		cairo0Class := coreClass.(*core.Cairo0Class)
@@ -1465,12 +1465,12 @@ func TestEvents(t *testing.T) {
 
 	handler := rpc.New(chain, nil, utils.GOERLI2, nil, utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
-	args := &rpc.EventsArg{
+	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
 			FromBlock: &rpc.BlockID{Number: 0},
 			ToBlock:   &rpc.BlockID{Latest: true},
 			Address:   from,
-			Keys:      [][]*felt.Felt{},
+			Keys:      [][]felt.Felt{},
 		},
 		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         100,
@@ -1548,7 +1548,7 @@ func TestEvents(t *testing.T) {
 
 		t.Run("get all events without pagination", func(t *testing.T) {
 			args.ChunkSize = 100
-			args.Keys = append(args.Keys, []*felt.Felt{key})
+			args.Keys = append(args.Keys, []felt.Felt{*key})
 			events, err := handler.Events(args)
 			require.Nil(t, err)
 			require.Len(t, events.Events, 1)
@@ -1575,14 +1575,14 @@ func TestEvents(t *testing.T) {
 
 	t.Run("too many keys", func(t *testing.T) {
 		args.ChunkSize = 2
-		args.Keys = make([][]*felt.Felt, 1024+1)
+		args.Keys = make([][]felt.Felt, 1024+1)
 		events, err := handler.Events(args)
 		require.Equal(t, rpc.ErrTooManyKeysInFilter, err)
 		require.Nil(t, events)
 	})
 
 	t.Run("get pending events without pagination", func(t *testing.T) {
-		args = &rpc.EventsArg{
+		args = rpc.EventsArg{
 			EventFilter: rpc.EventFilter{
 				FromBlock: &rpc.BlockID{Pending: true},
 				ToBlock:   &rpc.BlockID{Pending: true},

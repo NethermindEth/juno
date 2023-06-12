@@ -18,7 +18,7 @@ type EventFilter struct {
 	fromBlock       uint64
 	toBlock         uint64
 	contractAddress *felt.Felt
-	keys            [][]*felt.Felt
+	keys            [][]felt.Felt
 }
 
 type EventFilterRange uint
@@ -28,7 +28,7 @@ const (
 	EventFilterTo
 )
 
-func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]*felt.Felt, fromBlock, toBlock uint64) *EventFilter {
+func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64) *EventFilter {
 	return &EventFilter{
 		txn:             txn,
 		contractAddress: contractAddress,
@@ -249,12 +249,12 @@ func (e *EventFilter) matchesEventKeys(eventKeys []*felt.Felt, keysMap []map[fel
 	return true
 }
 
-func makeKeysMaps(filterKeys [][]*felt.Felt) []map[felt.Felt]struct{} {
+func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 	filterKeysMaps := make([]map[felt.Felt]struct{}, len(filterKeys))
 	for index, keys := range filterKeys {
 		kMap := make(map[felt.Felt]struct{}, len(keys))
 		for _, key := range keys {
-			kMap[*key] = struct{}{}
+			kMap[key] = struct{}{}
 		}
 		filterKeysMaps[index] = kMap
 	}

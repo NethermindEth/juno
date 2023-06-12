@@ -37,7 +37,7 @@ type Reader interface {
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	PendingState() (core.StateReader, StateCloser, error)
 
-	EventFilter(from *felt.Felt, keys [][]*felt.Felt) (*EventFilter, error)
+	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
 
 	Pending() (Pending, error)
 }
@@ -705,7 +705,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
-func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]*felt.Felt) (*EventFilter, error) {
+func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error) {
 	txn := b.database.NewTransaction(false)
 	latest, err := chainHeight(txn)
 	if err != nil {
