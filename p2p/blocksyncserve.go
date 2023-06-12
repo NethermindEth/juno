@@ -12,6 +12,7 @@ import (
 
 type blockSyncServer struct {
 	blockchain *blockchain.Blockchain
+	converter  converter
 }
 
 func (s *blockSyncServer) HandleGetBlockHeader(request *grpcclient.GetBlockHeaders) (*grpcclient.BlockHeaders, error) {
@@ -35,7 +36,7 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *grpcclient.GetBlockHeade
 	// TODO: request.sizelimit
 	results := make([]*grpcclient.BlockHeader, 0)
 	for i := 0; i < int(request.Count); i++ {
-		protoheader, err := coreBlockToProtobufHeader(startblock)
+		protoheader, err := s.converter.coreBlockToProtobufHeader(startblock)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to convert block to protobuff block header")
 		}
@@ -75,7 +76,11 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *grpcclient.GetBlockBodie
 	// TODO: request.sizelimit
 	results := make([]*grpcclient.BlockBody, 0)
 	for i := 0; i < int(request.Count); i++ {
-		results = append(results, coreBlockToProtobufBody(startblock))
+		block, err := s.converter.coreBlockToProtobufBody(startblock)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to convert block to protobuf")
+		}
+		results = append(results, block)
 
 		if i+1 < int(request.Count) {
 			// TODO: how notfound is represented and what if its null or the number overflow

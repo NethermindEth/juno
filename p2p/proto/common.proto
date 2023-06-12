@@ -27,7 +27,6 @@ message BlockHeader {
 }
 
 message InvokeTransaction {
-  FieldElement hash = 8;
   FieldElement contract_address = 1;
   FieldElement entry_point_selector = 2;
   repeated FieldElement calldata = 3;
@@ -35,6 +34,8 @@ message InvokeTransaction {
   FieldElement max_fee = 5;
   FieldElement nonce = 6;
   FieldElement version = 7;
+  FieldElement hash = 8;
+  FieldElement sender_address = 9;
 }
 
 message DeclareTransaction {
@@ -48,13 +49,13 @@ message DeclareTransaction {
 }
 
 message DeployTransaction {
-  FieldElement hash = 8;
   ContractClass contract_class = 1;
   FieldElement contract_address_salt = 2;
   repeated FieldElement constructor_calldata = 3;
   FieldElement version = 4;
   FieldElement class_hash = 5;
   FieldElement contract_address = 6;
+  FieldElement hash = 8;
 }
 
 message L1HandlerTransaction {
@@ -67,7 +68,6 @@ message L1HandlerTransaction {
 }
 
 message DeployAccountTransaction {
-  FieldElement hash = 8;
   FieldElement contract_address_salt = 1;
   repeated FieldElement constructor_calldata = 2;
   FieldElement class_hash = 3;
@@ -75,6 +75,8 @@ message DeployAccountTransaction {
   repeated FieldElement signature = 5;
   FieldElement nonce = 6;
   FieldElement version = 7;
+  FieldElement hash = 8;
+  FieldElement contract_address = 9;
 }
 
 message ContractClass {
@@ -88,6 +90,7 @@ message ContractClass {
   repeated EntryPoint l1_handler_entry_points = 3;
   string program = 4;
   string abi = 5;
+  FieldElement hash = 6;
 }
 
 message Transaction {

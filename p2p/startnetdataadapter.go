@@ -3,26 +3,31 @@ package p2p
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/nsf/jsondiff"
+	"github.com/pkg/errors"
 )
 
 type StartnetDataAdapter struct {
-	base    starknetdata.StarknetData
-	p2p     P2P
-	network utils.Network
+	base      starknetdata.StarknetData
+	p2p       P2P
+	network   utils.Network
+	converter converter
 }
 
-func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, network utils.Network) starknetdata.StarknetData {
+func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
 	return &StartnetDataAdapter{
 		base:    base,
 		p2p:     p2p,
-		network: network,
+		network: blockchain.Network(),
+		converter: converter{
+			blockchain: blockchain,
+		},
 	}
 }
 
@@ -39,12 +44,15 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 		return nil, err
 	}
 
-	protoheader, err := coreBlockToProtobufHeader(gatewayBlock)
+	protoheader, err := s.converter.coreBlockToProtobufHeader(gatewayBlock)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error converting header to protobuf")
 	}
 
-	protoBody := coreBlockToProtobufBody(gatewayBlock)
+	protoBody, err := s.converter.coreBlockToProtobufBody(gatewayBlock)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting header to protobuf")
+	}
 
 	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, s.network)
 	if err != nil {

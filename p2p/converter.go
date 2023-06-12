@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/NethermindEth/juno/utils"
@@ -9,9 +10,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Shoulve reflect these....
+type converter struct {
+	blockchain *blockchain.Blockchain
+}
 
-func coreBlockToProtobufHeader(block *core.Block) (*grpcclient.BlockHeader, error) {
+func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*grpcclient.BlockHeader, error) {
 	txCommitment, err := block.CalculateTransactionCommitment()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to calculate transaction commitment")
@@ -37,17 +40,23 @@ func coreBlockToProtobufHeader(block *core.Block) (*grpcclient.BlockHeader, erro
 	}, nil
 }
 
-func coreBlockToProtobufBody(block *core.Block) *grpcclient.BlockBody {
+func (c *converter) coreBlockToProtobufBody(block *core.Block) (*grpcclient.BlockBody, error) {
 	grpctransactions := make([]*grpcclient.Transaction, len(block.Transactions))
 	grpcreceipts := make([]*grpcclient.Receipt, len(block.Receipts))
 	for i, transaction := range block.Transactions {
-		grpctransactions[i], grpcreceipts[i] = coreTxToProtobufTx(transaction, block.Receipts[i])
+		tx, receipt, err := c.coreTxToProtobufTx(transaction, block.Receipts[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "unable convert core block to protobuff")
+		}
+
+		grpctransactions[i] = tx
+		grpcreceipts[i] = receipt
 	}
 
 	return &grpcclient.BlockBody{
 		Transactions: grpctransactions,
 		Receipts:     grpcreceipts,
-	}
+	}, nil
 }
 
 func coreEventToProtobuf(events []*core.Event) []*grpcclient.Event {

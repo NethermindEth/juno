@@ -190,7 +190,7 @@ func (n *Node) Run(ctx context.Context) {
 		}
 
 		if n.cfg.P2PSync {
-			starkdata = p2p.NewStarknetDataAdapter(starkdata, p2pClient, n.blockchain.Network())
+			starkdata = p2p.NewStarknetDataAdapter(starkdata, p2pClient, n.blockchain)
 		}
 	}
 

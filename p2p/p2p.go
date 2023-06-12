@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -357,37 +356,64 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		return nil, err
 	}
 
-	for i := 2700; i < int(head.Number); i++ {
-		fmt.Printf("Running on block %d\n", i)
+	blocknumchan := make(chan int)
 
-		theblock, err := blockchain.BlockByNumber(uint64(i))
-		if err != nil {
-			return nil, err
-		}
+	threadcount := 32
+	wg := sync.WaitGroup{}
+	wg.Add(threadcount)
+	for i := 0; i < threadcount; i++ {
+		go func() {
+			defer wg.Done()
+			for i := range blocknumchan {
+				fmt.Printf("Running on block %d\n", i)
 
-		err = testBlockEncoding(theblock, blockchain.Network())
-		if err != nil {
-			return nil, err
-		}
+				theblock, err := blockchain.BlockByNumber(uint64(i))
+				if err != nil {
+					panic(err)
+				}
+
+				err = testBlockEncoding(theblock, blockchain)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}()
 	}
+
+	startblock := 4900
+	for i := startblock; i < int(head.Number); i++ {
+		blocknumchan <- i
+	}
+	close(blocknumchan)
+	wg.Wait()
 
 	return &impl, nil
 }
 
-func testBlockEncoding(gatewayBlock *core.Block, network utils.Network) error {
-	protoheader, err := coreBlockToProtobufHeader(gatewayBlock)
+func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockchain) error {
+	c := converter{
+		blockchain: blockchain,
+	}
+	originalBlock.ProtocolVersion = ""
+
+	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
 	if err != nil {
 		return err
 	}
 
-	protoBody := coreBlockToProtobufBody(gatewayBlock)
-
-	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, network)
+	protoBody, err := c.coreBlockToProtobufBody(originalBlock)
 	if err != nil {
 		return err
 	}
 
-	gatewayjson, err := json.MarshalIndent(gatewayBlock, "", "    ")
+	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, blockchain.Network())
+	if err != nil {
+		return err
+	}
+
+	newCoreBlock.ProtocolVersion = ""
+
+	gatewayjson, err := json.MarshalIndent(originalBlock, "", "    ")
 	if err != nil {
 		return err
 	}
@@ -398,8 +424,8 @@ func testBlockEncoding(gatewayBlock *core.Block, network utils.Network) error {
 	}
 
 	if string(gatewayjson) != string(reencodedblockjson) {
-		for i, receipt := range gatewayBlock.Receipts {
-			tx := gatewayBlock.Transactions[i]
+		for i, receipt := range originalBlock.Receipts {
+			tx := originalBlock.Transactions[i]
 
 			tx2 := newCoreBlock.Transactions[i]
 			receipt2 := newCoreBlock.Receipts[i]
@@ -423,7 +449,7 @@ func testBlockEncoding(gatewayBlock *core.Block, network utils.Network) error {
 
 		}
 
-		compareAndPrintDiff(gatewayBlock, newCoreBlock)
+		compareAndPrintDiff(originalBlock, newCoreBlock)
 		return errors.New("Mismatch")
 	}
 
