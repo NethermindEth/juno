@@ -39,13 +39,14 @@ message InvokeTransaction {
 }
 
 message DeclareTransaction {
-  FieldElement hash = 8;
   ContractClass contract_class = 1;
   FieldElement sender_address = 2;
   FieldElement max_fee = 3;
   repeated FieldElement signature = 4;
   FieldElement nonce = 5;
   FieldElement version = 6;
+  FieldElement hash = 8;
+  FieldElement compiled_class_hash = 9;
 }
 
 message DeployTransaction {

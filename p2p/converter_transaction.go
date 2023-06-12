@@ -57,6 +57,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 			TransactionSignature: fieldElementsToFelts(tx.Declare.GetSignature()),
 			Nonce:                fieldElementToFelt(tx.Declare.GetNonce()),
 			ClassHash:            fieldElementToFelt(tx.Declare.ContractClass.Hash),
+			CompiledClassHash:    fieldElementToFelt(tx.Declare.CompiledClassHash),
 			Version:              fieldElementToFelt(tx.Declare.GetVersion()),
 		}
 
@@ -166,11 +167,12 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 						ContractClass: &grpcclient.ContractClass{
 							Hash: feltToFieldElement(declareTx.ClassHash),
 						},
-						SenderAddress: feltToFieldElement(declareTx.SenderAddress),
-						MaxFee:        feltToFieldElement(declareTx.MaxFee),
-						Signature:     feltsToFieldElements(declareTx.TransactionSignature),
-						Nonce:         feltToFieldElement(declareTx.Nonce),
-						Version:       feltToFieldElement(declareTx.Version),
+						SenderAddress:     feltToFieldElement(declareTx.SenderAddress),
+						MaxFee:            feltToFieldElement(declareTx.MaxFee),
+						Signature:         feltsToFieldElements(declareTx.TransactionSignature),
+						Nonce:             feltToFieldElement(declareTx.Nonce),
+						CompiledClassHash: feltToFieldElement(declareTx.CompiledClassHash),
+						Version:           feltToFieldElement(declareTx.Version),
 					},
 				},
 			}, &grpcclient.Receipt{

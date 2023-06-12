@@ -358,7 +358,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 
 	blocknumchan := make(chan int)
 
-	threadcount := 32
+	threadcount := 1
 	wg := sync.WaitGroup{}
 	wg.Add(threadcount)
 	for i := 0; i < threadcount; i++ {
@@ -380,12 +380,14 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		}()
 	}
 
-	startblock := 4900
+	startblock := 77800
 	for i := startblock; i < int(head.Number); i++ {
 		blocknumchan <- i
 	}
 	close(blocknumchan)
 	wg.Wait()
+
+	fmt.Println("Done")
 
 	return &impl, nil
 }
