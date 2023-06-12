@@ -448,7 +448,7 @@ func TestEvents(t *testing.T) {
 
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]*felt.Felt{{}, {}, {}})
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}})
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
@@ -489,7 +489,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with keys", func(t *testing.T) {
 		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
-		filter, err := chain.EventFilter(from, [][]*felt.Felt{{key}})
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}})
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
@@ -507,9 +507,9 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with not matching keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]*felt.Felt{
-			{utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
-			{utils.HexToFelt(t, "0xDEADBEEF")},
+		filter, err := chain.EventFilter(from, [][]felt.Felt{
+			{*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
+			{*utils.HexToFelt(t, "0xDEADBEEF")},
 		})
 		require.NoError(t, err)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))

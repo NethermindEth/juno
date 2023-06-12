@@ -97,8 +97,8 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
-	block, err := h.blockByID(id)
+func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -140,8 +140,8 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
-func (h *Handler) BlockWithTxs(id *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
-	block, err := h.blockByID(id)
+func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -287,8 +287,8 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
-func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
-	txn, err := h.bcReader.TransactionByHash(hash)
+func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
+	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
@@ -300,8 +300,8 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
-func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
-	header, err := h.blockHeaderByID(id)
+func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
+	header, err := h.blockHeaderByID(&id)
 	if header == nil || err != nil {
 		return 0, ErrBlockNotFound
 	}
@@ -313,7 +313,7 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, ErrInvalidTxIndex
 	}
@@ -331,7 +331,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Trans
 		return adaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
-	header, err := h.blockHeaderByID(id)
+	header, err := h.blockHeaderByID(&id)
 	if header == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -348,12 +348,12 @@ func (h *Handler) TransactionByBlockIDAndIndex(id *BlockID, txIndex int) (*Trans
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
 	txn, rpcErr := h.TransactionByHash(hash)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(hash)
+	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
@@ -401,7 +401,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
-func (h *Handler) StateUpdate(id *BlockID) (*StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 	var update *core.StateUpdate
 	var err error
 	if id.Latest {
@@ -538,13 +538,13 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
-func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, err := h.stateByBlockID(id)
+func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
 
-	nonce, err := stateReader.ContractNonce(address)
+	nonce, err := stateReader.ContractNonce(&address)
 	if closerErr := stateCloser(); closerErr != nil {
 		h.log.Errorw("Error closing state reader in getNonce", "err", closerErr)
 	}
@@ -559,13 +559,13 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
-func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, err := h.stateByBlockID(id)
+func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
 
-	value, err := stateReader.ContractStorage(address, key)
+	value, err := stateReader.ContractStorage(&address, &key)
 	if closerErr := stateCloser(); closerErr != nil {
 		h.log.Errorw("Error closing state reader in getStorageAt", "err", closerErr)
 	}
@@ -580,13 +580,13 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
-func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, err := h.stateByBlockID(id)
+func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
 
-	classHash, err := stateReader.ContractClassHash(address)
+	classHash, err := stateReader.ContractClassHash(&address)
 	if closerErr := stateCloser(); closerErr != nil {
 		h.log.Errorw("Error closing state reader in getClassHashAt", "err", closerErr)
 	}
@@ -601,12 +601,12 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
-func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
-	state, stateCloser, err := h.stateByBlockID(id)
+func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
+	state, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	declared, err := state.Class(classHash)
+	declared, err := state.Class(&classHash)
 	if closerErr := stateCloser(); closerErr != nil {
 		h.log.Errorw("Error closing state reader in getClass", "err", closerErr)
 	}
@@ -694,19 +694,19 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L329
-func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error) {
 	classHash, err := h.ClassHashAt(id, address)
 	if err != nil {
 		return nil, err
 	}
-	return h.Class(id, classHash)
+	return h.Class(id, *classHash)
 }
 
 // Events gets the events matching a filter
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
-func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > maxEventChunkSize {
 		return nil, ErrPageSizeTooBig
 	} else {
