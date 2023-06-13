@@ -45,10 +45,12 @@ type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
 
-	blockSyncPeers       []peer.ID
-	mtx                  *sync.Mutex
+	blockSyncPeers []peer.ID
+
+	blockSyncCond        *sync.Cond
 	pickedBlockSyncPeers map[peer.ID]int
-	network              utils.Network
+
+	network utils.Network
 
 	lruMutex               *sync.Mutex
 	headerByBlockNumberLru *simplelru.LRU
@@ -199,6 +201,7 @@ func (ip *P2PImpl) setupIdentity(ctx context.Context) error {
 
 			if slices.Contains(protocols, blockSyncProto) && !slices.Contains(ip.blockSyncPeers, evt.Peer) {
 				ip.blockSyncPeers = append(ip.blockSyncPeers, evt.Peer)
+				ip.blockSyncCond.Signal()
 			}
 		}
 	}()
@@ -284,8 +287,8 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *g
 	}
 
 	blockHeaders := headerResponse.GetBlockHeaders().GetHeaders()
-	if blockHeaders == nil {
-		return nil, nil, fmt.Errorf("block headers is nil")
+	if len(blockHeaders) == 0 {
+		return nil, nil, nil
 	}
 
 	if len(blockHeaders) != 1 {
@@ -379,10 +382,21 @@ func (ip *P2PImpl) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
 }
 
 func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
-	ip.mtx.Lock()
-	defer ip.mtx.Unlock()
+	maxConcurrentRequestPerPeer := 32
+
+	ip.blockSyncCond.L.Lock()
+	defer ip.blockSyncCond.L.Unlock()
 	for _, p := range ip.blockSyncPeers {
-		if ip.pickedBlockSyncPeers[p] < 32 {
+		if ip.pickedBlockSyncPeers[p] < maxConcurrentRequestPerPeer {
+			ip.pickedBlockSyncPeers[p] += 1
+			return &p
+		}
+	}
+
+	// No available peer, wait for cond
+	ip.blockSyncCond.Wait()
+	for _, p := range ip.blockSyncPeers {
+		if ip.pickedBlockSyncPeers[p] < maxConcurrentRequestPerPeer {
 			ip.pickedBlockSyncPeers[p] += 1
 			return &p
 		}
@@ -392,10 +406,11 @@ func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
 }
 
 func (ip *P2PImpl) releaseBlockSyncPeer(id *peer.ID) {
-	ip.mtx.Lock()
-	defer ip.mtx.Unlock()
+	ip.blockSyncCond.L.Lock()
+	defer ip.blockSyncCond.L.Unlock()
 
 	ip.pickedBlockSyncPeers[*id] -= 1
+	ip.blockSyncCond.Signal()
 }
 
 func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2P, error) {
@@ -413,7 +428,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 			},
 		},
 
-		mtx:                  &sync.Mutex{},
+		blockSyncCond:        sync.NewCond(&sync.Mutex{}),
 		pickedBlockSyncPeers: map[peer.ID]int{},
 
 		lruMutex:               &sync.Mutex{},

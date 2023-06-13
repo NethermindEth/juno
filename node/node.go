@@ -196,7 +196,7 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
-	client := feeder.NewClient(n.cfg.Network.GatewayURL())
+	client := feeder.NewClient(n.cfg.Network.FeederURL())
 	var starkdata starknetdata.StarknetData = adaptfeeder.New(client)
 
 	if n.cfg.P2P {

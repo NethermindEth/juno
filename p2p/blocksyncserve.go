@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/pkg/errors"
@@ -21,11 +22,25 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *grpcclient.GetBlockHeade
 	if hash, ok := request.StartBlock.(*grpcclient.GetBlockHeaders_BlockHash); ok {
 		felt := fieldElementToFelt(hash.BlockHash)
 		startblock, err = s.blockchain.BlockByHash(felt)
+
+		if err == db.ErrKeyNotFound {
+			return &grpcclient.BlockHeaders{
+				Headers: []*grpcclient.BlockHeader{},
+			}, nil
+		}
+
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to get block by hash %s", felt)
 		}
 	} else if blocknum, ok := request.StartBlock.(*grpcclient.GetBlockHeaders_BlockNumber); ok {
 		startblock, err = s.blockchain.BlockByNumber(blocknum.BlockNumber)
+
+		if err == db.ErrKeyNotFound {
+			return &grpcclient.BlockHeaders{
+				Headers: []*grpcclient.BlockHeader{},
+			}, nil
+		}
+
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to get block by number %d", blocknum.BlockNumber)
 		}
@@ -218,8 +233,6 @@ func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {
 }
 
 func (s *blockSyncServer) doHandleBlockSyncStream(stream network.Stream) error {
-	fmt.Printf("Handling block sync\n")
-
 	msg := grpcclient.Request{}
 	err := readCompressedProtobuf(stream, &msg)
 	if err != nil {

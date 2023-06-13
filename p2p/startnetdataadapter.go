@@ -19,7 +19,9 @@ type StartnetDataAdapter struct {
 	network   utils.Network
 	converter converter
 
-	lruMtx     *sync.Mutex
+	lruMtx *sync.Mutex
+
+	// The class is included in block tx. So we'll add them to an LRU to be used later to prevent re-fetching.
 	classesLru *simplelru.LRU
 }
 
@@ -63,7 +65,6 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 }
 
 func (s *StartnetDataAdapter) BlockLatest(ctx context.Context) (*core.Block, error) {
-	fmt.Printf("Get block latest \n")
 	return s.base.BlockLatest(ctx)
 }
 
@@ -78,7 +79,6 @@ func (s *StartnetDataAdapter) Class(ctx context.Context, classHash *felt.Felt) (
 		return s.base.Class(ctx, classHash)
 	}
 
-	fmt.Printf("Class found correctly %s\n", classHash.String())
 	return cls.(core.Class), nil
 }
 

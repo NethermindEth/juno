@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 	"runtime"
+	"time"
 )
 
 var _ service.Service = (*Synchronizer)(nil)
@@ -60,6 +61,16 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 				fmt.Printf("Error %s", err)
 				continue
 			}
+
+			if block == nil {
+				fmt.Println("No block found for number %d", height)
+				select {
+				case <-ctx.Done():
+				case <-time.After(time.Second):
+				}
+				continue
+			}
+
 			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
 			if err != nil {
 				continue
