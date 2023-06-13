@@ -68,7 +68,23 @@ type closeTestClient func()
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(network utils.Network) (*Client, closeTestClient) {
 	srv := newTestServer(network)
-	return NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0), srv.Close
+	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
+	c.client = &http.Client{
+		Transport: &http.Transport{
+			// On macOS tests often fail with the following error:
+			//
+			// "Get "http://127.0.0.1:xxxx/get_{feeder gateway method}?{arg}={value}": dial tcp 127.0.0.1:xxxx:
+			//    connect: can't assign requested address"
+			//
+			// This error makes running local tests, in quick succession, difficult because we have to wait for the OS to release ports.
+			// Sometimes the sync tests will hang because sync process will keep making requests if there was some error.
+			// This problem is further exacerbated by having parallel tests.
+			//
+			// Increasing test client's idle conns allows for large concurrent requests to be made from a single test client.
+			MaxIdleConnsPerHost: 1000,
+		},
+	}
+	return c, srv.Close
 }
 
 func newTestServer(network utils.Network) *httptest.Server {
@@ -100,6 +116,9 @@ func newTestServer(network utils.Network) *httptest.Server {
 			queryArg = "transactionHash"
 		case strings.HasSuffix(r.URL.Path, "get_class_by_hash"):
 			dir = "class"
+			queryArg = "classHash"
+		case strings.HasSuffix(r.URL.Path, "get_compiled_class_by_class_hash"):
+			dir = "compiled_class"
 			queryArg = "classHash"
 		}
 
@@ -173,11 +192,10 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err == nil {
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
-				}
-
-				if res.StatusCode != http.StatusOK {
+				} else {
 					err = errors.New(res.Status)
 				}
+
 				res.Body.Close()
 			}
 
@@ -261,6 +279,24 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*Cl
 
 	class := new(ClassDefinition)
 	if err = json.NewDecoder(body).Decode(class); err != nil {
+		return nil, err
+	}
+	return class, nil
+}
+
+func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (json.RawMessage, error) {
+	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
+		"classHash": classHash.String(),
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	var class json.RawMessage
+	if err = json.NewDecoder(body).Decode(&class); err != nil {
 		return nil, err
 	}
 	return class, nil

@@ -1,7 +1,9 @@
 package rpc
 
 import (
+	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -10,6 +12,11 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
+
+//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
+type Gateway interface {
+	AddInvokeTransaction(json.RawMessage) (json.RawMessage, error)
+}
 
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
@@ -32,18 +39,22 @@ const (
 )
 
 type Handler struct {
-	bcReader     blockchain.Reader
-	synchronizer *sync.Synchronizer
-	network      utils.Network
-	log          utils.Logger
+	bcReader      blockchain.Reader
+	synchronizer  *sync.Synchronizer
+	network       utils.Network
+	gatewayClient Gateway
+	log           utils.Logger
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, logger utils.Logger) *Handler {
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, gatewayClient Gateway,
+	logger utils.Logger,
+) *Handler {
 	return &Handler{
-		bcReader:     bcReader,
-		synchronizer: synchronizer,
-		network:      n,
-		log:          logger,
+		bcReader:      bcReader,
+		synchronizer:  synchronizer,
+		network:       n,
+		log:           logger,
+		gatewayClient: gatewayClient,
 	}
 }
 
@@ -206,18 +217,15 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	sig := t.Signature()
 	txn := &Transaction{
-		Type:          TxnDeclare,
-		Hash:          t.Hash(),
-		MaxFee:        t.MaxFee,
-		Version:       t.Version,
-		Signature:     &sig,
-		Nonce:         t.Nonce,
-		ClassHash:     t.ClassHash,
-		SenderAddress: t.SenderAddress,
-	}
-
-	if t.Version.Equal(new(felt.Felt).SetUint64(2)) {
-		txn.CompiledClassHash = nil // todo: add when we have support for Declare V2
+		Type:              TxnDeclare,
+		Hash:              t.Hash(),
+		MaxFee:            t.MaxFee,
+		Version:           t.Version,
+		Signature:         &sig,
+		Nonce:             t.Nonce,
+		ClassHash:         t.ClassHash,
+		SenderAddress:     t.SenderAddress,
+		CompiledClassHash: t.CompiledClassHash,
 	}
 
 	return txn
@@ -449,7 +457,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if highestBlockHeader == nil {
 		return defaultSyncState, nil
 	}
-	if highestBlockHeader.Number < head.Number {
+	if highestBlockHeader.Number <= head.Number {
 		return defaultSyncState, nil
 	}
 
@@ -733,4 +741,43 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 		return err
 	}
 	return set(blockchain.EventFilterTo, toID)
+}
+
+// AddInvokeTransaction relays an invoke transaction to the gateway.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
+// Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
+// As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
+func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddInvokeTransaction(invokeTx)
+	if err != nil {
+		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
+	}
+
+	invokeRes := new(AddInvokeTxResponse)
+	err = json.Unmarshal(resp, invokeRes)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	return invokeRes, nil
+}
+
+// getAddInvokeTxCode returns the relevant Code for a given addInvokeTx error
+func getAddInvokeTxCode(err error) int {
+	switch {
+	case strings.Contains(err.Error(), "contract address") && strings.Contains(err.Error(), "is out of range"):
+		return jsonrpc.InvalidParams
+	case strings.Contains(err.Error(), "Fee") && strings.Contains(err.Error(), "is out of range"):
+		return jsonrpc.InvalidParams
+	case strings.Contains(err.Error(), "Missing data for required field"):
+		return jsonrpc.InvalidParams
+	case strings.Contains(err.Error(), "not supported. Supported versions"):
+		return jsonrpc.InvalidParams
+	case strings.Contains(err.Error(), "max_fee must be bigger than 0.\n0 >= "):
+		return jsonrpc.InvalidParams
+	default:
+		return jsonrpc.InternalError
+	}
 }

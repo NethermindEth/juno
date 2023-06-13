@@ -43,7 +43,7 @@ type Error struct {
 	Data    any    `json:"data,omitempty"`
 }
 
-func rpcErr(code int, data any) *Error {
+func Err(code int, data any) *Error {
 	switch code {
 	case InvalidJSON:
 		return &Error{Code: InvalidJSON, Message: "Parse error", Data: data}
@@ -158,12 +158,12 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 	if !requestIsBatch {
 		req := new(request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			res.Error = rpcErr(InvalidJSON, jsonErr.Error())
+			res.Error = Err(InvalidJSON, jsonErr.Error())
 		} else if resObject, handleErr := s.handleRequest(req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				res.ID = req.ID
 			}
-			res.Error = rpcErr(InvalidRequest, handleErr.Error())
+			res.Error = Err(InvalidRequest, handleErr.Error())
 		} else {
 			res = resObject
 		}
@@ -172,9 +172,9 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 		var batchRes []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			res.Error = rpcErr(InvalidJSON, batchJSONErr.Error())
+			res.Error = Err(InvalidJSON, batchJSONErr.Error())
 		} else if len(batchReq) == 0 {
-			res.Error = rpcErr(InvalidRequest, "empty batch")
+			res.Error = Err(InvalidRequest, "empty batch")
 		} else {
 			for _, rawReq := range batchReq { // todo: handle async
 				var resObject *response
@@ -186,7 +186,7 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 				if jsonErr := reqDec.Decode(req); jsonErr != nil {
 					resObject = &response{
 						Version: "2.0",
-						Error:   rpcErr(InvalidRequest, jsonErr.Error()),
+						Error:   Err(InvalidRequest, jsonErr.Error()),
 					}
 				} else {
 					var handleErr error
@@ -194,7 +194,7 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 					if handleErr != nil {
 						resObject = &response{
 							Version: "2.0",
-							Error:   rpcErr(InvalidRequest, handleErr.Error()),
+							Error:   Err(InvalidRequest, handleErr.Error()),
 						}
 						if !errors.Is(handleErr, ErrInvalidID) {
 							resObject.ID = req.ID
@@ -257,13 +257,13 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 
 	calledMethod, found := s.methods[req.Method]
 	if !found {
-		res.Error = rpcErr(MethodNotFound, nil)
+		res.Error = Err(MethodNotFound, nil)
 		return res, nil
 	}
 
 	args, err := buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
 	if err != nil {
-		res.Error = rpcErr(InvalidParams, err.Error())
+		res.Error = Err(InvalidParams, err.Error())
 		return res, nil
 	}
 

@@ -157,8 +157,15 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			err = s.Blockchain.Store(block, stateUpdate, newClasses)
 			if err != nil {
-				s.log.Warnw("Failed storing Block", "number", block.Number,
-					"hash", block.Hash.ShortString(), "err", err.Error())
+				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
+					// revert the head and restart the sync process, hoping that the reorg is not deep
+					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
+					// blocks
+					s.revertHead(block)
+				} else {
+					s.log.Warnw("Failed storing Block", "number", block.Number,
+						"hash", block.Hash.ShortString(), "err", err)
+				}
 				resetStreams()
 				return
 			}
@@ -166,7 +173,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number < block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
 				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err.Error())
+					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
 					s.HighestBlockHeader = highestBlock.Header
 				}
@@ -222,5 +229,22 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			})
 			nextHeight++
 		}
+	}
+}
+
+func (s *Synchronizer) revertHead(forkBlock *core.Block) {
+	var localHead *felt.Felt
+	head, err := s.Blockchain.HeadsHeader()
+	if err == nil {
+		localHead = head.Hash
+	}
+
+	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
+
+	err = s.Blockchain.RevertHead()
+	if err != nil {
+		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
+	} else {
+		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
 }

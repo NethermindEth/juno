@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -52,7 +54,7 @@ func TestUpdate(t *testing.T) {
 		su := &core.StateUpdate{
 			OldRoot: oldRoot,
 		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match state update's old root: %s", su0.NewRoot, oldRoot)
+		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, oldRoot)
 		require.EqualError(t, state.Update(1, su, nil), expectedErr)
 	})
 
@@ -63,7 +65,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot:   su0.NewRoot,
 			StateDiff: new(core.StateDiff),
 		}
-		expectedErr := fmt.Sprintf("state's new root: %s does not match state update's new root: %s", su0.NewRoot, newRoot)
+		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
 		require.EqualError(t, state.Update(1, su, nil), expectedErr)
 	})
 
@@ -362,4 +364,159 @@ func TestClass(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, gotCairo0Class.At)
 	assert.Equal(t, cairo0Class, gotCairo0Class.Class)
+}
+
+func TestRevert(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	state := core.NewState(txn)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, state.Update(0, su0, nil))
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(t, err)
+	require.NoError(t, state.Update(1, su1, nil))
+
+	t.Run("revert a replaced class", func(t *testing.T) {
+		addr := su1.StateDiff.DeployedContracts[0].Address
+		replaceStateUpdate := &core.StateUpdate{
+			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
+			OldRoot: su1.NewRoot,
+			StateDiff: &core.StateDiff{
+				ReplacedClasses: []core.ReplacedClass{
+					{
+						Address:   addr,
+						ClassHash: utils.HexToFelt(t, "0xDEADBEEF"),
+					},
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(2, replaceStateUpdate, nil))
+		require.NoError(t, state.Revert(2, replaceStateUpdate))
+		classHash, sErr := state.ContractClassHash(addr)
+		require.NoError(t, sErr)
+		assert.Equal(t, su1.StateDiff.DeployedContracts[0].ClassHash, classHash)
+	})
+
+	t.Run("revert a nonce update", func(t *testing.T) {
+		addr := su1.StateDiff.DeployedContracts[0].Address
+		nonceStateUpdate := &core.StateUpdate{
+			NewRoot: utils.HexToFelt(t, "0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
+			OldRoot: su1.NewRoot,
+			StateDiff: &core.StateDiff{
+				Nonces: map[felt.Felt]*felt.Felt{
+					*addr: utils.HexToFelt(t, "0xDEADBEEF"),
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(2, nonceStateUpdate, nil))
+		require.NoError(t, state.Revert(2, nonceStateUpdate))
+		nonce, sErr := state.ContractNonce(addr)
+		require.NoError(t, sErr)
+		assert.Equal(t, &felt.Zero, nonce)
+	})
+
+	t.Run("revert declared classes", func(t *testing.T) {
+		classesM := make(map[felt.Felt]core.Class)
+		cairo0 := &core.Cairo0Class{
+			Abi:          json.RawMessage("some cairo 0 class abi"),
+			Externals:    []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("e1")), new(felt.Felt).SetBytes([]byte("e2"))}},
+			L1Handlers:   []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("l1")), new(felt.Felt).SetBytes([]byte("l2"))}},
+			Constructors: []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("c1")), new(felt.Felt).SetBytes([]byte("c2"))}},
+			Program:      "some cairo 0 program",
+		}
+
+		cairo0Addr := utils.HexToFelt(t, "0xab1234")
+		classesM[*cairo0Addr] = cairo0
+
+		cairo1 := &core.Cairo1Class{
+			Abi:     "some cairo 1 class abi",
+			AbiHash: utils.HexToFelt(t, "0xcd98"),
+			EntryPoints: struct {
+				Constructor []core.SierraEntryPoint
+				External    []core.SierraEntryPoint
+				L1Handler   []core.SierraEntryPoint
+			}{
+				Constructor: []core.SierraEntryPoint{{1, new(felt.Felt).SetBytes([]byte("c1"))}},
+				External:    []core.SierraEntryPoint{{0, new(felt.Felt).SetBytes([]byte("e1"))}},
+				L1Handler:   []core.SierraEntryPoint{{2, new(felt.Felt).SetBytes([]byte("l1"))}},
+			},
+			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
+			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
+			SemanticVersion: "version 1",
+			Compiled:        json.RawMessage("complied cairo 1 class"),
+		}
+
+		cairo1Addr := utils.HexToFelt(t, "0xcd5678")
+		classesM[*cairo1Addr] = cairo1
+
+		declaredClassesStateUpdate := &core.StateUpdate{
+			NewRoot: utils.HexToFelt(t, "0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
+			OldRoot: su1.NewRoot,
+			StateDiff: &core.StateDiff{
+				DeclaredV0Classes: []*felt.Felt{cairo0Addr},
+				DeclaredV1Classes: []core.DeclaredV1Class{
+					{
+						ClassHash:         cairo1Addr,
+						CompiledClassHash: utils.HexToFelt(t, "0xef9123"),
+					},
+				},
+			},
+		}
+
+		require.NoError(t, state.Update(2, declaredClassesStateUpdate, classesM))
+		require.NoError(t, state.Revert(2, declaredClassesStateUpdate))
+
+		var decClass *core.DeclaredClass
+		decClass, err = state.Class(cairo0Addr)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+		assert.Nil(t, decClass)
+
+		decClass, err = state.Class(cairo1Addr)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+		assert.Nil(t, decClass)
+	})
+
+	su2, err := gw.StateUpdate(context.Background(), 2)
+	require.NoError(t, err)
+	t.Run("should be able to apply new update after a Revert", func(t *testing.T) {
+		require.NoError(t, state.Update(2, su2, nil))
+	})
+
+	t.Run("should be able to revert all the state", func(t *testing.T) {
+		require.NoError(t, state.Revert(2, su2))
+		root, err := state.Root()
+		require.NoError(t, err)
+		require.Equal(t, su2.OldRoot, root)
+		require.NoError(t, state.Revert(1, su1))
+		root, err = state.Root()
+		require.NoError(t, err)
+		require.Equal(t, su1.OldRoot, root)
+		require.NoError(t, state.Revert(0, su0))
+		root, err = state.Root()
+		require.NoError(t, err)
+		require.Equal(t, su0.OldRoot, root)
+	})
+
+	t.Run("empty state should mean empty db", func(t *testing.T) {
+		require.NoError(t, testDB.View(func(txn db.Transaction) error {
+			it, err := txn.NewIterator()
+			if err != nil {
+				return err
+			}
+			assert.False(t, it.Next())
+			return nil
+		}))
+	})
 }

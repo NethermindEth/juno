@@ -2,6 +2,7 @@ package feeder_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -391,4 +392,14 @@ func TestBackoffFailure(t *testing.T) {
 	_, err := c.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
+}
+
+func TestCompiledClassDefinition(t *testing.T) {
+	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
+	t.Cleanup(closeFn)
+
+	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	class, err := client.CompiledClassDefinition(context.Background(), classHash)
+	require.NoError(t, err)
+	require.True(t, json.Valid(class))
 }

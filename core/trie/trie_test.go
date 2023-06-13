@@ -311,8 +311,10 @@ func BenchmarkTriePut(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, err := t.Put(keys[i], one)
-			require.NoError(b, err)
+			if err != nil {
+				return err
+			}
 		}
-		return nil
+		return t.Commit()
 	}))
 }

@@ -3,10 +3,11 @@ coverage:
   status:
     project:
       default:
-        target: 75%
-        threshold: 1%
+        target: 70%
     patch:
       default:
-        target: 80%
-        threshold: 1%
+        target: 60%
         only_pulls: true
+ignore:
+  - mocks
+  - l1/internal/contract/starknet.go

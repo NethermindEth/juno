@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -40,7 +41,10 @@ type Reader interface {
 	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
 }
 
-var supportedStarknetVersion = semver.MustParse("0.11.2")
+var (
+	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
+	supportedStarknetVersion  = semver.MustParse("0.11.2")
+)
 
 func checkBlockVersion(protocolVersion string) error {
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
@@ -125,11 +129,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 		}
 
 		header, err = blockHeaderByNumber(txn, height)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
 }
 
@@ -229,6 +229,28 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	})
 }
 
+func (b *Blockchain) L1Head() (*core.L1Head, error) {
+	var update *core.L1Head
+	if err := b.database.View(func(txn db.Transaction) error {
+		return txn.Get(db.L1Height.Key(), func(updateBytes []byte) error {
+			return encoder.Unmarshal(updateBytes, &update)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return update, nil
+}
+
+func (b *Blockchain) SetL1Head(update *core.L1Head) error {
+	updateBytes, err := encoder.Marshal(update)
+	if err != nil {
+		return err
+	}
+	return b.database.Update(func(txn db.Transaction) error {
+		return txn.Set(db.L1Height.Key(), updateBytes)
+	})
+}
+
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
@@ -272,25 +294,22 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 		return err
 	}
 
+	expectedBlockNumber := uint64(0)
+	expectedParentHash := &felt.Zero
+
 	head, err := b.head(txn)
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+	if err == nil {
+		expectedBlockNumber = head.Number + 1
+		expectedParentHash = head.Hash
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
 
-	if head == nil {
-		if block.Number != 0 {
-			return errors.New("cannot insert a block with number more than 0 in an empty blockchain")
-		}
-		if !block.ParentHash.Equal(new(felt.Felt).SetUint64(0)) {
-			return errors.New("cannot insert a block with non-zero parent hash in an empty blockchain")
-		}
-	} else {
-		if head.Number+1 != block.Number {
-			return errors.New("block number difference between head and incoming block is not 1")
-		}
-		if !block.ParentHash.Equal(head.Hash) {
-			return errors.New("block's parent hash does not match head block hash")
-		}
+	if expectedBlockNumber != block.Number {
+		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
+	}
+	if !block.ParentHash.Equal(expectedParentHash) {
+		return ErrParentDoesNotMatchHead
 	}
 
 	return nil
@@ -460,11 +479,8 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	if err != nil {
 		return err
 	}
-	if err = txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes); err != nil {
-		return err
-	}
 
-	return nil
+	return txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes)
 }
 
 func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
@@ -555,10 +571,7 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 	if err != nil {
 		return err
 	}
-	if err = txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes); err != nil {
-		return err
-	}
-	return nil
+	return txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes)
 }
 
 // transactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
@@ -664,4 +677,82 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilt
 	}
 
 	return newEventFilter(txn, from, keys, 0, latest), nil
+}
+
+// RevertHead reverts the head block
+func (b *Blockchain) RevertHead() error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return b.revertHead(txn)
+	})
+}
+
+func (b *Blockchain) revertHead(txn db.Transaction) error {
+	blockNumber, err := b.height(txn)
+	if err != nil {
+		return err
+	}
+	numBytes := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(numBytes, blockNumber)
+
+	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+	if err != nil {
+		return err
+	}
+
+	state := core.NewState(txn)
+	// revert state
+	if err = state.Revert(blockNumber, stateUpdate); err != nil {
+		return err
+	}
+
+	header, err := blockHeaderByNumber(txn, blockNumber)
+	if err != nil {
+		return err
+	}
+
+	// remove block header
+	if err = txn.Delete(db.BlockHeadersByNumber.Key(numBytes)); err != nil {
+		return err
+	}
+	if err = txn.Delete(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal())); err != nil {
+		return err
+	}
+
+	blockIDAndIndex := txAndReceiptDBKey{
+		Number: blockNumber,
+	}
+	// remove txs and receipts
+	for i := uint64(0); i < header.TransactionCount; i++ {
+		blockIDAndIndex.Index = i
+		var reorgedTxn core.Transaction
+		reorgedTxn, err = transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
+		if err != nil {
+			return err
+		}
+
+		keySuffix := blockIDAndIndex.MarshalBinary()
+		if err = txn.Delete(db.TransactionsByBlockNumberAndIndex.Key(keySuffix)); err != nil {
+			return err
+		}
+		if err = txn.Delete(db.ReceiptsByBlockNumberAndIndex.Key(keySuffix)); err != nil {
+			return err
+		}
+		if err = txn.Delete(db.TransactionBlockNumbersAndIndicesByHash.Key(reorgedTxn.Hash().Marshal())); err != nil {
+			return err
+		}
+	}
+
+	// remove state update
+	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
+		return err
+	}
+
+	// update chain height
+	if blockNumber == 0 {
+		return txn.Delete(db.ChainHeight.Key())
+	}
+
+	heightBin := make([]byte, lenOfByteSlice)
+	binary.BigEndian.PutUint64(heightBin, blockNumber-1)
+	return txn.Set(db.ChainHeight.Key(), heightBin)
 }

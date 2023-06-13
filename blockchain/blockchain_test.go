@@ -117,12 +117,12 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{Number: 10}}
-		assert.EqualError(t, chain.VerifyBlock(block), "cannot insert a block with number more than 0 in an empty blockchain")
+		assert.EqualError(t, chain.VerifyBlock(block), "expected block #0, got block #10")
 	})
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{ParentHash: h1}}
-		assert.EqualError(t, chain.VerifyBlock(block), "cannot insert a block with non-zero parent hash in an empty blockchain")
+		assert.EqualError(t, chain.VerifyBlock(block), "block's parent hash does not match head block hash")
 	})
 
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
@@ -163,7 +163,7 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
 			incomingBlock := &core.Block{Header: &core.Header{Number: 10}}
-			assert.EqualError(t, chain.VerifyBlock(incomingBlock), "block number difference between head and incoming block is not 1")
+			assert.EqualError(t, chain.VerifyBlock(incomingBlock), "expected block #1, got block #10")
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
@@ -497,4 +497,100 @@ func TestEvents(t *testing.T) {
 		})
 		require.NoError(t, filter.Close())
 	})
+}
+
+func TestRevert(t *testing.T) {
+	testdb := pebble.NewMemTest()
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+
+		require.NoError(t, chain.Store(b, su, nil))
+	}
+
+	require.NoError(t, chain.RevertHead())
+
+	t.Run("height should rollback", func(t *testing.T) {
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), height)
+	})
+	t.Run("head should revert", func(t *testing.T) {
+		block, err := chain.Head()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), block.Number)
+	})
+	t.Run("headsheader should revert", func(t *testing.T) {
+		header, err := chain.HeadsHeader()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), header.Number)
+	})
+
+	revertedHeight := uint64(2)
+	t.Run("BlockByNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.BlockByNumber(revertedHeight)
+		require.Error(t, err)
+	})
+	t.Run("StateUpdateByNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.StateUpdateByNumber(revertedHeight)
+		require.Error(t, err)
+	})
+	t.Run("BlockHeaderByNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.BlockHeaderByNumber(revertedHeight)
+		require.Error(t, err)
+	})
+	t.Run("TransactionByBlockNumberAndIndex should fail with reverted height", func(t *testing.T) {
+		_, err := chain.TransactionByBlockNumberAndIndex(revertedHeight, 0)
+		require.Error(t, err)
+	})
+
+	require.NoError(t, chain.RevertHead())
+	require.NoError(t, chain.RevertHead())
+
+	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
+		require.NoError(t, testdb.View(func(txn db.Transaction) error {
+			it, err := txn.NewIterator()
+			if err != nil {
+				return err
+			}
+			assert.False(t, it.Next(), it.Key())
+			return nil
+		}))
+	})
+
+	t.Run("cannot revert on empty chain", func(t *testing.T) {
+		require.Error(t, chain.RevertHead())
+	})
+}
+
+func TestL1Update(t *testing.T) {
+	heads := []*core.L1Head{
+		{
+			BlockNumber: 1,
+			StateRoot:   new(felt.Felt).SetUint64(2),
+		},
+		{
+			BlockNumber: 2,
+			StateRoot:   new(felt.Felt).SetUint64(3),
+		},
+	}
+
+	for _, head := range heads {
+		t.Run(fmt.Sprintf("update L1 head to block %d", head.BlockNumber), func(t *testing.T) {
+			chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, utils.NewNopZapLogger())
+			require.NoError(t, chain.SetL1Head(head))
+			got, err := chain.L1Head()
+			require.NoError(t, err)
+			assert.Equal(t, head, got)
+		})
+	}
 }

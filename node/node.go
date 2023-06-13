@@ -10,20 +10,25 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
 
 const (
-	defaultPprofPort = uint16(9080)
+	defaultPprofPort          = 9080
+	l1BlockConfirmationPeriod = 16
 )
 
 // Config is the top-level juno configuration.
@@ -32,6 +37,7 @@ type Config struct {
 	RPCPort      uint16         `mapstructure:"rpc-port"`
 	DatabasePath string         `mapstructure:"db-path"`
 	Network      utils.Network  `mapstructure:"network"`
+	EthNode      string         `mapstructure:"eth-node"`
 	Pprof        bool           `mapstructure:"pprof"`
 	Colour       bool           `mapstructure:"colour"`
 	P2P          bool           `mapstructure:"p2p"`
@@ -148,6 +154,11 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Handler: rpcHandler.ClassAt,
 		},
 		{
+			Name:    "starknet_addInvokeTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
+			Handler: rpcHandler.AddInvokeTransaction,
+		},
+		{
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: rpcHandler.Events,
@@ -179,8 +190,13 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
+	if err = migration.MigrateIfNeeded(n.db); err != nil {
+		n.log.Errorw("Error while migrating the DB", "err", err)
+		return
+	}
+
 	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
-	client := feeder.NewClient(n.cfg.Network.URL())
+	client := feeder.NewClient(n.cfg.Network.GatewayURL())
 	var starkdata starknetdata.StarknetData = adaptfeeder.New(client)
 
 	if n.cfg.P2P {
@@ -195,10 +211,31 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	synchronizer := sync.New(n.blockchain, starkdata, n.log)
+	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, n.log), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log), n.log)
 
 	n.services = []service.Service{synchronizer, http}
+
+	if n.cfg.EthNode == "" {
+		n.log.Warnw("Ethereum node address not found; will not verify against L1")
+	} else {
+		var coreContractAddress common.Address
+		coreContractAddress, err = n.cfg.Network.CoreContractAddress()
+		if err != nil {
+			n.log.Errorw("Error finding core contract address for network", "err", err, "network", n.cfg.Network)
+			return
+		}
+		var ethSubscriber *l1.EthSubscriber
+		ethSubscriber, err = l1.NewEthSubscriber(n.cfg.EthNode, coreContractAddress)
+		if err != nil {
+			n.log.Errorw("Error creating ethSubscriber", "err", err)
+			return
+		}
+		defer ethSubscriber.Close()
+		l1Client := l1.NewClient(ethSubscriber, n.blockchain, l1BlockConfirmationPeriod, n.log)
+		n.services = append(n.services, l1Client)
+	}
 
 	if n.cfg.Pprof {
 		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))

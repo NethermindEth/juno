@@ -40,4 +40,4 @@ jobs:
         env:
           TARGET_BLOCK: 100
           TIMEOUT: 5m
-          JUNO_PARAMETERS: "--network mainnet"
+          JUNO_PARAMETERS: "--network mainnet --eth-node ${{ secrets.ETH_NODE }}"

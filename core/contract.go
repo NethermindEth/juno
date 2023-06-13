@@ -98,6 +98,21 @@ type Contract struct {
 	txn db.Transaction
 }
 
+// Purge eliminates the contract instance, deleting all associated data from storage
+// assumes storage is cleared in revert process
+func (c *Contract) Purge() error {
+	addrBytes := c.Address.Marshal()
+	buckets := []db.Bucket{db.ContractNonce, db.ContractRootKey, db.ContractClassHash}
+
+	for _, bucket := range buckets {
+		if err := c.txn.Delete(bucket.Key(addrBytes)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Nonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
 func (c *Contract) Nonce() (*felt.Felt, error) {
@@ -143,9 +158,9 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	}
 	// apply the diff
 	for _, pair := range diff {
-		oldValue, err := cStorage.Put(pair.Key, pair.Value)
-		if err != nil {
-			return err
+		oldValue, pErr := cStorage.Put(pair.Key, pair.Value)
+		if pErr != nil {
+			return pErr
 		}
 
 		if oldValue != nil {
@@ -153,6 +168,10 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 				return err
 			}
 		}
+	}
+
+	if err = cStorage.Commit(); err != nil {
+		return err
 	}
 
 	// update contract storage root in the database

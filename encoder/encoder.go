@@ -29,7 +29,9 @@ func initEncAndDecModes() {
 		panic(err)
 	}
 
-	decMode, err = cbor.DecOptions{}.DecModeWithTags(ts)
+	decMode, err = cbor.DecOptions{
+		MaxArrayElements: 10485760, // Set to a reasonably high value, 10MiB
+	}.DecModeWithTags(ts)
 	if err != nil {
 		panic(err)
 	}
