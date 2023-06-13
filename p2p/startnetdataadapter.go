@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/nsf/jsondiff"
 	"github.com/pkg/errors"
 )
 
@@ -92,23 +91,6 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 	}
 
 	return gatewayBlock, err
-}
-
-func compareAndPrintDiff(item1 interface{}, item2 interface{}) bool {
-	item1json, _ := json.MarshalIndent(item1, "", "    ")
-	item2json, _ := json.MarshalIndent(item2, "", "    ")
-
-	opt := jsondiff.DefaultConsoleOptions()
-	diff, strdiff := jsondiff.Compare(item1json, item2json, &opt)
-
-	if diff == jsondiff.FullMatch {
-		return true
-	}
-
-	fmt.Printf("Mismatch\n")
-	fmt.Println(strdiff)
-
-	return false
 }
 
 func (s *StartnetDataAdapter) BlockLatest(ctx context.Context) (*core.Block, error) {

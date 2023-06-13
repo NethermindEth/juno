@@ -100,67 +100,6 @@ func protoToAddress(to *grpcclient.EthereumAddress) common.Address {
 	return addr
 }
 
-func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *grpcclient.StateDiffs_BlockStateUpdateWithHash {
-
-	contractdiffs := make([]*grpcclient.BlockStateUpdate_ContractDiff, len(corestateupdate.StateDiff.StorageDiffs))
-	i := 0
-	for key, diffs := range corestateupdate.StateDiff.StorageDiffs {
-
-		storagediff := make([]*grpcclient.BlockStateUpdate_StorageDiff, len(diffs))
-		for i2, diff := range diffs {
-			storagediff[i2] = &grpcclient.BlockStateUpdate_StorageDiff{
-				Key:   feltToFieldElement(diff.Key),
-				Value: feltToFieldElement(diff.Value),
-			}
-		}
-
-		contractdiffs[i] = &grpcclient.BlockStateUpdate_ContractDiff{
-			ContractAddress: feltToFieldElement(&key),
-			Nonce:           feltToFieldElement(corestateupdate.StateDiff.Nonces[key]),
-			StorageDiffs:    nil,
-		}
-
-		i += 1
-	}
-
-	deployedcontracts := make([]*grpcclient.BlockStateUpdate_DeployedContract, len(corestateupdate.StateDiff.DeployedContracts))
-	for i, contract := range corestateupdate.StateDiff.DeployedContracts {
-		deployedcontracts[i] = &grpcclient.BlockStateUpdate_DeployedContract{
-			ContractAddress:   feltToFieldElement(contract.Address),
-			ContractClassHash: feltToFieldElement(contract.ClassHash),
-		}
-	}
-
-	declaredv1classes := make([]*grpcclient.BlockStateUpdate_DeclaredV1Class, len(corestateupdate.StateDiff.DeclaredV1Classes))
-	for i, contract := range corestateupdate.StateDiff.DeclaredV1Classes {
-		declaredv1classes[i] = &grpcclient.BlockStateUpdate_DeclaredV1Class{
-			ClassHash:         feltToFieldElement(contract.ClassHash),
-			CompiledClassHash: feltToFieldElement(contract.CompiledClassHash),
-		}
-	}
-
-	replacedclasses := make([]*grpcclient.BlockStateUpdate_ReplacedClasses, len(corestateupdate.StateDiff.ReplacedClasses))
-	for i, contract := range corestateupdate.StateDiff.ReplacedClasses {
-		replacedclasses[i] = &grpcclient.BlockStateUpdate_ReplacedClasses{
-			ContractAddress:   feltToFieldElement(contract.Address),
-			ContractClassHash: feltToFieldElement(contract.ClassHash),
-		}
-	}
-
-	stateupdate := &grpcclient.BlockStateUpdate{
-		ContractDiffs:               contractdiffs,
-		DeployedContracts:           deployedcontracts,
-		DeclaredContractClassHashes: feltsToFieldElements(corestateupdate.StateDiff.DeclaredV0Classes),
-		DeclaredV1Classes:           declaredv1classes,
-		ReplacedClasses:             replacedclasses,
-	}
-
-	return &grpcclient.StateDiffs_BlockStateUpdateWithHash{
-		StateUpdate: stateupdate,
-	}
-
-}
-
 func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.BlockBody, network utils.Network) (*core.Block, error) {
 	parentHash := fieldElementToFelt(header.ParentBlockHash)
 	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)

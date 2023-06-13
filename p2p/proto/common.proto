@@ -91,7 +91,7 @@ message ContractClass {
   repeated EntryPoint l1_handler_entry_points = 3;
   string program = 4;
   string abi = 5;
-  FieldElement hash = 6;
+  FieldElement hash = 6; // Ahh... great.
 }
 
 message Transaction {

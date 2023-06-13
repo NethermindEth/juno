@@ -7,12 +7,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
@@ -368,12 +366,12 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 			for i := range blocknumchan {
 				fmt.Printf("Running on block %d\n", i)
 
-				theblock, err := blockchain.BlockByNumber(uint64(i))
+				update, err := blockchain.StateUpdateByNumber(uint64(i))
 				if err != nil {
 					panic(err)
 				}
 
-				err = testBlockEncoding(theblock, blockchain)
+				err = testStaeDiff(update, blockchain)
 				if err != nil {
 					panic(err)
 				}
@@ -381,7 +379,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		}()
 	}
 
-	startblock := 1400
+	startblock := 0
 	for i := startblock; i < int(head.Number); i++ {
 		blocknumchan <- i
 	}
@@ -391,101 +389,6 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 	fmt.Println("Done")
 
 	return &impl, nil
-}
-
-func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockchain) error {
-	c := converter{
-		blockchain: blockchain,
-	}
-	originalBlock.ProtocolVersion = ""
-
-	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
-	if err != nil {
-		return err
-	}
-
-	protoBody, err := c.coreBlockToProtobufBody(originalBlock)
-	if err != nil {
-		return err
-	}
-
-	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, blockchain.Network())
-	if err != nil {
-		return err
-	}
-
-	newCoreBlock.ProtocolVersion = ""
-
-	gatewayjson, err := json.MarshalIndent(originalBlock, "", "    ")
-	if err != nil {
-		return err
-	}
-
-	reencodedblockjson, err := json.MarshalIndent(newCoreBlock, "", "    ")
-	if err != nil {
-		return err
-	}
-
-	if string(gatewayjson) != string(reencodedblockjson) {
-
-		updateBytes, err := encoder.Marshal(originalBlock)
-		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/%d.dat", originalBlock.Number), updateBytes, 0666)
-		if err != nil {
-			panic(err)
-		}
-
-		for i, receipt := range originalBlock.Receipts {
-			tx := originalBlock.Transactions[i]
-
-			tx2 := newCoreBlock.Transactions[i]
-			receipt2 := newCoreBlock.Receipts[i]
-
-			if !compareAndPrintDiff(tx, tx2) {
-				return errors.New("tx mismatch.")
-			}
-
-			if !compareAndPrintDiff(receipt, receipt2) {
-				return errors.New("receipt mismatch")
-			}
-
-		}
-
-		txCommit, err := originalBlock.CalculateTransactionCommitment()
-		if err != nil {
-			return err
-		}
-
-		eCommit, err := originalBlock.CalculateEventCommitment()
-		if err != nil {
-			return err
-		}
-
-		headeragain, _ := c.coreBlockToProtobufHeader(originalBlock)
-		txCommit2 := fieldElementToFelt(headeragain.TransactionCommitment)
-		eCommit2 := fieldElementToFelt(headeragain.EventCommitment)
-		if !txCommit.Equal(txCommit2) {
-			return errors.New("Tx commit not match")
-		}
-		if !eCommit.Equal(eCommit2) {
-			return errors.New("Event commit not match")
-		}
-
-		err = core.VerifyBlockHash(originalBlock, blockchain.Network())
-		if err != nil {
-			return err
-		}
-
-		// originalHash, err := core.CalculateBlockHashWithTxCommitment(originalBlock, blockchain.Network(), txCommit, eCommit)
-		originalHash, err := core.CalculateBlockHashPlain(originalBlock, blockchain.Network())
-		if !originalHash.Equal(originalBlock.Hash) {
-			return errors.New("Recalculated hash does not match")
-		}
-
-		compareAndPrintDiff(originalBlock, newCoreBlock)
-		return errors.New("Mismatch")
-	}
-
-	return nil
 }
 
 func determineKey() (crypto.PrivKey, error) {

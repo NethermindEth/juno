@@ -805,7 +805,7 @@ type ContractClass struct {
 	L1HandlerEntryPoints   []*ContractClass_EntryPoint `protobuf:"bytes,3,rep,name=l1_handler_entry_points,json=l1HandlerEntryPoints,proto3" json:"l1_handler_entry_points,omitempty"`
 	Program                string                      `protobuf:"bytes,4,opt,name=program,proto3" json:"program,omitempty"`
 	Abi                    string                      `protobuf:"bytes,5,opt,name=abi,proto3" json:"abi,omitempty"`
-	Hash                   *FieldElement               `protobuf:"bytes,6,opt,name=hash,proto3" json:"hash,omitempty"`
+	Hash                   *FieldElement               `protobuf:"bytes,6,opt,name=hash,proto3" json:"hash,omitempty"` // Ahh... great.
 }
 
 func (x *ContractClass) Reset() {

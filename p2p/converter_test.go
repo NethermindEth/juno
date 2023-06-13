@@ -13,14 +13,14 @@ import (
 	"testing"
 )
 
-func TestEncodeDecode(t *testing.T) {
+func TestEncodeDecodeBlocks(t *testing.T) {
 	db, _ := pebble.NewMem()
 	bc := blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger())
 	c := converter{
 		blockchain: bc,
 	}
 
-	globed, err := filepath.Glob("converter_tests/*dat")
+	globed, err := filepath.Glob("converter_tests/blocks/*dat")
 	if err != nil {
 		panic(err)
 	}
@@ -38,12 +38,12 @@ func TestEncodeDecode(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			runEncodeDecodeTest(t, c, &block)
+			runEncodeDecodeBlockTest(t, c, &block)
 		})
 	}
 }
 
-func runEncodeDecodeTest(t *testing.T, c converter, originalBlock *core.Block) {
+func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Block) {
 	// Convert original struct to protobuf struct
 	header, err := c.coreBlockToProtobufHeader(originalBlock)
 	if err != nil {
@@ -63,4 +63,39 @@ func runEncodeDecodeTest(t *testing.T, c converter, originalBlock *core.Block) {
 
 	// Check if the final struct is equal to the original struct
 	assert.Equal(t, originalBlock, convertedBlock)
+}
+
+func TestEncodeDecodeStateUpdate(t *testing.T) {
+	db, _ := pebble.NewMem()
+	blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // So that the encoder get registered
+	globed, err := filepath.Glob("converter_tests/state_updates/*dat")
+	if err != nil {
+		panic(err)
+	}
+
+	for i, filename := range globed {
+		f, err := os.Open(filename)
+		if err != nil {
+			panic(err)
+		}
+		decoder := encoder.NewDecoder(f)
+		stateUpdate := core.StateUpdate{}
+		err = decoder.Decode(&stateUpdate)
+		if err != nil {
+			panic(err)
+		}
+
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			runEncodeDecodeStateUpdateTest(t, &stateUpdate)
+		})
+	}
+}
+
+func runEncodeDecodeStateUpdateTest(t *testing.T, stateUpdate *core.StateUpdate) {
+	// Convert original struct to protobuf struct
+	protoBuff := coreStateUpdateToProtobufStateUpdate(stateUpdate)
+	reencodedStateUpdate := protobufStateUpdateToCoreStateUpdate(protoBuff)
+
+	// Check if the final struct is equal to the original struct
+	assert.Equal(t, stateUpdate, reencodedStateUpdate)
 }
