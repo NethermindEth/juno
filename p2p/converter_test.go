@@ -59,7 +59,7 @@ func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Blo
 	}
 
 	// Convert protobuf struct back to original struct
-	convertedBlock, err := protobufHeaderAndBodyToCoreBlock(header, body, utils.MAINNET)
+	convertedBlock, _, err := protobufHeaderAndBodyToCoreBlock(header, body, utils.MAINNET)
 	if err != nil {
 		t.Fatalf("back to core failed %v", err)
 	}

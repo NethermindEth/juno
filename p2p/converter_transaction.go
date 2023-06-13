@@ -1,20 +1,28 @@
 package p2p
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/pkg/errors"
 	"reflect"
 )
 
-func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *grpcclient.Receipt, network utils.Network) (core.Transaction, *core.TransactionReceipt, error) {
+func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *grpcclient.Receipt, network utils.Network) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
 	switch tx := protoTx.GetTxn().(type) {
 	case *grpcclient.Transaction_Deploy:
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Deploy)
 
+		classHash, class, err := protobufClassToCoreClass(tx.Deploy.ContractClass)
+		if err != nil {
+			return nil, nil, nil, nil, errors.Wrap(err, "error deserializing class")
+		}
+
 		coreTx := &core.DeployTransaction{
-			ClassHash:           fieldElementToFelt(tx.Deploy.ClassHash),
+			ClassHash:           classHash,
 			ContractAddress:     fieldElementToFelt(tx.Deploy.ContractAddress),
 			TransactionHash:     fieldElementToFelt(tx.Deploy.GetHash()),
 			ContractAddressSalt: fieldElementToFelt(tx.Deploy.GetContractAddressSalt()),
@@ -23,7 +31,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		}
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Deploy.Common)
-		return coreTx, receipt, nil
+		return coreTx, receipt, classHash, class, nil
 
 	case *grpcclient.Transaction_DeployAccount:
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_DeployAccount)
@@ -45,10 +53,15 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		}
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.DeployAccount.Common)
-		return coreTx, receipt, nil
+		return coreTx, receipt, nil, nil, nil
 
 	case *grpcclient.Transaction_Declare:
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Declare)
+
+		classHash, class, err := protobufClassToCoreClass(tx.Declare.ContractClass)
+		if err != nil {
+			return nil, nil, nil, nil, errors.Wrap(err, "error deserializing class")
+		}
 
 		coreTx := &core.DeclareTransaction{
 			TransactionHash:      fieldElementToFelt(tx.Declare.Hash),
@@ -56,13 +69,13 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 			MaxFee:               fieldElementToFelt(tx.Declare.GetMaxFee()),
 			TransactionSignature: fieldElementsToFelts(tx.Declare.GetSignature()),
 			Nonce:                fieldElementToFelt(tx.Declare.GetNonce()),
-			ClassHash:            fieldElementToFelt(tx.Declare.ContractClass.Hash),
+			ClassHash:            classHash,
 			CompiledClassHash:    fieldElementToFelt(tx.Declare.CompiledClassHash),
 			Version:              fieldElementToFelt(tx.Declare.GetVersion()),
 		}
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Declare.Common)
-		return coreTx, receipt, nil
+		return coreTx, receipt, classHash, class, nil
 
 	case *grpcclient.Transaction_Invoke:
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Invoke)
@@ -80,7 +93,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		}
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Invoke.Common)
-		return coreTx, receipt, nil
+		return coreTx, receipt, nil, nil, nil
 
 	case *grpcclient.Transaction_L1Handler:
 		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_L1Handler)
@@ -96,7 +109,7 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.L1Handler.Common)
 		receipt.L1ToL2Message = MapValueViaReflect[*core.L1ToL2Message](txReceipt.L1Handler.L1ToL2Message)
-		return coreTx, receipt, nil
+		return coreTx, receipt, nil, nil, nil
 
 	default:
 		panic(fmt.Sprintf("Unknown transaction type %s", reflect.TypeOf(protoTx.GetTxn())))
@@ -113,10 +126,26 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if deployTx, ok := transaction.(*core.DeployTransaction); ok {
+		stateReader, closer, err := c.blockchain.HeadState()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to fetch head state")
+		}
+		defer closer()
+
+		coreClass, err := stateReader.Class(deployTx.ClassHash)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to fetch class")
+		}
+
+		protobufClass, err := coreClassToProtobufClass(deployTx.ClassHash, coreClass)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to convert core class to protobuf")
+		}
+
 		return &grpcclient.Transaction{
 				Txn: &grpcclient.Transaction_Deploy{
 					Deploy: &grpcclient.DeployTransaction{
-						ClassHash:           feltToFieldElement(deployTx.ClassHash),
+						ContractClass:       protobufClass,
 						ContractAddress:     feltToFieldElement(deployTx.ContractAddress),
 						Hash:                feltToFieldElement(deployTx.TransactionHash),
 						ContractAddressSalt: feltToFieldElement(deployTx.ContractAddressSalt),
@@ -160,13 +189,27 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if declareTx, ok := transaction.(*core.DeclareTransaction); ok {
+		stateReader, closer, err := c.blockchain.HeadState()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to fetch head state")
+		}
+		defer closer()
+
+		coreClass, err := stateReader.Class(declareTx.ClassHash)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to fetch class")
+		}
+
+		protobufClass, err := coreClassToProtobufClass(declareTx.ClassHash, coreClass)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to convert core class to protobuf")
+		}
+
 		return &grpcclient.Transaction{
 				Txn: &grpcclient.Transaction_Declare{
 					Declare: &grpcclient.DeclareTransaction{
-						Hash: feltToFieldElement(declareTx.TransactionHash),
-						ContractClass: &grpcclient.ContractClass{
-							Hash: feltToFieldElement(declareTx.ClassHash),
-						},
+						Hash:              feltToFieldElement(declareTx.TransactionHash),
+						ContractClass:     protobufClass,
 						SenderAddress:     feltToFieldElement(declareTx.SenderAddress),
 						MaxFee:            feltToFieldElement(declareTx.MaxFee),
 						Signature:         feltsToFieldElements(declareTx.TransactionSignature),
@@ -233,40 +276,84 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	panic(fmt.Sprintf("Unknown transaction type %s", reflect.TypeOf(transaction)))
 }
 
-func coreClassToGrpcClass(theclass *core.DeclaredClass) *grpcclient.ContractClass {
+func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*grpcclient.ContractClass, error) {
 	switch class := theclass.Class.(type) {
 	case *core.Cairo0Class:
 		abistr, err := class.Abi.MarshalJSON()
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
-		externals := make([]*grpcclient.ContractClass_EntryPoint, len(class.Externals))
-		for i, external := range class.Externals {
-			externals[i] = &grpcclient.ContractClass_EntryPoint{
-				Selector: feltToFieldElement(external.Selector),
-				Offset:   feltToFieldElement(external.Offset),
-			}
-		}
+		constructors := MapValueViaReflect[[]*grpcclient.Cairo0Class_EntryPoint](class.Constructors)
+		externals := MapValueViaReflect[[]*grpcclient.Cairo0Class_EntryPoint](class.Externals)
+		handlers := MapValueViaReflect[[]*grpcclient.Cairo0Class_EntryPoint](class.L1Handlers)
 
-		handlers := make([]*grpcclient.ContractClass_EntryPoint, len(class.L1Handlers))
-		for i, external := range class.L1Handlers {
-			handlers[i] = &grpcclient.ContractClass_EntryPoint{
-				Selector: feltToFieldElement(external.Selector),
-				Offset:   feltToFieldElement(external.Offset),
-			}
-		}
-
-		// TODO: What about constructor?
 		return &grpcclient.ContractClass{
-			ExternalEntryPoints:  externals,
-			L1HandlerEntryPoints: handlers,
-			Program:              class.Program,
-			Abi:                  string(abistr),
-		}
+			Class: &grpcclient.ContractClass_Cairo0{
+				Cairo0: &grpcclient.Cairo0Class{
+					ConstructorEntryPoints: constructors,
+					ExternalEntryPoints:    externals,
+					L1HandlerEntryPoints:   handlers,
+					Program:                class.Program,
+					Abi:                    string(abistr),
+					Hash:                   feltToFieldElement(hash),
+				},
+			},
+		}, nil
+	case *core.Cairo1Class:
+		constructors := MapValueViaReflect[[]*grpcclient.Cairo1Class_EntryPoint](class.EntryPoints.Constructor)
+		externals := MapValueViaReflect[[]*grpcclient.Cairo1Class_EntryPoint](class.EntryPoints.External)
+		handlers := MapValueViaReflect[[]*grpcclient.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler)
+		program := feltsToFieldElements(class.Program)
 
-	// TODO: case *core.Cairo1Class:
+		return &grpcclient.ContractClass{
+			Class: &grpcclient.ContractClass_Cairo1{
+				Cairo1: &grpcclient.Cairo1Class{
+					ConstructorEntryPoints: constructors,
+					ExternalEntryPoints:    externals,
+					L1HandlerEntryPoints:   handlers,
+					Program:                program,
+					ProgramHash:            feltToFieldElement(class.ProgramHash),
+					Abi:                    class.Abi,
+					Hash:                   feltToFieldElement(hash),
+				},
+			},
+		}, nil
 	default:
 		panic(fmt.Sprintf("Unsupported class type %s", reflect.TypeOf(theclass.Class)))
 	}
+}
+
+func protobufClassToCoreClass(class *grpcclient.ContractClass) (*felt.Felt, core.Class, error) {
+	switch v := class.Class.(type) {
+	case *grpcclient.ContractClass_Cairo0:
+		hash := fieldElementToFelt(v.Cairo0.Hash)
+
+		abiraw := json.RawMessage{}
+		err := json.Unmarshal([]byte(v.Cairo0.Abi), &abiraw)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "error unmarshalling cairo0 abi")
+		}
+
+		return hash, &core.Cairo0Class{
+			Abi:          abiraw,
+			Externals:    MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ExternalEntryPoints),
+			L1Handlers:   MapValueViaReflect[[]core.EntryPoint](v.Cairo0.L1HandlerEntryPoints),
+			Constructors: MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ConstructorEntryPoints),
+			Program:      v.Cairo0.Program,
+		}, nil
+	case *grpcclient.ContractClass_Cairo1:
+		coreClass := &core.Cairo1Class{
+			Abi:     v.Cairo1.Abi,
+			Program: fieldElementsToFelts(v.Cairo1.Program),
+		}
+		coreClass.EntryPoints.Constructor = MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ConstructorEntryPoints)
+		coreClass.EntryPoints.External = MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ExternalEntryPoints)
+		coreClass.EntryPoints.L1Handler = MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.L1HandlerEntryPoints)
+
+		hash := coreClass.Hash()
+		return hash, coreClass, nil
+	}
+
+	return nil, nil, errors.Errorf("unknown class type %T", class.Class)
 }

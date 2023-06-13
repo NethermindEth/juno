@@ -36,8 +36,8 @@ import (
 const blockSyncProto = "/core/blocks-sync/1"
 
 type P2P interface {
-	GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, error)
-	GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error)
+	GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error)
+	GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error)
 	GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error)
 }
 
@@ -248,7 +248,7 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 	return nil
 }
 
-func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, error) {
+func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error) {
 	request := &grpcclient.GetBlockHeaders{
 		StartBlock: &grpcclient.GetBlockHeaders_BlockNumber{
 			BlockNumber: number,
@@ -259,7 +259,7 @@ func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.B
 	return ip.getBlockByHeaderRequest(ctx, request)
 }
 
-func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error) {
+func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error) {
 	request := &grpcclient.GetBlockHeaders{
 		StartBlock: &grpcclient.GetBlockHeaders_BlockHash{
 			BlockHash: feltToFieldElement(hash),
@@ -270,7 +270,7 @@ func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.B
 	return ip.getBlockByHeaderRequest(ctx, request)
 }
 
-func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *grpcclient.GetBlockHeaders) (*core.Block, error) {
+func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *grpcclient.GetBlockHeaders) (*core.Block, map[felt.Felt]core.Class, error) {
 	// The core block need both header and block to build. So.. kinda cheating here as it fetch both header and body.
 	headerResponse, err := ip.sendBlockSyncRequest(ctx,
 		&grpcclient.Request{
@@ -280,16 +280,16 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *g
 		})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	blockHeaders := headerResponse.GetBlockHeaders().GetHeaders()
 	if blockHeaders == nil {
-		return nil, fmt.Errorf("block headers is nil")
+		return nil, nil, fmt.Errorf("block headers is nil")
 	}
 
 	if len(blockHeaders) != 1 {
-		return nil, fmt.Errorf("unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
+		return nil, nil, fmt.Errorf("unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
 	}
 
 	header := blockHeaders[0]
@@ -310,21 +310,21 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *g
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to request body from peer")
+		return nil, nil, errors.Wrap(err, "unable to request body from peer")
 	}
 
 	bodies := response.GetBlockBodies().GetBlockBodies()
 	if len(bodies) < 1 {
-		return nil, errors.New("unable to fetch body")
+		return nil, nil, errors.New("unable to fetch body")
 	}
 
 	body := bodies[0]
-	block, err := protobufHeaderAndBodyToCoreBlock(header, body, ip.network)
+	block, declaredClasses, err := protobufHeaderAndBodyToCoreBlock(header, body, ip.network)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to convert to core body")
+		return nil, nil, errors.Wrap(err, "unable to convert to core body")
 	}
 
-	return block, nil
+	return block, declaredClasses, nil
 }
 
 func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient.Request) (*grpcclient.Response, error) {
@@ -408,6 +408,9 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 	impl := P2PImpl{
 		syncServer: blockSyncServer{
 			blockchain: blockchain,
+			converter: converter{
+				blockchain: blockchain,
+			},
 		},
 
 		mtx:                  &sync.Mutex{},

@@ -54,9 +54,8 @@ message DeployTransaction {
   FieldElement contract_address_salt = 2;
   repeated FieldElement constructor_calldata = 3;
   FieldElement version = 4;
-  FieldElement class_hash = 5;
-  FieldElement contract_address = 6;
-  FieldElement hash = 7; // Need to remove after regenesis
+  FieldElement contract_address = 5;
+  FieldElement hash = 6; // Need to remove after regenesis
 }
 
 message L1HandlerTransaction {
@@ -81,6 +80,13 @@ message DeployAccountTransaction {
 }
 
 message ContractClass {
+  oneof class {
+    Cairo0Class cairo0 = 1;
+    Cairo1Class cairo1 = 2;
+  }
+}
+
+message Cairo0Class {
   message EntryPoint {
     FieldElement selector = 1;
     FieldElement offset = 2;
@@ -92,6 +98,22 @@ message ContractClass {
   string program = 4;
   string abi = 5;
   FieldElement hash = 6; // Ahh... great.
+}
+
+message Cairo1Class {
+  message EntryPoint {
+    FieldElement selector = 1;
+    uint64 index = 2;
+  }
+
+  repeated EntryPoint constructor_entry_points = 1;
+  repeated EntryPoint external_entry_points = 2;
+  repeated EntryPoint l1_handler_entry_points = 3;
+  repeated FieldElement program = 4;
+  FieldElement program_hash = 5;
+  string abi = 6;
+  string semantic_versioning = 7;
+  FieldElement hash = 8;
 }
 
 message Transaction {

@@ -45,7 +45,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 		return err
 	}
 
-	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, blockchain.Network())
+	newCoreBlock, _, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, blockchain.Network())
 	if err != nil {
 		return err
 	}

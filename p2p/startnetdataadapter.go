@@ -8,7 +8,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pkg/errors"
+	"sync"
 )
 
 type StartnetDataAdapter struct {
@@ -16,9 +18,17 @@ type StartnetDataAdapter struct {
 	p2p       P2P
 	network   utils.Network
 	converter converter
+
+	lruMtx     *sync.Mutex
+	classesLru *simplelru.LRU
 }
 
 func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
+	lru, err := simplelru.NewLRU(16000, func(key interface{}, value interface{}) {})
+	if err != nil {
+		panic(err)
+	}
+
 	return &StartnetDataAdapter{
 		base:    base,
 		p2p:     p2p,
@@ -26,6 +36,9 @@ func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, blockchain 
 		converter: converter{
 			blockchain: blockchain,
 		},
+
+		lruMtx:     &sync.Mutex{},
+		classesLru: lru,
 	}
 }
 
@@ -37,15 +50,20 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 		}
 	}()
 
-	block, err = s.p2p.GetBlockByNumber(ctx, blockNumber)
+	block, declaredClasses, err := s.p2p.GetBlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch header via p2p")
+	}
+
+	for key, class := range declaredClasses {
+		s.classesLru.Add(key, class)
 	}
 
 	return block, err
 }
 
 func (s *StartnetDataAdapter) BlockLatest(ctx context.Context) (*core.Block, error) {
+	fmt.Printf("Get block latest \n")
 	return s.base.BlockLatest(ctx)
 }
 
@@ -54,7 +72,14 @@ func (s *StartnetDataAdapter) Transaction(ctx context.Context, transactionHash *
 }
 
 func (s *StartnetDataAdapter) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
-	return s.base.Class(ctx, classHash)
+	cls, ok := s.classesLru.Get(*classHash)
+	if !ok {
+		fmt.Printf("Unable to find class of hash %s\n", classHash.String())
+		return s.base.Class(ctx, classHash)
+	}
+
+	fmt.Printf("Class found correctly %s\n", classHash.String())
+	return cls.(core.Class), nil
 }
 
 func (s *StartnetDataAdapter) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {

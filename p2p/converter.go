@@ -3,6 +3,7 @@ package p2p
 import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
@@ -100,7 +101,7 @@ func protoToAddress(to *grpcclient.EthereumAddress) common.Address {
 	return addr
 }
 
-func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.BlockBody, network utils.Network) (*core.Block, error) {
+func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.BlockBody, network utils.Network) (*core.Block, map[felt.Felt]core.Class, error) {
 	parentHash := fieldElementToFelt(header.ParentBlockHash)
 	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)
 	sequencerAddress := fieldElementToFelt(header.SequencerAddress)
@@ -127,15 +128,20 @@ func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpc
 	}
 
 	eventcount := 0
+	declaredClasses := map[felt.Felt]core.Class{}
 
 	for i := uint32(0); i < header.TransactionCount; i++ {
 		// Assuming you have a function to convert a transaction from protobuf to core
-		transaction, receipt, err := protobufTransactionToCore(body.Transactions[i], body.Receipts[i], network)
+		transaction, receipt, classHash, class, err := protobufTransactionToCore(body.Transactions[i], body.Receipts[i], network)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		block.Transactions = append(block.Transactions, transaction)
 		block.Receipts = append(block.Receipts, receipt)
+
+		if classHash != nil {
+			declaredClasses[*classHash] = class
+		}
 
 		eventcount = eventcount + len(receipt.Events)
 	}
@@ -143,7 +149,7 @@ func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpc
 	block.EventCount = uint64(eventcount)
 	block.EventsBloom = core.EventsBloom(block.Receipts)
 
-	return block, nil
+	return block, declaredClasses, nil
 }
 
 func protobufCommonReceiptToCoreReceipt(commonReceipt *grpcclient.CommonTransactionReceiptProperties) *core.TransactionReceipt {
