@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/monitor"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -194,8 +195,9 @@ func (n *Node) Run(ctx context.Context) {
 	client := feeder.NewClient(n.cfg.Network.FeederURL())
 	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log)
 	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
+	monitoring := monitor.New()
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log, monitoring), n.log)
 
 	n.services = []service.Service{synchronizer, http}
 

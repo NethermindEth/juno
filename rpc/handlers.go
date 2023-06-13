@@ -18,6 +18,12 @@ type Gateway interface {
 	AddInvokeTransaction(json.RawMessage) (json.RawMessage, error)
 }
 
+//go:generate mockgen -destination=../mocks/mock_monitor.go -package=mocks github.com/NethermindEth/juno/rpc Monitor
+type Monitor interface {
+	RPCCounterInc(method, path string)
+	RPCFailedCounterInc(method, path string)
+}
+
 var (
 	ErrPendingNotSupported = errors.New("pending block is not supported yet")
 
@@ -44,10 +50,11 @@ type Handler struct {
 	network       utils.Network
 	gatewayClient Gateway
 	log           utils.Logger
+	monitor       Monitor
 }
 
 func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, gatewayClient Gateway,
-	logger utils.Logger,
+	logger utils.Logger, monitor Monitor,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
@@ -55,6 +62,7 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Ne
 		network:       n,
 		log:           logger,
 		gatewayClient: gatewayClient,
+		monitor:       monitor,
 	}
 }
 
@@ -750,14 +758,17 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 // Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
 // As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
 func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
+	h.monitor.RPCCounterInc("starknet_addInvokeTransaction", "/metrics")
 	resp, err := h.gatewayClient.AddInvokeTransaction(invokeTx)
 	if err != nil {
+		h.monitor.RPCFailedCounterInc("starknet_addInvokeTransaction", "/metrics")
 		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
 	}
 
 	invokeRes := new(AddInvokeTxResponse)
 	err = json.Unmarshal(resp, invokeRes)
 	if err != nil {
+		h.monitor.RPCFailedCounterInc("starknet_addInvokeTransaction", "/metrics")
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
