@@ -12,6 +12,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -34,8 +36,9 @@ import (
 const blockSyncProto = "/core/blocks-sync/1"
 
 type P2P interface {
-	GetBlockHeaderByNumber(ctx context.Context, number uint64) (*core.Header, error)
+	GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, error)
 	GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error)
+	GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error)
 }
 
 type P2PImpl struct {
@@ -44,7 +47,100 @@ type P2PImpl struct {
 
 	blockSyncPeers       []peer.ID
 	mtx                  *sync.Mutex
-	pickedBlockSyncPeers map[peer.ID]bool
+	pickedBlockSyncPeers map[peer.ID]int
+	network              utils.Network
+
+	lruMutex               *sync.Mutex
+	headerByBlockNumberLru *simplelru.LRU
+}
+
+func (ip *P2PImpl) GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error) {
+	// Ideally, it should pass the block number. but we'll just wing it here for now.
+	header, err := ip.getHeaderByBlockNumber(ctx, number)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to determine blockhash for block number %d", number)
+	}
+
+	response, err := ip.sendBlockSyncRequest(ctx,
+		&grpcclient.Request{
+			Request: &grpcclient.Request_GetStateDiffs{
+				GetStateDiffs: &grpcclient.GetStateDiffs{
+					StartBlock: header.Hash,
+					Count:      1,
+					SizeLimit:  1,
+					Direction:  0,
+				},
+			},
+		})
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch state diff")
+	}
+
+	stateUpdates := response.GetStateDiffs().GetBlockStateUpdates()
+	if len(stateUpdates) != 1 {
+		return nil, errors.New("unable tow fetch state diff. Empty response.")
+	}
+
+	coreStateUpdate := protobufStateUpdateToCoreStateUpdate(stateUpdates[0])
+
+	// Verification need these
+	oldRoot := &felt.Zero // TODO: genesis have root maybe?
+	if number != 0 {
+		// Ah.. great.
+		parentHeader, err := ip.getHeaderByBlockNumber(ctx, number-1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to determine parent block state for block number %d", number)
+		}
+
+		oldRoot = fieldElementToFelt(parentHeader.GlobalStateRoot)
+	}
+	coreStateUpdate.BlockHash = fieldElementToFelt(header.Hash)
+	coreStateUpdate.NewRoot = fieldElementToFelt(header.GlobalStateRoot)
+	coreStateUpdate.OldRoot = oldRoot
+
+	return coreStateUpdate, nil
+}
+
+func (ip *P2PImpl) getHeaderByBlockNumber(ctx context.Context, number uint64) (*grpcclient.BlockHeader, error) {
+	ip.lruMutex.Lock()
+	cachedHeader, ok := ip.headerByBlockNumberLru.Get(number)
+	ip.lruMutex.Unlock()
+	if ok {
+		return cachedHeader.(*grpcclient.BlockHeader), nil
+	}
+
+	request := &grpcclient.GetBlockHeaders{
+		StartBlock: &grpcclient.GetBlockHeaders_BlockNumber{
+			BlockNumber: number,
+		},
+		Count: 1,
+	}
+
+	headerResponse, err := ip.sendBlockSyncRequest(ctx,
+		&grpcclient.Request{
+			Request: &grpcclient.Request_GetBlockHeaders{
+				GetBlockHeaders: request,
+			},
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	blockHeaders := headerResponse.GetBlockHeaders().GetHeaders()
+	if blockHeaders == nil {
+		return nil, fmt.Errorf("block headers is nil")
+	}
+
+	if len(blockHeaders) != 1 {
+		return nil, fmt.Errorf("unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
+	}
+
+	ip.lruMutex.Lock()
+	defer ip.lruMutex.Unlock()
+	ip.headerByBlockNumberLru.Add(number, blockHeaders[0])
+
+	return blockHeaders[0], nil
 }
 
 func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
@@ -152,18 +248,34 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 	return nil
 }
 
-func (ip *P2PImpl) GetBlockHeaderByNumber(ctx context.Context, number uint64) (*core.Header, error) {
-	request := grpcclient.GetBlockHeaders{
+func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, error) {
+	request := &grpcclient.GetBlockHeaders{
 		StartBlock: &grpcclient.GetBlockHeaders_BlockNumber{
 			BlockNumber: number,
 		},
 		Count: 1,
 	}
 
-	response, err := ip.sendBlockSyncRequest(ctx,
+	return ip.getBlockByHeaderRequest(ctx, request)
+}
+
+func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error) {
+	request := &grpcclient.GetBlockHeaders{
+		StartBlock: &grpcclient.GetBlockHeaders_BlockHash{
+			BlockHash: feltToFieldElement(hash),
+		},
+		Count: 1,
+	}
+
+	return ip.getBlockByHeaderRequest(ctx, request)
+}
+
+func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *grpcclient.GetBlockHeaders) (*core.Block, error) {
+	// The core block need both header and block to build. So.. kinda cheating here as it fetch both header and body.
+	headerResponse, err := ip.sendBlockSyncRequest(ctx,
 		&grpcclient.Request{
 			Request: &grpcclient.Request_GetBlockHeaders{
-				GetBlockHeaders: &request,
+				GetBlockHeaders: headerRequest,
 			},
 		})
 
@@ -171,38 +283,48 @@ func (ip *P2PImpl) GetBlockHeaderByNumber(ctx context.Context, number uint64) (*
 		return nil, err
 	}
 
-	blockHeaders := response.GetBlockHeaders().GetHeaders()
+	blockHeaders := headerResponse.GetBlockHeaders().GetHeaders()
 	if blockHeaders == nil {
-		return nil, fmt.Errorf("Block headers is nil")
+		return nil, fmt.Errorf("block headers is nil")
 	}
 
 	if len(blockHeaders) != 1 {
-		return nil, fmt.Errorf("Unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
+		return nil, fmt.Errorf("unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
 	}
 
 	header := blockHeaders[0]
 
-	// Need to make a custom hasher from the grpc header. The core.Header missed a few hashes.
-	coreheader := &core.Header{
-		Hash:             fieldElementToFelt(header.Hash),
-		ParentHash:       fieldElementToFelt(header.ParentBlockHash),
-		Number:           header.BlockNumber,
-		GlobalStateRoot:  fieldElementToFelt(header.GlobalStateRoot),
-		SequencerAddress: fieldElementToFelt(header.SequencerAddress),
-		TransactionCount: uint64(header.TransactionCount),
-		EventCount:       uint64(header.EventCount),
-		Timestamp:        header.BlockTimestamp,
-		ProtocolVersion:  fmt.Sprintf("%d", header.ProtocolVersion),
-		// ExtraData:        header.ExtraData,
-		// EventsBloom:      header.EventsBloom,
+	ip.lruMutex.Lock()
+	ip.headerByBlockNumberLru.Add(header.BlockNumber, header)
+	ip.lruMutex.Unlock()
+
+	response, err := ip.sendBlockSyncRequest(ctx, &grpcclient.Request{
+		Request: &grpcclient.Request_GetBlockBodies{
+			GetBlockBodies: &grpcclient.GetBlockBodies{
+				StartBlock: header.Hash,
+				Count:      1,
+				SizeLimit:  1,
+				Direction:  grpcclient.Direction_FORWARD,
+			},
+		},
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to request body from peer")
 	}
 
-	return coreheader, nil
-}
+	bodies := response.GetBlockBodies().GetBlockBodies()
+	if len(bodies) < 1 {
+		return nil, errors.New("unable to fetch body")
+	}
 
-func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, error) {
-	//TODO implement me
-	panic("implement me")
+	body := bodies[0]
+	block, err := protobufHeaderAndBodyToCoreBlock(header, body, ip.network)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to convert to core body")
+	}
+
+	return block, nil
 }
 
 func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient.Request) (*grpcclient.Response, error) {
@@ -260,8 +382,8 @@ func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
 	ip.mtx.Lock()
 	defer ip.mtx.Unlock()
 	for _, p := range ip.blockSyncPeers {
-		if !ip.pickedBlockSyncPeers[p] {
-			ip.pickedBlockSyncPeers[p] = true
+		if ip.pickedBlockSyncPeers[p] < 32 {
+			ip.pickedBlockSyncPeers[p] += 1
 			return &p
 		}
 	}
@@ -272,10 +394,16 @@ func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
 func (ip *P2PImpl) releaseBlockSyncPeer(id *peer.ID) {
 	ip.mtx.Lock()
 	defer ip.mtx.Unlock()
-	delete(ip.pickedBlockSyncPeers, *id)
+
+	ip.pickedBlockSyncPeers[*id] -= 1
 }
 
 func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2P, error) {
+	lru, err := simplelru.NewLRU(1000, func(key interface{}, value interface{}) {})
+	if err != nil {
+		return nil, err
+	}
+
 	ctx := context.Background()
 	impl := P2PImpl{
 		syncServer: blockSyncServer{
@@ -283,7 +411,10 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		},
 
 		mtx:                  &sync.Mutex{},
-		pickedBlockSyncPeers: map[peer.ID]bool{},
+		pickedBlockSyncPeers: map[peer.ID]int{},
+
+		lruMutex:               &sync.Mutex{},
+		headerByBlockNumberLru: lru,
 	}
 
 	prvKey, err := determineKey()
@@ -350,6 +481,19 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		}
 	}()
 
+	/*
+		p, err2 := runBlockEncodingTests(blockchain, err)
+		if err2 != nil {
+			return p, err2
+		}
+	*/
+
+	fmt.Println("Done")
+
+	return &impl, nil
+}
+
+func runBlockEncodingTests(blockchain *blockchain.Blockchain, err error) (P2P, error) {
 	head, err := blockchain.Head()
 	if err != nil {
 		return nil, err
@@ -385,10 +529,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 	}
 	close(blocknumchan)
 	wg.Wait()
-
-	fmt.Println("Done")
-
-	return &impl, nil
+	return nil, nil
 }
 
 func determineKey() (crypto.PrivKey, error) {

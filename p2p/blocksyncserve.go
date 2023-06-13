@@ -207,29 +207,29 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *grpcclient.Request) (*
 }
 
 func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {
-	fmt.Printf("Handling block sync\n")
+	go func() {
+		fmt.Printf("Handling block sync\n")
 
-	msg := grpcclient.Request{}
-	err := readCompressedProtobuf(stream, &msg)
-	if err != nil {
-		panic(err)
-	}
+		msg := grpcclient.Request{}
+		err := readCompressedProtobuf(stream, &msg)
+		if err != nil {
+			panic(err)
+		}
 
-	fmt.Printf("Handling block sync type %s\n", reflect.TypeOf(msg))
-	resp, err := s.HandleBlockSyncRequest(&msg)
-	if err != nil {
-		panic(err)
-	}
+		fmt.Printf("Handling block sync type %s\n", reflect.TypeOf(msg.Request))
+		resp, err := s.HandleBlockSyncRequest(&msg)
+		if err != nil {
+			panic(err)
+		}
 
-	fmt.Printf("Writing response type %s\n", reflect.TypeOf(msg))
-	err = writeCompressedProtobuf(stream, resp)
-	if err != nil {
-		panic(err)
-	}
+		err = writeCompressedProtobuf(stream, resp)
+		if err != nil {
+			panic(err)
+		}
 
-	fmt.Printf("Done %s\n", reflect.TypeOf(msg))
-	err = stream.Close()
-	if err != nil {
-		panic(err)
-	}
+		err = stream.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 }

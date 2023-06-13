@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -38,59 +37,12 @@ func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uin
 		}
 	}()
 
-	gatewayBlock, err := s.base.BlockByNumber(ctx, blockNumber)
+	block, err = s.p2p.GetBlockByNumber(ctx, blockNumber)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to fetch header via p2p")
 	}
 
-	protoheader, err := s.converter.coreBlockToProtobufHeader(gatewayBlock)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting header to protobuf")
-	}
-
-	protoBody, err := s.converter.coreBlockToProtobufBody(gatewayBlock)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting header to protobuf")
-	}
-
-	newCoreBlock, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, s.network)
-	if err != nil {
-		return nil, err
-	}
-
-	gatewayjson, err := json.MarshalIndent(gatewayBlock, "", "    ")
-	if err != nil {
-		return nil, err
-	}
-
-	reencodedblockjson, err := json.MarshalIndent(newCoreBlock, "", "    ")
-	if err != nil {
-		return nil, err
-	}
-
-	if string(gatewayjson) != string(reencodedblockjson) {
-		for i, receipt := range gatewayBlock.Receipts {
-			tx := gatewayBlock.Transactions[i]
-
-			tx2 := newCoreBlock.Transactions[i]
-			receipt2 := newCoreBlock.Receipts[i]
-
-			if !compareAndPrintDiff(tx, tx2) {
-				thegrpctx := protoBody.Transactions[i]
-				felttx := fieldElementToFelt(thegrpctx.GetL1Handler().GetHash())
-				return nil, fmt.Errorf("mismatch. %s %s", thegrpctx, felttx)
-			}
-
-			if !compareAndPrintDiff(receipt, receipt2) {
-				return nil, errors.New("Mismatch")
-			}
-
-		}
-
-		return nil, errors.New("Mismatch")
-	}
-
-	return gatewayBlock, err
+	return block, err
 }
 
 func (s *StartnetDataAdapter) BlockLatest(ctx context.Context) (*core.Block, error) {
@@ -106,7 +58,7 @@ func (s *StartnetDataAdapter) Class(ctx context.Context, classHash *felt.Felt) (
 }
 
 func (s *StartnetDataAdapter) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	return s.base.StateUpdate(ctx, blockNumber)
+	return s.p2p.GetStateUpdate(ctx, blockNumber)
 }
 
 // Typecheck

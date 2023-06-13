@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -14,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
+	"runtime"
 )
 
 var _ service.Service = (*Synchronizer)(nil)
@@ -45,6 +44,12 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
 	resetStreams context.CancelFunc,
 ) stream.Callback {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("fetcher paniced", r)
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -129,8 +134,18 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("verifier paniced", r)
+		}
+	}()
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	return func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("verifier callback paniced", r)
+			}
+		}()
 		select {
 		case <-ctx.Done():
 			return
