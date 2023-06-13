@@ -7,7 +7,7 @@ coverage:
     patch:
       default:
         target: 60%
-      only_pulls: true
+        only_pulls: true
 ignore:
   - mocks
   - l1/internal/contract/starknet.go
