@@ -7,7 +7,7 @@ import (
 )
 
 func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *grpcclient.StateDiffs_BlockStateUpdateWithHash {
-	contractdiffs := make([]*grpcclient.BlockStateUpdate_ContractDiff, len(corestateupdate.StateDiff.StorageDiffs))
+	contractdiffs := map[felt.Felt]*grpcclient.BlockStateUpdate_ContractDiff{}
 	i := 0
 	for key, diffs := range corestateupdate.StateDiff.StorageDiffs {
 
@@ -19,13 +19,26 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *gr
 			}
 		}
 
-		contractdiffs[i] = &grpcclient.BlockStateUpdate_ContractDiff{
+		contractdiffs[key] = &grpcclient.BlockStateUpdate_ContractDiff{
 			ContractAddress: feltToFieldElement(&key),
-			Nonce:           feltToFieldElement(corestateupdate.StateDiff.Nonces[key]),
 			StorageDiffs:    storagediff,
 		}
 
 		i += 1
+	}
+
+	for k, nonce := range corestateupdate.StateDiff.Nonces {
+		if _, ok := contractdiffs[k]; !ok {
+			contractdiffs[k] = &grpcclient.BlockStateUpdate_ContractDiff{
+				ContractAddress: feltToFieldElement(&k),
+			}
+		}
+		contractdiffs[k].Nonce = feltToFieldElement(nonce)
+	}
+
+	contractdiffarr := make([]*grpcclient.BlockStateUpdate_ContractDiff, 0)
+	for _, diff := range contractdiffs {
+		contractdiffarr = append(contractdiffarr, diff)
 	}
 
 	deployedcontracts := make([]*grpcclient.BlockStateUpdate_DeployedContract, len(corestateupdate.StateDiff.DeployedContracts))
@@ -53,7 +66,7 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *gr
 	}
 
 	stateupdate := &grpcclient.BlockStateUpdate{
-		ContractDiffs:               contractdiffs,
+		ContractDiffs:               contractdiffarr,
 		DeployedContracts:           deployedcontracts,
 		DeclaredContractClassHashes: feltsToFieldElements(corestateupdate.StateDiff.DeclaredV0Classes),
 		DeclaredV1Classes:           declaredv1classes,
@@ -83,15 +96,17 @@ func protobufStateUpdateToCoreStateUpdate(pbStateUpdate *grpcclient.StateDiffs_B
 			nonces[*contractAddress] = fieldElementToFelt(contractDiff.Nonce)
 		}
 
-		storageDiff := make([]core.StorageDiff, len(contractDiff.StorageDiffs))
-		for i, diff := range contractDiff.StorageDiffs {
-			storageDiff[i] = core.StorageDiff{
-				Key:   fieldElementToFelt(diff.Key),
-				Value: fieldElementToFelt(diff.Value),
+		if contractDiff.StorageDiffs != nil {
+			storageDiff := make([]core.StorageDiff, len(contractDiff.StorageDiffs))
+			for i, diff := range contractDiff.StorageDiffs {
+				storageDiff[i] = core.StorageDiff{
+					Key:   fieldElementToFelt(diff.Key),
+					Value: fieldElementToFelt(diff.Value),
+				}
 			}
-		}
 
-		storageDiffs[*contractAddress] = storageDiff
+			storageDiffs[*contractAddress] = storageDiff
+		}
 	}
 
 	coreStateUpdate.StateDiff.StorageDiffs = storageDiffs

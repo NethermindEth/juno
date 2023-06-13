@@ -379,7 +379,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		}()
 	}
 
-	startblock := 0
+	startblock := 4800
 	for i := startblock; i < int(head.Number); i++ {
 		blocknumchan <- i
 	}

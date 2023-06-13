@@ -150,10 +150,6 @@ func testStaeDiff(stateDiff *core.StateUpdate, blockchain *blockchain.Blockchain
 	oriSD := stateDiff.StateDiff
 	rSD := reencodedStateDiff.StateDiff
 
-	if len(oriSD.StorageDiffs) != len(rSD.StorageDiffs) {
-		return errors.New("Wrong length")
-	}
-
 	for key, diffs := range oriSD.StorageDiffs {
 		odiff, ok := rSD.StorageDiffs[key]
 		if !ok {
@@ -169,5 +165,13 @@ func testStaeDiff(stateDiff *core.StateUpdate, blockchain *blockchain.Blockchain
 		return errors.New("Unable to compare")
 	}
 
-	return nil
+	if !compareAndPrintDiff(stateDiff.StateDiff.DeclaredV1Classes, reencodedStateDiff.StateDiff.DeclaredV1Classes) {
+		return errors.New("Unable to compare")
+	}
+
+	if !compareAndPrintDiff(stateDiff.StateDiff.ReplacedClasses, reencodedStateDiff.StateDiff.ReplacedClasses) {
+		return errors.New("Unable to compare")
+	}
+
+	return errors.New("mismatch")
 }
