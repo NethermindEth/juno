@@ -2,7 +2,7 @@ package p2p
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/ethereum/go-ethereum/common"
 	"reflect"
 )
@@ -30,10 +30,10 @@ func registerMapping[T1 any, T2 any](f func(T1) T2) {
 }
 
 func init() {
-	registerMapping[*felt.Felt, *grpcclient.FieldElement](feltToFieldElement)
-	registerMapping[*grpcclient.FieldElement, *felt.Felt](fieldElementToFelt)
-	registerMapping[common.Address, *grpcclient.EthereumAddress](addressToProto)
-	registerMapping[*grpcclient.EthereumAddress, common.Address](protoToAddress)
+	registerMapping[*felt.Felt, *p2pproto.FieldElement](feltToFieldElement)
+	registerMapping[*p2pproto.FieldElement, *felt.Felt](fieldElementToFelt)
+	registerMapping[common.Address, *p2pproto.EthereumAddress](addressToProto)
+	registerMapping[*p2pproto.EthereumAddress, common.Address](protoToAddress)
 }
 
 func MapValueViaReflect[T any](source interface{}) T {

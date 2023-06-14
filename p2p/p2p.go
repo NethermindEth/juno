@@ -1,5 +1,5 @@
 // I don't remember how this is usually done. This will do for now...
-//go:generate protoc --go_out=proto --go-grpc_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto
+//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto
 
 package p2p
 
@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/libp2p/go-libp2p"
@@ -64,9 +64,9 @@ func (ip *P2PImpl) GetStateUpdate(ctx context.Context, number uint64) (*core.Sta
 	}
 
 	response, err := ip.sendBlockSyncRequest(ctx,
-		&grpcclient.Request{
-			Request: &grpcclient.Request_GetStateDiffs{
-				GetStateDiffs: &grpcclient.GetStateDiffs{
+		&p2pproto.Request{
+			Request: &p2pproto.Request_GetStateDiffs{
+				GetStateDiffs: &p2pproto.GetStateDiffs{
 					StartBlock: header.Hash,
 					Count:      1,
 					SizeLimit:  1,
@@ -103,24 +103,24 @@ func (ip *P2PImpl) GetStateUpdate(ctx context.Context, number uint64) (*core.Sta
 	return coreStateUpdate, nil
 }
 
-func (ip *P2PImpl) getHeaderByBlockNumber(ctx context.Context, number uint64) (*grpcclient.BlockHeader, error) {
+func (ip *P2PImpl) getHeaderByBlockNumber(ctx context.Context, number uint64) (*p2pproto.BlockHeader, error) {
 	ip.lruMutex.Lock()
 	cachedHeader, ok := ip.headerByBlockNumberLru.Get(number)
 	ip.lruMutex.Unlock()
 	if ok {
-		return cachedHeader.(*grpcclient.BlockHeader), nil
+		return cachedHeader.(*p2pproto.BlockHeader), nil
 	}
 
-	request := &grpcclient.GetBlockHeaders{
-		StartBlock: &grpcclient.GetBlockHeaders_BlockNumber{
+	request := &p2pproto.GetBlockHeaders{
+		StartBlock: &p2pproto.GetBlockHeaders_BlockNumber{
 			BlockNumber: number,
 		},
 		Count: 1,
 	}
 
 	headerResponse, err := ip.sendBlockSyncRequest(ctx,
-		&grpcclient.Request{
-			Request: &grpcclient.Request_GetBlockHeaders{
+		&p2pproto.Request{
+			Request: &p2pproto.Request_GetBlockHeaders{
 				GetBlockHeaders: request,
 			},
 		})
@@ -252,8 +252,8 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 }
 
 func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error) {
-	request := &grpcclient.GetBlockHeaders{
-		StartBlock: &grpcclient.GetBlockHeaders_BlockNumber{
+	request := &p2pproto.GetBlockHeaders{
+		StartBlock: &p2pproto.GetBlockHeaders_BlockNumber{
 			BlockNumber: number,
 		},
 		Count: 1,
@@ -263,8 +263,8 @@ func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.B
 }
 
 func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error) {
-	request := &grpcclient.GetBlockHeaders{
-		StartBlock: &grpcclient.GetBlockHeaders_BlockHash{
+	request := &p2pproto.GetBlockHeaders{
+		StartBlock: &p2pproto.GetBlockHeaders_BlockHash{
 			BlockHash: feltToFieldElement(hash),
 		},
 		Count: 1,
@@ -273,11 +273,11 @@ func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.B
 	return ip.getBlockByHeaderRequest(ctx, request)
 }
 
-func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *grpcclient.GetBlockHeaders) (*core.Block, map[felt.Felt]core.Class, error) {
+func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *p2pproto.GetBlockHeaders) (*core.Block, map[felt.Felt]core.Class, error) {
 	// The core block need both header and block to build. So.. kinda cheating here as it fetch both header and body.
 	headerResponse, err := ip.sendBlockSyncRequest(ctx,
-		&grpcclient.Request{
-			Request: &grpcclient.Request_GetBlockHeaders{
+		&p2pproto.Request{
+			Request: &p2pproto.Request_GetBlockHeaders{
 				GetBlockHeaders: headerRequest,
 			},
 		})
@@ -301,13 +301,13 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *g
 	ip.headerByBlockNumberLru.Add(header.BlockNumber, header)
 	ip.lruMutex.Unlock()
 
-	response, err := ip.sendBlockSyncRequest(ctx, &grpcclient.Request{
-		Request: &grpcclient.Request_GetBlockBodies{
-			GetBlockBodies: &grpcclient.GetBlockBodies{
+	response, err := ip.sendBlockSyncRequest(ctx, &p2pproto.Request{
+		Request: &p2pproto.Request_GetBlockBodies{
+			GetBlockBodies: &p2pproto.GetBlockBodies{
 				StartBlock: header.Hash,
 				Count:      1,
 				SizeLimit:  1,
-				Direction:  grpcclient.Direction_FORWARD,
+				Direction:  p2pproto.Direction_FORWARD,
 			},
 		},
 	})
@@ -330,7 +330,7 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *g
 	return block, declaredClasses, nil
 }
 
-func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient.Request) (*grpcclient.Response, error) {
+func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *p2pproto.Request) (*p2pproto.Response, error) {
 	p, err := ip.pickBlockSyncPeer(ctx)
 	if err != nil {
 		return nil, err
@@ -357,7 +357,7 @@ func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *grpcclient
 		return nil, err
 	}
 
-	resp := &grpcclient.Response{}
+	resp := &p2pproto.Response{}
 	err = readCompressedProtobuf(stream, resp)
 	if err != nil {
 		return nil, err

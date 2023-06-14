@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/klauspost/compress/zstd"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/multiformats/go-varint"
@@ -72,7 +72,7 @@ func writeCompressedProtobuf(stream network.Stream, resp proto.Message) error {
 	return nil
 }
 
-func fieldElementToFelt(field *grpcclient.FieldElement) *felt.Felt {
+func fieldElementToFelt(field *p2pproto.FieldElement) *felt.Felt {
 	if field == nil {
 		return nil
 	}
@@ -81,15 +81,15 @@ func fieldElementToFelt(field *grpcclient.FieldElement) *felt.Felt {
 	return &thefelt
 }
 
-func feltToFieldElement(felt *felt.Felt) *grpcclient.FieldElement {
+func feltToFieldElement(felt *felt.Felt) *p2pproto.FieldElement {
 	if felt == nil {
 		return nil
 	}
-	return &grpcclient.FieldElement{Elements: felt.Marshal()}
+	return &p2pproto.FieldElement{Elements: felt.Marshal()}
 }
 
-func feltsToFieldElements(felts []*felt.Felt) []*grpcclient.FieldElement {
-	fieldElements := make([]*grpcclient.FieldElement, len(felts))
+func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {
+	fieldElements := make([]*p2pproto.FieldElement, len(felts))
 	for i, f := range felts {
 		fieldElements[i] = feltToFieldElement(f)
 	}
@@ -97,7 +97,7 @@ func feltsToFieldElements(felts []*felt.Felt) []*grpcclient.FieldElement {
 	return fieldElements
 }
 
-func fieldElementsToFelts(fieldElements []*grpcclient.FieldElement) []*felt.Felt {
+func fieldElementsToFelts(fieldElements []*p2pproto.FieldElement) []*felt.Felt {
 	felts := make([]*felt.Felt, len(fieldElements))
 	for i, fe := range fieldElements {
 		felts[i] = fieldElementToFelt(fe)

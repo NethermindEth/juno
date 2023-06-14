@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "../grpcclient";
+option go_package = "../p2pproto";
 
 package starknet.common;
 

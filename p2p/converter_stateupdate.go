@@ -3,23 +3,23 @@ package p2p
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/p2p/p2pproto"
 )
 
-func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *grpcclient.StateDiffs_BlockStateUpdateWithHash {
-	contractdiffs := map[felt.Felt]*grpcclient.BlockStateUpdate_ContractDiff{}
+func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2pproto.StateDiffs_BlockStateUpdateWithHash {
+	contractdiffs := map[felt.Felt]*p2pproto.BlockStateUpdate_ContractDiff{}
 	i := 0
 	for key, diffs := range corestateupdate.StateDiff.StorageDiffs {
 
-		storagediff := make([]*grpcclient.BlockStateUpdate_StorageDiff, len(diffs))
+		storagediff := make([]*p2pproto.BlockStateUpdate_StorageDiff, len(diffs))
 		for i2, diff := range diffs {
-			storagediff[i2] = &grpcclient.BlockStateUpdate_StorageDiff{
+			storagediff[i2] = &p2pproto.BlockStateUpdate_StorageDiff{
 				Key:   feltToFieldElement(diff.Key),
 				Value: feltToFieldElement(diff.Value),
 			}
 		}
 
-		contractdiffs[key] = &grpcclient.BlockStateUpdate_ContractDiff{
+		contractdiffs[key] = &p2pproto.BlockStateUpdate_ContractDiff{
 			ContractAddress: feltToFieldElement(&key),
 			StorageDiffs:    storagediff,
 		}
@@ -29,43 +29,43 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *gr
 
 	for k, nonce := range corestateupdate.StateDiff.Nonces {
 		if _, ok := contractdiffs[k]; !ok {
-			contractdiffs[k] = &grpcclient.BlockStateUpdate_ContractDiff{
+			contractdiffs[k] = &p2pproto.BlockStateUpdate_ContractDiff{
 				ContractAddress: feltToFieldElement(&k),
 			}
 		}
 		contractdiffs[k].Nonce = feltToFieldElement(nonce)
 	}
 
-	contractdiffarr := make([]*grpcclient.BlockStateUpdate_ContractDiff, 0)
+	contractdiffarr := make([]*p2pproto.BlockStateUpdate_ContractDiff, 0)
 	for _, diff := range contractdiffs {
 		contractdiffarr = append(contractdiffarr, diff)
 	}
 
-	deployedcontracts := make([]*grpcclient.BlockStateUpdate_DeployedContract, len(corestateupdate.StateDiff.DeployedContracts))
+	deployedcontracts := make([]*p2pproto.BlockStateUpdate_DeployedContract, len(corestateupdate.StateDiff.DeployedContracts))
 	for i, contract := range corestateupdate.StateDiff.DeployedContracts {
-		deployedcontracts[i] = &grpcclient.BlockStateUpdate_DeployedContract{
+		deployedcontracts[i] = &p2pproto.BlockStateUpdate_DeployedContract{
 			ContractAddress:   feltToFieldElement(contract.Address),
 			ContractClassHash: feltToFieldElement(contract.ClassHash),
 		}
 	}
 
-	declaredv1classes := make([]*grpcclient.BlockStateUpdate_DeclaredV1Class, len(corestateupdate.StateDiff.DeclaredV1Classes))
+	declaredv1classes := make([]*p2pproto.BlockStateUpdate_DeclaredV1Class, len(corestateupdate.StateDiff.DeclaredV1Classes))
 	for i, contract := range corestateupdate.StateDiff.DeclaredV1Classes {
-		declaredv1classes[i] = &grpcclient.BlockStateUpdate_DeclaredV1Class{
+		declaredv1classes[i] = &p2pproto.BlockStateUpdate_DeclaredV1Class{
 			ClassHash:         feltToFieldElement(contract.ClassHash),
 			CompiledClassHash: feltToFieldElement(contract.CompiledClassHash),
 		}
 	}
 
-	replacedclasses := make([]*grpcclient.BlockStateUpdate_ReplacedClasses, len(corestateupdate.StateDiff.ReplacedClasses))
+	replacedclasses := make([]*p2pproto.BlockStateUpdate_ReplacedClasses, len(corestateupdate.StateDiff.ReplacedClasses))
 	for i, contract := range corestateupdate.StateDiff.ReplacedClasses {
-		replacedclasses[i] = &grpcclient.BlockStateUpdate_ReplacedClasses{
+		replacedclasses[i] = &p2pproto.BlockStateUpdate_ReplacedClasses{
 			ContractAddress:   feltToFieldElement(contract.Address),
 			ContractClassHash: feltToFieldElement(contract.ClassHash),
 		}
 	}
 
-	stateupdate := &grpcclient.BlockStateUpdate{
+	stateupdate := &p2pproto.BlockStateUpdate{
 		ContractDiffs:               contractdiffarr,
 		DeployedContracts:           deployedcontracts,
 		DeclaredContractClassHashes: feltsToFieldElements(corestateupdate.StateDiff.DeclaredV0Classes),
@@ -73,12 +73,12 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *gr
 		ReplacedClasses:             replacedclasses,
 	}
 
-	return &grpcclient.StateDiffs_BlockStateUpdateWithHash{
+	return &p2pproto.StateDiffs_BlockStateUpdateWithHash{
 		StateUpdate: stateupdate,
 	}
 }
 
-func protobufStateUpdateToCoreStateUpdate(pbStateUpdate *grpcclient.StateDiffs_BlockStateUpdateWithHash) *core.StateUpdate {
+func protobufStateUpdateToCoreStateUpdate(pbStateUpdate *p2pproto.StateDiffs_BlockStateUpdateWithHash) *core.StateUpdate {
 	stateUpdate := pbStateUpdate.StateUpdate
 
 	coreStateUpdate := &core.StateUpdate{

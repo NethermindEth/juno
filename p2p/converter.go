@@ -4,7 +4,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,7 +15,7 @@ type converter struct {
 	blockchain *blockchain.Blockchain
 }
 
-func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*grpcclient.BlockHeader, error) {
+func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*p2pproto.BlockHeader, error) {
 	txCommitment, err := block.CalculateTransactionCommitment()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to calculate transaction commitment")
@@ -26,7 +26,7 @@ func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*grpcclient.Bl
 		return nil, errors.Wrap(err, "unable to calculate event commitment")
 	}
 
-	return &grpcclient.BlockHeader{
+	return &p2pproto.BlockHeader{
 		Hash:                  feltToFieldElement(block.Hash),
 		ParentBlockHash:       feltToFieldElement(block.ParentHash),
 		BlockNumber:           block.Number,
@@ -41,59 +41,59 @@ func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*grpcclient.Bl
 	}, nil
 }
 
-func (c *converter) coreBlockToProtobufBody(block *core.Block) (*grpcclient.BlockBody, error) {
-	grpctransactions := make([]*grpcclient.Transaction, len(block.Transactions))
-	grpcreceipts := make([]*grpcclient.Receipt, len(block.Receipts))
+func (c *converter) coreBlockToProtobufBody(block *core.Block) (*p2pproto.BlockBody, error) {
+	prototransactions := make([]*p2pproto.Transaction, len(block.Transactions))
+	protoreceipts := make([]*p2pproto.Receipt, len(block.Receipts))
 	for i, transaction := range block.Transactions {
 		tx, receipt, err := c.coreTxToProtobufTx(transaction, block.Receipts[i])
 		if err != nil {
 			return nil, errors.Wrap(err, "unable convert core block to protobuff")
 		}
 
-		grpctransactions[i] = tx
-		grpcreceipts[i] = receipt
+		prototransactions[i] = tx
+		protoreceipts[i] = receipt
 	}
 
-	return &grpcclient.BlockBody{
-		Transactions: grpctransactions,
-		Receipts:     grpcreceipts,
+	return &p2pproto.BlockBody{
+		Transactions: prototransactions,
+		Receipts:     protoreceipts,
 	}, nil
 }
 
-func coreEventToProtobuf(events []*core.Event) []*grpcclient.Event {
-	grpcevents := make([]*grpcclient.Event, len(events))
+func coreEventToProtobuf(events []*core.Event) []*p2pproto.Event {
+	protoevents := make([]*p2pproto.Event, len(events))
 	for i, event := range events {
-		grpcevents[i] = &grpcclient.Event{
+		protoevents[i] = &p2pproto.Event{
 			FromAddress: feltToFieldElement(event.From),
 			Keys:        feltsToFieldElements(event.Keys),
 			Data:        feltsToFieldElements(event.Data),
 		}
 	}
 
-	return grpcevents
+	return protoevents
 }
 
-func coreL2ToL1MessageToProtobuf(messages []*core.L2ToL1Message) []*grpcclient.MessageToL1 {
-	grpcmessages := make([]*grpcclient.MessageToL1, len(messages))
+func coreL2ToL1MessageToProtobuf(messages []*core.L2ToL1Message) []*p2pproto.MessageToL1 {
+	protomessages := make([]*p2pproto.MessageToL1, len(messages))
 
 	for i, message := range messages {
-		grpcmessages[i] = &grpcclient.MessageToL1{
+		protomessages[i] = &p2pproto.MessageToL1{
 			FromAddress: feltToFieldElement(message.From),
 			Payload:     feltsToFieldElements(message.Payload),
 			ToAddress:   addressToProto(message.To),
 		}
 	}
 
-	return grpcmessages
+	return protomessages
 }
 
-func addressToProto(to common.Address) *grpcclient.EthereumAddress {
-	return &grpcclient.EthereumAddress{
+func addressToProto(to common.Address) *p2pproto.EthereumAddress {
+	return &p2pproto.EthereumAddress{
 		Elements: to.Bytes(),
 	}
 }
 
-func protoToAddress(to *grpcclient.EthereumAddress) common.Address {
+func protoToAddress(to *p2pproto.EthereumAddress) common.Address {
 	addr := common.Address{}
 	if to != nil {
 		copy(addr[:], to.Elements)
@@ -101,7 +101,7 @@ func protoToAddress(to *grpcclient.EthereumAddress) common.Address {
 	return addr
 }
 
-func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpcclient.BlockBody, network utils.Network) (*core.Block, map[felt.Felt]core.Class, error) {
+func protobufHeaderAndBodyToCoreBlock(header *p2pproto.BlockHeader, body *p2pproto.BlockBody, network utils.Network) (*core.Block, map[felt.Felt]core.Class, error) {
 	parentHash := fieldElementToFelt(header.ParentBlockHash)
 	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)
 	sequencerAddress := fieldElementToFelt(header.SequencerAddress)
@@ -152,7 +152,7 @@ func protobufHeaderAndBodyToCoreBlock(header *grpcclient.BlockHeader, body *grpc
 	return block, declaredClasses, nil
 }
 
-func protobufCommonReceiptToCoreReceipt(commonReceipt *grpcclient.CommonTransactionReceiptProperties) *core.TransactionReceipt {
+func protobufCommonReceiptToCoreReceipt(commonReceipt *p2pproto.CommonTransactionReceiptProperties) *core.TransactionReceipt {
 	receipt := &core.TransactionReceipt{
 		Fee:                fieldElementToFelt(commonReceipt.GetActualFee()),
 		Events:             coreEventFromProtobuf(commonReceipt.GetEvents()),
@@ -164,20 +164,20 @@ func protobufCommonReceiptToCoreReceipt(commonReceipt *grpcclient.CommonTransact
 	return receipt
 }
 
-func coreL2ToL1MessageFromProtobuf(sent []*grpcclient.MessageToL1) []*core.L2ToL1Message {
+func coreL2ToL1MessageFromProtobuf(sent []*p2pproto.MessageToL1) []*core.L2ToL1Message {
 	messages := make([]*core.L2ToL1Message, len(sent))
-	for i, grpcMsg := range sent {
+	for i, protoMsg := range sent {
 		msg := &core.L2ToL1Message{
-			From:    fieldElementToFelt(grpcMsg.FromAddress),
-			Payload: fieldElementsToFelts(grpcMsg.Payload),
-			To:      protoToAddress(grpcMsg.ToAddress),
+			From:    fieldElementToFelt(protoMsg.FromAddress),
+			Payload: fieldElementsToFelts(protoMsg.Payload),
+			To:      protoToAddress(protoMsg.ToAddress),
 		}
 		messages[i] = msg
 	}
 	return messages
 }
 
-func coreEventFromProtobuf(events []*grpcclient.Event) []*core.Event {
+func coreEventFromProtobuf(events []*p2pproto.Event) []*core.Event {
 	coreevents := make([]*core.Event, len(events))
 	for i, event := range events {
 		coreevents[i] = &core.Event{

@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/grpcclient"
+	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/pkg/errors"
 	"reflect"
 )
 
-func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *grpcclient.Receipt, network utils.Network) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
+func protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pproto.Receipt, network utils.Network) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
 	switch tx := protoTx.GetTxn().(type) {
-	case *grpcclient.Transaction_Deploy:
-		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Deploy)
+	case *p2pproto.Transaction_Deploy:
+		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Deploy)
 
 		classHash, class, err := protobufClassToCoreClass(tx.Deploy.ContractClass)
 		if err != nil {
@@ -33,8 +33,8 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Deploy.Common)
 		return coreTx, receipt, classHash, class, nil
 
-	case *grpcclient.Transaction_DeployAccount:
-		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_DeployAccount)
+	case *p2pproto.Transaction_DeployAccount:
+		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_DeployAccount)
 
 		coreTx := &core.DeployAccountTransaction{
 
@@ -55,8 +55,8 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.DeployAccount.Common)
 		return coreTx, receipt, nil, nil, nil
 
-	case *grpcclient.Transaction_Declare:
-		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Declare)
+	case *p2pproto.Transaction_Declare:
+		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Declare)
 
 		classHash, class, err := protobufClassToCoreClass(tx.Declare.ContractClass)
 		if err != nil {
@@ -77,8 +77,8 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Declare.Common)
 		return coreTx, receipt, classHash, class, nil
 
-	case *grpcclient.Transaction_Invoke:
-		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_Invoke)
+	case *p2pproto.Transaction_Invoke:
+		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Invoke)
 
 		coreTx := &core.InvokeTransaction{
 			TransactionHash:      fieldElementToFelt(tx.Invoke.GetHash()),
@@ -95,8 +95,8 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.Invoke.Common)
 		return coreTx, receipt, nil, nil, nil
 
-	case *grpcclient.Transaction_L1Handler:
-		txReceipt := protoReceipt.Receipt.(*grpcclient.Receipt_L1Handler)
+	case *p2pproto.Transaction_L1Handler:
+		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_L1Handler)
 
 		coreTx := &core.L1HandlerTransaction{
 			TransactionHash:    fieldElementToFelt(tx.L1Handler.GetHash()),
@@ -116,13 +116,13 @@ func protobufTransactionToCore(protoTx *grpcclient.Transaction, protoReceipt *gr
 	}
 }
 
-func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *core.TransactionReceipt) (*grpcclient.Transaction, *grpcclient.Receipt, error) {
-	commonReceipt := &grpcclient.CommonTransactionReceiptProperties{
+func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *core.TransactionReceipt) (*p2pproto.Transaction, *p2pproto.Receipt, error) {
+	commonReceipt := &p2pproto.CommonTransactionReceiptProperties{
 		TransactionHash:    feltToFieldElement(receipt.TransactionHash),
 		ActualFee:          feltToFieldElement(receipt.Fee),
 		MessagesSent:       coreL2ToL1MessageToProtobuf(receipt.L2ToL1Message),
 		Events:             coreEventToProtobuf(receipt.Events),
-		ExecutionResources: MapValueViaReflect[*grpcclient.CommonTransactionReceiptProperties_ExecutionResources](receipt.ExecutionResources),
+		ExecutionResources: MapValueViaReflect[*p2pproto.CommonTransactionReceiptProperties_ExecutionResources](receipt.ExecutionResources),
 	}
 
 	if deployTx, ok := transaction.(*core.DeployTransaction); ok {
@@ -142,9 +142,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 			return nil, nil, errors.Wrap(err, "unable to convert core class to protobuf")
 		}
 
-		return &grpcclient.Transaction{
-				Txn: &grpcclient.Transaction_Deploy{
-					Deploy: &grpcclient.DeployTransaction{
+		return &p2pproto.Transaction{
+				Txn: &p2pproto.Transaction_Deploy{
+					Deploy: &p2pproto.DeployTransaction{
 						ContractClass:       protobufClass,
 						ContractAddress:     feltToFieldElement(deployTx.ContractAddress),
 						Hash:                feltToFieldElement(deployTx.TransactionHash),
@@ -153,9 +153,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 						Version:             feltToFieldElement(deployTx.Version),
 					},
 				},
-			}, &grpcclient.Receipt{
-				Receipt: &grpcclient.Receipt_Deploy{
-					Deploy: &grpcclient.DeployTransactionReceipt{
+			}, &p2pproto.Receipt{
+				Receipt: &p2pproto.Receipt_Deploy{
+					Deploy: &p2pproto.DeployTransactionReceipt{
 						Common:          commonReceipt,
 						ContractAddress: feltToFieldElement(deployTx.ContractAddress),
 					},
@@ -164,9 +164,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if deployTx, ok := transaction.(*core.DeployAccountTransaction); ok {
-		return &grpcclient.Transaction{
-				Txn: &grpcclient.Transaction_DeployAccount{
-					DeployAccount: &grpcclient.DeployAccountTransaction{
+		return &p2pproto.Transaction{
+				Txn: &p2pproto.Transaction_DeployAccount{
+					DeployAccount: &p2pproto.DeployAccountTransaction{
 						Hash:                feltToFieldElement(deployTx.TransactionHash),
 						ContractAddress:     feltToFieldElement(deployTx.ContractAddress),
 						ContractAddressSalt: feltToFieldElement(deployTx.ContractAddressSalt),
@@ -178,9 +178,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 						Version:             feltToFieldElement(deployTx.Version),
 					},
 				},
-			}, &grpcclient.Receipt{
-				Receipt: &grpcclient.Receipt_DeployAccount{
-					DeployAccount: &grpcclient.DeployAccountTransactionReceipt{
+			}, &p2pproto.Receipt{
+				Receipt: &p2pproto.Receipt_DeployAccount{
+					DeployAccount: &p2pproto.DeployAccountTransactionReceipt{
 						Common:          commonReceipt,
 						ContractAddress: feltToFieldElement(deployTx.ContractAddress),
 					},
@@ -205,9 +205,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 			return nil, nil, errors.Wrap(err, "unable to convert core class to protobuf")
 		}
 
-		return &grpcclient.Transaction{
-				Txn: &grpcclient.Transaction_Declare{
-					Declare: &grpcclient.DeclareTransaction{
+		return &p2pproto.Transaction{
+				Txn: &p2pproto.Transaction_Declare{
+					Declare: &p2pproto.DeclareTransaction{
 						Hash:              feltToFieldElement(declareTx.TransactionHash),
 						ContractClass:     protobufClass,
 						SenderAddress:     feltToFieldElement(declareTx.SenderAddress),
@@ -218,9 +218,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 						Version:           feltToFieldElement(declareTx.Version),
 					},
 				},
-			}, &grpcclient.Receipt{
-				Receipt: &grpcclient.Receipt_Declare{
-					Declare: &grpcclient.DeclareTransactionReceipt{
+			}, &p2pproto.Receipt{
+				Receipt: &p2pproto.Receipt_Declare{
+					Declare: &p2pproto.DeclareTransactionReceipt{
 						Common: commonReceipt,
 					},
 				},
@@ -228,9 +228,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if invokeTx, ok := transaction.(*core.InvokeTransaction); ok {
-		return &grpcclient.Transaction{
-				Txn: &grpcclient.Transaction_Invoke{
-					Invoke: &grpcclient.InvokeTransaction{
+		return &p2pproto.Transaction{
+				Txn: &p2pproto.Transaction_Invoke{
+					Invoke: &p2pproto.InvokeTransaction{
 						Hash:               feltToFieldElement(invokeTx.TransactionHash),
 						SenderAddress:      feltToFieldElement(invokeTx.SenderAddress),
 						ContractAddress:    feltToFieldElement(invokeTx.ContractAddress),
@@ -242,9 +242,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 						Version:            feltToFieldElement(invokeTx.Version),
 					},
 				},
-			}, &grpcclient.Receipt{
-				Receipt: &grpcclient.Receipt_Invoke{
-					Invoke: &grpcclient.InvokeTransactionReceipt{
+			}, &p2pproto.Receipt{
+				Receipt: &p2pproto.Receipt_Invoke{
+					Invoke: &p2pproto.InvokeTransactionReceipt{
 						Common: commonReceipt,
 					},
 				},
@@ -252,9 +252,9 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if l1HandlerTx, ok := transaction.(*core.L1HandlerTransaction); ok {
-		return &grpcclient.Transaction{
-				Txn: &grpcclient.Transaction_L1Handler{
-					L1Handler: &grpcclient.L1HandlerTransaction{
+		return &p2pproto.Transaction{
+				Txn: &p2pproto.Transaction_L1Handler{
+					L1Handler: &p2pproto.L1HandlerTransaction{
 						Hash:               feltToFieldElement(l1HandlerTx.TransactionHash),
 						ContractAddress:    feltToFieldElement(l1HandlerTx.ContractAddress),
 						EntryPointSelector: feltToFieldElement(l1HandlerTx.EntryPointSelector),
@@ -263,11 +263,11 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 						Version:            feltToFieldElement(l1HandlerTx.Version),
 					},
 				},
-			}, &grpcclient.Receipt{
-				Receipt: &grpcclient.Receipt_L1Handler{
-					L1Handler: &grpcclient.L1HandlerTransactionReceipt{
+			}, &p2pproto.Receipt{
+				Receipt: &p2pproto.Receipt_L1Handler{
+					L1Handler: &p2pproto.L1HandlerTransactionReceipt{
 						Common:        commonReceipt,
-						L1ToL2Message: MapValueViaReflect[*grpcclient.L1HandlerTransactionReceipt_L1ToL2Message](receipt.L1ToL2Message),
+						L1ToL2Message: MapValueViaReflect[*p2pproto.L1HandlerTransactionReceipt_L1ToL2Message](receipt.L1ToL2Message),
 					},
 				},
 			}, nil
@@ -276,7 +276,7 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	panic(fmt.Sprintf("Unknown transaction type %s", reflect.TypeOf(transaction)))
 }
 
-func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*grpcclient.ContractClass, error) {
+func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p2pproto.ContractClass, error) {
 	switch class := theclass.Class.(type) {
 	case *core.Cairo0Class:
 		abistr, err := class.Abi.MarshalJSON()
@@ -284,13 +284,13 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*g
 			return nil, err
 		}
 
-		constructors := MapValueViaReflect[[]*grpcclient.Cairo0Class_EntryPoint](class.Constructors)
-		externals := MapValueViaReflect[[]*grpcclient.Cairo0Class_EntryPoint](class.Externals)
-		handlers := MapValueViaReflect[[]*grpcclient.Cairo0Class_EntryPoint](class.L1Handlers)
+		constructors := MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Constructors)
+		externals := MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Externals)
+		handlers := MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.L1Handlers)
 
-		return &grpcclient.ContractClass{
-			Class: &grpcclient.ContractClass_Cairo0{
-				Cairo0: &grpcclient.Cairo0Class{
+		return &p2pproto.ContractClass{
+			Class: &p2pproto.ContractClass_Cairo0{
+				Cairo0: &p2pproto.Cairo0Class{
 					ConstructorEntryPoints: constructors,
 					ExternalEntryPoints:    externals,
 					L1HandlerEntryPoints:   handlers,
@@ -301,14 +301,14 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*g
 			},
 		}, nil
 	case *core.Cairo1Class:
-		constructors := MapValueViaReflect[[]*grpcclient.Cairo1Class_EntryPoint](class.EntryPoints.Constructor)
-		externals := MapValueViaReflect[[]*grpcclient.Cairo1Class_EntryPoint](class.EntryPoints.External)
-		handlers := MapValueViaReflect[[]*grpcclient.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler)
+		constructors := MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.Constructor)
+		externals := MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.External)
+		handlers := MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler)
 		program := feltsToFieldElements(class.Program)
 
-		return &grpcclient.ContractClass{
-			Class: &grpcclient.ContractClass_Cairo1{
-				Cairo1: &grpcclient.Cairo1Class{
+		return &p2pproto.ContractClass{
+			Class: &p2pproto.ContractClass_Cairo1{
+				Cairo1: &p2pproto.Cairo1Class{
 					ConstructorEntryPoints: constructors,
 					ExternalEntryPoints:    externals,
 					L1HandlerEntryPoints:   handlers,
@@ -324,9 +324,9 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*g
 	}
 }
 
-func protobufClassToCoreClass(class *grpcclient.ContractClass) (*felt.Felt, core.Class, error) {
+func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.Class, error) {
 	switch v := class.Class.(type) {
-	case *grpcclient.ContractClass_Cairo0:
+	case *p2pproto.ContractClass_Cairo0:
 		hash := fieldElementToFelt(v.Cairo0.Hash)
 
 		abiraw := json.RawMessage{}
@@ -342,7 +342,7 @@ func protobufClassToCoreClass(class *grpcclient.ContractClass) (*felt.Felt, core
 			Constructors: MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ConstructorEntryPoints),
 			Program:      v.Cairo0.Program,
 		}, nil
-	case *grpcclient.ContractClass_Cairo1:
+	case *p2pproto.ContractClass_Cairo1:
 		coreClass := &core.Cairo1Class{
 			Abi:     v.Cairo1.Abi,
 			Program: fieldElementsToFelts(v.Cairo1.Program),
