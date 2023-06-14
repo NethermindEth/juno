@@ -9,6 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
@@ -32,6 +33,8 @@ func NewHTTP(port uint16, methods []Method, log utils.SimpleLogger) *HTTP {
 		Handler:           h,
 		ReadHeaderTimeout: headerTimeout,
 	}
+	http.Handle("/metrics", promhttp.Handler())
+
 	for _, method := range methods {
 		err := h.rpc.RegisterMethod(method)
 		if err != nil {
