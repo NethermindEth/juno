@@ -15,7 +15,7 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
-	AddInvokeTransaction(json.RawMessage) (json.RawMessage, error)
+	AddTransaction(json.RawMessage) (json.RawMessage, error)
 }
 
 var (
@@ -750,7 +750,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 // Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
 // As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
 func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
-	resp, err := h.gatewayClient.AddInvokeTransaction(invokeTx)
+	resp, err := h.gatewayClient.AddTransaction(invokeTx)
 	if err != nil {
 		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
 	}
@@ -780,4 +780,29 @@ func getAddInvokeTxCode(err error) int {
 	default:
 		return jsonrpc.InternalError
 	}
+}
+
+// AddDeployAccountTransaction relays an deploy account transaction to the gateway.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L74
+// Note: This handler is a proxy. No checks are performed on the incoming request
+// since we rely on the gateway to perform sanity checks. Any error returned by the
+// gateway is returned to the user as a jsonrpc error.
+func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*DeployAccountTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddTransaction(deployAcntTx)
+	if err != nil {
+		if strings.Contains(err.Error(), "Class hash not found") {
+			ErrClassHashNotFound.Data = err.Error()
+			return nil, ErrClassHashNotFound
+		}
+		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
+	}
+
+	deployResp := new(DeployAccountTxResponse)
+	if err = json.Unmarshal(resp, deployResp); err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	return deployResp, nil
 }
