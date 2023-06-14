@@ -4,7 +4,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -100,7 +99,7 @@ func protoToAddress(to *p2pproto.EthereumAddress) common.Address {
 	return addr
 }
 
-func protobufHeaderAndBodyToCoreBlock(header *p2pproto.BlockHeader, body *p2pproto.BlockBody, network utils.Network) (*core.Block, map[felt.Felt]core.Class, error) {
+func protobufHeaderAndBodyToCoreBlock(header *p2pproto.BlockHeader, body *p2pproto.BlockBody) (*core.Block, map[felt.Felt]core.Class, error) {
 	parentHash := fieldElementToFelt(header.ParentBlockHash)
 	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)
 	sequencerAddress := fieldElementToFelt(header.SequencerAddress)
@@ -131,7 +130,7 @@ func protobufHeaderAndBodyToCoreBlock(header *p2pproto.BlockHeader, body *p2ppro
 
 	for i := uint32(0); i < header.TransactionCount; i++ {
 		// Assuming you have a function to convert a transaction from protobuf to core
-		transaction, receipt, classHash, class, err := protobufTransactionToCore(body.Transactions[i], body.Receipts[i], network)
+		transaction, receipt, classHash, class, err := protobufTransactionToCore(body.Transactions[i], body.Receipts[i])
 		if err != nil {
 			return nil, nil, err
 		}

@@ -47,7 +47,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 		return err
 	}
 
-	newCoreBlock, _, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody, blockchain.Network())
+	newCoreBlock, _, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 	return nil
 }
 
-func testStaeDiff(stateDiff *core.StateUpdate, blockchain *blockchain.Blockchain) error {
+func testStateDiff(stateDiff *core.StateUpdate) error {
 	oriBlockHash := stateDiff.BlockHash
 	stateDiff.BlockHash = nil
 	stateDiff.NewRoot = nil

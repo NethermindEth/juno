@@ -10,18 +10,9 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2
 	contractdiffs := map[felt.Felt]*p2pproto.BlockStateUpdate_ContractDiff{}
 	i := 0
 	for key, diffs := range corestateupdate.StateDiff.StorageDiffs {
-
-		storagediff := make([]*p2pproto.BlockStateUpdate_StorageDiff, len(diffs))
-		for i2, diff := range diffs {
-			storagediff[i2] = &p2pproto.BlockStateUpdate_StorageDiff{
-				Key:   feltToFieldElement(diff.Key),
-				Value: feltToFieldElement(diff.Value),
-			}
-		}
-
 		contractdiffs[key] = &p2pproto.BlockStateUpdate_ContractDiff{
 			ContractAddress: feltToFieldElement(&key),
-			StorageDiffs:    storagediff,
+			StorageDiffs:    MapValueViaReflect[[]*p2pproto.BlockStateUpdate_StorageDiff](diffs),
 		}
 
 		i += 1
@@ -97,15 +88,7 @@ func protobufStateUpdateToCoreStateUpdate(pbStateUpdate *p2pproto.StateDiffs_Blo
 		}
 
 		if contractDiff.StorageDiffs != nil {
-			storageDiff := make([]core.StorageDiff, len(contractDiff.StorageDiffs))
-			for i, diff := range contractDiff.StorageDiffs {
-				storageDiff[i] = core.StorageDiff{
-					Key:   fieldElementToFelt(diff.Key),
-					Value: fieldElementToFelt(diff.Value),
-				}
-			}
-
-			storageDiffs[*contractAddress] = storageDiff
+			storageDiffs[*contractAddress] = MapValueViaReflect[[]core.StorageDiff](contractDiff.StorageDiffs)
 		}
 	}
 

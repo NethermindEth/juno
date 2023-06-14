@@ -322,7 +322,7 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *p
 	}
 
 	body := bodies[0]
-	block, declaredClasses, err := protobufHeaderAndBodyToCoreBlock(header, body, ip.network)
+	block, declaredClasses, err := protobufHeaderAndBodyToCoreBlock(header, body)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to convert to core body")
 	}
@@ -535,7 +535,7 @@ func runBlockEncodingTests(blockchain *blockchain.Blockchain, err error) (P2P, e
 					panic(err)
 				}
 
-				err = testStaeDiff(update, blockchain)
+				err = testStateDiff(update)
 				if err != nil {
 					panic(err)
 				}

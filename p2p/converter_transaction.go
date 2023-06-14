@@ -6,12 +6,11 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/pkg/errors"
 	"reflect"
 )
 
-func protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pproto.Receipt, network utils.Network) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
+func protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pproto.Receipt) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
 	switch tx := protoTx.GetTxn().(type) {
 	case *p2pproto.Transaction_Deploy:
 		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Deploy)
@@ -125,13 +124,14 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 		ExecutionResources: MapValueViaReflect[*p2pproto.CommonTransactionReceiptProperties_ExecutionResources](receipt.ExecutionResources),
 	}
 
-	if deployTx, ok := transaction.(*core.DeployTransaction); ok {
-		coreClass, err := c.classprovider.GetClass(deployTx.ClassHash)
+	switch tx := transaction.(type) {
+	case *core.DeployTransaction:
+		coreClass, err := c.classprovider.GetClass(tx.ClassHash)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "unable to fetch class")
 		}
 
-		protobufClass, err := coreClassToProtobufClass(deployTx.ClassHash, coreClass)
+		protobufClass, err := coreClassToProtobufClass(tx.ClassHash, coreClass)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "unable to convert core class to protobuf")
 		}
@@ -140,55 +140,53 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 				Txn: &p2pproto.Transaction_Deploy{
 					Deploy: &p2pproto.DeployTransaction{
 						ContractClass:       protobufClass,
-						ContractAddress:     feltToFieldElement(deployTx.ContractAddress),
-						Hash:                feltToFieldElement(deployTx.TransactionHash),
-						ContractAddressSalt: feltToFieldElement(deployTx.ContractAddressSalt),
-						ConstructorCalldata: feltsToFieldElements(deployTx.ConstructorCallData),
-						Version:             feltToFieldElement(deployTx.Version),
+						ContractAddress:     feltToFieldElement(tx.ContractAddress),
+						Hash:                feltToFieldElement(tx.TransactionHash),
+						ContractAddressSalt: feltToFieldElement(tx.ContractAddressSalt),
+						ConstructorCalldata: feltsToFieldElements(tx.ConstructorCallData),
+						Version:             feltToFieldElement(tx.Version),
 					},
 				},
 			}, &p2pproto.Receipt{
 				Receipt: &p2pproto.Receipt_Deploy{
 					Deploy: &p2pproto.DeployTransactionReceipt{
 						Common:          commonReceipt,
-						ContractAddress: feltToFieldElement(deployTx.ContractAddress),
+						ContractAddress: feltToFieldElement(tx.ContractAddress),
 					},
 				},
 			}, nil
-	}
 
-	if deployTx, ok := transaction.(*core.DeployAccountTransaction); ok {
+	case *core.DeployAccountTransaction:
 		return &p2pproto.Transaction{
 				Txn: &p2pproto.Transaction_DeployAccount{
 					DeployAccount: &p2pproto.DeployAccountTransaction{
-						Hash:                feltToFieldElement(deployTx.TransactionHash),
-						ContractAddress:     feltToFieldElement(deployTx.ContractAddress),
-						ContractAddressSalt: feltToFieldElement(deployTx.ContractAddressSalt),
-						ConstructorCalldata: feltsToFieldElements(deployTx.ConstructorCallData),
-						ClassHash:           feltToFieldElement(deployTx.ClassHash),
-						MaxFee:              feltToFieldElement(deployTx.MaxFee),
-						Signature:           feltsToFieldElements(deployTx.TransactionSignature),
-						Nonce:               feltToFieldElement(deployTx.Nonce),
-						Version:             feltToFieldElement(deployTx.Version),
+						Hash:                feltToFieldElement(tx.TransactionHash),
+						ContractAddress:     feltToFieldElement(tx.ContractAddress),
+						ContractAddressSalt: feltToFieldElement(tx.ContractAddressSalt),
+						ConstructorCalldata: feltsToFieldElements(tx.ConstructorCallData),
+						ClassHash:           feltToFieldElement(tx.ClassHash),
+						MaxFee:              feltToFieldElement(tx.MaxFee),
+						Signature:           feltsToFieldElements(tx.TransactionSignature),
+						Nonce:               feltToFieldElement(tx.Nonce),
+						Version:             feltToFieldElement(tx.Version),
 					},
 				},
 			}, &p2pproto.Receipt{
 				Receipt: &p2pproto.Receipt_DeployAccount{
 					DeployAccount: &p2pproto.DeployAccountTransactionReceipt{
 						Common:          commonReceipt,
-						ContractAddress: feltToFieldElement(deployTx.ContractAddress),
+						ContractAddress: feltToFieldElement(tx.ContractAddress),
 					},
 				},
 			}, nil
-	}
 
-	if declareTx, ok := transaction.(*core.DeclareTransaction); ok {
-		coreClass, err := c.classprovider.GetClass(declareTx.ClassHash)
+	case *core.DeclareTransaction:
+		coreClass, err := c.classprovider.GetClass(tx.ClassHash)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "unable to fetch class")
 		}
 
-		protobufClass, err := coreClassToProtobufClass(declareTx.ClassHash, coreClass)
+		protobufClass, err := coreClassToProtobufClass(tx.ClassHash, coreClass)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "unable to convert core class to protobuf")
 		}
@@ -196,14 +194,14 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 		return &p2pproto.Transaction{
 				Txn: &p2pproto.Transaction_Declare{
 					Declare: &p2pproto.DeclareTransaction{
-						Hash:              feltToFieldElement(declareTx.TransactionHash),
+						Hash:              feltToFieldElement(tx.TransactionHash),
 						ContractClass:     protobufClass,
-						SenderAddress:     feltToFieldElement(declareTx.SenderAddress),
-						MaxFee:            feltToFieldElement(declareTx.MaxFee),
-						Signature:         feltsToFieldElements(declareTx.TransactionSignature),
-						Nonce:             feltToFieldElement(declareTx.Nonce),
-						CompiledClassHash: feltToFieldElement(declareTx.CompiledClassHash),
-						Version:           feltToFieldElement(declareTx.Version),
+						SenderAddress:     feltToFieldElement(tx.SenderAddress),
+						MaxFee:            feltToFieldElement(tx.MaxFee),
+						Signature:         feltsToFieldElements(tx.TransactionSignature),
+						Nonce:             feltToFieldElement(tx.Nonce),
+						CompiledClassHash: feltToFieldElement(tx.CompiledClassHash),
+						Version:           feltToFieldElement(tx.Version),
 					},
 				},
 			}, &p2pproto.Receipt{
@@ -213,21 +211,20 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 					},
 				},
 			}, nil
-	}
 
-	if invokeTx, ok := transaction.(*core.InvokeTransaction); ok {
+	case *core.InvokeTransaction:
 		return &p2pproto.Transaction{
 				Txn: &p2pproto.Transaction_Invoke{
 					Invoke: &p2pproto.InvokeTransaction{
-						Hash:               feltToFieldElement(invokeTx.TransactionHash),
-						SenderAddress:      feltToFieldElement(invokeTx.SenderAddress),
-						ContractAddress:    feltToFieldElement(invokeTx.ContractAddress),
-						EntryPointSelector: feltToFieldElement(invokeTx.EntryPointSelector),
-						Calldata:           feltsToFieldElements(invokeTx.CallData),
-						Signature:          feltsToFieldElements(invokeTx.TransactionSignature),
-						MaxFee:             feltToFieldElement(invokeTx.MaxFee),
-						Nonce:              feltToFieldElement(invokeTx.Nonce),
-						Version:            feltToFieldElement(invokeTx.Version),
+						Hash:               feltToFieldElement(tx.TransactionHash),
+						SenderAddress:      feltToFieldElement(tx.SenderAddress),
+						ContractAddress:    feltToFieldElement(tx.ContractAddress),
+						EntryPointSelector: feltToFieldElement(tx.EntryPointSelector),
+						Calldata:           feltsToFieldElements(tx.CallData),
+						Signature:          feltsToFieldElements(tx.TransactionSignature),
+						MaxFee:             feltToFieldElement(tx.MaxFee),
+						Nonce:              feltToFieldElement(tx.Nonce),
+						Version:            feltToFieldElement(tx.Version),
 					},
 				},
 			}, &p2pproto.Receipt{
@@ -237,18 +234,17 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 					},
 				},
 			}, nil
-	}
 
-	if l1HandlerTx, ok := transaction.(*core.L1HandlerTransaction); ok {
+	case *core.L1HandlerTransaction:
 		return &p2pproto.Transaction{
 				Txn: &p2pproto.Transaction_L1Handler{
 					L1Handler: &p2pproto.L1HandlerTransaction{
-						Hash:               feltToFieldElement(l1HandlerTx.TransactionHash),
-						ContractAddress:    feltToFieldElement(l1HandlerTx.ContractAddress),
-						EntryPointSelector: feltToFieldElement(l1HandlerTx.EntryPointSelector),
-						Calldata:           feltsToFieldElements(l1HandlerTx.CallData),
-						Nonce:              feltToFieldElement(l1HandlerTx.Nonce),
-						Version:            feltToFieldElement(l1HandlerTx.Version),
+						Hash:               feltToFieldElement(tx.TransactionHash),
+						ContractAddress:    feltToFieldElement(tx.ContractAddress),
+						EntryPointSelector: feltToFieldElement(tx.EntryPointSelector),
+						Calldata:           feltsToFieldElements(tx.CallData),
+						Nonce:              feltToFieldElement(tx.Nonce),
+						Version:            feltToFieldElement(tx.Version),
 					},
 				},
 			}, &p2pproto.Receipt{
@@ -259,9 +255,10 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 					},
 				},
 			}, nil
+
 	}
 
-	panic(fmt.Sprintf("Unknown transaction type %s", reflect.TypeOf(transaction)))
+	return nil, nil, errors.Errorf("Unknown transaction type %T", transaction)
 }
 
 func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p2pproto.ContractClass, error) {
@@ -272,16 +269,12 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 			return nil, err
 		}
 
-		constructors := MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Constructors)
-		externals := MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Externals)
-		handlers := MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.L1Handlers)
-
 		return &p2pproto.ContractClass{
 			Class: &p2pproto.ContractClass_Cairo0{
 				Cairo0: &p2pproto.Cairo0Class{
-					ConstructorEntryPoints: constructors,
-					ExternalEntryPoints:    externals,
-					L1HandlerEntryPoints:   handlers,
+					ConstructorEntryPoints: MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Constructors),
+					ExternalEntryPoints:    MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Externals),
+					L1HandlerEntryPoints:   MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.L1Handlers),
 					Program:                class.Program,
 					Abi:                    string(abistr),
 					Hash:                   feltToFieldElement(hash),
@@ -289,18 +282,13 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 			},
 		}, nil
 	case *core.Cairo1Class:
-		constructors := MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.Constructor)
-		externals := MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.External)
-		handlers := MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler)
-		program := feltsToFieldElements(class.Program)
-
 		return &p2pproto.ContractClass{
 			Class: &p2pproto.ContractClass_Cairo1{
 				Cairo1: &p2pproto.Cairo1Class{
-					ConstructorEntryPoints: constructors,
-					ExternalEntryPoints:    externals,
-					L1HandlerEntryPoints:   handlers,
-					Program:                program,
+					ConstructorEntryPoints: MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.Constructor),
+					ExternalEntryPoints:    MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.External),
+					L1HandlerEntryPoints:   MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler),
+					Program:                feltsToFieldElements(class.Program),
 					ProgramHash:            feltToFieldElement(class.ProgramHash),
 					Abi:                    class.Abi,
 					Hash:                   feltToFieldElement(hash),
@@ -308,7 +296,7 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 			},
 		}, nil
 	default:
-		panic(fmt.Sprintf("Unsupported class type %s", reflect.TypeOf(theclass.Class)))
+		return nil, errors.Errorf("unsupported class type %T", theclass.Class)
 	}
 }
 
@@ -333,11 +321,18 @@ func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.C
 	case *p2pproto.ContractClass_Cairo1:
 		coreClass := &core.Cairo1Class{
 			Abi:     v.Cairo1.Abi,
+			AbiHash: &felt.Felt{},
+			EntryPoints: struct {
+				Constructor []core.SierraEntryPoint
+				External    []core.SierraEntryPoint
+				L1Handler   []core.SierraEntryPoint
+			}{
+				Constructor: MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ConstructorEntryPoints),
+				External:    MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ExternalEntryPoints),
+				L1Handler:   MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.L1HandlerEntryPoints),
+			},
 			Program: fieldElementsToFelts(v.Cairo1.Program),
 		}
-		coreClass.EntryPoints.Constructor = MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ConstructorEntryPoints)
-		coreClass.EntryPoints.External = MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ExternalEntryPoints)
-		coreClass.EntryPoints.L1Handler = MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.L1HandlerEntryPoints)
 
 		hash := coreClass.Hash()
 		return hash, coreClass, nil
