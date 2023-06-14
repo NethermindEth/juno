@@ -148,6 +148,7 @@ func TestSyncBlocks(t *testing.T) {
 }
 
 func TestReorg(t *testing.T) {
+	t.Parallel()
 	mainClient, mainCloseFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(mainCloseFn)
 	mainGw := adaptfeeder.New(mainClient)
@@ -167,6 +168,7 @@ func TestReorg(t *testing.T) {
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
+		t.Parallel()
 		bc = blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
 
 		// Ensure current head is Integration head
