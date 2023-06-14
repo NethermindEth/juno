@@ -1,4 +1,4 @@
-name: Run Smoke Tests
+name: Sync First 100 Blocks Smoke Test
 
 on:
   push:
@@ -7,12 +7,11 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
-
+      
 jobs:
   run_smoke_tests:
     runs-on: ubuntu-latest
-
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -27,15 +26,16 @@ jobs:
 
       - name: Build docker image
         run: docker build -t nethermindeth/juno .
-
-      - name: Clone smoke tests repository
-        run: git clone https://$GITHUB_TOKEN@github.com/NethermindEth/juno-smoke-tests.git --single-branch --branch main
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        
+      - name: Checkout Juno Smoke Tests
+        uses: actions/checkout@v3.5.2
+        with:
+          repository: NethermindEth/juno-smoke-tests
+          token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
 
       - name: Run smoke tests
         run: |
-          cd juno-smoke-tests/smoke-tests/node_tests
+          cd smoke-tests/node_tests
           go test -v -run TestMonitorNodeSync -args -targetBlock=$TARGET_BLOCK -timeout=$TIMEOUT
         env:
           TARGET_BLOCK: 100
