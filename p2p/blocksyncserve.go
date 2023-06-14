@@ -13,7 +13,7 @@ import (
 
 type blockSyncServer struct {
 	blockchain *blockchain.Blockchain
-	converter  converter
+	converter  *converter
 }
 
 func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders) (*p2pproto.BlockHeaders, error) {

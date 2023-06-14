@@ -11,12 +11,12 @@ import (
 	"reflect"
 )
 
-func protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pproto.Receipt) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
+func (c *converter) protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pproto.Receipt) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
 	switch tx := protoTx.GetTxn().(type) {
 	case *p2pproto.Transaction_Deploy:
 		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Deploy)
 
-		classHash, class, err := protobufClassToCoreClass(tx.Deploy.ContractClass)
+		classHash, class, err := c.protobufClassToCoreClass(tx.Deploy.ContractClass)
 		if err != nil {
 			return nil, nil, nil, nil, errors.Wrap(err, "error deserializing class")
 		}
@@ -58,7 +58,7 @@ func protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pp
 	case *p2pproto.Transaction_Declare:
 		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Declare)
 
-		classHash, class, err := protobufClassToCoreClass(tx.Declare.ContractClass)
+		classHash, class, err := c.protobufClassToCoreClass(tx.Declare.ContractClass)
 		if err != nil {
 			return nil, nil, nil, nil, errors.Wrap(err, "error deserializing class")
 		}
@@ -302,7 +302,7 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 	}
 }
 
-func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.Class, error) {
+func (c *converter) protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.Class, error) {
 	switch v := class.Class.(type) {
 	case *p2pproto.ContractClass_Cairo0:
 		hash := fieldElementToFelt(v.Cairo0.Hash)
@@ -313,13 +313,14 @@ func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.C
 			return nil, nil, errors.Wrap(err, "error unmarshalling cairo0 abi")
 		}
 
-		return hash, &core.Cairo0Class{
+		coreClass := &core.Cairo0Class{
 			Abi:          abiraw,
 			Externals:    MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ExternalEntryPoints),
 			L1Handlers:   MapValueViaReflect[[]core.EntryPoint](v.Cairo0.L1HandlerEntryPoints),
 			Constructors: MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ConstructorEntryPoints),
 			Program:      v.Cairo0.Program,
-		}, nil
+		}
+		return hash, coreClass, nil
 	case *p2pproto.ContractClass_Cairo1:
 		coreClass := &core.Cairo1Class{
 			Abi: v.Cairo1.Abi,
@@ -343,11 +344,7 @@ func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.C
 		coreClass.AbiHash = abihash
 		coreClass.ProgramHash = crypto.PoseidonArray(coreClass.Program...)
 
-		hash := coreClass.Hash()
-
-		if v.Cairo1.Hash != nil && !fieldElementToFelt(v.Cairo1.Hash).Equal(hash) {
-			return nil, nil, errors.Errorf("unable to recalculate hash for class %s", fieldElementToFelt(v.Cairo1.Hash))
-		}
+		hash := fieldElementToFelt(v.Cairo1.Hash)
 
 		return hash, coreClass, nil
 	}

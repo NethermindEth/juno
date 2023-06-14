@@ -44,6 +44,7 @@ type P2P interface {
 type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
+	converter  *converter
 
 	blockSyncPeers []peer.ID
 
@@ -322,7 +323,7 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *p
 	}
 
 	body := bodies[0]
-	block, declaredClasses, err := protobufHeaderAndBodyToCoreBlock(header, body)
+	block, declaredClasses, err := ip.converter.protobufHeaderAndBodyToCoreBlock(header, body)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to convert to core body")
 	}
@@ -420,15 +421,15 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 	}
 
 	ctx := context.Background()
+	converter := NewConverter(&blockchainClassProvider{
+		blockchain: blockchain,
+	})
 	impl := P2PImpl{
 		syncServer: blockSyncServer{
 			blockchain: blockchain,
-			converter: converter{
-				classprovider: &blockchainClassProvider{
-					blockchain: blockchain,
-				},
-			},
+			converter:  converter,
 		},
+		converter: converter,
 
 		blockSyncCond:        sync.NewCond(&sync.Mutex{}),
 		pickedBlockSyncPeers: map[peer.ID]int{},

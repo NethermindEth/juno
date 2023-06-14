@@ -30,11 +30,9 @@ func compareAndPrintDiff(item1 interface{}, item2 interface{}) bool {
 }
 
 func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockchain) error {
-	c := converter{
-		classprovider: &blockchainClassProvider{
-			blockchain: blockchain,
-		},
-	}
+	c := NewConverter(&blockchainClassProvider{
+		blockchain: blockchain,
+	})
 	originalBlock.ProtocolVersion = ""
 
 	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
@@ -47,7 +45,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 		return err
 	}
 
-	newCoreBlock, _, err := protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
+	newCoreBlock, _, err := c.protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
 	if err != nil {
 		return err
 	}
