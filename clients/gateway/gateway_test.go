@@ -19,7 +19,7 @@ func TestAddInvokeTx(t *testing.T) {
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
 
-		_, err = client.AddInvokeTransaction(invokeTxByte)
+		_, err = client.AddTransaction(invokeTxByte)
 
 		// Since this method is just a proxy for the gateway we don't care what the actual response is,
 		// we just need to check that no error is returned for a well-formed request.
@@ -30,7 +30,7 @@ func TestAddInvokeTx(t *testing.T) {
 		invokeTx := "{}"
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
-		resp, err := client.AddInvokeTransaction(invokeTxByte)
+		resp, err := client.AddTransaction(invokeTxByte)
 
 		assert.NotNil(t, err)
 		assert.Nil(t, resp)

@@ -34,17 +34,17 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 	return m.recorder
 }
 
-// AddInvokeTransaction mocks base method.
-func (m *MockGateway) AddInvokeTransaction(arg0 json.RawMessage) (json.RawMessage, error) {
+// AddTransaction mocks base method.
+func (m *MockGateway) AddTransaction(arg0 json.RawMessage) (json.RawMessage, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddInvokeTransaction", arg0)
+	ret := m.ctrl.Call(m, "AddTransaction", arg0)
 	ret0, _ := ret[0].(json.RawMessage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AddInvokeTransaction indicates an expected call of AddInvokeTransaction.
-func (mr *MockGatewayMockRecorder) AddInvokeTransaction(arg0 interface{}) *gomock.Call {
+// AddTransaction indicates an expected call of AddTransaction.
+func (mr *MockGatewayMockRecorder) AddTransaction(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddInvokeTransaction", reflect.TypeOf((*MockGateway)(nil).AddInvokeTransaction), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTransaction", reflect.TypeOf((*MockGateway)(nil).AddTransaction), arg0)
 }
