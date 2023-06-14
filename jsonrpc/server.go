@@ -260,6 +260,7 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 		res.Error = Err(MethodNotFound, nil)
 		return res, nil
 	}
+	rpcRequestsCounter.WithLabelValues(calledMethod.Name, "/metrics").Inc()
 
 	args, err := buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
 	if err != nil {
