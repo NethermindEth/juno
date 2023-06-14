@@ -214,17 +214,31 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 }
 
 func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+	return StrictTransactionHash(transaction, n, false)
+}
+
+func StrictTransactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
-		return declareTransactionHash(t, n)
+		return declareTransactionHash(t, n, force)
 	case *InvokeTransaction:
-		return invokeTransactionHash(t, n)
+		return invokeTransactionHash(t, n, force)
 	case *DeployTransaction:
+		if force {
+			return crypto.PedersenArray(
+				t.ContractAddressSalt,
+				t.ContractAddress,
+				t.ClassHash,
+				crypto.PedersenArray(t.ConstructorCallData...),
+				t.Version,
+			), nil
+		}
+
 		// deploy transactions are deprecated after re-genesis therefore we don't verify
 		// transaction hash
 		return t.TransactionHash, nil
 	case *L1HandlerTransaction:
-		return l1HandlerTransactionHash(t, n)
+		return l1HandlerTransactionHash(t, n, force)
 	case *DeployAccountTransaction:
 		return deployAccountTransactionHash(t, n)
 	default:
@@ -243,9 +257,35 @@ func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
 	return fmt.Errorf("invalid Transaction (type: %v) version: %v", reflect.TypeOf(t), version.Text(felt.Base10))
 }
 
-func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
+func invokeTransactionHash(i *InvokeTransaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch {
 	case i.Version.IsZero():
+		if force {
+			sender := i.ContractAddress
+			if sender == nil {
+				sender = i.SenderAddress
+			}
+
+			felts := []*felt.Felt{
+				invokeFelt,
+				i.Version,
+				sender,
+				i.EntryPointSelector,
+				crypto.PedersenArray(i.CallData...),
+				i.MaxFee,
+				n.ChainID(),
+			}
+
+			for i, key := range felts {
+				if key == nil {
+					fmt.Printf("null at %d", i)
+				}
+			}
+
+			result := crypto.PedersenArray(felts...)
+			return result, nil
+		}
+
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
 		return i.TransactionHash, nil
 	case i.Version.IsOne():
@@ -264,9 +304,23 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 	}
 }
 
-func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
+func declareTransactionHash(d *DeclareTransaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch {
 	case d.Version.IsZero():
+		if force {
+			// force mode just need something for hash.
+			return crypto.PedersenArray(
+				declareFelt,
+				d.Version,
+				d.SenderAddress,
+				new(felt.Felt),
+				crypto.PedersenArray(d.ClassHash),
+				d.MaxFee,
+				n.ChainID(),
+				d.Nonce,
+			), nil
+		}
+
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
 		return d.TransactionHash, nil
 	case d.Version.IsOne():
@@ -298,7 +352,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 	}
 }
 
-func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
+func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch {
 	case l.Version.IsZero():
 		// There are some l1 handler transaction which do not return a nonce and for some random

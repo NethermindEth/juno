@@ -49,7 +49,7 @@ func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, blockchain 
 func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uint64) (block *core.Block, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered in f", r)
+			fmt.Println("Recovered in get block by number", r)
 			err = errors.New(fmt.Sprintf("%s", r))
 		}
 	}()
