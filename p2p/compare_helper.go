@@ -33,6 +33,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 	c := NewConverter(&blockchainClassProvider{
 		blockchain: blockchain,
 	})
+	v := &verifier{network: blockchain.Network()}
 	originalBlock.ProtocolVersion = ""
 
 	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
@@ -45,9 +46,21 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 		return err
 	}
 
-	newCoreBlock, _, err := c.protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
+	newCoreBlock, classes, err := c.protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
 	if err != nil {
 		return err
+	}
+
+	err = v.VerifyBlock(newCoreBlock)
+	if err != nil {
+		return errors.Wrap(err, "error verifying blocks")
+	}
+
+	for key, class := range classes {
+		err = v.VerifyClass(class, &key)
+		if err != nil {
+			return errors.Wrap(err, "error verifying class")
+		}
 	}
 
 	newCoreBlock.ProtocolVersion = ""

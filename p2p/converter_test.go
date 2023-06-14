@@ -102,6 +102,10 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		classprovider: classProvider,
 	}
 
+	v := verifier{
+		network: utils.MAINNET,
+	}
+
 	globed, err := filepath.Glob("converter_tests/blocks/*dat")
 	if err != nil {
 		panic(err)
@@ -120,14 +124,14 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			runEncodeDecodeBlockTest(t, c, &block)
+			runEncodeDecodeBlockTest(t, &c, &v, &block)
 		})
 	}
 
 	// classProvider.Save()
 }
 
-func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Block) {
+func runEncodeDecodeBlockTest(t *testing.T, c *converter, v *verifier, originalBlock *core.Block) {
 	// Convert original struct to protobuf struct
 	header, err := c.coreBlockToProtobufHeader(originalBlock)
 	if err != nil {
@@ -145,12 +149,17 @@ func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Blo
 		t.Fatalf("back to core failed %v", err)
 	}
 
-	originalBlock.ProtocolVersion = ""
-	originalBlock.ExtraData = nil
-	convertedBlock.ProtocolVersion = ""
-	convertedBlock.ExtraData = nil
+	err = v.VerifyBlock(convertedBlock)
+	if err != nil {
+		t.Fatalf("block verification failed failed %v", err)
+	}
 
 	for k, class := range includedClasses {
+		err := v.VerifyClass(class, &k)
+		if err != nil {
+			t.Fatalf("class verification failed failed %v", err)
+		}
+
 		declaredClass, err := c.classprovider.GetClass(&k)
 		if err != nil {
 			t.Fatalf("error loading class %s", err)
@@ -164,6 +173,11 @@ func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Blo
 
 		assert.Equal(t, currentClass, class)
 	}
+
+	originalBlock.ProtocolVersion = ""
+	originalBlock.ExtraData = nil
+	convertedBlock.ProtocolVersion = ""
+	convertedBlock.ExtraData = nil
 
 	// Check if the final struct is equal to the original struct
 	assert.Equal(t, originalBlock, convertedBlock)

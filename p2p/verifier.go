@@ -3,22 +3,23 @@ package p2p
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/pkg/errors"
 )
 
 type Verifier interface {
-	VerifyBlock(block *core.Block)
+	VerifyBlock(block *core.Block) error
 	VerifyClass(class core.Class, hash *felt.Felt) error
 }
 
 var _ Verifier = &verifier{}
 
 type verifier struct {
+	network utils.Network
 }
 
-func (h *verifier) VerifyBlock(block *core.Block) {
-	//TODO implement me
-	panic("implement me")
+func (h *verifier) VerifyBlock(block *core.Block) error {
+	return core.VerifyBlockHash(block, h.network)
 }
 
 func (h *verifier) VerifyClass(class core.Class, hash *felt.Felt) error {

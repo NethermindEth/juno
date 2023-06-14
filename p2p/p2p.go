@@ -45,6 +45,7 @@ type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
 	converter  *converter
+	verifier   *verifier
 
 	blockSyncPeers []peer.ID
 
@@ -328,6 +329,18 @@ func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *p
 		return nil, nil, errors.Wrap(err, "unable to convert to core body")
 	}
 
+	err = ip.verifier.VerifyBlock(block)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "block verification failed")
+	}
+
+	for classHash, class := range declaredClasses {
+		err = ip.verifier.VerifyClass(class, &classHash)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "class verification failed")
+		}
+	}
+
 	return block, declaredClasses, nil
 }
 
@@ -430,6 +443,9 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 			converter:  converter,
 		},
 		converter: converter,
+		verifier: &verifier{
+			network: blockchain.Network(),
+		},
 
 		blockSyncCond:        sync.NewCond(&sync.Mutex{}),
 		pickedBlockSyncPeers: map[peer.ID]int{},
@@ -530,6 +546,16 @@ func runBlockEncodingTests(blockchain *blockchain.Blockchain, err error) (P2P, e
 			defer wg.Done()
 			for i := range blocknumchan {
 				fmt.Printf("Running on block %d\n", i)
+
+				block, err := blockchain.BlockByNumber(uint64(i))
+				if err != nil {
+					panic(err)
+				}
+
+				err = testBlockEncoding(block, blockchain)
+				if err != nil {
+					panic(err)
+				}
 
 				update, err := blockchain.StateUpdateByNumber(uint64(i))
 				if err != nil {
