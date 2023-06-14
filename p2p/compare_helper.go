@@ -31,7 +31,9 @@ func compareAndPrintDiff(item1 interface{}, item2 interface{}) bool {
 
 func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockchain) error {
 	c := converter{
-		blockchain: blockchain,
+		classprovider: &blockchainClassProvider{
+			blockchain: blockchain,
+		},
 	}
 	originalBlock.ProtocolVersion = ""
 

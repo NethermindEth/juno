@@ -424,7 +424,9 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		syncServer: blockSyncServer{
 			blockchain: blockchain,
 			converter: converter{
-				blockchain: blockchain,
+				classprovider: &blockchainClassProvider{
+					blockchain: blockchain,
+				},
 			},
 		},
 

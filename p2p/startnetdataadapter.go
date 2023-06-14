@@ -36,7 +36,9 @@ func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, blockchain 
 		p2p:     p2p,
 		network: blockchain.Network(),
 		converter: converter{
-			blockchain: blockchain,
+			classprovider: &blockchainClassProvider{
+				blockchain: blockchain,
+			},
 		},
 
 		lruMtx:     &sync.Mutex{},

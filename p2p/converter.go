@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
@@ -12,7 +11,7 @@ import (
 )
 
 type converter struct {
-	blockchain *blockchain.Blockchain
+	classprovider ClassProvider
 }
 
 func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*p2pproto.BlockHeader, error) {

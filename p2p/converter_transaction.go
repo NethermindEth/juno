@@ -126,13 +126,7 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if deployTx, ok := transaction.(*core.DeployTransaction); ok {
-		stateReader, closer, err := c.blockchain.HeadState()
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "unable to fetch head state")
-		}
-		defer closer()
-
-		coreClass, err := stateReader.Class(deployTx.ClassHash)
+		coreClass, err := c.classprovider.GetClass(deployTx.ClassHash)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "unable to fetch class")
 		}
@@ -189,13 +183,7 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 	}
 
 	if declareTx, ok := transaction.(*core.DeclareTransaction); ok {
-		stateReader, closer, err := c.blockchain.HeadState()
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "unable to fetch head state")
-		}
-		defer closer()
-
-		coreClass, err := stateReader.Class(declareTx.ClassHash)
+		coreClass, err := c.classprovider.GetClass(declareTx.ClassHash)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "unable to fetch class")
 		}

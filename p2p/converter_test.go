@@ -16,11 +16,65 @@ import (
 	"testing"
 )
 
+type mapClassProvider struct {
+	classes             map[felt.Felt]*core.DeclaredClass
+	providerToIntercept ClassProvider
+}
+
+func (c *mapClassProvider) GetClass(hash *felt.Felt) (*core.DeclaredClass, error) {
+	if c.providerToIntercept != nil {
+		cls, err := c.providerToIntercept.GetClass(hash)
+		if err == nil {
+			c.classes[*hash] = cls
+		}
+
+		return cls, err
+	}
+
+	return c.classes[*hash], nil
+}
+
+func (c *mapClassProvider) Intercept(provider ClassProvider) {
+	c.providerToIntercept = provider
+}
+
+func (c *mapClassProvider) Load() {
+	bytes, err := os.ReadFile("converter_tests/classes.dat")
+	if err != nil {
+		panic(err)
+	}
+
+	err = encoder.Unmarshal(bytes, &c.classes)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (c *mapClassProvider) Save() {
+	bytes, err := encoder.Marshal(c.classes)
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.WriteFile("converter_tests/classes.dat", bytes, 0666)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestEncodeDecodeBlocks(t *testing.T) {
 	db, _ := pebble.NewMem()
-	bc := blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger())
+	_ = blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
+
+	classProvider := &mapClassProvider{
+		classes: map[felt.Felt]*core.DeclaredClass{},
+	}
+
+	// classProvider.Intercept(&blockchainClassProvider{blockchain: bc})
+	classProvider.Load()
+
 	c := converter{
-		blockchain: bc,
+		classprovider: classProvider,
 	}
 
 	globed, err := filepath.Glob("converter_tests/blocks/*dat")
