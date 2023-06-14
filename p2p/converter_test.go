@@ -31,7 +31,11 @@ func (c *mapClassProvider) GetClass(hash *felt.Felt) (*core.DeclaredClass, error
 		return cls, err
 	}
 
-	return c.classes[*hash], nil
+	class, ok := c.classes[*hash]
+	if !ok {
+		return nil, fmt.Errorf("unable to get class of hash %s", hash.String())
+	}
+	return class, nil
 }
 
 func (c *mapClassProvider) Intercept(provider ClassProvider) {
@@ -62,7 +66,28 @@ func (c *mapClassProvider) Save() {
 	}
 }
 
+func dumpBlock(blockNum uint64) {
+	db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
+	bc := blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
+
+	block, err := bc.BlockByNumber(blockNum)
+	if err != nil {
+		panic(err)
+	}
+
+	asbyte, err := encoder.Marshal(block)
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.WriteFile(fmt.Sprintf("converter_tests/blocks/%d.dat", blockNum), asbyte, 0666)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestEncodeDecodeBlocks(t *testing.T) {
+	// db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
 	db, _ := pebble.NewMem()
 	_ = blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
@@ -98,6 +123,8 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 			runEncodeDecodeBlockTest(t, c, &block)
 		})
 	}
+
+	// classProvider.Save()
 }
 
 func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Block) {
@@ -113,9 +140,29 @@ func runEncodeDecodeBlockTest(t *testing.T, c converter, originalBlock *core.Blo
 	}
 
 	// Convert protobuf struct back to original struct
-	convertedBlock, _, err := protobufHeaderAndBodyToCoreBlock(header, body)
+	convertedBlock, includedClasses, err := protobufHeaderAndBodyToCoreBlock(header, body)
 	if err != nil {
 		t.Fatalf("back to core failed %v", err)
+	}
+
+	originalBlock.ProtocolVersion = ""
+	originalBlock.ExtraData = nil
+	convertedBlock.ProtocolVersion = ""
+	convertedBlock.ExtraData = nil
+
+	for k, class := range includedClasses {
+		declaredClass, err := c.classprovider.GetClass(&k)
+		if err != nil {
+			t.Fatalf("error loading class %s", err)
+		}
+
+		currentClass := declaredClass.Class
+		switch v := currentClass.(type) {
+		case *core.Cairo1Class:
+			v.Compiled = nil
+		}
+
+		assert.Equal(t, currentClass, class)
 	}
 
 	// Check if the final struct is equal to the original struct

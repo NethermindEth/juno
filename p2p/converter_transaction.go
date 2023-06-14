@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/pkg/errors"
@@ -292,6 +293,7 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 					ProgramHash:            feltToFieldElement(class.ProgramHash),
 					Abi:                    class.Abi,
 					Hash:                   feltToFieldElement(hash),
+					SemanticVersioning:     class.SemanticVersion,
 				},
 			},
 		}, nil
@@ -320,8 +322,7 @@ func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.C
 		}, nil
 	case *p2pproto.ContractClass_Cairo1:
 		coreClass := &core.Cairo1Class{
-			Abi:     v.Cairo1.Abi,
-			AbiHash: &felt.Felt{},
+			Abi: v.Cairo1.Abi,
 			EntryPoints: struct {
 				Constructor []core.SierraEntryPoint
 				External    []core.SierraEntryPoint
@@ -331,10 +332,23 @@ func protobufClassToCoreClass(class *p2pproto.ContractClass) (*felt.Felt, core.C
 				External:    MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ExternalEntryPoints),
 				L1Handler:   MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.L1HandlerEntryPoints),
 			},
-			Program: fieldElementsToFelts(v.Cairo1.Program),
+			Program:         fieldElementsToFelts(v.Cairo1.Program),
+			SemanticVersion: v.Cairo1.SemanticVersioning,
 		}
 
+		abihash, err := crypto.StarknetKeccak([]byte(coreClass.Abi))
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "unable to fetch abi hash")
+		}
+		coreClass.AbiHash = abihash
+		coreClass.ProgramHash = crypto.PoseidonArray(coreClass.Program...)
+
 		hash := coreClass.Hash()
+
+		if v.Cairo1.Hash != nil && !fieldElementToFelt(v.Cairo1.Hash).Equal(hash) {
+			return nil, nil, errors.Errorf("unable to recalculate hash for class %s", fieldElementToFelt(v.Cairo1.Hash))
+		}
+
 		return hash, coreClass, nil
 	}
 
