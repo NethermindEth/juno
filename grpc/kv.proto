@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+package database;
+
+option go_package = "github.com/juno/grpc/gen";
+
+service KV {
+  rpc Version(google.protobuf.Empty) returns (VersionReply);
+  rpc Tx(stream Cursor) returns (stream Pair);
+}
+
+// values from https://github.com/ledgerwatch/interfaces/blob/master/remote/kv.proto#L68
+enum Op {
+  FIRST = 0;
+  SEEK = 1;
+  CURRENT = 4;
+  NEXT = 8;
+  SEEK_EXACT = 15;
+  OPEN = 30;
+}
+
+message Cursor {
+  Op op = 1;
+  bytes bucket_name = 2;
+  uint32 cursor = 3;
+  bytes k = 4;
+  bytes v = 5; // not used
+}
+
+message Pair {
+  bytes k = 1;
+  bytes v = 2;
+  uint32 cursor_id = 3;
+  uint64 view_id = 4;   // not used
+  uint64 tx_id = 5;     // not used
+}
+
+message VersionReply {
+  uint32 major = 1;
+  uint32 minor = 2;
+  uint32 patch = 3;
+}

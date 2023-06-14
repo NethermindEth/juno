@@ -29,6 +29,7 @@ const (
 	configF              = "config"
 	logLevelF            = "log-level"
 	rpcPortF             = "rpc-port"
+	grpcPortF            = "grpc-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
 	ethNodeF             = "eth-node"
@@ -37,7 +38,8 @@ const (
 	pendingPollIntervalF = "pending-poll-interval"
 
 	defaultConfig              = ""
-	defaultRPCPort             = uint16(6060)
+	defaultRPCPort             = 6060
+	defaultGRPCPort            = 0
 	defaultDBPath              = ""
 	defaultEthNode             = ""
 	defaultPprof               = false
@@ -48,11 +50,12 @@ const (
 	logLevelFlagUsage = "Options: debug, info, warn, error."
 	rpcPortUsage      = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	dbPathUsage  = "Location of the database files."
-	networkUsage = "Options: mainnet, goerli, goerli2, integration."
-	pprofUsage   = "Enables the pprof server and listens on port 9080."
-	colourUsage  = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	grpcPortUsage = "The port on which the gRPC server will listen for requests."
+	dbPathUsage   = "Location of the database files."
+	networkUsage  = "Options: mainnet, goerli, goerli2, integration."
+	pprofUsage    = "Enables the pprof server and listens on port 9080."
+	colourUsage   = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage  = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 )
@@ -73,7 +76,7 @@ func main() {
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("%s\n\n", greeting)
 
-		n, err := node.New(config)
+		n, err := node.New(config, Version)
 		if err != nil {
 			return err
 		}
@@ -134,6 +137,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
+	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)

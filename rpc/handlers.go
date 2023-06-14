@@ -746,7 +746,6 @@ func (h *Handler) Events(args *EventsArg) (*EventsChunk, *jsonrpc.Error) {
 
 	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
 	for _, fEvent := range filteredEvents {
-
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
 			blockNumber = &fEvent.BlockNumber
