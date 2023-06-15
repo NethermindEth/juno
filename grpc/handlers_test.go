@@ -13,22 +13,15 @@ import (
 )
 
 func TestHandlers_Version(t *testing.T) {
-	t.Run("version empty", func(t *testing.T) {
-		h := handlers{}
-		_, err := h.Version(context.Background(), &emptypb.Empty{})
-		require.Error(t, err)
-	})
-	t.Run("version set", func(t *testing.T) {
-		expectedVersion := &gen.VersionReply{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		}
-		h := handlers{junoVersion: "1.2.3-somecommit"}
-		v, err := h.Version(context.Background(), &emptypb.Empty{})
-		require.NoError(t, err)
-		assert.Equal(t, expectedVersion, v)
-	})
+	expectedVersion := &gen.VersionReply{
+		Major: 1,
+		Minor: 2,
+		Patch: 3,
+	}
+	h := handlers{version: "1.2.3-rc1"}
+	v, err := h.Version(context.Background(), &emptypb.Empty{})
+	require.NoError(t, err)
+	assert.Equal(t, expectedVersion, v)
 }
 
 func createTxStream(t *testing.T, h handlers) *grpcStreamMock {

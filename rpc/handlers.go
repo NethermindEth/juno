@@ -46,9 +46,15 @@ type Handler struct {
 	network       utils.Network
 	gatewayClient Gateway
 	log           utils.Logger
+	version       string
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network, gatewayClient Gateway,
+func New(
+	bcReader blockchain.Reader,
+	synchronizer *sync.Synchronizer,
+	n utils.Network,
+	gatewayClient Gateway,
+	version string,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
@@ -57,6 +63,7 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Ne
 		network:       n,
 		log:           logger,
 		gatewayClient: gatewayClient,
+		version:       version,
 	}
 }
 
@@ -941,4 +948,8 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 	}
 
 	return declareRes, nil
+}
+
+func (h *Handler) Version() (string, *jsonrpc.Error) {
+	return h.version, nil
 }
