@@ -49,7 +49,8 @@ type P2PImpl struct {
 
 	blockSyncPeers []peer.ID
 
-	blockSyncCond        *sync.Cond
+	syncPeerMtx          *sync.Mutex
+	syncPeerUpdateChan   chan int
 	pickedBlockSyncPeers map[peer.ID]int
 
 	network utils.Network
@@ -203,7 +204,10 @@ func (ip *P2PImpl) setupIdentity(ctx context.Context) error {
 
 			if slices.Contains(protocols, blockSyncProto) && !slices.Contains(ip.blockSyncPeers, evt.Peer) {
 				ip.blockSyncPeers = append(ip.blockSyncPeers, evt.Peer)
-				ip.blockSyncCond.Signal()
+				select {
+				case ip.syncPeerUpdateChan <- 0:
+				default:
+				}
 			}
 		}
 	}()
@@ -391,24 +395,15 @@ func (ip *P2PImpl) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(time.Second):
+		case <-ip.syncPeerUpdateChan:
 		}
 	}
 }
 
 func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
 	maxConcurrentRequestPerPeer := 32
-
-	ip.blockSyncCond.L.Lock()
-	defer ip.blockSyncCond.L.Unlock()
-	for _, p := range ip.blockSyncPeers {
-		if ip.pickedBlockSyncPeers[p] < maxConcurrentRequestPerPeer {
-			ip.pickedBlockSyncPeers[p] += 1
-			return &p
-		}
-	}
-
-	// No available peer, wait for cond
-	ip.blockSyncCond.Wait()
+	ip.syncPeerMtx.Lock()
+	defer ip.syncPeerMtx.Unlock()
 	for _, p := range ip.blockSyncPeers {
 		if ip.pickedBlockSyncPeers[p] < maxConcurrentRequestPerPeer {
 			ip.pickedBlockSyncPeers[p] += 1
@@ -420,11 +415,15 @@ func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
 }
 
 func (ip *P2PImpl) releaseBlockSyncPeer(id *peer.ID) {
-	ip.blockSyncCond.L.Lock()
-	defer ip.blockSyncCond.L.Unlock()
+	ip.syncPeerMtx.Lock()
+	defer ip.syncPeerMtx.Unlock()
 
 	ip.pickedBlockSyncPeers[*id] -= 1
-	ip.blockSyncCond.Signal()
+
+	select {
+	case ip.syncPeerUpdateChan <- 0:
+	default:
+	}
 }
 
 func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log utils.SimpleLogger) (P2P, error) {
@@ -448,7 +447,8 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 			network: blockchain.Network(),
 		},
 
-		blockSyncCond:        sync.NewCond(&sync.Mutex{}),
+		syncPeerMtx:          &sync.Mutex{},
+		syncPeerUpdateChan:   make(chan int),
 		pickedBlockSyncPeers: map[peer.ID]int{},
 
 		lruMutex:               &sync.Mutex{},
