@@ -30,6 +30,8 @@ var (
 	ErrInvalidContinuationToken = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
 	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
 	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrInvlaidContractClass     = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
+	ErrClassAlreadyDeclared     = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
 )
 
@@ -824,7 +826,7 @@ func getAddInvokeTxCode(err error) int {
 		return jsonrpc.InvalidParams
 	case strings.Contains(err.Error(), "not supported. Supported versions"):
 		return jsonrpc.InvalidParams
-	case strings.Contains(err.Error(), "max_fee must be bigger than 0.\n0 >= "):
+	case strings.Contains(err.Error(), "max_fee must be bigger than 0"):
 		return jsonrpc.InvalidParams
 	default:
 		return jsonrpc.InternalError
@@ -871,4 +873,67 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 		}
 	}
 	return pendingTxns, nil
+}
+
+// AddDeclareTransaction relays a declare transaction to the gateway.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L39
+// Note: The gateway expects the sierra_program to be gzip compressed and 64-base encoded. We perform this operation,
+// and then relay the transaction to the gateway.
+func (h *Handler) AddDeclareTransaction(declareTx *json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
+	var request map[string]interface{}
+	err := json.Unmarshal([]byte(*declareTx), &request)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	if version, ok := request["version"]; ok && version == "0x2" {
+		contractClass, ok := request["contract_class"].(map[string]interface{})
+		if !ok {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'contract_class': ['Missing data for required field.']}")
+		}
+		sierraProg, ok := contractClass["sierra_program"]
+		if !ok {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
+		}
+
+		sierraProgBytes, errIn := json.Marshal(sierraProg)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+
+		gwSierraProg, errIn := utils.Gzip64Encode(&sierraProgBytes)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+
+		contractClass["sierra_program"] = gwSierraProg
+
+		updatedReq, errIn := json.Marshal(request)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+		modTx := json.RawMessage(updatedReq)
+		declareTx = &modTx
+	}
+
+	resp, err := h.gatewayClient.AddTransaction(*declareTx)
+	if err != nil {
+		if strings.Contains(err.Error(), "Invalid contract class") {
+			return nil, ErrInvlaidContractClass
+		} else if strings.Contains(err.Error(), "Class already declared") {
+			return nil, ErrClassAlreadyDeclared
+		}
+
+		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
+	}
+
+	declareRes := new(DeclareTxResponse)
+	err = json.Unmarshal(resp, declareRes)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	return declareRes, nil
 }

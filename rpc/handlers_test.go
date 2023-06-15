@@ -1660,6 +1660,79 @@ func TestAddInvokeTransaction(t *testing.T) {
 	})
 }
 
+func TestAddDeclareTransaction(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockGateway := mocks.NewMockGateway(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, log)
+
+	t.Run("correct V2", func(t *testing.T) {
+		declareTxV2 := `{"contract_class":{"sierra_program":["0x0","0x0"]},"type":"DECLARE","version":"0x2"}`
+		gwDeclareTxV2 := `{"contract_class":{"sierra_program":"H4sIAAAAAAAA/4pWMqgwUNIBk7GAAAAA//9n6XuWDQAAAA=="},"type":"DECLARE","version":"0x2"}`
+
+		tx := json.RawMessage(declareTxV2)
+		expectedDeclareResp := &rpc.DeclareTxResponse{
+			TransactionHash: new(felt.Felt).SetBytes([]byte("randomrandom")),
+			ClassHash:       new(felt.Felt).SetBytes([]byte("randomrandom")),
+		}
+		expectedDeclareRespB, err := json.Marshal(expectedDeclareResp)
+		require.NoError(t, err)
+
+		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwDeclareTxV2)).Return(expectedDeclareRespB, nil)
+
+		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+
+		require.Nil(t, handlerErr)
+		assert.Equal(t, *expectedDeclareResp, *resp)
+	})
+
+	t.Run("correct V1", func(t *testing.T) {
+		declareTxV1 := `{"type":"DECLARE","version":"0x1","contract_class":{"sierra_program":"H4sIAAAAAAAA/1IyqDBQAgQAAP//Jz3M3QUAAAA="}}`
+		tx := json.RawMessage(declareTxV1)
+		expectedDeclareResp := &rpc.DeclareTxResponse{
+			TransactionHash: new(felt.Felt).SetBytes([]byte("randomrandom")),
+			ClassHash:       new(felt.Felt).SetBytes([]byte("randomrandom")),
+		}
+		expectedDeclareRespB, err := json.Marshal(expectedDeclareResp)
+		require.NoError(t, err)
+
+		mockGateway.EXPECT().AddTransaction(json.RawMessage(declareTxV1)).Return(expectedDeclareRespB, nil)
+
+		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+
+		require.Nil(t, handlerErr)
+		assert.Equal(t, *expectedDeclareResp, *resp)
+	})
+
+	t.Run("empty transaction", func(t *testing.T) {
+		tx := json.RawMessage("{}")
+
+		expectedErr := jsonrpc.Error{
+			Code:    jsonrpc.InvalidParams,
+			Message: "Invalid Params",
+			Data:    errors.New("{'type': ['Missing data for required field.']}").Error(),
+		}
+
+		mockGateway.EXPECT().AddTransaction(tx).Return(nil, errors.New("{'type': ['Missing data for required field.']}"))
+
+		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+		require.Nil(t, resp)
+		assert.Equal(t, expectedErr, *handlerErr)
+	})
+
+	t.Run("invalid contract class", func(t *testing.T) {
+		tx := json.RawMessage("{}")
+
+		mockGateway.EXPECT().AddTransaction(tx).Return(nil, errors.New("Invalid contract class"))
+
+		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+		require.Nil(t, resp)
+		assert.Equal(t, *rpc.ErrInvlaidContractClass, *handlerErr)
+	})
+}
+
 func TestAddDeployAccountTransaction(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
