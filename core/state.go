@@ -59,9 +59,8 @@ func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt,
 		return err
 	}
 
-	var numBytes [8]byte
-	binary.BigEndian.PutUint64(numBytes[:], blockNumber)
-	if err = s.txn.Set(db.ContractDeploymentHeight.Key(addr.Marshal()), numBytes[:]); err != nil {
+	numBytes := MarshalBlockNumber(blockNumber)
+	if err = s.txn.Set(db.ContractDeploymentHeight.Key(addr.Marshal()), numBytes); err != nil {
 		return err
 	}
 
