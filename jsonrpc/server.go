@@ -264,16 +264,19 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 
 	args, err := buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
 	if err != nil {
+		rpcRequestFailsCounter.WithLabelValues(calledMethod.Name, "/metrics").Inc()
 		res.Error = Err(InvalidParams, err.Error())
 		return res, nil
 	}
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
+		rpcRequestFailsCounter.WithLabelValues(calledMethod.Name, "/metrics").Inc()
 		return nil, nil
 	}
 
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
+		rpcRequestFailsCounter.WithLabelValues(calledMethod.Name, "/metrics").Inc()
 		res.Error = errAny.(*Error)
 		return res, nil
 	}

@@ -66,8 +66,10 @@ func (h *HTTP) Run(ctx context.Context) error {
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	timer := prometheus.NewTimer(httpDuration.WithLabelValues(req.URL.Path))
 	defer timer.ObserveDuration()
+	httpRequestsCounter.WithLabelValues("/metrics").Inc()
 
 	if req.Method != "POST" {
+		httpRequestFailedCounter.WithLabelValues("/metrics").Inc()
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 		req.Close = true
 		return
@@ -77,6 +79,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	resp, err := h.rpc.HandleReader(req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
+		httpRequestFailedCounter.WithLabelValues("/metrics").Inc()
 		writer.WriteHeader(http.StatusInternalServerError)
 	} else {
 		writer.WriteHeader(http.StatusOK)
@@ -84,6 +87,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if resp != nil {
 		_, err = writer.Write(resp)
 		if err != nil {
+			httpRequestFailedCounter.WithLabelValues("/metrics").Inc()
 			writer.WriteHeader(http.StatusInternalServerError)
 		}
 	}
