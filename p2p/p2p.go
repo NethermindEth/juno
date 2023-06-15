@@ -427,7 +427,7 @@ func (ip *P2PImpl) releaseBlockSyncPeer(id *peer.ID) {
 	ip.blockSyncCond.Signal()
 }
 
-func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2P, error) {
+func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log utils.SimpleLogger) (P2P, error) {
 	lru, err := simplelru.NewLRU(1000, func(key interface{}, value interface{}) {})
 	if err != nil {
 		return nil, err
@@ -441,6 +441,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string) (P2
 		syncServer: blockSyncServer{
 			blockchain: blockchain,
 			converter:  converter,
+			log:        log,
 		},
 		converter: converter,
 		verifier: &verifier{

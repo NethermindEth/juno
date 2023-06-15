@@ -200,7 +200,7 @@ func (n *Node) Run(ctx context.Context) {
 	var starkdata starknetdata.StarknetData = adaptfeeder.New(client)
 
 	if n.cfg.P2P {
-		p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers)
+		p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
 		if err != nil {
 			panic(err)
 		}

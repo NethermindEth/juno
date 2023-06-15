@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/pkg/errors"
 	"reflect"
@@ -14,6 +15,8 @@ import (
 type blockSyncServer struct {
 	blockchain *blockchain.Blockchain
 	converter  *converter
+
+	log utils.SimpleLogger
 }
 
 func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders) (*p2pproto.BlockHeaders, error) {
@@ -224,11 +227,11 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2
 func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {
 	err := s.doHandleBlockSyncStream(stream)
 	if err != nil {
-		fmt.Printf("error handling block sync %s\n", err)
+		s.log.Errorw("error handling block sync", err)
 	}
 	err = stream.Close()
 	if err != nil {
-		fmt.Printf("error closing steram %s\n", err)
+		s.log.Errorw("error closing stream", err)
 	}
 }
 
@@ -239,7 +242,7 @@ func (s *blockSyncServer) doHandleBlockSyncStream(stream network.Stream) error {
 		return err
 	}
 
-	fmt.Printf("Handling block sync type %s\n", reflect.TypeOf(msg.Request))
+	s.log.Infow("Handling block sync", "type", reflect.TypeOf(msg.Request))
 	resp, err := s.HandleBlockSyncRequest(&msg)
 	if err != nil {
 		return err
