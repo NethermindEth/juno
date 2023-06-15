@@ -13,4 +13,9 @@ var (
 		},
 		[]string{"method", "path"},
 	)
+	httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "http_response_time_seconds",
+		Help:    "Duration of HTTP requests.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "path"})
 )

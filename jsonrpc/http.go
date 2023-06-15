@@ -9,6 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -63,6 +64,9 @@ func (h *HTTP) Run(ctx context.Context) error {
 
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+	timer := prometheus.NewTimer(httpDuration.WithLabelValues(req.URL.Path))
+	defer timer.ObserveDuration()
+
 	if req.Method != "POST" {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 		req.Close = true
