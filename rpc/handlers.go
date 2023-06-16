@@ -1,11 +1,13 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -46,18 +48,20 @@ type Handler struct {
 	synchronizer  *sync.Synchronizer
 	network       utils.Network
 	gatewayClient Gateway
+	feederClient  *feeder.Client
 	log           utils.Logger
 	version       string
 }
 
 func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
-	gatewayClient Gateway, version string, logger utils.Logger,
+	gatewayClient Gateway, feederClient *feeder.Client, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
 		synchronizer:  synchronizer,
 		network:       n,
 		log:           logger,
+		feederClient:  feederClient,
 		gatewayClient: gatewayClient,
 		version:       version,
 	}
@@ -995,4 +999,13 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 
 func (h *Handler) Version() (string, *jsonrpc.Error) {
 	return h.version, nil
+}
+
+func (h *Handler) TransactionStatus(hash *felt.Felt) (string, *jsonrpc.Error) {
+	txStatus, err := h.feederClient.Transaction(context.Background(), hash)
+	if err != nil {
+		return "", jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	return txStatus.Status, nil
 }
