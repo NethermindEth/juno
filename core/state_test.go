@@ -520,3 +520,71 @@ func TestRevert(t *testing.T) {
 		}))
 	})
 }
+
+func TestRevertDeclaredClasses(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+	state := core.NewState(txn)
+
+	classHash := utils.HexToFelt(t, "0xDEADBEEF")
+	sierraHash := utils.HexToFelt(t, "0xDEADBEEF2")
+	declareDiff := &core.StateUpdate{
+		OldRoot:   &felt.Zero,
+		NewRoot:   utils.HexToFelt(t, "0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a"),
+		BlockHash: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			DeclaredV0Classes: []*felt.Felt{classHash},
+			DeclaredV1Classes: []core.DeclaredV1Class{
+				{
+					ClassHash:         sierraHash,
+					CompiledClassHash: sierraHash,
+				},
+			},
+		},
+	}
+	newClasses := map[felt.Felt]core.Class{
+		*classHash:  &core.Cairo0Class{},
+		*sierraHash: &core.Cairo1Class{},
+	}
+
+	require.NoError(t, state.Update(0, declareDiff, newClasses))
+	declaredClass, err := state.Class(classHash)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), declaredClass.At)
+	sierraClass, sErr := state.Class(sierraHash)
+	require.NoError(t, sErr)
+	assert.Equal(t, uint64(0), sierraClass.At)
+
+	declareDiff.OldRoot = declareDiff.NewRoot
+	require.NoError(t, state.Update(1, declareDiff, newClasses))
+
+	t.Run("re-declaring a class shouldnt change it's DeclaredAt attribute", func(t *testing.T) {
+		declaredClass, err = state.Class(classHash)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), declaredClass.At)
+		sierraClass, sErr = state.Class(sierraHash)
+		require.NoError(t, sErr)
+		assert.Equal(t, uint64(0), sierraClass.At)
+	})
+
+	require.NoError(t, state.Revert(1, declareDiff))
+
+	t.Run("reverting a re-declaration shouldnt change state commitment or remove class definitions", func(t *testing.T) {
+		declaredClass, err = state.Class(classHash)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), declaredClass.At)
+		sierraClass, sErr = state.Class(sierraHash)
+		require.NoError(t, sErr)
+		assert.Equal(t, uint64(0), sierraClass.At)
+	})
+
+	declareDiff.OldRoot = &felt.Zero
+	require.NoError(t, state.Revert(0, declareDiff))
+	_, err = state.Class(classHash)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+	_, err = state.Class(sierraHash)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+}
