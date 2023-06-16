@@ -218,7 +218,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, false); err != nil {
+	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes); err != nil {
 		return err
 	}
 
@@ -420,7 +420,7 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 
-func (s *State) updateDeclaredClassesTrie(declaredClasses []DeclaredV1Class, revert bool) error {
+func (s *State) updateDeclaredClassesTrie(declaredClasses []DeclaredV1Class) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
@@ -428,10 +428,7 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses []DeclaredV1Class, rev
 
 	for _, declaredClass := range declaredClasses {
 		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
-		leafValue := &felt.Zero
-		if !revert {
-			leafValue = crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
-		}
+		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
 		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
 			return err
 		}
@@ -461,12 +458,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return err
 	}
 
-	if err = s.removeDeclaredClasses(update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
-		return err
-	}
-
-	// update declared classes trie
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, true); err != nil {
+	if err = s.removeDeclaredClasses(blockNumber, update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
 		return err
 	}
 
@@ -499,22 +491,38 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 	return s.verifyStateUpdateRoot(update.OldRoot)
 }
 
-func (s *State) removeDeclaredClasses(v0Classes []*felt.Felt, v1Classes []DeclaredV1Class) error {
-	var classKeys [][]byte
-
-	for _, class := range v0Classes {
-		classKeys = append(classKeys, db.Class.Key(class.Marshal()))
-	}
+func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes []DeclaredV1Class) error {
+	var classHashes []*felt.Felt
+	classHashes = append(classHashes, v0Classes...)
 	for _, class := range v1Classes {
-		classKeys = append(classKeys, db.Class.Key(class.ClassHash.Marshal()))
+		classHashes = append(classHashes, class.ClassHash)
 	}
 
-	for _, key := range classKeys {
-		if err := s.txn.Delete(key); err != nil {
+	classesTrie, classesCloser, err := s.classesTrie()
+	if err != nil {
+		return err
+	}
+	for _, cHash := range classHashes {
+		declaredClass, err := s.Class(cHash)
+		if err != nil {
 			return err
 		}
+		if declaredClass.At != blockNumber {
+			continue
+		}
+
+		if err = s.txn.Delete(db.Class.Key(cHash.Marshal())); err != nil {
+			return err
+		}
+
+		// cairo1 class, update the class commitment trie as well
+		if declaredClass.Class.Version() == 1 {
+			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
+				return err
+			}
+		}
 	}
-	return nil
+	return classesCloser()
 }
 
 func (s *State) purgeContract(addr *felt.Felt) error {
