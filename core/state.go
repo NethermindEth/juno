@@ -218,7 +218,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes); err != nil {
+	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
 	}
 
@@ -420,13 +420,17 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 
-func (s *State) updateDeclaredClassesTrie(declaredClasses []DeclaredV1Class) error {
+func (s *State) updateDeclaredClassesTrie(declaredClasses []DeclaredV1Class, classDefinitions map[felt.Felt]Class) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
 	}
 
 	for _, declaredClass := range declaredClasses {
+		if _, found := classDefinitions[*declaredClass.ClassHash]; !found {
+			continue
+		}
+
 		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
 		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
 		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
