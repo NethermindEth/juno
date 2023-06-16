@@ -95,7 +95,12 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(3, su, nil))
+		t.Run("without class definition", func(t *testing.T) {
+			require.Error(t, state.Update(3, su, nil))
+		})
+		require.NoError(t, state.Update(3, su, map[felt.Felt]core.Class{
+			*utils.HexToFelt(t, "0xDEADBEEF"): &core.Cairo1Class{},
+		}))
 		assert.NotEqual(t, su.NewRoot, su.OldRoot)
 	})
 }
