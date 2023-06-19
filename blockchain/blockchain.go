@@ -113,10 +113,10 @@ func chainHeight(txn db.Transaction) (uint64, error) {
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
-	var head *core.Block
-	return head, b.database.View(func(txn db.Transaction) error {
+	var h *core.Block
+	return h, b.database.View(func(txn db.Transaction) error {
 		var err error
-		head, err = b.head(txn)
+		h, err = head(txn)
 		return err
 	})
 }
@@ -134,7 +134,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	})
 }
 
-func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
+func head(txn db.Transaction) (*core.Block, error) {
 	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
@@ -293,7 +293,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := b.verifyBlock(txn, block); err != nil {
+		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
@@ -327,11 +327,11 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {
-		return b.verifyBlock(txn, block)
+		return verifyBlock(txn, block)
 	})
 }
 
-func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
+func verifyBlock(txn db.Transaction, block *core.Block) error {
 	if err := checkBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
@@ -339,10 +339,10 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 	expectedBlockNumber := uint64(0)
 	expectedParentHash := &felt.Zero
 
-	head, err := b.head(txn)
+	h, err := head(txn)
 	if err == nil {
-		expectedBlockNumber = head.Number + 1
-		expectedParentHash = head.Hash
+		expectedBlockNumber = h.Number + 1
+		expectedParentHash = h.Hash
 	} else if !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
@@ -718,11 +718,11 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFil
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
 	return b.database.Update(func(txn db.Transaction) error {
-		return b.revertHead(txn)
+		return revertHead(txn)
 	})
 }
 
-func (b *Blockchain) revertHead(txn db.Transaction) error {
+func revertHead(txn db.Transaction) error {
 	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
@@ -801,12 +801,12 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		expectedParent := new(felt.Felt)
 		expectedOldRoot := new(felt.Felt)
-		head, err := b.head(txn)
+		h, err := head(txn)
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		} else if err == nil {
-			expectedParent = head.Hash
-			expectedOldRoot = head.GlobalStateRoot
+			expectedParent = h.Hash
+			expectedOldRoot = h.GlobalStateRoot
 		}
 
 		if !expectedParent.Equal(pending.Block.ParentHash) || !expectedOldRoot.Equal(pending.StateUpdate.OldRoot) {
