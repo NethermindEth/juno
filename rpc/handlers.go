@@ -887,9 +887,9 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L39
 // Note: The gateway expects the sierra_program to be gzip compressed and 64-base encoded. We perform this operation,
 // and then relay the transaction to the gateway.
-func (h *Handler) AddDeclareTransaction(declareTx *json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
-	var request map[string]interface{}
-	err := json.Unmarshal([]byte(*declareTx), &request)
+func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
+	var request map[string]any
+	err := json.Unmarshal(declareTx, &request)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
@@ -909,7 +909,7 @@ func (h *Handler) AddDeclareTransaction(declareTx *json.RawMessage) (*DeclareTxR
 			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
 
-		gwSierraProg, errIn := utils.Gzip64Encode(&sierraProgBytes)
+		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
 		if errIn != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
@@ -920,11 +920,10 @@ func (h *Handler) AddDeclareTransaction(declareTx *json.RawMessage) (*DeclareTxR
 		if errIn != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
-		modTx := json.RawMessage(updatedReq)
-		declareTx = &modTx
+		declareTx = updatedReq
 	}
 
-	resp, err := h.gatewayClient.AddTransaction(*declareTx)
+	resp, err := h.gatewayClient.AddTransaction(declareTx)
 	if err != nil {
 		if strings.Contains(err.Error(), "Invalid contract class") {
 			return nil, ErrInvlaidContractClass

@@ -6,10 +6,10 @@ import (
 	"encoding/base64"
 )
 
-func Gzip64Encode(data *[]byte) (string, error) {
+func Gzip64Encode(data []byte) (string, error) {
 	var compressedBuffer bytes.Buffer
 	gzipWriter := gzip.NewWriter(&compressedBuffer)
-	if _, err := gzipWriter.Write(*data); err != nil {
+	if _, err := gzipWriter.Write(data); err != nil {
 		return "", err
 	}
 	if err := gzipWriter.Close(); err != nil {
