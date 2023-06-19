@@ -305,7 +305,8 @@ func TestClient(t *testing.T) {
 
 			ctrl := gomock.NewController(t)
 			nopLog := utils.NewNopZapLogger()
-			chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, nopLog)
+			network := utils.MAINNET
+			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 			client := NewClient(nil, chain, tt.confirmationPeriod, nopLog)
 
 			// We loop over each block and check that the state of the chain aligns with our expectations.
@@ -329,6 +330,12 @@ func TestClient(t *testing.T) {
 						sink <- block.Header()
 					}).
 					Return(newFakeSubscription(), nil).
+					Times(1)
+
+				subscriber.
+					EXPECT().
+					ChainID(gomock.Any()).
+					Return(network.DefaultL1ChainID(), nil).
 					Times(1)
 
 				// Replace the subscriber.
@@ -360,7 +367,8 @@ func TestUnreliableSubscription(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, nopLog)
+	network := utils.MAINNET
+	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 	client := NewClient(nil, chain, 3, nopLog)
 
 	err := errors.New("test err")
@@ -389,6 +397,12 @@ func TestUnreliableSubscription(t *testing.T) {
 			Return(successUpdateSub, nil).
 			Times(1).
 			After(failedUpdateCall)
+
+		subscriber.
+			EXPECT().
+			ChainID(gomock.Any()).
+			Return(network.DefaultL1ChainID(), nil).
+			Times(1)
 
 		failedHeaderSub := newFakeSubscription(err)
 		failedHeaderCall := subscriber.

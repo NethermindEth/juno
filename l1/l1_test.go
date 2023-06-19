@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -38,7 +39,7 @@ func (s *fakeSubscription) Unsubscribe() {
 	}
 }
 
-func TestGracefulErrorHandling(t *testing.T) {
+func TestFailedSubscription(t *testing.T) {
 	t.Parallel()
 
 	err := errors.New("test error")
@@ -65,9 +66,10 @@ func TestGracefulErrorHandling(t *testing.T) {
 		t.Run(tt.description, func(t *testing.T) {
 			t.Parallel()
 
+			network := utils.MAINNET
 			ctrl := gomock.NewController(t)
 			nopLog := utils.NewNopZapLogger()
-			chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, nopLog)
+			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
 			subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -88,9 +90,74 @@ func TestGracefulErrorHandling(t *testing.T) {
 				Return(tt.watchHeaderRets...).
 				AnyTimes()
 
+			subscriber.
+				EXPECT().
+				ChainID(gomock.Any()).
+				Return(network.DefaultL1ChainID(), nil).
+				Times(1)
+
 			client := l1.NewClient(subscriber, chain, 0, nopLog)
 
 			require.ErrorIs(t, client.Run(context.Background()), err)
 		})
 	}
+}
+
+func TestChainID(t *testing.T) {
+	t.Parallel()
+
+	helper := func(t *testing.T, matching bool) error {
+		t.Helper()
+
+		network := utils.MAINNET
+		ctrl := gomock.NewController(t)
+		nopLog := utils.NewNopZapLogger()
+		chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
+
+		subscriber := mocks.NewMockSubscriber(ctrl)
+
+		subscriber.
+			EXPECT().
+			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+			Return(newFakeSubscription(), nil).
+			AnyTimes()
+
+		subscriber.
+			EXPECT().
+			WatchHeader(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, sink chan<- *types.Header) {
+				sink <- &types.Header{
+					Number: new(big.Int),
+				}
+			}).
+			Return(newFakeSubscription(), nil).
+			AnyTimes()
+
+		l1ChainID := new(big.Int)
+		if matching {
+			l1ChainID.Set(network.DefaultL1ChainID())
+		}
+
+		subscriber.
+			EXPECT().
+			ChainID(gomock.Any()).
+			Return(l1ChainID, nil).
+			Times(1)
+
+		client := l1.NewClient(subscriber, chain, 0, nopLog)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		return client.Run(ctx)
+	}
+
+	t.Run("matching chain IDs", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, helper(t, true))
+	})
+
+	t.Run("mismatched chain IDs", func(t *testing.T) {
+		t.Parallel()
+		require.Error(t, helper(t, false))
+	})
 }
