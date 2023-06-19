@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding"
 	"errors"
+	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
@@ -106,6 +107,20 @@ func (n Network) ChainID() *felt.Felt {
 		// Should not happen.
 		panic(ErrUnknownNetwork)
 	}
+}
+
+func (n Network) DefaultL1ChainID() *big.Int {
+	var chainID int64
+	switch n {
+	case MAINNET:
+		chainID = 1
+	case GOERLI, GOERLI2, INTEGRATION:
+		chainID = 5
+	default:
+		// Should not happen.
+		panic(ErrUnknownNetwork)
+	}
+	return big.NewInt(chainID)
 }
 
 func (n Network) CoreContractAddress() (common.Address, error) {

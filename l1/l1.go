@@ -3,6 +3,7 @@ package l1
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -18,6 +19,7 @@ import (
 type Subscriber interface {
 	WatchHeader(ctx context.Context, sink chan<- *types.Header) (event.Subscription, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
+	ChainID(ctx context.Context) (*big.Int, error)
 }
 
 type Client struct {
@@ -25,6 +27,7 @@ type Client struct {
 	l2Chain           *blockchain.Blockchain
 	log               utils.SimpleLogger
 	confirmationQueue *queue
+	network           utils.Network
 }
 
 var _ service.Service = (*Client)(nil)
@@ -34,6 +37,7 @@ func NewClient(l1 Subscriber, chain *blockchain.Blockchain, confirmationPeriod u
 		l1:                l1,
 		l2Chain:           chain,
 		log:               log,
+		network:           chain.Network(),
 		confirmationQueue: newQueue(confirmationPeriod),
 	}
 }
@@ -56,7 +60,27 @@ func (c *Client) subscribeToUpdates(ctx context.Context,
 	return sub, nil
 }
 
+func (c *Client) checkChainID(ctx context.Context) error {
+	gotChainID, err := c.l1.ChainID(ctx)
+	if err != nil {
+		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
+	}
+
+	wantChainID := c.network.DefaultL1ChainID()
+	if gotChainID.Cmp(wantChainID) == 0 {
+		return nil
+	}
+
+	// NOTE: for now we return an error. If we want to support users who fork
+	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
+	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
+}
+
 func (c *Client) Run(ctx context.Context) error {
+	if err := c.checkChainID(ctx); err != nil {
+		return err
+	}
+
 	buffer := 128
 
 	logStateUpdateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
