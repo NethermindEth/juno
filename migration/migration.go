@@ -129,14 +129,14 @@ func relocateContractStorageRootKeys(txn db.Transaction) error {
 		contractAddress, found := bytes.CutPrefix(oldKeyBytes, oldPrefix)
 		if !found {
 			// Should not happen.
-			return db.CloseAndWrapOnError(it.Close, errors.New("prefix not found"))
+			return errors.New("prefix not found")
 		}
 
 		if err := txn.Set(db.ContractStorage.Key(contractAddress), value); err != nil {
-			return db.CloseAndWrapOnError(it.Close, err)
+			return err
 		}
 		if err := txn.Delete(oldKeyBytes); err != nil {
-			return db.CloseAndWrapOnError(it.Close, err)
+			return err
 		}
 	}
 
