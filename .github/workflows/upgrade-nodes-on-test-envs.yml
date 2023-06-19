@@ -46,7 +46,7 @@ jobs:
     
     - name: Remove old Juno containers and start new ones
       if: steps.wait-for-build.outputs.conclusion == 'success'
-      uses: appleboy/ssh-action@v0.1.8
+      uses: appleboy/ssh-action@v0.1.10
       with:
         host: ${{ env.HOST }}
         username: ${{ secrets.VM_USERNAME }}
@@ -68,6 +68,6 @@ jobs:
                     --colour=false \
                     --eth-node ${{ secrets.ETH_NODE }} \
                     $(if [ "$network" = "mainnet" ]; then echo "--pprof"; fi)
-                port=$((port+1))
-                setsid sh -c "docker logs -f juno_$network >> /var/log/juno_logs_$network.log 2>&1" &
+            port=$((port+1))
+            nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
