@@ -348,10 +348,6 @@ func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	var program feeder.Program
-	if err := json.Unmarshal(response.Program, &program); err != nil {
-		return nil, err
-	}
 	respProgBytes, err := response.Program.MarshalJSON()
 	if err != nil {
 		return nil, err
