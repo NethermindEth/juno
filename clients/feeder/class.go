@@ -11,34 +11,6 @@ type EntryPoint struct {
 	Offset   *felt.Felt `json:"offset"`
 }
 
-type (
-	Hints       map[uint64]interface{}
-	Identifiers map[string]struct {
-		CairoType   string         `json:"cairo_type,omitempty"`
-		Decorators  *[]interface{} `json:"decorators,omitempty"`
-		Destination string         `json:"destination,omitempty"`
-		FullName    string         `json:"full_name,omitempty"`
-		Members     *interface{}   `json:"members,omitempty"`
-		Pc          *uint64        `json:"pc,omitempty"`
-		References  *[]interface{} `json:"references,omitempty"`
-		Size        *uint64        `json:"size,omitempty"`
-		Type        string         `json:"type,omitempty"`
-		Value       json.Number    `json:"value,omitempty"`
-	}
-	Program struct {
-		Attributes       interface{} `json:"attributes,omitempty"`
-		Builtins         []string    `json:"builtins"`
-		CompilerVersion  string      `json:"compiler_version,omitempty"`
-		Data             []string    `json:"data"`
-		DebugInfo        interface{} `json:"debug_info"`
-		Hints            Hints       `json:"hints"`
-		Identifiers      Identifiers `json:"identifiers"`
-		MainScope        interface{} `json:"main_scope"`
-		Prime            string      `json:"prime"`
-		ReferenceManager interface{} `json:"reference_manager"`
-	}
-)
-
 type SierraDefinition struct {
 	Abi         string `json:"abi"`
 	EntryPoints struct {
