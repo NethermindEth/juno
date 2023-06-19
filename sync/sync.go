@@ -63,7 +63,6 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 			}
 
 			if block == nil {
-				fmt.Println("No block found for number %d", height)
 				select {
 				case <-ctx.Done():
 				case <-time.After(time.Second):

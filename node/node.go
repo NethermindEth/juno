@@ -206,7 +206,12 @@ func (n *Node) Run(ctx context.Context) {
 		}
 
 		if n.cfg.P2PSync {
-			starkdata = p2p.NewStarknetDataAdapter(starkdata, p2pClient, n.blockchain)
+			blockSyncProvider, err := p2pClient.CreateBlockSyncProvider(ctx)
+			if err != nil {
+				panic(err)
+			}
+
+			starkdata = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain)
 		}
 	}
 

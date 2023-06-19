@@ -15,7 +15,7 @@ import (
 
 type StartnetDataAdapter struct {
 	base      starknetdata.StarknetData
-	p2p       P2P
+	p2p       BlockSyncPeerManager
 	network   utils.Network
 	converter converter
 
@@ -25,7 +25,7 @@ type StartnetDataAdapter struct {
 	classesLru *simplelru.LRU
 }
 
-func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p P2P, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
+func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerManager, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
 	lru, err := simplelru.NewLRU(16000, func(key interface{}, value interface{}) {})
 	if err != nil {
 		panic(err)

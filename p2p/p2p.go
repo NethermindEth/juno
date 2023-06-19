@@ -9,23 +9,17 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 	"os"
 	"reflect"
 	"strings"
@@ -33,119 +27,12 @@ import (
 	"time"
 )
 
-const blockSyncProto = "/core/blocks-sync/1"
-
-type P2P interface {
-	GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error)
-	GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error)
-	GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error)
-}
-
 type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
-	converter  *converter
-	verifier   *verifier
 
-	blockSyncPeers []peer.ID
-
-	syncPeerMtx          *sync.Mutex
-	syncPeerUpdateChan   chan int
-	pickedBlockSyncPeers map[peer.ID]int
-
-	network utils.Network
-
-	lruMutex               *sync.Mutex
-	headerByBlockNumberLru *simplelru.LRU
-}
-
-func (ip *P2PImpl) GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error) {
-	// Ideally, it should pass the block number. but we'll just wing it here for now.
-	header, err := ip.getHeaderByBlockNumber(ctx, number)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to determine blockhash for block number %d", number)
-	}
-
-	response, err := ip.sendBlockSyncRequest(ctx,
-		&p2pproto.Request{
-			Request: &p2pproto.Request_GetStateDiffs{
-				GetStateDiffs: &p2pproto.GetStateDiffs{
-					StartBlock: header.Hash,
-					Count:      1,
-					SizeLimit:  1,
-					Direction:  0,
-				},
-			},
-		})
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to fetch state diff")
-	}
-
-	stateUpdates := response.GetStateDiffs().GetBlockStateUpdates()
-	if len(stateUpdates) != 1 {
-		return nil, errors.New("unable tow fetch state diff. Empty response.")
-	}
-
-	coreStateUpdate := protobufStateUpdateToCoreStateUpdate(stateUpdates[0])
-
-	// Verification need these
-	oldRoot := &felt.Zero // TODO: genesis have root maybe?
-	if number != 0 {
-		// Ah.. great.
-		parentHeader, err := ip.getHeaderByBlockNumber(ctx, number-1)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to determine parent block state for block number %d", number)
-		}
-
-		oldRoot = fieldElementToFelt(parentHeader.GlobalStateRoot)
-	}
-	coreStateUpdate.BlockHash = fieldElementToFelt(header.Hash)
-	coreStateUpdate.NewRoot = fieldElementToFelt(header.GlobalStateRoot)
-	coreStateUpdate.OldRoot = oldRoot
-
-	return coreStateUpdate, nil
-}
-
-func (ip *P2PImpl) getHeaderByBlockNumber(ctx context.Context, number uint64) (*p2pproto.BlockHeader, error) {
-	ip.lruMutex.Lock()
-	cachedHeader, ok := ip.headerByBlockNumberLru.Get(number)
-	ip.lruMutex.Unlock()
-	if ok {
-		return cachedHeader.(*p2pproto.BlockHeader), nil
-	}
-
-	request := &p2pproto.GetBlockHeaders{
-		StartBlock: &p2pproto.GetBlockHeaders_BlockNumber{
-			BlockNumber: number,
-		},
-		Count: 1,
-	}
-
-	headerResponse, err := ip.sendBlockSyncRequest(ctx,
-		&p2pproto.Request{
-			Request: &p2pproto.Request_GetBlockHeaders{
-				GetBlockHeaders: request,
-			},
-		})
-
-	if err != nil {
-		return nil, err
-	}
-
-	blockHeaders := headerResponse.GetBlockHeaders().GetHeaders()
-	if blockHeaders == nil {
-		return nil, fmt.Errorf("block headers is nil")
-	}
-
-	if len(blockHeaders) != 1 {
-		return nil, fmt.Errorf("unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
-	}
-
-	ip.lruMutex.Lock()
-	defer ip.lruMutex.Unlock()
-	ip.headerByBlockNumberLru.Add(number, blockHeaders[0])
-
-	return blockHeaders[0], nil
+	network    utils.Network
+	blockchain *blockchain.Blockchain
 }
 
 func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
@@ -177,7 +64,6 @@ func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
 
 	return nil
 }
-
 func (ip *P2PImpl) setupIdentity(ctx context.Context) error {
 	idservice, err := identify.NewIDService(ip.host)
 	if err != nil {
@@ -185,32 +71,6 @@ func (ip *P2PImpl) setupIdentity(ctx context.Context) error {
 	}
 
 	go idservice.Start()
-
-	sub, err := ip.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		for evt := range sub.Out() {
-			evt := evt.(event.EvtPeerIdentificationCompleted)
-
-			protocols, err := ip.host.Peerstore().GetProtocols(evt.Peer)
-			if err != nil {
-				fmt.Printf("Error %v\n", err)
-				continue
-			}
-
-			fmt.Printf("The protocols for %v is %+v\n", evt.Peer, protocols)
-
-			if slices.Contains(protocols, blockSyncProto) && !slices.Contains(ip.blockSyncPeers, evt.Peer) {
-				ip.blockSyncPeers = append(ip.blockSyncPeers, evt.Peer)
-				select {
-				case ip.syncPeerUpdateChan <- 0:
-				default:
-				}
-			}
-		}
-	}()
 
 	return nil
 }
@@ -237,6 +97,8 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 	dhtinstance, err := dht.New(ctx, ip.host,
 		dht.ProtocolPrefix("/pathfinder/kad/1.0.0"),
 		dht.BootstrapPeers(bootPeers...),
+		dht.RoutingTableRefreshPeriod(10*time.Second),
+		dht.Mode(dht.ModeServer),
 	)
 
 	ctx, events := dht.RegisterForLookupEvents(ctx)
@@ -254,205 +116,60 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 		return err
 	}
 
-	return nil
-}
-
-func (ip *P2PImpl) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error) {
-	request := &p2pproto.GetBlockHeaders{
-		StartBlock: &p2pproto.GetBlockHeaders_BlockNumber{
-			BlockNumber: number,
-		},
-		Count: 1,
-	}
-
-	return ip.getBlockByHeaderRequest(ctx, request)
-}
-
-func (ip *P2PImpl) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error) {
-	request := &p2pproto.GetBlockHeaders{
-		StartBlock: &p2pproto.GetBlockHeaders_BlockHash{
-			BlockHash: feltToFieldElement(hash),
-		},
-		Count: 1,
-	}
-
-	return ip.getBlockByHeaderRequest(ctx, request)
-}
-
-func (ip *P2PImpl) getBlockByHeaderRequest(ctx context.Context, headerRequest *p2pproto.GetBlockHeaders) (*core.Block, map[felt.Felt]core.Class, error) {
-	// The core block need both header and block to build. So.. kinda cheating here as it fetch both header and body.
-	headerResponse, err := ip.sendBlockSyncRequest(ctx,
-		&p2pproto.Request{
-			Request: &p2pproto.Request_GetBlockHeaders{
-				GetBlockHeaders: headerRequest,
-			},
-		})
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	blockHeaders := headerResponse.GetBlockHeaders().GetHeaders()
-	if len(blockHeaders) == 0 {
-		return nil, nil, nil
-	}
-
-	if len(blockHeaders) != 1 {
-		return nil, nil, fmt.Errorf("unexpected number of block headers. Expected: 1, Actual: %d", len(blockHeaders))
-	}
-
-	header := blockHeaders[0]
-
-	ip.lruMutex.Lock()
-	ip.headerByBlockNumberLru.Add(header.BlockNumber, header)
-	ip.lruMutex.Unlock()
-
-	response, err := ip.sendBlockSyncRequest(ctx, &p2pproto.Request{
-		Request: &p2pproto.Request_GetBlockBodies{
-			GetBlockBodies: &p2pproto.GetBlockBodies{
-				StartBlock: header.Hash,
-				Count:      1,
-				SizeLimit:  1,
-				Direction:  p2pproto.Direction_FORWARD,
-			},
-		},
-	})
-
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to request body from peer")
-	}
-
-	bodies := response.GetBlockBodies().GetBlockBodies()
-	if len(bodies) < 1 {
-		return nil, nil, errors.New("unable to fetch body")
-	}
-
-	body := bodies[0]
-	block, declaredClasses, err := ip.converter.protobufHeaderAndBodyToCoreBlock(header, body)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to convert to core body")
-	}
-
-	err = ip.verifier.VerifyBlock(block)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "block verification failed")
-	}
-
-	for classHash, class := range declaredClasses {
-		err = ip.verifier.VerifyClass(class, &classHash)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "class verification failed")
-		}
-	}
-
-	return block, declaredClasses, nil
-}
-
-func (ip *P2PImpl) sendBlockSyncRequest(ctx context.Context, request *p2pproto.Request) (*p2pproto.Response, error) {
-	p, err := ip.pickBlockSyncPeer(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer ip.releaseBlockSyncPeer(p)
-
-	stream, err := ip.host.NewStream(ctx, *p, blockSyncProto)
-	if err != nil {
-		return nil, err
-	}
-	defer func(stream network.Stream) {
-		err := stream.Close()
-		if err != nil {
-			fmt.Printf("Error closing stream %s", err)
-		}
-	}(stream)
-
-	err = writeCompressedProtobuf(stream, request)
-	if err != nil {
-		return nil, err
-	}
-	err = stream.CloseWrite()
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &p2pproto.Response{}
-	err = readCompressedProtobuf(stream, resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func (ip *P2PImpl) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
-	for {
-		p := ip.pickBlockSyncPeerNoWait()
-		if p != nil {
-			return p, nil
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Second):
-		case <-ip.syncPeerUpdateChan:
-		}
-	}
-}
-
-func (ip *P2PImpl) pickBlockSyncPeerNoWait() *peer.ID {
-	maxConcurrentRequestPerPeer := 32
-	ip.syncPeerMtx.Lock()
-	defer ip.syncPeerMtx.Unlock()
-	for _, p := range ip.blockSyncPeers {
-		if ip.pickedBlockSyncPeers[p] < maxConcurrentRequestPerPeer {
-			ip.pickedBlockSyncPeers[p] += 1
-			return &p
-		}
-	}
+	dhtinstance.Process()
 
 	return nil
 }
 
-func (ip *P2PImpl) releaseBlockSyncPeer(id *peer.ID) {
-	ip.syncPeerMtx.Lock()
-	defer ip.syncPeerMtx.Unlock()
+func determineKey() (crypto.PrivKey, error) {
+	var prvKey crypto.PrivKey
+	var err error
 
-	ip.pickedBlockSyncPeers[*id] -= 1
-
-	select {
-	case ip.syncPeerUpdateChan <- 0:
-	default:
-	}
-}
-
-func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log utils.SimpleLogger) (P2P, error) {
-	lru, err := simplelru.NewLRU(1000, func(key interface{}, value interface{}) {})
 	if err != nil {
 		return nil, err
 	}
 
+	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
+	if !ok {
+		// Creates a new key pair for this host.
+		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+
+		prvKeyBytes, err := crypto.MarshalPrivateKey(prvKey)
+		if err != nil {
+			return nil, err
+		}
+
+		privKeyStr = hex.EncodeToString(prvKeyBytes)
+		fmt.Printf("Generated a new key. P2P_PRIVATE_KEY=%s\n", privKeyStr)
+	} else {
+		privKeyBytes, err := hex.DecodeString(privKeyStr)
+		if err != nil {
+			return nil, err
+		}
+
+		prvKey, err = crypto.UnmarshalPrivateKey(privKeyBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return prvKey, err
+}
+func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log utils.SimpleLogger) (*P2PImpl, error) {
 	ctx := context.Background()
 	converter := NewConverter(&blockchainClassProvider{
 		blockchain: blockchain,
 	})
 	impl := P2PImpl{
+		blockchain: blockchain,
 		syncServer: blockSyncServer{
 			blockchain: blockchain,
 			converter:  converter,
 			log:        log,
 		},
-		converter: converter,
-		verifier: &verifier{
-			network: blockchain.Network(),
-		},
-
-		syncPeerMtx:          &sync.Mutex{},
-		syncPeerUpdateChan:   make(chan int),
-		pickedBlockSyncPeers: map[peer.ID]int{},
-
-		lruMutex:               &sync.Mutex{},
-		headerByBlockNumberLru: lru,
 	}
 
 	prvKey, err := determineKey()
@@ -531,89 +248,16 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 	return &impl, nil
 }
 
-func runBlockEncodingTests(blockchain *blockchain.Blockchain, err error) (P2P, error) {
-	head, err := blockchain.Head()
-	if err != nil {
-		return nil, err
+func (ip *P2PImpl) CreateBlockSyncProvider(ctx context.Context) (BlockSyncPeerManager, error) {
+	peerManager := p2pPeerPoolManager{
+		p2p:                  ip,
+		protocol:             blockSyncProto,
+		blockSyncPeers:       make([]peer.ID, 0),
+		syncPeerMtx:          &sync.Mutex{},
+		syncPeerUpdateChan:   make(chan int),
+		pickedBlockSyncPeers: map[peer.ID]int{},
 	}
 
-	blocknumchan := make(chan int)
-
-	threadcount := 32
-	wg := sync.WaitGroup{}
-	wg.Add(threadcount)
-	for i := 0; i < threadcount; i++ {
-		go func() {
-			defer wg.Done()
-			for i := range blocknumchan {
-				fmt.Printf("Running on block %d\n", i)
-
-				block, err := blockchain.BlockByNumber(uint64(i))
-				if err != nil {
-					panic(err)
-				}
-
-				err = testBlockEncoding(block, blockchain)
-				if err != nil {
-					panic(err)
-				}
-
-				update, err := blockchain.StateUpdateByNumber(uint64(i))
-				if err != nil {
-					panic(err)
-				}
-
-				err = testStateDiff(update)
-				if err != nil {
-					panic(err)
-				}
-			}
-		}()
-	}
-
-	startblock := 4800
-	for i := startblock; i < int(head.Number); i++ {
-		blocknumchan <- i
-	}
-	close(blocknumchan)
-	wg.Wait()
-	return nil, nil
-}
-
-func determineKey() (crypto.PrivKey, error) {
-	var prvKey crypto.PrivKey
-	var err error
-
-	if err != nil {
-		return nil, err
-	}
-
-	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
-	if !ok {
-		// Creates a new key pair for this host.
-		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
-		if err != nil {
-			return nil, err
-		}
-
-		prvKeyBytes, err := crypto.MarshalPrivateKey(prvKey)
-		if err != nil {
-			return nil, err
-		}
-
-		privKeyStr = hex.EncodeToString(prvKeyBytes)
-		fmt.Printf("Generated a new key. P2P_PRIVATE_KEY=%s\n", privKeyStr)
-	} else {
-		privKeyBytes, err := hex.DecodeString(privKeyStr)
-		if err != nil {
-			return nil, err
-		}
-
-		prvKey, err = crypto.UnmarshalPrivateKey(privKeyBytes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return prvKey, err
+	go peerManager.Start(ctx)
+	return NewBlockSyncPeerManager(ctx, peerManager.OpenStream, ip.blockchain)
 }

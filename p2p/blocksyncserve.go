@@ -87,6 +87,11 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 	var startblock *core.Block
 	felt := fieldElementToFelt(request.StartBlock)
 	startblock, err = s.blockchain.BlockByHash(felt)
+	if err == db.ErrKeyNotFound {
+		return &p2pproto.BlockBodies{
+			BlockBodies: []*p2pproto.BlockBody{},
+		}, nil
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get block by hash %s", felt)
 	}
@@ -124,6 +129,11 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 func (s *blockSyncServer) HandleGetStateDiff(request *p2pproto.GetStateDiffs) (*p2pproto.StateDiffs, error) {
 	felt := fieldElementToFelt(request.StartBlock)
 	blockheader, err := s.blockchain.BlockHeaderByHash(felt)
+	if err == db.ErrKeyNotFound {
+		return &p2pproto.StateDiffs{
+			BlockStateUpdates: []*p2pproto.StateDiffs_BlockStateUpdateWithHash{},
+		}, nil
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get block number by hash %s", felt)
 	}
