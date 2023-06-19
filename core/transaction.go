@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -241,7 +240,7 @@ var (
 )
 
 func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
-	return fmt.Errorf("invalid Transaction (type: %v) version: %v", reflect.TypeOf(t), version.Text(felt.Base10))
+	return fmt.Errorf("invalid Transaction (type: %T) version: %v", t, version.Text(felt.Base10))
 }
 
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
@@ -356,10 +355,10 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 	for _, t := range txs {
 		calculatedTxHash, hErr := transactionHash(t, n)
 		if hErr != nil {
-			return fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %v", t.Hash().String(), hErr.Error())
+			return fmt.Errorf("cannot calculate transaction hash of Transaction %s, reason: %w", t.Hash(), hErr)
 		}
 		if !calculatedTxHash.Equal(t.Hash()) {
-			return fmt.Errorf("cannot verify transaction hash of Transaction %v", t.Hash().String())
+			return fmt.Errorf("cannot verify transaction hash of Transaction %s", t.Hash())
 		}
 	}
 	return nil
