@@ -57,6 +57,11 @@ jobs:
             for network in mainnet goerli goerli2; do
                 docker stop juno_$network
                 docker rm juno_$network
+                if [ "$network" == "mainnet" ]; then
+                    ETH_NODE=${{ secrets.ETH_NODE_MAINNET }}
+                else
+                    ETH_NODE=${{ secrets.ETH_NODE_GOERLI }}
+                fi
                 docker run -d \
                     --name juno_$network \
                     -p $port:$port \
@@ -66,8 +71,8 @@ jobs:
                     --rpc-port $port \
                     --network $network \
                     --colour=false \
-                    --eth-node ${{ secrets.ETH_NODE }} \
+                    --eth-node $ETH_NODE \
                     $(if [ "$network" = "mainnet" ]; then echo "--pprof"; fi)
-            port=$((port+1))
-            nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
+                port=$((port+1))
+                nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
