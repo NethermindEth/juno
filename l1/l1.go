@@ -144,22 +144,29 @@ func (c *Client) Run(ctx context.Context) error {
 				}
 			}
 
-			// Set the chain head to the max confirmed log, if it exists.
-			if maxConfirmed := c.confirmationQueue.MaxConfirmed(l1Height); maxConfirmed != nil {
-				head := &core.L1Head{
-					BlockNumber: maxConfirmed.BlockNumber.Uint64(),
-					BlockHash:   new(felt.Felt).SetBigInt(maxConfirmed.BlockHash),
-					StateRoot:   new(felt.Felt).SetBigInt(maxConfirmed.GlobalRoot),
-				}
-				if err := c.l2Chain.SetL1Head(head); err != nil {
-					return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
-				}
-				c.confirmationQueue.Remove(maxConfirmed.Raw.BlockNumber)
-				c.log.Infow("Updated l1 head",
-					"blockNumber", head.BlockNumber,
-					"blockHash", head.BlockHash.ShortString(),
-					"stateRoot", head.StateRoot.ShortString())
+			if err := c.setL1Height(l1Height); err != nil {
+				return err
 			}
 		}
 	}
+}
+
+func (c *Client) setL1Height(l1Height uint64) error {
+	// Set the chain head to the max confirmed log, if it exists.
+	if maxConfirmed := c.confirmationQueue.MaxConfirmed(l1Height); maxConfirmed != nil {
+		head := &core.L1Head{
+			BlockNumber: maxConfirmed.BlockNumber.Uint64(),
+			BlockHash:   new(felt.Felt).SetBigInt(maxConfirmed.BlockHash),
+			StateRoot:   new(felt.Felt).SetBigInt(maxConfirmed.GlobalRoot),
+		}
+		if err := c.l2Chain.SetL1Head(head); err != nil {
+			return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
+		}
+		c.confirmationQueue.Remove(maxConfirmed.Raw.BlockNumber)
+		c.log.Infow("Updated l1 head",
+			"blockNumber", head.BlockNumber,
+			"blockHash", head.BlockHash.ShortString(),
+			"stateRoot", head.StateRoot.ShortString())
+	}
+	return nil
 }
