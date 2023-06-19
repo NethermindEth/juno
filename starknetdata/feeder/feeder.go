@@ -348,12 +348,7 @@ func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	respProgBytes, err := response.Program.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	base64Program, err := utils.Gzip64Encode(&respProgBytes)
+	base64Program, err := utils.Gzip64Encode(response.Program)
 	if err != nil {
 		return nil, err
 	}

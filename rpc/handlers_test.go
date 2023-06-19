@@ -1682,7 +1682,7 @@ func TestAddDeclareTransaction(t *testing.T) {
 
 		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwDeclareTxV2)).Return(expectedDeclareRespB, nil)
 
-		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+		resp, handlerErr := handler.AddDeclareTransaction(tx)
 
 		require.Nil(t, handlerErr)
 		assert.Equal(t, *expectedDeclareResp, *resp)
@@ -1700,7 +1700,7 @@ func TestAddDeclareTransaction(t *testing.T) {
 
 		mockGateway.EXPECT().AddTransaction(json.RawMessage(declareTxV1)).Return(expectedDeclareRespB, nil)
 
-		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+		resp, handlerErr := handler.AddDeclareTransaction(tx)
 
 		require.Nil(t, handlerErr)
 		assert.Equal(t, *expectedDeclareResp, *resp)
@@ -1717,7 +1717,7 @@ func TestAddDeclareTransaction(t *testing.T) {
 
 		mockGateway.EXPECT().AddTransaction(tx).Return(nil, errors.New("{'type': ['Missing data for required field.']}"))
 
-		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+		resp, handlerErr := handler.AddDeclareTransaction(tx)
 		require.Nil(t, resp)
 		assert.Equal(t, expectedErr, *handlerErr)
 	})
@@ -1727,7 +1727,7 @@ func TestAddDeclareTransaction(t *testing.T) {
 
 		mockGateway.EXPECT().AddTransaction(tx).Return(nil, errors.New("Invalid contract class"))
 
-		resp, handlerErr := handler.AddDeclareTransaction(&tx)
+		resp, handlerErr := handler.AddDeclareTransaction(tx)
 		require.Nil(t, resp)
 		assert.Equal(t, *rpc.ErrInvlaidContractClass, *handlerErr)
 	})
