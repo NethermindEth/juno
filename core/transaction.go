@@ -348,7 +348,7 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 
 	// blockVersion < 0.11.0
 	// only start verifying transaction hashes after 0.11.0
-	if blockVersion.Compare(semver.MustParse("0.11.0")) == -1 {
+	if blockVersion.LessThan(semver.MustParse("0.11.0")) {
 		return nil
 	}
 
