@@ -116,8 +116,6 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 		return err
 	}
 
-	dhtinstance.Process()
-
 	return nil
 }
 

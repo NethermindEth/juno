@@ -28,6 +28,7 @@ const (
 	ContractDeploymentHeight
 	L1Height
 	SchemaVersion
+	Pending
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

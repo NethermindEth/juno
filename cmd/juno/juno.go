@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
@@ -25,32 +26,38 @@ const greeting = `
 Juno is a Go implementation of a Starknet full node client created by Nethermind.`
 
 const (
-	configF   = "config"
-	logLevelF = "log-level"
-	rpcPortF  = "rpc-port"
-	dbPathF   = "db-path"
-	networkF  = "network"
-	ethNodeF  = "eth-node"
-	pprofF    = "pprof"
-	colourF   = "colour"
+	configF              = "config"
+	logLevelF            = "log-level"
+	rpcPortF             = "rpc-port"
+	grpcPortF            = "grpc-port"
+	dbPathF              = "db-path"
+	networkF             = "network"
+	ethNodeF             = "eth-node"
+	pprofF               = "pprof"
+	colourF              = "colour"
+	pendingPollIntervalF = "pending-poll-interval"
 
-	defaultConfig  = ""
-	defaultRPCPort = uint16(6060)
-	defaultDBPath  = ""
-	defaultEthNode = ""
-	defaultPprof   = false
-	defaultColour  = true
+	defaultConfig              = ""
+	defaultRPCPort             = 6060
+	defaultGRPCPort            = 0
+	defaultDBPath              = ""
+	defaultEthNode             = ""
+	defaultPprof               = false
+	defaultColour              = true
+	defaultPendingPollInterval = time.Duration(0)
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
 	rpcPortUsage      = "The port on which the RPC server will listen for requests. " +
 		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	dbPathUsage  = "Location of the database files."
-	networkUsage = "Options: mainnet, goerli, goerli2, integration."
-	pprofUsage   = "Enables the pprof server and listens on port 9080."
-	colourUsage  = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	grpcPortUsage = "The port on which the gRPC server will listen for requests."
+	dbPathUsage   = "Location of the database files."
+	networkUsage  = "Options: mainnet, goerli, goerli2, integration."
+	pprofUsage    = "Enables the pprof server and listens on port 9080."
+	colourUsage   = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage  = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
+	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 )
 
 var Version string
@@ -69,7 +76,7 @@ func main() {
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("%s\n\n", greeting)
 
-		n, err := node.New(config)
+		n, err := node.New(config, Version)
 		if err != nil {
 			return err
 		}
@@ -118,7 +125,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
 		// encoding.TextUnmarshaller interface (see the LogLevel type for an example).
-		return v.Unmarshal(config, viper.DecodeHook(mapstructure.TextUnmarshallerHookFunc()))
+		return v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc())))
 	}
 
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
@@ -129,11 +137,13 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
+	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool("p2p", false, "Enable p2p serving")
 	junoCmd.Flags().String("p2pAddr", "", "Specify p2p source address")
 	junoCmd.Flags().Bool("p2pSync", false, "Enable p2p sync")

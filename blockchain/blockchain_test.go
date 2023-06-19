@@ -415,7 +415,15 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, err)
 		s, err := gw.StateUpdate(context.Background(), uint64(i))
 		require.NoError(t, err)
-		require.NoError(t, chain.Store(b, s, nil))
+
+		if b.Number < 6 {
+			require.NoError(t, chain.Store(b, s, nil))
+		} else {
+			require.NoError(t, chain.StorePending(&blockchain.Pending{
+				Block:       b,
+				StateUpdate: s,
+			}))
+		}
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
@@ -423,9 +431,9 @@ func TestEvents(t *testing.T) {
 
 		t.Run("block number", func(t *testing.T) {
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
-			require.Error(t, err)
+			require.NoError(t, err)
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, uint64(44))
-			require.Error(t, err)
+			require.NoError(t, err)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
@@ -440,7 +448,7 @@ func TestEvents(t *testing.T) {
 
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, []*felt.Felt{})
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}})
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
@@ -481,7 +489,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with keys", func(t *testing.T) {
 		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
-		filter, err := chain.EventFilter(from, []*felt.Felt{key})
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}})
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
@@ -495,6 +503,21 @@ func TestEvents(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, events, 1)
 		})
+		require.NoError(t, filter.Close())
+	})
+
+	t.Run("filter with not matching keys", func(t *testing.T) {
+		filter, err := chain.EventFilter(from, [][]felt.Felt{
+			{*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
+			{*utils.HexToFelt(t, "0xDEADBEEF")},
+		})
+		require.NoError(t, err)
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
+		events, cToken, err := filter.Events(nil, 10)
+		require.NoError(t, err)
+		require.Nil(t, cToken)
+		require.Empty(t, events)
 		require.NoError(t, filter.Close())
 	})
 }
@@ -593,4 +616,95 @@ func TestL1Update(t *testing.T) {
 			assert.Equal(t, head, got)
 		})
 	}
+}
+
+func TestPending(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	b, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	t.Run("store genesis as pending", func(t *testing.T) {
+		pendingGenesis := blockchain.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, chain.StorePending(&pendingGenesis))
+
+		gotPending, pErr := chain.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, pendingGenesis, gotPending)
+	})
+
+	t.Run("storing genesis as an accepted block should clear pending", func(t *testing.T) {
+		require.NoError(t, chain.Store(b, su, nil))
+		_, pErr := chain.Pending()
+		require.ErrorIs(t, pErr, db.ErrKeyNotFound)
+	})
+
+	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 2)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 2)
+		require.NoError(t, err)
+
+		notExpectedPending := blockchain.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.EqualError(t, chain.StorePending(&notExpectedPending), "pending block parent is not our local HEAD")
+	})
+
+	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+		_, _, err = chain.PendingState()
+		require.Error(t, err)
+	})
+
+	t.Run("store expected pending block", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 1)
+		require.NoError(t, err)
+
+		expectedPending := blockchain.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, chain.StorePending(&expectedPending))
+
+		gotPending, pErr := chain.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, expectedPending, gotPending)
+	})
+
+	t.Run("fetch a txn from pending block", func(t *testing.T) {
+		hash := utils.HexToFelt(t, "0x2f07a65f9f7a6445b2a0b1fb90ef12f5fd3b94128d06a67712efd3b2f163533")
+		tx, tErr := chain.TransactionByHash(hash)
+		require.NoError(t, tErr)
+		assert.Equal(t, hash, tx.Hash())
+		t.Run("receipt", func(t *testing.T) {
+			r, blockHash, blockNumber, rErr := chain.Receipt(hash)
+			require.NoError(t, rErr)
+			assert.Nil(t, blockHash)
+			assert.Zero(t, blockNumber)
+			assert.Equal(t, hash, r.TransactionHash)
+		})
+	})
+
+	t.Run("get pending state", func(t *testing.T) {
+		_, pendingStateCloser, pErr := chain.PendingState()
+		t.Cleanup(func() {
+			require.NoError(t, pendingStateCloser())
+		})
+		require.NoError(t, pErr)
+	})
 }

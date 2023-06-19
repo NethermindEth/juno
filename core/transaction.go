@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"reflect"
@@ -505,9 +506,10 @@ func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
 		for _, event := range receipt.Events {
 			fromBytes := event.From.Bytes()
 			filter.TestOrAdd(fromBytes[:])
-			for _, key := range event.Keys {
+			for index, key := range event.Keys {
 				keyBytes := key.Bytes()
-				filter.TestOrAdd(keyBytes[:])
+				keyAndIndexBytes := binary.AppendVarint(keyBytes[:], int64(index))
+				filter.TestOrAdd(keyAndIndexBytes)
 			}
 		}
 	}

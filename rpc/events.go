@@ -8,10 +8,10 @@ type EventsArg struct {
 }
 
 type EventFilter struct {
-	FromBlock *BlockID     `json:"from_block"`
-	ToBlock   *BlockID     `json:"to_block"`
-	Address   *felt.Felt   `json:"address"`
-	Keys      []*felt.Felt `json:"keys"`
+	FromBlock *BlockID      `json:"from_block"`
+	ToBlock   *BlockID      `json:"to_block"`
+	Address   *felt.Felt    `json:"address"`
+	Keys      [][]felt.Felt `json:"keys"`
 }
 
 type ResultPageRequest struct {
@@ -26,7 +26,7 @@ type EventsChunk struct {
 
 type EmittedEvent struct {
 	*Event
-	BlockNumber     uint64     `json:"block_number"`
-	BlockHash       *felt.Felt `json:"block_hash"`
+	BlockNumber     *uint64    `json:"block_number,omitempty"`
+	BlockHash       *felt.Felt `json:"block_hash,omitempty"`
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }

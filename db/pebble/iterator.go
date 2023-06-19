@@ -19,12 +19,24 @@ func (i *iterator) Valid() bool {
 
 // Key : see db.Transaction.Iterator.Key
 func (i *iterator) Key() []byte {
-	return i.iter.Key()
+	key := i.iter.Key()
+	if key == nil {
+		return nil
+	}
+	buf := make([]byte, len(key))
+	copy(buf, key)
+	return buf
 }
 
 // Value : see db.Transaction.Iterator.Value
 func (i *iterator) Value() ([]byte, error) {
-	return i.iter.ValueAndErr()
+	val, err := i.iter.ValueAndErr()
+	if err != nil || val == nil {
+		return nil, err
+	}
+	buf := make([]byte, len(val))
+	copy(buf, val)
+	return buf, nil
 }
 
 // Next : see db.Transaction.Iterator.Next

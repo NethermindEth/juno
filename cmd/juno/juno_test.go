@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/node"
@@ -26,6 +27,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
 	defaultColour := true
+	defaultPendingPollInterval := time.Duration(0)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -37,23 +39,25 @@ func TestConfigPrecedence(t *testing.T) {
 		"default config with no flags": {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
-				LogLevel:     defaultLogLevel,
-				RPCPort:      defaultRPCPort,
-				DatabasePath: defaultDBPath,
-				Network:      defaultNetwork,
-				Pprof:        defaultPprof,
-				Colour:       defaultColour,
+				LogLevel:            defaultLogLevel,
+				RPCPort:             defaultRPCPort,
+				DatabasePath:        defaultDBPath,
+				Network:             defaultNetwork,
+				Pprof:               defaultPprof,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"config file path is empty string": {
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
-				LogLevel:     defaultLogLevel,
-				RPCPort:      defaultRPCPort,
-				DatabasePath: defaultDBPath,
-				Network:      defaultNetwork,
-				Pprof:        defaultPprof,
-				Colour:       defaultColour,
+				LogLevel:            defaultLogLevel,
+				RPCPort:             defaultRPCPort,
+				DatabasePath:        defaultDBPath,
+				Network:             defaultNetwork,
+				Pprof:               defaultPprof,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"config file doesn't exist": {
@@ -64,10 +68,11 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFile:         true,
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
-				LogLevel: defaultLogLevel,
-				RPCPort:  defaultRPCPort,
-				Network:  defaultNetwork,
-				Colour:   defaultColour,
+				LogLevel:            defaultLogLevel,
+				RPCPort:             defaultRPCPort,
+				Network:             defaultNetwork,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -79,12 +84,13 @@ network: goerli2
 pprof: true
 `,
 			expectedConfig: &node.Config{
-				LogLevel:     utils.DEBUG,
-				RPCPort:      4576,
-				DatabasePath: "/home/.juno",
-				Network:      utils.GOERLI2,
-				Pprof:        true,
-				Colour:       defaultColour,
+				LogLevel:            utils.DEBUG,
+				RPCPort:             4576,
+				DatabasePath:        "/home/.juno",
+				Network:             utils.GOERLI2,
+				Pprof:               true,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -93,12 +99,13 @@ pprof: true
 rpc-port: 4576
 `,
 			expectedConfig: &node.Config{
-				LogLevel:     utils.DEBUG,
-				RPCPort:      4576,
-				DatabasePath: defaultDBPath,
-				Network:      defaultNetwork,
-				Pprof:        defaultPprof,
-				Colour:       defaultColour,
+				LogLevel:            utils.DEBUG,
+				RPCPort:             4576,
+				DatabasePath:        defaultDBPath,
+				Network:             defaultNetwork,
+				Pprof:               defaultPprof,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"all flags without config file": {
@@ -121,11 +128,12 @@ rpc-port: 4576
 				"--network", "integration",
 			},
 			expectedConfig: &node.Config{
-				LogLevel:     utils.DEBUG,
-				RPCPort:      4576,
-				DatabasePath: "/home/.juno",
-				Network:      utils.INTEGRATION,
-				Colour:       defaultColour,
+				LogLevel:            utils.DEBUG,
+				RPCPort:             4576,
+				DatabasePath:        "/home/.juno",
+				Network:             utils.INTEGRATION,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -135,18 +143,20 @@ rpc-port: 4576
 db-path: /home/config-file/.juno
 network: goerli
 pprof: true
+pending-poll-interval: 5s
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--rpc-port", "4577",
-				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof",
+				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
 			},
 			expectedConfig: &node.Config{
-				LogLevel:     utils.ERROR,
-				RPCPort:      4577,
-				DatabasePath: "/home/flag/.juno",
-				Network:      utils.INTEGRATION,
-				Pprof:        true,
-				Colour:       defaultColour,
+				LogLevel:            utils.ERROR,
+				RPCPort:             4577,
+				DatabasePath:        "/home/flag/.juno",
+				Network:             utils.INTEGRATION,
+				Pprof:               true,
+				Colour:              defaultColour,
+				PendingPollInterval: time.Millisecond,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -157,12 +167,13 @@ network: goerli
 `,
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
-				LogLevel:     utils.WARN,
-				RPCPort:      4576,
-				DatabasePath: "/home/flag/.juno",
-				Network:      utils.GOERLI,
-				Pprof:        defaultPprof,
-				Colour:       defaultColour,
+				LogLevel:            utils.WARN,
+				RPCPort:             4576,
+				DatabasePath:        "/home/flag/.juno",
+				Network:             utils.GOERLI,
+				Pprof:               defaultPprof,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -170,12 +181,13 @@ network: goerli
 			cfgFileContents: "network: goerli2",
 			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
-				LogLevel:     defaultLogLevel,
-				RPCPort:      defaultRPCPort,
-				DatabasePath: "/home/flag/.juno",
-				Network:      utils.GOERLI2,
-				Pprof:        true,
-				Colour:       defaultColour,
+				LogLevel:            defaultLogLevel,
+				RPCPort:             defaultRPCPort,
+				DatabasePath:        "/home/flag/.juno",
+				Network:             utils.GOERLI2,
+				Pprof:               true,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
 			},
 		},
 	}

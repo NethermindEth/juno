@@ -7,12 +7,14 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
@@ -33,17 +35,20 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel     utils.LogLevel `mapstructure:"log-level"`
-	RPCPort      uint16         `mapstructure:"rpc-port"`
-	DatabasePath string         `mapstructure:"db-path"`
-	Network      utils.Network  `mapstructure:"network"`
-	EthNode      string         `mapstructure:"eth-node"`
-	Pprof        bool           `mapstructure:"pprof"`
-	Colour       bool           `mapstructure:"colour"`
-	P2P          bool           `mapstructure:"p2p"`
-	P2PAddr      string         `mapstructure:"p2pAddr"`
-	P2PSync      bool           `mapstructure:"p2pSync"`
-	P2PBootPeers string         `mapstructure:"p2pBootPeers"`
+	LogLevel            utils.LogLevel `mapstructure:"log-level"`
+	RPCPort             uint16         `mapstructure:"rpc-port"`
+	GRPCPort            uint16         `mapstructure:"grpc-port"`
+	DatabasePath        string         `mapstructure:"db-path"`
+	Network             utils.Network  `mapstructure:"network"`
+	EthNode             string         `mapstructure:"eth-node"`
+	Pprof               bool           `mapstructure:"pprof"`
+	Colour              bool           `mapstructure:"colour"`
+	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+
+	P2P          bool   `mapstructure:"p2p"`
+	P2PAddr      string `mapstructure:"p2pAddr"`
+	P2PSync      bool   `mapstructure:"p2pSync"`
+	P2PBootPeers string `mapstructure:"p2pBootPeers"`
 }
 
 type Node struct {
@@ -53,11 +58,13 @@ type Node struct {
 
 	services []service.Service
 	log      utils.Logger
+
+	version string
 }
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config) (*Node, error) {
+func New(cfg *Config, version string) (*Node, error) {
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -70,8 +77,9 @@ func New(cfg *Config) (*Node, error) {
 		return nil, err
 	}
 	return &Node{
-		cfg: cfg,
-		log: log,
+		cfg:     cfg,
+		log:     log,
+		version: version,
 	}, nil
 }
 
@@ -159,9 +167,23 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Handler: rpcHandler.AddInvokeTransaction,
 		},
 		{
+			Name:    "starknet_addDeployAccountTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
+			Handler: rpcHandler.AddDeployAccountTransaction,
+		},
+		{
+			Name:    "starknet_addDeclareTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
+			Handler: rpcHandler.AddDeclareTransaction,
+		},
+		{
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: rpcHandler.Events,
+		},
+		{
+			Name:    "starknet_pendingTransactions",
+			Handler: rpcHandler.PendingTransactions,
 		},
 	}, log)
 }
@@ -215,7 +237,7 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}
 
-	synchronizer := sync.New(n.blockchain, starkdata, n.log)
+	synchronizer := sync.New(n.blockchain, starkdata, n.log, n.cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
 
 	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log), n.log)
@@ -244,6 +266,10 @@ func (n *Node) Run(ctx context.Context) {
 
 	if n.cfg.Pprof {
 		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
+	}
+
+	if n.cfg.GRPCPort > 0 {
+		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

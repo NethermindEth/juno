@@ -5,13 +5,27 @@ on:
     branches:
       - main
   release:
-    types:
-      - created
+    types: [created]
 
 jobs:
   upgrade_nodes_on_test_env:
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Define docker image tag
+      run: echo "DOCKER_IMAGE_TAG=${{ github.actor }}-${{ github.sha }}" >> $GITHUB_ENV
+    
+    - name: Set node host
+      id: set-host
+      run: |
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          echo "HOST=${{ secrets.STAGING_IP }}" >> $GITHUB_ENV
+        elif [[ "${{ github.event_name }}" == "release" ]]; then
+          echo "HOST=${{ secrets.RELEASE_IP }}" >> $GITHUB_ENV
+        fi
+        
     - name: Trigger build_and_push_docker_image
       id: trigger-build
       uses: benc-uk/workflow-dispatch@v1
@@ -19,7 +33,7 @@ jobs:
         workflow: Build and publish Docker image
         token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
         ref: ${{ github.ref }}
-        inputs: '{"tag": "${{ github.actor }}-${{ github.sha }}"}'
+        inputs: '{"tag": "${{ env.DOCKER_IMAGE_TAG }}"}'
 
     - name: Wait for build_and_push_docker_image workflow to complete
       uses: fountainhead/action-wait-for-check@v1.1.0
@@ -28,18 +42,32 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         checkName: build_and_push_docker_image
         intervalSeconds: 60
-        timeoutSeconds: 1500
-
-    - name: Trigger upgrade juno nodes workflow when image is pushed with success
+        timeoutSeconds: 1800
+    
+    - name: Remove old Juno containers and start new ones
       if: steps.wait-for-build.outputs.conclusion == 'success'
-      uses: benc-uk/workflow-dispatch@v1
+      uses: appleboy/ssh-action@v0.1.10
       with:
-        workflow: upgrade juno nodes
-        repo: NethermindEth/juno-smoke-tests
-        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
-        inputs: >
-          {
-            "container_tag": "${{ github.actor }}-${{ github.sha }}",
-            "environment": "${{ github.event_name == 'push' && 'staging' || github.event_name == 'release' && 'release' }}"
-          }
-        ref: main
+        host: ${{ env.HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        envs: DOCKER_IMAGE_TAG
+        script: |
+            port=6060
+            for network in mainnet goerli goerli2; do
+                docker stop juno_$network
+                docker rm juno_$network
+                docker run -d \
+                    --name juno_$network \
+                    -p $port:$port \
+                    -v /root/juno_$network:/var/lib/juno \
+                    nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
+                    --db-path /var/lib/juno \
+                    --rpc-port $port \
+                    --network $network \
+                    --colour=false \
+                    --eth-node ${{ secrets.ETH_NODE }} \
+                    $(if [ "$network" = "mainnet" ]; then echo "--pprof"; fi)
+            port=$((port+1))
+            nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
+            done

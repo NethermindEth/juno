@@ -1,10 +1,7 @@
 package feeder
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -42,12 +40,21 @@ func (f *Feeder) BlockLatest(ctx context.Context) (*core.Block, error) {
 	return f.block(ctx, "latest")
 }
 
+// BlockPending gets the pending block from the feeder,
+// then adapts it to the core.Block type.
+func (f *Feeder) BlockPending(ctx context.Context) (*core.Block, error) {
+	return f.block(ctx, "pending")
+}
+
 func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
 	response, err := f.client.Block(ctx, blockID)
 	if err != nil {
 		return nil, err
 	}
 
+	if blockID == "pending" && response.Status != "PENDING" {
+		return nil, errors.New("no pending block")
+	}
 	return adaptBlock(response)
 }
 
@@ -345,33 +352,40 @@ func adaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 	if err := json.Unmarshal(response.Program, &program); err != nil {
 		return nil, err
 	}
-
-	var compressedBuffer bytes.Buffer
-	gzipWriter := gzip.NewWriter(&compressedBuffer)
-	if _, err := gzipWriter.Write(response.Program); err != nil {
-		return nil, err
-	}
-	if err := gzipWriter.Close(); err != nil {
+	respProgBytes, err := response.Program.MarshalJSON()
+	if err != nil {
 		return nil, err
 	}
 
-	compressedProgram := compressedBuffer.Bytes()
-	base64Program := make([]byte, base64.StdEncoding.EncodedLen(len(compressedProgram)))
-	base64.StdEncoding.Encode(base64Program, compressedProgram)
-	class.Program = string(base64Program)
+	base64Program, err := utils.Gzip64Encode(&respProgBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	class.Program = base64Program
 
 	return class, nil
 }
 
-// StateUpdate gets the state update for a given block number from the feeder,
-// then adapts it to the core.StateUpdate type.
-func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	response, err := f.client.StateUpdate(ctx, blockNumber)
+func (f *Feeder) stateUpdate(ctx context.Context, blockID string) (*core.StateUpdate, error) {
+	response, err := f.client.StateUpdate(ctx, blockID)
 	if err != nil {
 		return nil, err
 	}
 
 	return adaptStateUpdate(response)
+}
+
+// StateUpdate gets the state update for a given block number from the feeder,
+// then adapts it to the core.StateUpdate type.
+func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
+	return f.stateUpdate(ctx, strconv.FormatUint(blockNumber, 10))
+}
+
+// StateUpdatePending gets the state update for the pending block from the feeder,
+// then adapts it to the core.StateUpdate type.
+func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
+	return f.stateUpdate(ctx, "pending")
 }
 
 func adaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {

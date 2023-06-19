@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -147,8 +146,8 @@ func NewClient(clientURL string) *Client {
 		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
-		maxRetries: 35, // ~35 minutes with default backoff and maxWait (block time on mainnet is 20-30 minutes)
-		maxWait:    time.Minute,
+		maxRetries: 35, // ~3.5 minutes with default backoff and maxWait (block time on mainnet is 1-2 minutes)
+		maxWait:    10 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
 	}
@@ -212,9 +211,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	return nil, err
 }
 
-func (c *Client) StateUpdate(ctx context.Context, blockNumber uint64) (*StateUpdate, error) {
+func (c *Client) StateUpdate(ctx context.Context, blockID string) (*StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		"blockNumber": strconv.FormatUint(blockNumber, 10),
+		"blockNumber": blockID,
 	})
 
 	body, err := c.get(ctx, queryURL)

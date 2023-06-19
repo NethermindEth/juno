@@ -25,6 +25,14 @@ type StartnetDataAdapter struct {
 	classesLru *simplelru.LRU
 }
 
+func (s *StartnetDataAdapter) BlockPending(ctx context.Context) (*core.Block, error) {
+	return s.base.BlockPending(ctx)
+}
+
+func (s *StartnetDataAdapter) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
+	return s.base.StateUpdatePending(ctx)
+}
+
 func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerManager, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
 	lru, err := simplelru.NewLRU(16000, func(key interface{}, value interface{}) {})
 	if err != nil {

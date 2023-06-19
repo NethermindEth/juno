@@ -14,8 +14,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-const lenOfByteSlice = 8
-
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
 	Height() (height uint64, err error)
@@ -37,8 +35,11 @@ type Reader interface {
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+	PendingState() (core.StateReader, StateCloser, error)
 
-	EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error)
+	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
+
+	Pending() (Pending, error)
 }
 
 var (
@@ -98,12 +99,12 @@ func (b *Blockchain) Height() (uint64, error) {
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
-		height, err = b.height(txn)
+		height, err = chainHeight(txn)
 		return err
 	})
 }
 
-func (b *Blockchain) height(txn db.Transaction) (uint64, error) {
+func chainHeight(txn db.Transaction) (uint64, error) {
 	var height uint64
 	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
@@ -123,7 +124,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	var header *core.Header
 	return header, b.database.View(func(txn db.Transaction) error {
-		height, err := b.height(txn)
+		height, err := chainHeight(txn)
 		if err != nil {
 			return err
 		}
@@ -134,7 +135,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func (b *Blockchain) head(txn db.Transaction) (*core.Block, error) {
-	height, err := b.height(txn)
+	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +212,24 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 	return transaction, b.database.View(func(txn db.Transaction) error {
 		var err error
 		transaction, err = transactionByHash(txn, hash)
+
+		// not found in the canonical blocks, try pending
+		if errors.Is(err, db.ErrKeyNotFound) {
+			var pending Pending
+			pending, err = pendingBlock(txn)
+			if err != nil {
+				return err
+			}
+
+			for _, t := range pending.Block.Transactions {
+				if hash.Equal(t.Hash()) {
+					transaction = t
+					return nil
+				}
+			}
+			return db.ErrKeyNotFound
+		}
+
 		return err
 	})
 }
@@ -225,6 +244,26 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	return receipt, blockHash, blockNumber, b.database.View(func(txn db.Transaction) error {
 		var err error
 		receipt, blockHash, blockNumber, err = receiptByHash(txn, hash)
+
+		// not found in the canonical blocks, try pending
+		if errors.Is(err, db.ErrKeyNotFound) {
+			var pending Pending
+			pending, err = pendingBlock(txn)
+			if err != nil {
+				return err
+			}
+
+			for i, t := range pending.Block.Transactions {
+				if hash.Equal(t.Hash()) {
+					receipt = pending.Block.Receipts[i]
+					blockHash = nil
+					blockNumber = 0
+					return nil
+				}
+			}
+			return db.ErrKeyNotFound
+		}
+
 		return err
 	})
 }
@@ -274,10 +313,13 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 			return err
 		}
 
+		if err := txn.Delete(db.Pending.Key()); err != nil {
+			return err
+		}
+
 		// Head of the blockchain is maintained as follows:
 		// [db.ChainHeight]() -> (BlockNumber)
-		heightBin := make([]byte, lenOfByteSlice)
-		binary.BigEndian.PutUint64(heightBin, block.Number)
+		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
 }
@@ -325,8 +367,7 @@ func (b *Blockchain) verifyBlock(txn db.Transaction, block *core.Block) error {
 // "()" are additional keys appended to the prefix or multiple values marshalled together
 // "->" represents a key value pair.
 func storeBlockHeader(txn db.Transaction, header *core.Header) error {
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, header.Number)
+	numBytes := core.MarshalBlockNumber(header.Number)
 
 	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()), numBytes); err != nil {
 		return err
@@ -346,8 +387,7 @@ func storeBlockHeader(txn db.Transaction, header *core.Header) error {
 
 // blockHeaderByNumber retrieves a block header from database by its number
 func blockHeaderByNumber(txn db.Transaction, number uint64) (*core.Header, error) {
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, number)
+	numBytes := core.MarshalBlockNumber(number)
 
 	var header *core.Header
 	if err := txn.Get(db.BlockHeadersByNumber.Key(numBytes), func(val []byte) error {
@@ -396,8 +436,7 @@ func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 	}
 
 	var txs []core.Transaction
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, number)
+	numBytes := core.MarshalBlockNumber(number)
 
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
@@ -432,8 +471,7 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 	}
 
 	var receipts []*core.TransactionReceipt
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, number)
+	numBytes := core.MarshalBlockNumber(number)
 
 	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
@@ -472,8 +510,7 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 }
 
 func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, blockNumber)
+	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	updateBytes, err := encoder.Marshal(update)
 	if err != nil {
@@ -484,8 +521,7 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 }
 
 func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, blockNumber)
+	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	var update *core.StateUpdate
 	if err := txn.Get(db.StateUpdatesByBlockNumber.Key(numBytes), func(val []byte) error {
@@ -638,7 +674,7 @@ type StateCloser = func() error
 // HeadState returns a StateReader that provides a stable view to the latest state
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	txn := b.database.NewTransaction(false)
-	_, err := b.height(txn)
+	_, err := chainHeight(txn)
 	if err != nil {
 		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
 	}
@@ -669,9 +705,9 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
-func (b *Blockchain) EventFilter(from *felt.Felt, keys []*felt.Felt) (*EventFilter, error) {
+func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error) {
 	txn := b.database.NewTransaction(false)
-	latest, err := b.height(txn)
+	latest, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -687,12 +723,11 @@ func (b *Blockchain) RevertHead() error {
 }
 
 func (b *Blockchain) revertHead(txn db.Transaction) error {
-	blockNumber, err := b.height(txn)
+	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
 	}
-	numBytes := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(numBytes, blockNumber)
+	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
 	if err != nil {
@@ -747,12 +782,78 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 		return err
 	}
 
+	// remove pending
+	if err := txn.Delete(db.Pending.Key()); err != nil {
+		return err
+	}
+
 	// update chain height
 	if blockNumber == 0 {
 		return txn.Delete(db.ChainHeight.Key())
 	}
 
-	heightBin := make([]byte, lenOfByteSlice)
-	binary.BigEndian.PutUint64(heightBin, blockNumber-1)
+	heightBin := core.MarshalBlockNumber(blockNumber - 1)
 	return txn.Set(db.ChainHeight.Key(), heightBin)
+}
+
+// StorePending stores a pending block given that it is for the next height
+func (b *Blockchain) StorePending(pending *Pending) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		expectedParent := new(felt.Felt)
+		expectedOldRoot := new(felt.Felt)
+		head, err := b.head(txn)
+		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+			return err
+		} else if err == nil {
+			expectedParent = head.Hash
+			expectedOldRoot = head.GlobalStateRoot
+		}
+
+		if !expectedParent.Equal(pending.Block.ParentHash) || !expectedOldRoot.Equal(pending.StateUpdate.OldRoot) {
+			return errors.New("pending block parent is not our local HEAD")
+		}
+
+		existingPending, err := pendingBlock(txn)
+		if err == nil && existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
+			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+		}
+
+		pendingBytes, err := encoder.Marshal(pending)
+		if err != nil {
+			return err
+		}
+		return txn.Set(db.Pending.Key(), pendingBytes)
+	})
+}
+
+func pendingBlock(txn db.Transaction) (Pending, error) {
+	var pending Pending
+	err := txn.Get(db.Pending.Key(), func(bytes []byte) error {
+		return encoder.Unmarshal(bytes, &pending)
+	})
+	return pending, err
+}
+
+// Pending returns the pending block from the database
+func (b *Blockchain) Pending() (Pending, error) {
+	var pending Pending
+	return pending, b.database.View(func(txn db.Transaction) error {
+		var err error
+		pending, err = pendingBlock(txn)
+		return err
+	})
+}
+
+// PendingState returns the state resulting from execution of the pending block
+func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
+	txn := b.database.NewTransaction(false)
+	pending, err := pendingBlock(txn)
+	if err != nil {
+		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+	}
+
+	return NewPendingState(
+		pending,
+		core.NewState(txn),
+	), txn.Discard, nil
 }

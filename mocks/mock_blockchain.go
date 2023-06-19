@@ -97,7 +97,7 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(arg0 interface{}) *gomock.
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 []*felt.Felt) (*blockchain.EventFilter, error) {
+func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 [][]felt.Felt) (*blockchain.EventFilter, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", arg0, arg1)
 	ret0, _ := ret[0].(*blockchain.EventFilter)
@@ -170,6 +170,37 @@ func (m *MockReader) Height() (uint64, error) {
 func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockReader)(nil).Height))
+}
+
+// Pending mocks base method.
+func (m *MockReader) Pending() (blockchain.Pending, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pending")
+	ret0, _ := ret[0].(blockchain.Pending)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Pending indicates an expected call of Pending.
+func (mr *MockReaderMockRecorder) Pending() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pending", reflect.TypeOf((*MockReader)(nil).Pending))
+}
+
+// PendingState mocks base method.
+func (m *MockReader) PendingState() (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingState")
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PendingState indicates an expected call of PendingState.
+func (mr *MockReaderMockRecorder) PendingState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingState", reflect.TypeOf((*MockReader)(nil).PendingState))
 }
 
 // Receipt mocks base method.

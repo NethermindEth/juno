@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -214,4 +215,13 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		&felt.Zero,                                   // reserved: extra data
 		b.ParentHash,                                 // parent block hash
 	), nil
+}
+
+func MarshalBlockNumber(blockNumber uint64) []byte {
+	const blockNumberSize = 8
+
+	numBytes := make([]byte, blockNumberSize)
+	binary.BigEndian.PutUint64(numBytes, blockNumber)
+
+	return numBytes
 }

@@ -38,7 +38,7 @@
 
 ### Prerequisites
 
-- Golang 1.19 or higher is required to build and run the project. You can find the installer on
+- Golang 1.20 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
 - A C compiler: `gcc` or `clang`.
 

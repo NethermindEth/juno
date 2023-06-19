@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -26,13 +27,18 @@ type Synchronizer struct {
 	HighestBlockHeader  *core.Header
 
 	log utils.SimpleLogger
+
+	pendingPollInterval time.Duration
 }
 
-func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger) *Synchronizer {
+func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
+	log utils.SimpleLogger, pendingPollInterval time.Duration,
+) *Synchronizer {
 	return &Synchronizer{
-		Blockchain:   bc,
-		StarknetData: starkNetData,
-		log:          log,
+		Blockchain:          bc,
+		StarknetData:        starkNetData,
+		log:                 log,
+		pendingPollInterval: pendingPollInterval,
 	}
 }
 
@@ -218,6 +224,9 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	startingHeight := nextHeight
 	s.StartingBlockNumber = &startingHeight
 
+	pendingSem := make(chan struct{}, 1)
+	go s.pollPending(syncCtx, pendingSem)
+
 	for {
 		select {
 		case <-streamCtx.Done():
@@ -226,6 +235,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				streamCancel()
 				fetchers.Wait()
 				verifiers.Wait()
+				pendingSem <- struct{}{}
 				return
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
@@ -257,4 +267,69 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
+}
+
+func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
+	if s.pendingPollInterval == time.Duration(0) {
+		return
+	}
+
+	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
+	for {
+		select {
+		case <-ctx.Done():
+			pendingPollTicker.Stop()
+			return
+		case <-pendingPollTicker.C:
+			select {
+			case sem <- struct{}{}:
+				go func() {
+					err := s.fetchAndStorePending(ctx)
+					if err != nil {
+						s.log.Debugw("Error while trying to poll pending block", "err", err)
+					}
+					<-sem
+				}()
+			default:
+			}
+		}
+	}
+}
+
+func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
+	if s.HighestBlockHeader == nil {
+		return nil
+	}
+
+	head, err := s.Blockchain.HeadsHeader()
+	if err != nil {
+		return err
+	}
+
+	// not at the tip of the chain yet, no need to poll pending
+	if s.HighestBlockHeader.Number > head.Number {
+		return nil
+	}
+
+	pendingBlock, err := s.StarknetData.BlockPending(ctx)
+	if err != nil {
+		return err
+	}
+
+	pendingStateUpdate, err := s.StarknetData.StateUpdatePending(ctx)
+	if err != nil {
+		return err
+	}
+
+	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
+	if err != nil {
+		return err
+	}
+
+	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
+	return s.Blockchain.StorePending(&blockchain.Pending{
+		Block:       pendingBlock,
+		StateUpdate: pendingStateUpdate,
+		NewClasses:  newClasses,
+	})
 }

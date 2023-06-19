@@ -68,7 +68,7 @@ func TestBlockLatest(t *testing.T) {
 	}{
 		{
 			id:              "latest",
-			protocolVersion: "0.11.0",
+			protocolVersion: "",
 		},
 	}
 
@@ -115,7 +115,7 @@ func TestStateUpdate(t *testing.T) {
 
 	for _, number := range numbers {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.StateUpdate(ctx, number)
+			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
