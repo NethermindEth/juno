@@ -18,6 +18,8 @@ import (
 type Reader interface {
 	Height() (height uint64, err error)
 
+	L1Head() (*core.L1Head, error)
+
 	Head() (head *core.Block, err error)
 	L1Head() (*core.L1Head, error)
 	BlockByNumber(number uint64) (block *core.Block, err error)
