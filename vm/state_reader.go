@@ -5,15 +5,9 @@ package vm
 import "C"
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"io"
 	"unsafe"
 
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -82,77 +76,10 @@ func JunoStateGetClass(readerHandle C.uintptr_t, classHash unsafe.Pointer) unsaf
 		return nil
 	}
 
-	var vmClass any
-	switch class := val.Class.(type) {
-	case *core.Cairo0Class:
-		vmClass, err = makeDeprecatedVMClass(class)
-		if err != nil {
-			return nil
-		}
-	case *core.Cairo1Class:
-		vmClass = class.Compiled
-	default:
-		panic("not a class")
-	}
-	rustClass, err := json.Marshal(vmClass)
+	compiledClass, err := marshalCompiledClass(val.Class)
 	if err != nil {
 		return nil
 	}
 
-	return unsafe.Pointer(C.CString(string(rustClass)))
-}
-
-func makeDeprecatedVMClass(class *core.Cairo0Class) (*feeder.Cairo0Definition, error) {
-	decodedProgram, err := base64.StdEncoding.DecodeString(class.Program)
-	if err != nil {
-		return nil, err
-	}
-
-	gzipReader, err := gzip.NewReader(bytes.NewReader(decodedProgram))
-	if err != nil {
-		return nil, err
-	}
-
-	decompressedProgram, err := io.ReadAll(gzipReader)
-	if err != nil {
-		return nil, err
-	}
-	err = gzipReader.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	constructors := make([]feeder.EntryPoint, 0, len(class.Constructors))
-	for _, entryPoint := range class.Constructors {
-		constructors = append(constructors, feeder.EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	external := make([]feeder.EntryPoint, 0, len(class.Externals))
-	for _, entryPoint := range class.Externals {
-		external = append(external, feeder.EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	handlers := make([]feeder.EntryPoint, 0, len(class.L1Handlers))
-	for _, entryPoint := range class.L1Handlers {
-		handlers = append(handlers, feeder.EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	return &feeder.Cairo0Definition{
-		Program: decompressedProgram,
-		Abi:     class.Abi,
-		EntryPoints: feeder.EntryPoints{
-			Constructor: constructors,
-			External:    external,
-			L1Handler:   handlers,
-		},
-	}, nil
+	return unsafe.Pointer(C.CString(string(compiledClass)))
 }

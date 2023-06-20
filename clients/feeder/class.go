@@ -11,15 +11,17 @@ type EntryPoint struct {
 	Offset   *felt.Felt `json:"offset"`
 }
 
+type SierraEntryPoints struct {
+	Constructor []SierraEntryPoint `json:"CONSTRUCTOR"`
+	External    []SierraEntryPoint `json:"EXTERNAL"`
+	L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
+}
+
 type SierraDefinition struct {
-	Abi         string `json:"abi"`
-	EntryPoints struct {
-		Constructor []SierraEntryPoint `json:"CONSTRUCTOR"`
-		External    []SierraEntryPoint `json:"EXTERNAL"`
-		L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program []*felt.Felt `json:"sierra_program"`
-	Version string       `json:"contract_class_version"`
+	Abi         string            `json:"abi,omitempty"`
+	EntryPoints SierraEntryPoints `json:"entry_points_by_type"`
+	Program     []*felt.Felt      `json:"sierra_program"`
+	Version     string            `json:"contract_class_version"`
 }
 
 type SierraEntryPoint struct {

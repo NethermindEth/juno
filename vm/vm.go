@@ -7,10 +7,14 @@ package vm
 //					uintptr_t readerHandle, unsigned long long block_number, unsigned long long block_timestamp,
 //					char* chain_id);
 //
+// extern void cairoVMExecute(char* txn_json, char* class_json, uintptr_t readerHandle, unsigned long long block_number,
+//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address);
+//
 // #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
 import "C"
 
 import (
+	"encoding/json"
 	"errors"
 	"runtime/cgo"
 	"unsafe"
@@ -28,6 +32,8 @@ type callContext struct {
 	err string
 	// response from the executed Cairo function
 	response []*felt.Felt
+	// amount of gas consumed per transaction during VM execution
+	gasConsumed []*felt.Felt
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -49,6 +55,12 @@ func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
 func JunoAppendResponse(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.response = append(context.response, makeFeltFromPtr(ptr))
+}
+
+//export JunoAppendGasConsumed
+func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+	context := unwrapContext(readerHandle)
+	context.gasConsumed = append(context.gasConsumed, makeFeltFromPtr(ptr))
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -101,4 +113,73 @@ func Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 		return nil, errors.New(context.err)
 	}
 	return context.response, nil
+}
+
+// Execute executes a given transaction set and returns the gas spent per transaction
+func Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
+	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network,
+) ([]*felt.Felt, error) {
+	context := &callContext{
+		state: state,
+	}
+	handle := cgo.NewHandle(context)
+	defer handle.Delete()
+
+	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
+	if err != nil {
+		return nil, err
+	}
+
+	txnsJSONCstr := C.CString(string(txnsJSON))
+	classesJSONCStr := C.CString(string(classesJSON))
+
+	sequencerAddressBytes := sequencerAddress.Bytes()
+	chainID := C.CString(network.ChainIDString())
+	C.cairoVMExecute(txnsJSONCstr,
+		classesJSONCStr,
+		C.uintptr_t(handle),
+		C.ulonglong(blockNumber),
+		C.ulonglong(blockTimestamp),
+		chainID,
+		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])))
+
+	C.free(unsafe.Pointer(classesJSONCStr))
+	C.free(unsafe.Pointer(txnsJSONCstr))
+	C.free(unsafe.Pointer(chainID))
+
+	if len(context.err) > 0 {
+		return nil, errors.New(context.err)
+	}
+	return context.gasConsumed, nil
+}
+
+func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
+	var txnJSONs []json.RawMessage
+	for _, txn := range txns {
+		txnJSON, err := marshalTxn(txn)
+		if err != nil {
+			return nil, nil, err
+		}
+		txnJSONs = append(txnJSONs, txnJSON)
+	}
+
+	classJSONs := []json.RawMessage{}
+	for _, declaredClass := range declaredClasses {
+		declaredClassJSON, cErr := marshalDeclaredClass(declaredClass)
+		if cErr != nil {
+			return nil, nil, cErr
+		}
+		classJSONs = append(classJSONs, declaredClassJSON)
+	}
+
+	txnsJSON, err := json.Marshal(txnJSONs)
+	if err != nil {
+		return nil, nil, err
+	}
+	classesJSON, err := json.Marshal(classJSONs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return txnsJSON, classesJSON, nil
 }
