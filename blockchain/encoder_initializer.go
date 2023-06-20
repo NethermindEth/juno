@@ -10,7 +10,7 @@ import (
 
 var once sync.Once
 
-func registerCoreTypesToEncoder() {
+func RegisterCoreTypesToEncoder() {
 	once.Do(func() {
 		types := []reflect.Type{
 			reflect.TypeOf(core.DeclareTransaction{}),

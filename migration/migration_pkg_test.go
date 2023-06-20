@@ -1,11 +1,18 @@
 package migration
 
 import (
+	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,5 +69,34 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		oldKey := db.Unused.Key(exampleBytes[:])
 		err := txn.Get(oldKey, func(val []byte) error { return nil })
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
+	}
+}
+
+func TestRecalculateBloomFilters(t *testing.T) {
+	testdb := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testdb.Close())
+	})
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+
+		b.EventsBloom = nil
+		require.NoError(t, chain.Store(b, su, nil))
+	}
+
+	require.NoError(t, testdb.Update(recalculateBloomFilters))
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := chain.BlockByNumber(i)
+		require.NoError(t, err)
+		assert.Equal(t, core.EventsBloom(b.Receipts), b.EventsBloom)
 	}
 }
