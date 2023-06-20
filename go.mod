@@ -13,6 +13,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/golang/mock v1.6.0
+	github.com/jinzhu/copier v0.3.5
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/sourcegraph/conc v0.2.0
