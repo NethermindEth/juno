@@ -54,13 +54,18 @@ jobs:
         envs: DOCKER_IMAGE_TAG
         script: |
             port=6060
-            for network in mainnet goerli goerli2; do
+            for network in mainnet goerli goerli2 integration; do
                 docker stop juno_$network
                 docker rm juno_$network
                 if [ "$network" == "mainnet" ]; then
-                    ETH_NODE=${{ secrets.ETH_NODE_MAINNET }}
-                else
-                    ETH_NODE=${{ secrets.ETH_NODE_GOERLI }}
+                    ETH_NODE_PARAM="--eth-node ${{ secrets.ETH_NODE_MAINNET }}"
+                    PPROF_PARAM="--pprof"
+                elif [ "$network" == "goerli" ] || [ "$network" == "goerli2" ]; then
+                    ETH_NODE_PARAM="--eth-node ${{ secrets.ETH_NODE_GOERLI }}"
+                    PPROF_PARAM=""
+                elif [ "$network" == "integration" ]; then
+                    ETH_NODE_PARAM=""
+                    PPROF_PARAM=""
                 fi
                 docker run -d \
                     --name juno_$network \
@@ -71,8 +76,8 @@ jobs:
                     --rpc-port $port \
                     --network $network \
                     --colour=false \
-                    --eth-node $ETH_NODE \
-                    $(if [ "$network" = "mainnet" ]; then echo "--pprof"; fi)
+                    $ETH_NODE_PARAM \
+                    $PPROF_PARAM
                 port=$((port+1))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
