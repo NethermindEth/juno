@@ -210,3 +210,28 @@ func TestVerifyTransactionHash(t *testing.T) {
 		assert.NoError(t, core.VerifyTransactions(txns, utils.MAINNET, "99.99.99"))
 	})
 }
+func TestGenerateTransactionHash(t *testing.T) {
+	pub := utils.HexToFelt(t, "0xc24ee1f993471a03a72d4d5e9f21e91296db50811e2298cc36224552afd5c1")
+
+	tx := core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			ClassHash:           utils.HexToFelt(t, "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+			ContractAddress:     utils.HexToFelt(t, "0x63242861a734490bf31412bcb84a6ad37e370c99a5697de6dd3e8c2ebd40539"),
+			ContractAddressSalt: pub,
+			ConstructorCallData: []*felt.Felt{
+				utils.HexToFelt(t, "0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+				utils.HexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				utils.HexToFelt(t, "0x2"),
+				pub,
+				utils.HexToFelt(t, "0x0"),
+			},
+			Version: new(felt.Felt).SetUint64(1),
+		},
+		MaxFee: new(felt.Felt).SetUint64(10000000000),
+		Nonce:  new(felt.Felt).SetUint64(0),
+	}
+
+	txhash, err := core.TransactionHash(&tx, utils.Network(utils.GOERLI))
+	require.NoError(t, err)
+	require.Equal(t, txhash.String(), "0x794ddc51a8298b57064667cd8fb9ef79d7410c71d8f8ad8098b4462520f582e")
+}

@@ -214,7 +214,7 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
-func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n)
@@ -354,7 +354,7 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 	}
 
 	for _, t := range txs {
-		calculatedTxHash, hErr := transactionHash(t, n)
+		calculatedTxHash, hErr := TransactionHash(t, n)
 		if hErr != nil {
 			return fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %v", t.Hash().String(), hErr.Error())
 		}
