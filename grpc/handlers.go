@@ -14,20 +14,20 @@ import (
 )
 
 type handlers struct {
-	db          db.DB
-	junoVersion string
+	db      db.DB
+	version string
 }
 
 func (h handlers) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionReply, error) {
-	v, err := semver.NewVersion(h.junoVersion)
+	ver, err := semver.NewVersion(h.version)
 	if err != nil {
 		return nil, err
 	}
 
 	return &gen.VersionReply{
-		Major: uint32(v.Major()),
-		Minor: uint32(v.Minor()),
-		Patch: uint32(v.Patch()),
+		Major: uint32(ver.Major()),
+		Minor: uint32(ver.Minor()),
+		Patch: uint32(ver.Patch()),
 	}, nil
 }
 

@@ -23,7 +23,7 @@ func TestDefaultDbPath(t *testing.T) {
 				Network:      n,
 				DatabasePath: filepath.Join(defaultDataDir, n.String()),
 			}
-			snNode, err := node.New(cfg, "")
+			snNode, err := node.New(cfg, "1.2.3")
 			require.NoError(t, err)
 
 			assert.Equal(t, expectedCfg, snNode.Config())
