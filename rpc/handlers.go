@@ -49,13 +49,8 @@ type Handler struct {
 	version       string
 }
 
-func New(
-	bcReader blockchain.Reader,
-	synchronizer *sync.Synchronizer,
-	n utils.Network,
-	gatewayClient Gateway,
-	version string,
-	logger utils.Logger,
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
+	gatewayClient Gateway, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
