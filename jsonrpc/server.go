@@ -4,6 +4,7 @@ package jsonrpc
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -120,8 +121,11 @@ func (s *Server) RegisterMethod(method Method) error {
 	if handlerT.Kind() != reflect.Func {
 		return errors.New("handler must be a function")
 	}
-	if handlerT.NumIn() != len(method.Params) {
+	if handlerT.NumIn() != len(method.Params)+1 {
 		return errors.New("number of function params and param names must match")
+	}
+	if !handlerT.In(0).Implements(reflect.TypeOf((*context.Context)(nil)).Elem()) {
+		return errors.New("handler must have context as first parameter")
 	}
 	if handlerT.NumOut() != 2 {
 		return errors.New("handler must return 2 values")
@@ -139,13 +143,13 @@ func (s *Server) RegisterMethod(method Method) error {
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) Handle(data []byte) ([]byte, error) {
-	return s.HandleReader(bytes.NewReader(data))
+	return s.HandleReader(context.Background(), bytes.NewReader(data))
 }
 
 // HandleReader processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
-func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
+func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, error) {
 	bufferedReader := bufio.NewReader(reader)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
@@ -159,7 +163,7 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 		req := new(request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			res.Error = Err(InvalidJSON, jsonErr.Error())
-		} else if resObject, handleErr := s.handleRequest(req); handleErr != nil {
+		} else if resObject, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				res.ID = req.ID
 			}
@@ -190,7 +194,7 @@ func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
 					}
 				} else {
 					var handleErr error
-					resObject, handleErr = s.handleRequest(req)
+					resObject, handleErr = s.handleRequest(ctx, req)
 					if handleErr != nil {
 						resObject = &response{
 							Version: "2.0",
@@ -245,7 +249,7 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
-func (s *Server) handleRequest(req *request) (*response, error) {
+func (s *Server) handleRequest(_ context.Context, req *request) (*response, error) {
 	if err := req.isSane(); err != nil {
 		return nil, err
 	}

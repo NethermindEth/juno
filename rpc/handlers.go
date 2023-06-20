@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -15,7 +16,7 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
-	AddTransaction(json.RawMessage) (json.RawMessage, error)
+	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
 }
 
 var (
@@ -66,7 +67,7 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Ne
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
-func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) ChainID(ctx context.Context) (*felt.Felt, *jsonrpc.Error) {
 	return h.network.ChainID(), nil
 }
 
@@ -74,7 +75,7 @@ func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L500
-func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
+func (h *Handler) BlockNumber(ctx context.Context) (uint64, *jsonrpc.Error) {
 	num, err := h.bcReader.Height()
 	if err != nil {
 		return 0, ErrNoBlock
@@ -87,7 +88,7 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L517
-func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
+func (h *Handler) BlockHashAndNumber(ctx context.Context) (*BlockHashAndNumber, *jsonrpc.Error) {
 	block, err := h.bcReader.Head()
 	if err != nil {
 		return nil, ErrNoBlock
@@ -99,7 +100,7 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashes(ctx context.Context, id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
@@ -142,7 +143,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
-func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxs(ctx context.Context, id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
@@ -289,7 +290,7 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
-func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByHash(ctx context.Context, hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
@@ -302,7 +303,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
-func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
+func (h *Handler) BlockTransactionCount(ctx context.Context, id BlockID) (uint64, *jsonrpc.Error) {
 	header, err := h.blockHeaderByID(&id)
 	if header == nil || err != nil {
 		return 0, ErrBlockNotFound
@@ -315,7 +316,7 @@ func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(ctx context.Context, id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, ErrInvalidTxIndex
 	}
@@ -350,8 +351,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	txn, rpcErr := h.TransactionByHash(hash)
+func (h *Handler) TransactionReceiptByHash(ctx context.Context, hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	txn, rpcErr := h.TransactionByHash(ctx, hash)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -403,7 +404,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
-func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(ctx context.Context, id BlockID) (*StateUpdate, *jsonrpc.Error) {
 	var update *core.StateUpdate
 	var err error
 	if id.Latest {
@@ -487,7 +488,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
-func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
+func (h *Handler) Syncing(ctx context.Context) (*Sync, *jsonrpc.Error) {
 	defaultSyncState := &Sync{Syncing: new(bool)}
 
 	startingBlockNumber := h.synchronizer.StartingBlockNumber
@@ -540,7 +541,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
-func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) Nonce(ctx context.Context, id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -561,7 +562,7 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
-func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) StorageAt(ctx context.Context, address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -582,7 +583,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
-func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) ClassHashAt(ctx context.Context, id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -603,7 +604,7 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
-func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) Class(ctx context.Context, id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
 	state, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -696,19 +697,19 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L329
-func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error) {
-	classHash, err := h.ClassHashAt(id, address)
+func (h *Handler) ClassAt(ctx context.Context, id BlockID, address felt.Felt) (*Class, *jsonrpc.Error) {
+	classHash, err := h.ClassHashAt(ctx, id, address)
 	if err != nil {
 		return nil, err
 	}
-	return h.Class(id, *classHash)
+	return h.Class(ctx, id, *classHash)
 }
 
 // Events gets the events matching a filter
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
-func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(ctx context.Context, args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > maxEventChunkSize {
 		return nil, ErrPageSizeTooBig
 	} else {
@@ -808,8 +809,8 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
 // Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
 // As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
-func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
-	resp, err := h.gatewayClient.AddTransaction(invokeTx)
+func (h *Handler) AddInvokeTransaction(ctx context.Context, invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddTransaction(ctx, invokeTx)
 	if err != nil {
 		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
 	}
@@ -848,8 +849,11 @@ func getAddInvokeTxCode(err error) int {
 // Note: This handler is a proxy. No checks are performed on the incoming request
 // since we rely on the gateway to perform sanity checks. Any error returned by the
 // gateway is returned to the user as a jsonrpc error.
-func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*DeployAccountTxResponse, *jsonrpc.Error) {
-	resp, err := h.gatewayClient.AddTransaction(deployAcntTx)
+func (h *Handler) AddDeployAccountTransaction(
+	ctx context.Context,
+	deployAcntTx json.RawMessage,
+) (*DeployAccountTxResponse, *jsonrpc.Error) {
+	resp, err := h.gatewayClient.AddTransaction(ctx, deployAcntTx)
 	if err != nil {
 		if strings.Contains(err.Error(), "Class hash not found") {
 			ErrClassHashNotFound.Data = err.Error()
@@ -870,7 +874,7 @@ func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*De
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/aaea417f193bbec87b59455128d4b09a06876c28/api/starknet_api_openrpc.json#L602-L616
-func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
+func (h *Handler) PendingTransactions(ctx context.Context) ([]*Transaction, *jsonrpc.Error) {
 	var pendingTxns []*Transaction
 
 	pending, err := h.bcReader.Pending()
@@ -889,7 +893,7 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L39
 // Note: The gateway expects the sierra_program to be gzip compressed and 64-base encoded. We perform this operation,
 // and then relay the transaction to the gateway.
-func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
+func (h *Handler) AddDeclareTransaction(ctx context.Context, declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
 	var request map[string]any
 	err := json.Unmarshal(declareTx, &request)
 	if err != nil {
@@ -925,7 +929,7 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 		declareTx = updatedReq
 	}
 
-	resp, err := h.gatewayClient.AddTransaction(declareTx)
+	resp, err := h.gatewayClient.AddTransaction(ctx, declareTx)
 	if err != nil {
 		if strings.Contains(err.Error(), "Invalid contract class") {
 			return nil, ErrInvlaidContractClass
@@ -945,6 +949,6 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 	return declareRes, nil
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
+func (h *Handler) Version(ctx context.Context) (string, *jsonrpc.Error) {
 	return h.version, nil
 }

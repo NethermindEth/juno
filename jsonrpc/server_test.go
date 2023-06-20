@@ -1,6 +1,7 @@
 package jsonrpc_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -71,7 +72,7 @@ func TestHandle(t *testing.T) {
 		{
 			"method",
 			[]jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
-			func(num *int, shouldError bool, data any) (any, *jsonrpc.Error) {
+			func(_ context.Context, num *int, shouldError bool, data any) (any, *jsonrpc.Error) {
 				if shouldError {
 					return nil, &jsonrpc.Error{Code: 44, Message: "Expected Error", Data: data}
 				}
@@ -83,35 +84,35 @@ func TestHandle(t *testing.T) {
 		{
 			"subtract",
 			[]jsonrpc.Parameter{{Name: "minuend"}, {Name: "subtrahend"}},
-			func(a, b int) (int, *jsonrpc.Error) {
+			func(_ context.Context, a, b int) (int, *jsonrpc.Error) {
 				return a - b, nil
 			},
 		},
 		{
 			"update",
 			[]jsonrpc.Parameter{{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"}},
-			func(a, b, c, d, e int) (int, *jsonrpc.Error) {
+			func(_ context.Context, a, b, c, d, e int) (int, *jsonrpc.Error) {
 				return 0, nil
 			},
 		},
 		{
 			"foobar",
 			[]jsonrpc.Parameter{},
-			func() (int, *jsonrpc.Error) {
+			func(_ context.Context) (int, *jsonrpc.Error) {
 				return 0, nil
 			},
 		},
 		{
 			"validation",
 			[]jsonrpc.Parameter{{Name: "param"}},
-			func(v validationStruct) (int, *jsonrpc.Error) {
+			func(_ context.Context, v validationStruct) (int, *jsonrpc.Error) {
 				return v.A, nil
 			},
 		},
 		{
 			"validationPointer",
 			[]jsonrpc.Parameter{{Name: "param"}},
-			func(v *validationStruct) (int, *jsonrpc.Error) {
+			func(_ context.Context, v *validationStruct) (int, *jsonrpc.Error) {
 				return v.A, nil
 			},
 		},

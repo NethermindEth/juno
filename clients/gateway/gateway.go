@@ -76,10 +76,10 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	}
 }
 
-func (c *Client) AddTransaction(txn json.RawMessage) (json.RawMessage, error) {
+func (c *Client) AddTransaction(ctx context.Context, txn json.RawMessage) (json.RawMessage, error) {
 	endpoint := c.url + "/add_transaction"
 
-	body, err := c.post(endpoint, txn)
+	body, err := c.post(ctx, endpoint, txn)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +94,8 @@ func (c *Client) AddTransaction(txn json.RawMessage) (json.RawMessage, error) {
 }
 
 // post performs additional utility function over doPost method
-func (c *Client) post(url string, data any) (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+func (c *Client) post(ctx context.Context, url string, data any) (io.ReadCloser, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	resp, err := c.doPost(ctx, url, data)

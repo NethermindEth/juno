@@ -35,7 +35,7 @@ func NewHTTP(port uint16, methods []Method, log utils.SimpleLogger) *HTTP {
 	for _, method := range methods {
 		err := h.rpc.RegisterMethod(method)
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("registering %q: %w", method.Name, err))
 		}
 	}
 	return h
@@ -67,7 +67,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	}
 
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	resp, err := h.rpc.HandleReader(req.Body)
+	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)

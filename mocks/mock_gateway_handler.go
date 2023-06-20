@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	json "encoding/json"
 	reflect "reflect"
 
@@ -35,16 +36,16 @@ func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
 }
 
 // AddTransaction mocks base method.
-func (m *MockGateway) AddTransaction(arg0 json.RawMessage) (json.RawMessage, error) {
+func (m *MockGateway) AddTransaction(arg0 context.Context, arg1 json.RawMessage) (json.RawMessage, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddTransaction", arg0)
+	ret := m.ctrl.Call(m, "AddTransaction", arg0, arg1)
 	ret0, _ := ret[0].(json.RawMessage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddTransaction indicates an expected call of AddTransaction.
-func (mr *MockGatewayMockRecorder) AddTransaction(arg0 interface{}) *gomock.Call {
+func (mr *MockGatewayMockRecorder) AddTransaction(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTransaction", reflect.TypeOf((*MockGateway)(nil).AddTransaction), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTransaction", reflect.TypeOf((*MockGateway)(nil).AddTransaction), arg0, arg1)
 }
