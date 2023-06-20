@@ -717,9 +717,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFil
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.database.Update(func(txn db.Transaction) error {
-		return revertHead(txn)
-	})
+	return b.database.Update(revertHead)
 }
 
 func revertHead(txn db.Transaction) error {
