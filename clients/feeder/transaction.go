@@ -6,20 +6,20 @@ import (
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
-	Hash                *felt.Felt   `json:"transaction_hash"`
-	Version             *felt.Felt   `json:"version"`
-	ContractAddress     *felt.Felt   `json:"contract_address"`
-	ContractAddressSalt *felt.Felt   `json:"contract_address_salt"`
-	ClassHash           *felt.Felt   `json:"class_hash"`
-	ConstructorCallData []*felt.Felt `json:"constructor_calldata"`
-	Type                string       `json:"type"`
-	SenderAddress       *felt.Felt   `json:"sender_address"`
-	MaxFee              *felt.Felt   `json:"max_fee"`
-	Signature           []*felt.Felt `json:"signature"`
-	CallData            []*felt.Felt `json:"calldata"`
-	EntryPointSelector  *felt.Felt   `json:"entry_point_selector"`
-	Nonce               *felt.Felt   `json:"nonce"`
-	CompiledClassHash   *felt.Felt   `json:"compiled_class_hash"`
+	Hash                *felt.Felt    `json:"transaction_hash,omitempty" copier:"must,nopanic"`
+	Version             *felt.Felt    `json:"version,omitempty"`
+	ContractAddress     *felt.Felt    `json:"contract_address,omitempty"`
+	ContractAddressSalt *felt.Felt    `json:"contract_address_salt,omitempty"`
+	ClassHash           *felt.Felt    `json:"class_hash,omitempty"`
+	ConstructorCallData *[]*felt.Felt `json:"constructor_calldata,omitempty"`
+	Type                string        `json:"type,omitempty"`
+	SenderAddress       *felt.Felt    `json:"sender_address,omitempty"`
+	MaxFee              *felt.Felt    `json:"max_fee,omitempty"`
+	Signature           *[]*felt.Felt `json:"signature,omitempty"`
+	CallData            *[]*felt.Felt `json:"calldata,omitempty"`
+	EntryPointSelector  *felt.Felt    `json:"entry_point_selector,omitempty"`
+	Nonce               *felt.Felt    `json:"nonce,omitempty"`
+	CompiledClassHash   *felt.Felt    `json:"compiled_class_hash,omitempty"`
 }
 
 type TransactionStatus struct {

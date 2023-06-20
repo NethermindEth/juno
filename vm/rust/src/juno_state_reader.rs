@@ -30,7 +30,7 @@ extern "C" {
         reader_handle: usize,
         contract_address: *const c_uchar,
     ) -> *const c_uchar;
-    fn JunoStateGetClass(reader_handle: usize, class_hash: *const c_uchar) -> *const c_char;
+    fn JunoStateGetCompiledClass(reader_handle: usize, class_hash: *const c_uchar) -> *const c_char;
 }
 
 pub struct JunoStateReader {
@@ -108,7 +108,7 @@ impl StateReader for JunoStateReader {
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
-        let ptr = unsafe { JunoStateGetClass(self.handle, class_hash_bytes.as_ptr()) };
+        let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::UndeclaredClassHash(*class_hash))
         } else {
