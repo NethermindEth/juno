@@ -10,11 +10,13 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sourcegraph/conc/pool"
 )
 
 const (
@@ -211,52 +213,13 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 		}
 	} else {
 		var batchReq []json.RawMessage
-		var batchRes []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
 			res.Error = Err(InvalidJSON, batchJSONErr.Error())
 		} else if len(batchReq) == 0 {
 			res.Error = Err(InvalidRequest, "empty batch")
 		} else {
-			for _, rawReq := range batchReq { // todo: handle async
-				var resObject *response
-
-				reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
-				reqDec.UseNumber()
-
-				req := new(request)
-				if jsonErr := reqDec.Decode(req); jsonErr != nil {
-					resObject = &response{
-						Version: "2.0",
-						Error:   Err(InvalidRequest, jsonErr.Error()),
-					}
-				} else {
-					var handleErr error
-					resObject, handleErr = s.handleRequest(ctx, req)
-					if handleErr != nil {
-						resObject = &response{
-							Version: "2.0",
-							Error:   Err(InvalidRequest, handleErr.Error()),
-						}
-						if !errors.Is(handleErr, ErrInvalidID) {
-							resObject.ID = req.ID
-						}
-					}
-				}
-
-				if resObject != nil {
-					if resArr, jsonErr := json.Marshal(resObject); jsonErr != nil {
-						return nil, jsonErr
-					} else {
-						batchRes = append(batchRes, resArr)
-					}
-				}
-			}
-
-			if len(batchRes) == 0 {
-				return nil, nil
-			}
-			return json.Marshal(batchRes)
+			return s.handleBatchRequest(ctx, batchReq)
 		}
 	}
 
@@ -264,6 +227,67 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 		return nil, nil
 	}
 	return json.Marshal(res)
+}
+
+func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, error) {
+	var batchRes []json.RawMessage
+	var resMutex sync.Mutex
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	p := pool.New().WithErrors()
+	for _, rawReq := range batchReq {
+		rawReq := rawReq
+		p.Go(func() error {
+			var resObject *response
+
+			reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
+			reqDec.UseNumber()
+
+			req := new(request)
+			if jsonErr := reqDec.Decode(req); jsonErr != nil {
+				cancel()
+				resObject = &response{
+					Version: "2.0",
+					Error:   Err(InvalidRequest, jsonErr.Error()),
+				}
+			} else {
+				var handleErr error
+				resObject, handleErr = s.handleRequest(ctx, req)
+				if handleErr != nil {
+					resObject = &response{
+						Version: "2.0",
+						Error:   Err(InvalidRequest, handleErr.Error()),
+					}
+					if !errors.Is(handleErr, ErrInvalidID) {
+						resObject.ID = req.ID
+					}
+				}
+			}
+
+			if resObject != nil {
+				if resArr, jsonErr := json.Marshal(resObject); jsonErr != nil {
+					return jsonErr
+				} else {
+					resMutex.Lock()
+					batchRes = append(batchRes, resArr)
+					resMutex.Unlock()
+				}
+			}
+
+			return nil
+		})
+	}
+
+	if err := p.Wait(); err != nil {
+		return nil, err
+	}
+	if len(batchRes) == 0 {
+		return nil, nil
+	}
+
+	return json.Marshal(batchRes)
 }
 
 func isBatch(reader *bufio.Reader) bool {
