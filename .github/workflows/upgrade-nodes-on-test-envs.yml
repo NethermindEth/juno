@@ -81,3 +81,19 @@ jobs:
                 port=$((port+1))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
+
+    - name: Trigger RPC Tests on deployed mainnet
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: RPC Tests
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        ref: ${{ github.ref }}
+        inputs: '{"NODE_ADDRESS": "http://${{ env.HOST }}:6060", "NETWORK": "mainnet"}'
+
+    - name: Trigger Load tests on deployed mainnet
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: Load tests
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        ref: ${{ github.ref }}
+        inputs: '{"NODE_URL": "http://${{ env.HOST }}:6060", "VUS": "2", "DURATION": "300s"}'
