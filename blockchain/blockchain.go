@@ -19,6 +19,7 @@ type Reader interface {
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
+	L1Head() (*core.L1Head, error)
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
@@ -270,10 +271,18 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	var update *core.L1Head
-	if err := b.database.View(func(txn db.Transaction) error {
-		return txn.Get(db.L1Height.Key(), func(updateBytes []byte) error {
-			return encoder.Unmarshal(updateBytes, &update)
-		})
+
+	return update, b.database.View(func(txn db.Transaction) error {
+		var err error
+		update, err = l1Head(txn)
+		return err
+	})
+}
+
+func l1Head(txn db.Transaction) (*core.L1Head, error) {
+	var update *core.L1Head
+	if err := txn.Get(db.L1Height.Key(), func(updateBytes []byte) error {
+		return encoder.Unmarshal(updateBytes, &update)
 	}); err != nil {
 		return nil, err
 	}

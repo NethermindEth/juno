@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -110,15 +111,39 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		txnHashes[index] = txn.Hash()
 	}
 
+	l1H, jsonErr := h.l1Head()
+	if jsonErr != nil {
+		return nil, jsonErr
+	}
+
 	status := StatusAcceptedL2
 	if id.Pending {
 		status = StatusPending
+	} else if isL1Verified(block.Number, l1H) {
+		status = StatusAcceptedL1
 	}
+
 	return &BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: adaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
+}
+
+func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
+	l1Head, err := h.bcReader.L1Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+	// nil is returned if l1 head doesn't exist
+	return l1Head, nil
+}
+
+func isL1Verified(n uint64, l1 *core.L1Head) bool {
+	if l1 != nil && l1.BlockNumber >= n {
+		return true
+	}
+	return false
 }
 
 func adaptBlockHeader(header *core.Header) BlockHeader {
@@ -153,10 +178,18 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		txs[index] = adaptTransaction(txn)
 	}
 
+	l1H, jsonErr := h.l1Head()
+	if jsonErr != nil {
+		return nil, jsonErr
+	}
+
 	status := StatusAcceptedL2
 	if id.Pending {
 		status = StatusPending
+	} else if isL1Verified(block.Number, l1H) {
+		status = StatusAcceptedL1
 	}
+
 	return &BlockWithTxs{
 		Status:       status,
 		BlockHeader:  adaptBlockHeader(block.Header),
@@ -383,11 +416,26 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	}
 
 	var receiptBlockNumber *uint64
+	status := StatusAcceptedL2
+
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
+
+		l1H, jsonErr := h.l1Head()
+		if jsonErr != nil {
+			return nil, jsonErr
+		}
+
+		if isL1Verified(blockNumber, l1H) {
+			status = StatusAcceptedL1
+		}
+	} else {
+		// Todo: Remove after starknet v0.12.0 is released. As Pending status will be removed from Transactions and only exist for blocks
+		status = StatusPending
 	}
+
 	return &TransactionReceipt{
-		Status:          StatusAcceptedL2, // todo
+		Status:          status,
 		Type:            txn.Type,
 		Hash:            txn.Hash,
 		ActualFee:       receipt.Fee,
