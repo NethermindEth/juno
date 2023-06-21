@@ -117,10 +117,10 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}
 
 	status := StatusAcceptedL2
-	if block.Hash != nil && isL1Verified(block.Number, l1H) {
-		status = StatusAcceptedL1
-	} else if id.Pending {
+	if id.Pending {
 		status = StatusPending
+	} else if isL1Verified(block.Number, l1H) {
+		status = StatusAcceptedL1
 	}
 
 	return &BlockWithTxHashes{
@@ -133,11 +133,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
 	l1Head, err := h.bcReader.L1Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, &jsonrpc.Error{
-			Code:    ErrInternal.Code,
-			Message: ErrInternal.Message,
-			Data:    err.Error(),
-		}
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	// nil is returned if l1 head doesn't exist
 	return l1Head, nil
@@ -188,10 +184,10 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}
 
 	status := StatusAcceptedL2
-	if block.Hash != nil && isL1Verified(block.Number, l1H) {
-		status = StatusAcceptedL1
-	} else if id.Pending {
+	if id.Pending {
 		status = StatusPending
+	} else if isL1Verified(block.Number, l1H) {
+		status = StatusAcceptedL1
 	}
 
 	return &BlockWithTxs{
@@ -430,7 +426,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, jsonErr
 		}
 
-		if isL1Verified(*receiptBlockNumber, l1H) {
+		if isL1Verified(blockNumber, l1H) {
 			status = StatusAcceptedL1
 		}
 	} else {
