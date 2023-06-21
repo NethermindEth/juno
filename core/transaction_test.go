@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -182,7 +183,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 		}{
 			*badTxn0.Hash(): {
 				name:    "Declare - error if transaction hash calculation failed",
-				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: invalid Transaction (type: *core.DeclareTransaction) version: 3", badTxn0.Hash().String()),
+				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %w", badTxn0.Hash().String(), errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 3")),
 				txn:     badTxn0,
 			},
 			*badTxn1.Hash(): {
