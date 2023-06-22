@@ -13,12 +13,7 @@ import (
 	"sync"
 )
 
-func runBlockEncodingTests(blockchain *blockchain.Blockchain, err error) error {
-	head, err := blockchain.Head()
-	if err != nil {
-		return err
-	}
-
+func runBlockEncodingTests(blockchain *blockchain.Blockchain) error {
 	blocknumchan := make(chan int)
 
 	threadcount := 32
@@ -51,6 +46,11 @@ func runBlockEncodingTests(blockchain *blockchain.Blockchain, err error) error {
 				}
 			}
 		}()
+	}
+
+	head, err := blockchain.Head()
+	if err != nil {
+		return errors.Wrap(err, "error fetching head")
 	}
 
 	startblock := 4800
@@ -111,9 +111,12 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 	if string(gatewayjson) != string(reencodedblockjson) {
 
 		updateBytes, err := encoder.Marshal(originalBlock)
+		if err != nil {
+			return err
+		}
 		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0666)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		for i, receipt := range originalBlock.Receipts {
@@ -129,7 +132,6 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 			if !compareAndPrintDiff(receipt, receipt2) {
 				return errors.New("receipt mismatch")
 			}
-
 		}
 
 		txCommit, err := originalBlock.CalculateTransactionCommitment()
@@ -188,9 +190,12 @@ func testStateDiff(stateDiff *core.StateUpdate) error {
 	}
 
 	updateBytes, err := encoder.Marshal(stateDiff)
+	if err != nil {
+		return err
+	}
 	err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/state_updates/%s.dat", oriBlockHash.String()), updateBytes, 0666)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	oriSD := stateDiff.StateDiff

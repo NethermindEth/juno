@@ -352,7 +352,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network, force bool) 
 	}
 }
 
-func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network, force bool) (*felt.Felt, error) {
+func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network, _ bool) (*felt.Felt, error) {
 	switch {
 	case l.Version.IsZero():
 		// There are some l1 handler transaction which do not return a nonce and for some random

@@ -13,6 +13,8 @@ import (
 	"sync"
 )
 
+const classLruSize = 16000
+
 type StartnetDataAdapter struct {
 	base      starknetdata.StarknetData
 	p2p       BlockSyncPeerManager
@@ -34,7 +36,7 @@ func (s *StartnetDataAdapter) StateUpdatePending(ctx context.Context) (*core.Sta
 }
 
 func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerManager, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
-	lru, err := simplelru.NewLRU(16000, func(key interface{}, value interface{}) {})
+	lru, err := simplelru.NewLRU(classLruSize, func(key interface{}, value interface{}) {})
 	if err != nil {
 		panic(err)
 	}

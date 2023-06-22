@@ -105,7 +105,10 @@ func protoToAddress(to *p2pproto.EthereumAddress) common.Address {
 	return addr
 }
 
-func (c *converter) protobufHeaderAndBodyToCoreBlock(header *p2pproto.BlockHeader, body *p2pproto.BlockBody) (*core.Block, map[felt.Felt]core.Class, error) {
+func (c *converter) protobufHeaderAndBodyToCoreBlock(
+	header *p2pproto.BlockHeader,
+	body *p2pproto.BlockBody,
+) (*core.Block, map[felt.Felt]core.Class, error) {
 	parentHash := fieldElementToFelt(header.ParentBlockHash)
 	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)
 	sequencerAddress := fieldElementToFelt(header.SequencerAddress)
@@ -127,7 +130,7 @@ func (c *converter) protobufHeaderAndBodyToCoreBlock(header *p2pproto.BlockHeade
 			ExtraData:        nil,
 			EventsBloom:      bloom.New(8192, 6),
 		},
-		Transactions: make([]core.Transaction, 0), // Assuming it's initialized as an empty slice
+		Transactions: make([]core.Transaction, 0), // Assuming it's initialised as an empty slice
 		Receipts:     make([]*core.TransactionReceipt, 0),
 	}
 

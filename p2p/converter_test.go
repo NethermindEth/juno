@@ -66,6 +66,7 @@ func (c *mapClassProvider) Save() {
 	}
 }
 
+/*
 func dumpBlock(blockNum uint64) {
 	db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
 	bc := blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
@@ -85,6 +86,7 @@ func dumpBlock(blockNum uint64) {
 		panic(err)
 	}
 }
+*/
 
 func TestEncodeDecodeBlocks(t *testing.T) {
 	// db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())

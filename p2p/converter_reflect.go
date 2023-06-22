@@ -85,9 +85,6 @@ func reflectMapValue(sourceValue reflect.Value, destValue reflect.Value) {
 		panic("Both source and destination must have same kind")
 	}
 
-	sourceType = sourceValue.Type()
-	destType = destValue.Type()
-
 	switch sourceValue.Kind() {
 	case reflect.Struct:
 		mapStruct(sourceValue, destValue)

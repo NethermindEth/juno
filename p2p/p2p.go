@@ -27,11 +27,14 @@ import (
 	"time"
 )
 
+const defaultSourcePort = 30301
+const keyLength = 2048
+const routingTableRefreshPeriod = 10 * time.Second
+
 type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
 
-	network    utils.Network
 	blockchain *blockchain.Blockchain
 }
 
@@ -64,7 +67,7 @@ func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
 
 	return nil
 }
-func (ip *P2PImpl) setupIdentity(ctx context.Context) error {
+func (ip *P2PImpl) setupIdentity(context.Context) error {
 	idservice, err := identify.NewIDService(ip.host)
 	if err != nil {
 		return err
@@ -97,9 +100,12 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 	dhtinstance, err := dht.New(ctx, ip.host,
 		dht.ProtocolPrefix("/pathfinder/kad/1.0.0"),
 		dht.BootstrapPeers(bootPeers...),
-		dht.RoutingTableRefreshPeriod(10*time.Second),
+		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
 	)
+	if err != nil {
+		return err
+	}
 
 	ctx, events := dht.RegisterForLookupEvents(ctx)
 
@@ -120,17 +126,10 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 }
 
 func determineKey() (crypto.PrivKey, error) {
-	var prvKey crypto.PrivKey
-	var err error
-
-	if err != nil {
-		return nil, err
-	}
-
 	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
 	if !ok {
 		// Creates a new key pair for this host.
-		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
+		prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.Ed25519, keyLength, rand.Reader)
 		if err != nil {
 			return nil, err
 		}
@@ -142,19 +141,20 @@ func determineKey() (crypto.PrivKey, error) {
 
 		privKeyStr = hex.EncodeToString(prvKeyBytes)
 		fmt.Printf("Generated a new key. P2P_PRIVATE_KEY=%s\n", privKeyStr)
-	} else {
-		privKeyBytes, err := hex.DecodeString(privKeyStr)
-		if err != nil {
-			return nil, err
-		}
 
-		prvKey, err = crypto.UnmarshalPrivateKey(privKeyBytes)
-		if err != nil {
-			return nil, err
-		}
+		return prvKey, nil
+	}
+	privKeyBytes, err := hex.DecodeString(privKeyStr)
+	if err != nil {
+		return nil, err
 	}
 
-	return prvKey, err
+	prvKey, err := crypto.UnmarshalPrivateKey(privKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return prvKey, nil
 }
 func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log utils.SimpleLogger) (*P2PImpl, error) {
 	ctx := context.Background()
@@ -180,7 +180,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 	if len(addr) != 0 {
 		sourceMultiAddr, err = multiaddr.NewMultiaddr(addr)
 	} else {
-		sourceMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", 30301))
+		sourceMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", defaultSourcePort))
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to parse address")
@@ -203,6 +203,9 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
 	)
+	if err != nil {
+		return nil, err
+	}
 	impl.host = p2pHost
 
 	err = impl.setupKademlia(ctx, bootPeers)
@@ -225,9 +228,9 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 
 	// And some other stuff
 	go func() {
-		sub, err := p2pHost.EventBus().Subscribe(event.WildcardSubscription)
-		if err != nil {
-			panic(err)
+		sub, err2 := p2pHost.EventBus().Subscribe(event.WildcardSubscription)
+		if err2 != nil {
+			panic(err2)
 		}
 		for eent := range sub.Out() {
 			fmt.Printf("Got event via bus %s %+v\n", reflect.TypeOf(eent), eent)
@@ -236,7 +239,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 
 	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
 	if ok {
-		err = runBlockEncodingTests(blockchain, err)
+		err = runBlockEncodingTests(blockchain)
 		if err != nil {
 			return nil, err
 		}

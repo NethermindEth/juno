@@ -11,7 +11,10 @@ import (
 	"reflect"
 )
 
-func (c *converter) protobufTransactionToCore(protoTx *p2pproto.Transaction, protoReceipt *p2pproto.Receipt) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
+func (c *converter) protobufTransactionToCore(
+	protoTx *p2pproto.Transaction,
+	protoReceipt *p2pproto.Receipt,
+) (core.Transaction, *core.TransactionReceipt, *felt.Felt, core.Class, error) {
 	switch tx := protoTx.GetTxn().(type) {
 	case *p2pproto.Transaction_Deploy:
 		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Deploy)
@@ -256,7 +259,6 @@ func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *co
 					},
 				},
 			}, nil
-
 	}
 
 	return nil, nil, errors.Errorf("Unknown transaction type %T", transaction)

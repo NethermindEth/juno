@@ -69,49 +69,48 @@ func (p *p2pPeerPoolManager) OpenStream(ctx context.Context) (network.Stream, fu
 	}, err
 }
 
-func (ip *p2pPeerPoolManager) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
+func (p *p2pPeerPoolManager) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
 	for {
-		p := ip.pickBlockSyncPeerNoWait()
-		if p != nil {
-			return p, nil
+		peer := p.pickBlockSyncPeerNoWait()
+		if peer != nil {
+			return peer, nil
 		}
 
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(time.Second):
-		case <-ip.syncPeerUpdateChan:
+		case <-p.syncPeerUpdateChan:
 		}
 	}
 }
 
-func (ip *p2pPeerPoolManager) pickBlockSyncPeerNoWait() *peer.ID {
+func (p *p2pPeerPoolManager) pickBlockSyncPeerNoWait() *peer.ID {
 	maxConcurrentRequestPerPeer := 32
-	ip.syncPeerMtx.Lock()
-	defer ip.syncPeerMtx.Unlock()
+	p.syncPeerMtx.Lock()
+	defer p.syncPeerMtx.Unlock()
 
 	// Simple mechanism to round robin the peers
-	ip.peerTurn = ip.peerTurn + 1
+	p.peerTurn = p.peerTurn + 1
 
-	for i := 0; i < len(ip.blockSyncPeers); i++ {
-		p := ip.blockSyncPeers[(i+ip.peerTurn)%len(ip.blockSyncPeers)]
-		if ip.pickedBlockSyncPeers[p] < maxConcurrentRequestPerPeer {
-			ip.pickedBlockSyncPeers[p] += 1
-			return &p
+	for i := 0; i < len(p.blockSyncPeers); i++ {
+		peer := p.blockSyncPeers[(i+p.peerTurn)%len(p.blockSyncPeers)]
+		if p.pickedBlockSyncPeers[peer] < maxConcurrentRequestPerPeer {
+			p.pickedBlockSyncPeers[peer] += 1
+			return &peer
 		}
 	}
 	return nil
 }
 
-func (ip *p2pPeerPoolManager) releaseBlockSyncPeer(id *peer.ID) {
-	ip.syncPeerMtx.Lock()
-	defer ip.syncPeerMtx.Unlock()
+func (p *p2pPeerPoolManager) releaseBlockSyncPeer(id *peer.ID) {
+	p.syncPeerMtx.Lock()
+	defer p.syncPeerMtx.Unlock()
 
-	ip.pickedBlockSyncPeers[*id] -= 1
+	p.pickedBlockSyncPeers[*id] -= 1
 
 	select {
-	case ip.syncPeerUpdateChan <- 0:
+	case p.syncPeerUpdateChan <- 0:
 	default:
 	}
 }
-

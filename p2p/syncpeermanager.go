@@ -23,6 +23,8 @@ type BlockSyncPeerManager interface {
 
 var _ BlockSyncPeerManager = &blockSyncPeerManager{}
 
+const headerLRUSize = 1000
+
 type streamProvider = func(ctx context.Context) (network.Stream, func(), error)
 
 type blockSyncPeerManager struct {
@@ -40,7 +42,7 @@ func NewBlockSyncPeerManager(ctx context.Context, streamProvider streamProvider,
 		blockchain: blockchain,
 	})
 
-	lru, err := simplelru.NewLRU(1000, func(key interface{}, value interface{}) {})
+	lru, err := simplelru.NewLRU(headerLRUSize, func(key interface{}, value interface{}) {})
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +103,10 @@ func (ip *blockSyncPeerManager) getHeaderByBlockNumber(ctx context.Context, numb
 	return blockHeaders[0], nil
 }
 
-func (ip *blockSyncPeerManager) getBlockByHeaderRequest(ctx context.Context, headerRequest *p2pproto.GetBlockHeaders) (*core.Block, map[felt.Felt]core.Class, error) {
+func (ip *blockSyncPeerManager) getBlockByHeaderRequest(
+	ctx context.Context,
+	headerRequest *p2pproto.GetBlockHeaders,
+) (*core.Block, map[felt.Felt]core.Class, error) {
 	// The core block need both header and block to build. So.. kinda cheating here as it fetch both header and body.
 	headerResponse, err := ip.sendBlockSyncRequest(ctx,
 		&p2pproto.Request{
@@ -179,7 +184,7 @@ func (ip *blockSyncPeerManager) sendBlockSyncRequest(ctx context.Context, reques
 	defer closeFunc()
 
 	defer func(stream network.Stream) {
-		err := stream.Close()
+		err = stream.Close()
 		if err != nil {
 			fmt.Printf("Error closing stream %s", err)
 		}

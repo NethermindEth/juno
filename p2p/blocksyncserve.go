@@ -52,29 +52,16 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 	}
 
 	// TODO: request.sizelimit
-	results := make([]*p2pproto.BlockHeader, 0)
-	for i := 0; i < int(request.Count); i++ {
-		protoheader, err := s.converter.coreBlockToProtobufHeader(startblock)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to convert block to protobuff block header")
-		}
-
-		results = append(results, protoheader)
-
-		if i+1 < int(request.Count) {
-			// TODO: how notfound is represented and what if its null
-			if request.Direction == p2pproto.Direction_FORWARD {
-				startblock, err = s.blockchain.BlockByNumber(startblock.Number + 1)
-				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number+1)
-				}
-			} else {
-				startblock, err = s.blockchain.BlockByNumber(startblock.Number - 1)
-				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
-				}
-			}
-		}
+	results, err := mapBlockSequence(
+		s.blockchain,
+		int(request.Count),
+		request.Direction,
+		startblock,
+		func(block *core.Block) (*p2pproto.BlockHeader, error) {
+			return s.converter.coreBlockToProtobufHeader(block)
+		})
+	if err != nil {
+		return nil, err
 	}
 
 	return &p2pproto.BlockHeaders{
@@ -97,23 +84,50 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 	}
 
 	// TODO: request.sizelimit
-	results := make([]*p2pproto.BlockBody, 0)
-	for i := 0; i < int(request.Count); i++ {
-		block, err := s.converter.coreBlockToProtobufBody(startblock)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to convert block to protobuf")
-		}
-		results = append(results, block)
 
-		if i+1 < int(request.Count) {
-			// TODO: how notfound is represented and what if its null or the number overflow
-			if request.Direction == p2pproto.Direction_FORWARD {
-				startblock, err = s.blockchain.BlockByNumber(startblock.Number + 1)
+	results, err := mapBlockSequence(
+		s.blockchain,
+		int(request.Count),
+		request.Direction,
+		startblock,
+		func(block *core.Block) (*p2pproto.BlockBody, error) {
+			return s.converter.coreBlockToProtobufBody(block)
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &p2pproto.BlockBodies{
+		BlockBodies: results,
+	}, nil
+}
+
+func mapBlockSequence[T any](
+	blockchain *blockchain.Blockchain,
+	requestCount int,
+	direction p2pproto.Direction,
+	startblock *core.Block,
+	mapper func(block *core.Block) (T, error),
+) ([]T, error) {
+	results := make([]T, 0)
+	for i := 0; i < requestCount; i++ {
+		result, err := mapper(startblock)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to convert block to protobuff block header")
+		}
+
+		results = append(results, result)
+
+		if i+1 < requestCount {
+			// TODO: how notfound is represented and what if its null
+			if direction == p2pproto.Direction_FORWARD {
+				startblock, err = blockchain.BlockByNumber(startblock.Number + 1)
 				if err != nil {
 					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number+1)
 				}
 			} else {
-				startblock, err = s.blockchain.BlockByNumber(startblock.Number - 1)
+				startblock, err = blockchain.BlockByNumber(startblock.Number - 1)
 				if err != nil {
 					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
 				}
@@ -121,9 +135,7 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 		}
 	}
 
-	return &p2pproto.BlockBodies{
-		BlockBodies: results,
-	}, nil
+	return results, nil
 }
 
 func (s *blockSyncServer) HandleGetStateDiff(request *p2pproto.GetStateDiffs) (*p2pproto.StateDiffs, error) {
