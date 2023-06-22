@@ -45,7 +45,7 @@ func (s *Status) UnmarshalJSON(bytes []byte) (err error) {
 	case "REJECTED":
 		*s = StatusRejected
 	default:
-		err = fmt.Errorf("unknown block stauts %q", str)
+		err = fmt.Errorf("unknown block status %q", str)
 	}
 
 	return
