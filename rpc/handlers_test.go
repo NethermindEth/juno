@@ -1943,3 +1943,40 @@ func TestVersion(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, version, ver)
 }
+
+func TestTransactionStatus(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	hash := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
+
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	t.Run("status pending", func(t *testing.T) {
+		gw := adaptfeeder.New(client)
+
+		block, err := gw.BlockByNumber(context.Background(), 0)
+		require.NoError(t, err)
+
+		tx := block.Transactions[0]
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
+		mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], nil, uint64(0), nil)
+
+		handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", nil)
+
+		status, rpcErr := handler.TransactionStatus(*tx.Hash())
+		require.Nil(t, rpcErr)
+		require.Equal(t, rpc.StatusPending, status)
+	})
+	t.Run("transaction not found in db", func(t *testing.T) {
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
+		handler := rpc.New(mockReader, nil, utils.MAINNET, nil, client, "", nil)
+
+		status, err := handler.TransactionStatus(*hash)
+		require.Nil(t, err)
+		require.Equal(t, rpc.StatusAcceptedL1, status)
+	})
+}

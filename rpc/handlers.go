@@ -1001,39 +1001,24 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 	return h.version, nil
 }
 
-func (h *Handler) TransactionStatus(hash *felt.Felt) (Status, *jsonrpc.Error) {
-	_, err := h.bcReader.TransactionByHash(hash)
-	if err == nil { // transaction found in database
-		l1, l1Err := h.bcReader.L1Head()
-		if l1Err != nil {
-			return 0, jsonrpc.Err(jsonrpc.InternalError, l1Err.Error())
-		}
-
-		if l1 != nil {
-			var status Status
-			if l1.BlockHash != nil {
-				status = StatusAcceptedL2
-			} else {
-				status = StatusPending
-			}
-
-			return status, nil
-		}
-	}
-
-	if !errors.Is(err, db.ErrKeyNotFound) {
-		return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-
-	txStatus, err := h.feederClient.Transaction(context.Background(), hash)
-	if err != nil {
-		return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-
+func (h *Handler) TransactionStatus(hash felt.Felt) (Status, *jsonrpc.Error) {
 	var status Status
-	err = status.UnmarshalJSON([]byte(txStatus.Status))
-	if err != nil {
-		return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+
+	receipt, txErr := h.TransactionReceiptByHash(hash)
+	if txErr == nil {
+		status = receipt.Status
+	} else if txErr == ErrTxnHashNotFound {
+		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
+		if err != nil {
+			return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+
+		err = status.UnmarshalJSON([]byte(txStatus.Status))
+		if err != nil {
+			return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+	} else {
+		return 0, txErr
 	}
 
 	return status, nil
