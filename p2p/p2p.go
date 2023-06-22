@@ -234,14 +234,13 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 		}
 	}()
 
-	/*
-		p, err2 := runBlockEncodingTests(blockchain, err)
-		if err2 != nil {
-			return p, err2
+	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
+	if ok {
+		err = runBlockEncodingTests(blockchain, err)
+		if err != nil {
+			return nil, err
 		}
-	*/
-
-	fmt.Println("Done")
+	}
 
 	return &impl, nil
 }
