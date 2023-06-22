@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -15,6 +17,7 @@ type revision func(transaction db.Transaction) error
 var revisions = []revision{
 	revision0000,
 	relocateContractStorageRootKeys,
+	recalculateBloomFilters,
 }
 
 func MigrateIfNeeded(targetDB db.DB) error {
@@ -141,4 +144,22 @@ func relocateContractStorageRootKeys(txn db.Transaction) error {
 	}
 
 	return nil
+}
+
+// recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
+func recalculateBloomFilters(txn db.Transaction) error {
+	blockchain.RegisterCoreTypesToEncoder()
+	for blockNumber := uint64(0); ; blockNumber++ {
+		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return nil
+			}
+			return err
+		}
+		block.EventsBloom = core.EventsBloom(block.Receipts)
+		if err = blockchain.StoreBlockHeader(txn, block.Header); err != nil {
+			return err
+		}
+	}
 }

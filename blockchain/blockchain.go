@@ -72,7 +72,7 @@ type Blockchain struct {
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
-	registerCoreTypesToEncoder()
+	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
 		network:  network,
@@ -140,14 +140,14 @@ func head(txn db.Transaction) (*core.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	return blockByNumber(txn, height)
+	return BlockByNumber(txn, height)
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	var block *core.Block
 	return block, b.database.View(func(txn db.Transaction) error {
 		var err error
-		block, err = blockByNumber(txn, number)
+		block, err = BlockByNumber(txn, number)
 		return err
 	})
 }
@@ -308,7 +308,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
-		if err := storeBlockHeader(txn, block.Header); err != nil {
+		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 		for i, tx := range block.Transactions {
@@ -366,7 +366,7 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	return nil
 }
 
-// storeBlockHeader stores the given block in the database.
+// StoreBlockHeader stores the given block in the database.
 // The db storage for blocks is maintained by two buckets as follows:
 //
 // [db.BlockHeaderNumbersByHash](BlockHash) -> (BlockNumber)
@@ -375,7 +375,7 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 // "[]" is the db prefix to represent a bucket
 // "()" are additional keys appended to the prefix or multiple values marshalled together
 // "->" represents a key value pair.
-func storeBlockHeader(txn db.Transaction, header *core.Header) error {
+func StoreBlockHeader(txn db.Transaction, header *core.Header) error {
 	numBytes := core.MarshalBlockNumber(header.Number)
 
 	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()), numBytes); err != nil {
@@ -417,8 +417,8 @@ func blockHeaderByHash(txn db.Transaction, hash *felt.Felt) (*core.Header, error
 	})
 }
 
-// blockByNumber retrieves a block from database by its number
-func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
+// BlockByNumber retrieves a block from database by its number
+func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	header, err := blockHeaderByNumber(txn, number)
 	if err != nil {
 		return nil, err
@@ -513,7 +513,7 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	var block *core.Block
 	return block, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		var err error
-		block, err = blockByNumber(txn, binary.BigEndian.Uint64(val))
+		block, err = BlockByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
