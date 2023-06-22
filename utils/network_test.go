@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"math/big"
 	"strings"
 	"testing"
 
@@ -49,6 +50,19 @@ func TestNetwork(t *testing.T) {
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.ChainID())
 			case utils.GOERLI2:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainID())
+			default:
+				assert.Fail(t, "unexpected network")
+			}
+		}
+	})
+	t.Run("default L1 chainId", func(t *testing.T) {
+		for n := range networkStrings {
+			got := n.DefaultL1ChainID()
+			switch n {
+			case utils.MAINNET:
+				assert.Equal(t, big.NewInt(1), got)
+			case utils.GOERLI, utils.GOERLI2, utils.INTEGRATION:
+				assert.Equal(t, big.NewInt(5), got)
 			default:
 				assert.Fail(t, "unexpected network")
 			}

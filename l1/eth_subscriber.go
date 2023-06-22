@@ -2,6 +2,7 @@ package l1
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -39,6 +40,10 @@ func (s *EthSubscriber) WatchHeader(ctx context.Context, sink chan<- *types.Head
 
 func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
 	return s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, sink)
+}
+
+func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
+	return s.ethClient.ChainID(ctx)
 }
 
 func (s *EthSubscriber) Close() {

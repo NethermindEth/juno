@@ -172,6 +172,21 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockReader)(nil).Height))
 }
 
+// L1Head mocks base method.
+func (m *MockReader) L1Head() (*core.L1Head, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "L1Head")
+	ret0, _ := ret[0].(*core.L1Head)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// L1Head indicates an expected call of L1Head.
+func (mr *MockReaderMockRecorder) L1Head() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1Head", reflect.TypeOf((*MockReader)(nil).L1Head))
+}
+
 // Pending mocks base method.
 func (m *MockReader) Pending() (blockchain.Pending, error) {
 	m.ctrl.T.Helper()

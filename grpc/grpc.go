@@ -12,22 +12,22 @@ import (
 )
 
 type Server struct {
-	port        uint16
-	junoVersion string
-	srv         *grpc.Server
-	db          db.DB
-	log         utils.SimpleLogger
+	port    uint16
+	version string
+	srv     *grpc.Server
+	db      db.DB
+	log     utils.SimpleLogger
 }
 
-func NewServer(port uint16, junoVersion string, database db.DB, log utils.SimpleLogger) *Server {
+func NewServer(port uint16, version string, database db.DB, log utils.SimpleLogger) *Server {
 	srv := grpc.NewServer()
 
 	return &Server{
-		srv:         srv,
-		db:          database,
-		port:        port,
-		junoVersion: junoVersion,
-		log:         log,
+		srv:     srv,
+		db:      database,
+		port:    port,
+		version: version,
+		log:     log,
 	}
 }
 
@@ -44,7 +44,7 @@ func (s *Server) Run(ctx context.Context) error {
 		s.srv.Stop()
 	}()
 
-	gen.RegisterKVServer(s.srv, handlers{s.db, s.junoVersion})
+	gen.RegisterKVServer(s.srv, handlers{s.db, s.version})
 
 	return s.srv.Serve(lis)
 }

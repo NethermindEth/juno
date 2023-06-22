@@ -185,6 +185,10 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Name:    "starknet_pendingTransactions",
 			Handler: rpcHandler.PendingTransactions,
 		},
+		{
+			Name:    "juno_version",
+			Handler: rpcHandler.Version,
+		},
 	}, log)
 }
 
@@ -240,7 +244,7 @@ func (n *Node) Run(ctx context.Context) {
 	synchronizer := sync.New(n.blockchain, starkdata, n.log, n.cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
 
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.log), n.log)
+	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.version, n.log), n.log)
 
 	n.services = []service.Service{synchronizer, http}
 

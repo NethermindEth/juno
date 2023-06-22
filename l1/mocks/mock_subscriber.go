@@ -6,6 +6,7 @@ package mocks
 
 import (
 	context "context"
+	big "math/big"
 	reflect "reflect"
 
 	contract "github.com/NethermindEth/juno/l1/contract"
@@ -35,6 +36,21 @@ func NewMockSubscriber(ctrl *gomock.Controller) *MockSubscriber {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 	return m.recorder
+}
+
+// ChainID mocks base method.
+func (m *MockSubscriber) ChainID(arg0 context.Context) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChainID", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChainID indicates an expected call of ChainID.
+func (mr *MockSubscriberMockRecorder) ChainID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockSubscriber)(nil).ChainID), arg0)
 }
 
 // WatchHeader mocks base method.

@@ -54,9 +54,19 @@ jobs:
         envs: DOCKER_IMAGE_TAG
         script: |
             port=6060
-            for network in mainnet goerli goerli2; do
+            for network in mainnet goerli goerli2 integration; do
                 docker stop juno_$network
                 docker rm juno_$network
+                if [ "$network" == "mainnet" ]; then
+                    ETH_NODE_PARAM="--eth-node ${{ secrets.ETH_NODE_MAINNET }}"
+                    PPROF_PARAM="--pprof"
+                elif [ "$network" == "goerli" ] || [ "$network" == "goerli2" ]; then
+                    ETH_NODE_PARAM="--eth-node ${{ secrets.ETH_NODE_GOERLI }}"
+                    PPROF_PARAM=""
+                elif [ "$network" == "integration" ]; then
+                    ETH_NODE_PARAM=""
+                    PPROF_PARAM=""
+                fi
                 docker run -d \
                     --name juno_$network \
                     -p $port:$port \
@@ -66,8 +76,24 @@ jobs:
                     --rpc-port $port \
                     --network $network \
                     --colour=false \
-                    --eth-node ${{ secrets.ETH_NODE }} \
-                    $(if [ "$network" = "mainnet" ]; then echo "--pprof"; fi)
-            port=$((port+1))
-            nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
+                    $ETH_NODE_PARAM \
+                    $PPROF_PARAM
+                port=$((port+1))
+                nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
+
+    - name: Trigger RPC Tests on deployed mainnet
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: RPC Tests
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        ref: ${{ github.ref }}
+        inputs: '{"NODE_ADDRESS": "http://${{ env.HOST }}:6060", "NETWORK": "mainnet"}'
+
+    - name: Trigger Load tests on deployed mainnet
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: Load tests
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        ref: ${{ github.ref }}
+        inputs: '{"NODE_URL": "http://${{ env.HOST }}:6060", "VUS": "2", "DURATION": "300s"}'
