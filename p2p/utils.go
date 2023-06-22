@@ -3,13 +3,14 @@ package p2p
 import (
 	"bufio"
 	"bytes"
+	"io"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/klauspost/compress/zstd"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
-	"io"
 )
 
 func readCompressedProtobuf(stream network.Stream, request proto.Message) error {
@@ -81,11 +82,11 @@ func fieldElementToFelt(field *p2pproto.FieldElement) *felt.Felt {
 	return &thefelt
 }
 
-func feltToFieldElement(felt *felt.Felt) *p2pproto.FieldElement {
-	if felt == nil {
+func feltToFieldElement(flt *felt.Felt) *p2pproto.FieldElement {
+	if flt == nil {
 		return nil
 	}
-	return &p2pproto.FieldElement{Elements: felt.Marshal()}
+	return &p2pproto.FieldElement{Elements: flt.Marshal()}
 }
 
 func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {

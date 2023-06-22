@@ -2,13 +2,14 @@ package p2p
 
 import (
 	"fmt"
+	"reflect"
+	"sync"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/pkg/errors"
-	"reflect"
-	"sync"
 )
 
 type Verifier interface {
@@ -52,15 +53,13 @@ func (h *verifier) VerifyBlock(block *core.Block) error {
 			// This is probably bad
 			txcategory := reflect.TypeOf(transaction).String()
 
-			switch tx := transaction.(type) {
-			case *core.InvokeTransaction:
+			if tx, ok := transaction.(*core.InvokeTransaction); ok {
 				if tx.Version.IsOne() {
-					txcategory = txcategory + "v1"
+					txcategory += "v1"
 				}
 				if tx.Version.IsZero() {
-					txcategory = txcategory + "v0"
+					txcategory += "v0"
 				}
-
 			}
 
 			h.trackMismatch(txcategory, recalculatedHash, transaction.Hash())
@@ -101,7 +100,7 @@ func (h *verifier) verifyCairo1Hash(coreClass *core.Cairo1Class, expectedHash *f
 	return nil
 }
 
-func (h *verifier) trackMismatch(category string, recalculated *felt.Felt, expected *felt.Felt) {
+func (h *verifier) trackMismatch(category string, _, _ *felt.Felt) {
 	// Just tracking right now...
 	mismatchLock.Lock()
 	_, ok := mismatchCount[category]

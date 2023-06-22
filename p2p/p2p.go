@@ -8,6 +8,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -20,11 +26,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"os"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
 )
 
 const defaultSourcePort = 30301
@@ -156,15 +157,15 @@ func determineKey() (crypto.PrivKey, error) {
 
 	return prvKey, nil
 }
-func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log utils.SimpleLogger) (*P2PImpl, error) {
+func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLogger) (*P2PImpl, error) {
 	ctx := context.Background()
 	converter := NewConverter(&blockchainClassProvider{
-		blockchain: blockchain,
+		blockchain: bc,
 	})
 	impl := P2PImpl{
-		blockchain: blockchain,
+		blockchain: bc,
 		syncServer: blockSyncServer{
-			blockchain: blockchain,
+			blockchain: bc,
 			converter:  converter,
 			log:        log,
 		},
@@ -177,7 +178,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 
 	var sourceMultiAddr multiaddr.Multiaddr
 	// 0.0.0.0 will listen on any interface device.
-	if len(addr) != 0 {
+	if addr != "" {
 		sourceMultiAddr, err = multiaddr.NewMultiaddr(addr)
 	} else {
 		sourceMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", defaultSourcePort))
@@ -239,7 +240,7 @@ func Start(blockchain *blockchain.Blockchain, addr string, bootPeers string, log
 
 	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
 	if ok {
-		err = runBlockEncodingTests(blockchain)
+		err = runBlockEncodingTests(bc)
 		if err != nil {
 			return nil, err
 		}
@@ -258,6 +259,9 @@ func (ip *P2PImpl) CreateBlockSyncProvider(ctx context.Context) (BlockSyncPeerMa
 		pickedBlockSyncPeers: map[peer.ID]int{},
 	}
 
-	go peerManager.Start(ctx)
+	go func() {
+		err := peerManager.Start(ctx)
+		fmt.Printf("Error starting peer manager %s\n", err)
+	}()
 	return NewBlockSyncPeerManager(ctx, peerManager.OpenStream, ip.blockchain)
 }

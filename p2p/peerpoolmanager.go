@@ -3,13 +3,14 @@ package p2p
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"golang.org/x/exp/slices"
-	"sync"
-	"time"
 )
 
 // Simple peer pool manager
@@ -58,22 +59,22 @@ func (p *p2pPeerPoolManager) AddPeer(id peer.ID) {
 }
 
 func (p *p2pPeerPoolManager) OpenStream(ctx context.Context) (network.Stream, func(), error) {
-	peer, err := p.pickBlockSyncPeer(ctx)
+	pr, err := p.pickBlockSyncPeer(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stream, err := p.p2p.host.NewStream(ctx, *peer, p.protocol)
+	stream, err := p.p2p.host.NewStream(ctx, *pr, p.protocol)
 	return stream, func() {
-		p.releaseBlockSyncPeer(peer)
+		p.releaseBlockSyncPeer(pr)
 	}, err
 }
 
 func (p *p2pPeerPoolManager) pickBlockSyncPeer(ctx context.Context) (*peer.ID, error) {
 	for {
-		peer := p.pickBlockSyncPeerNoWait()
-		if peer != nil {
-			return peer, nil
+		pr := p.pickBlockSyncPeerNoWait()
+		if pr != nil {
+			return pr, nil
 		}
 
 		select {
@@ -91,13 +92,13 @@ func (p *p2pPeerPoolManager) pickBlockSyncPeerNoWait() *peer.ID {
 	defer p.syncPeerMtx.Unlock()
 
 	// Simple mechanism to round robin the peers
-	p.peerTurn = p.peerTurn + 1
+	p.peerTurn += 1
 
 	for i := 0; i < len(p.blockSyncPeers); i++ {
-		peer := p.blockSyncPeers[(i+p.peerTurn)%len(p.blockSyncPeers)]
-		if p.pickedBlockSyncPeers[peer] < maxConcurrentRequestPerPeer {
-			p.pickedBlockSyncPeers[peer] += 1
-			return &peer
+		pr := p.blockSyncPeers[(i+p.peerTurn)%len(p.blockSyncPeers)]
+		if p.pickedBlockSyncPeers[pr] < maxConcurrentRequestPerPeer {
+			p.pickedBlockSyncPeers[pr] += 1
+			return &pr
 		}
 	}
 	return nil

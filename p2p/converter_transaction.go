@@ -3,12 +3,13 @@ package p2p
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 func (c *converter) protobufTransactionToCore(
@@ -119,7 +120,11 @@ func (c *converter) protobufTransactionToCore(
 	}
 }
 
-func (c *converter) coreTxToProtobufTx(transaction core.Transaction, receipt *core.TransactionReceipt) (*p2pproto.Transaction, *p2pproto.Receipt, error) {
+// nolint: all
+func (c *converter) coreTxToProtobufTx(
+	transaction core.Transaction,
+	receipt *core.TransactionReceipt,
+) (*p2pproto.Transaction, *p2pproto.Receipt, error) {
 	commonReceipt := &p2pproto.CommonTransactionReceiptProperties{
 		TransactionHash:    feltToFieldElement(receipt.TransactionHash),
 		ActualFee:          feltToFieldElement(receipt.Fee),

@@ -3,6 +3,8 @@ package p2p
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -10,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pkg/errors"
-	"sync"
 )
 
 const classLruSize = 16000
@@ -35,7 +36,7 @@ func (s *StartnetDataAdapter) StateUpdatePending(ctx context.Context) (*core.Sta
 	return s.base.StateUpdatePending(ctx)
 }
 
-func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerManager, blockchain *blockchain.Blockchain) starknetdata.StarknetData {
+func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerManager, bc *blockchain.Blockchain) starknetdata.StarknetData {
 	lru, err := simplelru.NewLRU(classLruSize, func(key interface{}, value interface{}) {})
 	if err != nil {
 		panic(err)
@@ -44,10 +45,10 @@ func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerMan
 	return &StartnetDataAdapter{
 		base:    base,
 		p2p:     p2p,
-		network: blockchain.Network(),
+		network: bc.Network(),
 		converter: converter{
 			classprovider: &blockchainClassProvider{
-				blockchain: blockchain,
+				blockchain: bc,
 			},
 		},
 

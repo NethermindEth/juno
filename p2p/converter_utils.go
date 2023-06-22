@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/nsf/jsondiff"
 	"github.com/pkg/errors"
-	"os"
-	"sync"
 )
 
-func runBlockEncodingTests(blockchain *blockchain.Blockchain) error {
+func runBlockEncodingTests(bc *blockchain.Blockchain) error {
 	blocknumchan := make(chan int)
 
 	threadcount := 32
@@ -25,17 +26,17 @@ func runBlockEncodingTests(blockchain *blockchain.Blockchain) error {
 			for i := range blocknumchan {
 				fmt.Printf("Running on block %d\n", i)
 
-				block, err := blockchain.BlockByNumber(uint64(i))
+				block, err := bc.BlockByNumber(uint64(i))
 				if err != nil {
 					panic(err)
 				}
 
-				err = testBlockEncoding(block, blockchain)
+				err = testBlockEncoding(block, bc)
 				if err != nil {
 					panic(err)
 				}
 
-				update, err := blockchain.StateUpdateByNumber(uint64(i))
+				update, err := bc.StateUpdateByNumber(uint64(i))
 				if err != nil {
 					panic(err)
 				}
@@ -48,7 +49,7 @@ func runBlockEncodingTests(blockchain *blockchain.Blockchain) error {
 		}()
 	}
 
-	head, err := blockchain.Head()
+	head, err := bc.Head()
 	if err != nil {
 		return errors.Wrap(err, "error fetching head")
 	}
@@ -62,11 +63,12 @@ func runBlockEncodingTests(blockchain *blockchain.Blockchain) error {
 	return nil
 }
 
-func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockchain) error {
+// nolint: all
+func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) error {
 	c := NewConverter(&blockchainClassProvider{
-		blockchain: blockchain,
+		blockchain: bc,
 	})
-	v := &verifier{network: blockchain.Network()}
+	v := &verifier{network: bc.Network()}
 	originalBlock.ProtocolVersion = ""
 
 	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
@@ -108,7 +110,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 		return err
 	}
 
-	if string(gatewayjson) != string(reencodedblockjson) {
+	if !bytes.Equal(gatewayjson, reencodedblockjson) {
 
 		updateBytes, err := encoder.Marshal(originalBlock)
 		if err != nil {
@@ -154,7 +156,7 @@ func testBlockEncoding(originalBlock *core.Block, blockchain *blockchain.Blockch
 			return errors.New("Event commit not match")
 		}
 
-		err = core.VerifyBlockHash(originalBlock, blockchain.Network())
+		err = core.VerifyBlockHash(originalBlock, bc.Network())
 		if err != nil {
 			return err
 		}
@@ -227,7 +229,7 @@ func testStateDiff(stateDiff *core.StateUpdate) error {
 	return errors.New("mismatch")
 }
 
-func compareAndPrintDiff(item1 interface{}, item2 interface{}) bool {
+func compareAndPrintDiff(item1, item2 interface{}) bool {
 	item1json, _ := json.MarshalIndent(item1, "", "    ")
 	item2json, _ := json.MarshalIndent(item2, "", "    ")
 

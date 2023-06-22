@@ -150,7 +150,7 @@ func (c *converter) protobufHeaderAndBodyToCoreBlock(
 			declaredClasses[*classHash] = class
 		}
 
-		eventcount = eventcount + len(receipt.Events)
+		eventcount += len(receipt.Events)
 	}
 
 	block.EventCount = uint64(eventcount)

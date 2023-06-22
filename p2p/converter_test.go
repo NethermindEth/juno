@@ -2,6 +2,11 @@ package p2p
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -10,10 +15,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
-	"os"
-	"path/filepath"
-	"reflect"
-	"testing"
 )
 
 type mapClassProvider struct {
@@ -66,7 +67,7 @@ func (c *mapClassProvider) Save() {
 	}
 }
 
-/*
+//nolint:all
 func dumpBlock(blockNum uint64) {
 	db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
 	bc := blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
@@ -86,9 +87,9 @@ func dumpBlock(blockNum uint64) {
 		panic(err)
 	}
 }
-*/
 
 func TestEncodeDecodeBlocks(t *testing.T) {
+	//nolint:all
 	// db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
 	db, _ := pebble.NewMem()
 	_ = blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
@@ -97,6 +98,7 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		classes: map[felt.Felt]*core.DeclaredClass{},
 	}
 
+	//nolint:all
 	// classProvider.Intercept(&blockchainClassProvider{blockchain: bc})
 	classProvider.Load()
 
@@ -130,6 +132,7 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		})
 	}
 
+	//nolint:all
 	// classProvider.Save()
 }
 
@@ -168,8 +171,7 @@ func runEncodeDecodeBlockTest(t *testing.T, c *converter, v *verifier, originalB
 		}
 
 		currentClass := declaredClass.Class
-		switch v := currentClass.(type) {
-		case *core.Cairo1Class:
+		if v, ok := currentClass.(*core.Cairo1Class); ok {
 			v.Compiled = nil
 		}
 

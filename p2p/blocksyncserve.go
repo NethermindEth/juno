@@ -2,6 +2,8 @@ package p2p
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
@@ -9,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 type blockSyncServer struct {
@@ -22,8 +23,10 @@ type blockSyncServer struct {
 func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders) (*p2pproto.BlockHeaders, error) {
 	var err error
 	var startblock *core.Block
-	if hash, ok := request.StartBlock.(*p2pproto.GetBlockHeaders_BlockHash); ok {
-		felt := fieldElementToFelt(hash.BlockHash)
+
+	switch v := request.StartBlock.(type) {
+	case *p2pproto.GetBlockHeaders_BlockHash:
+		felt := fieldElementToFelt(v.BlockHash)
 		startblock, err = s.blockchain.BlockByHash(felt)
 
 		if err == db.ErrKeyNotFound {
@@ -35,8 +38,8 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to get block by hash %s", felt)
 		}
-	} else if blocknum, ok := request.StartBlock.(*p2pproto.GetBlockHeaders_BlockNumber); ok {
-		startblock, err = s.blockchain.BlockByNumber(blocknum.BlockNumber)
+	case *p2pproto.GetBlockHeaders_BlockNumber:
+		startblock, err = s.blockchain.BlockByNumber(v.BlockNumber)
 
 		if err == db.ErrKeyNotFound {
 			return &p2pproto.BlockHeaders{
@@ -45,9 +48,9 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 		}
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to get block by number %d", blocknum.BlockNumber)
+			return nil, errors.Wrapf(err, "unable to get block by number %d", v.BlockNumber)
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("unsupported startblock type %s", reflect.TypeOf(request.StartBlock))
 	}
 
@@ -104,7 +107,7 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 }
 
 func mapBlockSequence[T any](
-	blockchain *blockchain.Blockchain,
+	bc *blockchain.Blockchain,
 	requestCount int,
 	direction p2pproto.Direction,
 	startblock *core.Block,
@@ -122,12 +125,12 @@ func mapBlockSequence[T any](
 		if i+1 < requestCount {
 			// TODO: how notfound is represented and what if its null
 			if direction == p2pproto.Direction_FORWARD {
-				startblock, err = blockchain.BlockByNumber(startblock.Number + 1)
+				startblock, err = bc.BlockByNumber(startblock.Number + 1)
 				if err != nil {
 					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number+1)
 				}
 			} else {
-				startblock, err = blockchain.BlockByNumber(startblock.Number - 1)
+				startblock, err = bc.BlockByNumber(startblock.Number - 1)
 				if err != nil {
 					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
 				}

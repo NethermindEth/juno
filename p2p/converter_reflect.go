@@ -1,10 +1,11 @@
 package p2p
 
 import (
+	"reflect"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/ethereum/go-ethereum/common"
-	"reflect"
 )
 
 var typeMapper map[string]map[string]func(interface{}) interface{} = map[string]map[string]func(interface{}) interface{}{}
@@ -29,6 +30,7 @@ func registerMapping[T1 any, T2 any](f func(T1) T2) {
 	}
 }
 
+//nolint:all
 func init() {
 	registerMapping[*felt.Felt, *p2pproto.FieldElement](feltToFieldElement)
 	registerMapping[*p2pproto.FieldElement, *felt.Felt](fieldElementToFelt)
@@ -43,7 +45,7 @@ func MapValueViaReflect[T any](source interface{}) T {
 	return destination
 }
 
-func reflectMapValue(sourceValue reflect.Value, destValue reflect.Value) {
+func reflectMapValue(sourceValue, destValue reflect.Value) {
 	sourceType := sourceValue.Type()
 	destType := destValue.Type()
 
@@ -96,7 +98,7 @@ func reflectMapValue(sourceValue reflect.Value, destValue reflect.Value) {
 
 }
 
-func mapArray(sourceField reflect.Value, destField reflect.Value) {
+func mapArray(sourceField, destField reflect.Value) {
 	sourceLen := sourceField.Len()
 
 	if destField.IsNil() || destField.Len() != sourceLen {
@@ -117,7 +119,7 @@ func mapArray(sourceField reflect.Value, destField reflect.Value) {
 	}
 }
 
-func mapStruct(sourceValue reflect.Value, destValue reflect.Value) {
+func mapStruct(sourceValue, destValue reflect.Value) {
 	sourceType := sourceValue.Type()
 	numFields := sourceValue.NumField()
 

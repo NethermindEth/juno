@@ -23,7 +23,9 @@ func (b *blockchainClassProvider) GetClass(hash *felt.Felt) (*core.DeclaredClass
 		return nil, errors.Wrap(err, "unable to get head state")
 	}
 
-	defer closer()
+	defer func() {
+		_ = closer()
+	}()
 
 	return headStateReader.Class(hash)
 }

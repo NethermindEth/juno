@@ -3,6 +3,8 @@ package p2p
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -10,7 +12,6 @@ import (
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/pkg/errors"
-	"sync"
 )
 
 const blockSyncProto = "/core/blocks-sync/1"
@@ -37,9 +38,9 @@ type blockSyncPeerManager struct {
 	headerByBlockNumberLru *simplelru.LRU
 }
 
-func NewBlockSyncPeerManager(ctx context.Context, streamProvider streamProvider, blockchain *blockchain.Blockchain) (*blockSyncPeerManager, error) {
+func NewBlockSyncPeerManager(ctx context.Context, streamProvider streamProvider, bc *blockchain.Blockchain) (*blockSyncPeerManager, error) {
 	converter := NewConverter(&blockchainClassProvider{
-		blockchain: blockchain,
+		blockchain: bc,
 	})
 
 	lru, err := simplelru.NewLRU(headerLRUSize, func(key interface{}, value interface{}) {})
@@ -51,7 +52,7 @@ func NewBlockSyncPeerManager(ctx context.Context, streamProvider streamProvider,
 		streamProvider: streamProvider,
 		converter:      converter,
 		verifier: &verifier{
-			network: blockchain.Network(),
+			network: bc.Network(),
 		},
 
 		lruMutex:               &sync.Mutex{},
