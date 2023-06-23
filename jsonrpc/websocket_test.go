@@ -3,7 +3,9 @@ package jsonrpc_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -14,7 +16,7 @@ import (
 )
 
 // The caller is responsible for closing the connection.
-func testConnection(t *testing.T, port uint16) *websocket.Conn {
+func testConnection(t *testing.T) *websocket.Conn {
 	methods := []jsonrpc.Method{{
 		Name:   "test_echo",
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
@@ -22,15 +24,20 @@ func testConnection(t *testing.T, port uint16) *websocket.Conn {
 			return msg, nil
 		},
 	}}
+	l, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
 	ctx := context.Background()
-	ws := jsonrpc.NewWebsocket(port, methods, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(l, methods, utils.NewNopZapLogger())
 	go func() {
 		t.Helper()
 		require.NoError(t, ws.Run(context.Background()))
 	}()
 
-	url := fmt.Sprintf("ws://localhost:%d", port)
-	conn, resp, err := websocket.Dial(ctx, url, nil) //nolint:bodyclose // websocket package closes resp.Body for us.
+	remote := url.URL{
+		Scheme: "ws",
+		Host:   fmt.Sprintf("localhost:%d", l.Addr().(*net.TCPAddr).Port),
+	}
+	conn, resp, err := websocket.Dial(ctx, remote.String(), nil) //nolint:bodyclose // websocket package closes resp.Body for us.
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 
@@ -38,7 +45,7 @@ func testConnection(t *testing.T, port uint16) *websocket.Conn {
 }
 
 func TestHandler(t *testing.T) {
-	conn := testConnection(t, 8457)
+	conn := testConnection(t)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
 	err := conn.Write(context.Background(), websocket.MessageText, []byte(msg))
