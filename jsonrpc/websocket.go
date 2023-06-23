@@ -3,7 +3,7 @@ package jsonrpc
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -15,15 +15,15 @@ type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
-	port       uint16
+	listener   net.Listener
 }
 
-func NewWebsocket(port uint16, methods []Method, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(listener net.Listener, methods []Method, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        NewServer(),
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
-		port:       port,
+		listener:   listener,
 	}
 	for _, method := range methods {
 		err := ws.rpc.RegisterMethod(method)
@@ -74,7 +74,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", ws.port),
 		Handler:           ws.Handler(ctx),
 		ReadHeaderTimeout: 1 * time.Second,
 	}
@@ -85,7 +84,7 @@ func (ws *Websocket) Run(ctx context.Context) error {
 		close(errCh)
 	}()
 
-	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	if err := srv.Serve(ws.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
