@@ -340,8 +340,8 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
-func verifyBlock(txn db.Transaction, block *core.Block) error {
-	if err := checkBlockVersion(block.ProtocolVersion); err != nil {
+func verifyBlock(txn db.Transaction, header *core.Header) error {
+	if err := checkBlockVersion(header.ProtocolVersion); err != nil {
 		return err
 	}
 
@@ -356,10 +356,10 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 		return err
 	}
 
-	if expectedBlockNumber != block.Number {
-		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
+	if expectedBlockNumber != header.Number {
+		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, header.Number)
 	}
-	if !block.ParentHash.Equal(expectedParentHash) {
+	if !header.ParentHash.Equal(expectedParentHash) {
 		return ErrParentDoesNotMatchHead
 	}
 
