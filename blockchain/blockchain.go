@@ -143,6 +143,18 @@ func head(txn db.Transaction) (*core.Block, error) {
 	return BlockByNumber(txn, height)
 }
 
+func headsHeader(txn db.Transaction) (*core.Header, error) {
+	height, err := chainHeight(txn)
+	if err != nil {
+		return nil, err
+	}
+	block, err := BlockByNumber(txn, height)
+	if err != nil {
+		return nil, err
+	}
+	return block.Header, nil
+}
+
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	var block *core.Block
 	return block, b.database.View(func(txn db.Transaction) error {
@@ -340,15 +352,15 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
-func verifyBlock(txn db.Transaction, header *core.Header) error {
-	if err := checkBlockVersion(header.ProtocolVersion); err != nil {
+func verifyBlock(txn db.Transaction, block *core.Block) error {
+	if err := checkBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
 
 	expectedBlockNumber := uint64(0)
 	expectedParentHash := &felt.Zero
 
-	h, err := head(txn)
+	h, err := headsHeader(txn)
 	if err == nil {
 		expectedBlockNumber = h.Number + 1
 		expectedParentHash = h.Hash
@@ -356,10 +368,10 @@ func verifyBlock(txn db.Transaction, header *core.Header) error {
 		return err
 	}
 
-	if expectedBlockNumber != header.Number {
-		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, header.Number)
+	if expectedBlockNumber != block.Number {
+		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
 	}
-	if !header.ParentHash.Equal(expectedParentHash) {
+	if !block.ParentHash.Equal(expectedParentHash) {
 		return ErrParentDoesNotMatchHead
 	}
 
