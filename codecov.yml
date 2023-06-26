@@ -1,2 +1,3 @@
 ignore:
-  - p2p/converter_utils.go # used for debugging largely
+  - "p2p/converter_utils.go" # used for debugging largely
+  - "**/*.pb.go"
