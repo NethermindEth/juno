@@ -124,13 +124,10 @@ func (b *Blockchain) Head() (*core.Block, error) {
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	var header *core.Header
-	return header, b.database.View(func(txn db.Transaction) error {
-		height, err := chainHeight(txn)
-		if err != nil {
-			return err
-		}
 
-		header, err = blockHeaderByNumber(txn, height)
+	return header, b.database.View(func(txn db.Transaction) error {
+		var err error
+		header, err = headsHeader(txn)
 		return err
 	})
 }
@@ -141,6 +138,15 @@ func head(txn db.Transaction) (*core.Block, error) {
 		return nil, err
 	}
 	return BlockByNumber(txn, height)
+}
+
+func headsHeader(txn db.Transaction) (*core.Header, error) {
+	height, err := chainHeight(txn)
+	if err != nil {
+		return nil, err
+	}
+
+	return blockHeaderByNumber(txn, height)
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
@@ -348,7 +354,7 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	expectedBlockNumber := uint64(0)
 	expectedParentHash := &felt.Zero
 
-	h, err := head(txn)
+	h, err := headsHeader(txn)
 	if err == nil {
 		expectedBlockNumber = h.Number + 1
 		expectedParentHash = h.Hash
