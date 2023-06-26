@@ -41,7 +41,6 @@ func (c *converter) protobufTransactionToCore(
 		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_DeployAccount)
 
 		coreTx := &core.DeployAccountTransaction{
-
 			DeployTransaction: core.DeployTransaction{
 				TransactionHash:     fieldElementToFelt(tx.DeployAccount.GetHash()),
 				ContractAddressSalt: fieldElementToFelt(tx.DeployAccount.GetContractAddressSalt()),
@@ -120,7 +119,7 @@ func (c *converter) protobufTransactionToCore(
 	}
 }
 
-// nolint: all
+//nolint:all
 func (c *converter) coreTxToProtobufTx(
 	transaction core.Transaction,
 	receipt *core.TransactionReceipt,

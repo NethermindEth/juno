@@ -83,7 +83,6 @@ func (ip *blockSyncPeerManager) getHeaderByBlockNumber(ctx context.Context, numb
 				GetBlockHeaders: request,
 			},
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +114,6 @@ func (ip *blockSyncPeerManager) getBlockByHeaderRequest(
 				GetBlockHeaders: headerRequest,
 			},
 		})
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -145,7 +143,6 @@ func (ip *blockSyncPeerManager) getBlockByHeaderRequest(
 			},
 		},
 	})
-
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to request body from peer")
 	}

@@ -95,7 +95,6 @@ func reflectMapValue(sourceValue, destValue reflect.Value) {
 	default:
 		destValue.Set(sourceValue)
 	}
-
 }
 
 func mapArray(sourceField, destField reflect.Value) {

@@ -63,7 +63,7 @@ func runBlockEncodingTests(bc *blockchain.Blockchain) error {
 	return nil
 }
 
-// nolint: all
+//nolint:all
 func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) error {
 	c := NewConverter(&blockchainClassProvider{
 		blockchain: bc,
@@ -116,7 +116,9 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0666)
+
+		//nolint:mnd
+		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0o666)
 		if err != nil {
 			return err
 		}
@@ -195,7 +197,8 @@ func testStateDiff(stateDiff *core.StateUpdate) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/state_updates/%s.dat", oriBlockHash.String()), updateBytes, 0666)
+	//nolint:gomnd
+	err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/state_updates/%s.dat", oriBlockHash.String()), updateBytes, 0o600)
 	if err != nil {
 		return err
 	}

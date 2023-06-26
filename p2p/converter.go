@@ -41,7 +41,7 @@ func (c *converter) coreBlockToProtobufHeader(block *core.Block) (*p2pproto.Bloc
 		TransactionCommitment: feltToFieldElement(txCommitment),
 		EventCount:            uint32(block.EventCount),
 		EventCommitment:       feltToFieldElement(eventCommitment),
-		ProtocolVersion:       0, //TODO: What is the correct value here?
+		ProtocolVersion:       0, // TODO: What is the correct value here?
 	}, nil
 }
 
@@ -128,7 +128,8 @@ func (c *converter) protobufHeaderAndBodyToCoreBlock(
 			Timestamp:        header.BlockTimestamp,
 			ProtocolVersion:  "",
 			ExtraData:        nil,
-			EventsBloom:      bloom.New(8192, 6),
+			//nolint:all
+			EventsBloom: bloom.New(8192, 6),
 		},
 		Transactions: make([]core.Transaction, 0), // Assuming it's initialised as an empty slice
 		Receipts:     make([]*core.TransactionReceipt, 0),

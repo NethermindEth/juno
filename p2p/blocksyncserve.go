@@ -96,7 +96,6 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 		func(block *core.Block) (*p2pproto.BlockBody, error) {
 			return s.converter.coreBlockToProtobufBody(block)
 		})
-
 	if err != nil {
 		return nil, err
 	}

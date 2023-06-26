@@ -28,9 +28,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultSourcePort = 30301
-const keyLength = 2048
-const routingTableRefreshPeriod = 10 * time.Second
+const (
+	defaultSourcePort         = 30301
+	keyLength                 = 2048
+	routingTableRefreshPeriod = 10 * time.Second
+)
 
 type P2PImpl struct {
 	host       host.Host
@@ -68,6 +70,7 @@ func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
 
 	return nil
 }
+
 func (ip *P2PImpl) setupIdentity(context.Context) error {
 	idservice, err := identify.NewIDService(ip.host)
 	if err != nil {
@@ -157,6 +160,7 @@ func determineKey() (crypto.PrivKey, error) {
 
 	return prvKey, nil
 }
+
 func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLogger) (*P2PImpl, error) {
 	ctx := context.Background()
 	converter := NewConverter(&blockchainClassProvider{

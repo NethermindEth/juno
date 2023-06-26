@@ -61,7 +61,7 @@ func (c *mapClassProvider) Save() {
 		panic(err)
 	}
 
-	err = os.WriteFile("converter_tests/classes.dat", bytes, 0666)
+	err = os.WriteFile("converter_tests/classes.dat", bytes, 0o666)
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +82,7 @@ func dumpBlock(blockNum uint64) {
 		panic(err)
 	}
 
-	err = os.WriteFile(fmt.Sprintf("converter_tests/blocks/%d.dat", blockNum), asbyte, 0666)
+	err = os.WriteFile(fmt.Sprintf("converter_tests/blocks/%d.dat", blockNum), asbyte, 0o666)
 	if err != nil {
 		panic(err)
 	}

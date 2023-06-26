@@ -17,9 +17,11 @@ type Verifier interface {
 	VerifyClass(class core.Class, hash *felt.Felt) error
 }
 
-var _ Verifier = &verifier{}
-var mismatchLock *sync.Mutex = &sync.Mutex{}
-var mismatchCount map[string]int = map[string]int{}
+var (
+	_             Verifier       = &verifier{}
+	mismatchLock  *sync.Mutex    = &sync.Mutex{}
+	mismatchCount map[string]int = map[string]int{}
+)
 
 type verifier struct {
 	network utils.Network
