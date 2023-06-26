@@ -3,8 +3,6 @@ package node
 import (
 	"context"
 	"fmt"
-	"github.com/NethermindEth/juno/p2p"
-	"github.com/NethermindEth/juno/starknetdata"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -18,9 +16,11 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknetdata"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -226,18 +226,10 @@ func (n *Node) Run(ctx context.Context) {
 	var starkdata starknetdata.StarknetData = adaptfeeder.New(client)
 
 	if n.cfg.P2P {
-		p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
-		if err != nil {
-			panic(err)
-		}
-
-		if n.cfg.P2PSync {
-			blockSyncProvider, err := p2pClient.CreateBlockSyncProvider(ctx)
-			if err != nil {
-				panic(err)
-			}
-
-			starkdata = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain)
+		var done bool
+		starkdata, done = n.setupP2P(ctx, starkdata)
+		if done {
+			return
 		}
 	}
 
@@ -293,6 +285,24 @@ func (n *Node) Run(ctx context.Context) {
 	<-ctx.Done()
 	cancel()
 	n.log.Infow("Shutting down Juno...")
+}
+
+func (n *Node) setupP2P(ctx context.Context, starkdata starknetdata.StarknetData) (starknetdata.StarknetData, bool) {
+	p2pClient, err2 := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
+	if err2 != nil {
+		n.log.Errorw("Error starting p2p", "err", err2)
+		return nil, true
+	}
+
+	if n.cfg.P2PSync {
+		blockSyncProvider, err3 := p2pClient.CreateBlockSyncProvider(ctx)
+		if err3 != nil {
+			n.log.Errorw("Error adapting to p2p sync", "err", err3)
+		}
+
+		starkdata = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain)
+	}
+	return starkdata, false
 }
 
 func (n *Node) Config() Config {

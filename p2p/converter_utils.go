@@ -120,7 +120,6 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 			return err
 		}
 
-		//nolint:mnd
 		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0o666)
 		if err != nil {
 			return err
