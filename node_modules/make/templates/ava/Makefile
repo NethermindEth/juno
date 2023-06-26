@@ -1,5 +1,0 @@
-
-all: ava
-
-ava:
-	ava
