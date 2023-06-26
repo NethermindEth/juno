@@ -130,12 +130,6 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 		header, err = headsHeader(txn)
 		return err
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return header, nil
 }
 
 
