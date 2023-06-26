@@ -123,17 +123,9 @@ func (b *Blockchain) Head() (*core.Block, error) {
 }
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
-	var header *core.Header
-	return header, b.database.View(func(txn db.Transaction) error {
-		height, err := chainHeight(txn)
-		if err != nil {
-			return err
-		}
-
-		header, err = blockHeaderByNumber(txn, height)
-		return err
-	})
+	return headsHeader(b.database)
 }
+
 
 func head(txn db.Transaction) (*core.Block, error) {
 	height, err := chainHeight(txn)
@@ -148,7 +140,7 @@ func headsHeader(txn db.Transaction) (*core.Header, error) {
 	if err != nil {
 		return nil, err
 	}
-	block, err := BlockByNumber(txn, height)
+	header, err := blockHeaderByNumber(txn, height)
 	if err != nil {
 		return nil, err
 	}
