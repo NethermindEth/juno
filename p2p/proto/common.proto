@@ -27,15 +27,14 @@ message BlockHeader {
 }
 
 message InvokeTransaction {
-  FieldElement contract_address = 1;
+  FieldElement sender_address = 1;
   FieldElement entry_point_selector = 2;
   repeated FieldElement calldata = 3;
   repeated FieldElement signature = 4;
   FieldElement max_fee = 5;
   FieldElement nonce = 6;
   FieldElement version = 7;
-  FieldElement sender_address = 8;
-  FieldElement hash = 9; // Need to remove after regenesis
+  FieldElement hash = 8; // Need to remove after regenesis
 }
 
 message DeclareTransaction {

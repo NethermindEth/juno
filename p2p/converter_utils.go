@@ -100,6 +100,9 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 
 	newCoreBlock.ProtocolVersion = ""
 
+	normalizeBlock(originalBlock)
+	normalizeBlock(newCoreBlock)
+
 	gatewayjson, err := json.MarshalIndent(originalBlock, "", "    ")
 	if err != nil {
 		return err
@@ -168,6 +171,19 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 	}
 
 	return nil
+}
+
+func normalizeBlock(originalBlock *core.Block) {
+	for _, transaction := range originalBlock.Transactions {
+		if invokeTx, ok := transaction.(*core.InvokeTransaction); ok {
+			senderAddress := invokeTx.SenderAddress
+			if senderAddress == nil {
+				senderAddress = invokeTx.ContractAddress
+			}
+			invokeTx.SenderAddress = senderAddress
+			invokeTx.ContractAddress = senderAddress
+		}
+	}
 }
 
 func testStateDiff(stateDiff *core.StateUpdate) error {

@@ -84,9 +84,12 @@ func (c *converter) protobufTransactionToCore(
 		txReceipt := protoReceipt.Receipt.(*p2pproto.Receipt_Invoke)
 
 		coreTx := &core.InvokeTransaction{
-			TransactionHash:      fieldElementToFelt(tx.Invoke.GetHash()),
-			SenderAddress:        fieldElementToFelt(tx.Invoke.GetSenderAddress()),
-			ContractAddress:      fieldElementToFelt(tx.Invoke.GetContractAddress()),
+			TransactionHash: fieldElementToFelt(tx.Invoke.GetHash()),
+
+			// Sender address and contract address is the same. Not sure which one to use, so just set both.
+			SenderAddress:   fieldElementToFelt(tx.Invoke.GetSenderAddress()),
+			ContractAddress: fieldElementToFelt(tx.Invoke.GetSenderAddress()),
+
 			EntryPointSelector:   fieldElementToFelt(tx.Invoke.GetEntryPointSelector()),
 			CallData:             fieldElementsToFelts(tx.Invoke.GetCalldata()),
 			TransactionSignature: fieldElementsToFelts(tx.Invoke.GetSignature()),
@@ -221,12 +224,17 @@ func (c *converter) coreTxToProtobufTx(
 			}, nil
 
 	case *core.InvokeTransaction:
+
+		senderAddress := tx.SenderAddress
+		if senderAddress == nil {
+			senderAddress = tx.ContractAddress
+		}
+
 		return &p2pproto.Transaction{
 				Txn: &p2pproto.Transaction_Invoke{
 					Invoke: &p2pproto.InvokeTransaction{
 						Hash:               feltToFieldElement(tx.TransactionHash),
-						SenderAddress:      feltToFieldElement(tx.SenderAddress),
-						ContractAddress:    feltToFieldElement(tx.ContractAddress),
+						SenderAddress:      feltToFieldElement(senderAddress),
 						EntryPointSelector: feltToFieldElement(tx.EntryPointSelector),
 						Calldata:           feltsToFieldElements(tx.CallData),
 						Signature:          feltsToFieldElements(tx.TransactionSignature),
