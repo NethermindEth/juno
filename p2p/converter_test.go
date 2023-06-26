@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
@@ -67,10 +68,16 @@ func (c *mapClassProvider) Save() {
 	}
 }
 
+// Used to dump blocks
+//
 //nolint:all
 func dumpBlock(blockNum uint64) {
-	db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
-	bc := blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
+	dbpath, ok := os.LookupEnv("P2P_TESt_SOURCE_DB")
+	if !ok {
+		panic("need to specify db path to dump to")
+	}
+	d, _ := pebble.New(dbpath, utils.NewNopZapLogger())
+	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
 	block, err := bc.BlockByNumber(blockNum)
 	if err != nil {
@@ -86,21 +93,29 @@ func dumpBlock(blockNum uint64) {
 	if err != nil {
 		panic(err)
 	}
+
+	d.Close()
 }
 
 func TestEncodeDecodeBlocks(t *testing.T) {
-	//nolint:all
-	// db, _ := pebble.New("/home/amirul/fastworkscratch/largejuno_bak", utils.NewNopZapLogger())
-	db, _ := pebble.NewMem()
-	_ = blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
+	interceptClassDB, _ := os.LookupEnv("P2P_TESt_SOURCE_DB")
+	var d db.DB
+	if interceptClassDB != "" {
+		d, _ = pebble.New(interceptClassDB, utils.NewNopZapLogger())
+	} else {
+		d, _ = pebble.NewMem()
+	}
+	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
 	classProvider := &mapClassProvider{
 		classes: map[felt.Felt]*core.DeclaredClass{},
 	}
 
-	//nolint:all
-	// classProvider.Intercept(&blockchainClassProvider{blockchain: bc})
-	classProvider.Load()
+	if interceptClassDB != "" {
+		classProvider.Intercept(&blockchainClassProvider{blockchain: bc})
+	} else {
+		classProvider.Load()
+	}
 
 	c := converter{
 		classprovider: classProvider,
@@ -115,7 +130,7 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		panic(err)
 	}
 
-	for i, filename := range globed {
+	for _, filename := range globed {
 		f, err := os.Open(filename)
 		if err != nil {
 			panic(err)
@@ -127,16 +142,19 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 			panic(err)
 		}
 
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(filename, func(t *testing.T) {
 			runEncodeDecodeBlockTest(t, &c, &v, &block)
 		})
 	}
 
-	//nolint:all
-	// classProvider.Save()
+	if interceptClassDB != "" {
+		classProvider.Save()
+	}
 }
 
 func runEncodeDecodeBlockTest(t *testing.T, c *converter, v *verifier, originalBlock *core.Block) {
+	normalizeBlock(originalBlock)
+
 	// Convert original struct to protobuf struct
 	header, err := c.coreBlockToProtobufHeader(originalBlock)
 	if err != nil {
@@ -188,8 +206,8 @@ func runEncodeDecodeBlockTest(t *testing.T, c *converter, v *verifier, originalB
 }
 
 func TestEncodeDecodeStateUpdate(t *testing.T) {
-	db, _ := pebble.NewMem()
-	blockchain.New(db, utils.MAINNET, utils.NewNopZapLogger()) // So that the encoder get registered
+	d, _ := pebble.NewMem()
+	blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // So that the encoder get registered
 	globed, err := filepath.Glob("converter_tests/state_updates/*dat")
 	if err != nil {
 		panic(err)
