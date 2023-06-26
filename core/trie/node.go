@@ -17,7 +17,10 @@ type Node struct {
 // Hash calculates the hash of a [Node]
 func (n *Node) Hash(path *bitset.BitSet, hashFunc hashFunc) *felt.Felt {
 	if path.Len() == 0 {
-		return n.Value
+		// we have to deference the Value, since the Node can released back
+		// to the NodePool and be reused anytime
+		hash := *n.Value
+		return &hash
 	}
 
 	pathWords := path.Bytes()

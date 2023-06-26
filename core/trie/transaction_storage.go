@@ -18,6 +18,13 @@ var bufferPool = sync.Pool{
 	},
 }
 
+// nodePool caches unused node objects for later reuse.
+var nodePool = sync.Pool{
+	New: func() any {
+		return new(Node)
+	},
+}
+
 func getBuffer() *bytes.Buffer {
 	buffer := bufferPool.Get().(*bytes.Buffer)
 	buffer.Reset()
@@ -77,7 +84,7 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 
 	var node *Node
 	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
-		node = new(Node)
+		node = nodePool.Get().(*Node)
 		return encoder.Unmarshal(val, node)
 	}); err != nil {
 		return nil, err

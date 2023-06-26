@@ -185,7 +185,9 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 		}
 		return nil, err
 	}
-	return value.Value, nil
+	defer nodePool.Put(value)
+	leafValue := *value.Value
+	return &leafValue, nil
 }
 
 // Put updates the corresponding `value` for a `key`
@@ -196,7 +198,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
-	old := new(felt.Felt)
+	old := felt.Zero
 	nodeKey := t.feltToBitSet(key)
 	node := &Node{
 		Value: value,
@@ -206,6 +208,11 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		for _, n := range nodes {
+			nodePool.Put(n.node)
+		}
+	}()
 
 	// empty trie, make new value root
 	if len(nodes) == 0 {
@@ -217,24 +224,26 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			return nil, err
 		}
 		t.rootKey = nodeKey
-		return old, nil
+		return &old, nil
 	} else {
 		// Replace if key already exist
 		sibling := nodes[len(nodes)-1]
 		if nodeKey.Equal(sibling.key) {
-			old = sibling.node.Value // record old value to return to caller
+			// we have to deference the Value, since the Node can released back
+			// to the NodePool and be reused anytime
+			old = *sibling.node.Value // record old value to return to caller
 			if value.IsZero() {
 				if err = t.deleteLast(nodes); err != nil {
 					return nil, err
 				}
-				return old, nil
+				return &old, nil
 			}
 
 			if err = t.storage.Put(nodeKey, node); err != nil {
 				return nil, err
 			}
 			t.dirtyNodes = append(t.dirtyNodes, nodeKey)
-			return old, nil
+			return &old, nil
 		} else if value.IsZero() {
 			// trying to insert 0 to a key that does not exist
 			return nil, nil // no-op
@@ -264,9 +273,9 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 
 			// replace the link to our sibling with the new parent
 			if siblingParent.node.Left.Equal(sibling.key) {
-				siblingParent.node.Left = commonKey
+				commonKey.CopyFull(siblingParent.node.Left)
 			} else {
-				siblingParent.node.Right = commonKey
+				commonKey.CopyFull(siblingParent.node.Right)
 			}
 
 			if err = t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
@@ -280,7 +289,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		if err = t.storage.Put(nodeKey, node); err != nil {
 			return nil, err
 		}
-		return old, nil
+		return &old, nil
 	}
 }
 
@@ -313,10 +322,12 @@ func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer nodePool.Put(leftChild)
 	rightChild, err := t.updateValueIfDirty(node.Right)
 	if err != nil {
 		return nil, err
 	}
+	defer nodePool.Put(rightChild)
 
 	leftPath := path(node.Left, key)
 	rightPath := path(node.Right, key)
@@ -349,9 +360,9 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 
 	var siblingKey *bitset.BitSet
 	if parent.node.Left.Equal(last.key) {
-		siblingKey = parent.node.Right
+		siblingKey = parent.node.Right.Clone()
 	} else {
-		siblingKey = parent.node.Left
+		siblingKey = parent.node.Left.Clone()
 	}
 
 	if len(nodes) == 2 { // sibling should become root
@@ -362,9 +373,9 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 	grandParent := &nodes[len(nodes)-3]
 	// replace link to parent with a link to sibling
 	if grandParent.node.Left.Equal(parent.key) {
-		grandParent.node.Left = siblingKey
+		siblingKey.CopyFull(grandParent.node.Left)
 	} else {
-		grandParent.node.Right = siblingKey
+		siblingKey.CopyFull(grandParent.node.Right)
 	}
 
 	if err := t.storage.Put(grandParent.key, grandParent.node); err != nil {
@@ -384,6 +395,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer nodePool.Put(root)
 	t.dirtyNodes = nil
 
 	path := path(t.rootKey, nil)
@@ -426,6 +438,10 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	}
 
 	root, err := t.storage.Get(t.rootKey)
+	if err != nil {
+		return
+	}
+	defer nodePool.Put(root)
 	path := path(t.rootKey, parentP)
 	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n",
 		strings.Repeat("\t", level),
@@ -435,9 +451,6 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 		path.Len(),
 		root.Value.String(),
 	)
-	if err != nil {
-		return
-	}
 	(&Trie{
 		rootKey: root.Left,
 		storage: t.storage,
