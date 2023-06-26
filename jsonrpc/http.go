@@ -3,7 +3,7 @@ package jsonrpc
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -16,42 +16,43 @@ const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
 var _ service.Service = (*HTTP)(nil)
 
 type HTTP struct {
-	rpc  *Server
-	http *http.Server
-	log  utils.SimpleLogger
+	rpc      *Server
+	log      utils.SimpleLogger
+	listener net.Listener
 }
 
-func NewHTTP(port uint16, methods []Method, log utils.SimpleLogger) *HTTP {
-	headerTimeout := 1 * time.Second
-	h := &HTTP{
-		rpc: NewServer(),
-		log: log,
-	}
-	h.http = &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
-		Handler:           h,
-		ReadHeaderTimeout: headerTimeout,
-	}
+func NewHTTP(listener net.Listener, methods []Method, log utils.SimpleLogger) *HTTP {
+	rpc := NewServer()
 	for _, method := range methods {
-		err := h.rpc.RegisterMethod(method)
+		err := rpc.RegisterMethod(method)
 		if err != nil {
 			panic(err)
 		}
 	}
-	return h
+	return &HTTP{
+		rpc:      rpc,
+		log:      log,
+		listener: listener,
+	}
 }
 
 // Run starts to listen for HTTP requests
 func (h *HTTP) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
+	srv := &http.Server{
+		Addr:              h.listener.Addr().String(),
+		Handler:           h,
+		ReadHeaderTimeout: time.Second,
+	}
+
 	go func() {
 		<-ctx.Done()
-		errCh <- h.http.Shutdown(context.Background())
+		errCh <- srv.Shutdown(context.Background())
 		close(errCh)
 	}()
 
-	if err := h.http.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	if err := srv.Serve(h.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
