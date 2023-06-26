@@ -146,10 +146,7 @@ func headsHeader(txn db.Transaction) (*core.Header, error) {
 	if err != nil {
 		return nil, err
 	}
-	header, err := blockHeaderByNumber(txn, height)
-	if err != nil {
-		return nil, err
-	}
+	
 	return blockHeaderByNumber(txn, height)
 }
 
