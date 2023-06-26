@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -14,8 +13,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
 )
 
 type mapClassProvider struct {
@@ -143,7 +140,7 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		}
 
 		t.Run(filename, func(t *testing.T) {
-			runEncodeDecodeBlockTest(t, &c, &v, &block)
+			runEncodeDecodeBlockTest(t, &c, &v, bc.Network(), &block)
 		})
 	}
 
@@ -152,57 +149,11 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 	}
 }
 
-func runEncodeDecodeBlockTest(t *testing.T, c *converter, v *verifier, originalBlock *core.Block) {
-	normalizeBlock(originalBlock)
-
-	// Convert original struct to protobuf struct
-	header, err := c.coreBlockToProtobufHeader(originalBlock)
+func runEncodeDecodeBlockTest(t *testing.T, c *converter, v Verifier, network utils.Network, originalBlock *core.Block) {
+	err := testBlockEncoding(originalBlock, c, v, network, false)
 	if err != nil {
-		t.Fatalf("to protobuf failed %v", err)
+		t.Fatalf("error on block encoding test %s", err)
 	}
-
-	body, err := c.coreBlockToProtobufBody(originalBlock)
-	if err != nil {
-		t.Fatalf("to protobuf failed %v", err)
-	}
-
-	// Convert protobuf struct back to original struct
-	convertedBlock, includedClasses, err := c.protobufHeaderAndBodyToCoreBlock(header, body)
-	if err != nil {
-		t.Fatalf("back to core failed %v", err)
-	}
-
-	err = v.VerifyBlock(convertedBlock)
-	if err != nil {
-		t.Fatalf("block verification failed failed %v", err)
-	}
-
-	for k, class := range includedClasses {
-		err := v.VerifyClass(class, &k)
-		if err != nil {
-			t.Fatalf("class verification failed failed %v", err)
-		}
-
-		declaredClass, err := c.classprovider.GetClass(&k)
-		if err != nil {
-			t.Fatalf("error loading class %s", err)
-		}
-
-		currentClass := declaredClass.Class
-		if v, ok := currentClass.(*core.Cairo1Class); ok {
-			v.Compiled = nil
-		}
-
-		assert.Equal(t, currentClass, class)
-	}
-
-	originalBlock.ProtocolVersion = ""
-	originalBlock.ExtraData = nil
-	convertedBlock.ProtocolVersion = ""
-	convertedBlock.ExtraData = nil
-
-	// Check if the final struct is equal to the original struct
-	assert.Equal(t, originalBlock, convertedBlock)
 }
 
 func TestEncodeDecodeStateUpdate(t *testing.T) {
@@ -233,42 +184,8 @@ func TestEncodeDecodeStateUpdate(t *testing.T) {
 
 func runEncodeDecodeStateUpdateTest(t *testing.T, stateUpdate *core.StateUpdate) {
 	// Convert original struct to protobuf struct
-	protoBuff := coreStateUpdateToProtobufStateUpdate(stateUpdate)
-	reencodedStateUpdate := protobufStateUpdateToCoreStateUpdate(protoBuff)
-
-	type storageKV struct {
-		key   felt.Felt
-		value []core.StorageDiff
+	err := testStateDiff(stateUpdate)
+	if err != nil {
+		t.Fatalf("error on state encoding test %s", err)
 	}
-
-	odarray := make([]storageKV, 0)
-	for k, diffs := range stateUpdate.StateDiff.StorageDiffs {
-		odarray = append(odarray, storageKV{
-			key:   k,
-			value: diffs,
-		})
-	}
-
-	rdarray := make([]storageKV, 0)
-	for k, diffs := range reencodedStateUpdate.StateDiff.StorageDiffs {
-		rdarray = append(rdarray, storageKV{
-			key:   k,
-			value: diffs,
-		})
-	}
-
-	slices.SortFunc(odarray, func(a, b storageKV) bool {
-		return a.key.Cmp(&b.key) > 0
-	})
-	slices.SortFunc(rdarray, func(a, b storageKV) bool {
-		return a.key.Cmp(&b.key) > 0
-	})
-
-	// Check if the final struct is equal to the original struct
-	assert.Equal(t, odarray, rdarray)
-	assert.True(t, reflect.DeepEqual(stateUpdate.StateDiff.Nonces, reencodedStateUpdate.StateDiff.Nonces))
-	assert.Equal(t, stateUpdate.StateDiff.DeclaredV0Classes, reencodedStateUpdate.StateDiff.DeclaredV0Classes)
-	assert.Equal(t, stateUpdate.StateDiff.DeclaredV1Classes, reencodedStateUpdate.StateDiff.DeclaredV1Classes)
-	assert.Equal(t, stateUpdate.StateDiff.ReplacedClasses, reencodedStateUpdate.StateDiff.ReplacedClasses)
-	assert.Equal(t, stateUpdate.StateDiff.DeployedContracts, reencodedStateUpdate.StateDiff.DeployedContracts)
 }

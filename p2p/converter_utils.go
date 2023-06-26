@@ -10,12 +10,18 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/nsf/jsondiff"
 	"github.com/pkg/errors"
 )
 
 func runBlockEncodingTests(bc *blockchain.Blockchain) error {
 	blocknumchan := make(chan int)
+
+	c := NewConverter(&blockchainClassProvider{
+		blockchain: bc,
+	})
+	v := &verifier{network: bc.Network()}
 
 	threadcount := 32
 	wg := sync.WaitGroup{}
@@ -31,7 +37,7 @@ func runBlockEncodingTests(bc *blockchain.Blockchain) error {
 					panic(err)
 				}
 
-				err = testBlockEncoding(block, bc)
+				err = testBlockEncoding(block, c, v, bc.Network(), false)
 				if err != nil {
 					panic(err)
 				}
@@ -64,11 +70,7 @@ func runBlockEncodingTests(bc *blockchain.Blockchain) error {
 }
 
 //nolint:all
-func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) error {
-	c := NewConverter(&blockchainClassProvider{
-		blockchain: bc,
-	})
-	v := &verifier{network: bc.Network()}
+func testBlockEncoding(originalBlock *core.Block, c *converter, v Verifier, network utils.Network, saveOnFailure bool) error {
 	originalBlock.ProtocolVersion = ""
 
 	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
@@ -96,6 +98,20 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 		if err != nil {
 			return errors.Wrap(err, "error verifying class")
 		}
+
+		declaredClass, err := c.classprovider.GetClass(&key)
+		if err != nil {
+			return err
+		}
+
+		currentClass := declaredClass.Class
+		if v, ok := currentClass.(*core.Cairo1Class); ok {
+			v.Compiled = nil
+		}
+
+		if !compareAndPrintDiff(currentClass, class) {
+			return errors.New("class mismatch")
+		}
 	}
 
 	newCoreBlock.ProtocolVersion = ""
@@ -120,9 +136,11 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 			return err
 		}
 
-		err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0o666)
-		if err != nil {
-			return err
+		if saveOnFailure {
+			err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0o666)
+			if err != nil {
+				return err
+			}
 		}
 
 		for i, receipt := range originalBlock.Receipts {
@@ -160,7 +178,7 @@ func testBlockEncoding(originalBlock *core.Block, bc *blockchain.Blockchain) err
 			return errors.New("Event commit not match")
 		}
 
-		err = core.VerifyBlockHash(originalBlock, bc.Network())
+		err = core.VerifyBlockHash(originalBlock, network)
 		if err != nil {
 			return err
 		}
