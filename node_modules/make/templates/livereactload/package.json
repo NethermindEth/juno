@@ -1,0 +1,31 @@
+{
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+
+  "bake": {
+    "description": "Scaffold a livereload configuration",
+    "scripts": {
+      "install": "npm install --loglevel warn --cache-min Infinity"
+    }
+  },
+
+  "devDependencies": {
+    "babel-plugin-react-transform": "^2.0.2",
+    "babel-preset-es2015": "^6.9.0",
+    "babel-preset-react": "^6.5.0",
+    "babelify": "^7.3.0",
+    "browserify": "^13.0.1",
+    "livereactload": "^2.2.3",
+    "micro-list": "^0.4.1",
+    "react": "^15.1.0",
+    "react-proxy": "^1.1.8",
+    "watchify": "^3.7.0"
+  },
+
+  "browserify": {
+    "transform": [
+      "babelify"
+    ]
+  }
+}
