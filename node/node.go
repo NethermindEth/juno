@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -85,7 +86,13 @@ func New(cfg *Config, version string) (*Node, error) {
 	client := feeder.NewClient(cfg.Network.FeederURL())
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
-	http := makeHTTP(cfg.RPCPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.RPCPort))
+	if err != nil {
+		log.Errorw("Failed to listen for RPC requests", "port", cfg.RPCPort)
+		return nil, err
+	}
+	http := makeHTTP(listener, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
 
 	n := &Node{
 		cfg:        cfg,
@@ -119,8 +126,8 @@ func New(cfg *Config, version string) (*Node, error) {
 	return n, nil
 }
 
-func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
-	return jsonrpc.NewHTTP(port, []jsonrpc.Method{
+func makeHTTP(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
+	return jsonrpc.NewHTTP(listener, []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
 			Handler: rpcHandler.ChainID,
