@@ -2,10 +2,10 @@ package p2p
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -17,6 +17,7 @@ import (
 type p2pPeerPoolManager struct {
 	p2p      *P2PImpl
 	protocol protocol.ID
+	logger   utils.SimpleLogger
 
 	syncPeerMtx          *sync.Mutex
 	peerTurn             int
@@ -36,7 +37,7 @@ func (p *p2pPeerPoolManager) Start(ctx context.Context) error {
 
 		protocols, err := p.p2p.host.Peerstore().GetProtocols(evt.Peer)
 		if err != nil {
-			fmt.Printf("Error %v\n", err)
+			p.logger.Infow("error getting peer protocol", "error", err)
 			continue
 		}
 

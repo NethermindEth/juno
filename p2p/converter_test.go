@@ -104,6 +104,7 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 	}
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
+	// TODO: dump this also
 	// dumpBlock(5000)
 
 	classProvider := &mapClassProvider{

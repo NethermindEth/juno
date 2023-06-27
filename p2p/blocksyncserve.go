@@ -84,15 +84,15 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies) (*p2pproto.BlockBodies, error) {
 	var err error
 	var startblock *core.Block
-	felt := fieldElementToFelt(request.StartBlock)
-	startblock, err = s.blockchain.BlockByHash(felt)
+	f := fieldElementToFelt(request.StartBlock)
+	startblock, err = s.blockchain.BlockByHash(f)
 	if err == db.ErrKeyNotFound {
 		return &p2pproto.BlockBodies{
 			BlockBodies: []*p2pproto.BlockBody{},
 		}, nil
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get block by hash %s", felt)
+		return nil, errors.Wrapf(err, "unable to get block by hash %s", f)
 	}
 
 	// TODO: request.sizelimit
@@ -150,15 +150,15 @@ func mapBlockSequence[T any](
 }
 
 func (s *blockSyncServer) HandleGetStateDiff(request *p2pproto.GetStateDiffs) (*p2pproto.StateDiffs, error) {
-	felt := fieldElementToFelt(request.StartBlock)
-	blockheader, err := s.blockchain.BlockHeaderByHash(felt)
+	f := fieldElementToFelt(request.StartBlock)
+	blockheader, err := s.blockchain.BlockHeaderByHash(f)
 	if err == db.ErrKeyNotFound {
 		return &p2pproto.StateDiffs{
 			BlockStateUpdates: []*p2pproto.StateDiffs_BlockStateUpdateWithHash{},
 		}, nil
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get block number by hash %s", felt)
+		return nil, errors.Wrapf(err, "unable to get block number by hash %s", f)
 	}
 
 	blocknumber := blockheader.Number
@@ -168,7 +168,7 @@ func (s *blockSyncServer) HandleGetStateDiff(request *p2pproto.GetStateDiffs) (*
 	for i := 0; i < int(request.Count); i++ {
 		diff, err := s.blockchain.StateUpdateByNumber(blocknumber)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to get block by hash %s", felt)
+			return nil, errors.Wrapf(err, "unable to get block by hash %s", f)
 		}
 
 		results = append(results, coreStateUpdateToProtobufStateUpdate(diff))

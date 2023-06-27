@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -21,6 +20,7 @@ type StartnetDataAdapter struct {
 	p2p       BlockSyncPeerManager
 	network   utils.Network
 	converter converter
+	logger    utils.SimpleLogger
 
 	lruMtx *sync.Mutex
 
@@ -36,15 +36,21 @@ func (s *StartnetDataAdapter) StateUpdatePending(ctx context.Context) (*core.Sta
 	return s.base.StateUpdatePending(ctx)
 }
 
-func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerManager, bc *blockchain.Blockchain) starknetdata.StarknetData {
+func NewStarknetDataAdapter(
+	base starknetdata.StarknetData,
+	p2p BlockSyncPeerManager,
+	bc *blockchain.Blockchain,
+	logger utils.SimpleLogger,
+) (starknetdata.StarknetData, error) {
 	lru, err := simplelru.NewLRU(classLruSize, func(key interface{}, value interface{}) {})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &StartnetDataAdapter{
 		base:    base,
 		p2p:     p2p,
+		logger:  logger,
 		network: bc.Network(),
 		converter: converter{
 			classprovider: &blockchainClassProvider{
@@ -54,17 +60,10 @@ func NewStarknetDataAdapter(base starknetdata.StarknetData, p2p BlockSyncPeerMan
 
 		lruMtx:     &sync.Mutex{},
 		classesLru: lru,
-	}
+	}, nil
 }
 
 func (s *StartnetDataAdapter) BlockByNumber(ctx context.Context, blockNumber uint64) (block *core.Block, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in get block by number", r)
-			err = errors.New(fmt.Sprintf("%s", r))
-		}
-	}()
-
 	block, declaredClasses, err := s.p2p.GetBlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch header via p2p")
@@ -88,7 +87,7 @@ func (s *StartnetDataAdapter) Transaction(ctx context.Context, transactionHash *
 func (s *StartnetDataAdapter) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
 	cls, ok := s.classesLru.Get(*classHash)
 	if !ok {
-		fmt.Printf("Unable to find class of hash %s\n", classHash.String())
+		s.logger.Warnw("Unable to find classes in cache. Using base data provider.", "class", classHash.String())
 		return s.base.Class(ctx, classHash)
 	}
 

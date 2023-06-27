@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/pkg/errors"
@@ -30,6 +31,7 @@ type streamProvider = func(ctx context.Context) (network.Stream, func(), error)
 
 type blockSyncPeerManager struct {
 	streamProvider streamProvider
+	logger         utils.SimpleLogger
 
 	converter *converter
 	verifier  *verifier
@@ -38,7 +40,12 @@ type blockSyncPeerManager struct {
 	headerByBlockNumberLru *simplelru.LRU
 }
 
-func NewBlockSyncPeerManager(ctx context.Context, streamProvider streamProvider, bc *blockchain.Blockchain) (*blockSyncPeerManager, error) {
+func NewBlockSyncPeerManager(
+	ctx context.Context,
+	streamProvider streamProvider,
+	bc *blockchain.Blockchain,
+	logger utils.SimpleLogger,
+) (*blockSyncPeerManager, error) {
 	converter := NewConverter(&blockchainClassProvider{
 		blockchain: bc,
 	})
@@ -54,6 +61,7 @@ func NewBlockSyncPeerManager(ctx context.Context, streamProvider streamProvider,
 		verifier: &verifier{
 			network: bc.Network(),
 		},
+		logger: logger,
 
 		lruMutex:               &sync.Mutex{},
 		headerByBlockNumberLru: lru,
@@ -184,7 +192,7 @@ func (ip *blockSyncPeerManager) sendBlockSyncRequest(ctx context.Context, reques
 	defer func(stream network.Stream) {
 		err = stream.Close()
 		if err != nil {
-			fmt.Printf("Error closing stream %s", err)
+			ip.logger.Warnw("error closing stream", "error", err)
 		}
 	}(stream)
 

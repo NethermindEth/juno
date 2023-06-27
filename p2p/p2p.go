@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -37,8 +36,9 @@ const (
 type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
-
 	blockchain *blockchain.Blockchain
+
+	logger utils.SimpleLogger
 }
 
 func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
@@ -61,10 +61,10 @@ func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
 	go func() {
 		next, err := topicSub.Next(ctx)
 		for err == nil {
-			fmt.Printf("Got pubsub event %+v\n", next)
+			ip.logger.Infow("Got pubsub event", "event", next)
 		}
 		if err != nil {
-			fmt.Printf("Pubsub err %+v\n", err)
+			ip.logger.Infow("Got pubsub error", "error", err)
 		}
 	}()
 
@@ -90,7 +90,7 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 		bootPeers = make([]peer.AddrInfo, 0)
 	} else {
 		for i, peerStr := range splitted {
-			fmt.Printf("Boot peer: %s\n", peerStr)
+			ip.logger.Infow("Boot peers", "peer", peerStr)
 
 			bootAddr, err := peer.AddrInfoFromString(peerStr)
 			if err != nil {
@@ -114,10 +114,10 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 	ctx, events := dht.RegisterForLookupEvents(ctx)
 
 	go func() {
-		fmt.Println("Listening for kad events")
+		ip.logger.Infow("Listening for kad events")
 
-		for lookup := range events {
-			fmt.Printf("Got event %v", lookup)
+		for event := range events {
+			ip.logger.Infow("Got event", "event", event)
 		}
 	}()
 
@@ -129,7 +129,7 @@ func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error
 	return nil
 }
 
-func determineKey() (crypto.PrivKey, error) {
+func (ip *P2PImpl) determineKey() (crypto.PrivKey, error) {
 	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
 	if !ok {
 		// Creates a new key pair for this host.
@@ -144,7 +144,7 @@ func determineKey() (crypto.PrivKey, error) {
 		}
 
 		privKeyStr = hex.EncodeToString(prvKeyBytes)
-		fmt.Printf("Generated a new key. P2P_PRIVATE_KEY=%s\n", privKeyStr)
+		ip.logger.Infow(fmt.Sprintf("Generated a new key. P2P_PRIVATE_KEY=%s", privKeyStr))
 
 		return prvKey, nil
 	}
@@ -173,9 +173,10 @@ func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLo
 			converter:  converter,
 			log:        log,
 		},
+		logger: log,
 	}
 
-	prvKey, err := determineKey()
+	prvKey, err := impl.determineKey()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to determine key")
 	}
@@ -202,7 +203,7 @@ func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLo
 		return nil, err
 	}
 
-	fmt.Printf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String())
+	impl.logger.Infow(fmt.Sprintf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String()))
 
 	p2pHost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
@@ -231,14 +232,14 @@ func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLo
 	// Sync handler
 	p2pHost.SetStreamHandler(blockSyncProto, impl.syncServer.handleBlockSyncStream)
 
-	// And some other stuff
+	// And some debug stuff
 	go func() {
 		sub, err2 := p2pHost.EventBus().Subscribe(event.WildcardSubscription)
 		if err2 != nil {
 			panic(err2)
 		}
-		for eent := range sub.Out() {
-			fmt.Printf("Got event via bus %s %+v\n", reflect.TypeOf(eent), eent)
+		for event := range sub.Out() {
+			impl.logger.Infow("got event via bus", "event", event)
 		}
 	}()
 
@@ -256,6 +257,7 @@ func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLo
 func (ip *P2PImpl) CreateBlockSyncProvider(ctx context.Context) (BlockSyncPeerManager, error) {
 	peerManager := p2pPeerPoolManager{
 		p2p:                  ip,
+		logger:               ip.logger,
 		protocol:             blockSyncProto,
 		blockSyncPeers:       make([]peer.ID, 0),
 		syncPeerMtx:          &sync.Mutex{},
@@ -265,7 +267,7 @@ func (ip *P2PImpl) CreateBlockSyncProvider(ctx context.Context) (BlockSyncPeerMa
 
 	go func() {
 		err := peerManager.Start(ctx)
-		fmt.Printf("Error starting peer manager %s\n", err)
+		ip.logger.Errorw("error staring peer manager", "error", err)
 	}()
-	return NewBlockSyncPeerManager(ctx, peerManager.OpenStream, ip.blockchain)
+	return NewBlockSyncPeerManager(ctx, peerManager.OpenStream, ip.blockchain, ip.logger)
 }

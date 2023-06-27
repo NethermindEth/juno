@@ -288,20 +288,28 @@ func (n *Node) Run(ctx context.Context) {
 }
 
 func (n *Node) setupP2P(ctx context.Context, starkdata starknetdata.StarknetData) (starknetdata.StarknetData, bool) {
-	p2pClient, err2 := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
-	if err2 != nil {
-		n.log.Errorw("Error starting p2p", "err", err2)
+	p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
+	if err != nil {
+		n.log.Errorw("Error starting p2p", "err", err)
 		return nil, true
 	}
 
-	if n.cfg.P2PSync {
-		blockSyncProvider, err3 := p2pClient.CreateBlockSyncProvider(ctx)
-		if err3 != nil {
-			n.log.Errorw("Error adapting to p2p sync", "err", err3)
-		}
-
-		starkdata = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain)
+	if !n.cfg.P2PSync {
+		return starkdata, false
 	}
+
+	blockSyncProvider, err := p2pClient.CreateBlockSyncProvider(ctx)
+	if err != nil {
+		n.log.Errorw("Error adapting to p2p sync", "err", err)
+		return nil, true
+	}
+
+	starkdata, err = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain, n.log)
+	if err != nil {
+		n.log.Errorw("Error adapting to p2p sync", "err", err)
+		return nil, true
+	}
+
 	return starkdata, false
 }
 
