@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
 	"time"
 
@@ -51,12 +50,6 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
 	resetStreams context.CancelFunc,
 ) stream.Callback {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("fetcher paniced", r)
-		}
-	}()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -64,7 +57,6 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		default:
 			block, err := s.StarknetData.BlockByNumber(ctx, height)
 			if err != nil {
-				fmt.Printf("Error %s", err)
 				continue
 			}
 
