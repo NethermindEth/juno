@@ -41,9 +41,10 @@ func (h *HTTP) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
 	srv := &http.Server{
-		Addr:              h.listener.Addr().String(),
-		Handler:           h,
-		ReadHeaderTimeout: time.Second,
+		Addr:    h.listener.Addr().String(),
+		Handler: h,
+		// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
+		ReadTimeout: 30 * time.Second,
 	}
 
 	go func() {
