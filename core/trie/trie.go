@@ -4,13 +4,13 @@ package trie
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
-	"math/big"
-	"strings"
-	"sync"
 )
 
 // Storage is the Persistent storage for the [Trie]
@@ -337,96 +337,6 @@ func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}
-	return node, nil
-}
-
-func (t *Trie) updateValueIfDirtyAlt(key *bitset.BitSet, level int, storeMtx *sync.Mutex, writeMap *sync.Map) (*Node, error) {
-	node, err := t.storage.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// leaf node
-	if key.Len() == t.height {
-		return node, nil
-	}
-
-	shouldUpdate := false
-	for _, dirtyNode := range t.dirtyNodes {
-		if key.Len() < dirtyNode.Len() {
-			shouldUpdate = isSubset(dirtyNode, key)
-			if shouldUpdate {
-				break
-			}
-		}
-	}
-
-	if !shouldUpdate {
-		return node, nil
-	}
-
-	var leftHash *felt.Felt
-	var rightHash *felt.Felt
-
-	if level < 4 {
-		var leftErr error
-		var rightErr error
-		wg := &sync.WaitGroup{}
-		wg.Add(2)
-
-		go func() {
-			defer wg.Done()
-			leftChild, err := t.updateValueIfDirtyAlt(node.Left, level+1, storeMtx, writeMap)
-			if err != nil {
-				leftErr = err
-				return
-			}
-			defer nodePool.Put(leftChild)
-			leftPath := path(node.Left, key)
-			leftHash = leftChild.Hash(leftPath, t.hash)
-		}()
-
-		go func() {
-			defer wg.Done()
-			rightChild, err := t.updateValueIfDirtyAlt(node.Right, level+1, storeMtx, writeMap)
-			if err != nil {
-				rightErr = err
-				return
-			}
-			defer nodePool.Put(rightChild)
-			rightPath := path(node.Right, key)
-			rightHash = rightChild.Hash(rightPath, t.hash)
-		}()
-		wg.Wait()
-
-		if leftErr != nil {
-			return nil, leftErr
-		}
-		if rightErr != nil {
-			return nil, rightErr
-		}
-
-	} else {
-		leftChild, err := t.updateValueIfDirtyAlt(node.Left, level+1, storeMtx, writeMap)
-		if err != nil {
-			return nil, err
-		}
-		defer nodePool.Put(leftChild)
-		leftPath := path(node.Left, key)
-		leftHash = leftChild.Hash(leftPath, t.hash)
-
-		rightChild, err := t.updateValueIfDirtyAlt(node.Right, level+1, storeMtx, writeMap)
-		if err != nil {
-			return nil, err
-		}
-		defer nodePool.Put(rightChild)
-		rightPath := path(node.Right, key)
-		rightHash = rightChild.Hash(rightPath, t.hash)
-	}
-
-	node.Value = t.hash(leftHash, rightHash)
-
-	writeMap.Store(key, node)
 	return node, nil
 }
 

@@ -103,7 +103,7 @@ func fieldElementsToFelts(fieldElements []*p2pproto.FieldElement) []*felt.Felt {
 
 func toProtoMapArray[F any, T any](from []F, mapper func(F) T) (to []T) {
 	if len(from) == 0 {
-		// protobuf does not distinguise between nil array or empty array. But we put it here for testing reason
+		// protobuf does not distinguish between nil array or empty array. But we put it here for testing reason
 		// as when deserializing it always deserialize empty array as nil
 		return nil
 	}

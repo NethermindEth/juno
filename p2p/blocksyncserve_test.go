@@ -2,6 +2,10 @@ package p2p
 
 import (
 	"bytes"
+	"io"
+	"strconv"
+	"testing"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -9,9 +13,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"strconv"
-	"testing"
 )
 
 func TestBlockSyncServer_HandleGetBlockHeader(t *testing.T) {
@@ -113,7 +114,7 @@ func TestBlockSyncServer_HandleGetBlockHeader(t *testing.T) {
 				Request: &p2pproto.Request_GetBlockHeaders{GetBlockHeaders: test.request},
 			}
 
-			err, result := simulateStream(t, request, blocksyncserver)
+			result, err := simulateStream(t, request, blocksyncserver)
 
 			assert.Nil(t, err)
 			assert.Equal(t, test.expected, result.GetBlockHeaders())
@@ -200,7 +201,7 @@ func TestBlockSyncServer_HandleGetBlockBody(t *testing.T) {
 				Request: &p2pproto.Request_GetBlockBodies{GetBlockBodies: test.request},
 			}
 
-			err, result := simulateStream(t, request, blocksyncserver)
+			result, err := simulateStream(t, request, blocksyncserver)
 
 			assert.Nil(t, err)
 			assert.Equal(t, test.expected, result.GetBlockBodies())
@@ -290,7 +291,7 @@ func TestBlockSyncServer_GetStateUpdate(t *testing.T) {
 				Request: &p2pproto.Request_GetStateDiffs{GetStateDiffs: test.request},
 			}
 
-			err, result := simulateStream(t, request, blocksyncserver)
+			result, err := simulateStream(t, request, blocksyncserver)
 
 			assert.Nil(t, err)
 			assert.Equal(t, test.expected, result.GetStateDiffs())
@@ -335,7 +336,7 @@ func TestBlockSyncServer_GetStatus(t *testing.T) {
 				Request: &p2pproto.Request_Status{Status: test.request},
 			}
 
-			err, result := simulateStream(t, request, blocksyncserver)
+			result, err := simulateStream(t, request, blocksyncserver)
 
 			assert.Nil(t, err)
 			assert.Equal(t, test.expected, result.GetStatus())
@@ -397,7 +398,7 @@ func (t *testReadWriteCloser) Close() error {
 
 var _ io.ReadWriteCloser = &testReadWriteCloser{}
 
-func simulateStream(t *testing.T, request *p2pproto.Request, blocksyncserver *blockSyncServer) (error, *p2pproto.Response) {
+func simulateStream(t *testing.T, request *p2pproto.Request, blocksyncserver *blockSyncServer) (*p2pproto.Response, error) {
 	requestBuffer := &bytes.Buffer{}
 	err := writeCompressedProtobuf(requestBuffer, request)
 	if err != nil {
@@ -419,7 +420,7 @@ func simulateStream(t *testing.T, request *p2pproto.Request, blocksyncserver *bl
 	if err != nil {
 		t.Fatalf("error handlign block stream %s", err)
 	}
-	return err, result
+	return result, err
 }
 
 type memBlockProvider struct {

@@ -35,8 +35,8 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 
 	switch v := request.StartBlock.(type) {
 	case *p2pproto.GetBlockHeaders_BlockHash:
-		felt := fieldElementToFelt(v.BlockHash)
-		startblock, err = s.blockchain.BlockByHash(felt)
+		f := fieldElementToFelt(v.BlockHash)
+		startblock, err = s.blockchain.BlockByHash(f)
 
 		if err == db.ErrKeyNotFound {
 			return &p2pproto.BlockHeaders{
@@ -45,7 +45,7 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 		}
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to get block by hash %s", felt)
+			return nil, errors.Wrapf(err, "unable to get block by hash %s", f)
 		}
 	case *p2pproto.GetBlockHeaders_BlockNumber:
 		startblock, err = s.blockchain.BlockByNumber(v.BlockNumber)
