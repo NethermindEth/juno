@@ -21,7 +21,7 @@ type HTTP struct {
 	log  utils.SimpleLogger
 }
 
-func NewHTTP(port uint16, methods []Method, log utils.SimpleLogger) *HTTP {
+func NewHTTP(port uint16, methods []Method, idleTimeout time.Duration, log utils.SimpleLogger) *HTTP {
 	headerTimeout := 1 * time.Second
 	h := &HTTP{
 		rpc: NewServer(),
@@ -31,6 +31,7 @@ func NewHTTP(port uint16, methods []Method, log utils.SimpleLogger) *HTTP {
 		Addr:              fmt.Sprintf(":%d", port),
 		Handler:           h,
 		ReadHeaderTimeout: headerTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 	for _, method := range methods {
 		err := h.rpc.RegisterMethod(method)

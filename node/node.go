@@ -29,6 +29,7 @@ import (
 const (
 	defaultPprofPort          = 9080
 	l1BlockConfirmationPeriod = 16
+	httpIdleTimeout           = 5 * time.Minute
 )
 
 // Config is the top-level juno configuration.
@@ -182,7 +183,7 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Name:    "juno_version",
 			Handler: rpcHandler.Version,
 		},
-	}, log)
+	}, httpIdleTimeout, log)
 }
 
 // Run starts Juno node by opening the DB, initialising services.
