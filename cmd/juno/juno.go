@@ -37,6 +37,9 @@ const (
 	pprofF               = "pprof"
 	colourF              = "colour"
 	pendingPollIntervalF = "pending-poll-interval"
+	p2pF                 = "p2p"
+	p2pAddrF             = "p2p-addr"
+	p2pBootPeersF        = "p2p-boot-peers"
 
 	defaultConfig              = ""
 	defaultHTTPPort            = 6060
@@ -47,6 +50,9 @@ const (
 	defaultPprof               = false
 	defaultColour              = true
 	defaultPendingPollInterval = time.Duration(0)
+	defaultP2p                 = false
+	defaultP2pAddr             = ""
+	defaultP2pBootPeers        = ""
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -60,6 +66,9 @@ const (
 	ethNodeUsage      = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
+	p2pUsage                 = "enable p2p server"
+	p2PAddrUsage             = "specify p2p source address as multiaddr"
+	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 )
 
 var Version string
@@ -147,6 +156,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
+	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
+	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
+	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
 
 	return junoCmd
 }
