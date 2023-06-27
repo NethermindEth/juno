@@ -1970,6 +1970,41 @@ func TestTransactionStatus(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.Equal(t, rpc.StatusPending, status)
 	})
+	t.Run("found l1", func(t *testing.T) {
+		gw := adaptfeeder.New(client)
+
+		block, err := gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
+		tx := block.Transactions[0]
+
+		t.Run("not verified", func(t *testing.T) {
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
+			mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
+			mockReader.EXPECT().L1Head().Return(nil, nil)
+
+			handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", nil)
+
+			status, rpcErr := handler.TransactionStatus(*tx.Hash())
+			require.Nil(t, rpcErr)
+			require.Equal(t, rpc.StatusAcceptedL2, status)
+		})
+		t.Run("verified", func(t *testing.T) {
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
+			mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
+			mockReader.EXPECT().L1Head().Return(&core.L1Head{
+				BlockNumber: block.Number + 1,
+			}, nil)
+
+			handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", nil)
+
+			status, rpcErr := handler.TransactionStatus(*tx.Hash())
+			require.Nil(t, rpcErr)
+			require.Equal(t, rpc.StatusAcceptedL1, status)
+		})
+	})
 	t.Run("transaction not found in db", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
