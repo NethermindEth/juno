@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -41,6 +42,11 @@ type Config struct {
 	Pprof               bool           `mapstructure:"pprof"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+
+	P2P          bool   `mapstructure:"p2p"`
+	P2PAddr      string `mapstructure:"p2pAddr"`
+	P2PSync      bool   `mapstructure:"p2pSync"`
+	P2PBootPeers string `mapstructure:"p2pBootPeers"`
 }
 
 type Node struct {
@@ -57,6 +63,8 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) {
+	services := make([]service.Service, 0)
+
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -83,9 +91,22 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL())
+
+	if cfg.P2P {
+		p2pService, err := p2p.New(chain, cfg.P2PAddr, cfg.P2PBootPeers, log)
+		if err != nil {
+			log.Errorw("Error setting up p2p", "err", err)
+			return nil, err
+		}
+
+		services = append(services, p2pService)
+	}
+
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 	http := makeHTTP(cfg.RPCPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
+
+	services = append(services, synchronizer, http)
 
 	n := &Node{
 		cfg:        cfg,
@@ -93,7 +114,7 @@ func New(cfg *Config, version string) (*Node, error) {
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   []service.Service{synchronizer, http},
+		services:   services,
 	}
 
 	if n.cfg.EthNode == "" {
@@ -245,7 +266,6 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-
 	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
 		s := s
