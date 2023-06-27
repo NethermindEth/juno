@@ -1857,6 +1857,9 @@ func TestAddDeployAccountTransaction(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, "", log)
 
+	// Note: the actual content of this string doesn't matter since we are
+	// just testing that the handler interacts with the gateway correctly.
+	// We provide this working request body to help with manual testing.
 	deployTx := `{
 		"type":"DEPLOY_ACCOUNT",
 		"version":"0x1",
@@ -1865,7 +1868,7 @@ func TestAddDeployAccountTransaction(t *testing.T) {
 		"nonce":"0x0",
 		"class_hash":"0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
 		"contract_address_salt":"0x6d44a6aecb4339e23a9619355f101cf3cb9baec289fcd9fd51486655c1bb8a8",
-		"constructor_calldata":["3586049313439572922481980579704165954735883178084413432649542503692532358709"
+		"constructor_calldata":["3586049313439572922481980579704165954735883178084413432649542503692532358709]"
 	}`
 
 	t.Run("test ErrClassHashNotFound", func(t *testing.T) {
