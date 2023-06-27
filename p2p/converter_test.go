@@ -68,12 +68,7 @@ func (c *mapClassProvider) Save() {
 // Used to dump blocks
 //
 //nolint:all
-func dumpBlock(blockNum uint64) {
-	dbpath, ok := os.LookupEnv("P2P_TESt_SOURCE_DB")
-	if !ok {
-		panic("need to specify db path to dump to")
-	}
-	d, _ := pebble.New(dbpath, utils.NewNopZapLogger())
+func dumpBlock(blockNum uint64, d db.DB) {
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
 	block, err := bc.BlockByNumber(blockNum)
@@ -90,12 +85,10 @@ func dumpBlock(blockNum uint64) {
 	if err != nil {
 		panic(err)
 	}
-
-	d.Close()
 }
 
 func TestEncodeDecodeBlocks(t *testing.T) {
-	interceptClassDB, _ := os.LookupEnv("P2P_TESt_SOURCE_DB")
+	interceptClassDB, _ := os.LookupEnv("P2P_TEST_SOURCE_DB")
 	var d db.DB
 	if interceptClassDB != "" {
 		d, _ = pebble.New(interceptClassDB, utils.NewNopZapLogger())
@@ -103,9 +96,6 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		d, _ = pebble.NewMem()
 	}
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
-
-	// TODO: dump this also
-	// dumpBlock(5000)
 
 	classProvider := &mapClassProvider{
 		classes: map[felt.Felt]*core.DeclaredClass{},
