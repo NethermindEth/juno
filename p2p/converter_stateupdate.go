@@ -8,14 +8,11 @@ import (
 
 func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2pproto.StateDiffs_BlockStateUpdateWithHash {
 	contractdiffs := map[felt.Felt]*p2pproto.BlockStateUpdate_ContractDiff{}
-	i := 0
 	for key, diffs := range corestateupdate.StateDiff.StorageDiffs {
 		contractdiffs[key] = &p2pproto.BlockStateUpdate_ContractDiff{
 			ContractAddress: feltToFieldElement(&key),
 			StorageDiffs:    MapValueViaReflect[[]*p2pproto.BlockStateUpdate_StorageDiff](diffs),
 		}
-
-		i += 1
 	}
 
 	for k, nonce := range corestateupdate.StateDiff.Nonces {
@@ -32,29 +29,29 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2
 		contractdiffarr = append(contractdiffarr, diff)
 	}
 
-	deployedcontracts := make([]*p2pproto.BlockStateUpdate_DeployedContract, len(corestateupdate.StateDiff.DeployedContracts))
-	for i, contract := range corestateupdate.StateDiff.DeployedContracts {
-		deployedcontracts[i] = &p2pproto.BlockStateUpdate_DeployedContract{
-			ContractAddress:   feltToFieldElement(contract.Address),
-			ContractClassHash: feltToFieldElement(contract.ClassHash),
-		}
-	}
+	deployedcontracts := toProtoMapArray(corestateupdate.StateDiff.DeployedContracts,
+		func(contract core.DeployedContract) *p2pproto.BlockStateUpdate_DeployedContract {
+			return &p2pproto.BlockStateUpdate_DeployedContract{
+				ContractAddress:   feltToFieldElement(contract.Address),
+				ContractClassHash: feltToFieldElement(contract.ClassHash),
+			}
+		})
 
-	declaredv1classes := make([]*p2pproto.BlockStateUpdate_DeclaredV1Class, len(corestateupdate.StateDiff.DeclaredV1Classes))
-	for i, contract := range corestateupdate.StateDiff.DeclaredV1Classes {
-		declaredv1classes[i] = &p2pproto.BlockStateUpdate_DeclaredV1Class{
-			ClassHash:         feltToFieldElement(contract.ClassHash),
-			CompiledClassHash: feltToFieldElement(contract.CompiledClassHash),
-		}
-	}
+	declaredv1classes := toProtoMapArray(corestateupdate.StateDiff.DeclaredV1Classes,
+		func(contract core.DeclaredV1Class) *p2pproto.BlockStateUpdate_DeclaredV1Class {
+			return &p2pproto.BlockStateUpdate_DeclaredV1Class{
+				ClassHash:         feltToFieldElement(contract.ClassHash),
+				CompiledClassHash: feltToFieldElement(contract.CompiledClassHash),
+			}
+		})
 
-	replacedclasses := make([]*p2pproto.BlockStateUpdate_ReplacedClasses, len(corestateupdate.StateDiff.ReplacedClasses))
-	for i, contract := range corestateupdate.StateDiff.ReplacedClasses {
-		replacedclasses[i] = &p2pproto.BlockStateUpdate_ReplacedClasses{
-			ContractAddress:   feltToFieldElement(contract.Address),
-			ContractClassHash: feltToFieldElement(contract.ClassHash),
-		}
-	}
+	replacedclasses := toProtoMapArray(corestateupdate.StateDiff.ReplacedClasses,
+		func(contract core.ReplacedClass) *p2pproto.BlockStateUpdate_ReplacedClasses {
+			return &p2pproto.BlockStateUpdate_ReplacedClasses{
+				ContractAddress:   feltToFieldElement(contract.Address),
+				ContractClassHash: feltToFieldElement(contract.ClassHash),
+			}
+		})
 
 	stateupdate := &p2pproto.BlockStateUpdate{
 		ContractDiffs:               contractdiffarr,

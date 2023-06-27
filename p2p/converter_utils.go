@@ -60,7 +60,7 @@ func runBlockEncodingTests(bc *blockchain.Blockchain) error {
 		return errors.Wrap(err, "error fetching head")
 	}
 
-	startblock := 4800
+	startblock := 50000
 	for i := startblock; i < int(head.Number); i++ {
 		blocknumchan <- i
 	}
@@ -106,6 +106,7 @@ func testBlockEncoding(originalBlock *core.Block, c *converter, v Verifier, netw
 
 		currentClass := declaredClass.Class
 		if v, ok := currentClass.(*core.Cairo1Class); ok {
+			panic(fmt.Sprintf("Got cairo1 at block %d\n", originalBlock.Number))
 			v.Compiled = nil
 		}
 

@@ -2,10 +2,11 @@ package p2p
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
@@ -13,8 +14,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+type BlockProvider interface {
+	BlockByHash(felt *felt.Felt) (*core.Block, error)
+	BlockByNumber(number uint64) (*core.Block, error)
+	BlockHeaderByHash(f *felt.Felt) (*core.Header, error)
+	StateUpdateByNumber(blocknumber uint64) (*core.StateUpdate, error)
+	Head() (*core.Block, error)
+}
+
 type blockSyncServer struct {
-	blockchain *blockchain.Blockchain
+	blockchain BlockProvider
 	converter  *converter
 
 	log utils.SimpleLogger
@@ -106,7 +115,7 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 }
 
 func mapBlockSequence[T any](
-	bc *blockchain.Blockchain,
+	bc BlockProvider,
 	requestCount int,
 	direction p2pproto.Direction,
 	startblock *core.Block,
@@ -249,7 +258,7 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2
 }
 
 func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {
-	err := s.doHandleBlockSyncStream(stream)
+	err := s.DoHandleBlockSyncStream(stream)
 	if err != nil {
 		s.log.Errorw("error handling block sync", err)
 	}
@@ -259,7 +268,7 @@ func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {
 	}
 }
 
-func (s *blockSyncServer) doHandleBlockSyncStream(stream network.Stream) error {
+func (s *blockSyncServer) DoHandleBlockSyncStream(stream io.ReadWriteCloser) error {
 	msg := p2pproto.Request{}
 	err := readCompressedProtobuf(stream, &msg)
 	if err != nil {

@@ -146,6 +146,10 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 	return errors.New("can not verify hash in block header")
 }
 
+func BlockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
+	return blockHash(b, network, overrideSeqAddr)
+}
+
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	metaInfo := networkBlockHashMetaInfo(network)

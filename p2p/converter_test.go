@@ -104,6 +104,8 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 	}
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
+	// dumpBlock(5000)
+
 	classProvider := &mapClassProvider{
 		classes: map[felt.Felt]*core.DeclaredClass{},
 	}

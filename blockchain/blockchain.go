@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -302,12 +303,20 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
+		starttime := time.Now()
+		defer func() {
+			fmt.Printf("db update %.2f\n", time.Now().Sub(starttime).Seconds())
+		}()
+
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
+		starttime2 := time.Now()
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
+		fmt.Printf("update %.2f\n", time.Now().Sub(starttime2).Seconds())
+		starttime2 = time.Now()
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
@@ -317,6 +326,7 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 				return err
 			}
 		}
+		fmt.Printf("update2 %.2f\n", time.Now().Sub(starttime2).Seconds())
 
 		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
 			return err

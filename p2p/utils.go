@@ -8,12 +8,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/klauspost/compress/zstd"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
 )
 
-func readCompressedProtobuf(stream network.Stream, request proto.Message) error {
+func readCompressedProtobuf(stream io.Reader, request proto.Message) error {
 	reader := bufio.NewReader(stream)
 	_, err := varint.ReadUvarint(reader)
 	if err != nil {
@@ -38,7 +37,7 @@ func readCompressedProtobuf(stream network.Stream, request proto.Message) error 
 	return nil
 }
 
-func writeCompressedProtobuf(stream network.Stream, resp proto.Message) error {
+func writeCompressedProtobuf(stream io.Writer, resp proto.Message) error {
 	buff, err := proto.Marshal(resp)
 	if err != nil {
 		return err
@@ -90,12 +89,7 @@ func feltToFieldElement(flt *felt.Felt) *p2pproto.FieldElement {
 }
 
 func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {
-	fieldElements := make([]*p2pproto.FieldElement, len(felts))
-	for i, f := range felts {
-		fieldElements[i] = feltToFieldElement(f)
-	}
-
-	return fieldElements
+	return toProtoMapArray(felts, feltToFieldElement)
 }
 
 func fieldElementsToFelts(fieldElements []*p2pproto.FieldElement) []*felt.Felt {
@@ -105,4 +99,20 @@ func fieldElementsToFelts(fieldElements []*p2pproto.FieldElement) []*felt.Felt {
 	}
 
 	return felts
+}
+
+func toProtoMapArray[F any, T any](from []F, mapper func(F) T) (to []T) {
+	if len(from) == 0 {
+		// protobuf does not distinguise between nil array or empty array. But we put it here for testing reason
+		// as when deserializing it always deserialize empty array as nil
+		return nil
+	}
+
+	toArray := make([]T, len(from))
+
+	for i, f := range from {
+		toArray[i] = mapper(f)
+	}
+
+	return toArray
 }

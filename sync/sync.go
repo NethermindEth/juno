@@ -155,8 +155,16 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			fmt.Println("verifier paniced", r)
 		}
 	}()
+	starttime := time.Now()
+	defer func() {
+		fmt.Printf("check new height %.2f\n", time.Now().Sub(starttime).Seconds())
+	}()
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	return func() {
+		starttime := time.Now()
+		defer func() {
+			fmt.Printf("store  %.2f\n", time.Now().Sub(starttime).Seconds())
+		}()
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Println("verifier callback paniced", r)
