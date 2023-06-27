@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 )
@@ -34,23 +33,6 @@ type Client struct {
 }
 
 var _ service.Service = (*Client)(nil)
-
-func MakeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) (*Client, error) {
-	var coreContractAddress common.Address
-	coreContractAddress, err := chain.Network().CoreContractAddress()
-	if err != nil {
-		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
-		return nil, err
-	}
-
-	var ethSubscriber *EthSubscriber
-	ethSubscriber, err = NewEthSubscriber(ethNode, coreContractAddress)
-	if err != nil {
-		log.Errorw("Error creating ethSubscriber", "err", err)
-		return nil, err
-	}
-	return NewClient(ethSubscriber, chain, confirmationPeriod, log), nil
-}
 
 func NewClient(l1 Subscriber, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) *Client {
 	return &Client{

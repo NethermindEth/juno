@@ -23,6 +23,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
 
@@ -106,7 +107,7 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
-		l1Client, err := l1.MakeClient(n.cfg.EthNode, n.blockchain, l1BlockConfirmationPeriod, n.log)
+		l1Client, err := makeClient(n.cfg.EthNode, n.blockchain, l1BlockConfirmationPeriod, n.log)
 		if err != nil {
 			n.log.Errorw("Error creating L1 client", "err", err)
 			return nil, err
@@ -233,6 +234,23 @@ func makeHTTP(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLo
 			Handler: rpcHandler.Version,
 		},
 	}, log)
+}
+
+func makeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) (*l1.Client, error) {
+	var coreContractAddress common.Address
+	coreContractAddress, err := chain.Network().CoreContractAddress()
+	if err != nil {
+		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
+		return nil, err
+	}
+
+	var ethSubscriber *l1.EthSubscriber
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	if err != nil {
+		log.Errorw("Error creating ethSubscriber", "err", err)
+		return nil, err
+	}
+	return l1.NewClient(ethSubscriber, chain, confirmationPeriod, log), nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
