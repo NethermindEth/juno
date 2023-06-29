@@ -35,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event.inputs.repo_type == 'official' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: true
           tags: ${{ github.event.inputs.repo_type == 'official' && 'nethermind/juno' || 'nethermindeth/juno' }}:${{ github.event.inputs.tag }}
           
