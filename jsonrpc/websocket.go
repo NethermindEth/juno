@@ -36,9 +36,6 @@ func NewWebsocket(listener net.Listener, methods []Method, log utils.SimpleLogge
 
 // WithConnParams sanity checks and applies the provided params.
 func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
-	if p.PingPeriod < 0 {
-		return ws
-	}
 	ws.connParams = p
 	return ws
 }
@@ -92,8 +89,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 }
 
 type WebsocketConnParams struct {
-	// How often to send pings to the client.
-	PingPeriod time.Duration
 	// Maximum message size allowed.
 	ReadLimit int64
 	// Maximum time to write a message.
@@ -104,7 +99,6 @@ type WebsocketConnParams struct {
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
-		PingPeriod:    (30 * 9 * time.Second) / 10, // 0.9 * 30 seconds
 		ReadLimit:     32 * 1024 * 1024,
 		WriteDuration: 5 * time.Second,
 		ReadDuration:  30 * time.Second,
