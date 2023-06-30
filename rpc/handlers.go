@@ -1029,9 +1029,8 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		}
 		blockNumber = height + 1
 	}
-	res, err := vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata,
-		blockNumber, header.Timestamp, state, h.network)
 
+	res, err := vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
 		contractErr := *ErrContractError
 		contractErr.Data = err.Error()
