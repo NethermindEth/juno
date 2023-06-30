@@ -35,7 +35,7 @@ const (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	RPCPort             uint16         `mapstructure:"rpc-port"`
+	HTTPPort            uint16         `mapstructure:"http-port"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
@@ -88,9 +88,9 @@ func New(cfg *Config, version string) (*Node, error) {
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.RPCPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
 	if err != nil {
-		log.Errorw("Failed to listen for RPC requests", "port", cfg.RPCPort)
+		log.Errorw("Failed to listen for RPC requests", "port", cfg.HTTPPort)
 		return nil, err
 	}
 	http := makeHTTP(listener, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
