@@ -102,6 +102,29 @@ func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 	return t.txn.Delete(buffer.Bytes())
 }
 
+func (t *TransactionStorage) RootKey() (*bitset.BitSet, error) {
+	var rootKey *bitset.BitSet
+	if err := t.txn.Get(t.prefix, func(val []byte) error {
+		rootKey = new(bitset.BitSet)
+		return rootKey.UnmarshalBinary(val)
+	}); err != nil {
+		return nil, err
+	}
+	return rootKey, nil
+}
+
+func (t *TransactionStorage) PutRootKey(newRootKey *bitset.BitSet) error {
+	newRootKeyBytes, err := newRootKey.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	return t.txn.Set(t.prefix, newRootKeyBytes)
+}
+
+func (t *TransactionStorage) DeleteRootKey() error {
+	return t.txn.Delete(t.prefix)
+}
+
 func newMemStorage() Storage {
 	return NewTransactionStorage(db.NewMemTransaction(), nil)
 }

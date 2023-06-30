@@ -158,7 +158,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 		return nil, nil, err
 	}
 
-	gTrie, err := newTrie(tTxn, globalTrieHeight, rootKey)
+	gTrie, err := newTrie(tTxn, globalTrieHeight)
 	if err != nil {
 		return nil, nil, err
 	}
