@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -64,8 +63,7 @@ func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
 		return err
 	}
 
-	enc := encoder.NewEncoder(buffer)
-	err = enc.Encode(value)
+	_, err = value.WriteTo(buffer)
 	if err != nil {
 		return err
 	}
@@ -85,7 +83,7 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 	var node *Node
 	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
 		node = nodePool.Get().(*Node)
-		return encoder.Unmarshal(val, node)
+		return node.UnmarshalBinary(val)
 	}); err != nil {
 		return nil, err
 	}
