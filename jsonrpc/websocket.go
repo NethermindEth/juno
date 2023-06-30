@@ -40,7 +40,7 @@ func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 	return ws
 }
 
-// ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
+// Handler processes an HTTP request and upgrades it to a websocket connection.
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
