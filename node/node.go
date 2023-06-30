@@ -92,16 +92,6 @@ func New(cfg *Config, version string) (*Node, error) {
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL())
 
-	if cfg.P2P {
-		p2pService, err := p2p.New(chain, cfg.P2PAddr, cfg.P2PBootPeers, log)
-		if err != nil {
-			log.Errorw("Error setting up p2p", "err", err)
-			return nil, err
-		}
-
-		services = append(services, p2pService)
-	}
-
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 	http := makeHTTP(cfg.RPCPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
@@ -135,6 +125,16 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	if n.cfg.GRPCPort > 0 {
 		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
+	}
+
+	if cfg.P2P {
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, cfg.Network, log)
+		if err != nil {
+			log.Errorw("Error setting up p2p", "err", err)
+			return nil, err
+		}
+
+		n.services = append(n.services, p2pService)
 	}
 
 	return n, nil
