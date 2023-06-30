@@ -22,7 +22,8 @@ func TestConfigPrecedence(t *testing.T) {
 	// checks on the config, those will be checked by the StarknetNode
 	// implementation.
 	defaultLogLevel := utils.INFO
-	defaultRPCPort := uint16(6060)
+	defaultHTTPPort := uint16(6060)
+	defaultWSPort := uint16(6061)
 	defaultDBPath := ""
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
@@ -40,7 +41,8 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultRPCPort,
+				HTTPPort:            defaultHTTPPort,
+				WSPort:              defaultWSPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -52,7 +54,8 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultRPCPort,
+				HTTPPort:            defaultHTTPPort,
+				WSPort:              defaultWSPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -69,7 +72,8 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultRPCPort,
+				HTTPPort:            defaultHTTPPort,
+				WSPort:              defaultWSPort,
 				Network:             defaultNetwork,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
@@ -86,6 +90,7 @@ pprof: true
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
+				WSPort:              defaultWSPort,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
@@ -101,6 +106,7 @@ http-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
+				WSPort:              defaultWSPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -116,6 +122,7 @@ http-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
 				HTTPPort:     4576,
+				WSPort:       defaultWSPort,
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        true,
@@ -130,6 +137,7 @@ http-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
+				WSPort:              defaultWSPort,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.INTEGRATION,
 				Colour:              defaultColour,
@@ -152,6 +160,7 @@ pending-poll-interval: 5s
 			expectedConfig: &node.Config{
 				LogLevel:            utils.ERROR,
 				HTTPPort:            4577,
+				WSPort:              defaultWSPort,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.INTEGRATION,
 				Pprof:               true,
@@ -165,10 +174,11 @@ pending-poll-interval: 5s
 http-port: 4576
 network: goerli
 `,
-			inputArgs: []string{"--db-path", "/home/flag/.juno"},
+			inputArgs: []string{"--db-path", "/home/flag/.juno", "--ws-port", "4577"},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.WARN,
 				HTTPPort:            4576,
+				WSPort:              4577,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.GOERLI,
 				Pprof:               defaultPprof,
@@ -177,12 +187,14 @@ network: goerli
 			},
 		},
 		"some setting set in default, config file and flags": {
-			cfgFile:         true,
-			cfgFileContents: "network: goerli2",
-			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
+			cfgFile: true,
+			cfgFileContents: `network: goerli2
+ws-port: 4577`,
+			inputArgs: []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultRPCPort,
+				HTTPPort:            defaultHTTPPort,
+				WSPort:              4577,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
