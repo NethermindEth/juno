@@ -5,11 +5,14 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"nhooyr.io/websocket"
 )
+
+const closeReasonMaxBytes = 125
 
 type Websocket struct {
 	rpc        *Server
@@ -56,13 +59,24 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 
 		err = wsc.ReadWriteLoop(ctx)
 
-		status := websocket.CloseStatus(err)
-		if status == -1 {
-			status = websocket.StatusInternalError
-		}
-		if err = wsc.conn.Close(status, ""); err != nil {
-			ws.log.Errorw("Failed to close websocket connection", "err", err)
+		var errClose websocket.CloseError
+		if errors.As(err, &errClose) {
+			ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
 			return
+		}
+
+		ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
+		errString := err.Error()
+		if len(errString) > closeReasonMaxBytes {
+			errString = errString[:closeReasonMaxBytes]
+		}
+		if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
+			// Don't log an error if the connection is already closed, which can happen
+			// in benign scenarios like timeouts. Unfortunately the error is not exported
+			// from the websocket package so we match the string instead.
+			if !strings.Contains(err.Error(), "already wrote close") {
+				ws.log.Errorw("Failed to close websocket connection", "err", err)
+			}
 		}
 	})
 }
