@@ -431,9 +431,6 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		if isL1Verified(blockNumber, l1H) {
 			status = StatusAcceptedL1
 		}
-	} else {
-		// Todo: Remove after starknet v0.12.0 is released. As Pending status will be removed from Transactions and only exist for blocks
-		status = StatusPending
 	}
 
 	return &TransactionReceipt{
