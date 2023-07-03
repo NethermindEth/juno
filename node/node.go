@@ -93,7 +93,7 @@ func New(cfg *Config, version string) (*Node, error) {
 		log.Errorw("Failed to listen for RPC requests", "port", cfg.RPCPort)
 		return nil, err
 	}
-	http := makeHTTP(listener, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
+	http := makeHTTP(listener, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
 
 	n := &Node{
 		cfg:        cfg,

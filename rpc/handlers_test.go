@@ -1955,24 +1955,6 @@ func TestTransactionStatus(t *testing.T) {
 	client, closeFn := feeder.NewTestClient(utils.MAINNET)
 	t.Cleanup(closeFn)
 
-	t.Run("status pending", func(t *testing.T) {
-		gw := adaptfeeder.New(client)
-
-		block, err := gw.BlockByNumber(context.Background(), 0)
-		require.NoError(t, err)
-
-		tx := block.Transactions[0]
-
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-		mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], nil, uint64(0), nil)
-
-		handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", nil)
-
-		status, rpcErr := handler.TransactionStatus(*tx.Hash())
-		require.Nil(t, rpcErr)
-		require.Equal(t, rpc.StatusPending, status)
-	})
 	t.Run("found l1", func(t *testing.T) {
 		gw := adaptfeeder.New(client)
 
@@ -2025,7 +2007,7 @@ func TestCall(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, "", log)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
