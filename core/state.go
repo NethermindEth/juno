@@ -245,6 +245,14 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 
+var (
+	noClassContractsClassHash = new(felt.Felt).SetUint64(0)
+
+	noClassContracts = map[felt.Felt]struct{}{
+		*new(felt.Felt).SetUint64(1): {},
+	}
+)
+
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
 	// replace contract instances
 	for _, replace := range diff.ReplacedClasses {
@@ -283,7 +291,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 			return nil
 		}
 
-		if err := s.updateContractStorage(stateTrie, &addr, storageDiff, onValueChanged); err != nil {
+		if err := s.updateContractStorage(stateTrie, &addr, storageDiff, onValueChanged, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -356,10 +364,30 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorage(stateTrie *trie.Trie, addr *felt.Felt, diff []StorageDiff, onChanged OnValueChanged) error {
+func (s *State) updateContractStorage(stateTrie *trie.Trie, addr *felt.Felt, diff []StorageDiff, onChanged OnValueChanged,
+	blockNumber uint64,
+) error {
 	contract, err := NewContract(addr, s.txn)
 	if err != nil {
-		return err
+		if !errors.Is(err, ErrContractNotDeployed) {
+			return err
+		}
+
+		if _, ok := noClassContracts[*addr]; !ok {
+			return err
+		}
+
+		// Deploy noClassContract
+		err = s.putNewContract(stateTrie, addr, noClassContractsClassHash, blockNumber)
+		if err != nil {
+			return err
+		}
+
+		// We need to set the contract to the newly deployed noClassContract.
+		contract, err = NewContract(addr, s.txn)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err = contract.UpdateStorage(diff, onChanged); err != nil {
@@ -489,6 +517,33 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 	for _, contract := range update.StateDiff.DeployedContracts {
 		if err = s.purgeContract(contract.Address); err != nil {
 			return err
+		}
+	}
+
+	// purge noClassContracts
+	//
+	// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
+	// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
+	// we can use the lack of key's existence as reason for purging noClassContracts.
+
+	for addr := range noClassContracts {
+		noClassC, err := NewContract(&addr, s.txn)
+		if err != nil {
+			if !errors.Is(err, ErrContractNotDeployed) {
+				return err
+			}
+			continue
+		}
+
+		r, err := noClassC.Root()
+		if err != nil {
+			return err
+		}
+
+		if r.Equal(&felt.Zero) {
+			if err = s.purgeContract(&addr); err != nil {
+				return err
+			}
 		}
 	}
 
