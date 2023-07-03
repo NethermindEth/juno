@@ -1,9 +1,13 @@
-export CC = clang
 .DEFAULT_GOAL := help
 
-juno: ## compile
+.PHONY: vm
+
+juno: vm ## compile
 	@mkdir -p build
 	@go build -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+
+vm:
+	$(MAKE) -C vm/rust all
 
 generate: ## generate
 	mkdir -p mocks
@@ -12,19 +16,19 @@ generate: ## generate
 clean-testcache:
 	go clean -testcache
 
-test: clean-testcache ## tests
+test: clean-testcache vm ## tests
 	go test ./...
 
-test-cached: ## tests with existing cache
+test-cached: vm ## tests with existing cache
 	go test ./...
 
-test-race: clean-testcache
+test-race: clean-testcache vm
 	go test ./... -race
 
-benchmarks: ## benchmarking
+benchmarks: vm ## benchmarking
 	go test ./... -run=^# -bench=. -benchmem
 
-test-cover: ## tests with coverage
+test-cover: vm ## tests with coverage
 	mkdir -p coverage
 	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
@@ -51,6 +55,7 @@ format: ## run go formatter
 	gofumpt -l -w .
 
 clean: ## clean project builds
+	$(MAKE) -C vm/rust clean
 	@rm -rf ./build
 
 help: ## show this help

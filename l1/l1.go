@@ -20,6 +20,8 @@ type Subscriber interface {
 	WatchHeader(ctx context.Context, sink chan<- *types.Header) (event.Subscription, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
+
+	Close()
 }
 
 type Client struct {
@@ -77,6 +79,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 }
 
 func (c *Client) Run(ctx context.Context) error {
+	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}

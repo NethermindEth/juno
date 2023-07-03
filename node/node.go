@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -69,15 +70,65 @@ func New(cfg *Config, version string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Node{
-		cfg:     cfg,
-		log:     log,
-		version: version,
-	}, nil
+
+	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
+	if err != nil {
+		log.Errorw("Error creating DB logger", "err", err)
+		return nil, err
+	}
+
+	database, err := pebble.New(cfg.DatabasePath, dbLog)
+	if err != nil {
+		log.Errorw("Error opening DB", "err", err)
+		return nil, err
+	}
+
+	chain := blockchain.New(database, cfg.Network, log)
+	client := feeder.NewClient(cfg.Network.FeederURL())
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.RPCPort))
+	if err != nil {
+		log.Errorw("Failed to listen for RPC requests", "port", cfg.RPCPort)
+		return nil, err
+	}
+	http := makeHTTP(listener, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
+
+	n := &Node{
+		cfg:        cfg,
+		log:        log,
+		version:    version,
+		db:         database,
+		blockchain: chain,
+		services:   []service.Service{synchronizer, http},
+	}
+
+	if n.cfg.EthNode == "" {
+		n.log.Warnw("Ethereum node address not found; will not verify against L1")
+	} else {
+		l1Client, err := makeClient(n.cfg.EthNode, n.blockchain, l1BlockConfirmationPeriod, n.log)
+		if err != nil {
+			n.log.Errorw("Error creating L1 client", "err", err)
+			return nil, err
+		}
+
+		n.services = append(n.services, l1Client)
+	}
+
+	if n.cfg.Pprof {
+		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
+	}
+
+	if n.cfg.GRPCPort > 0 {
+		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
+	}
+
+	return n, nil
 }
 
-func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
-	return jsonrpc.NewHTTP(port, []jsonrpc.Method{
+func makeHTTP(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
+	return jsonrpc.NewHTTP(listener, []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
 			Handler: rpcHandler.ChainID,
@@ -187,7 +238,29 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: rpcHandler.TransactionStatus,
 		},
+		{
+			Name:    "starknet_call",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: rpcHandler.Call,
+		},
 	}, log)
+}
+
+func makeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) (*l1.Client, error) {
+	var coreContractAddress common.Address
+	coreContractAddress, err := chain.Network().CoreContractAddress()
+	if err != nil {
+		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
+		return nil, err
+	}
+
+	var ethSubscriber *l1.EthSubscriber
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	if err != nil {
+		log.Errorw("Error creating ethSubscriber", "err", err)
+		return nil, err
+	}
+	return l1.NewClient(ethSubscriber, chain, confirmationPeriod, log), nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
@@ -195,66 +268,15 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 // Run will wait for all services to return before exiting.
 func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
-
-	dbLog, err := utils.NewZapLogger(utils.ERROR, n.cfg.Colour)
-	if err != nil {
-		n.log.Errorw("Error creating DB logger", "err", err)
-		return
-	}
-
-	n.db, err = pebble.New(n.cfg.DatabasePath, dbLog)
-	if err != nil {
-		n.log.Errorw("Error opening DB", "err", err)
-		return
-	}
-
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
 		}
 	}()
 
-	if err = migration.MigrateIfNeeded(n.db); err != nil {
+	if err := migration.MigrateIfNeeded(n.db); err != nil {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
-	}
-
-	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
-
-	client := feeder.NewClient(n.cfg.Network.FeederURL())
-	synchronizer := sync.New(n.blockchain, adaptfeeder.New(client), n.log, n.cfg.PendingPollInterval)
-	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
-
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, client, n.version, n.log), n.log)
-
-	n.services = []service.Service{synchronizer, http}
-
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-	} else {
-		var coreContractAddress common.Address
-		coreContractAddress, err = n.cfg.Network.CoreContractAddress()
-		if err != nil {
-			n.log.Errorw("Error finding core contract address for network", "err", err, "network", n.cfg.Network)
-			return
-		}
-		var ethSubscriber *l1.EthSubscriber
-		ethSubscriber, err = l1.NewEthSubscriber(n.cfg.EthNode, coreContractAddress)
-		if err != nil {
-			n.log.Errorw("Error creating ethSubscriber", "err", err)
-			return
-		}
-		defer ethSubscriber.Close()
-		l1Client := l1.NewClient(ethSubscriber, n.blockchain, l1BlockConfirmationPeriod, n.log)
-		n.services = append(n.services, l1Client)
-	}
-
-	if n.cfg.Pprof {
-		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
-	}
-
-	if n.cfg.GRPCPort > 0 {
-		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -263,7 +285,7 @@ func (n *Node) Run(ctx context.Context) {
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
-			if err = s.Run(ctx); err != nil {
+			if err := s.Run(ctx); err != nil {
 				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
 				cancel()
 			}

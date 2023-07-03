@@ -885,7 +885,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": "0x0",
-					"status": "PENDING",
+					"status": "ACCEPTED_ON_L2",
 					"messages_sent": [
 						{
 							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
@@ -1857,6 +1857,9 @@ func TestAddDeployAccountTransaction(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, nil, "", log)
 
+	// Note: the actual content of this string doesn't matter since we are
+	// just testing that the handler interacts with the gateway correctly.
+	// We provide this working request body to help with manual testing.
 	deployTx := `{
 		"type":"DEPLOY_ACCOUNT",
 		"version":"0x1",
@@ -1865,7 +1868,7 @@ func TestAddDeployAccountTransaction(t *testing.T) {
 		"nonce":"0x0",
 		"class_hash":"0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
 		"contract_address_salt":"0x6d44a6aecb4339e23a9619355f101cf3cb9baec289fcd9fd51486655c1bb8a8",
-		"constructor_calldata":["3586049313439572922481980579704165954735883178084413432649542503692532358709"
+		"constructor_calldata":["3586049313439572922481980579704165954735883178084413432649542503692532358709]"
 	}`
 
 	t.Run("test ErrClassHashNotFound", func(t *testing.T) {
@@ -2013,5 +2016,51 @@ func TestTransactionStatus(t *testing.T) {
 		status, err := handler.TransactionStatus(*hash)
 		require.Nil(t, err)
 		require.Equal(t, rpc.StatusAcceptedL1, status)
+	})
+}
+
+func TestCall(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, "", log)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, errors.New("non-existent block hash"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, errors.New("non-existent block number"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	NoopCloser := func() error { return nil }
+
+	t.Run("call - unknown contract", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
 }
