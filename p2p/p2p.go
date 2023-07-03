@@ -8,6 +8,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
+	"github.com/pkg/errors"
 	"os"
 	"strings"
 	"time"
@@ -17,16 +19,13 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -35,108 +34,112 @@ const (
 	routingTableRefreshPeriod = 10 * time.Second
 )
 
-type P2PImpl struct {
+type Service struct {
 	host       host.Host
+	userAgent  string
+	bootPeers  string
+	network    utils.Network
 	syncServer blockSyncServer
 	blockchain *blockchain.Blockchain
-	bootPeers  string
 
-	logger utils.SimpleLogger
+	dht *dht.IpfsDHT
+
+	log utils.SimpleLogger
 }
 
-var _ p2pServer = &P2PImpl{}
+var _ p2pServer = &Service{}
 
-func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
-	// TODO: this should depend on network
-	topic := "blocks/Görli"
-	gossip, err := pubsub.NewGossipSub(ctx, ip.host)
+func New(
+	addr,
+	userAgent,
+	bootPeers string,
+	bc *blockchain.Blockchain,
+	network utils.Network,
+	log utils.SimpleLogger,
+) (*Service, error) {
+	if addr == "" {
+		// 0.0.0.0 will listen on any interface device.
+		addr = fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", defaultSourcePort)
+	}
+	sourceMultiAddr, err := multiaddr.NewMultiaddr(addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	topicObj, err := gossip.Join(topic)
+	prvKey, err := privateKey()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	topicSub, err := topicObj.Subscribe()
+	host, err := libp2p.New(
+		libp2p.ListenAddrs(sourceMultiAddr),
+		libp2p.Identity(prvKey),
+		libp2p.UserAgent(userAgent),
+	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	go func() {
-		// TODO: this should be a loop and a place to ingest block propagation
-		next, err := topicSub.Next(ctx)
-		for err == nil {
-			ip.logger.Infow("Got pubsub event", "event", next)
-		}
-		if err != nil {
-			ip.logger.Infow("Got pubsub error", "error", err)
-		}
-	}()
+	dht, err := makeDHT(host, network, bootPeers)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	pid, err := peer.IDFromPublicKey(prvKey.GetPublic())
+	if err != nil {
+		return nil, err
+	}
+
+	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", pid.String()))
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infow(fmt.Sprintf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String()))
+
+	// Sync handler
+	syncServer := blockSyncServer{
+		blockchain: bc,
+		converter:  NewConverter(&blockchainClassProvider{blockchain: bc}),
+		log:        log,
+	}
+
+	host.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
+
+	return &Service{
+		bootPeers:  bootPeers,
+		log:        log,
+		host:       host,
+		network:    network,
+		blockchain: bc,
+		dht:        dht,
+	}, nil
 }
 
-func (ip *P2PImpl) setupIdentity() error {
-	idservice, err := identify.NewIDService(ip.host)
-	if err != nil {
-		return err
-	}
-
-	go idservice.Start()
-
-	return nil
-}
-
-func (ip *P2PImpl) setupKademlia(ctx context.Context, bootPeersStr string) error {
-	splitted := strings.Split(bootPeersStr, ",")
-	bootPeers := make([]peer.AddrInfo, len(splitted))
-
-	if len(splitted) == 1 && splitted[0] == "" {
-		bootPeers = make([]peer.AddrInfo, 0)
-	} else {
-		for i, peerStr := range splitted {
-			ip.logger.Infow("Boot peers", "peer", peerStr)
-
+func makeDHT(host host.Host, network utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
+	bootPeers := []peer.AddrInfo{}
+	if cfgBootPeers != "" {
+		splitted := strings.Split(cfgBootPeers, ",")
+		for _, peerStr := range splitted {
 			bootAddr, err := peer.AddrInfoFromString(peerStr)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
-			bootPeers[i] = *bootAddr
+			bootPeers = append(bootPeers, *bootAddr)
 		}
 	}
 
-	dhtinstance, err := dht.New(ctx, ip.host,
-		dht.ProtocolPrefix("/pathfinder/kad/1.0.0"),
+	protocolPrefix := protocol.ID(fmt.Sprintf("/starknet/%s", network.String()))
+	return dht.New(context.Background(), host,
+		dht.ProtocolPrefix(protocolPrefix),
 		dht.BootstrapPeers(bootPeers...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
 	)
-	if err != nil {
-		return err
-	}
-
-	ctx, events := dht.RegisterForLookupEvents(ctx)
-
-	go func() {
-		ip.logger.Infow("Listening for kad events")
-
-		for event := range events {
-			ip.logger.Infow("Got event", "event", event)
-		}
-	}()
-
-	err = dhtinstance.Bootstrap(ctx)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func (ip *P2PImpl) determineKey() (crypto.PrivKey, error) {
+func privateKey() (crypto.PrivKey, error) {
 	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
 	if !ok {
 		// Creates a new key pair for this host.
@@ -144,15 +147,6 @@ func (ip *P2PImpl) determineKey() (crypto.PrivKey, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		prvKeyBytes, err := crypto.MarshalPrivateKey(prvKey)
-		if err != nil {
-			return nil, err
-		}
-
-		privKeyStr = hex.EncodeToString(prvKeyBytes)
-		ip.logger.Infow(fmt.Sprintf("Generated a new key. P2P_PRIVATE_KEY=%s", privKeyStr))
-
 		return prvKey, nil
 	}
 	privKeyBytes, err := hex.DecodeString(privKeyStr)
@@ -168,7 +162,93 @@ func (ip *P2PImpl) determineKey() (crypto.PrivKey, error) {
 	return prvKey, nil
 }
 
-func (ip *P2PImpl) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error) {
+func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan event.EvtPeerConnectednessChanged, error) {
+	ch := make(chan event.EvtPeerConnectednessChanged)
+	sub, err := s.host.EventBus().Subscribe(&event.EvtPeerConnectednessChanged{})
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				if err = sub.Close(); err != nil {
+					s.log.Warnw("Failed to close subscription", "err", err)
+				}
+				close(ch)
+				return
+			case evnt := <-sub.Out():
+				typedEvnt := evnt.(event.EvtPeerConnectednessChanged)
+				if typedEvnt.Connectedness == network.Connected {
+					ch <- typedEvnt
+				}
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
+func (s *Service) Run(ctx context.Context) error {
+	err := s.dht.Bootstrap(ctx)
+	if err != nil {
+		return err
+	}
+
+	listenAddrs, err := s.ListenAddrs()
+	if err != nil {
+		return err
+	}
+	for _, addr := range listenAddrs {
+		s.log.Infow("Listening on", "addr", addr)
+	}
+
+	err = s.setupIdentity()
+	if err != nil {
+		return errors.Wrap(err, "failed to setup identity protocol")
+	}
+
+	// And some debug stuff
+	go func() {
+		sub, err2 := s.host.EventBus().Subscribe(event.WildcardSubscription)
+		if err2 != nil {
+			panic(err2)
+		}
+		for event := range sub.Out() {
+			s.log.Infow("got event via bus", "event", event)
+		}
+	}()
+
+	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
+	if ok {
+		err = runBlockEncodingTests(s.blockchain)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+	<-ctx.Done()
+	if err := s.dht.Close(); err != nil {
+		s.log.Warnw("Failed stopping DHT", "err", err.Error())
+	}
+	return s.host.Close()
+}
+
+func (ip *Service) setupIdentity() error {
+	idservice, err := identify.NewIDService(ip.host)
+	if err != nil {
+		return err
+	}
+
+	go idservice.Start()
+
+	return nil
+}
+
+func (ip *Service) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error) {
 	ch := make(chan peerInfo)
 
 	sub, err := ip.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
@@ -182,7 +262,7 @@ func (ip *P2PImpl) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, err
 
 			protocols, err := ip.host.Peerstore().GetProtocols(evt.Peer)
 			if err != nil {
-				ip.logger.Infow("error getting peer protocol", "error", err)
+				ip.log.Infow("error getting peer protocol", "error", err)
 				continue
 			}
 
@@ -196,122 +276,37 @@ func (ip *P2PImpl) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, err
 	return ch, nil
 }
 
-func (ip *P2PImpl) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error) {
+func (ip *Service) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error) {
 	// TODO: implement this
 	ch := make(chan peer.ID)
 	return ch, nil
 }
 
-func (ip *P2PImpl) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (network.Stream, error) {
+func (ip *Service) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (network.Stream, error) {
 	return ip.host.NewStream(ctx, id, pcol)
 }
 
-func New(
-	bc *blockchain.Blockchain,
-	addr,
-	bootPeers string,
-	log utils.SimpleLogger,
-) (*P2PImpl, error) {
-	impl := P2PImpl{
-		blockchain: bc,
-		bootPeers:  bootPeers,
-		logger:     log,
-	}
-
-	prvKey, err := impl.determineKey()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to determine key")
-	}
-
-	var sourceMultiAddr multiaddr.Multiaddr
-	// 0.0.0.0 will listen on any interface device.
-	if addr != "" {
-		sourceMultiAddr, err = multiaddr.NewMultiaddr(addr)
-	} else {
-		sourceMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", defaultSourcePort))
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to parse address")
-	}
-
-	pubKey := prvKey.GetPublic()
-	pid, err := peer.IDFromPublicKey(pubKey)
+func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
+	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", s.host.ID().String()))
 	if err != nil {
 		return nil, err
 	}
 
-	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", pid.String()))
-	if err != nil {
-		return nil, err
+	var listenAddrs []multiaddr.Multiaddr
+	for _, addr := range s.host.Addrs() {
+		listenAddrs = append(listenAddrs, addr.Encapsulate(pidmhash))
 	}
 
-	impl.logger.Infow(fmt.Sprintf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String()))
-
-	p2pHost, err := libp2p.New(
-		libp2p.ListenAddrs(sourceMultiAddr),
-		libp2p.Identity(prvKey),
-	)
-	if err != nil {
-		return nil, err
-	}
-	impl.host = p2pHost
-
-	// Sync handler
-	impl.syncServer = blockSyncServer{
-		blockchain: bc,
-		converter:  NewConverter(&blockchainClassProvider{blockchain: bc}),
-		log:        impl.logger,
-	}
-
-	p2pHost.SetStreamHandler(blockSyncProto, impl.syncServer.handleBlockSyncStream)
-	return &impl, nil
+	return listenAddrs, nil
 }
 
-func (ip *P2PImpl) Run(ctx context.Context) error {
-	err := ip.setupKademlia(ctx, ip.bootPeers)
-	if err != nil {
-		return errors.Wrap(err, "failed to setup kademlia")
-	}
-
-	err = ip.setupIdentity()
-	if err != nil {
-		return errors.Wrap(err, "failed to setup identity protocol")
-	}
-
-	err = ip.setupGossipSub(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to setup gossibsub")
-	}
-
-	// And some debug stuff
-	go func() {
-		sub, err2 := ip.host.EventBus().Subscribe(event.WildcardSubscription)
-		if err2 != nil {
-			panic(err2)
-		}
-		for event := range sub.Out() {
-			ip.logger.Infow("got event via bus", "event", event)
-		}
-	}()
-
-	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
-	if ok {
-		err = runBlockEncodingTests(ip.blockchain)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (ip *P2PImpl) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Service, error) {
-	peerManager, err := NewP2PPeerPoolManager(ip, blockSyncProto, ip.logger)
+func (ip *Service) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Service, error) {
+	peerManager, err := NewP2PPeerPoolManager(ip, blockSyncProto, ip.log)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	blockSyncPeerManager, err := NewBlockSyncPeerManager(peerManager.OpenStream, ip.blockchain, ip.logger)
+	blockSyncPeerManager, err := NewBlockSyncPeerManager(peerManager.OpenStream, ip.blockchain, ip.log)
 	if err != nil {
 		return nil, nil, err
 	}

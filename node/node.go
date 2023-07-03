@@ -96,7 +96,7 @@ func New(cfg *Config, version string) (*Node, error) {
 	starkdata = adaptfeeder.New(client)
 
 	if cfg.P2P {
-		p2pService, err := p2p.New(chain, cfg.P2PAddr, cfg.P2PBootPeers, log)
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, chain, cfg.Network, log)
 		if err != nil {
 			log.Errorw("Error setting up p2p", "err", err)
 			return nil, err
