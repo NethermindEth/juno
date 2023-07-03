@@ -338,6 +338,8 @@ func TestClient(t *testing.T) {
 					Return(network.DefaultL1ChainID(), nil).
 					Times(1)
 
+				subscriber.EXPECT().Close().Times(1)
+
 				// Replace the subscriber.
 				client.l1 = subscriber
 
@@ -421,6 +423,8 @@ func TestUnreliableSubscription(t *testing.T) {
 			Return(successHeaderSub, nil).
 			Times(1).
 			After(failedHeaderCall)
+
+		subscriber.EXPECT().Close().Times(1)
 
 		// Replace the subscriber.
 		client.l1 = subscriber

@@ -8,6 +8,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/event"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 	"os"
 	"strings"
 	"sync"
@@ -15,16 +22,11 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-kad-dht"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/event"
+	"github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -37,11 +39,15 @@ type P2PImpl struct {
 	host       host.Host
 	syncServer blockSyncServer
 	blockchain *blockchain.Blockchain
+	bootPeers  string
 
 	logger utils.SimpleLogger
 }
 
+var _ p2pServer = &P2PImpl{}
+
 func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
+	// TODO: this should depend on network
 	topic := "blocks/Görli"
 	gossip, err := pubsub.NewGossipSub(ctx, ip.host)
 	if err != nil {
@@ -59,6 +65,7 @@ func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
 	}
 
 	go func() {
+		// TODO: this should be a loop and a place to ingest block propagation
 		next, err := topicSub.Next(ctx)
 		for err == nil {
 			ip.logger.Infow("Got pubsub event", "event", next)
@@ -71,7 +78,7 @@ func (ip *P2PImpl) setupGossipSub(ctx context.Context) error {
 	return nil
 }
 
-func (ip *P2PImpl) setupIdentity(context.Context) error {
+func (ip *P2PImpl) setupIdentity() error {
 	idservice, err := identify.NewIDService(ip.host)
 	if err != nil {
 		return err
@@ -161,19 +168,54 @@ func (ip *P2PImpl) determineKey() (crypto.PrivKey, error) {
 	return prvKey, nil
 }
 
-func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLogger) (*P2PImpl, error) {
-	ctx := context.Background()
-	converter := NewConverter(&blockchainClassProvider{
-		blockchain: bc,
-	})
+func (ip *P2PImpl) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error) {
+	ch := make(chan peerInfo)
+
+	sub, err := ip.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for evt := range sub.Out() {
+			evt := evt.(event.EvtPeerIdentificationCompleted)
+
+			protocols, err := ip.host.Peerstore().GetProtocols(evt.Peer)
+			if err != nil {
+				ip.logger.Infow("error getting peer protocol", "error", err)
+				continue
+			}
+
+			ch <- peerInfo{
+				id:        evt.Peer,
+				protocols: protocols,
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
+func (ip *P2PImpl) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error) {
+	// TODO: implement this
+	ch := make(chan peer.ID)
+	return ch, nil
+}
+
+func (ip *P2PImpl) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (network.Stream, error) {
+	return ip.host.NewStream(ctx, id, pcol)
+}
+
+func New(
+	bc *blockchain.Blockchain,
+	addr,
+	bootPeers string,
+	log utils.SimpleLogger,
+) (*P2PImpl, error) {
 	impl := P2PImpl{
 		blockchain: bc,
-		syncServer: blockSyncServer{
-			blockchain: bc,
-			converter:  converter,
-			log:        log,
-		},
-		logger: log,
+		bootPeers:  bootPeers,
+		logger:     log,
 	}
 
 	prvKey, err := impl.determineKey()
@@ -214,44 +256,47 @@ func Start(bc *blockchain.Blockchain, addr, bootPeers string, log utils.SimpleLo
 	}
 	impl.host = p2pHost
 
-	err = impl.setupKademlia(ctx, bootPeers)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to setup kademlia")
-	}
-
-	err = impl.setupIdentity(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to setup identity protocol")
-	}
-
-	err = impl.setupGossipSub(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to setup gossibsub")
-	}
-
 	// Sync handler
 	p2pHost.SetStreamHandler(blockSyncProto, impl.syncServer.handleBlockSyncStream)
+	return &impl, nil
+}
+
+func (ip *P2PImpl) Run(ctx context.Context) error {
+	err := ip.setupKademlia(ctx, ip.bootPeers)
+	if err != nil {
+		return errors.Wrap(err, "failed to setup kademlia")
+	}
+
+	err = ip.setupIdentity()
+	if err != nil {
+		return errors.Wrap(err, "failed to setup identity protocol")
+	}
+
+	err = ip.setupGossipSub(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to setup gossibsub")
+	}
 
 	// And some debug stuff
 	go func() {
-		sub, err2 := p2pHost.EventBus().Subscribe(event.WildcardSubscription)
+		sub, err2 := ip.host.EventBus().Subscribe(event.WildcardSubscription)
 		if err2 != nil {
 			panic(err2)
 		}
 		for event := range sub.Out() {
-			impl.logger.Infow("got event via bus", "event", event)
+			ip.logger.Infow("got event via bus", "event", event)
 		}
 	}()
 
 	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
 	if ok {
-		err = runBlockEncodingTests(bc)
+		err = runBlockEncodingTests(ip.blockchain)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return &impl, nil
+	return nil
 }
 
 func (ip *P2PImpl) CreateBlockSyncProvider(ctx context.Context) (BlockSyncPeerManager, error) {

@@ -6,45 +6,92 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
-	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 )
 
-// Simple peer pool manager
+type p2pServer interface {
+	SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error)
+	SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error)
+	NewStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error)
+}
+
+type peerInfo struct {
+	id        peer.ID
+	protocols []protocol.ID
+}
+
+// Simple peer pool manager for a particular protocol
 type p2pPeerPoolManager struct {
-	p2p      *P2PImpl
+	p2p      p2pServer
 	protocol protocol.ID
 	logger   utils.SimpleLogger
 
-	syncPeerMtx          *sync.Mutex
-	peerTurn             int
-	blockSyncPeers       []peer.ID
-	syncPeerUpdateChan   chan int
-	pickedBlockSyncPeers map[peer.ID]int
+	syncPeerMtx                 *sync.Mutex
+	peerTurn                    int
+	blockSyncPeers              []peer.ID
+	syncPeerUpdateChan          chan int
+	pickedBlockSyncPeers        map[peer.ID]int
+	maxConcurrentRequestPerPeer int
+}
+
+func NewP2PPeerPoolManager(ctx context.Context, p2p p2pServer, proto protocol.ID, logger utils.SimpleLogger) (*p2pPeerPoolManager, error) {
+	peerManager := &p2pPeerPoolManager{
+		p2p:      p2p,
+		protocol: proto,
+		logger:   logger,
+
+		blockSyncPeers:              make([]peer.ID, 0),
+		syncPeerMtx:                 &sync.Mutex{},
+		syncPeerUpdateChan:          make(chan int),
+		pickedBlockSyncPeers:        map[peer.ID]int{},
+		maxConcurrentRequestPerPeer: 4,
+	}
+
+	go func() {
+		err := peerManager.Start(ctx)
+		if err != nil {
+			logger.Errorw("error running peer manager", "error", err)
+		}
+	}()
+
+	return peerManager, nil
 }
 
 func (p *p2pPeerPoolManager) Start(ctx context.Context) error {
-	sub, err := p.p2p.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
+	newPeerCh, err := p.p2p.SubscribeToNewPeer(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to subscribe to new peer")
 	}
 
-	for evt := range sub.Out() {
-		evt := evt.(event.EvtPeerIdentificationCompleted)
-
-		protocols, err := p.p2p.host.Peerstore().GetProtocols(evt.Peer)
-		if err != nil {
-			p.logger.Infow("error getting peer protocol", "error", err)
-			continue
-		}
-
-		if slices.Contains(protocols, p.protocol) {
-			p.AddPeer(evt.Peer)
-		}
+	peerDisconnectedCh, err := p.p2p.SubscribeToPeerDisconnected(ctx)
+	if err != nil {
+		return errors.Wrap(err, "unable to subscribe to new peer")
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		for ch := range newPeerCh {
+			if slices.Contains(ch.protocols, p.protocol) {
+				p.AddPeer(ch.id)
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		for peer := range peerDisconnectedCh {
+			p.RemovePeer(peer)
+		}
+	}()
 
 	return nil
 }
@@ -52,10 +99,32 @@ func (p *p2pPeerPoolManager) Start(ctx context.Context) error {
 func (p *p2pPeerPoolManager) AddPeer(id peer.ID) {
 	if !slices.Contains(p.blockSyncPeers, id) {
 		p.blockSyncPeers = append(p.blockSyncPeers, id)
-		select {
-		case p.syncPeerUpdateChan <- 0:
-		default:
+
+		p.notifyPeerUpdated()
+	}
+}
+
+func (p *p2pPeerPoolManager) RemovePeer(id peer.ID) {
+	if slices.Contains(p.blockSyncPeers, id) {
+		p.blockSyncPeers = append(p.blockSyncPeers, id)
+
+		newlist := make([]peer.ID, 0, len(p.blockSyncPeers))
+		for _, peer := range p.blockSyncPeers {
+			if peer == id {
+				continue
+			}
+			newlist = append(newlist, peer)
 		}
+		p.blockSyncPeers = newlist
+
+		p.notifyPeerUpdated()
+	}
+}
+
+func (p *p2pPeerPoolManager) notifyPeerUpdated() {
+	select {
+	case p.syncPeerUpdateChan <- 0:
+	default:
 	}
 }
 
@@ -65,7 +134,7 @@ func (p *p2pPeerPoolManager) OpenStream(ctx context.Context) (network.Stream, fu
 		return nil, nil, err
 	}
 
-	stream, err := p.p2p.host.NewStream(ctx, *pr, p.protocol)
+	stream, err := p.p2p.NewStream(ctx, *pr, p.protocol)
 	return stream, func() {
 		p.releaseBlockSyncPeer(pr)
 	}, err
@@ -88,7 +157,6 @@ func (p *p2pPeerPoolManager) pickBlockSyncPeer(ctx context.Context) (*peer.ID, e
 }
 
 func (p *p2pPeerPoolManager) pickBlockSyncPeerNoWait() *peer.ID {
-	maxConcurrentRequestPerPeer := 32
 	p.syncPeerMtx.Lock()
 	defer p.syncPeerMtx.Unlock()
 
@@ -97,7 +165,7 @@ func (p *p2pPeerPoolManager) pickBlockSyncPeerNoWait() *peer.ID {
 
 	for i := 0; i < len(p.blockSyncPeers); i++ {
 		pr := p.blockSyncPeers[(i+p.peerTurn)%len(p.blockSyncPeers)]
-		if p.pickedBlockSyncPeers[pr] < maxConcurrentRequestPerPeer {
+		if p.pickedBlockSyncPeers[pr] < p.maxConcurrentRequestPerPeer {
 			p.pickedBlockSyncPeers[pr] += 1
 			return &pr
 		}

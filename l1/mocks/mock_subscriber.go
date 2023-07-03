@@ -53,6 +53,18 @@ func (mr *MockSubscriberMockRecorder) ChainID(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockSubscriber)(nil).ChainID), arg0)
 }
 
+// Close mocks base method.
+func (m *MockSubscriber) Close() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Close")
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockSubscriberMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockSubscriber)(nil).Close))
+}
+
 // WatchHeader mocks base method.
 func (m *MockSubscriber) WatchHeader(arg0 context.Context, arg1 chan<- *types.Header) (event.Subscription, error) {
 	m.ctrl.T.Helper()

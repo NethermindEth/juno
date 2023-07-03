@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 )
@@ -20,6 +21,8 @@ type Subscriber interface {
 	WatchHeader(ctx context.Context, sink chan<- *types.Header) (event.Subscription, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
+
+	Close()
 }
 
 type Client struct {
@@ -31,6 +34,23 @@ type Client struct {
 }
 
 var _ service.Service = (*Client)(nil)
+
+func MakeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) (*Client, error) {
+	var coreContractAddress common.Address
+	coreContractAddress, err := chain.Network().CoreContractAddress()
+	if err != nil {
+		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
+		return nil, err
+	}
+
+	var ethSubscriber *EthSubscriber
+	ethSubscriber, err = NewEthSubscriber(ethNode, coreContractAddress)
+	if err != nil {
+		log.Errorw("Error creating ethSubscriber", "err", err)
+		return nil, err
+	}
+	return NewClient(ethSubscriber, chain, confirmationPeriod, log), nil
+}
 
 func NewClient(l1 Subscriber, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) *Client {
 	return &Client{
@@ -77,6 +97,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 }
 
 func (c *Client) Run(ctx context.Context) error {
+	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}

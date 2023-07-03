@@ -20,11 +20,9 @@ import (
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/starknetdata"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
 
@@ -65,6 +63,8 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) {
+	services := make([]service.Service, 0)
+
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -76,12 +76,98 @@ func New(cfg *Config, version string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Node{
-		cfg:     cfg,
-		log:     log,
-		version: version,
-	}, nil
+
+	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
+	if err != nil {
+		log.Errorw("Error creating DB logger", "err", err)
+		return nil, err
+	}
+
+	database, err := pebble.New(cfg.DatabasePath, dbLog)
+	if err != nil {
+		log.Errorw("Error opening DB", "err", err)
+		return nil, err
+	}
+
+	chain := blockchain.New(database, cfg.Network, log)
+	client := feeder.NewClient(cfg.Network.FeederURL())
+
+	if cfg.P2P {
+		p2pService, err := p2p.New(chain, cfg.P2PAddr, cfg.P2PBootPeers, log)
+		if err != nil {
+			log.Errorw("Error setting up p2p", "err", err)
+			return nil, err
+		}
+
+		services = append(services, p2pService)
+	}
+
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
+	http := makeHTTP(cfg.RPCPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
+
+	services = append(services, synchronizer, http)
+
+	n := &Node{
+		cfg:        cfg,
+		log:        log,
+		version:    version,
+		db:         database,
+		blockchain: chain,
+		services:   services,
+	}
+
+	if n.cfg.EthNode == "" {
+		n.log.Warnw("Ethereum node address not found; will not verify against L1")
+	} else {
+		l1Client, err := l1.MakeClient(n.cfg.EthNode, n.blockchain, l1BlockConfirmationPeriod, n.log)
+		if err != nil {
+			n.log.Errorw("Error creating L1 client", "err", err)
+			return nil, err
+		}
+
+		n.services = append(n.services, l1Client)
+	}
+
+	if n.cfg.Pprof {
+		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
+	}
+
+	if n.cfg.GRPCPort > 0 {
+		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
+	}
+
+	return n, nil
 }
+
+/*
+func (n *Node) setupP2P(ctx context.Context, starkdata starknetdata.StarknetData) (starknetdata.StarknetData, bool) {
+	p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
+	if err != nil {
+		n.log.Errorw("Error starting p2p", "err", err)
+		return nil, true
+	}
+
+	if !n.cfg.P2PSync {
+		return starkdata, false
+	}
+
+	blockSyncProvider, err := p2pClient.CreateBlockSyncProvider(ctx)
+	if err != nil {
+		n.log.Errorw("Error adapting to p2p sync", "err", err)
+		return nil, true
+	}
+
+	starkdata, err = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain, n.log)
+	if err != nil {
+		n.log.Errorw("Error adapting to p2p sync", "err", err)
+		return nil, true
+	}
+
+	return starkdata, false
+}
+
+*/
 
 func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
 	return jsonrpc.NewHTTP(port, []jsonrpc.Method{
@@ -197,84 +283,23 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 // Run will wait for all services to return before exiting.
 func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
-
-	dbLog, err := utils.NewZapLogger(utils.ERROR, n.cfg.Colour)
-	if err != nil {
-		n.log.Errorw("Error creating DB logger", "err", err)
-		return
-	}
-
-	n.db, err = pebble.New(n.cfg.DatabasePath, dbLog)
-	if err != nil {
-		n.log.Errorw("Error opening DB", "err", err)
-		return
-	}
-
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
 		}
 	}()
 
-	if err = migration.MigrateIfNeeded(n.db); err != nil {
+	if err := migration.MigrateIfNeeded(n.db); err != nil {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
 
-	n.blockchain = blockchain.New(n.db, n.cfg.Network, n.log)
-	client := feeder.NewClient(n.cfg.Network.FeederURL())
-	var starkdata starknetdata.StarknetData = adaptfeeder.New(client)
-
-	if n.cfg.P2P {
-		var done bool
-		starkdata, done = n.setupP2P(ctx, starkdata)
-		if done {
-			return
-		}
-	}
-
-	synchronizer := sync.New(n.blockchain, starkdata, n.log, n.cfg.PendingPollInterval)
-	gatewayClient := gateway.NewClient(n.cfg.Network.GatewayURL(), n.log)
-
-	http := makeHTTP(n.cfg.RPCPort, rpc.New(n.blockchain, synchronizer, n.cfg.Network, gatewayClient, n.version, n.log), n.log)
-
-	n.services = []service.Service{synchronizer, http}
-
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-	} else {
-		var coreContractAddress common.Address
-		coreContractAddress, err = n.cfg.Network.CoreContractAddress()
-		if err != nil {
-			n.log.Errorw("Error finding core contract address for network", "err", err, "network", n.cfg.Network)
-			return
-		}
-		var ethSubscriber *l1.EthSubscriber
-		ethSubscriber, err = l1.NewEthSubscriber(n.cfg.EthNode, coreContractAddress)
-		if err != nil {
-			n.log.Errorw("Error creating ethSubscriber", "err", err)
-			return
-		}
-		defer ethSubscriber.Close()
-		l1Client := l1.NewClient(ethSubscriber, n.blockchain, l1BlockConfirmationPeriod, n.log)
-		n.services = append(n.services, l1Client)
-	}
-
-	if n.cfg.Pprof {
-		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
-	}
-
-	if n.cfg.GRPCPort > 0 {
-		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
-
 	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
-			if err = s.Run(ctx); err != nil {
+			if err := s.Run(ctx); err != nil {
 				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
 				cancel()
 			}
@@ -285,32 +310,6 @@ func (n *Node) Run(ctx context.Context) {
 	<-ctx.Done()
 	cancel()
 	n.log.Infow("Shutting down Juno...")
-}
-
-func (n *Node) setupP2P(ctx context.Context, starkdata starknetdata.StarknetData) (starknetdata.StarknetData, bool) {
-	p2pClient, err := p2p.Start(n.blockchain, n.cfg.P2PAddr, n.cfg.P2PBootPeers, n.log)
-	if err != nil {
-		n.log.Errorw("Error starting p2p", "err", err)
-		return nil, true
-	}
-
-	if !n.cfg.P2PSync {
-		return starkdata, false
-	}
-
-	blockSyncProvider, err := p2pClient.CreateBlockSyncProvider(ctx)
-	if err != nil {
-		n.log.Errorw("Error adapting to p2p sync", "err", err)
-		return nil, true
-	}
-
-	starkdata, err = p2p.NewStarknetDataAdapter(starkdata, blockSyncProvider, n.blockchain, n.log)
-	if err != nil {
-		n.log.Errorw("Error adapting to p2p sync", "err", err)
-		return nil, true
-	}
-
-	return starkdata, false
 }
 
 func (n *Node) Config() Config {

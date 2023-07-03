@@ -96,6 +96,8 @@ func TestFailedSubscription(t *testing.T) {
 				Return(network.DefaultL1ChainID(), nil).
 				Times(1)
 
+			subscriber.EXPECT().Close().Times(1)
+
 			client := l1.NewClient(subscriber, chain, 0, nopLog)
 
 			require.ErrorIs(t, client.Run(context.Background()), err)
@@ -132,6 +134,8 @@ func TestChainID(t *testing.T) {
 			}).
 			Return(newFakeSubscription(), nil).
 			AnyTimes()
+
+		subscriber.EXPECT().Close().Times(1)
 
 		l1ChainID := new(big.Int)
 		if matching {
