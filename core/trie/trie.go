@@ -18,6 +18,10 @@ type Storage interface {
 	Put(key *bitset.BitSet, value *Node) error
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
+
+	PutRootKey(newRootKey *bitset.BitSet) error
+	RootKey() (*bitset.BitSet, error)
+	DeleteRootKey() error
 }
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
@@ -46,20 +50,21 @@ type Trie struct {
 	storage Storage
 	hash    hashFunc
 
-	dirtyNodes []*bitset.BitSet
+	dirtyNodes     []*bitset.BitSet
+	rootKeyIsDirty bool
 }
 
-type NewTrieFunc func(Storage, uint, *bitset.BitSet) (*Trie, error)
+type NewTrieFunc func(Storage, uint) (*Trie, error)
 
-func NewTriePedersen(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
-	return newTrie(storage, height, rootKey, crypto.Pedersen)
+func NewTriePedersen(storage Storage, height uint) (*Trie, error) {
+	return newTrie(storage, height, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) (*Trie, error) {
-	return newTrie(storage, height, rootKey, crypto.Poseidon)
+func NewTriePoseidon(storage Storage, height uint) (*Trie, error) {
+	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc) (*Trie, error) {
+func newTrie(storage Storage, height uint, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -67,6 +72,11 @@ func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc
 	// maxKey is 2^height - 1
 	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
 	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
+
+	rootKey, err := storage.RootKey()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
 
 	return &Trie{
 		storage: storage,
@@ -79,7 +89,7 @@ func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTrie(height uint, do func(*Trie) error) error {
-	trie, err := NewTriePedersen(newMemStorage(), height, nil)
+	trie, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return err
 	}
@@ -223,7 +233,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		if err = t.storage.Put(nodeKey, node); err != nil {
 			return nil, err
 		}
-		t.rootKey = nodeKey
+		t.setRootKey(nodeKey)
 		return &old, nil
 	} else {
 		// Replace if key already exist
@@ -283,7 +293,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			}
 			t.dirtyNodes = append(t.dirtyNodes, commonKey)
 		} else {
-			t.rootKey = commonKey
+			t.setRootKey(commonKey)
 		}
 
 		if err = t.storage.Put(nodeKey, node); err != nil {
@@ -291,6 +301,11 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		}
 		return &old, nil
 	}
+}
+
+func (t *Trie) setRootKey(newRootKey *bitset.BitSet) {
+	t.rootKey = newRootKey
+	t.rootKeyIsDirty = true
 }
 
 func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
@@ -348,7 +363,7 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 	}
 
 	if len(nodes) == 1 { // deleted node was root
-		t.rootKey = nil
+		t.setRootKey(nil)
 		return nil
 	}
 
@@ -366,7 +381,7 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 	}
 
 	if len(nodes) == 2 { // sibling should become root
-		t.rootKey = siblingKey
+		t.setRootKey(siblingKey)
 		return nil
 	}
 	// sibling should link to grandparent (len(affectedNodes) > 2)
@@ -387,6 +402,19 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 
 // Root returns the commitment of a [Trie]
 func (t *Trie) Root() (*felt.Felt, error) {
+	// We are careful to update the root key before returning.
+	// Otherwise, a new trie will not be able to find the root node.
+	if t.rootKeyIsDirty {
+		if t.rootKey == nil {
+			if err := t.storage.DeleteRootKey(); err != nil {
+				return nil, err
+			}
+		} else if err := t.storage.PutRootKey(t.rootKey); err != nil {
+			return nil, err
+		}
+		t.rootKeyIsDirty = false
+	}
+
 	if t.rootKey == nil {
 		return new(felt.Felt), nil
 	}
