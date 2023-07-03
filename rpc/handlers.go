@@ -1,11 +1,13 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -48,18 +50,20 @@ type Handler struct {
 	synchronizer  *sync.Synchronizer
 	network       utils.Network
 	gatewayClient Gateway
+	feederClient  *feeder.Client
 	log           utils.Logger
 	version       string
 }
 
 func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
-	gatewayClient Gateway, version string, logger utils.Logger,
+	gatewayClient Gateway, feederClient *feeder.Client, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
 		synchronizer:  synchronizer,
 		network:       n,
 		log:           logger,
+		feederClient:  feederClient,
 		gatewayClient: gatewayClient,
 		version:       version,
 	}
@@ -1034,4 +1038,27 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, &contractErr
 	}
 	return res, nil
+}
+
+func (h *Handler) TransactionStatus(hash felt.Felt) (Status, *jsonrpc.Error) {
+	var status Status
+
+	receipt, txErr := h.TransactionReceiptByHash(hash)
+	if txErr == nil {
+		status = receipt.Status
+	} else if txErr == ErrTxnHashNotFound {
+		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
+		if err != nil {
+			return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+
+		err = status.UnmarshalJSON([]byte(txStatus.Status))
+		if err != nil {
+			return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+	} else {
+		return 0, txErr
+	}
+
+	return status, nil
 }
