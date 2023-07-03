@@ -45,13 +45,13 @@ func TestPeerPoolManager_OpenStreamBlocksUntilPeerIsDiscovered(t *testing.T) {
 	testprotocol := protocol.ID("testprotocol")
 	otherprotocol := protocol.ID("other")
 
-	poolManager, err := NewP2PPeerPoolManager(ctx, testp2p, testprotocol, utils.NewNopZapLogger())
+	poolManager, err := NewP2PPeerPoolManager(testp2p, testprotocol, utils.NewNopZapLogger())
 	if err != nil {
 		t.Fatalf("error creating peer pool manager %s", err)
 	}
 
 	go func() {
-		_ = poolManager.Start(ctx)
+		_ = poolManager.Run(ctx)
 	}()
 
 	opened := initiateStreamOpen(ctx, poolManager)
@@ -92,13 +92,13 @@ func TestPeerPoolManager_OpenStreamBlocksIfNoPeer(t *testing.T) {
 	testp2p := newTestPeerPool()
 	testprotocol := protocol.ID("testprotocol")
 
-	poolManager, err := NewP2PPeerPoolManager(ctx, testp2p, testprotocol, utils.NewNopZapLogger())
+	poolManager, err := NewP2PPeerPoolManager(testp2p, testprotocol, utils.NewNopZapLogger())
 	if err != nil {
 		t.Fatalf("error creating peer pool manager %s", err)
 	}
 
 	go func() {
-		_ = poolManager.Start(ctx)
+		_ = poolManager.Run(ctx)
 	}()
 
 	testp2p.newPeerChan <- peerInfo{
@@ -125,13 +125,13 @@ func TestPeerPoolManager_OpenStreamCancelOnContextCancelled(t *testing.T) {
 	testp2p := newTestPeerPool()
 	testprotocol := protocol.ID("testprotocol")
 
-	poolManager, err := NewP2PPeerPoolManager(ctx, testp2p, testprotocol, utils.NewNopZapLogger())
+	poolManager, err := NewP2PPeerPoolManager(testp2p, testprotocol, utils.NewNopZapLogger())
 	if err != nil {
 		t.Fatalf("error creating peer pool manager %s", err)
 	}
 
 	go func() {
-		_ = poolManager.Start(ctx)
+		_ = poolManager.Run(ctx)
 	}()
 
 	streamCtx, streamCtxCancel := context.WithCancel(context.Background())

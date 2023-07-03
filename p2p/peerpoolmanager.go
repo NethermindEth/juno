@@ -2,10 +2,10 @@ package p2p
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/service"
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"

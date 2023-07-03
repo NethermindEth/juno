@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"fmt"
-	"github.com/NethermindEth/juno/starknetdata"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknetdata"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
