@@ -8,8 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
-	"github.com/pkg/errors"
 	"os"
 	"strings"
 	"time"
@@ -25,7 +23,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -54,7 +54,7 @@ func New(
 	userAgent,
 	bootPeers string,
 	bc *blockchain.Blockchain,
-	network utils.Network,
+	network0 utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	if addr == "" {
@@ -71,7 +71,7 @@ func New(
 		return nil, err
 	}
 
-	host, err := libp2p.New(
+	hst, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
 		libp2p.UserAgent(userAgent),
@@ -80,7 +80,7 @@ func New(
 		return nil, err
 	}
 
-	dht, err := makeDHT(host, network, bootPeers)
+	dhti, err := makeDHT(hst, network0, bootPeers)
 	if err != nil {
 		return nil, err
 	}
@@ -104,15 +104,15 @@ func New(
 		log:        log,
 	}
 
-	host.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
+	hst.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
 
 	return &Service{
 		bootPeers:  bootPeers,
 		log:        log,
-		host:       host,
-		network:    network,
+		host:       hst,
+		network:    network0,
 		blockchain: bc,
-		dht:        dht,
+		dht:        dhti,
 	}, nil
 }
 
@@ -228,8 +228,6 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}
 
-	return nil
-
 	<-ctx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
@@ -237,8 +235,8 @@ func (s *Service) Run(ctx context.Context) error {
 	return s.host.Close()
 }
 
-func (ip *Service) setupIdentity() error {
-	idservice, err := identify.NewIDService(ip.host)
+func (s *Service) setupIdentity() error {
+	idservice, err := identify.NewIDService(s.host)
 	if err != nil {
 		return err
 	}
@@ -248,10 +246,10 @@ func (ip *Service) setupIdentity() error {
 	return nil
 }
 
-func (ip *Service) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error) {
+func (s *Service) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error) {
 	ch := make(chan peerInfo)
 
-	sub, err := ip.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
+	sub, err := s.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +258,9 @@ func (ip *Service) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, err
 		for evt := range sub.Out() {
 			evt := evt.(event.EvtPeerIdentificationCompleted)
 
-			protocols, err := ip.host.Peerstore().GetProtocols(evt.Peer)
+			protocols, err := s.host.Peerstore().GetProtocols(evt.Peer)
 			if err != nil {
-				ip.log.Infow("error getting peer protocol", "error", err)
+				s.log.Infow("error getting peer protocol", "error", err)
 				continue
 			}
 
@@ -276,14 +274,14 @@ func (ip *Service) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, err
 	return ch, nil
 }
 
-func (ip *Service) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error) {
+func (s *Service) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error) {
 	// TODO: implement this
 	ch := make(chan peer.ID)
 	return ch, nil
 }
 
-func (ip *Service) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (network.Stream, error) {
-	return ip.host.NewStream(ctx, id, pcol)
+func (s *Service) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (network.Stream, error) {
+	return s.host.NewStream(ctx, id, pcol)
 }
 
 func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
@@ -300,13 +298,13 @@ func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 	return listenAddrs, nil
 }
 
-func (ip *Service) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Service, error) {
-	peerManager, err := NewP2PPeerPoolManager(ip, blockSyncProto, ip.log)
+func (s *Service) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Service, error) {
+	peerManager, err := NewP2PPeerPoolManager(s, blockSyncProto, s.log)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	blockSyncPeerManager, err := NewBlockSyncPeerManager(peerManager.OpenStream, ip.blockchain, ip.log)
+	blockSyncPeerManager, err := NewBlockSyncPeerManager(peerManager.OpenStream, s.blockchain, s.log)
 	if err != nil {
 		return nil, nil, err
 	}
