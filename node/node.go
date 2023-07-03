@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/NethermindEth/juno/starknetdata"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -91,6 +92,8 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL())
+	var starkdata starknetdata.StarknetData
+	starkdata = adaptfeeder.New(client)
 
 	if cfg.P2P {
 		p2pService, err := p2p.New(chain, cfg.P2PAddr, cfg.P2PBootPeers, log)
@@ -100,9 +103,26 @@ func New(cfg *Config, version string) (*Node, error) {
 		}
 
 		services = append(services, p2pService)
+
+		if cfg.P2PSync {
+			// TODO: Why is this complicated?
+			blockSyncManager, poolService, err := p2pService.CreateBlockSyncProvider()
+			if err != nil {
+				log.Errorw("Error setting up p2p sync", "err", err)
+				return nil, err
+			}
+
+			services = append(services, poolService)
+
+			starkdata, err = p2p.NewStarknetDataAdapter(starkdata, blockSyncManager, chain, log)
+			if err != nil {
+				log.Errorw("Error adapting to p2p sync", "err", err)
+				return nil, err
+			}
+		}
 	}
 
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	synchronizer := sync.New(chain, starkdata, log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 	http := makeHTTP(cfg.RPCPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
 

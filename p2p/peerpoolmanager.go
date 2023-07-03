@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/service"
 	"sync"
 	"time"
 
@@ -38,7 +39,9 @@ type p2pPeerPoolManager struct {
 	maxConcurrentRequestPerPeer int
 }
 
-func NewP2PPeerPoolManager(ctx context.Context, p2p p2pServer, proto protocol.ID, logger utils.SimpleLogger) (*p2pPeerPoolManager, error) {
+var _ service.Service = &p2pPeerPoolManager{}
+
+func NewP2PPeerPoolManager(p2p p2pServer, proto protocol.ID, logger utils.SimpleLogger) (*p2pPeerPoolManager, error) {
 	peerManager := &p2pPeerPoolManager{
 		p2p:      p2p,
 		protocol: proto,
@@ -51,17 +54,10 @@ func NewP2PPeerPoolManager(ctx context.Context, p2p p2pServer, proto protocol.ID
 		maxConcurrentRequestPerPeer: 4,
 	}
 
-	go func() {
-		err := peerManager.Start(ctx)
-		if err != nil {
-			logger.Errorw("error running peer manager", "error", err)
-		}
-	}()
-
 	return peerManager, nil
 }
 
-func (p *p2pPeerPoolManager) Start(ctx context.Context) error {
+func (p *p2pPeerPoolManager) Run(ctx context.Context) error {
 	newPeerCh, err := p.p2p.SubscribeToNewPeer(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to subscribe to new peer")

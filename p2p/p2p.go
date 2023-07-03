@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/NethermindEth/juno/service"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/event"
@@ -17,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -257,6 +257,12 @@ func New(
 	impl.host = p2pHost
 
 	// Sync handler
+	impl.syncServer = blockSyncServer{
+		blockchain: bc,
+		converter:  NewConverter(&blockchainClassProvider{blockchain: bc}),
+		log:        impl.logger,
+	}
+
 	p2pHost.SetStreamHandler(blockSyncProto, impl.syncServer.handleBlockSyncStream)
 	return &impl, nil
 }
@@ -299,20 +305,16 @@ func (ip *P2PImpl) Run(ctx context.Context) error {
 	return nil
 }
 
-func (ip *P2PImpl) CreateBlockSyncProvider(ctx context.Context) (BlockSyncPeerManager, error) {
-	peerManager := p2pPeerPoolManager{
-		p2p:                  ip,
-		logger:               ip.logger,
-		protocol:             blockSyncProto,
-		blockSyncPeers:       make([]peer.ID, 0),
-		syncPeerMtx:          &sync.Mutex{},
-		syncPeerUpdateChan:   make(chan int),
-		pickedBlockSyncPeers: map[peer.ID]int{},
+func (ip *P2PImpl) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Service, error) {
+	peerManager, err := NewP2PPeerPoolManager(ip, blockSyncProto, ip.logger)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	go func() {
-		err := peerManager.Start(ctx)
-		ip.logger.Errorw("error staring peer manager", "error", err)
-	}()
-	return NewBlockSyncPeerManager(ctx, peerManager.OpenStream, ip.blockchain, ip.logger)
+	blockSyncPeerManager, err := NewBlockSyncPeerManager(peerManager.OpenStream, ip.blockchain, ip.logger)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return blockSyncPeerManager, peerManager, nil
 }

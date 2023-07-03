@@ -41,7 +41,6 @@ type blockSyncPeerManager struct {
 }
 
 func NewBlockSyncPeerManager(
-	ctx context.Context,
 	streamProvider streamProvider,
 	bc *blockchain.Blockchain,
 	logger utils.SimpleLogger,
