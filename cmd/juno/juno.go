@@ -51,7 +51,7 @@ const (
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
 	httpPortUsage     = "The port on which the HTTP RPC server will listen for requests."
-	wsPortUsage       = "The port on which the HTTP RPC server will listen for requests."
+	wsPortUsage       = "The port on which the Websocket RPC server will listen for requests."
 	grpcPortUsage     = "The port on which the gRPC server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
