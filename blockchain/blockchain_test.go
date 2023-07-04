@@ -615,6 +615,60 @@ func TestRevert(t *testing.T) {
 	})
 }
 
+func TestCannotRevertL1Head(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.MAINNET)
+	gw := adaptfeeder.New(client)
+
+	mainnetChain := func(t *testing.T) *blockchain.Blockchain {
+		ctx := context.Background()
+		testdb := pebble.NewMemTest()
+		chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+		for i := uint64(0); i < 3; i++ {
+			b, err := gw.BlockByNumber(ctx, i)
+			require.NoError(t, err)
+
+			su, err := gw.StateUpdate(ctx, i)
+			require.NoError(t, err)
+
+			require.NoError(t, chain.Store(b, nil, su, nil))
+		}
+		return chain
+	}
+
+	t.Run("without L1 head, revert", func(t *testing.T) {
+		require.NoError(t, mainnetChain(t).RevertHead())
+	})
+
+	t.Run("with L1 head, error", func(t *testing.T) {
+		chain := mainnetChain(t)
+		height, err := chain.Height()
+		require.NoError(t, err)
+		require.NoError(t, chain.SetL1Head(&core.L1Head{
+			BlockNumber: height,
+		}))
+		require.Error(t, chain.RevertHead())
+	})
+
+	t.Run("revert all blocks until L1 head", func(t *testing.T) {
+		chain := mainnetChain(t)
+		number := uint64(0)
+		header, err := chain.BlockHeaderByNumber(number)
+		require.NoError(t, err)
+		require.NoError(t, chain.SetL1Head(&core.L1Head{
+			BlockNumber: number,
+			BlockHash:   header.Hash,
+			StateRoot:   header.GlobalStateRoot,
+		}))
+		// revert until genesis
+		height, err := chain.Height()
+		require.NoError(t, err)
+		for i := uint64(0); i < height; i++ {
+			require.NoError(t, chain.RevertHead())
+		}
+		require.ErrorContains(t, chain.RevertHead(), "cannot revert L1-verified block")
+	})
+}
+
 func TestL1Update(t *testing.T) {
 	heads := []*core.L1Head{
 		{

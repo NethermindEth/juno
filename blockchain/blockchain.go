@@ -787,11 +787,22 @@ func (b *Blockchain) RevertHead() error {
 	return b.database.Update(b.revertHead)
 }
 
-func (b *Blockchain) revertHead(txn db.Transaction) error {
+func (b *Blockchain) revertHead(txn db.Transaction) error { //nolint:gocyclo
 	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
 	}
+
+	// Don't revert part of the L1-verified chain.
+	// If the L1 head isn't in the db yet, revert.
+	// If the L2 height is less than the L1 height, don't revert.
+	var head *core.L1Head
+	if head, err = l1Head(txn); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	} else if head != nil && blockNumber <= head.BlockNumber {
+		return errors.New("cannot revert L1-verified block")
+	}
+
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
