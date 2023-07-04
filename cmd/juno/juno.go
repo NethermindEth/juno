@@ -28,7 +28,8 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 const (
 	configF              = "config"
 	logLevelF            = "log-level"
-	rpcPortF             = "rpc-port"
+	httpPortF            = "http-port"
+	wsPortF              = "ws-port"
 	grpcPortF            = "grpc-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
@@ -38,7 +39,8 @@ const (
 	pendingPollIntervalF = "pending-poll-interval"
 
 	defaultConfig              = ""
-	defaultRPCPort             = 6060
+	defaultHTTPPort            = 6060
+	defaultWSPort              = 6061
 	defaultGRPCPort            = 0
 	defaultDBPath              = ""
 	defaultEthNode             = ""
@@ -48,14 +50,14 @@ const (
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
-	rpcPortUsage      = "The port on which the RPC server will listen for requests. " +
-		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	grpcPortUsage = "The port on which the gRPC server will listen for requests."
-	dbPathUsage   = "Location of the database files."
-	networkUsage  = "Options: mainnet, goerli, goerli2, integration."
-	pprofUsage    = "Enables the pprof server and listens on port 9080."
-	colourUsage   = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage  = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	httpPortUsage     = "The port on which the HTTP RPC server will listen for requests."
+	wsPortUsage       = "The port on which the HTTP RPC server will listen for requests."
+	grpcPortUsage     = "The port on which the gRPC server will listen for requests."
+	dbPathUsage       = "Location of the database files."
+	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
+	pprofUsage        = "Enables the pprof server and listens on port 9080."
+	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage      = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 )
@@ -136,7 +138,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
-	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
+	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
+	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)

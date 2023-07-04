@@ -35,7 +35,8 @@ const (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	RPCPort             uint16         `mapstructure:"rpc-port"`
+	HTTPPort            uint16         `mapstructure:"http-port"`
+	WSPort              uint16         `mapstructure:"ws-port"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
@@ -88,12 +89,11 @@ func New(cfg *Config, version string) (*Node, error) {
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.RPCPort))
+	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
 	if err != nil {
-		log.Errorw("Failed to listen for RPC requests", "port", cfg.RPCPort)
+		log.Errorw("Failed to create RPC servers", "err", err)
 		return nil, err
 	}
-	http := makeHTTP(listener, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
 
 	n := &Node{
 		cfg:        cfg,
@@ -101,7 +101,7 @@ func New(cfg *Config, version string) (*Node, error) {
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   []service.Service{synchronizer, http},
+		services:   append(services, synchronizer),
 	}
 
 	if n.cfg.EthNode == "" {
@@ -127,8 +127,8 @@ func New(cfg *Config, version string) (*Node, error) {
 	return n, nil
 }
 
-func makeHTTP(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
-	return jsonrpc.NewHTTP(listener, []jsonrpc.Method{
+func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) ([]service.Service, error) { //nolint: funlen
+	methods := []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
 			Handler: rpcHandler.ChainID,
@@ -243,7 +243,21 @@ func makeHTTP(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLo
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
 			Handler: rpcHandler.Call,
 		},
-	}, log)
+	}
+
+	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
+	if err != nil {
+		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
+	}
+	httpServer := jsonrpc.NewHTTP(httpListener, methods, log)
+
+	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
+	if err != nil {
+		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
+	}
+	wsServer := jsonrpc.NewWebsocket(wsListener, methods, log)
+
+	return []service.Service{httpServer, wsServer}, nil
 }
 
 func makeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) (*l1.Client, error) {
