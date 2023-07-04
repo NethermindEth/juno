@@ -213,11 +213,13 @@ func TestStore(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
 
-	block0, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
+	// linter complains about variable shadowing, so we use a different name
+	// for the errors outside the closures.
+	block0, outerErr := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, outerErr)
 
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
+	stateUpdate0, outerErr := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, outerErr)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
@@ -239,6 +241,7 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate0, got0Update)
 	})
+
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -265,6 +268,36 @@ func TestStore(t *testing.T) {
 		got1Update, err := chain.StateUpdateByNumber(1)
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
+	})
+
+	t.Run("store block that is behind L1 head", func(t *testing.T) {
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
+
+		l1Head := &core.L1Head{
+			// Block number must be greater than the number
+			// of the block we are trying to insert.
+			BlockNumber: block0.Number + 1,
+			BlockHash:   new(felt.Felt),
+			StateRoot:   new(felt.Felt),
+		}
+		err := chain.SetL1Head(l1Head)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block0, nil, stateUpdate0, nil))
+	})
+
+	t.Run("do not store block that conflicts with L1 head", func(t *testing.T) {
+		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
+
+		l1Head := &core.L1Head{
+			// Block number must be less than or equal to the number
+			// of the block we are trying to insert.
+			BlockNumber: block0.Number,
+			BlockHash:   new(felt.Felt),
+			StateRoot:   new(felt.Felt),
+		}
+		err := chain.SetL1Head(l1Head)
+		require.NoError(t, err)
+		require.ErrorIs(t, chain.Store(block0, nil, stateUpdate0, nil), blockchain.ErrBlockConflictsWithL1)
 	})
 }
 

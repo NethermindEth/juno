@@ -188,6 +188,34 @@ func TestReorg(t *testing.T) {
 	})
 }
 
+func TestReorgL1(t *testing.T) {
+	t.Parallel()
+
+	network := utils.MAINNET
+	client := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(client)
+	testDB := pebble.NewMemTest()
+	log := utils.NewNopZapLogger()
+	chain := blockchain.New(testDB, utils.MAINNET, log)
+	syncer := sync.New(chain, gw, log, time.Millisecond*100)
+
+	// A bogus L1 head that should stall the syncer.
+	head := &core.L1Head{
+		BlockNumber: 2,
+		BlockHash:   new(felt.Felt),
+		StateRoot:   new(felt.Felt),
+	}
+	require.NoError(t, chain.SetL1Head(head))
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	require.NoError(t, syncer.Run(ctx))
+	cancel()
+
+	height, err := chain.Height()
+	require.NoError(t, err)
+	require.LessOrEqual(t, height, head.BlockNumber)
+}
+
 func TestPending(t *testing.T) {
 	t.Parallel()
 
