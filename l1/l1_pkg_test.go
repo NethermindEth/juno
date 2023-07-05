@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1/contract"
-	"github.com/NethermindEth/juno/l1/mocks"
+	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
@@ -68,53 +68,48 @@ func (log *logStateUpdate) ToContractType() *contract.StarknetLogStateUpdate {
 }
 
 type l1Block struct {
-	l1BlockNumber       uint64
+	finalisedHeight     uint64
 	updates             []*logStateUpdate
 	expectedL2BlockHash *felt.Felt
 }
 
-func (b *l1Block) Header() *types.Header {
-	return &types.Header{
-		Number: new(big.Int).SetUint64(b.l1BlockNumber),
-	}
-}
-
 var longSequenceOfBlocks = []*l1Block{
 	{
-		l1BlockNumber: 1,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 1, l2BlockNumber: 1},
 			{l1BlockNumber: 1, l2BlockNumber: 2},
 		},
 	},
 	{
-		l1BlockNumber: 2,
+		finalisedHeight: 1,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 2, l2BlockNumber: 3},
 			{l1BlockNumber: 2, l2BlockNumber: 4},
 		},
+		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 	},
 	{
-		l1BlockNumber: 3,
+		finalisedHeight: 1,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 3, l2BlockNumber: 5},
 			{l1BlockNumber: 3, l2BlockNumber: 6},
 		},
+		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 	},
 	{
-		l1BlockNumber: 4,
+		finalisedHeight: 2,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 4, l2BlockNumber: 7},
 			{l1BlockNumber: 4, l2BlockNumber: 8},
 		},
-		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
+		expectedL2BlockHash: new(felt.Felt).SetUint64(4),
 	},
 	{
-		l1BlockNumber: 5,
+		finalisedHeight: 5,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 5, l2BlockNumber: 9},
 		},
-		expectedL2BlockHash: new(felt.Felt).SetUint64(4),
+		expectedL2BlockHash: new(felt.Felt).SetUint64(9),
 	},
 }
 
@@ -122,15 +117,14 @@ func TestClient(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		description        string
-		confirmationPeriod uint64
-		blocks             []*l1Block
+		description string
+		blocks      []*l1Block
 	}{
 		{
 			description: "update L1 head",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
+					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 					},
@@ -142,19 +136,17 @@ func TestClient(t *testing.T) {
 			description: "ignore removed log",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
+					finalisedHeight: 1,
 					updates: []*logStateUpdate{
-						{l1BlockNumber: 1, l2BlockNumber: 1, removed: true},
+						{l1BlockNumber: 2, l2BlockNumber: 3, removed: true},
 					},
 				},
 			},
 		},
 		{
-			description:        "wait for confirmation period",
-			confirmationPeriod: 1,
+			description: "wait for log to be finalised",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 					},
@@ -165,8 +157,8 @@ func TestClient(t *testing.T) {
 			description: "do not update without logs",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
-					updates:       []*logStateUpdate{},
+					finalisedHeight: 1,
+					updates:         []*logStateUpdate{},
 				},
 			},
 		},
@@ -174,7 +166,7 @@ func TestClient(t *testing.T) {
 			description: "handle updates that appear in the same l1 block",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
+					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
@@ -184,10 +176,10 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			description: "multiple blocks and logs without confirmation period",
+			description: "multiple blocks and logs finalised every block",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
+					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
@@ -195,7 +187,7 @@ func TestClient(t *testing.T) {
 					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 				},
 				{
-					l1BlockNumber: 2,
+					finalisedHeight: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
@@ -205,44 +197,38 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			description:        "multiple blocks and logs with confirmation period",
-			confirmationPeriod: 1,
+			description: "multiple blocks and logs finalised irregularly",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
 				},
 				{
-					l1BlockNumber: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 				},
 				{
-					l1BlockNumber:       3,
+					finalisedHeight:     2,
 					updates:             []*logStateUpdate{},
 					expectedL2BlockHash: new(felt.Felt).SetUint64(4),
 				},
 			},
 		},
 		{
-			description:        "multiple blocks with confirmation period and removed log",
-			confirmationPeriod: 1,
+			description: "multiple blocks with removed log",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
 				},
 				{
-					l1BlockNumber: 2,
+					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
@@ -250,7 +236,7 @@ func TestClient(t *testing.T) {
 					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 				},
 				{
-					l1BlockNumber: 3,
+					finalisedHeight: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 4, removed: true},
 					},
@@ -259,42 +245,87 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			description:        "reorg affecting initial updates",
-			confirmationPeriod: 2,
+			description: "reorg then finalise earlier block",
 			blocks: []*l1Block{
 				{
-					l1BlockNumber: 1,
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 1, l2BlockNumber: 1},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2, removed: true},
+					},
+				},
+				{
+					finalisedHeight:     1,
+					updates:             []*logStateUpdate{},
+					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+				},
+			},
+		},
+		{
+			description: "reorg then finalise later block",
+			blocks: []*l1Block{
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 1, l2BlockNumber: 1},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2},
+						{l1BlockNumber: 2, l2BlockNumber: 3},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 3, l2BlockNumber: 4},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2, removed: true},
+					},
+				},
+				{
+					finalisedHeight:     2,
+					updates:             []*logStateUpdate{},
+					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+				},
+			},
+		},
+		{
+			description: "reorg affecting initial updates",
+			blocks: []*l1Block{
+				{
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
 				},
 				{
-					l1BlockNumber: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
 					},
 				},
 				{
-					l1BlockNumber: 3,
+					finalisedHeight: 0,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 2, removed: true},
 					},
 				},
-				// Adding another block ensures no previous logs are carried forward.
-				// Among possibly other things, this tests that reorg handling removes
-				// logs occurring after the reorged log, not before.
-				{
-					l1BlockNumber: 4,
-					updates:       []*logStateUpdate{},
-				},
 			},
 		},
 		{
-			description:        "long confirmation period",
-			confirmationPeriod: 3,
-			blocks:             longSequenceOfBlocks,
+			description: "long sequence of blocks",
+			blocks:      longSequenceOfBlocks,
 		},
 	}
 
@@ -307,17 +338,18 @@ func TestClient(t *testing.T) {
 			nopLog := utils.NewNopZapLogger()
 			network := utils.MAINNET
 			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
-			client := NewClient(nil, chain, tt.confirmationPeriod, nopLog)
 
-			// We loop over each block and check that the state of the chain aligns with our expectations.
+			client := NewClient(nil, chain, nopLog)
+
+			// We loop over each block and check that the state agrees with our expectations.
 			for _, block := range tt.blocks {
 				subscriber := mocks.NewMockSubscriber(ctrl)
 				subscriber.
 					EXPECT().
 					WatchLogStateUpdate(gomock.Any(), gomock.Any()).
 					Do(func(_ context.Context, sink chan<- *contract.StarknetLogStateUpdate) {
-						for _, log := range block.updates {
-							sink <- log.ToContractType()
+						for _, update := range block.updates {
+							sink <- update.ToContractType()
 						}
 					}).
 					Return(newFakeSubscription(), nil).
@@ -325,12 +357,9 @@ func TestClient(t *testing.T) {
 
 				subscriber.
 					EXPECT().
-					WatchHeader(gomock.Any(), gomock.Any()).
-					Do(func(_ context.Context, sink chan<- *types.Header) {
-						sink <- block.Header()
-					}).
-					Return(newFakeSubscription(), nil).
-					Times(1)
+					FinalisedHeight(gomock.Any()).
+					Return(block.finalisedHeight, nil).
+					AnyTimes()
 
 				subscriber.
 					EXPECT().
@@ -340,7 +369,15 @@ func TestClient(t *testing.T) {
 
 				subscriber.EXPECT().Close().Times(1)
 
-				// Replace the subscriber.
+				subscriber.
+					EXPECT().
+					WatchHeader(gomock.Any(), gomock.Any()).
+					Do(func(_ context.Context, sink chan<- *types.Header) {
+						sink <- &types.Header{}
+					}).
+					Return(newFakeSubscription(), nil).
+					Times(1)
+
 				client.l1 = subscriber
 
 				ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -371,7 +408,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	nopLog := utils.NewNopZapLogger()
 	network := utils.MAINNET
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
-	client := NewClient(nil, chain, 3, nopLog)
+	client := NewClient(nil, chain, nopLog)
 
 	err := errors.New("test err")
 	for _, block := range longSequenceOfBlocks {
@@ -418,11 +455,16 @@ func TestUnreliableSubscription(t *testing.T) {
 			EXPECT().
 			WatchHeader(gomock.Any(), gomock.Any()).
 			Do(func(_ context.Context, sink chan<- *types.Header) {
-				sink <- block.Header()
+				sink <- &types.Header{}
 			}).
 			Return(successHeaderSub, nil).
 			Times(1).
 			After(failedHeaderCall)
+
+		subscriber.
+			EXPECT().
+			FinalisedHeight(gomock.Any()).
+			Return(block.finalisedHeight, nil)
 
 		subscriber.EXPECT().Close().Times(1)
 

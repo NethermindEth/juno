@@ -28,10 +28,7 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
-const (
-	defaultPprofPort          = 9080
-	l1BlockConfirmationPeriod = 16
-)
+const defaultPprofPort = 9080
 
 // Config is the top-level juno configuration.
 type Config struct {
@@ -108,7 +105,7 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
-		l1Client, err := makeClient(n.cfg.EthNode, n.blockchain, l1BlockConfirmationPeriod, n.log)
+		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
 			n.log.Errorw("Error creating L1 client", "err", err)
 			return nil, err
@@ -262,7 +259,7 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 	return []service.Service{httpServer, wsServer}, nil
 }
 
-func makeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod uint64, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
 	var coreContractAddress common.Address
 	coreContractAddress, err := chain.Network().CoreContractAddress()
 	if err != nil {
@@ -276,7 +273,7 @@ func makeClient(ethNode string, chain *blockchain.Blockchain, confirmationPeriod
 		log.Errorw("Error creating ethSubscriber", "err", err)
 		return nil, err
 	}
-	return l1.NewClient(ethSubscriber, chain, confirmationPeriod, log), nil
+	return l1.NewClient(ethSubscriber, chain, log), nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
