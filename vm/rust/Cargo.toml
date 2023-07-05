@@ -10,6 +10,7 @@ serde = "1.0.160"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
 blockifier = {git = "https://github.com/starkware-libs/blockifier", rev = "13738b9"}
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "a4c78ff" }
+starknet = { rev = "ada5db0", git = "https://github.com/xJonathanLEI/starknet-rs" }
 cairo-vm = "0.6"
 cairo-lang-casm = "2.0.0"
 cairo-lang-starknet = "2.0.0"

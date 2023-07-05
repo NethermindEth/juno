@@ -43,6 +43,8 @@ use starknet_api::{
     transaction::TransactionVersion,
 };
 
+use starknet::core::types::ContractArtifact;
+
 extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
@@ -151,7 +153,7 @@ pub extern "C" fn cairoVMExecute(
     );
     let mut state = CachedState::new(reader);
 
-    for sn_api_txn in sn_api_txns {
+    for mut sn_api_txn in sn_api_txns {
         let contract_class = match sn_api_txn.clone() {
             StarknetApiTransaction::Declare(declare) => {
                 if classes.len() == 0 {
@@ -164,6 +166,36 @@ pub extern "C" fn cairoVMExecute(
                 if declare.version() == TransactionVersion(2u32.into()) && maybe_cc.is_err() {
                     // class json could be sierra
                     maybe_cc = contract_class_from_sierra_json(class_json_str.get())
+                };
+
+                let class_hash = match serde_json::from_str(class_json_str.get()).unwrap() {
+                    ContractArtifact::LegacyClass(c) =>  starknet_api::core::ClassHash(starknet_api::hash::StarkFelt::new(c.class_hash().unwrap().to_bytes_be()).unwrap()),
+                    ContractArtifact::SierraClass(c) =>  starknet_api::core::ClassHash(starknet_api::hash::StarkFelt::new(c.class_hash().unwrap().to_bytes_be()).unwrap()),
+                    ContractArtifact::CompiledClass(c) =>  starknet_api::core::ClassHash(starknet_api::hash::StarkFelt::new(c.class_hash().unwrap().to_bytes_be()).unwrap()),
+                };
+
+                sn_api_txn = match declare {
+                    starknet_api::transaction::DeclareTransaction::V0(_) => {
+                        starknet_api::transaction::Transaction::Declare(starknet_api::transaction::DeclareTransaction::V0(starknet_api::transaction::DeclareTransactionV0V1 {
+                            max_fee: declare.max_fee(),
+                            transaction_hash: declare.transaction_hash(),
+                            signature: declare.signature(),
+                            nonce: declare.nonce(),
+                            sender_address: declare.sender_address(),
+                            class_hash,
+                        }))
+                    },
+                    starknet_api::transaction::DeclareTransaction::V1(_) => {
+                        starknet_api::transaction::Transaction::Declare(starknet_api::transaction::DeclareTransaction::V1(starknet_api::transaction::DeclareTransactionV0V1 {
+                            max_fee: declare.max_fee(),
+                            transaction_hash: declare.transaction_hash(),
+                            signature: declare.signature(),
+                            nonce: declare.nonce(),
+                            sender_address: declare.sender_address(),
+                            class_hash,
+                        }))
+                    },
+                    _ => sn_api_txn,
                 };
 
                 if maybe_cc.is_err() {
