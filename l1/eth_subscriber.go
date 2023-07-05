@@ -60,7 +60,7 @@ func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
 
 func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 	finalisedBlock := make(map[string]any, 0)
-	if err := s.client.CallContext(ctx, &finalisedBlock, "eth_getBlockByNumber", "finalized", false); err != nil {
+	if err := s.client.CallContext(ctx, &finalisedBlock, "eth_getBlockByNumber", "finalized", false); err != nil { //nolint:misspell
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
 

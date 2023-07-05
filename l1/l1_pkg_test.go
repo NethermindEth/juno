@@ -245,7 +245,7 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			description: "reorg then finalize earlier block",
+			description: "reorg then finalise earlier block",
 			blocks: []*l1Block{
 				{
 					updates: []*logStateUpdate{
@@ -270,7 +270,7 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			description: "reorg then finalize later block",
+			description: "reorg then finalise later block",
 			blocks: []*l1Block{
 				{
 					updates: []*logStateUpdate{
