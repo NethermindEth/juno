@@ -159,9 +159,8 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 		finalisedHeight, err := c.l1.FinalisedHeight(ctx)
 		if err == nil {
 			return finalisedHeight
-		} else {
-			c.log.Warnw("Failed to retrieve L1 finalised height, retrying...", "error", err)
 		}
+		c.log.Warnw("Failed to retrieve L1 finalised height, retrying...", "error", err)
 	}
 }
 
