@@ -134,7 +134,7 @@ func (c *Client) Run(ctx context.Context) error { //nolint:gocyclo
 
 					if logStateUpdate.Raw.Removed {
 						for l1BlockNumber := range c.nonFinalisedLogs {
-							if l1BlockNumber <= logStateUpdate.Raw.BlockNumber {
+							if l1BlockNumber >= logStateUpdate.Raw.BlockNumber {
 								delete(c.nonFinalisedLogs, l1BlockNumber)
 							}
 						}

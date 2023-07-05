@@ -68,7 +68,6 @@ func (log *logStateUpdate) ToContractType() *contract.StarknetLogStateUpdate {
 }
 
 type l1Block struct {
-	number              uint64
 	finalisedHeight     uint64
 	updates             []*logStateUpdate
 	expectedL2BlockHash *felt.Felt
@@ -76,14 +75,12 @@ type l1Block struct {
 
 var longSequenceOfBlocks = []*l1Block{
 	{
-		number: 1,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 1, l2BlockNumber: 1},
 			{l1BlockNumber: 1, l2BlockNumber: 2},
 		},
 	},
 	{
-		number:          2,
 		finalisedHeight: 1,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 2, l2BlockNumber: 3},
@@ -92,7 +89,6 @@ var longSequenceOfBlocks = []*l1Block{
 		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 	},
 	{
-		number:          3,
 		finalisedHeight: 1,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 3, l2BlockNumber: 5},
@@ -101,7 +97,6 @@ var longSequenceOfBlocks = []*l1Block{
 		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 	},
 	{
-		number:          4,
 		finalisedHeight: 2,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 4, l2BlockNumber: 7},
@@ -110,7 +105,6 @@ var longSequenceOfBlocks = []*l1Block{
 		expectedL2BlockHash: new(felt.Felt).SetUint64(4),
 	},
 	{
-		number:          5,
 		finalisedHeight: 5,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 5, l2BlockNumber: 9},
@@ -130,7 +124,6 @@ func TestClient(t *testing.T) {
 			description: "update L1 head",
 			blocks: []*l1Block{
 				{
-					number:          1,
 					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
@@ -143,7 +136,6 @@ func TestClient(t *testing.T) {
 			description: "ignore removed log",
 			blocks: []*l1Block{
 				{
-					number:          1,
 					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3, removed: true},
@@ -155,7 +147,6 @@ func TestClient(t *testing.T) {
 			description: "wait for log to be finalised",
 			blocks: []*l1Block{
 				{
-					number: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 					},
@@ -166,7 +157,6 @@ func TestClient(t *testing.T) {
 			description: "do not update without logs",
 			blocks: []*l1Block{
 				{
-					number:          1,
 					finalisedHeight: 1,
 					updates:         []*logStateUpdate{},
 				},
@@ -176,7 +166,6 @@ func TestClient(t *testing.T) {
 			description: "handle updates that appear in the same l1 block",
 			blocks: []*l1Block{
 				{
-					number:          1,
 					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
@@ -190,7 +179,6 @@ func TestClient(t *testing.T) {
 			description: "multiple blocks and logs finalised every block",
 			blocks: []*l1Block{
 				{
-					number:          1,
 					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
@@ -199,7 +187,6 @@ func TestClient(t *testing.T) {
 					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 				},
 				{
-					number:          2,
 					finalisedHeight: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
@@ -213,21 +200,18 @@ func TestClient(t *testing.T) {
 			description: "multiple blocks and logs finalised irregularly",
 			blocks: []*l1Block{
 				{
-					number: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
 				},
 				{
-					number: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
 					},
 				},
 				{
-					number:              3,
 					finalisedHeight:     2,
 					updates:             []*logStateUpdate{},
 					expectedL2BlockHash: new(felt.Felt).SetUint64(4),
@@ -238,14 +222,12 @@ func TestClient(t *testing.T) {
 			description: "multiple blocks with removed log",
 			blocks: []*l1Block{
 				{
-					number: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
 				},
 				{
-					number:          2,
 					finalisedHeight: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
@@ -254,7 +236,6 @@ func TestClient(t *testing.T) {
 					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
 				},
 				{
-					number:          2,
 					finalisedHeight: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 4, removed: true},
@@ -264,24 +245,77 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
+			description: "reorg then finalize earlier block",
+			blocks: []*l1Block{
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 1, l2BlockNumber: 1},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2, removed: true},
+					},
+				},
+				{
+					finalisedHeight:     1,
+					updates:             []*logStateUpdate{},
+					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+				},
+			},
+		},
+		{
+			description: "reorg then finalize later block",
+			blocks: []*l1Block{
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 1, l2BlockNumber: 1},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2},
+						{l1BlockNumber: 2, l2BlockNumber: 3},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 3, l2BlockNumber: 4},
+					},
+				},
+				{
+					updates: []*logStateUpdate{
+						{l1BlockNumber: 2, l2BlockNumber: 2, removed: true},
+					},
+				},
+				{
+					finalisedHeight:     2,
+					updates:             []*logStateUpdate{},
+					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+				},
+			},
+		},
+		{
 			description: "reorg affecting initial updates",
 			blocks: []*l1Block{
 				{
-					number: 1,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
 				},
 				{
-					number: 2,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
 					},
 				},
 				{
-					number:          0,
 					finalisedHeight: 0,
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 2, removed: true},
