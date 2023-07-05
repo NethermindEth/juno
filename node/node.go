@@ -105,7 +105,7 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
-		l1Client, err := makeClient(n.cfg.EthNode, n.blockchain, n.log)
+		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
 			n.log.Errorw("Error creating L1 client", "err", err)
 			return nil, err
@@ -259,7 +259,7 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 	return []service.Service{httpServer, wsServer}, nil
 }
 
-func makeClient(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
 	var coreContractAddress common.Address
 	coreContractAddress, err := chain.Network().CoreContractAddress()
 	if err != nil {
