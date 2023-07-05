@@ -24,6 +24,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
 )
 
@@ -245,17 +246,18 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		},
 	}
 
+	v := validator.New()
 	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
 	}
-	httpServer := jsonrpc.NewHTTP(httpListener, methods, log)
+	httpServer := jsonrpc.NewHTTP(httpListener, methods, log, v)
 
 	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
 	}
-	wsServer := jsonrpc.NewWebsocket(wsListener, methods, log)
+	wsServer := jsonrpc.NewWebsocket(wsListener, methods, log, v)
 
 	return []service.Service{httpServer, wsServer}, nil
 }

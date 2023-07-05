@@ -9,8 +9,6 @@ import (
 	"io"
 	"reflect"
 	"strings"
-
-	"github.com/go-playground/validator/v10"
 )
 
 const (
@@ -96,16 +94,25 @@ type Method struct {
 }
 
 type Server struct {
-	methods map[string]Method
+	methods   map[string]Method
+	validator Validator
 }
 
-var validate = validator.New()
+type Validator interface {
+	Struct(any) error
+}
 
 // NewServer instantiates a JSONRPC server
 func NewServer() *Server {
 	return &Server{
 		methods: make(map[string]Method),
 	}
+}
+
+// WithValidator registers a validator to validate handler struct arguments
+func (s *Server) WithValidator(validator Validator) *Server {
+	s.validator = validator
+	return s
 }
 
 // RegisterMethod verifies and creates an endpoint that the server recognises.
@@ -261,7 +268,7 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 		return res, nil
 	}
 
-	args, err := buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
+	args, err := s.buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
 		return res, nil
@@ -281,7 +288,7 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 	return res, nil
 }
 
-func buildArguments(params, handler any, configuredParams []Parameter) ([]reflect.Value, error) {
+func (s *Server) buildArguments(params, handler any, configuredParams []Parameter) ([]reflect.Value, error) {
 	args := make([]reflect.Value, 0, len(configuredParams))
 	if isNil(params) {
 		if len(configuredParams) > 0 {
@@ -302,7 +309,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 		}
 
 		for i, param := range paramsList {
-			v, err := parseParam(param, handlerType.In(i))
+			v, err := s.parseParam(param, handlerType.In(i))
 			if err != nil {
 				return nil, err
 			}
@@ -315,7 +322,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 			var v reflect.Value
 			if param, found := paramsMap[configuredParam.Name]; found {
 				var err error
-				v, err = parseParam(param, handlerType.In(i))
+				v, err = s.parseParam(param, handlerType.In(i))
 				if err != nil {
 					return nil, err
 				}
@@ -335,7 +342,7 @@ func buildArguments(params, handler any, configuredParams []Parameter) ([]reflec
 	return args, nil
 }
 
-func parseParam(param any, t reflect.Type) (reflect.Value, error) {
+func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
 	handlerParam := reflect.New(t)
 	valueMarshaled, err := json.Marshal(param) // we have to marshal the value into JSON again
 	if err != nil {
@@ -347,8 +354,11 @@ func parseParam(param any, t reflect.Type) (reflect.Value, error) {
 	}
 
 	elem := handlerParam.Elem()
-	if err = validate.Struct(elem.Interface()); err != nil {
-		if _, ok := err.(validator.ValidationErrors); ok {
+	if s.validator != nil &&
+		/* struct or a struct pointer */
+		(elem.Kind() == reflect.Struct ||
+			(elem.Kind() == reflect.Pointer && elem.Elem().Kind() == reflect.Struct)) {
+		if err = s.validator.Struct(elem.Interface()); err != nil {
 			return reflect.ValueOf(nil), err
 		}
 	}
