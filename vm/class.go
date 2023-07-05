@@ -1,11 +1,22 @@
 package vm
 
+//#include <stdint.h>
+//#include <stdlib.h>
+//#include <stddef.h>
+//
+// extern void Cairo0ClassHash(char* class_json_str, char* hash);
+//
+// #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
+import "C"
+
 import (
 	"encoding/json"
 	"errors"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -121,4 +132,23 @@ func makeSierraClass(class *core.Cairo1Class) *feeder.SierraDefinition {
 			L1Handler:   handlers,
 		},
 	}
+}
+
+func Cairo0ClassHash(class *core.Cairo0Class) (*felt.Felt, error) {
+	classJSON, err := marshalDeclaredClass(class)
+	if err != nil {
+		return nil, err
+	}
+	classJSONCStr := C.CString(string(classJSON))
+
+	var hash felt.Felt
+	hashBytes := hash.Bytes()
+
+	C.Cairo0ClassHash(classJSONCStr, (*C.char)(unsafe.Pointer(&hashBytes[0])))
+	hash.SetBytes(hashBytes[:])
+	C.free(unsafe.Pointer(classJSONCStr))
+	if hash.IsZero() {
+		return nil, errors.New("failed to calculate class hash")
+	}
+	return &hash, nil
 }

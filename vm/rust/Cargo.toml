@@ -14,5 +14,7 @@ cairo-vm = "0.6"
 cairo-lang-casm = "2.0.0"
 cairo-lang-starknet = "2.0.0"
 
+starknet = { rev = "starknet-core/v0.4.0", git = "https://github.com/xJonathanLEI/starknet-rs" }
+
 [lib]
 crate-type = ["staticlib"]

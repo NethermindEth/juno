@@ -1,4 +1,6 @@
 mod juno_state_reader;
+pub mod class;
+
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
