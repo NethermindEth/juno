@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 )
 
-//go:generate mockgen -destination=./mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
+//go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	WatchHeader(ctx context.Context, sink chan<- *types.Header) (event.Subscription, error)

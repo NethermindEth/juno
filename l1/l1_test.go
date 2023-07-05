@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1"
-	"github.com/NethermindEth/juno/l1/mocks"
+	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"

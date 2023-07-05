@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1/contract"
-	"github.com/NethermindEth/juno/l1/mocks"
+	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
