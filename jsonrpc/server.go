@@ -354,14 +354,37 @@ func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
 	}
 
 	elem := handlerParam.Elem()
-	if s.validator != nil &&
-		/* struct or a struct pointer */
-		(elem.Kind() == reflect.Struct ||
-			(elem.Kind() == reflect.Pointer && elem.Elem().Kind() == reflect.Struct)) {
-		if err = s.validator.Struct(elem.Interface()); err != nil {
+	if s.validator != nil {
+		if err = s.validateParam(elem); err != nil {
 			return reflect.ValueOf(nil), err
 		}
 	}
 
 	return elem, nil
+}
+
+func (s *Server) validateParam(param reflect.Value) error {
+	kind := param.Kind()
+	switch {
+	case kind == reflect.Struct ||
+		(kind == reflect.Pointer && param.Elem().Kind() == reflect.Struct):
+		/* struct or a struct pointer */
+		if err := s.validator.Struct(param.Interface()); err != nil {
+			return err
+		}
+	case kind == reflect.Slice || kind == reflect.Array:
+		for i := 0; i < param.Len(); i++ {
+			if err := s.validateParam(param.Index(i)); err != nil {
+				return err
+			}
+		}
+	case kind == reflect.Map:
+		for _, key := range param.MapKeys() {
+			if err := s.validateParam(param.MapIndex(key)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
