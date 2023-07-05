@@ -27,7 +27,7 @@ func testConnection(t *testing.T) *websocket.Conn {
 	l, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 	ctx := context.Background()
-	ws := jsonrpc.NewWebsocket(l, methods, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(l, methods, utils.NewNopZapLogger(), nil)
 	go func() {
 		t.Helper()
 		require.NoError(t, ws.Run(context.Background()))

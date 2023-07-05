@@ -21,8 +21,8 @@ type HTTP struct {
 	listener net.Listener
 }
 
-func NewHTTP(listener net.Listener, methods []Method, log utils.SimpleLogger) *HTTP {
-	rpc := NewServer()
+func NewHTTP(listener net.Listener, methods []Method, log utils.SimpleLogger, validator Validator) *HTTP {
+	rpc := NewServer().WithValidator(validator)
 	for _, method := range methods {
 		err := rpc.RegisterMethod(method)
 		if err != nil {

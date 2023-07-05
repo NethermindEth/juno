@@ -21,9 +21,9 @@ type Websocket struct {
 	listener   net.Listener
 }
 
-func NewWebsocket(listener net.Listener, methods []Method, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(listener net.Listener, methods []Method, log utils.SimpleLogger, validator Validator) *Websocket {
 	ws := &Websocket{
-		rpc:        NewServer(),
+		rpc:        NewServer().WithValidator(validator),
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   listener,
