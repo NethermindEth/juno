@@ -21,18 +21,12 @@ type Websocket struct {
 	listener   net.Listener
 }
 
-func NewWebsocket(listener net.Listener, methods []Method, log utils.SimpleLogger, validator Validator) *Websocket {
+func NewWebsocket(listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
-		rpc:        NewServer().WithValidator(validator),
+		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   listener,
-	}
-	for _, method := range methods {
-		err := ws.rpc.RegisterMethod(method)
-		if err != nil {
-			panic(err)
-		}
 	}
 	return ws
 }

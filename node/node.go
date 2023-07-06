@@ -243,18 +243,24 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		},
 	}
 
-	v := validator.New()
+	jsonrpcServer := jsonrpc.NewServer().WithValidator(validator.New())
+	for _, method := range methods {
+		if err := jsonrpcServer.RegisterMethod(method); err != nil {
+			return nil, err
+		}
+	}
+
 	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
 	}
-	httpServer := jsonrpc.NewHTTP(httpListener, methods, log, v)
+	httpServer := jsonrpc.NewHTTP(httpListener, jsonrpcServer, log)
 
 	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
 	}
-	wsServer := jsonrpc.NewWebsocket(wsListener, methods, log, v)
+	wsServer := jsonrpc.NewWebsocket(wsListener, jsonrpcServer, log)
 
 	return []service.Service{httpServer, wsServer}, nil
 }
