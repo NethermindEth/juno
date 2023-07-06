@@ -213,7 +213,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
 			assert.Nil(t, b.Number)
-			assert.Equal(t, rpc.StatusPending, b.Status)
+			assert.Equal(t, rpc.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -283,7 +283,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpc.StatusAcceptedL1, block.Status)
+		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -1975,7 +1975,7 @@ func TestTransactionStatus(t *testing.T) {
 
 			status, rpcErr := handler.TransactionStatus(*tx.Hash())
 			require.Nil(t, rpcErr)
-			require.Equal(t, rpc.StatusAcceptedL2, status)
+			require.Equal(t, rpc.BlockAcceptedL2, status)
 		})
 		t.Run("verified", func(t *testing.T) {
 			mockReader := mocks.NewMockReader(mockCtrl)
@@ -1989,7 +1989,7 @@ func TestTransactionStatus(t *testing.T) {
 
 			status, rpcErr := handler.TransactionStatus(*tx.Hash())
 			require.Nil(t, rpcErr)
-			require.Equal(t, rpc.StatusAcceptedL1, status)
+			require.Equal(t, rpc.BlockAcceptedL1, status)
 		})
 	})
 	t.Run("transaction not found in db", func(t *testing.T) {
@@ -1999,7 +1999,7 @@ func TestTransactionStatus(t *testing.T) {
 
 		status, err := handler.TransactionStatus(*hash)
 		require.Nil(t, err)
-		require.Equal(t, rpc.StatusAcceptedL1, status)
+		require.Equal(t, rpc.BlockAcceptedL1, status)
 	})
 }
 
