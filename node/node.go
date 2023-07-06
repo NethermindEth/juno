@@ -23,8 +23,8 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
 )
 
@@ -248,7 +248,7 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		},
 	}
 
-	jsonrpcServer := jsonrpc.NewServer().WithValidator(validator.New())
+	jsonrpcServer := jsonrpc.NewServer().WithValidator(validator.Validator())
 	for _, method := range methods {
 		if err := jsonrpcServer.RegisterMethod(method); err != nil {
 			return nil, err

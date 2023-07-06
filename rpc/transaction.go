@@ -66,21 +66,23 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
+//
+//nolint:lll
 type Transaction struct {
 	Hash                *felt.Felt      `json:"transaction_hash,omitempty"`
-	Type                TransactionType `json:"type"`
-	Version             *felt.Felt      `json:"version,omitempty"`
-	Nonce               *felt.Felt      `json:"nonce,omitempty"`
-	MaxFee              *felt.Felt      `json:"max_fee,omitempty"`
+	Type                TransactionType `json:"type" validate:"required"`
+	Version             *felt.Felt      `json:"version,omitempty" validate:"required"`
+	Nonce               *felt.Felt      `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
+	MaxFee              *felt.Felt      `json:"max_fee,omitempty" validate:"required"`
 	ContractAddress     *felt.Felt      `json:"contract_address,omitempty"`
-	ContractAddressSalt *felt.Felt      `json:"contract_address_salt,omitempty"`
-	ClassHash           *felt.Felt      `json:"class_hash,omitempty"`
-	ConstructorCallData *[]*felt.Felt   `json:"constructor_calldata,omitempty"`
-	SenderAddress       *felt.Felt      `json:"sender_address,omitempty"`
-	Signature           *[]*felt.Felt   `json:"signature,omitempty"`
-	CallData            *[]*felt.Felt   `json:"calldata,omitempty"`
-	EntryPointSelector  *felt.Felt      `json:"entry_point_selector,omitempty"`
-	CompiledClassHash   *felt.Felt      `json:"compiled_class_hash,omitempty"`
+	ContractAddressSalt *felt.Felt      `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash           *felt.Felt      `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData *[]*felt.Felt   `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress       *felt.Felt      `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1"`
+	Signature           *[]*felt.Felt   `json:"signature,omitempty" validate:"required"`
+	CallData            *[]*felt.Felt   `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector  *felt.Felt      `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
+	CompiledClassHash   *felt.Felt      `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
 }
 
 type MsgToL1 struct {
@@ -124,7 +126,7 @@ type DeclareTxResponse struct {
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1273-L1287
 type BroadcastedTransaction struct {
 	Transaction
-	ContractClass json.RawMessage `json:"contract_class,omitempty"`
+	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
 }
 
 type FeeEstimate struct {
