@@ -672,14 +672,20 @@ func TestCannotRevertL1Head(t *testing.T) {
 		require.NoError(t, mainnetChain(t).RevertHead())
 	})
 
+	errString := "cannot revert L1-verified block"
+
 	t.Run("with L1 head, error", func(t *testing.T) {
 		chain := mainnetChain(t)
 		height, err := chain.Height()
 		require.NoError(t, err)
+		header, err := chain.BlockHeaderByNumber(height)
+		require.NoError(t, err)
 		require.NoError(t, chain.SetL1Head(&core.L1Head{
-			BlockNumber: height,
+			BlockNumber: header.Number,
+			BlockHash:   header.Hash,
+			StateRoot:   header.GlobalStateRoot,
 		}))
-		require.Error(t, chain.RevertHead())
+		require.ErrorContains(t, chain.RevertHead(), errString)
 	})
 
 	t.Run("revert all blocks until L1 head", func(t *testing.T) {
@@ -698,7 +704,7 @@ func TestCannotRevertL1Head(t *testing.T) {
 		for i := uint64(0); i < height; i++ {
 			require.NoError(t, chain.RevertHead())
 		}
-		require.ErrorContains(t, chain.RevertHead(), "cannot revert L1-verified block")
+		require.ErrorContains(t, chain.RevertHead(), errString)
 	})
 }
 
@@ -723,6 +729,36 @@ func TestL1Update(t *testing.T) {
 			assert.Equal(t, head, got)
 		})
 	}
+}
+
+// TestSetIncompatibleL1Head creates L2 chain of length n and sets the L1 head for block n-k
+// with a conflicting block hash. It passes when the blockchain correctly rolls back the L2 head.
+func TestSetIncompatibleL1Head(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.MAINNET)
+	gw := adaptfeeder.New(client)
+
+	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, utils.NewNopZapLogger())
+
+	block0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(block0, nil, su0, nil))
+
+	block1, err := gw.BlockByNumber(context.Background(), 1)
+	require.NoError(t, err)
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(block1, nil, su1, nil))
+
+	require.NoError(t, chain.SetL1Head(&core.L1Head{
+		BlockNumber: 0,
+		BlockHash:   block0.Hash.Add(block0.Hash, new(felt.Felt).SetUint64(1)), // Doesn't match block 0 block hash.
+		StateRoot:   new(felt.Felt),
+	}))
+
+	_, err = chain.Height()
+	require.ErrorIs(t, err, db.ErrKeyNotFound) // Height should not exist
 }
 
 func TestPending(t *testing.T) {
