@@ -2,6 +2,7 @@
 package trie
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -18,6 +19,7 @@ type Storage interface {
 	Put(key *bitset.BitSet, value *Node) error
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
+	IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) bool) error
 }
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
@@ -95,6 +97,21 @@ func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
 
 	kBits := k.Bits()
 	return bitset.FromWithLength(t.height, kBits[:])
+}
+
+func (t *Trie) bitSetToFelt(path *bitset.BitSet) *felt.Felt {
+	pathWords := path.Bytes()
+	if len(pathWords) > felt.Limbs {
+		panic(fmt.Sprintf("key too long to fit in Felt %d %d", len(pathWords), felt.Limbs))
+	}
+
+	var pathBytes [felt.Bytes]byte
+	for idx, word := range pathWords {
+		startBytes := 24 - (idx * 8)
+		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
+	}
+
+	return new(felt.Felt).SetBytes(pathBytes[:])
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
@@ -190,6 +207,69 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) bool) error {
+	// TODO: Dirty nodes?
+	// Since the length of the bitset is t.height, its always going to loop through the key until it reach
+	// another DB.
+	return t.storage.IterateFrom(t.feltToBitSet(startValue), func(key *bitset.BitSet, node *Node) bool {
+		// fmt.Printf("the len %d\n", key.Len())
+		return consumer(t.bitSetToFelt(key), node.Value)
+	})
+}
+
+type ProofNode struct {
+	Key  *bitset.BitSet
+	Hash *felt.Felt
+}
+
+func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
+	nodeKey := t.feltToBitSet(key)
+	nodes, err := t.nodesFromRoot(nodeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*ProofNode, 0, len(nodes))
+	for i := len(nodes) - 1; i >= 0; i-- {
+		curnode := nodes[i]
+		if len(result) == 0 {
+			result = append(result, &ProofNode{
+				Key:  curnode.key,
+				Hash: curnode.node.Value,
+			})
+			continue
+		}
+
+		lastkey := nodes[i+1].key
+		if curnode.node.Left.Equal(lastkey) {
+			othernode, err := t.storage.Get(curnode.node.Right)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, &ProofNode{
+				Key:  curnode.node.Right,
+				Hash: othernode.Value,
+			})
+		} else {
+			othernode, err := t.storage.Get(curnode.node.Left)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, &ProofNode{
+				Key:  curnode.node.Left,
+				Hash: othernode.Value,
+			})
+		}
+	}
+
+	return result, nil
+}
+
+func (t *Trie) SetProofNode(key *bitset.BitSet, value *felt.Felt) error {
+	_, err := t.put(key, value, true)
+	return err
+}
+
 // Put updates the corresponding `value` for a `key`
 //
 //nolint:gocyclo
@@ -198,8 +278,15 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
-	old := felt.Zero
 	nodeKey := t.feltToBitSet(key)
+	return t.put(nodeKey, value, false)
+}
+
+// Put updates the corresponding `value` for a `key`
+//
+//nolint:gocyclo
+func (t *Trie) put(nodeKey *bitset.BitSet, value *felt.Felt, isProof bool) (*felt.Felt, error) {
+	old := felt.Zero
 	node := &Node{
 		Value: value,
 	}
@@ -229,6 +316,10 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		// Replace if key already exist
 		sibling := nodes[len(nodes)-1]
 		if nodeKey.Equal(sibling.key) {
+			if isProof {
+				return nil, nil
+			}
+
 			// we have to deference the Value, since the Node can released back
 			// to the NodePool and be reused anytime
 			old = *sibling.node.Value // record old value to return to caller
@@ -249,7 +340,22 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			return nil, nil // no-op
 		}
 
-		commonKey, _ := findCommonKey(nodeKey, sibling.key)
+		var commonKey *bitset.BitSet
+		if nodeKey.Len() > sibling.key.Len() {
+			commonKey, _ = findCommonKey(nodeKey, sibling.key)
+		} else {
+			commonKey, _ = findCommonKey(sibling.key, nodeKey)
+		}
+
+		if commonKey.Equal(nodeKey) {
+			// The new node is the same as the commonKey
+			// Need to add sibling to it.
+			return nil, nil
+		} else if commonKey.Equal(sibling.key) {
+			// The new node should be a child of the sibling
+			return nil, nil
+		}
+
 		newParent := &Node{}
 		var leftChild, rightChild *Node
 		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
@@ -264,6 +370,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		rightPath := path(newParent.Right, commonKey)
 
 		newParent.Value = t.hash(leftChild.Hash(leftPath, t.hash), rightChild.Hash(rightPath, t.hash))
+
 		if err = t.storage.Put(commonKey, newParent); err != nil {
 			return nil, err
 		}

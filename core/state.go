@@ -39,6 +39,10 @@ type StateReader interface {
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
 }
 
+type StateReaderStorage interface {
+	Storage() (*trie.Trie, func() error, error)
+}
+
 type State struct {
 	*History
 	txn db.Transaction
@@ -135,6 +139,10 @@ func (s *State) Root() (*felt.Felt, error) {
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
 func (s *State) storage() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
+}
+
+func (s *State) Storage() (*trie.Trie, func() error, error) {
+	return s.storage()
 }
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
