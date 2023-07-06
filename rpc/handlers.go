@@ -120,11 +120,11 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		return nil, jsonErr
 	}
 
-	status := StatusAcceptedL2
+	status := BlockAcceptedL2
 	if id.Pending {
-		status = StatusPending
+		status = BlockPending
 	} else if isL1Verified(block.Number, l1H) {
-		status = StatusAcceptedL1
+		status = BlockAcceptedL1
 	}
 
 	return &BlockWithTxHashes{
@@ -187,11 +187,11 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		return nil, jsonErr
 	}
 
-	status := StatusAcceptedL2
+	status := BlockAcceptedL2
 	if id.Pending {
-		status = StatusPending
+		status = BlockPending
 	} else if isL1Verified(block.Number, l1H) {
-		status = StatusAcceptedL1
+		status = BlockAcceptedL1
 	}
 
 	return &BlockWithTxs{
@@ -421,7 +421,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	}
 
 	var receiptBlockNumber *uint64
-	status := StatusAcceptedL2
+	status := BlockAcceptedL2
 
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
@@ -432,7 +432,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 
 		if isL1Verified(blockNumber, l1H) {
-			status = StatusAcceptedL1
+			status = BlockAcceptedL1
 		}
 	}
 
@@ -1036,8 +1036,8 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	return res, nil
 }
 
-func (h *Handler) TransactionStatus(hash felt.Felt) (Status, *jsonrpc.Error) {
-	var status Status
+func (h *Handler) TransactionStatus(hash felt.Felt) (BlockStatus, *jsonrpc.Error) {
+	var status BlockStatus
 
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	if txErr == nil {
