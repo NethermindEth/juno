@@ -105,12 +105,26 @@ func TestHandle(t *testing.T) {
 		{
 			"validation",
 			[]jsonrpc.Parameter{{Name: "param"}},
+			func(v validationStruct) (int, *jsonrpc.Error) {
+				return v.A, nil
+			},
+		},
+		{
+			"validationSlice",
+			[]jsonrpc.Parameter{{Name: "param"}},
 			func(v []validationStruct) (int, *jsonrpc.Error) {
 				return v[0].A, nil
 			},
 		},
 		{
 			"validationPointer",
+			[]jsonrpc.Parameter{{Name: "param"}},
+			func(v *validationStruct) (int, *jsonrpc.Error) {
+				return v.A, nil
+			},
+		},
+		{
+			"validationMapPointer",
 			[]jsonrpc.Parameter{{Name: "param"}},
 			func(v map[string]*validationStruct) (int, *jsonrpc.Error) {
 				return v["expectedkey"].A, nil
@@ -304,19 +318,35 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"invalid value in struct": {
-			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ [{"A": 0}] ], "id" : 1}`,
+			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in struct": {
-			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [[{"A": 1}]], "id" : 1}`,
+			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
 		"invalid value in struct pointer": {
-			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ { "notthexpectedkey" : {"A": 0}} ], "id" : 1}`,
+			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 0} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in struct pointer": {
-			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ { "expectedkey" : {"A": 1}} ], "id" : 1}`,
+			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 1} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+		},
+		"invalid value in slice struct": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [ [{"A": 0}] ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+		},
+		"valid value in slice of struct": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [[{"A": 1}]], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+		},
+		"invalid value in map of pointer": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "notthexpectedkey" : {"A": 0}} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+		},
+		"valid value in map of pointer": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "expectedkey" : {"A": 1}} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
 		// spec tests
