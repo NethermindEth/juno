@@ -156,11 +156,16 @@ func (c *Client) Run(ctx context.Context) error { //nolint:gocyclo
 
 func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 	for {
-		finalisedHeight, err := c.l1.FinalisedHeight(ctx)
-		if err == nil {
-			return finalisedHeight
+		select {
+		case <-ctx.Done():
+			return 0
+		default:
+			finalisedHeight, err := c.l1.FinalisedHeight(ctx)
+			if err == nil {
+				return finalisedHeight
+			}
+			c.log.Warnw("Failed to retrieve L1 finalised height, retrying...", "error", err)
 		}
-		c.log.Warnw("Failed to retrieve L1 finalised height, retrying...", "error", err)
 	}
 }
 
