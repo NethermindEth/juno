@@ -17,17 +17,19 @@ import (
 
 // The caller is responsible for closing the connection.
 func testConnection(t *testing.T) *websocket.Conn {
-	methods := []jsonrpc.Method{{
+	method := jsonrpc.Method{
 		Name:   "test_echo",
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 		Handler: func(msg string) (string, *jsonrpc.Error) {
 			return msg, nil
 		},
-	}}
+	}
 	l, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 	ctx := context.Background()
-	ws := jsonrpc.NewWebsocket(l, methods, utils.NewNopZapLogger(), nil)
+	rpc := jsonrpc.NewServer()
+	require.NoError(t, rpc.RegisterMethod(method))
+	ws := jsonrpc.NewWebsocket(l, rpc, utils.NewNopZapLogger())
 	go func() {
 		t.Helper()
 		require.NoError(t, ws.Run(context.Background()))
