@@ -77,11 +77,8 @@ docker logs -f juno
 
 ## ✔ Supported Features
 
-- Starknet state construction and storage using a path-based Merkle Patricia trie. 
-- Pedersen and `starknet_keccak` hash implementation over starknet field.
-- Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
-- Block and Transaction hash verification.
-- JSON-RPC Endpoints:
+- Starknet [v0.12.0](https://www.starknet.io/en/posts/ecosystem/starknet-quantum-leap-major-throughput-improvements-are-here) support.
+- JSON-RPC [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
   - `starknet_chainId`
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
@@ -99,6 +96,20 @@ docker logs -f juno
   - `starknet_getClassAt`
   - `starknet_syncing`
   - `starknet_getEvents`
+  - `starknet_call`
+  - `starknet_estimateFee`
+  - `starknet_addInvokeTransaction`
+  - `starknet_addDeclareTransaction`
+  - `starknet_addDeployAccountTransaction`
+- Juno's JSON-RPC:
+  - `juno_version`
+  - `juno_getTransactionStatus`
+- Integration of CairoVM. 
+- Verification of State from L1.
+- Handle L1 and L2 Reorgs.
+- Starknet state construction and storage using a path-based Merkle Patricia trie.
+- Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
+- Block and Transaction hash verification.
 
 ## 🛣 Roadmap
 
@@ -138,13 +149,16 @@ docker logs -f juno
 
 ### Phase 2
 
+<details>
+<summary></summary>
+
 The focus of Phase 2 will be to Verify the state from layer 1 and implement the remaining JSON-RPC endpoints.
 
 * [X] Starknet v0.11.0 support
     * [X] Poseidon state trie support
-* [ ] Blockchain: implement blockchain reorganization logic.
+* [X] Blockchain: implement blockchain reorganization logic.
 * [X] Synchronisation: implement verification of state from layer 1.
-* [ ] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
+* [X] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
     * [ ] Implement the remaining endpoints:
         * [X] `starknet_syncing`
         * [X] `starknet_getNonce`
@@ -153,14 +167,15 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
         * [X] `starknet_getClass`
         * [X] `starknet_getClassAt`
         * [X] `starknet_getEvents`
-* [ ] Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
-  * [ ] `starknet_call`
-  * [ ] `starknet_estimateFee`
-* [ ] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
+* [X] Integration of CairoVM:
+  * [X] `starknet_call`
+  * [X] `starknet_estimateFee`
+* [X] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
     * [X] `starknet_addInvokeTransaction`
-    * [ ] `starknet_addDeclareTransaction`
-    * [ ] `starknet_addDeployAccountTransaction`
-    
+    * [X] `starknet_addDeclareTransaction`
+    * [X] `starknet_addDeployAccountTransaction`
+
+</details>
 
 ## 👍 Contribute
 
