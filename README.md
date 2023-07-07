@@ -104,6 +104,7 @@ docker logs -f juno
 - Juno's JSON-RPC:
   - `juno_version`
   - `juno_getTransactionStatus`
+- Integration of CairoVM. 
 - Verification of State from L1.
 - Handles L1 and L2 Reorgs.
 - Starknet state construction and storage using a path-based Merkle Patricia trie.
