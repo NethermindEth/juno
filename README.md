@@ -106,7 +106,7 @@ docker logs -f juno
   - `juno_getTransactionStatus`
 - Integration of CairoVM. 
 - Verification of State from L1.
-- Handles L1 and L2 Reorgs.
+- Handle L1 and L2 Reorgs.
 - Starknet state construction and storage using a path-based Merkle Patricia trie.
 - Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
 - Block and Transaction hash verification.
