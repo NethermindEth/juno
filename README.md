@@ -40,6 +40,7 @@
 
 - Golang 1.20 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
+- [Rust](https://www.rust-lang.org/tools/install).
 - A C compiler: `gcc` or `clang`.
 
 ### Build and Run
