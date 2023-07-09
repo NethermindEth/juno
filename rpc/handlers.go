@@ -421,7 +421,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	}
 
 	var receiptBlockNumber *uint64
-	status := BlockAcceptedL2
+	status := TxnAcceptedOnL2
 
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
@@ -432,12 +432,20 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 
 		if isL1Verified(blockNumber, l1H) {
-			status = BlockAcceptedL1
+			status = TxnAcceptedOnL1
 		}
 	}
 
+	var es TxnExecutionStatus
+	if receipt.Reverted {
+		es = TxnFailure
+	} else {
+		es = TxnSuccess
+	}
+
 	return &TransactionReceipt{
-		Status:          status,
+		FinalityStatus:  status,
+		ExecutionStatus: es,
 		Type:            txn.Type,
 		Hash:            txn.Hash,
 		ActualFee:       receipt.Fee,
@@ -1036,24 +1044,43 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	return res, nil
 }
 
-func (h *Handler) TransactionStatus(hash felt.Felt) (BlockStatus, *jsonrpc.Error) {
-	var status BlockStatus
+func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+	var status *TransactionStatus
 
 	receipt, txErr := h.TransactionReceiptByHash(hash)
-	if txErr == nil {
-		status = receipt.Status
-	} else if txErr == ErrTxnHashNotFound {
+	switch txErr {
+	case nil:
+		status = &TransactionStatus{
+			Finality:  receipt.FinalityStatus,
+			Execution: receipt.ExecutionStatus,
+		}
+	case ErrTxnHashNotFound:
 		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
 		if err != nil {
-			return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
-		err = status.UnmarshalJSON([]byte(txStatus.Status))
-		if err != nil {
-			return 0, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		status = new(TransactionStatus)
+
+		switch txStatus.FinalityStatus {
+		case feeder.AcceptedOnL1:
+			status.Finality = TxnAcceptedOnL1
+		case feeder.AcceptedOnL2:
+			status.Finality = TxnAcceptedOnL2
+		default:
+			return nil, jsonrpc.Err(jsonrpc.InternalError, "unknown FinalityStatus")
 		}
-	} else {
-		return 0, txErr
+
+		switch txStatus.ExecutionStatus {
+		case feeder.Succeeded:
+			status.Execution = TxnSuccess
+		case feeder.Reverted:
+			status.Execution = TxnFailure
+		default:
+			return nil, jsonrpc.Err(jsonrpc.InternalError, "unknown ExecutionStatus")
+		}
+	default:
+		return nil, txErr
 	}
 
 	return status, nil
