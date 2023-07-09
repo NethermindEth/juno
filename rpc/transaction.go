@@ -65,6 +65,42 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type TxnExecutionStatus uint8
+
+const (
+	TxnSuccess TxnExecutionStatus = iota + 1
+	TxnFailure
+)
+
+func (es TxnExecutionStatus) MarshalJSON() ([]byte, error) {
+	switch es {
+	case TxnSuccess:
+		return []byte("\"SUCCESS\""), nil
+	case TxnFailure:
+		return []byte("\"FAILURE\""), nil
+	default:
+		return nil, errors.New("unknown ExecutionStatus")
+	}
+}
+
+type TxnFinalityStatus uint8
+
+const (
+	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
+	TxnAcceptedOnL2
+)
+
+func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
+	switch fs {
+	case TxnAcceptedOnL1:
+		return []byte("\"ACCEPTED_ON_L1\""), nil
+	case TxnAcceptedOnL2:
+		return []byte("\"ACCEPTED_ON_L2\""), nil
+	default:
+		return nil, errors.New("unknown FinalityStatus")
+	}
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
@@ -85,6 +121,11 @@ type Transaction struct {
 	CompiledClassHash   *felt.Felt      `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
 }
 
+type TransactionStatus struct {
+	Finality  TxnFinalityStatus  `json:"finality_status"`
+	Execution TxnExecutionStatus `json:"execution_status"`
+}
+
 type MsgToL1 struct {
 	From    *felt.Felt     `json:"from_address"`
 	To      common.Address `json:"to_address"`
@@ -99,15 +140,16 @@ type Event struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type            TransactionType `json:"type"`
-	Hash            *felt.Felt      `json:"transaction_hash"`
-	ActualFee       *felt.Felt      `json:"actual_fee"`
-	Status          BlockStatus     `json:"status"`
-	BlockHash       *felt.Felt      `json:"block_hash,omitempty"`
-	BlockNumber     *uint64         `json:"block_number,omitempty"`
-	MessagesSent    []*MsgToL1      `json:"messages_sent"`
-	Events          []*Event        `json:"events"`
-	ContractAddress *felt.Felt      `json:"contract_address,omitempty"`
+	Type            TransactionType    `json:"type"`
+	Hash            *felt.Felt         `json:"transaction_hash"`
+	ActualFee       *felt.Felt         `json:"actual_fee"`
+	ExecutionStatus TxnExecutionStatus `json:"execution_status"`
+	FinalityStatus  TxnFinalityStatus  `json:"finality_status"`
+	BlockHash       *felt.Felt         `json:"block_hash,omitempty"`
+	BlockNumber     *uint64            `json:"block_number,omitempty"`
+	MessagesSent    []*MsgToL1         `json:"messages_sent"`
+	Events          []*Event           `json:"events"`
+	ContractAddress *felt.Felt         `json:"contract_address,omitempty"`
 }
 
 type AddInvokeTxResponse struct {

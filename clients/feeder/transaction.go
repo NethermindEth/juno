@@ -109,6 +109,11 @@ type BuiltinInstanceCounter struct {
 }
 
 type TransactionReceipt struct {
+	// NOTE: finality_status is included on receipts retrieved from the get_transaction_receipt
+	// endpoint, but is not included when receipt is in a block. We do not include the field
+	// with an omitempty tag since it could cause very confusing behaviour. If the finality
+	// status is needed, use get_block.
+
 	ActualFee          *felt.Felt          `json:"actual_fee"`
 	Events             []*Event            `json:"events"`
 	ExecutionStatus    ExecutionStatus     `json:"execution_status"`

@@ -838,7 +838,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "DEPLOY",
 					"transaction_hash": "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
 					"actual_fee": "0x0",
-					"status": "ACCEPTED_ON_L2",
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCESS",
 					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
 					"block_number": 0,
 					"messages_sent": [],
@@ -852,7 +853,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": "0x0",
-					"status": "ACCEPTED_ON_L2",
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCESS",
 					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
 					"block_number": 0,
 					"messages_sent": [
@@ -886,7 +888,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": "0x0",
-					"status": "ACCEPTED_ON_L2",
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCESS",
 					"messages_sent": [
 						{
 							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
@@ -913,7 +916,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": "0x0",
-					"status": "ACCEPTED_ON_L1",
+					"finality_status": "ACCEPTED_ON_L1",
+					"execution_status": "SUCCESS",
 					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
 					"block_number": 0,
 					"messages_sent": [
@@ -1952,15 +1956,15 @@ func TestVersion(t *testing.T) {
 func TestTransactionStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	hash := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
 
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	network := utils.INTEGRATION
+	client, closeFn := feeder.NewTestClient(network)
 	t.Cleanup(closeFn)
 
 	t.Run("found l1", func(t *testing.T) {
 		gw := adaptfeeder.New(client)
 
-		block, err := gw.BlockByNumber(context.Background(), 1)
+		block, err := gw.BlockLatest(context.Background())
 		require.NoError(t, err)
 
 		tx := block.Transactions[0]
@@ -1971,11 +1975,15 @@ func TestTransactionStatus(t *testing.T) {
 			mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
 			mockReader.EXPECT().L1Head().Return(nil, nil)
 
-			handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", nil)
+			handler := rpc.New(mockReader, nil, network, nil, nil, "", nil)
 
+			want := &rpc.TransactionStatus{
+				Finality:  rpc.TxnAcceptedOnL2,
+				Execution: rpc.TxnSuccess,
+			}
 			status, rpcErr := handler.TransactionStatus(*tx.Hash())
 			require.Nil(t, rpcErr)
-			require.Equal(t, rpc.BlockAcceptedL2, status)
+			require.Equal(t, want, status)
 		})
 		t.Run("verified", func(t *testing.T) {
 			mockReader := mocks.NewMockReader(mockCtrl)
@@ -1985,21 +1993,28 @@ func TestTransactionStatus(t *testing.T) {
 				BlockNumber: block.Number + 1,
 			}, nil)
 
-			handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, "", nil)
+			handler := rpc.New(mockReader, nil, network, nil, nil, "", nil)
 
+			want := &rpc.TransactionStatus{
+				Finality:  rpc.TxnAcceptedOnL1,
+				Execution: rpc.TxnSuccess,
+			}
 			status, rpcErr := handler.TransactionStatus(*tx.Hash())
 			require.Nil(t, rpcErr)
-			require.Equal(t, rpc.BlockAcceptedL1, status)
+			require.Equal(t, want, status)
 		})
 	})
 	t.Run("transaction not found in db", func(t *testing.T) {
+		hash := utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3")
+
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
-		handler := rpc.New(mockReader, nil, utils.MAINNET, nil, client, "", nil)
+		handler := rpc.New(mockReader, nil, network, nil, client, "", nil)
 
 		status, err := handler.TransactionStatus(*hash)
 		require.Nil(t, err)
-		require.Equal(t, rpc.BlockAcceptedL1, status)
+		require.Equal(t, rpc.TxnAcceptedOnL1, status.Finality)
+		require.Equal(t, rpc.TxnSuccess, status.Execution)
 	})
 }
 
