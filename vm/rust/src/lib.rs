@@ -49,6 +49,7 @@ use starknet_api::{
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
+    fn JunoSetTrace(reader_handle: usize, str: *const c_char);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar);
 }
@@ -239,6 +240,12 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(t) => unsafe {
+//                 set_trace(
+//                     reader_handle,
+//                     serde_json::to_string(&t).unwrap().as_str()
+//                 );
+
+                println!("{:?}", t);
                 JunoAppendGasConsumed(
                     reader_handle,
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
@@ -246,6 +253,13 @@ pub extern "C" fn cairoVMExecute(
             },
         }
     }
+}
+
+fn set_trace(reader_handle: usize, trace: &str) {
+    let trace = CString::new(trace).unwrap();
+    unsafe {
+        JunoSetTrace(reader_handle, trace.as_ptr());
+    };
 }
 
 fn report_error(reader_handle: usize, msg: &str) {

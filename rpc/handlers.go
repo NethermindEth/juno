@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -1173,4 +1174,49 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		return nil, rpcErr
 	}
 	return &estimates[0], nil
+}
+
+func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
+	_, blockHash, _, err := h.bcReader.Receipt(&hash)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+	tx, err := h.bcReader.TransactionByHash(&hash)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	id := &BlockID{Hash: blockHash}
+
+	state, closer, err := h.stateByBlockID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			h.log.Warnw("Failed to close state in starknet_call", "err", closeErr)
+		}
+	}()
+
+	header, err := h.blockHeaderByID(id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	var classes []core.Class
+	if tx, ok := tx.(*core.DeclareTransaction); ok {
+		class, stateErr := state.Class(tx.ClassHash)
+		if err != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
+		}
+		classes = append(classes, class.Class)
+	}
+
+	_, err = h.vm.Execute([]core.Transaction{tx}, classes, header.Number, header.Timestamp, header.SequencerAddress, state, h.network, nil)
+	if err != nil {
+		err = fmt.Errorf("vm.Execute: %w", err)
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	return &TransactionTrace{}, nil
 }

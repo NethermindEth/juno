@@ -50,6 +50,7 @@ type callContext struct {
 	response []*felt.Felt
 	// amount of gas consumed per transaction during VM execution
 	gasConsumed []*felt.Felt
+	trace       string
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -65,6 +66,12 @@ func unwrapContext(readerHandle C.uintptr_t) *callContext {
 func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
 	context := unwrapContext(readerHandle)
 	context.err = C.GoString(str)
+}
+
+//export JunoSetTrace
+func JunoSetTrace(readerHandle C.uintptr_t, str *C.char) {
+	context := unwrapContext(readerHandle)
+	context.trace += C.GoString(str)
 }
 
 //export JunoAppendResponse
