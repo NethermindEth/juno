@@ -73,6 +73,7 @@ func AdaptTransactionReceipt(response *feeder.TransactionReceipt) *core.Transact
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
+		Reverted:           response.ExecutionStatus == feeder.Reverted,
 	}
 }
 
