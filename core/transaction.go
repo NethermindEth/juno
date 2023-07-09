@@ -57,6 +57,7 @@ type TransactionReceipt struct {
 	L1ToL2Message      *L1ToL2Message
 	L2ToL1Message      []*L2ToL1Message
 	TransactionHash    *felt.Felt
+	Reverted           bool
 }
 
 type Transaction interface {

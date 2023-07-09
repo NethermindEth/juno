@@ -51,7 +51,11 @@ func TestAdaptBlock(t *testing.T) {
 			assert.Equal(t, response.Timestamp, block.Timestamp)
 			assert.Equal(t, len(response.Transactions), len(block.Transactions))
 			assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
-			assert.Equal(t, len(response.Receipts), len(block.Receipts))
+			if assert.Equal(t, len(response.Receipts), len(block.Receipts)) {
+				for i, feederReceipt := range response.Receipts {
+					assert.Equal(t, feederReceipt.ExecutionStatus == feeder.Reverted, block.Receipts[i].Reverted)
+				}
+			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
 			assert.Equal(t, test.protocolVersion, block.ProtocolVersion)
 			assert.Nil(t, block.ExtraData)
