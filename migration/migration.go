@@ -29,10 +29,10 @@ func (f MigrationFunc) Migrate(txn db.Transaction) error {
 // Before is a no-op.
 func (f MigrationFunc) Before() {}
 
-// Revisions list contains a set of revisions that can be applied to a database
-// After making breaking changes to the DB layout, add new revisions to this list.
-var revisions = []Migration{
-	MigrationFunc(revision0000),
+// migrations contains a set of migrations that can be applied to a database.
+// After making breaking changes to the DB layout, add new migrations to this list.
+var migrations = []Migration{
+	MigrationFunc(migration0000),
 	MigrationFunc(relocateContractStorageRootKeys),
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
@@ -42,18 +42,18 @@ var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
 func MigrateIfNeeded(targetDB db.DB) error {
 	/*
-		Schema version of the targetDB determines which set of revisions need to be applied to the database.
-		After revision is successfully executed, which may update the database, schema version is incremented
+		Schema version of the targetDB determines which set of migrations need to be applied to the database.
+		After a migration is successfully executed, which may update the database, the schema version is incremented
 		by 1 by this loop.
 
 		For example;
 
-		Assume an empty DB, which has a schema version of 0. So we start applying the revisions from the
+		Assume an empty DB, which has a schema version of 0. So we start applying the migrations from the
 		very first one in the list and increment the schema version as we go. After the loop exists we
-		end up with a database which's schema version is len(revisions).
+		end up with a database which's schema version is len(migrations).
 
 		After running that Juno version for a while, if the user updates its Juno version which adds new
-		revisions to the list, MigrateIfNeeded will skip the already applied revisions and only apply the
+		migrations to the list, MigrateIfNeeded will skip the already applied migrations and only apply the
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
@@ -62,8 +62,8 @@ func MigrateIfNeeded(targetDB db.DB) error {
 		return err
 	}
 
-	for i := version; i < uint64(len(revisions)); i++ {
-		migration := revisions[i]
+	for i := version; i < uint64(len(migrations)); i++ {
+		migration := migrations[i]
 		migration.Before()
 		for {
 			if err = targetDB.Update(func(txn db.Transaction) error {
@@ -106,8 +106,8 @@ func SchemaVersion(targetDB db.DB) (uint64, error) {
 	return version, db.CloseAndWrapOnError(txn.Discard, nil)
 }
 
-// revision0000 makes sure the targetDB is empty
-func revision0000(txn db.Transaction) error {
+// migration0000 makes sure the targetDB is empty
+func migration0000(txn db.Transaction) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
