@@ -1,5 +1,6 @@
 pub mod class;
 mod juno_state_reader;
+pub mod execution_info;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
@@ -240,16 +241,14 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(t) => unsafe {
-//                 set_trace(
-//                     reader_handle,
-//                     serde_json::to_string(&t).unwrap().as_str()
-//                 );
-
-                println!("{:?}", t);
                 JunoAppendGasConsumed(
                     reader_handle,
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
-                )
+                );
+
+                let info: execution_info::TransactionExecutionInfo = t.into();
+                let json = serde_json::to_string(&info).unwrap();
+                set_trace(reader_handle, json.as_str());
             },
         }
     }

@@ -71,7 +71,7 @@ func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
 //export JunoSetTrace
 func JunoSetTrace(readerHandle C.uintptr_t, str *C.char) {
 	context := unwrapContext(readerHandle)
-	context.trace += C.GoString(str)
+	context.executionInfoJSON = C.GoString(str)
 }
 
 //export JunoAppendResponse
