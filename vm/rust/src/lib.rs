@@ -17,9 +17,11 @@ use blockifier::{
     },
     state::cached_state::CachedState,
     transaction::{
-        objects::AccountTransactionContext, transaction_execution::Transaction,
+        objects::AccountTransactionContext,
+        transaction_execution::Transaction,
         transactions::ExecutableTransaction,
     },
+    fee::fee_utils::calculate_tx_fee,
 };
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet::contract_class::ContractClass as SierraContractClass;
@@ -33,6 +35,7 @@ use starknet_api::{
     block::{BlockNumber, BlockTimestamp},
     deprecated_contract_class::EntryPointType,
     hash::StarkFelt,
+    transaction::Fee,
 };
 use starknet_api::{
     core::PatriciaKey,
@@ -124,6 +127,7 @@ pub extern "C" fn cairoVMExecute(
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
     sequencer_address: *const c_uchar,
+    paid_fees_on_l1_json: *const c_char,
 ) {
     let reader = JunoStateReader::new(reader_handle);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -144,6 +148,15 @@ pub extern "C" fn cairoVMExecute(
         report_error(reader_handle, classes.unwrap_err().to_string().as_str());
         return;
     }
+
+    let paid_fees_on_l1_json_str = unsafe { CStr::from_ptr(paid_fees_on_l1_json) }.to_str().unwrap();
+    let mut paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
+        Ok(f) => f,
+        Err(e) => {
+            report_error(reader_handle, e.to_string().as_str());
+            return;
+        }
+    };
 
     let sn_api_txns = sn_api_txns.unwrap();
     let mut classes = classes.unwrap();
@@ -181,7 +194,18 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
-        let txn = Transaction::from_api(sn_api_txn.clone(), contract_class, None);
+        let paid_fee_on_l1: Option<Fee> = match sn_api_txn.clone() {
+            StarknetApiTransaction::L1Handler(_) => {
+                if paid_fees_on_l1.len() == 0 {
+                        report_error(reader_handle, "missing fee paid on l1b".to_string().as_str());
+                        return;
+                }
+                Some(*paid_fees_on_l1.remove(0))
+            }, 
+            _ => None,
+        };
+
+        let txn = Transaction::from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
         if txn.is_err() {
             report_error(reader_handle, txn.unwrap_err().to_string().as_str());
             return;
@@ -189,7 +213,16 @@ pub extern "C" fn cairoVMExecute(
 
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => t.execute(&mut state, &block_context),
-            Transaction::L1HandlerTransaction(t) => t.execute(&mut state, &block_context),
+            Transaction::L1HandlerTransaction(t) => {
+                let maybe_execution_info = t.execute(&mut state, &block_context);
+                if maybe_execution_info.is_err() {
+                    maybe_execution_info
+                } else {
+                    let mut execution_info = maybe_execution_info.unwrap();
+                    execution_info.actual_fee = calculate_tx_fee(&execution_info.actual_resources, &block_context).unwrap();
+                    Ok(execution_info)
+                }
+            },
         };
 
         match res {

@@ -126,6 +126,16 @@ type TransactionStatus struct {
 	Execution TxnExecutionStatus `json:"execution_status"`
 }
 
+type MsgFromL1 struct {
+	// The address of the L1 contract sending the message.
+	From common.Address `json:"from_address" validate:"required"`
+	// The address of the L1 contract sending the message.
+	To *felt.Felt `json:"to_address" validate:"required"`
+	// The payload of the message.
+	Payload  []*felt.Felt `json:"payload" validate:"required"`
+	Selector *felt.Felt   `json:"entry_point_selector" validate:"required"`
+}
+
 type MsgToL1 struct {
 	From    *felt.Felt     `json:"from_address"`
 	To      common.Address `json:"to_address"`
@@ -171,6 +181,7 @@ type DeclareTxResponse struct {
 type BroadcastedTransaction struct {
 	Transaction
 	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
 type FeeEstimate struct {
@@ -179,26 +190,29 @@ type FeeEstimate struct {
 	OverallFee  *felt.Felt `json:"overall_fee"`
 }
 
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network utils.Network) (core.Transaction, core.Class, error) {
+//nolint:gocyclo
+func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+	network utils.Network,
+) (core.Transaction, core.Class, *felt.Felt, error) {
 	var feederTxn feeder.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	feederTxn.Type = broadcastedTxn.Type.String()
 
 	txn, err := feeder2core.AdaptTransaction(&feederTxn)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var declaredClass core.Class
 	if len(broadcastedTxn.ContractClass) != 0 {
 		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	} else if broadcastedTxn.Type == TxnDeclare {
-		return nil, nil, errors.New("declare without a class definition")
+		return nil, nil, nil, errors.New("declare without a class definition")
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
@@ -206,7 +220,7 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network
 		case *core.Cairo0Class:
 			t.ClassHash, err = vm.Cairo0ClassHash(c)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		case *core.Cairo1Class:
 			t.ClassHash = c.Hash()
@@ -215,9 +229,10 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network
 
 	txnHash, err := core.TransactionHash(txn, network)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
+	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
 		t.TransactionHash = txnHash
@@ -225,12 +240,15 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network
 		t.TransactionHash = txnHash
 	case *core.DeployAccountTransaction:
 		t.TransactionHash = txnHash
+	case *core.L1HandlerTransaction:
+		t.TransactionHash = txnHash
+		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
-		return nil, nil, errors.New("unsupported transaction")
+		return nil, nil, nil, errors.New("unsupported transaction")
 	}
 
 	if txn.Hash() == nil {
-		return nil, nil, errors.New("deprecated transaction type")
+		return nil, nil, nil, errors.New("deprecated transaction type")
 	}
-	return txn, declaredClass, nil
+	return txn, declaredClass, paidFeeOnL1, nil
 }

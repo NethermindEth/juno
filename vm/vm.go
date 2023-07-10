@@ -8,7 +8,7 @@ package vm
 //					char* chain_id);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
-//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address);
+//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json);
 //
 // #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
 import "C"
@@ -29,8 +29,8 @@ type VM interface {
 	Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 		blockTimestamp uint64, state core.StateReader, network utils.Network,
 	) ([]*felt.Felt, error)
-	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber,
-		blockTimestamp uint64, sequencerAddress *felt.Felt, state core.StateReader, network utils.Network,
+	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
+		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	) ([]*felt.Felt, error)
 }
 
@@ -133,7 +133,7 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network,
+	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state: state,
@@ -146,6 +146,12 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		return nil, err
 	}
 
+	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
+	if err != nil {
+		return nil, err
+	}
+
+	paidFeesOnL1CStr := C.CString(string(paidFeesOnL1Bytes))
 	txnsJSONCstr := C.CString(string(txnsJSON))
 	classesJSONCStr := C.CString(string(classesJSON))
 
@@ -157,9 +163,11 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		C.ulonglong(blockNumber),
 		C.ulonglong(blockTimestamp),
 		chainID,
-		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])))
+		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])),
+		paidFeesOnL1CStr)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
+	C.free(unsafe.Pointer(paidFeesOnL1CStr))
 	C.free(unsafe.Pointer(txnsJSONCstr))
 	C.free(unsafe.Pointer(chainID))
 

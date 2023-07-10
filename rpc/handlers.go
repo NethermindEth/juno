@@ -1115,10 +1115,15 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	var txns []core.Transaction
 	var classes []core.Class
 
+	paidFeesOnL1 := make([]*felt.Felt, 0)
 	for idx := range broadcastedTxns {
-		txn, declaredClass, aErr := adaptBroadcastedTransaction(&broadcastedTxns[idx], h.network)
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&broadcastedTxns[idx], h.network)
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+		}
+
+		if paidFeeOnL1 != nil {
+			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
 		}
 
 		txns = append(txns, txn)
@@ -1140,7 +1145,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
-	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network)
+	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1156,4 +1161,29 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	}
 
 	return estimates, nil
+}
+
+func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) {
+	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
+	// The order of the calldata parameters matters. msg.From must be prepended.
+	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
+	calldata = append(calldata, msg.Payload...)
+	tx := BroadcastedTransaction{
+		Transaction: Transaction{
+			Type:               TxnL1Handler,
+			ContractAddress:    msg.To,
+			EntryPointSelector: msg.Selector,
+			CallData:           &calldata,
+			Version:            &felt.Zero, // Needed for transaction hash calculation.
+			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+		},
+		// Needed to marshal to blockifier type.
+		// Must be greater than zero to successfully execute transaction.
+		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
+	}
+	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	return &estimates[0], nil
 }

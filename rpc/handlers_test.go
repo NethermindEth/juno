@@ -20,6 +20,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2111,4 +2112,65 @@ func TestCall(t *testing.T) {
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
+}
+
+func TestEstimateMessageFee(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	log := utils.NewNopZapLogger()
+
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, mockVM, "", log)
+	msg := rpc.MsgFromL1{
+		From:     common.HexToAddress("0xDEADBEEF"),
+		To:       *new(felt.Felt).SetUint64(1337),
+		Payload:  []felt.Felt{*new(felt.Felt).SetUint64(1), *new(felt.Felt).SetUint64(2)},
+		Selector: *new(felt.Felt).SetUint64(44),
+	}
+
+	t.Run("block not found", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("not found"))
+		_, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
+		require.Equal(t, rpc.ErrBlockNotFound, err)
+	})
+
+	latestHeader := &core.Header{
+		Number:    123,
+		Timestamp: 456,
+		GasPrice:  new(felt.Felt).SetUint64(42),
+	}
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	NoopCloser := func() error { return nil }
+
+	mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
+
+	expectedGasConsumed := new(felt.Felt).SetUint64(37)
+	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
+			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+		) ([]*felt.Felt, error) {
+			require.Len(t, txns, 1)
+			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
+
+			assert.Empty(t, declaredClasses)
+			assert.Equal(t, latestHeader.Number, blockNumber)
+			assert.Equal(t, latestHeader.Timestamp, blockTimestamp)
+			assert.Equal(t, utils.MAINNET, network)
+			assert.NotNil(t, sequencerAddress)
+			assert.Len(t, paidFeesOnL1, 1)
+
+			return []*felt.Felt{expectedGasConsumed}, nil
+		},
+	)
+
+	gasConsumed, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
+	require.Nil(t, err)
+	require.Equal(t, rpc.FeeEstimate{
+		GasConsumed: expectedGasConsumed,
+		GasPrice:    latestHeader.GasPrice,
+		OverallFee:  new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
+	}, *gasConsumed)
 }
