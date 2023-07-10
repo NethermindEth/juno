@@ -76,6 +76,28 @@ To view logs from the Docker container, use the following command:
 docker logs -f juno
 ```
 
+## 📸 Snapshots
+
+Use the provided snapshots to quickly sync your Juno node with the current state of the network. 
+
+#### Mainnet
+
+| Network | Version | Size | Block | Download Link |
+| ------- | ------- | ---- | ----- | ------------- |
+| mainnet | v0.4.0  | 29.4 GB | 100713 | [juno_mainnet_100713.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.4.0_100713.tar) |
+
+#### Goerli
+
+| Network | Version | Size | Block | Download Link |
+| ------- | ------- | ---- | ----- | ------------- |
+| goerli | v0.4.0 | 31.6 GB | 830385 | [juno_goerli_830385.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.4.0_830385.tar) |
+
+#### Goerli2
+
+| Network | Version | Size | Block | Download Link |
+| ------- | ------- | ---- | ----- | ------------- |
+| goerli2 | v0.4.0 | 1.8 GB | 125026 | [juno_goerli2_125026.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.4.0_125026.tar) |
+
 ## ✔ Supported Features
 
 - Starknet [v0.12.0](https://www.starknet.io/en/posts/ecosystem/starknet-quantum-leap-major-throughput-improvements-are-here) support.
@@ -160,7 +182,7 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
 * [X] Blockchain: implement blockchain reorganization logic.
 * [X] Synchronisation: implement verification of state from layer 1.
 * [X] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
-    * [ ] Implement the remaining endpoints:
+    * [X] Implement the remaining endpoints:
         * [X] `starknet_syncing`
         * [X] `starknet_getNonce`
         * [X] `starknet_getStorageAt`
