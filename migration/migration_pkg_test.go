@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -111,7 +112,11 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	buckets := []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
 
-	var n trieNode
+	var n struct {
+		Value *felt.Felt
+		Left  *bitset.BitSet
+		Right *bitset.BitSet
+	}
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		// contract root keys, if changeTrieNodeEncoding tries to migrate these it
 		// will fail with an error since they are not valid trie.Node encodings.
@@ -137,7 +142,9 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		return nil
 	}))
 
-	require.NoError(t, testdb.Update(changeTrieNodeEncoding))
+	m := new(changeTrieNodeEncoding)
+	m.Before()
+	require.NoError(t, testdb.Update(m.Migrate))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		for _, bucket := range buckets {
