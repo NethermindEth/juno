@@ -35,7 +35,7 @@ var revisions = []Migration{
 	MigrationFunc(revision0000),
 	MigrationFunc(relocateContractStorageRootKeys),
 	MigrationFunc(recalculateBloomFilters),
-	MigrationFunc(changeTrieNodeEncoding),
+	new(changeTrieNodeEncoding),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -196,32 +196,45 @@ func recalculateBloomFilters(txn db.Transaction) error {
 	}
 }
 
-var trieNodeBuckets = map[db.Bucket]*struct {
-	seekTo  []byte
-	skipLen int
-}{
-	db.ClassesTrie: {
-		seekTo:  db.ClassesTrie.Key(),
-		skipLen: 1,
-	},
-	db.StateTrie: {
-		seekTo:  db.StateTrie.Key(),
-		skipLen: 1,
-	},
-	db.ContractStorage: {
-		seekTo:  db.ContractStorage.Key(),
-		skipLen: 1 + felt.Bytes,
-	},
+// changeTrieNodeEncoding migrates to using a custom encoding for trie nodes
+// that minimises memory allocations. Always use new(changeTrieNodeEncoding)
+// before calling Before(), otherwise it will panic.
+type changeTrieNodeEncoding struct {
+	trieNodeBuckets map[db.Bucket]*struct {
+		seekTo  []byte
+		skipLen int
+	}
 }
 
-type trieNode struct {
-	Value *felt.Felt
-	Left  *bitset.BitSet
-	Right *bitset.BitSet
+func (m *changeTrieNodeEncoding) Before() {
+	m.trieNodeBuckets = map[db.Bucket]*struct {
+		seekTo  []byte
+		skipLen int
+	}{
+		db.ClassesTrie: {
+			seekTo:  db.ClassesTrie.Key(),
+			skipLen: 1,
+		},
+		db.StateTrie: {
+			seekTo:  db.StateTrie.Key(),
+			skipLen: 1,
+		},
+		db.ContractStorage: {
+			seekTo:  db.ContractStorage.Key(),
+			skipLen: 1 + felt.Bytes,
+		},
+	}
 }
 
-func changeTrieNodeEncoding(txn db.Transaction) error {
-	var n trieNode
+func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction) error {
+	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
+	// We instead define a cutom struct to force the encoder to use the default encoding.
+	var n struct {
+		Value *felt.Felt
+		Left  *bitset.BitSet
+		Right *bitset.BitSet
+	}
+
 	var buf bytes.Buffer
 	var updatedNodes uint64
 
@@ -230,7 +243,7 @@ func changeTrieNodeEncoding(txn db.Transaction) error {
 		for it.Seek(seekTo); it.Valid(); it.Next() {
 			key := it.Key()
 			if !bytes.HasPrefix(key, bucketPrefix) {
-				delete(trieNodeBuckets, bucket)
+				delete(m.trieNodeBuckets, bucket)
 				break
 			}
 
@@ -246,7 +259,7 @@ func changeTrieNodeEncoding(txn db.Transaction) error {
 			// dont use too much memory.
 			const updatedNodesBatch = 1_000_000
 			if updatedNodes >= updatedNodesBatch {
-				trieNodeBuckets[bucket].seekTo = key
+				m.trieNodeBuckets[bucket].seekTo = key
 				return ErrCallWithNewTransaction
 			}
 
@@ -279,7 +292,7 @@ func changeTrieNodeEncoding(txn db.Transaction) error {
 		return err
 	}
 
-	for bucket, info := range trieNodeBuckets {
+	for bucket, info := range m.trieNodeBuckets {
 		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
 			return db.CloseAndWrapOnError(iterator.Close, err)
 		}
