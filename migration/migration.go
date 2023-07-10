@@ -14,15 +14,28 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-type revision func(transaction db.Transaction) error
+type Migration interface {
+	Before()
+	Migrate(db.Transaction) error
+}
+
+type MigrationFunc func(db.Transaction) error
+
+// Migrate returns f(txn).
+func (f MigrationFunc) Migrate(txn db.Transaction) error {
+	return f(txn)
+}
+
+// Before is a no-op.
+func (f MigrationFunc) Before() {}
 
 // Revisions list contains a set of revisions that can be applied to a database
 // After making breaking changes to the DB layout, add new revisions to this list.
-var revisions = []revision{
-	revision0000,
-	relocateContractStorageRootKeys,
-	recalculateBloomFilters,
-	changeTrieNodeEncoding,
+var revisions = []Migration{
+	MigrationFunc(revision0000),
+	MigrationFunc(relocateContractStorageRootKeys),
+	MigrationFunc(recalculateBloomFilters),
+	MigrationFunc(changeTrieNodeEncoding),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -50,22 +63,29 @@ func MigrateIfNeeded(targetDB db.DB) error {
 	}
 
 	for i := version; i < uint64(len(revisions)); i++ {
-		if err = targetDB.Update(func(txn db.Transaction) error {
-			if err = revisions[i](txn); err != nil {
-				if errors.Is(err, ErrCallWithNewTransaction) {
-					// rerun the same revision
-					i--
-					return nil
+		migration := revisions[i]
+		migration.Before()
+		for {
+			if err = targetDB.Update(func(txn db.Transaction) error {
+				if err = migration.Migrate(txn); err != nil {
+					if !errors.Is(err, ErrCallWithNewTransaction) {
+						return nil // Run the migration again with a new transaction.
+					}
+					return err
 				}
+
+				// Migration successful. Bump the version.
+				var versionBytes [8]byte
+				binary.BigEndian.PutUint64(versionBytes[:], i+1)
+				if err = txn.Set(db.SchemaVersion.Key(), versionBytes[:]); err != nil {
+					return err
+				}
+				return nil
+			}); err == nil {
+				break
+			} else if !errors.Is(err, ErrCallWithNewTransaction) {
 				return err
 			}
-
-			// revision returned with no errors, bump the version
-			var versionBytes [8]byte
-			binary.BigEndian.PutUint64(versionBytes[:], i+1)
-			return txn.Set(db.SchemaVersion.Key(), versionBytes[:])
-		}); err != nil {
-			return err
 		}
 	}
 
