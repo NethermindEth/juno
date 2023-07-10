@@ -4,7 +4,7 @@
 
 juno: vm ## compile
 	@mkdir -p build
-	@go build -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+	@go build -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
 vm:
 	$(MAKE) -C vm/rust all
