@@ -23,8 +23,6 @@ type Gateway interface {
 }
 
 var (
-	ErrPendingNotSupported = errors.New("pending block is not supported yet")
-
 	ErrBlockNotFound            = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrContractNotFound         = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
