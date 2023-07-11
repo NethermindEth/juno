@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/davecgh/go-spew/spew"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -1178,7 +1177,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 }
 
 func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
-	_, blockHash, _, err := h.bcReader.Receipt(&hash)
+	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
@@ -1187,7 +1186,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	id := &BlockID{Hash: blockHash}
+	id := &BlockID{Number: blockNumber - 1}
 
 	state, closer, err := h.stateByBlockID(id)
 	if err != nil {
@@ -1219,5 +1218,10 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	return &TransactionTrace{}, nil
+	return &TransactionTrace{
+		DeclareTxnTrace: DeclareTxnTrace{
+			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
+			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
+		},
+	}, nil
 }
