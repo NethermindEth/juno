@@ -21,6 +21,7 @@ var (
 )
 
 var _ StateHistoryReader = (*State)(nil)
+var _ StateReaderStorage = (*State)(nil)
 
 //go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
 type StateHistoryReader interface {
@@ -40,7 +41,8 @@ type StateReader interface {
 }
 
 type StateReaderStorage interface {
-	Storage() (*trie.Trie, func() error, error)
+	StorageTrie() (*trie.Trie, func() error, error)
+	ClassTrie() (*trie.Trie, func() error, error)
 }
 
 type State struct {
@@ -141,12 +143,16 @@ func (s *State) storage() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
 }
 
-func (s *State) Storage() (*trie.Trie, func() error, error) {
+func (s *State) StorageTrie() (*trie.Trie, func() error, error) {
 	return s.storage()
 }
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
+}
+
+func (s *State) ClassTrie() (*trie.Trie, func() error, error) {
+	return s.classesTrie()
 }
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
