@@ -218,6 +218,10 @@ func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, erro
 	return TransactionHash(transaction, n)
 }
 
+func StrictTransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+	return transactionHash(transaction, n, true)
+}
+
 func transactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:

@@ -48,6 +48,7 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+	P2PSync      bool   `mapstructure:"p2p-sync"`
 }
 
 type Node struct {
