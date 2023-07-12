@@ -73,12 +73,12 @@ jobs:
                     -v /root/juno_$network:/var/lib/juno \
                     nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
                     --db-path /var/lib/juno \
-                    --rpc-port $port \
+                    --http-port $port \
                     --network $network \
                     --colour=false \
                     $ETH_NODE_PARAM \
                     $PPROF_PARAM
-                port=$((port+1))
+                port=$((port+5))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
 

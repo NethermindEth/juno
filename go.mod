@@ -13,9 +13,9 @@ require (
 	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/golang/mock v1.6.0
+	github.com/jinzhu/copier v0.3.5
 	github.com/libp2p/go-libp2p v0.28.1
 	github.com/libp2p/go-libp2p-kad-dht v0.24.2
-	github.com/libp2p/go-libp2p-pubsub v0.9.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.9.0
 	github.com/pkg/errors v0.9.1
@@ -26,7 +26,6 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.10.0
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.30.0
 	nhooyr.io/websocket v1.8.7
@@ -74,7 +73,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -162,6 +160,7 @@ require (
 	go.uber.org/dig v1.17.0 // indirect
 	go.uber.org/fx v1.19.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect

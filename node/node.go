@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -23,18 +24,18 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
 
-const (
-	defaultPprofPort          = 9080
-	l1BlockConfirmationPeriod = 16
-)
+const defaultPprofPort = 9080
 
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	RPCPort             uint16         `mapstructure:"rpc-port"`
+	HTTPPort            uint16         `mapstructure:"http-port"`
+	WSPort              uint16         `mapstructure:"ws-port"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
@@ -94,9 +95,14 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
-	http := makeHTTP(cfg.RPCPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, version, log), log)
 
-	services = append(services, synchronizer, http)
+	services, err = makeRPC(cfg.HTTPPort, cfg.WSPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
+	if err != nil {
+		log.Errorw("Failed to create RPC servers", "err", err)
+		return nil, err
+	}
+
+	services = append(services, synchronizer)
 
 	n := &Node{
 		cfg:        cfg,
@@ -110,7 +116,7 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
-		l1Client, err := l1.MakeClient(n.cfg.EthNode, n.blockchain, l1BlockConfirmationPeriod, n.log)
+		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
 			n.log.Errorw("Error creating L1 client", "err", err)
 			return nil, err
@@ -140,8 +146,8 @@ func New(cfg *Config, version string) (*Node, error) {
 	return n, nil
 }
 
-func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jsonrpc.HTTP {
-	return jsonrpc.NewHTTP(port, []jsonrpc.Method{
+func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) ([]service.Service, error) { //nolint: funlen
+	methods := []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
 			Handler: rpcHandler.ChainID,
@@ -246,7 +252,60 @@ func makeHTTP(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) *jso
 			Name:    "juno_version",
 			Handler: rpcHandler.Version,
 		},
-	}, log)
+		{
+			Name:    "juno_getTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: rpcHandler.TransactionStatus,
+		},
+		{
+			Name:    "starknet_call",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: rpcHandler.Call,
+		},
+		{
+			Name:    "starknet_estimateFee",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: rpcHandler.EstimateFee,
+		},
+	}
+
+	jsonrpcServer := jsonrpc.NewServer().WithValidator(validator.Validator())
+	for _, method := range methods {
+		if err := jsonrpcServer.RegisterMethod(method); err != nil {
+			return nil, err
+		}
+	}
+
+	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
+	if err != nil {
+		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
+	}
+	httpServer := jsonrpc.NewHTTP(httpListener, jsonrpcServer, log)
+
+	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
+	if err != nil {
+		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
+	}
+	wsServer := jsonrpc.NewWebsocket(wsListener, jsonrpcServer, log)
+
+	return []service.Service{httpServer, wsServer}, nil
+}
+
+func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+	var coreContractAddress common.Address
+	coreContractAddress, err := chain.Network().CoreContractAddress()
+	if err != nil {
+		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
+		return nil, err
+	}
+
+	var ethSubscriber *l1.EthSubscriber
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	if err != nil {
+		log.Errorw("Error creating ethSubscriber", "err", err)
+		return nil, err
+	}
+	return l1.NewClient(ethSubscriber, chain, log), nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

@@ -65,6 +65,21 @@ func (mr *MockSubscriberMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockSubscriber)(nil).Close))
 }
 
+// FinalisedHeight mocks base method.
+func (m *MockSubscriber) FinalisedHeight(arg0 context.Context) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FinalisedHeight", arg0)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FinalisedHeight indicates an expected call of FinalisedHeight.
+func (mr *MockSubscriberMockRecorder) FinalisedHeight(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalisedHeight", reflect.TypeOf((*MockSubscriber)(nil).FinalisedHeight), arg0)
+}
+
 // WatchHeader mocks base method.
 func (m *MockSubscriber) WatchHeader(arg0 context.Context, arg1 chan<- *types.Header) (event.Subscription, error) {
 	m.ctrl.T.Helper()

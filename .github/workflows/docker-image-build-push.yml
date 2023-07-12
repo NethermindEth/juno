@@ -31,13 +31,22 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           
-      - name: Build and push
+      - name: Build and push AMD
         uses: docker/build-push-action@v4
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: 'linux/amd64'
           push: true
           tags: ${{ github.event.inputs.repo_type == 'official' && 'nethermind/juno' || 'nethermindeth/juno' }}:${{ github.event.inputs.tag }}
+          
+      - name: Build and push ARM
+        if: github.event.inputs.repo_type == 'official'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: 'linux/arm64'
+          push: true
+          tags: nethermind/juno:${{ github.event.inputs.tag }}
           
       - name: Clean up environment
         if: always()

@@ -44,8 +44,8 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
 		require.NoError(t, state.Update(0, su0, nil))
-		gotNewRoot, err := state.Root()
-		require.NoError(t, err)
+		gotNewRoot, rerr := state.Root()
+		require.NoError(t, rerr)
 		assert.Equal(t, su0.NewRoot, gotNewRoot)
 	})
 
@@ -71,8 +71,8 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("non-empty state updated multiple times", func(t *testing.T) {
 		require.NoError(t, state.Update(1, su1, nil))
-		gotNewRoot, err := state.Root()
-		require.NoError(t, err)
+		gotNewRoot, rerr := state.Root()
+		require.NoError(t, rerr)
 		assert.Equal(t, su1.NewRoot, gotNewRoot)
 
 		require.NoError(t, state.Update(2, su2, nil))
@@ -81,27 +81,72 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, su2.NewRoot, gotNewRoot)
 	})
 
-	t.Run("post v0.11.0 declared classes affect root", func(t *testing.T) {
-		su := &core.StateUpdate{
-			OldRoot: su2.NewRoot,
-			NewRoot: utils.HexToFelt(t, "0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
-			StateDiff: &core.StateDiff{
-				DeclaredV1Classes: []core.DeclaredV1Class{
-					{
-						ClassHash:         utils.HexToFelt(t, "0xDEADBEEF"),
-						CompiledClassHash: utils.HexToFelt(t, "0xBEEFDEAD"),
-					},
+	su3 := &core.StateUpdate{
+		OldRoot: su2.NewRoot,
+		NewRoot: utils.HexToFelt(t, "0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
+		StateDiff: &core.StateDiff{
+			DeclaredV1Classes: []core.DeclaredV1Class{
+				{
+					ClassHash:         utils.HexToFelt(t, "0xDEADBEEF"),
+					CompiledClassHash: utils.HexToFelt(t, "0xBEEFDEAD"),
 				},
 			},
-		}
+		},
+	}
 
+	t.Run("post v0.11.0 declared classes affect root", func(t *testing.T) {
 		t.Run("without class definition", func(t *testing.T) {
-			require.Error(t, state.Update(3, su, nil))
+			require.Error(t, state.Update(3, su3, nil))
 		})
-		require.NoError(t, state.Update(3, su, map[felt.Felt]core.Class{
+		require.NoError(t, state.Update(3, su3, map[felt.Felt]core.Class{
 			*utils.HexToFelt(t, "0xDEADBEEF"): &core.Cairo1Class{},
 		}))
-		assert.NotEqual(t, su.NewRoot, su.OldRoot)
+		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
+	})
+
+	// These value were taken from part of integration state update number 299762
+	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
+	scKey := utils.HexToFelt(t, "0x492e8")
+	scValue := utils.HexToFelt(t, "0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scAddr := new(felt.Felt).SetUint64(1)
+
+	su4 := &core.StateUpdate{
+		OldRoot: su3.NewRoot,
+		NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt][]core.StorageDiff{*scAddr: {{Key: scKey, Value: scValue}}},
+		},
+	}
+
+	t.Run("update noClassContracts storage", func(t *testing.T) {
+		require.NoError(t, state.Update(4, su4, nil))
+
+		gotValue, err := state.ContractStorage(scAddr, scKey)
+		require.NoError(t, err)
+
+		assert.Equal(t, scValue, gotValue)
+
+		gotNonce, err := state.ContractNonce(scAddr)
+		require.NoError(t, err)
+
+		assert.Equal(t, &felt.Zero, gotNonce)
+
+		gotClassHash, err := state.ContractClassHash(scAddr)
+		require.NoError(t, err)
+
+		assert.Equal(t, &felt.Zero, gotClassHash)
+	})
+
+	t.Run("cannot update unknown noClassContract", func(t *testing.T) {
+		scAddr2 := utils.HexToFelt(t, "0x10")
+		su5 := &core.StateUpdate{
+			OldRoot: su4.NewRoot,
+			NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+			StateDiff: &core.StateDiff{
+				StorageDiffs: map[felt.Felt][]core.StorageDiff{*scAddr2: {{Key: scKey, Value: scValue}}},
+			},
+		}
+		assert.ErrorIs(t, state.Update(5, su5, nil), core.ErrContractNotDeployed)
 	})
 }
 
@@ -524,6 +569,49 @@ func TestRevert(t *testing.T) {
 			return nil
 		}))
 	})
+}
+
+func TestRevertNoClassContracts(t *testing.T) {
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest()
+	txn := testDB.NewTransaction(true)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	state := core.NewState(txn)
+
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	require.NoError(t, state.Update(0, su0, nil))
+
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(t, err)
+
+	// These value were taken from part of integration state update number 299762
+	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
+	scKey := utils.HexToFelt(t, "0x492e8")
+	scValue := utils.HexToFelt(t, "0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scAddr := new(felt.Felt).SetUint64(1)
+
+	// update state root
+	su1.NewRoot = utils.HexToFelt(t, "0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341")
+
+	su1.StateDiff.StorageDiffs[*scAddr] = []core.StorageDiff{{scKey, scValue}}
+
+	require.NoError(t, state.Update(1, su1, nil))
+
+	require.NoError(t, state.Revert(1, su1))
+
+	gotRoot, err := state.Root()
+	require.NoError(t, err)
+
+	assert.Equal(t, su0.NewRoot, gotRoot)
 }
 
 func TestRevertDeclaredClasses(t *testing.T) {
