@@ -215,7 +215,7 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 }
 
 func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
-	return TransactionHash(transaction, n)
+	return transactionHash(transaction, n, false)
 }
 
 func StrictTransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
