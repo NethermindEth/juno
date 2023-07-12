@@ -7,7 +7,11 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
+	"github.com/bits-and-blooms/bitset"
 )
 
 type revision func(transaction db.Transaction) error
@@ -18,7 +22,10 @@ var revisions = []revision{
 	revision0000,
 	relocateContractStorageRootKeys,
 	recalculateBloomFilters,
+	changeTrieNodeEncoding,
 }
+
+var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
 func MigrateIfNeeded(targetDB db.DB) error {
 	/*
@@ -45,6 +52,11 @@ func MigrateIfNeeded(targetDB db.DB) error {
 	for i := version; i < uint64(len(revisions)); i++ {
 		if err = targetDB.Update(func(txn db.Transaction) error {
 			if err = revisions[i](txn); err != nil {
+				if errors.Is(err, ErrCallWithNewTransaction) {
+					// rerun the same revision
+					i--
+					return nil
+				}
 				return err
 			}
 
@@ -162,4 +174,95 @@ func recalculateBloomFilters(txn db.Transaction) error {
 			return err
 		}
 	}
+}
+
+var trieNodeBuckets = map[db.Bucket]*struct {
+	seekTo  []byte
+	skipLen int
+}{
+	db.ClassesTrie: {
+		seekTo:  db.ClassesTrie.Key(),
+		skipLen: 1,
+	},
+	db.StateTrie: {
+		seekTo:  db.StateTrie.Key(),
+		skipLen: 1,
+	},
+	db.ContractStorage: {
+		seekTo:  db.ContractStorage.Key(),
+		skipLen: 1 + felt.Bytes,
+	},
+}
+
+type trieNode struct {
+	Value *felt.Felt
+	Left  *bitset.BitSet
+	Right *bitset.BitSet
+}
+
+func changeTrieNodeEncoding(txn db.Transaction) error {
+	var n trieNode
+	var buf bytes.Buffer
+	var updatedNodes uint64
+
+	migrateF := func(it db.Iterator, bucket db.Bucket, seekTo []byte, skipLen int) error {
+		bucketPrefix := bucket.Key()
+		for it.Seek(seekTo); it.Valid(); it.Next() {
+			key := it.Key()
+			if !bytes.HasPrefix(key, bucketPrefix) {
+				delete(trieNodeBuckets, bucket)
+				break
+			}
+
+			if len(key) == skipLen {
+				// this entry is not a TrieNode, it is the root key
+				continue
+			}
+
+			// We cant fit the entire migration in a single transaction but
+			// the actual limit is much higher than 1M. But the more updates
+			// you queue on a transaction the more memory it uses. 1M is just
+			// an arbitrary number that we can both fit in a transaction and
+			// dont use too much memory.
+			const updatedNodesBatch = 1_000_000
+			if updatedNodes >= updatedNodesBatch {
+				trieNodeBuckets[bucket].seekTo = key
+				return ErrCallWithNewTransaction
+			}
+
+			v, err := it.Value()
+			if err != nil {
+				return err
+			}
+
+			if err = encoder.Unmarshal(v, &n); err != nil {
+				return err
+			}
+
+			coreNode := trie.Node(n)
+			if _, err = coreNode.WriteTo(&buf); err != nil {
+				return err
+			}
+
+			if err = txn.Set(key, buf.Bytes()); err != nil {
+				return err
+			}
+			buf.Reset()
+
+			updatedNodes++
+		}
+		return nil
+	}
+
+	iterator, err := txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
+	for bucket, info := range trieNodeBuckets {
+		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
+			return db.CloseAndWrapOnError(iterator.Close, err)
+		}
+	}
+	return iterator.Close()
 }

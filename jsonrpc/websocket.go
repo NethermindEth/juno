@@ -3,47 +3,41 @@ package jsonrpc
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"nhooyr.io/websocket"
 )
 
+const closeReasonMaxBytes = 125
+
 type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
-	port       uint16
+	listener   net.Listener
 }
 
-func NewWebsocket(port uint16, methods []Method, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
-		rpc:        NewServer(),
+		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
-		port:       port,
-	}
-	for _, method := range methods {
-		err := ws.rpc.RegisterMethod(method)
-		if err != nil {
-			panic(err)
-		}
+		listener:   listener,
 	}
 	return ws
 }
 
 // WithConnParams sanity checks and applies the provided params.
 func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
-	if p.PingPeriod < 0 {
-		return ws
-	}
 	ws.connParams = p
 	return ws
 }
 
-// ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
+// Handler processes an HTTP request and upgrades it to a websocket connection.
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,13 +53,24 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 
 		err = wsc.ReadWriteLoop(ctx)
 
-		status := websocket.CloseStatus(err)
-		if status == -1 {
-			status = websocket.StatusInternalError
-		}
-		if err = wsc.conn.Close(status, ""); err != nil {
-			ws.log.Errorw("Failed to close websocket connection", "err", err)
+		var errClose websocket.CloseError
+		if errors.As(err, &errClose) {
+			ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
 			return
+		}
+
+		ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
+		errString := err.Error()
+		if len(errString) > closeReasonMaxBytes {
+			errString = errString[:closeReasonMaxBytes]
+		}
+		if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
+			// Don't log an error if the connection is already closed, which can happen
+			// in benign scenarios like timeouts. Unfortunately the error is not exported
+			// from the websocket package so we match the string instead.
+			if !strings.Contains(err.Error(), "already wrote close") {
+				ws.log.Errorw("Failed to close websocket connection", "err", err)
+			}
 		}
 	})
 }
@@ -74,7 +79,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", ws.port),
 		Handler:           ws.Handler(ctx),
 		ReadHeaderTimeout: 1 * time.Second,
 	}
@@ -85,7 +89,7 @@ func (ws *Websocket) Run(ctx context.Context) error {
 		close(errCh)
 	}()
 
-	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	if err := srv.Serve(ws.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
@@ -93,8 +97,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 }
 
 type WebsocketConnParams struct {
-	// How often to send pings to the client.
-	PingPeriod time.Duration
 	// Maximum message size allowed.
 	ReadLimit int64
 	// Maximum time to write a message.
@@ -105,7 +107,6 @@ type WebsocketConnParams struct {
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
-		PingPeriod:    (30 * 9 * time.Second) / 10, // 0.9 * 30 seconds
 		ReadLimit:     32 * 1024 * 1024,
 		WriteDuration: 5 * time.Second,
 		ReadDuration:  30 * time.Second,

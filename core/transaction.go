@@ -57,6 +57,7 @@ type TransactionReceipt struct {
 	L1ToL2Message      *L1ToL2Message
 	L2ToL1Message      []*L2ToL1Message
 	TransactionHash    *felt.Felt
+	Reverted           bool
 }
 
 type Transaction interface {
@@ -213,11 +214,11 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
-func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
-	return StrictTransactionHash(transaction, n, false)
+func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+	return TransactionHash(transaction, n)
 }
 
-func StrictTransactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
+func transactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n, force)
@@ -260,34 +261,15 @@ func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch {
 	case i.Version.IsZero():
-		if force {
-			sender := i.ContractAddress
-			if sender == nil {
-				sender = i.SenderAddress
-			}
-
-			felts := []*felt.Felt{
-				invokeFelt,
-				i.Version,
-				sender,
-				i.EntryPointSelector,
-				crypto.PedersenArray(i.CallData...),
-				i.MaxFee,
-				n.ChainID(),
-			}
-
-			for i, key := range felts {
-				if key == nil {
-					fmt.Printf("null at %d", i)
-				}
-			}
-
-			result := crypto.PedersenArray(felts...)
-			return result, nil
-		}
-
-		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
-		return i.TransactionHash, nil
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.Version,
+			i.ContractAddress,
+			i.EntryPointSelector,
+			crypto.PedersenArray(i.CallData...),
+			i.MaxFee,
+			n.ChainID(),
+		), nil
 	case i.Version.IsOne():
 		return crypto.PedersenArray(
 			invokeFelt,
@@ -407,7 +389,7 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 	}
 
 	for _, t := range txs {
-		calculatedTxHash, hErr := transactionHash(t, n)
+		calculatedTxHash, hErr := TransactionHash(t, n)
 		if hErr != nil {
 			return fmt.Errorf("cannot calculate transaction hash of Transaction %s, reason: %w", t.Hash(), hErr)
 		}

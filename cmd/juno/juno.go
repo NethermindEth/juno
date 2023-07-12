@@ -28,7 +28,8 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 const (
 	configF              = "config"
 	logLevelF            = "log-level"
-	rpcPortF             = "rpc-port"
+	httpPortF            = "http-port"
+	wsPortF              = "ws-port"
 	grpcPortF            = "grpc-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
@@ -37,12 +38,12 @@ const (
 	colourF              = "colour"
 	pendingPollIntervalF = "pending-poll-interval"
 	p2pF                 = "p2p"
-	p2pAddrF             = "p2pAddr"
-	p2pBootPeersF        = "p2pBootPeers"
-	p2pSyncF             = "p2pSync"
+	p2pAddrF             = "p2p-addr"
+	p2pBootPeersF        = "p2p-boot-peers"
 
 	defaultConfig              = ""
-	defaultRPCPort             = 6060
+	defaultHTTPPort            = 6060
+	defaultWSPort              = 6061
 	defaultGRPCPort            = 0
 	defaultDBPath              = ""
 	defaultEthNode             = ""
@@ -52,24 +53,22 @@ const (
 	defaultP2p                 = false
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
-	defaultP2pSync             = false
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
-	rpcPortUsage      = "The port on which the RPC server will listen for requests. " +
-		"Warning: this exposes the node to external requests and potentially DoS attacks."
-	grpcPortUsage = "The port on which the gRPC server will listen for requests."
-	dbPathUsage   = "Location of the database files."
-	networkUsage  = "Options: mainnet, goerli, goerli2, integration."
-	pprofUsage    = "Enables the pprof server and listens on port 9080."
-	colourUsage   = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage  = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	httpPortUsage     = "The port on which the HTTP RPC server will listen for requests."
+	wsPortUsage       = "The port on which the Websocket RPC server will listen for requests."
+	grpcPortUsage     = "The port on which the gRPC server will listen for requests."
+	dbPathUsage       = "Location of the database files."
+	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
+	pprofUsage        = "Enables the pprof server and listens on port 9080."
+	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage      = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
 	p2PAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
-	p2pSyncUsage             = "enable syncing from p2p"
 )
 
 var Version string
@@ -148,7 +147,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
-	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
+	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
+	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
@@ -159,7 +159,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
-	junoCmd.Flags().Bool(p2pSyncF, defaultP2pSync, p2pSyncUsage)
 
 	return junoCmd
 }

@@ -11,15 +11,17 @@ type EntryPoint struct {
 	Offset   *felt.Felt `json:"offset"`
 }
 
+type SierraEntryPoints struct {
+	Constructor []SierraEntryPoint `json:"CONSTRUCTOR"`
+	External    []SierraEntryPoint `json:"EXTERNAL"`
+	L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
+}
+
 type SierraDefinition struct {
-	Abi         string `json:"abi"`
-	EntryPoints struct {
-		Constructor []SierraEntryPoint `json:"CONSTRUCTOR"`
-		External    []SierraEntryPoint `json:"EXTERNAL"`
-		L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program []*felt.Felt `json:"sierra_program"`
-	Version string       `json:"contract_class_version"`
+	Abi         string            `json:"abi,omitempty"`
+	EntryPoints SierraEntryPoints `json:"entry_points_by_type"`
+	Program     []*felt.Felt      `json:"sierra_program"`
+	Version     string            `json:"contract_class_version"`
 }
 
 type SierraEntryPoint struct {
@@ -27,14 +29,16 @@ type SierraEntryPoint struct {
 	Selector *felt.Felt `json:"selector"`
 }
 
+type EntryPoints struct {
+	Constructor []EntryPoint `json:"CONSTRUCTOR"`
+	External    []EntryPoint `json:"EXTERNAL"`
+	L1Handler   []EntryPoint `json:"L1_HANDLER"`
+}
+
 type Cairo0Definition struct {
 	Abi         json.RawMessage `json:"abi"`
-	EntryPoints struct {
-		Constructor []EntryPoint `json:"CONSTRUCTOR"`
-		External    []EntryPoint `json:"EXTERNAL"`
-		L1Handler   []EntryPoint `json:"L1_HANDLER"`
-	} `json:"entry_points_by_type"`
-	Program json.RawMessage `json:"program"`
+	EntryPoints EntryPoints     `json:"entry_points_by_type"`
+	Program     json.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {
