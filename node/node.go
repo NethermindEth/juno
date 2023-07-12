@@ -45,9 +45,8 @@ type Config struct {
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
 	P2P          bool   `mapstructure:"p2p"`
-	P2PAddr      string `mapstructure:"p2pAddr"`
-	P2PSync      bool   `mapstructure:"p2pSync"`
-	P2PBootPeers string `mapstructure:"p2pBootPeers"`
+	P2PAddr      string `mapstructure:"p2p-addr"`
+	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
 }
 
 type Node struct {
