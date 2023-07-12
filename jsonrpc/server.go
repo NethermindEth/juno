@@ -9,6 +9,9 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"time"
+
+	"github.com/NethermindEth/juno/utils"
 )
 
 const (
@@ -96,6 +99,7 @@ type Method struct {
 type Server struct {
 	methods   map[string]Method
 	validator Validator
+	log       utils.SimpleLogger
 }
 
 type Validator interface {
@@ -103,8 +107,9 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer() *Server {
+func NewServer(log utils.SimpleLogger) *Server {
 	return &Server{
+		log:     log,
 		methods: make(map[string]Method),
 	}
 }
@@ -253,7 +258,16 @@ func isNil(i any) bool {
 }
 
 func (s *Server) handleRequest(req *request) (*response, error) {
-	if err := req.isSane(); err != nil {
+	start := time.Now()
+	reqJSON, err := json.Marshal(req)
+	if err == nil {
+		s.log.Infow("Serving RPC request", "request", string(reqJSON))
+	}
+	defer func() {
+		s.log.Infow("Responding to RPC request", "method", req.Method, "id", req.ID, "took", time.Since(start))
+	}()
+
+	if err = req.isSane(); err != nil {
 		return nil, err
 	}
 
