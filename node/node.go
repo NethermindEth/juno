@@ -63,8 +63,6 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) {
-	services := make([]service.Service, 0)
-
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -95,13 +93,11 @@ func New(cfg *Config, version string) (*Node, error) {
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
-	services, err = makeRPC(cfg.HTTPPort, cfg.WSPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
+	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
 	if err != nil {
 		log.Errorw("Failed to create RPC servers", "err", err)
 		return nil, err
 	}
-
-	services = append(services, synchronizer)
 
 	n := &Node{
 		cfg:        cfg,
@@ -109,7 +105,7 @@ func New(cfg *Config, version string) (*Node, error) {
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   services,
+		services:   append(services, synchronizer),
 	}
 
 	if n.cfg.EthNode == "" {

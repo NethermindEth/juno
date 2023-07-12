@@ -15,7 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
+	p2pnet "github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
@@ -29,7 +29,6 @@ const (
 
 type Service struct {
 	host      host.Host
-	userAgent string
 	bootPeers string
 	network   utils.Network
 
@@ -59,7 +58,7 @@ func New(
 		return nil, err
 	}
 
-	host, err := libp2p.New(
+	p2phost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
 		libp2p.UserAgent(userAgent),
@@ -68,7 +67,7 @@ func New(
 		return nil, err
 	}
 
-	dht, err := makeDHT(host, network, bootPeers)
+	p2pdht, err := makeDHT(p2phost, network, bootPeers)
 	if err != nil {
 		return nil, err
 	}
@@ -76,13 +75,13 @@ func New(
 	return &Service{
 		bootPeers: bootPeers,
 		log:       log,
-		host:      host,
+		host:      p2phost,
 		network:   network,
-		dht:       dht,
+		dht:       p2pdht,
 	}, nil
 }
 
-func makeDHT(host host.Host, network utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, network utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
 	bootPeers := []peer.AddrInfo{}
 	if cfgBootPeers != "" {
 		splitted := strings.Split(cfgBootPeers, ",")
@@ -97,7 +96,7 @@ func makeDHT(host host.Host, network utils.Network, cfgBootPeers string) (*dht.I
 	}
 
 	protocolPrefix := protocol.ID(fmt.Sprintf("/starknet/%s", network.String()))
-	return dht.New(context.Background(), host,
+	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(protocolPrefix),
 		dht.BootstrapPeers(bootPeers...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
@@ -146,7 +145,7 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 				return
 			case evnt := <-sub.Out():
 				typedEvnt := evnt.(event.EvtPeerConnectednessChanged)
-				if typedEvnt.Connectedness == network.Connected {
+				if typedEvnt.Connectedness == p2pnet.Connected {
 					ch <- typedEvnt
 				}
 			}
