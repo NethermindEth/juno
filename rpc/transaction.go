@@ -86,6 +86,7 @@ type Transaction struct {
 }
 
 type MsgToL1 struct {
+	From    *felt.Felt     `json:"from_address"`
 	To      common.Address `json:"to_address"`
 	Payload []*felt.Felt   `json:"payload"`
 }

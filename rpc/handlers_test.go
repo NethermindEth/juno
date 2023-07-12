@@ -857,6 +857,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"block_number": 0,
 					"messages_sent": [
 						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
 							"payload": [
 								"0xc",
@@ -888,6 +889,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"status": "ACCEPTED_ON_L2",
 					"messages_sent": [
 						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
 							"payload": [
 								"0xc",
@@ -916,6 +918,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"block_number": 0,
 					"messages_sent": [
 						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
 							"payload": [
 								"0xc",

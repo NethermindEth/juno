@@ -402,6 +402,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		messages[idx] = &MsgToL1{
 			To:      msg.To,
 			Payload: msg.Payload,
+			From:    msg.From,
 		}
 	}
 
