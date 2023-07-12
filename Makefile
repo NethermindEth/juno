@@ -3,6 +3,7 @@
 .PHONY: vm
 
 juno: vm ## compile
+	@echo $(shell git describe --tags)
 	@mkdir -p build
 	@go build -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
