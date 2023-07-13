@@ -1079,11 +1079,6 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 		return nil, ErrBlockNotFound
 	}
 
-	// todo: remove after the next release
-	if header.GasPrice == nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, "no gas price history for the given block")
-	}
-
 	var txns []core.Transaction
 	var classes []core.Class
 
