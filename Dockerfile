@@ -3,7 +3,7 @@ FROM alpine:3.18 AS build
 
 # Install Alpine Dependencies
 RUN apk update && \
-    apk add build-base clang upx cargo go
+    apk add build-base clang upx cargo go git
 
 WORKDIR /app
 
