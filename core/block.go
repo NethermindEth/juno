@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/sourcegraph/conc"
 )
 
 type Header struct {
@@ -180,14 +181,23 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
-	if err != nil {
-		return nil, err
-	}
+	wg := conc.NewWaitGroup()
+	var txCommitment, eCommitment *felt.Felt
+	var tErr, eErr error
 
-	eCommitment, err := eventCommitment(b.Receipts)
-	if err != nil {
-		return nil, err
+	wg.Go(func() {
+		txCommitment, tErr = transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
+	})
+	wg.Go(func() {
+		eCommitment, eErr = eventCommitment(b.Receipts)
+	})
+	wg.Wait()
+
+	if tErr != nil {
+		return nil, tErr
+	}
+	if eErr != nil {
+		return nil, eErr
 	}
 
 	// Unlike the pre07Hash computation, we exclude the chain
