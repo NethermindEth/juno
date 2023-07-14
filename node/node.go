@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -42,6 +44,10 @@ type Config struct {
 	Pprof               bool           `mapstructure:"pprof"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+
+	P2P          bool   `mapstructure:"p2p"`
+	P2PAddr      string `mapstructure:"p2p-addr"`
+	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
 }
 
 type Node struct {
@@ -84,6 +90,7 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL())
+
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
@@ -120,6 +127,17 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	if n.cfg.GRPCPort > 0 {
 		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
+	}
+
+	if cfg.P2P {
+		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		if err != nil {
+			log.Errorw("Error setting up p2p", "err", err)
+			return nil, err
+		}
+
+		n.services = append(n.services, p2pService)
 	}
 
 	return n, nil
@@ -304,7 +322,6 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-
 	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
 		s := s
