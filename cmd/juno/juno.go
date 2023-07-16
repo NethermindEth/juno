@@ -40,6 +40,8 @@ const (
 	p2pF                 = "p2p"
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
+	metricsF             = "metrics"
+	metricsPortF         = "metrics-port"
 
 	defaultConfig              = ""
 	defaultHTTPPort            = 6060
@@ -53,6 +55,8 @@ const (
 	defaultP2p                 = false
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
+	defaultMetrics             = false
+	defaultMetricsPort         = 9090
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -69,6 +73,8 @@ const (
 	p2pUsage                 = "enable p2p server"
 	p2PAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
+	metricsUsage             = "enable prometheus endpoint"
+	metricsPortUsage         = "The port on which the prometheus server will listen for requests"
 )
 
 var Version string
@@ -159,6 +165,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
+	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
+	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 
 	return junoCmd
 }
