@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
@@ -20,15 +22,26 @@ type HTTP struct {
 	log       utils.SimpleLogger
 	listener  net.Listener
 	urlPrefix string
+
+	// metrics
+	requests prometheus.Counter
 }
 
 func NewHTTP(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *HTTP {
-	return &HTTP{
+	h := &HTTP{
 		urlPrefix: urlPrefix,
 		rpc:       rpc,
 		log:       log,
 		listener:  listener,
+
+		requests: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "rpc",
+			Subsystem: "http",
+			Name:      "requests",
+		}),
 	}
+	metrics.MustRegister(h.requests)
+	return h
 }
 
 // Run starts to listen for HTTP requests
@@ -73,6 +86,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	}
 
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
+	h.requests.Inc()
 	resp, err := h.rpc.HandleReader(req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
