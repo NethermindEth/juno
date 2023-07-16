@@ -15,8 +15,8 @@ func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	}
 
 	result := make([]T2, len(slice))
-	for i, item := range slice {
-		result[i] = f(item)
+	for i, v := range slice {
+		result[i] = f(v)
 	}
 
 	return result
