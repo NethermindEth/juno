@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
@@ -48,6 +49,9 @@ type Config struct {
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
+	Metrics     bool   `mapstructure:"metrics"`
+	MetricsPort uint16 `mapstructure:"metrics-port"`
+
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
@@ -67,6 +71,8 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
+	metrics.Enabled = cfg.Metrics
+
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -144,6 +150,16 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		}
 
 		n.services = append(n.services, p2pService)
+	}
+
+	if n.cfg.Metrics {
+		metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", n.cfg.MetricsPort))
+		if err != nil {
+			return nil, fmt.Errorf("listen on metric port %d: %w", n.cfg.MetricsPort, err)
+		}
+		metricServer := metrics.New(metricsListener)
+
+		n.services = append(n.services, metricServer)
 	}
 
 	return n, nil
