@@ -10,13 +10,21 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/stream"
 )
 
 var _ service.Service = (*Synchronizer)(nil)
+
+const (
+	opVerifyLabel = "verify"
+	opStoreLabel  = "store"
+	opFetchLabel  = "fetch"
+)
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
@@ -30,17 +38,32 @@ type Synchronizer struct {
 	pendingPollInterval time.Duration
 
 	catchUpMode bool
+
+	// metrics
+	opTimers    *prometheus.HistogramVec
+	totalBlocks prometheus.Counter
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 	log utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
-	return &Synchronizer{
+	s := &Synchronizer{
 		Blockchain:          bc,
 		StarknetData:        starkNetData,
 		log:                 log,
 		pendingPollInterval: pendingPollInterval,
+
+		opTimers: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "sync",
+			Name:      "timers",
+		}, []string{"op"}),
+		totalBlocks: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "sync",
+			Name:      "blocks",
+		}),
 	}
+	metrics.MustRegister(s.opTimers, s.totalBlocks)
+	return s
 }
 
 // Run starts the Synchronizer, returns an error if the loop is already running
@@ -135,7 +158,9 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
+	timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opVerifyLabel))
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	timer.ObserveDuration()
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -146,7 +171,10 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opStoreLabel))
 			err = s.Blockchain.Store(block, stateUpdate, newClasses)
+			timer.ObserveDuration()
+
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 					// revert the head and restart the sync process, hoping that the reorg is not deep
@@ -160,6 +188,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.totalBlocks.Inc()
 
 			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
@@ -226,7 +255,10 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
-				return s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
+				timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opFetchLabel))
+				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
+				timer.ObserveDuration()
+				return cb
 			})
 			nextHeight++
 		}
