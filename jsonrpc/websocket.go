@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	"nhooyr.io/websocket"
 )
 
@@ -20,6 +22,9 @@ type Websocket struct {
 	connParams *WebsocketConnParams
 	listener   net.Listener
 	urlPrefix  string
+
+	// metrics
+	requests prometheus.Counter
 }
 
 func NewWebsocket(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
@@ -29,7 +34,15 @@ func NewWebsocket(urlPrefix string, listener net.Listener, rpc *Server, log util
 		connParams: DefaultWebsocketConnParams(),
 		listener:   listener,
 		urlPrefix:  urlPrefix,
+
+		requests: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "rpc",
+			Subsystem: "ws",
+			Name:      "requests",
+		}),
 	}
+
+	metrics.MustRegister(ws.requests)
 	return ws
 }
 
@@ -51,7 +64,7 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 
 		// TODO include connection information, such as the remote address, in the logs.
 
-		wsc := newWebsocketConn(conn, ws.rpc, ws.connParams)
+		wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
 
 		err = wsc.ReadWriteLoop(ctx)
 
@@ -117,17 +130,19 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 }
 
 type websocketConn struct {
-	conn   *websocket.Conn
-	rpc    *Server
-	params *WebsocketConnParams
+	conn     *websocket.Conn
+	rpc      *Server
+	params   *WebsocketConnParams
+	requests prometheus.Counter
 }
 
-func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams) *websocketConn {
+func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, requests prometheus.Counter) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
-		conn:   conn,
-		rpc:    rpc,
-		params: params,
+		conn:     conn,
+		rpc:      rpc,
+		params:   params,
+		requests: requests,
 	}
 }
 
@@ -142,6 +157,7 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 		// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
 		// permits concurrent writes.
 
+		wsc.requests.Inc()
 		// Decode the message, call the handler, encode the response.
 		resp, err := wsc.rpc.Handle(r)
 		if err != nil {
