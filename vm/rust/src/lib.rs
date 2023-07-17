@@ -246,7 +246,7 @@ pub extern "C" fn cairoVMExecute(
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
                 );
 
-                set_execution_info(
+                append_execution_info(
                     reader_handle,
                     t.into(),
                 );
@@ -255,7 +255,7 @@ pub extern "C" fn cairoVMExecute(
     }
 }
 
-fn set_execution_info(reader_handle: usize, info: execution_info::TransactionExecutionInfo) {
+fn append_execution_info(reader_handle: usize, info: execution_info::TransactionExecutionInfo) {
     let json = serde_json::to_string(&info).unwrap();
     let json_cstr = CString::new(json.as_str()).unwrap();
     unsafe {
