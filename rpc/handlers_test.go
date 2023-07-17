@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -2043,29 +2042,42 @@ func TestEstimateMessageFee(t *testing.T) {
 }
 
 func TestTraceTransaction(t *testing.T) {
-	t.Skip()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	vm := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, vm, "", log)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, mockVM, "", log)
 
 	hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+	tx := &core.DeclareTransaction{
+		TransactionHash: hash,
+		ClassHash:       utils.HexToFelt(t, "0x000000000"),
+	}
 	mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(1), nil)
-	mockReader.EXPECT().TransactionByHash(hash).Return(nil, nil)
+	mockReader.EXPECT().TransactionByHash(hash).Return(tx, nil)
 
 	const blockID uint64 = 0
 
+	declaredClass := &core.DeclaredClass{
+		At:    3002,
+		Class: nil,
+	}
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
+
 	NoopCloser := func() error { return nil }
 	mockReader.EXPECT().StateAtBlockNumber(blockID).Return(mockState, NoopCloser, nil)
 
 	header := &core.Header{}
 	mockReader.EXPECT().BlockHeaderByNumber(blockID).Return(header, nil)
 
-	trace, err := handler.TraceTransaction(*hash)
+	vmErr := errors.New("vm failure")
+	mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress, mockState, utils.MAINNET).Return(nil, nil, vmErr)
 
-	fmt.Println(trace, err)
+	trace, err := handler.TraceTransaction(*hash)
+	assert.Nil(t, trace)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Data, vmErr.Error())
 }
