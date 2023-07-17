@@ -68,8 +68,8 @@ func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
 	context.err = C.GoString(str)
 }
 
-//export JunoSetExecutionInfo
-func JunoSetExecutionInfo(readerHandle C.uintptr_t, jsonStr *C.char) {
+//export JunoAppendExecutionInfo
+func JunoAppendExecutionInfo(readerHandle C.uintptr_t, jsonStr *C.char) {
 	context := unwrapContext(readerHandle)
 	context.trace = C.GoString(jsonStr)
 }

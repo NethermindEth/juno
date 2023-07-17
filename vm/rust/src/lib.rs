@@ -50,7 +50,7 @@ use starknet_api::{
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
-    fn JunoSetExecutionInfo(reader_handle: usize, json_cstr: *const c_char);
+    fn JunoAppendExecutionInfo(reader_handle: usize, json_cstr: *const c_char);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar);
 }
@@ -259,7 +259,7 @@ fn set_execution_info(reader_handle: usize, info: execution_info::TransactionExe
     let json = serde_json::to_string(&info).unwrap();
     let json_cstr = CString::new(json.as_str()).unwrap();
     unsafe {
-        JunoSetExecutionInfo(reader_handle, json_cstr.as_ptr());
+        JunoAppendExecutionInfo(reader_handle, json_cstr.as_ptr());
     };
 }
 
