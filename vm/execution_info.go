@@ -22,6 +22,7 @@ type CallEntryPoint struct {
 	Calldata           []felt.Felt `json:"calldata"`
 	CallerAddress      felt.Felt   `json:"caller_address"`
 	ClassHash          *felt.Felt  `json:"class_hash"`
+	CodeAddress        *felt.Felt  `json:"code_address"`
 	EntryPointType     string      `json:"entry_point_type"`
 	CallType           CallType    `json:"call_type"`
 }

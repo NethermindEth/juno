@@ -1219,10 +1219,5 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 	}
 	txInfo := info[0]
 
-	return &TransactionTrace{
-		DeclareTxnTrace: DeclareTxnTrace{
-			ValidateInvocation:    adaptCallInfo(txInfo.ValidateCallInfo),
-			FeeTransferInvocation: adaptCallInfo(txInfo.FeeTransferCallInfo),
-		},
-	}, nil
+	return adaptTxExecutionInfo(tx, txInfo)
 }

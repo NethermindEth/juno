@@ -69,7 +69,6 @@ func bindStarknet(address common.Address, caller bind.ContractCaller, transactor
 //
 // Solidity: event LogStateUpdate(uint256 globalRoot, int256 blockNumber, uint256 blockHash)
 func (_Starknet *StarknetFilterer) WatchLogStateUpdate(opts *bind.WatchOpts, sink chan<- *StarknetLogStateUpdate) (event.Subscription, error) {
-
 	logs, sub, err := _Starknet.contract.WatchLogs(opts, "LogStateUpdate")
 	if err != nil {
 		return nil, err

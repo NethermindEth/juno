@@ -1,38 +1,63 @@
 package rpc
 
 import (
+	"fmt"
+
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
-type TransactionTrace struct {
-	// todo add the rest of types
-	DeclareTxnTrace
+type TransactionTrace interface {
+	trace()
 }
 
 type DeclareTxnTrace struct {
-	ValidateInvocation    FunctionInvocation `json:"validate_invocation"`
-	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation"`
+	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
+	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 }
 
+func (DeclareTxnTrace) trace() {}
+
 type InvokeTxnTrace struct {
-	ValidateInvocation FunctionInvocation `json:"validate_invocation"`
-	// todo add failure case https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_trace_api_openrpc.json#L171
-	ExecuteInvocation     FunctionInvocation `json:"execute_invocation"`
-	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation"`
+	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     ExecuteInvocation  `json:"execute_invocation,omitempty"`
+	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+}
+
+func (InvokeTxnTrace) trace() {}
+
+type DeployAccountTxnTrace struct {
+	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
+	ConstructorInvocation FunctionInvocation `json:"constructor_invocation,omitempty"`
+	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+}
+
+func (DeployAccountTxnTrace) trace() {}
+
+type L1HandlerTxnTrace struct {
+	FunctionInvocation FunctionInvocation `json:"function_invocation,omitempty"`
+}
+
+func (L1HandlerTxnTrace) trace() {}
+
+type ExecuteInvocation struct {
+	FunctionInvocation
+	RevertReason string `json:"revert_reason,omitempty"`
 }
 
 type FunctionInvocation struct {
 	FunctionCall
-	CallerAddress  *felt.Felt           `json:"caller_address"`
-	ClassHash      *felt.Felt           `json:"class_hash"`
-	EntryPointType EntryPointType       `json:"entry_point_type"`
-	CallType       CallType             `json:"call_type"`
-	Result         []felt.Felt          `json:"result"`
-	Calls          []FunctionInvocation `json:"calls"`
-	Events         []Event              `json:"events"`
-	Messages       []MsgToL1            `json:"msg_to_l1"`
+	CallerAddress  *felt.Felt           `json:"caller_address,omitempty"`
+	ClassHash      *felt.Felt           `json:"class_hash,omitempty"`
+	EntryPointType EntryPointType       `json:"entry_point_type,omitempty"`
+	CallType       CallType             `json:"call_type,omitempty"`
+	Result         []felt.Felt          `json:"result,omitempty"`
+	Calls          []FunctionInvocation `json:"calls,omitempty"`
+	Events         []EventContent       `json:"events,omitempty"`
+	Messages       []MsgToL1            `json:"msg_to_l1,omitempty"`
 }
 
 // enum: EXTERNAL, L1_HANDLER, CONSTRUCTOR
@@ -40,6 +65,45 @@ type EntryPointType string
 
 // enum: LIBRARY_CALL, CALL
 type CallType string
+
+type EventContent struct {
+	Keys []felt.Felt `json:"keys"`
+	Data []felt.Felt `json:"data"`
+}
+
+func adaptTxExecutionInfo(tx core.Transaction, info vm.TransactionExecutionInfo) (TransactionTrace, *jsonrpc.Error) {
+	switch tx.(type) {
+	case *core.DeclareTransaction:
+		return DeclareTxnTrace{
+			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
+			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
+		}, nil
+	case *core.InvokeTransaction:
+		return InvokeTxnTrace{
+			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
+			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
+			ExecuteInvocation: ExecuteInvocation{
+				FunctionInvocation: adaptCallInfo(info.ExecuteCallInfo),
+				// todo add revert info
+			},
+		}, nil
+	case *core.DeployAccountTransaction:
+		return DeployAccountTxnTrace{
+			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
+			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
+			// todo support constructor
+			ConstructorInvocation: FunctionInvocation{},
+		}, nil
+	case *core.L1HandlerTransaction:
+		return L1HandlerTxnTrace{
+			// todo support it
+			FunctionInvocation: FunctionInvocation{},
+		}, nil
+	default:
+		msg := fmt.Sprintf("unknown transaction type %T", tx)
+		return nil, jsonrpc.Err(jsonrpc.InternalError, msg)
+	}
+}
 
 func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
 	var result FunctionInvocation
@@ -52,6 +116,7 @@ func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
 		EntryPointSelector: info.Call.EntryPointSelector,
 		Calldata:           info.Call.Calldata,
 	}
+	result.CallerAddress = utils.Ptr(info.Call.CallerAddress)
 	result.ClassHash = info.Call.ClassHash
 	result.EntryPointType = EntryPointType(info.Call.EntryPointType)
 	result.CallType = CallType(info.Call.CallType)
@@ -59,11 +124,11 @@ func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
 	result.Calls = utils.Map(info.InnerCalls, func(innerInfo vm.CallInfo) FunctionInvocation {
 		return adaptCallInfo(&innerInfo)
 	})
-	result.Events = utils.Map(info.Execution.Events, func(event vm.OrderedEvent) Event {
+	result.Events = utils.Map(info.Execution.Events, func(event vm.OrderedEvent) EventContent {
 		e := event.Event
-		return Event{
-			Keys: utils.Map(e.Keys, utils.Ptr[felt.Felt]),
-			Data: utils.Map(e.Data, utils.Ptr[felt.Felt]),
+		return EventContent{
+			Keys: e.Keys,
+			Data: e.Data,
 		}
 	})
 	result.Messages = utils.Map(info.Execution.L2ToL1Messages, func(msg vm.OrderedL2ToL1Message) MsgToL1 {
