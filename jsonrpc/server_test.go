@@ -1,6 +1,7 @@
 package jsonrpc_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"testing"
@@ -441,7 +442,7 @@ func TestHandle(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			res, err := server.Handle(context.Background(), []byte(test.req))
+			res, err := server.HandleReader(context.Background(), bytes.NewReader([]byte(test.req)))
 			require.NoError(t, err)
 
 			if test.isBatch {
