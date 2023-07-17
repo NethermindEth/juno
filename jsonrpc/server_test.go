@@ -1,14 +1,16 @@
 package jsonrpc_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
+	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -442,13 +444,30 @@ func TestHandle(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			res, err := server.HandleReader(context.Background(), bytes.NewReader([]byte(test.req)))
-			require.NoError(t, err)
+			serverConn, clientConn := net.Pipe()
+			t.Cleanup(func() {
+				require.NoError(t, serverConn.Close())
+				require.NoError(t, clientConn.Close())
+			})
 
+			wg := conc.NewWaitGroup()
+			t.Cleanup(wg.Wait)
+			wg.Go(func() {
+				err := server.Handle(context.Background(), serverConn)
+				require.NoError(t, err)
+			})
+
+			write(t, clientConn, test.req)
+
+			if test.res == "" { // notification
+				return
+			}
+
+			got := read(t, clientConn, len(test.res))
 			if test.isBatch {
-				assertBatchResponse(t, test.res, string(res))
+				assertBatchResponse(t, test.res, got)
 			} else {
-				assert.Equal(t, test.res, string(res))
+				assert.Equal(t, test.res, got)
 			}
 		})
 	}
@@ -464,4 +483,16 @@ func assertBatchResponse(t *testing.T, expectedStr, actualStr string) {
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, expected, actual)
+}
+
+func read(t *testing.T, c io.Reader, length int) string {
+	got := make([]byte, length)
+	_, err := c.Read(got)
+	require.NoError(t, err)
+	return string(got)
+}
+
+func write(t *testing.T, c io.Writer, data string) {
+	_, err := c.Write([]byte(data))
+	require.NoError(t, err)
 }
