@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/NethermindEth/juno/metrics"
@@ -30,31 +31,51 @@ func NewHTTP(rpc *Server, log utils.SimpleLogger) *HTTP {
 	return h
 }
 
-// ServeHTTP processes an incoming HTTP request
-func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+type httpConn struct {
+	reqBody io.ReadCloser
+	rw      http.ResponseWriter
+}
+
+func accept(rw http.ResponseWriter, req *http.Request) *httpConn {
 	if req.Method == "GET" {
 		status := http.StatusNotFound
 		if req.URL.Path == "/" {
 			status = http.StatusOK
 		}
-		writer.WriteHeader(status)
-		return
+		rw.WriteHeader(status)
+		return nil
 	} else if req.Method != "POST" {
-		writer.WriteHeader(http.StatusMethodNotAllowed)
-		return
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+		return nil
 	}
 
-	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	h.requests.Inc()
-	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
-	writer.Header().Set("Content-Type", "application/json")
-	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+	return &httpConn{
+		reqBody: http.MaxBytesReader(rw, req.Body, MaxRequestBodySize),
+		rw:      rw,
 	}
-	if resp != nil {
-		_, err = writer.Write(resp)
-		if err != nil {
-			h.log.Warnw("Failed writing response", "err", err)
-		}
+}
+
+func (c *httpConn) Read(p []byte) (int, error) {
+	return c.reqBody.Read(p)
+}
+
+// Write returns the number of bytes of p written, not including the header.
+func (c *httpConn) Write(p []byte) (int, error) {
+	c.rw.Header().Set("Content-Type", "application/json")
+	if p == nil {
+		return 0, nil
+	}
+	return c.rw.Write(p)
+}
+
+// ServeHTTP processes an incoming HTTP request
+func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+	conn := accept(writer, req)
+	if conn == nil {
+		return
+	}
+	h.requests.Inc()
+	if err := h.rpc.Handle(req.Context(), conn); err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
 	}
 }

@@ -181,10 +181,25 @@ func (s *Server) RegisterMethod(method Method) error {
 	return nil
 }
 
-// HandleReader processes a request to the server
+// Handle reads a JSON-RPC request from conn and writes the response.
+func (s *Server) Handle(ctx context.Context, conn io.ReadWriter) error {
+	resp, err := s.handle(ctx, conn)
+	if err != nil {
+		return err
+	}
+	if resp == nil {
+		return nil
+	}
+	if _, err = conn.Write(resp); err != nil {
+		return err
+	}
+	return nil
+}
+
+// handle processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
-func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, error) {
+func (s *Server) handle(ctx context.Context, reader io.Reader) ([]byte, error) {
 	bufferedReader := bufio.NewReader(reader)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
