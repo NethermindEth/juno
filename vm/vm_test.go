@@ -51,7 +51,7 @@ func TestV0Call(t *testing.T) {
 	}))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-	ret, err := Call(contractAddr, entryPoint, nil, 0, 0, testState, utils.MAINNET)
+	ret, err := New().Call(contractAddr, entryPoint, nil, 0, 0, testState, utils.MAINNET)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -70,7 +70,7 @@ func TestV0Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = Call(contractAddr, entryPoint, nil, 1, 0, testState, utils.MAINNET)
+	ret, err = New().Call(contractAddr, entryPoint, nil, 1, 0, testState, utils.MAINNET)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -112,7 +112,7 @@ func TestV1Call(t *testing.T) {
 	// test_storage_read
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
-	ret, err := Call(contractAddr, entryPoint, []felt.Felt{
+	ret, err := New().Call(contractAddr, entryPoint, []felt.Felt{
 		*storageLocation,
 	}, 0, 0, testState, utils.GOERLI)
 	require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestV1Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = Call(contractAddr, entryPoint, []felt.Felt{
+	ret, err = New().Call(contractAddr, entryPoint, []felt.Felt{
 		*storageLocation,
 	}, 1, 0, testState, utils.GOERLI)
 	require.NoError(t, err)
