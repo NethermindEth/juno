@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -125,7 +126,7 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 
 		wsc.requests.Inc()
 		// Decode the message, call the handler, encode the response.
-		resp, err := wsc.rpc.Handle(ctx, r)
+		resp, err := wsc.rpc.HandleReader(ctx, bytes.NewReader(r))
 		if err != nil {
 			// RPC handling issues should not affect the connection.
 			// Ignore the request and let the client close the connection.
