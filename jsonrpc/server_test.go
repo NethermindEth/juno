@@ -1,6 +1,7 @@
 package jsonrpc_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -402,7 +403,7 @@ func TestHandle(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			res, err := server.Handle([]byte(test.req))
+			res, err := server.HandleReader(bytes.NewReader([]byte(test.req)))
 			require.NoError(t, err)
 			assert.Equal(t, test.res, string(res))
 		})

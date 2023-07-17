@@ -147,13 +147,6 @@ func (s *Server) RegisterMethod(method Method) error {
 	return nil
 }
 
-// Handle processes a request to the server
-// It returns the response in a byte array, only returns an
-// error if it can not create the response byte array
-func (s *Server) Handle(data []byte) ([]byte, error) {
-	return s.HandleReader(bytes.NewReader(data))
-}
-
 // HandleReader processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
