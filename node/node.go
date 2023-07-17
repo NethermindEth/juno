@@ -309,7 +309,7 @@ func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleL
 // All the services blocking and any errors returned by service run function is logged.
 // Run will wait for all services to return before exiting.
 func (n *Node) Run(ctx context.Context) {
-	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
+	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg), "version", n.version)
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
