@@ -49,12 +49,13 @@ type Handler struct {
 	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
+	vm            vm.VM
 	log           utils.Logger
 	version       string
 }
 
 func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
-	gatewayClient Gateway, feederClient *feeder.Client, version string, logger utils.Logger,
+	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
@@ -63,6 +64,7 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Ne
 		log:           logger,
 		feederClient:  feederClient,
 		gatewayClient: gatewayClient,
+		vm:            virtualMachine,
 		version:       version,
 	}
 }
@@ -1036,7 +1038,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		blockNumber = height + 1
 	}
 
-	res, err := vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
+	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
 		contractErr := *ErrContractError
 		contractErr.Data = err.Error()
@@ -1134,7 +1136,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 		blockNumber = height + 1
 	}
 
-	gasesConsumed, err := vm.Execute(txns, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
+	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()

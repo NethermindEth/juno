@@ -26,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
@@ -94,7 +95,8 @@ func New(cfg *Config, version string) (*Node, error) {
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
-	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
+	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
 	if err != nil {
 		log.Errorw("Failed to create RPC servers", "err", err)
 		return nil, err
