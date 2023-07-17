@@ -1218,6 +1218,9 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
+	fmt.Println("Validate", info.ValidateCallInfo)
+	fmt.Println("FeeTransfer", info.FeeTransferCallInfo)
+
 	return &TransactionTrace{
 		DeclareTxnTrace: DeclareTxnTrace{
 			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),

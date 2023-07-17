@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -2039,4 +2040,32 @@ func TestEstimateMessageFee(t *testing.T) {
 		GasPrice:    latestHeader.GasPrice,
 		OverallFee:  new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
 	}, *gasConsumed)
+}
+
+func TestTraceTransaction(t *testing.T) {
+	t.Skip()
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	vm := mocks.NewMockVM(mockCtrl)
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, vm, "", log)
+
+	hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+	mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(1), nil)
+	mockReader.EXPECT().TransactionByHash(hash).Return(nil, nil)
+
+	const blockID uint64 = 0
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	NoopCloser := func() error { return nil }
+	mockReader.EXPECT().StateAtBlockNumber(blockID).Return(mockState, NoopCloser, nil)
+
+	header := &core.Header{}
+	mockReader.EXPECT().BlockHeaderByNumber(blockID).Return(header, nil)
+
+	trace, err := handler.TraceTransaction(*hash)
+
+	fmt.Println(trace, err)
 }
