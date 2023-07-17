@@ -53,32 +53,54 @@ func (h *HTTP) Run(ctx context.Context) error {
 	return <-errCh
 }
 
-// ServeHTTP processes an incoming HTTP request
-func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+type httpConn struct {
+	req *http.Request
+	rw  http.ResponseWriter
+}
+
+func accept(rw http.ResponseWriter, req *http.Request) *httpConn {
 	if req.Method == "GET" {
 		status := http.StatusNotFound
 		if req.URL.Path == "/" {
 			status = http.StatusOK
 		}
-		writer.WriteHeader(status)
-		return
+		rw.WriteHeader(status)
+		return nil
 	} else if req.Method != "POST" {
-		writer.WriteHeader(http.StatusMethodNotAllowed)
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+		return nil
+	}
+	return &httpConn{
+		req: req,
+		rw:  rw,
+	}
+}
+
+func (c *httpConn) Read(p []byte) (int, error) {
+	c.req.Body = http.MaxBytesReader(c.rw, c.req.Body, MaxRequestBodySize)
+	return c.req.Body.Read(p)
+}
+
+// Write returns the number of bytes of p written, not including the header.
+func (c *httpConn) Write(p []byte) (int, error) {
+	c.rw.Header().Set("Content-Type", "application/json")
+	c.rw.WriteHeader(http.StatusOK)
+	if p != nil {
+		n, err := c.rw.Write(p)
+		if err != nil {
+			return n, err
+		}
+	}
+	return 0, nil
+}
+
+// ServeHTTP processes an incoming HTTP request
+func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+	conn := accept(writer, req)
+	if conn == nil {
 		return
 	}
-
-	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	resp, err := h.rpc.HandleReader(req.Body)
-	writer.Header().Set("Content-Type", "application/json")
-	if err != nil {
+	if err := h.rpc.Handle(conn); err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
-	} else {
-		writer.WriteHeader(http.StatusOK)
-	}
-	if resp != nil {
-		_, err = writer.Write(resp)
-		if err != nil {
-			writer.WriteHeader(http.StatusInternalServerError)
-		}
 	}
 }

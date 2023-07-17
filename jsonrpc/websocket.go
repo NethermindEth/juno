@@ -1,7 +1,6 @@
 package jsonrpc
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"net"
@@ -50,9 +49,9 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 
 		// TODO include connection information, such as the remote address, in the logs.
 
-		wsc := newWebsocketConn(conn, ws.rpc, ws.connParams)
+		wsc := newWebsocketConn(ctx, conn, ws.rpc, ws.connParams)
 
-		err = wsc.ReadWriteLoop(ctx)
+		err = wsc.ReadWriteLoop()
 
 		var errClose websocket.CloseError
 		if errors.As(err, &errClose) {
@@ -116,55 +115,49 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 
 type websocketConn struct {
 	conn   *websocket.Conn
+	ctx    context.Context
 	rpc    *Server
 	params *WebsocketConnParams
 }
 
-func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams) *websocketConn {
+func newWebsocketConn(ctx context.Context, conn *websocket.Conn, rpc *Server, params *WebsocketConnParams) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
 		conn:   conn,
+		ctx:    ctx,
 		rpc:    rpc,
 		params: params,
 	}
 }
 
-func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
-	for {
-		// Read next message from the client.
-		_, r, err := wsc.Read(ctx)
-		if err != nil {
-			return err
-		}
-
-		// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
-		// permits concurrent writes.
-
-		// Decode the message, call the handler, encode the response.
-		resp, err := wsc.rpc.HandleReader(bytes.NewReader(r))
-		if err != nil {
-			// RPC handling issues should not affect the connection.
-			// Ignore the request and let the client close the connection.
-			// TODO: is there a better way to do this?
-			continue
-		}
-
-		// Send the message to the client.
-		if err := wsc.Write(ctx, resp); err != nil {
-			return err
-		}
+func (wsc *websocketConn) ReadWriteLoop() error {
+	var err error
+	for err == nil {
+		// Handle will read and write the connection once.
+		err = wsc.rpc.Handle(wsc)
 	}
+	return err
 }
 
-func (wsc *websocketConn) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
-	readCtx, readCancel := context.WithTimeout(ctx, wsc.params.ReadDuration)
+func (wsc *websocketConn) Read(p []byte) (int, error) {
+	readCtx, readCancel := context.WithTimeout(wsc.ctx, wsc.params.ReadDuration)
 	defer readCancel()
-	return wsc.conn.Read(readCtx)
+	var err error
+	_, r, err := wsc.conn.Read(readCtx)
+	return copy(p, r), err // TODO how can we remove this copy?
 }
 
-func (wsc *websocketConn) Write(ctx context.Context, msg []byte) error {
-	writeCtx, writeCancel := context.WithTimeout(ctx, wsc.params.WriteDuration)
+// Write returns the number of bytes of p sent, not including the header.
+func (wsc *websocketConn) Write(p []byte) (int, error) {
+	// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
+	// permits concurrent writes.
+
+	writeCtx, writeCancel := context.WithTimeout(wsc.ctx, wsc.params.WriteDuration)
 	defer writeCancel()
 	// Use MessageText since JSON is a text format.
-	return wsc.conn.Write(writeCtx, websocket.MessageText, msg)
+	err := wsc.conn.Write(writeCtx, websocket.MessageText, p)
+	if err != nil {
+		return 0, err
+	}
+	return len(p), err
 }

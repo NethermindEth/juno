@@ -1,12 +1,12 @@
 package jsonrpc_test
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
+	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -403,9 +403,45 @@ func TestHandle(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			res, err := server.HandleReader(bytes.NewReader([]byte(test.req)))
-			require.NoError(t, err)
-			assert.Equal(t, test.res, string(res))
+			serverConn, clientConn := testConns(t)
+
+			wg := conc.NewWaitGroup()
+			wg.Go(func() {
+				err := server.Handle(serverConn)
+				require.NoError(t, err)
+			})
+			t.Cleanup(wg.Wait)
+
+			write(t, clientConn, test.req)
+			got := read(t, clientConn, len(test.res))
+			assert.Equal(t, test.res, got)
 		})
 	}
+}
+
+func read(t *testing.T, c *jsonrpc.MemConn, length int) string {
+	got := make([]byte, length)
+	_, err := c.Read(got)
+	require.NoError(t, err)
+	return string(got)
+}
+
+func write(t *testing.T, c *jsonrpc.MemConn, data string) {
+	_, err := c.Write([]byte(data))
+	require.NoError(t, err)
+}
+
+// testConns returns in-memory server and client connections, respectively.
+func testConns(t *testing.T) (*jsonrpc.MemConn, *jsonrpc.MemConn) {
+	serverSend := make(chan []byte)
+	serverRecv := make(chan []byte)
+	t.Cleanup(func() {
+		close(serverSend)
+		close(serverRecv)
+	})
+
+	serverConn := jsonrpc.NewMemConn(serverSend, serverRecv)
+	clientConn := jsonrpc.NewMemConn(serverRecv, serverSend)
+
+	return serverConn, clientConn
 }

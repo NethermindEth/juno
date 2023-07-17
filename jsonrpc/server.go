@@ -147,10 +147,22 @@ func (s *Server) RegisterMethod(method Method) error {
 	return nil
 }
 
-// HandleReader processes a request to the server
+// Handle reads a JSON-RPC request from conn and writes the response.
+func (s *Server) Handle(conn io.ReadWriter) error {
+	resp, err := s.handle(conn)
+	if err != nil {
+		return err
+	}
+	if _, err = conn.Write(resp); err != nil {
+		return err
+	}
+	return nil
+}
+
+// handle processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
-func (s *Server) HandleReader(reader io.Reader) ([]byte, error) {
+func (s *Server) handle(reader io.Reader) ([]byte, error) {
 	bufferedReader := bufio.NewReader(reader)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
