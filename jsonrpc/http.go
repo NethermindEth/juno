@@ -55,9 +55,15 @@ func (h *HTTP) Run(ctx context.Context) error {
 
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
-	if req.Method != "POST" {
+	if req.Method == "GET" {
+		status := http.StatusNotFound
+		if req.URL.Path == "/" {
+			status = http.StatusOK
+		}
+		writer.WriteHeader(status)
+		return
+	} else if req.Method != "POST" {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
-		req.Close = true
 		return
 	}
 
