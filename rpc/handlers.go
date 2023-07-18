@@ -1186,9 +1186,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	id := &BlockID{Number: blockNumber - 1}
-
-	state, closer, err := h.stateByBlockID(id)
+	state, closer, err := h.bcReader.StateAtBlockNumber(blockNumber -1)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
@@ -1214,8 +1212,9 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 
 	_, err = h.vm.Execute([]core.Transaction{tx}, classes, header.Number, header.Timestamp, header.SequencerAddress, state, h.network, nil)
 	if err != nil {
-		err = fmt.Errorf("vm.Execute: %w", err)
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+                rpcErr := *ErrContractError
+                rpcErr.Data = err.Error()
+                return nil, &rpcErr
 	}
 	txInfo := info[0]
 
