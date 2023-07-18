@@ -1,12 +1,12 @@
 package utils
 
 func Flatten[T any](slices ...[]T) []T {
-	var res []T
+	var result []T
 	for _, slice := range slices {
-		res = append(res, slice...)
+		result = append(result, slice...)
 	}
 
-	return res
+	return result
 }
 
 func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {

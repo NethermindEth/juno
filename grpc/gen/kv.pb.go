@@ -370,6 +370,7 @@ var (
 		(*emptypb.Empty)(nil), // 4: google.protobuf.Empty
 	}
 )
+
 var file_kv_proto_depIdxs = []int32{
 	0, // 0: database.Cursor.op:type_name -> database.Op
 	4, // 1: database.KV.Version:input_type -> google.protobuf.Empty

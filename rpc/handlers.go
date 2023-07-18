@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -616,11 +617,9 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getNonce")
 
 	nonce, err := stateReader.ContractNonce(&address)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getNonce", "err", closerErr)
-	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -637,11 +636,9 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
 	value, err := stateReader.ContractStorage(&address, &key)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getStorageAt", "err", closerErr)
-	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -658,11 +655,9 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
 	classHash, err := stateReader.ContractClassHash(&address)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getClassHashAt", "err", closerErr)
-	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -801,12 +796,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if err != nil {
 		return nil, ErrInternal
 	}
-
-	defer func() {
-		if closerErr := filter.Close(); closerErr != nil {
-			h.log.Errorw("Error closing event filter in events", "err", closerErr)
-		}
-	}()
+	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
 
 	var cToken *blockchain.ContinuationToken
 	if len(args.ContinuationToken) > 0 {
@@ -999,11 +989,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			h.log.Errorw("Failed to close state in starknet_call", "err", closeErr)
-		}
-	}()
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
 
 	header, err := h.blockHeaderByID(&id)
 	if err != nil {
@@ -1087,11 +1073,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			h.log.Errorw("Failed to close state in starknet_estimateFee", "err", closeErr)
-		}
-	}()
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, err := h.blockHeaderByID(&id)
 	if err != nil {
@@ -1176,47 +1158,70 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 	return &estimates[0], nil
 }
 
+// TraceTransaction returns the trace for a given executed transaction, including internal calls
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	tx, err := h.bcReader.TransactionByHash(&hash)
+
+	state, closer, err := h.bcReader.StateAtBlockNumber(blockNumber - 1)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_traceTransaction")
+
+	block, err := h.bcReader.BlockByNumber(blockNumber)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	headState, headStateCloser, err := h.bcReader.HeadState()
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
+	defer h.callAndLogErr(headStateCloser, "Failed to close head state in starknet_traceTransaction")
 
-	state, closer, err := h.bcReader.StateAtBlockNumber(blockNumber -1)
-	if err != nil {
-		return nil, ErrBlockNotFound
-	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			h.log.Warnw("Failed to close state in starknet_call", "err", closeErr)
-		}
-	}()
-
-	header, err := h.blockHeaderByID(id)
-	if err != nil {
-		return nil, ErrBlockNotFound
-	}
-
+	var (
+		txIndex int
+		tx      core.Transaction
+	)
 	var classes []core.Class
-	if tx, ok := tx.(*core.DeclareTransaction); ok {
-		class, stateErr := state.Class(tx.ClassHash)
-		if err != nil {
+	for i, transaction := range block.Transactions {
+		if transaction.Hash().Equal(&hash) {
+			txIndex = i
+			tx = transaction
+		}
+
+		declareTx, ok := transaction.(*core.DeclareTransaction)
+		if !ok {
+			continue
+		}
+
+		class, stateErr := headState.Class(declareTx.ClassHash)
+		if stateErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
 		}
 		classes = append(classes, class.Class)
 	}
 
-	_, err = h.vm.Execute([]core.Transaction{tx}, classes, header.Number, header.Timestamp, header.SequencerAddress, state, h.network, nil)
+	header := block.Header
+	_, info, err := h.vm.Execute(block.Transactions, classes, header.Number, header.Timestamp, header.SequencerAddress, state, h.network)
 	if err != nil {
-                rpcErr := *ErrContractError
-                rpcErr.Data = err.Error()
-                return nil, &rpcErr
+		rpcErr := *ErrContractError
+		rpcErr.Data = err.Error()
+		return nil, &rpcErr
 	}
-	txInfo := info[0]
+	txInfo := info[txIndex]
 
 	return adaptTxExecutionInfo(tx, txInfo)
+}
+
+func (h *Handler) callAndLogErr(f func() error, msg string) {
+	if err := f(); err != nil {
+		h.log.Errorw(msg, "err", err)
+	}
 }

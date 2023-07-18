@@ -2,7 +2,7 @@ package vm
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -43,7 +43,7 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	case *core.L1HandlerTransaction:
 		txnMap["L1Handler"] = t
 	default:
-		return nil, errors.New("unsupported txn type")
+		return nil, fmt.Errorf("unsupported txn type %T", txn)
 	}
 	return json.Marshal(txnMap)
 }
