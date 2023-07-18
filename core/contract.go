@@ -226,6 +226,12 @@ func (c *Contract) Replace(classHash *felt.Felt) error {
 
 // storage returns the [core.Trie] that represents the
 // storage of the contract.
+func (c *Contract) StorageTrie() (*trie.Trie, error) {
+	return storage(c.Address, c.txn)
+}
+
+// storage returns the [core.Trie] that represents the
+// storage of the contract.
 func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	var contractRootKey *bitset.BitSet

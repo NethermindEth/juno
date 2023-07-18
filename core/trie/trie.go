@@ -5,7 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/db/pebble"
+	xslices "golang.org/x/exp/slices"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -19,10 +22,11 @@ type Storage interface {
 	Put(key *bitset.BitSet, value *Node) error
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
-	IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) bool) error
+	IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) (bool, error)) error
 }
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
@@ -61,6 +65,10 @@ func NewTriePoseidon(storage Storage, height uint, rootKey *bitset.BitSet) (*Tri
 	return newTrie(storage, height, rootKey, crypto.Poseidon)
 }
 
+func NewTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash HashFunc) (*Trie, error) {
+	return newTrie(storage, height, rootKey, hashFunc(hash))
+}
+
 func newTrie(storage Storage, height uint, rootKey *bitset.BitSet, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
@@ -88,6 +96,10 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	return do(trie)
 }
 
+func (t *Trie) FeltToBitSet(k *felt.Felt) *bitset.BitSet {
+	return t.feltToBitSet(k)
+}
+
 // feltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
@@ -99,12 +111,32 @@ func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
 	return bitset.FromWithLength(t.height, kBits[:])
 }
 
+func FeltToBitSet(k *felt.Felt, h uint) *bitset.BitSet {
+	if k == nil {
+		return nil
+	}
+
+	kBits := k.Bits()
+	return bitset.FromWithLength(h, kBits[:])
+}
+
 func (t *Trie) bitSetToFelt(path *bitset.BitSet) *felt.Felt {
 	pathWords := path.Bytes()
 	if len(pathWords) > felt.Limbs {
 		panic(fmt.Sprintf("key too long to fit in Felt %d %d", len(pathWords), felt.Limbs))
 	}
 
+	var pathBytes [felt.Bytes]byte
+	for idx, word := range pathWords {
+		startBytes := 24 - (idx * 8)
+		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
+	}
+
+	return new(felt.Felt).SetBytes(pathBytes[:])
+}
+
+func BitSetToFeltForce(path *bitset.BitSet) *felt.Felt {
+	pathWords := path.Bytes()
 	var pathBytes [felt.Bytes]byte
 	for idx, word := range pathWords {
 		startBytes := 24 - (idx * 8)
@@ -207,11 +239,11 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
-func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) bool) error {
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) error {
 	// TODO: Dirty nodes?
 	// Since the length of the bitset is t.height, its always going to loop through the key until it reach
 	// another DB.
-	return t.storage.IterateFrom(t.feltToBitSet(startValue), func(key *bitset.BitSet, node *Node) bool {
+	return t.storage.IterateFrom(t.feltToBitSet(startValue), func(key *bitset.BitSet, node *Node) (bool, error) {
 		// fmt.Printf("the len %d\n", key.Len())
 		return consumer(t.bitSetToFelt(key), node.Value)
 	})
@@ -407,7 +439,7 @@ func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
 	}
 
 	// leaf node
-	if key.Len() == t.height {
+	if key.Len() == t.height && !key.Equal(bitset.New(t.height)) {
 		return node, nil
 	}
 
@@ -566,4 +598,78 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 		rootKey: root.Right,
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
+}
+
+func bitSetToArray(path *bitset.BitSet) []byte {
+
+	buff := make([]byte, 8*len(path.Bytes()))
+
+	for i, b := range path.Bytes() {
+		binary.BigEndian.PutUint64(buff[24-i*8:], b)
+	}
+
+	theint := &big.Int{}
+	theint = theint.SetBytes(buff)
+	if path.Len() < 251 {
+		theint = theint.Lsh(theint, 251-path.Len())
+	}
+
+	return theint.Bytes()
+}
+
+func ReverseSlice[T comparable](s []T) {
+	sort.SliceStable(s, func(i, j int) bool {
+		return i > j
+	})
+}
+
+func IsBitsetHigher(b1, b2 *bitset.BitSet) bool {
+	b1buff := bitSetToArray(b1)
+	b2buff := bitSetToArray(b2)
+
+	return xslices.Compare(b1buff, b2buff) > 0
+}
+
+func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt, proofs []*ProofNode, hash HashFunc) (bool, error) {
+	db2, err := pebble.NewMem()
+	if err != nil {
+		return false, err
+	}
+
+	tr2, err := NewTrie(NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251, nil, hash)
+	if err != nil {
+		return false, err
+	}
+
+	for i, path := range paths {
+		_, err := tr2.Put(path, hashes[i])
+		if err != nil {
+			return false, err
+		}
+	}
+
+	hasNext := false
+	lastPath := tr2.FeltToBitSet(paths[len(paths)-1])
+	for _, proof := range proofs {
+		fmt.Printf("%v %08b %d vs %08b %d\n", IsBitsetHigher(proof.Key, lastPath), bitSetToArray(proof.Key), proof.Key.Len(), bitSetToArray(lastPath), lastPath.Len())
+
+		if IsBitsetHigher(proof.Key, lastPath) {
+			hasNext = true
+		}
+		err := tr2.SetProofNode(proof.Key, proof.Hash)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	tr2root, err := tr2.Root()
+	if err != nil {
+		return false, nil
+	}
+
+	if !tr2root.Equal(expectedRoot) {
+		return false, fmt.Errorf("hash mismatch %s vs %s", tr2root.String(), expectedRoot.String())
+	}
+
+	return hasNext, nil
 }

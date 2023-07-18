@@ -101,6 +101,15 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 	return contract.Storage(key)
 }
 
+func (s *State) Contract(addr *felt.Felt) (*Contract, error) {
+	contract, err := NewContract(addr, s.txn)
+	if err != nil {
+		return nil, err
+	}
+
+	return contract, nil
+}
+
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
 	var storageRoot, classesRoot *felt.Felt
@@ -256,7 +265,9 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	return s.verifyStateUpdateRoot(update.NewRoot)
+	ret := s.verifyStateUpdateRoot(update.NewRoot)
+
+	return ret
 }
 
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {

@@ -116,7 +116,7 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 	return node, err
 }
 
-func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) bool) error {
+func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) (bool, error)) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -156,7 +156,11 @@ func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bits
 			return err
 		}
 
-		if !consumer(btset, node) {
+		cont, err := consumer(btset, node)
+		if err != nil {
+			return err
+		}
+		if !cont {
 			break
 		}
 
