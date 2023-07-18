@@ -35,10 +35,8 @@ const (
 
 type Service struct {
 	host       host.Host
-	userAgent  string
 	bootPeers  string
 	network    utils.Network
-	syncServer blockSyncServer
 	blockchain *blockchain.Blockchain
 
 	dht *dht.IpfsDHT

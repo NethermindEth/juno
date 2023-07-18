@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/nsf/jsondiff"
-	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,6 +15,8 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/nsf/jsondiff"
+	"github.com/pkg/errors"
 )
 
 type mapClassProvider struct {
@@ -46,24 +46,24 @@ func (c *mapClassProvider) Intercept(provider ClassProvider) {
 }
 
 func (c *mapClassProvider) Load() {
-	bytes, err := os.ReadFile("converter_tests/classes.dat")
+	classesData, err := os.ReadFile("converter_tests/classes.dat")
 	if err != nil {
 		panic(err)
 	}
 
-	err = encoder.Unmarshal(bytes, &c.classes)
+	err = encoder.Unmarshal(classesData, &c.classes)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (c *mapClassProvider) Save() {
-	bytes, err := encoder.Marshal(c.classes)
+	classesData, err := encoder.Marshal(c.classes)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile("converter_tests/classes.dat", bytes, 0o666)
+	err = os.WriteFile("converter_tests/classes.dat", classesData, 0o666)
 	if err != nil {
 		panic(err)
 	}
@@ -133,7 +133,10 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 		}
 
 		t.Run(filename, func(t *testing.T) {
-			runEncodeDecodeBlockTest(t, &c, bc.Network(), &block)
+			err := testBlockEncoding(&block, &c)
+			if err != nil {
+				t.Fatalf("error on block encoding test %s", err)
+			}
 		})
 	}
 
@@ -142,15 +145,8 @@ func TestEncodeDecodeBlocks(t *testing.T) {
 	}
 }
 
-func runEncodeDecodeBlockTest(t *testing.T, c *converter, network utils.Network, originalBlock *core.Block) {
-	err := testBlockEncoding(originalBlock, c, network, false)
-	if err != nil {
-		t.Fatalf("error on block encoding test %s", err)
-	}
-}
-
 // This was originally meant to be a util code that run on all blocks.
-func testBlockEncoding(originalBlock *core.Block, c *converter, network utils.Network, saveOnFailure bool) error {
+func testBlockEncoding(originalBlock *core.Block, c *converter) error {
 	originalBlock.ProtocolVersion = ""
 
 	protoheader, err := c.coreBlockToProtobufHeader(originalBlock)
@@ -163,26 +159,14 @@ func testBlockEncoding(originalBlock *core.Block, c *converter, network utils.Ne
 		return err
 	}
 
-	newCoreBlock, classes, err := c.protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
+	newCoreBlock, classesInBody, err := c.protobufHeaderAndBodyToCoreBlock(protoheader, protoBody)
 	if err != nil {
 		return err
 	}
 
-	for key, class := range classes {
-		declaredClass, err := c.classprovider.GetClass(&key)
-		if err != nil {
-			return err
-		}
-
-		currentClass := declaredClass.Class
-		if v, ok := currentClass.(*core.Cairo1Class); ok {
-			panic(fmt.Sprintf("Got cairo1 at block %d\n", originalBlock.Number))
-			v.Compiled = nil
-		}
-
-		if !compareAndPrintDiff(currentClass, class) {
-			return errors.New("class mismatch")
-		}
+	err2 := compareClasses(classesInBody, c)
+	if err2 != nil {
+		return err2
 	}
 
 	newCoreBlock.ProtocolVersion = ""
@@ -201,63 +185,28 @@ func testBlockEncoding(originalBlock *core.Block, c *converter, network utils.Ne
 	}
 
 	if !bytes.Equal(gatewayjson, reencodedblockjson) {
-
-		updateBytes, err := encoder.Marshal(originalBlock)
-		if err != nil {
-			return err
-		}
-
-		if saveOnFailure {
-			err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/blocks/%d.dat", originalBlock.Number), updateBytes, 0o666)
-			if err != nil {
-				return err
-			}
-		}
-
-		for i, receipt := range originalBlock.Receipts {
-			tx := originalBlock.Transactions[i]
-
-			tx2 := newCoreBlock.Transactions[i]
-			receipt2 := newCoreBlock.Receipts[i]
-
-			if !compareAndPrintDiff(tx, tx2) {
-				return errors.New("tx mismatch.")
-			}
-
-			if !compareAndPrintDiff(receipt, receipt2) {
-				return errors.New("receipt mismatch")
-			}
-		}
-
-		txCommit, err := originalBlock.CalculateTransactionCommitment()
-		if err != nil {
-			return err
-		}
-
-		eCommit, err := originalBlock.CalculateEventCommitment()
-		if err != nil {
-			return err
-		}
-
-		headeragain, _ := c.coreBlockToProtobufHeader(originalBlock)
-		txCommit2 := fieldElementToFelt(headeragain.TransactionCommitment)
-		eCommit2 := fieldElementToFelt(headeragain.EventCommitment)
-		if !txCommit.Equal(txCommit2) {
-			return errors.New("Tx commit not match")
-		}
-		if !eCommit.Equal(eCommit2) {
-			return errors.New("Event commit not match")
-		}
-
-		err = core.VerifyBlockHash(originalBlock, network)
-		if err != nil {
-			return err
-		}
-
-		compareAndPrintDiff(originalBlock, newCoreBlock)
 		return errors.New("Mismatch")
 	}
 
+	return nil
+}
+
+func compareClasses(classes map[felt.Felt]core.Class, c *converter) error {
+	for key, class := range classes {
+		declaredClass, err2 := c.classprovider.GetClass(&key)
+		if err2 != nil {
+			return err2
+		}
+
+		currentClass := declaredClass.Class
+		if v, ok := currentClass.(*core.Cairo1Class); ok {
+			v.Compiled = nil
+		}
+
+		if !compareAndPrintDiff(currentClass, class) {
+			return errors.New("class mismatch")
+		}
+	}
 	return nil
 }
 
@@ -318,7 +267,6 @@ func testStateDiff(stateDiff *core.StateUpdate) error {
 	if err != nil {
 		return err
 	}
-	//nolint:gomnd
 	err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/state_updates/%s.dat", oriBlockHash.String()), updateBytes, 0o600)
 	if err != nil {
 		return err

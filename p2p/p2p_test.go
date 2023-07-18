@@ -2,13 +2,13 @@ package p2p_test
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/db/pebble"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
