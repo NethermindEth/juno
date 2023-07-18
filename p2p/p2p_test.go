@@ -2,6 +2,8 @@ package p2p_test
 
 import (
 	"context"
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/db/pebble"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +16,12 @@ import (
 )
 
 func TestService(t *testing.T) {
+	db, err := pebble.NewMem()
+	if err != nil {
+		panic(err)
+	}
+	bc := blockchain.New(db, utils.INTEGRATION, utils.NewNopZapLogger())
+
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	peerA, err := p2p.New(
@@ -21,6 +29,7 @@ func TestService(t *testing.T) {
 		"peerA",
 		"",
 		"",
+		bc,
 		utils.INTEGRATION,
 		utils.NewNopZapLogger(),
 	)
@@ -42,6 +51,7 @@ func TestService(t *testing.T) {
 		"peerB",
 		strings.Join(bootAddrsString, ","),
 		"",
+		bc,
 		utils.INTEGRATION,
 		utils.NewNopZapLogger(),
 	)
@@ -75,6 +85,7 @@ func TestInvalidKey(t *testing.T) {
 		"peerA",
 		"",
 		"something",
+		nil,
 		utils.INTEGRATION,
 		utils.NewNopZapLogger(),
 	)
@@ -88,6 +99,7 @@ func TestValidKey(t *testing.T) {
 		"peerA",
 		"",
 		"08011240333b4a433f16d7ca225c0e99d0d8c437b835cb74a98d9279c561977690c80f681b25ccf3fa45e2f2de260149c112fa516b69057dd3b0151a879416c0cb12d9b3",
+		nil,
 		utils.INTEGRATION,
 		utils.NewNopZapLogger(),
 	)

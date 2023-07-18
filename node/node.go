@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/NethermindEth/juno/p2p"
 	"net"
 	"os"
 	"path/filepath"
@@ -18,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -48,6 +48,7 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+	P2PSync      bool   `mapstructure:"p2p-sync"`
 }
 
 type Node struct {
@@ -90,7 +91,6 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL())
-
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
@@ -131,7 +131,7 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	if cfg.P2P {
 		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, chain, cfg.Network, log)
 		if err != nil {
 			log.Errorw("Error setting up p2p", "err", err)
 			return nil, err

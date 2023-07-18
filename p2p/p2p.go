@@ -1,3 +1,6 @@
+// I don't remember how this is usually done. This will do for now...
+//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto
+
 package p2p
 
 import (
@@ -8,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -17,19 +21,25 @@ import (
 	p2pnet "github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 )
 
 const (
+	blockSyncProto            = "/core/blocks-sync/1"
 	defaultSourcePort         = 30301
 	keyLength                 = 2048
 	routingTableRefreshPeriod = 10 * time.Second
 )
 
 type Service struct {
-	host      host.Host
-	bootPeers string
-	network   utils.Network
+	host       host.Host
+	userAgent  string
+	bootPeers  string
+	network    utils.Network
+	syncServer blockSyncServer
+	blockchain *blockchain.Blockchain
 
 	dht *dht.IpfsDHT
 
@@ -38,9 +48,10 @@ type Service struct {
 
 func New(
 	addr,
-	userAgent string,
+	userAgent,
 	bootPeers string,
 	privKeyStr string,
+	bc *blockchain.Blockchain,
 	network utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
@@ -72,12 +83,34 @@ func New(
 		return nil, err
 	}
 
+	pid, err := peer.IDFromPublicKey(prvKey.GetPublic())
+	if err != nil {
+		return nil, err
+	}
+
+	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", pid.String()))
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infow(fmt.Sprintf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String()))
+
+	// Sync handler
+	syncServer := blockSyncServer{
+		blockchain: bc,
+		converter:  NewConverter(&blockchainClassProvider{blockchain: bc}),
+		log:        log,
+	}
+
+	p2phost.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
+
 	return &Service{
-		bootPeers: bootPeers,
-		log:       log,
-		host:      p2phost,
-		network:   network,
-		dht:       p2pdht,
+		bootPeers:  bootPeers,
+		log:        log,
+		host:       p2phost,
+		network:    network,
+		dht:        p2pdht,
+		blockchain: bc,
 	}, nil
 }
 
@@ -168,11 +201,42 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Infow("Listening on", "addr", addr)
 	}
 
+	err = s.setupIdentity()
+	if err != nil {
+		return errors.Wrap(err, "failed to setup identity protocol")
+	}
+
+	// And some debug stuff
+	go func() {
+		sub, err2 := s.host.EventBus().Subscribe(event.WildcardSubscription)
+		if err2 != nil {
+			panic(err2)
+		}
+		for event := range sub.Out() {
+			s.log.Infow("got event via bus", "event", event)
+		}
+	}()
+
 	<-ctx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
 	return s.host.Close()
+}
+
+func (s *Service) setupIdentity() error {
+	idservice, err := identify.NewIDService(s.host)
+	if err != nil {
+		return err
+	}
+
+	go idservice.Start()
+
+	return nil
+}
+
+func (s *Service) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (p2pnet.Stream, error) {
+	return s.host.NewStream(ctx, id, pcol)
 }
 
 func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
