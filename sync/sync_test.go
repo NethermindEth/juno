@@ -76,7 +76,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
-		require.NoError(t, bc.Store(b0, s0, nil))
+		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		synchronizer := sync.New(bc, gw, log, time.Duration(0))
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)

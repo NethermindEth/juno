@@ -309,7 +309,9 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
+	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
+) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
@@ -330,6 +332,10 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		}
 
 		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+			return err
+		}
+
+		if err := storeBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
 
@@ -375,6 +381,39 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	}
 
 	return nil
+}
+
+func storeBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
+	numBytes := core.MarshalBlockNumber(blockNumber)
+
+	commitmentBytes, err := encoder.Marshal(commitments)
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(db.BlockCommitments.Key(numBytes), commitmentBytes)
+}
+
+func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
+	var commitments *core.BlockCommitments
+	return commitments, b.database.View(func(txn db.Transaction) error {
+		var err error
+		commitments, err = blockCommitmentsByNumber(txn, blockNumber)
+		return err
+	})
+}
+
+func blockCommitmentsByNumber(txn db.Transaction, blockNumber uint64) (*core.BlockCommitments, error) {
+	numBytes := core.MarshalBlockNumber(blockNumber)
+
+	var commitments *core.BlockCommitments
+	if err := txn.Get(db.BlockCommitments.Key(numBytes), func(val []byte) error {
+		commitments = new(core.BlockCommitments)
+		return encoder.Unmarshal(val, commitments)
+	}); err != nil {
+		return nil, err
+	}
+	return commitments, nil
 }
 
 // StoreBlockHeader stores the given block in the database.
@@ -774,11 +813,14 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	genesisBlock := blockNumber == 0
 
 	// remove block header
-	if err = txn.Delete(db.BlockHeadersByNumber.Key(numBytes)); err != nil {
-		return err
-	}
-	if err = txn.Delete(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal())); err != nil {
-		return err
+	for _, key := range [][]byte{
+		db.BlockHeadersByNumber.Key(numBytes),
+		db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()),
+		db.BlockCommitments.Key(numBytes),
+	} {
+		if err = txn.Delete(key); err != nil {
+			return err
+		}
 	}
 	if !genesisBlock {
 		var newHeader *core.Header
