@@ -185,6 +185,7 @@ func testBlockEncoding(originalBlock *core.Block, c *converter) error {
 	}
 
 	if !bytes.Equal(gatewayjson, reencodedblockjson) {
+		compareAndPrintDiff(originalBlock, newCoreBlock)
 		return errors.New("Mismatch")
 	}
 
@@ -238,13 +239,23 @@ func normalizeBlock(originalBlock *core.Block) {
 			invokeTx.ContractAddress = senderAddress
 		}
 	}
+
+	for _, receipt := range originalBlock.Receipts {
+		if len(receipt.L2ToL1Message) == 0 {
+			receipt.L2ToL1Message = nil
+		}
+	}
+
 }
 
 func testStateDiff(stateDiff *core.StateUpdate) error {
-	oriBlockHash := stateDiff.BlockHash
 	stateDiff.BlockHash = nil
 	stateDiff.NewRoot = nil
 	stateDiff.OldRoot = nil
+
+	if len(stateDiff.StateDiff.DeclaredV0Classes) == 0 {
+		stateDiff.StateDiff.DeclaredV0Classes = nil
+	}
 
 	protobuff := coreStateUpdateToProtobufStateUpdate(stateDiff)
 
@@ -261,15 +272,6 @@ func testStateDiff(stateDiff *core.StateUpdate) error {
 
 	if bytes.Equal(before, after) {
 		return nil
-	}
-
-	updateBytes, err := encoder.Marshal(stateDiff)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(fmt.Sprintf("p2p/converter_tests/state_updates/%s.dat", oriBlockHash.String()), updateBytes, 0o600)
-	if err != nil {
-		return err
 	}
 
 	oriSD := stateDiff.StateDiff
