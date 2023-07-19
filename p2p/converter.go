@@ -65,30 +65,23 @@ func (c *converter) coreBlockToProtobufBody(block *core.Block) (*p2pproto.BlockB
 }
 
 func coreEventToProtobuf(events []*core.Event) []*p2pproto.Event {
-	protoevents := make([]*p2pproto.Event, len(events))
-	for i, event := range events {
-		protoevents[i] = &p2pproto.Event{
+	return protoMapArray(events, func(event *core.Event) *p2pproto.Event {
+		return &p2pproto.Event{
 			FromAddress: feltToFieldElement(event.From),
 			Keys:        feltsToFieldElements(event.Keys),
 			Data:        feltsToFieldElements(event.Data),
 		}
-	}
-
-	return protoevents
+	})
 }
 
 func coreL2ToL1MessageToProtobuf(messages []*core.L2ToL1Message) []*p2pproto.MessageToL1 {
-	protomessages := make([]*p2pproto.MessageToL1, len(messages))
-
-	for i, message := range messages {
-		protomessages[i] = &p2pproto.MessageToL1{
+	return protoMapArray(messages, func(message *core.L2ToL1Message) *p2pproto.MessageToL1 {
+		return &p2pproto.MessageToL1{
 			FromAddress: feltToFieldElement(message.From),
 			Payload:     feltsToFieldElements(message.Payload),
 			ToAddress:   addressToProto(message.To),
 		}
-	}
-
-	return protomessages
+	})
 }
 
 func addressToProto(to common.Address) *p2pproto.EthereumAddress {
@@ -109,20 +102,15 @@ func (c *converter) protobufHeaderAndBodyToCoreBlock(
 	header *p2pproto.BlockHeader,
 	body *p2pproto.BlockBody,
 ) (*core.Block, map[felt.Felt]core.Class, error) {
-	parentHash := fieldElementToFelt(header.ParentBlockHash)
-	globalStateRoot := fieldElementToFelt(header.GlobalStateRoot)
-	sequencerAddress := fieldElementToFelt(header.SequencerAddress)
-	// TODO: these are validation
-	// txCommitment := fieldElementToFelt(header.TransactionCommitment)
-	// eventCommitment := fieldElementToFelt(header.EventCommitment)
+	// TODO: TX and Event commitment validation
 
 	block := &core.Block{
 		Header: &core.Header{
 			Hash:             fieldElementToFelt(header.Hash),
-			ParentHash:       parentHash,
+			ParentHash:       fieldElementToFelt(header.ParentBlockHash),
 			Number:           header.BlockNumber,
-			GlobalStateRoot:  globalStateRoot,
-			SequencerAddress: sequencerAddress,
+			GlobalStateRoot:  fieldElementToFelt(header.GlobalStateRoot),
+			SequencerAddress: fieldElementToFelt(header.SequencerAddress),
 			TransactionCount: uint64(len(body.Transactions)),
 			EventCount:       0, // many events per receipt
 			Timestamp:        header.BlockTimestamp,
@@ -139,7 +127,6 @@ func (c *converter) protobufHeaderAndBodyToCoreBlock(
 	declaredClasses := map[felt.Felt]core.Class{}
 
 	for i := uint32(0); i < header.TransactionCount; i++ {
-		// Assuming you have a function to convert a transaction from protobuf to core
 		transaction, receipt, classHash, class, err := c.protobufTransactionToCore(body.Transactions[i], body.Receipts[i])
 		if err != nil {
 			return nil, nil, err
@@ -161,39 +148,31 @@ func (c *converter) protobufHeaderAndBodyToCoreBlock(
 }
 
 func protobufCommonReceiptToCoreReceipt(commonReceipt *p2pproto.CommonTransactionReceiptProperties) *core.TransactionReceipt {
-	receipt := &core.TransactionReceipt{
+	return &core.TransactionReceipt{
 		Fee:                fieldElementToFelt(commonReceipt.GetActualFee()),
 		Events:             coreEventFromProtobuf(commonReceipt.GetEvents()),
 		L2ToL1Message:      coreL2ToL1MessageFromProtobuf(commonReceipt.GetMessagesSent()),
 		TransactionHash:    fieldElementToFelt(commonReceipt.GetTransactionHash()),
-		ExecutionResources: MapValueViaReflect[*core.ExecutionResources](commonReceipt.GetExecutionResources()),
+		ExecutionResources: MapValueWithReflection[*core.ExecutionResources](commonReceipt.GetExecutionResources()),
 	}
-
-	return receipt
 }
 
-func coreL2ToL1MessageFromProtobuf(sent []*p2pproto.MessageToL1) []*core.L2ToL1Message {
-	messages := make([]*core.L2ToL1Message, len(sent))
-	for i, protoMsg := range sent {
-		msg := &core.L2ToL1Message{
-			From:    fieldElementToFelt(protoMsg.FromAddress),
-			Payload: fieldElementsToFelts(protoMsg.Payload),
-			To:      protoToAddress(protoMsg.ToAddress),
+func coreL2ToL1MessageFromProtobuf(messages []*p2pproto.MessageToL1) []*core.L2ToL1Message {
+	return protoMapArray(messages, func(msg *p2pproto.MessageToL1) *core.L2ToL1Message {
+		return &core.L2ToL1Message{
+			From:    fieldElementToFelt(msg.FromAddress),
+			Payload: fieldElementsToFelts(msg.Payload),
+			To:      protoToAddress(msg.ToAddress),
 		}
-		messages[i] = msg
-	}
-	return messages
+	})
 }
 
 func coreEventFromProtobuf(events []*p2pproto.Event) []*core.Event {
-	coreevents := make([]*core.Event, len(events))
-	for i, event := range events {
-		coreevents[i] = &core.Event{
+	return protoMapArray(events, func(event *p2pproto.Event) *core.Event {
+		return &core.Event{
 			Data: fieldElementsToFelts(event.Data),
 			From: fieldElementToFelt(event.FromAddress),
 			Keys: fieldElementsToFelts(event.Keys),
 		}
-	}
-
-	return coreevents
+	})
 }

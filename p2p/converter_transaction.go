@@ -114,7 +114,7 @@ func (c *converter) protobufTransactionToCore(
 		}
 
 		receipt := protobufCommonReceiptToCoreReceipt(txReceipt.L1Handler.Common)
-		receipt.L1ToL2Message = MapValueViaReflect[*core.L1ToL2Message](txReceipt.L1Handler.L1ToL2Message)
+		receipt.L1ToL2Message = MapValueWithReflection[*core.L1ToL2Message](txReceipt.L1Handler.L1ToL2Message)
 		return coreTx, receipt, nil, nil, nil
 
 	default:
@@ -132,7 +132,7 @@ func (c *converter) coreTxToProtobufTx(
 		ActualFee:          feltToFieldElement(receipt.Fee),
 		MessagesSent:       coreL2ToL1MessageToProtobuf(receipt.L2ToL1Message),
 		Events:             coreEventToProtobuf(receipt.Events),
-		ExecutionResources: MapValueViaReflect[*p2pproto.CommonTransactionReceiptProperties_ExecutionResources](receipt.ExecutionResources),
+		ExecutionResources: MapValueWithReflection[*p2pproto.CommonTransactionReceiptProperties_ExecutionResources](receipt.ExecutionResources),
 	}
 
 	switch tx := transaction.(type) {
@@ -267,7 +267,7 @@ func (c *converter) coreTxToProtobufTx(
 				Receipt: &p2pproto.Receipt_L1Handler{
 					L1Handler: &p2pproto.L1HandlerTransactionReceipt{
 						Common:        commonReceipt,
-						L1ToL2Message: MapValueViaReflect[*p2pproto.L1HandlerTransactionReceipt_L1ToL2Message](receipt.L1ToL2Message),
+						L1ToL2Message: MapValueWithReflection[*p2pproto.L1HandlerTransactionReceipt_L1ToL2Message](receipt.L1ToL2Message),
 					},
 				},
 			}, nil
@@ -287,9 +287,9 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 		return &p2pproto.ContractClass{
 			Class: &p2pproto.ContractClass_Cairo0{
 				Cairo0: &p2pproto.Cairo0Class{
-					ConstructorEntryPoints: MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Constructors),
-					ExternalEntryPoints:    MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.Externals),
-					L1HandlerEntryPoints:   MapValueViaReflect[[]*p2pproto.Cairo0Class_EntryPoint](class.L1Handlers),
+					ConstructorEntryPoints: MapValueWithReflection[[]*p2pproto.Cairo0Class_EntryPoint](class.Constructors),
+					ExternalEntryPoints:    MapValueWithReflection[[]*p2pproto.Cairo0Class_EntryPoint](class.Externals),
+					L1HandlerEntryPoints:   MapValueWithReflection[[]*p2pproto.Cairo0Class_EntryPoint](class.L1Handlers),
 					Program:                class.Program,
 					Abi:                    string(abistr),
 					Hash:                   feltToFieldElement(hash),
@@ -300,9 +300,9 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 		return &p2pproto.ContractClass{
 			Class: &p2pproto.ContractClass_Cairo1{
 				Cairo1: &p2pproto.Cairo1Class{
-					ConstructorEntryPoints: MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.Constructor),
-					ExternalEntryPoints:    MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.External),
-					L1HandlerEntryPoints:   MapValueViaReflect[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler),
+					ConstructorEntryPoints: MapValueWithReflection[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.Constructor),
+					ExternalEntryPoints:    MapValueWithReflection[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.External),
+					L1HandlerEntryPoints:   MapValueWithReflection[[]*p2pproto.Cairo1Class_EntryPoint](class.EntryPoints.L1Handler),
 					Program:                feltsToFieldElements(class.Program),
 					ProgramHash:            feltToFieldElement(class.ProgramHash),
 					Abi:                    class.Abi,
@@ -329,9 +329,9 @@ func (c *converter) protobufClassToCoreClass(class *p2pproto.ContractClass) (*fe
 
 		coreClass := &core.Cairo0Class{
 			Abi:          abiraw,
-			Externals:    MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ExternalEntryPoints),
-			L1Handlers:   MapValueViaReflect[[]core.EntryPoint](v.Cairo0.L1HandlerEntryPoints),
-			Constructors: MapValueViaReflect[[]core.EntryPoint](v.Cairo0.ConstructorEntryPoints),
+			Externals:    MapValueWithReflection[[]core.EntryPoint](v.Cairo0.ExternalEntryPoints),
+			L1Handlers:   MapValueWithReflection[[]core.EntryPoint](v.Cairo0.L1HandlerEntryPoints),
+			Constructors: MapValueWithReflection[[]core.EntryPoint](v.Cairo0.ConstructorEntryPoints),
 			Program:      v.Cairo0.Program,
 		}
 		return hash, coreClass, nil
@@ -343,9 +343,9 @@ func (c *converter) protobufClassToCoreClass(class *p2pproto.ContractClass) (*fe
 				External    []core.SierraEntryPoint
 				L1Handler   []core.SierraEntryPoint
 			}{
-				Constructor: MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ConstructorEntryPoints),
-				External:    MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.ExternalEntryPoints),
-				L1Handler:   MapValueViaReflect[[]core.SierraEntryPoint](v.Cairo1.L1HandlerEntryPoints),
+				Constructor: MapValueWithReflection[[]core.SierraEntryPoint](v.Cairo1.ConstructorEntryPoints),
+				External:    MapValueWithReflection[[]core.SierraEntryPoint](v.Cairo1.ExternalEntryPoints),
+				L1Handler:   MapValueWithReflection[[]core.SierraEntryPoint](v.Cairo1.L1HandlerEntryPoints),
 			},
 			Program:         fieldElementsToFelts(v.Cairo1.Program),
 			SemanticVersion: v.Cairo1.SemanticVersioning,

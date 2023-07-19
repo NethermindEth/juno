@@ -47,7 +47,7 @@ type Service struct {
 func New(
 	addr,
 	userAgent,
-	bootPeers string,
+	bootPeers,
 	privKeyStr string,
 	bc *blockchain.Blockchain,
 	network utils.Network,
@@ -204,17 +204,6 @@ func (s *Service) Run(ctx context.Context) error {
 		return errors.Wrap(err, "failed to setup identity protocol")
 	}
 
-	// And some debug stuff
-	go func() {
-		sub, err2 := s.host.EventBus().Subscribe(event.WildcardSubscription)
-		if err2 != nil {
-			panic(err2)
-		}
-		for event := range sub.Out() {
-			s.log.Infow("got event via bus", "event", event)
-		}
-	}()
-
 	<-ctx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
@@ -231,10 +220,6 @@ func (s *Service) setupIdentity() error {
 	go idservice.Start()
 
 	return nil
-}
-
-func (s *Service) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (p2pnet.Stream, error) {
-	return s.host.NewStream(ctx, id, pcol)
 }
 
 func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {

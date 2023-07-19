@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ClassProvider When converting to proto, the class is needed.
 type ClassProvider interface {
 	GetClass(hash *felt.Felt) (*core.DeclaredClass, error)
 }

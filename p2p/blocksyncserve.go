@@ -63,7 +63,7 @@ func (s *blockSyncServer) HandleGetBlockHeader(request *p2pproto.GetBlockHeaders
 		return nil, fmt.Errorf("unsupported startblock type %s", reflect.TypeOf(request.StartBlock))
 	}
 
-	// TODO: request.sizelimit
+	// TODO: Probably want to have a hard limit also.
 	results, err := mapBlockSequence(
 		s.blockchain,
 		int(request.Count),
@@ -95,8 +95,7 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 		return nil, errors.Wrapf(err, "unable to get block by hash %s", f)
 	}
 
-	// TODO: request.sizelimit
-
+	// TODO: hardlimit
 	results, err := mapBlockSequence(
 		s.blockchain,
 		int(request.Count),
@@ -114,6 +113,7 @@ func (s *blockSyncServer) HandleGetBlockBodies(request *p2pproto.GetBlockBodies)
 	}, nil
 }
 
+// A util to follow a sequence of block.
 func mapBlockSequence[T any](
 	bc BlockProvider,
 	requestCount int,
@@ -134,14 +134,12 @@ func mapBlockSequence[T any](
 			// TODO: how notfound is represented and what if its null
 			if direction == p2pproto.Direction_FORWARD {
 				startblock, err = bc.BlockByNumber(startblock.Number + 1)
-				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number+1)
-				}
 			} else {
 				startblock, err = bc.BlockByNumber(startblock.Number - 1)
-				if err != nil {
-					return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
-				}
+			}
+
+			if err != nil {
+				return nil, errors.Wrapf(err, "unable to get next block %d", startblock.Number-1)
 			}
 		}
 	}
@@ -161,12 +159,14 @@ func (s *blockSyncServer) HandleGetStateDiff(request *p2pproto.GetStateDiffs) (*
 		return nil, errors.Wrapf(err, "unable to get block number by hash %s", f)
 	}
 
+	// TODO: hardlimit
 	blocknumber := blockheader.Number
-
-	// TODO: request.sizelimit
 	results := make([]*p2pproto.StateDiffs_BlockStateUpdateWithHash, 0)
 	for i := 0; i < int(request.Count); i++ {
 		diff, err := s.blockchain.StateUpdateByNumber(blocknumber)
+		if err == db.ErrKeyNotFound {
+			break
+		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to get block by hash %s", f)
 		}
@@ -174,10 +174,13 @@ func (s *blockSyncServer) HandleGetStateDiff(request *p2pproto.GetStateDiffs) (*
 		results = append(results, coreStateUpdateToProtobufStateUpdate(diff))
 
 		if i+1 < int(request.Count) {
-			// TODO: overflow
 			if request.Direction == p2pproto.Direction_FORWARD {
 				blocknumber++
 			} else {
+				if blocknumber == 0 {
+					break
+				}
+
 				blocknumber--
 			}
 		}
@@ -202,8 +205,9 @@ func (s *blockSyncServer) HandleStatus(request *p2pproto.Status) (*p2pproto.Stat
 }
 
 func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2pproto.Response, error) {
-	if request.GetStatus() != nil {
-		status, err := s.HandleStatus(request.GetStatus())
+	switch r := request.Request.(type) {
+	case *p2pproto.Request_Status:
+		status, err := s.HandleStatus(r.Status)
 		if err != nil {
 			return nil, errors.Wrap(err, "error handling status request")
 		}
@@ -213,10 +217,9 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2
 				Status: status,
 			},
 		}, nil
-	}
 
-	if request.GetGetBlockHeaders() != nil {
-		headers, err := s.HandleGetBlockHeader(request.GetGetBlockHeaders())
+	case *p2pproto.Request_GetBlockHeaders:
+		headers, err := s.HandleGetBlockHeader(r.GetBlockHeaders)
 		if err != nil {
 			return nil, errors.Wrap(err, "error handling et block headers request")
 		}
@@ -226,10 +229,9 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2
 				BlockHeaders: headers,
 			},
 		}, nil
-	}
 
-	if request.GetGetBlockBodies() != nil {
-		bodies, err := s.HandleGetBlockBodies(request.GetGetBlockBodies())
+	case *p2pproto.Request_GetBlockBodies:
+		bodies, err := s.HandleGetBlockBodies(r.GetBlockBodies)
 		if err != nil {
 			return nil, errors.Wrap(err, "error handling get block bodies request")
 		}
@@ -239,10 +241,9 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2
 				BlockBodies: bodies,
 			},
 		}, nil
-	}
 
-	if request.GetGetStateDiffs() != nil {
-		statediffs, err := s.HandleGetStateDiff(request.GetGetStateDiffs())
+	case *p2pproto.Request_GetStateDiffs:
+		statediffs, err := s.HandleGetStateDiff(r.GetStateDiffs)
 		if err != nil {
 			return nil, errors.Wrap(err, "error handling status request")
 		}
@@ -252,9 +253,10 @@ func (s *blockSyncServer) HandleBlockSyncRequest(request *p2pproto.Request) (*p2
 				StateDiffs: statediffs,
 			},
 		}, nil
-	}
 
-	return nil, fmt.Errorf("unsupported request %s", reflect.TypeOf(request.Request))
+	default:
+		return nil, fmt.Errorf("unsupported request %s", reflect.TypeOf(request.Request))
+	}
 }
 
 func (s *blockSyncServer) handleBlockSyncStream(stream network.Stream) {

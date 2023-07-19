@@ -8,7 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var typeMapper map[string]map[string]func(interface{}) interface{} = map[string]map[string]func(interface{}) interface{}{}
+type typeMapper = func(interface{}) interface{}
+
+var typeMappers = map[string]map[string]typeMapper{}
 
 func registerMapping[T1 any, T2 any](f func(T1) T2) {
 	var t1 *T1
@@ -17,10 +19,10 @@ func registerMapping[T1 any, T2 any](f func(T1) T2) {
 	tp1 := reflect.TypeOf(t1).Elem()
 	tp2 := reflect.TypeOf(t2).Elem()
 
-	to, ok := typeMapper[tp1.String()]
+	to, ok := typeMappers[tp1.String()]
 	if !ok {
-		typeMapper[tp1.String()] = map[string]func(interface{}) interface{}{}
-		to = typeMapper[tp1.String()]
+		typeMappers[tp1.String()] = map[string]typeMapper{}
+		to = typeMappers[tp1.String()]
 	}
 
 	to[tp2.String()] = func(in interface{}) interface{} {
@@ -38,18 +40,19 @@ func init() {
 	registerMapping[*p2pproto.EthereumAddress, common.Address](protoToAddress)
 }
 
-func MapValueViaReflect[T any](source interface{}) T {
+func MapValueWithReflection[T any](source interface{}) T {
+	// TODO: This seems like something that someone would have already build.
 	var destination T
 	destinationPtr := &destination
-	reflectMapValue(reflect.ValueOf(source), reflect.ValueOf(destinationPtr))
+	mapValue(reflect.ValueOf(source), reflect.ValueOf(destinationPtr))
 	return destination
 }
 
-func reflectMapValue(sourceValue, destValue reflect.Value) {
+func mapValue(sourceValue, destValue reflect.Value) {
 	sourceType := sourceValue.Type()
 	destType := destValue.Type()
 
-	nmap, ok := typeMapper[sourceType.String()]
+	nmap, ok := typeMappers[sourceType.String()]
 	if ok {
 		f, ok := nmap[destType.String()]
 		if ok {
@@ -104,17 +107,11 @@ func mapArray(sourceField, destField reflect.Value) {
 		destField.Set(reflect.MakeSlice(destField.Type(), sourceLen, sourceLen))
 	}
 
-	destLen := destField.Len()
-
-	if sourceLen != destLen {
-		panic("Source and destination array lengths do not match")
-	}
-
 	for i := 0; i < sourceLen; i++ {
 		sourceElem := sourceField.Index(i)
 		destElem := destField.Index(i)
 
-		reflectMapValue(sourceElem, destElem) // Recursively map nested structs within the array
+		mapValue(sourceElem, destElem) // Recursively map nested structs within the array
 	}
 }
 
@@ -131,6 +128,6 @@ func mapStruct(sourceValue, destValue reflect.Value) {
 			continue // Skip unexported fields
 		}
 
-		reflectMapValue(sourceField, destField)
+		mapValue(sourceField, destField)
 	}
 }

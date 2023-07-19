@@ -89,22 +89,17 @@ func feltToFieldElement(flt *felt.Felt) *p2pproto.FieldElement {
 }
 
 func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {
-	return toProtoMapArray(felts, feltToFieldElement)
+	return protoMapArray(felts, feltToFieldElement)
 }
 
 func fieldElementsToFelts(fieldElements []*p2pproto.FieldElement) []*felt.Felt {
-	felts := make([]*felt.Felt, len(fieldElements))
-	for i, fe := range fieldElements {
-		felts[i] = fieldElementToFelt(fe)
-	}
-
-	return felts
+	return protoMapArray(fieldElements, fieldElementToFelt)
 }
 
-func toProtoMapArray[F any, T any](from []F, mapper func(F) T) (to []T) {
+func protoMapArray[F any, T any](from []F, mapper func(F) T) (to []T) {
 	if len(from) == 0 {
-		// protobuf does not distinguish between nil array or empty array. But we put it here for testing reason
-		// as when deserializing it always deserialize empty array as nil
+		// protobuf does not distinguish between nil array or empty array.
+		// Regardless, we put it here for testing reason as when deserializing it always deserialize empty array as nil
 		return nil
 	}
 

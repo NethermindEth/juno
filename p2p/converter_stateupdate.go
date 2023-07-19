@@ -11,7 +11,7 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2
 	for key, diffs := range corestateupdate.StateDiff.StorageDiffs {
 		contractdiffs[key] = &p2pproto.BlockStateUpdate_ContractDiff{
 			ContractAddress: feltToFieldElement(&key),
-			StorageDiffs:    MapValueViaReflect[[]*p2pproto.BlockStateUpdate_StorageDiff](diffs),
+			StorageDiffs:    MapValueWithReflection[[]*p2pproto.BlockStateUpdate_StorageDiff](diffs),
 		}
 	}
 
@@ -29,7 +29,7 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2
 		contractdiffarr = append(contractdiffarr, diff)
 	}
 
-	deployedcontracts := toProtoMapArray(corestateupdate.StateDiff.DeployedContracts,
+	deployedcontracts := protoMapArray(corestateupdate.StateDiff.DeployedContracts,
 		func(contract core.DeployedContract) *p2pproto.BlockStateUpdate_DeployedContract {
 			return &p2pproto.BlockStateUpdate_DeployedContract{
 				ContractAddress:   feltToFieldElement(contract.Address),
@@ -37,7 +37,7 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2
 			}
 		})
 
-	declaredv1classes := toProtoMapArray(corestateupdate.StateDiff.DeclaredV1Classes,
+	declaredv1classes := protoMapArray(corestateupdate.StateDiff.DeclaredV1Classes,
 		func(contract core.DeclaredV1Class) *p2pproto.BlockStateUpdate_DeclaredV1Class {
 			return &p2pproto.BlockStateUpdate_DeclaredV1Class{
 				ClassHash:         feltToFieldElement(contract.ClassHash),
@@ -45,7 +45,7 @@ func coreStateUpdateToProtobufStateUpdate(corestateupdate *core.StateUpdate) *p2
 			}
 		})
 
-	replacedclasses := toProtoMapArray(corestateupdate.StateDiff.ReplacedClasses,
+	replacedclasses := protoMapArray(corestateupdate.StateDiff.ReplacedClasses,
 		func(contract core.ReplacedClass) *p2pproto.BlockStateUpdate_ReplacedClasses {
 			return &p2pproto.BlockStateUpdate_ReplacedClasses{
 				ContractAddress:   feltToFieldElement(contract.Address),
@@ -85,7 +85,7 @@ func protobufStateUpdateToCoreStateUpdate(pbStateUpdate *p2pproto.StateDiffs_Blo
 		}
 
 		if contractDiff.StorageDiffs != nil {
-			storageDiffs[*contractAddress] = MapValueViaReflect[[]core.StorageDiff](contractDiff.StorageDiffs)
+			storageDiffs[*contractAddress] = MapValueWithReflection[[]core.StorageDiff](contractDiff.StorageDiffs)
 		}
 	}
 
