@@ -175,8 +175,9 @@ func TestBlockHash(t *testing.T) {
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
 
-			err = core.VerifyBlockHash(block, tc.chain)
+			commitments, err := core.VerifyBlockHash(block, tc.chain)
 			assert.NoError(t, err)
+			assert.NotNil(t, commitments)
 		})
 	}
 
@@ -192,7 +193,9 @@ func TestBlockHash(t *testing.T) {
 		mainnetBlock1.Hash = h1
 
 		expectedErr := "can not verify hash in block header"
-		assert.EqualError(t, core.VerifyBlockHash(mainnetBlock1, utils.MAINNET), expectedErr)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, utils.MAINNET)
+		assert.EqualError(t, err, expectedErr)
+		assert.Nil(t, commitments)
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
@@ -201,7 +204,9 @@ func TestBlockHash(t *testing.T) {
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 
-		assert.NoError(t, core.VerifyBlockHash(block119802, utils.GOERLI))
+		commitments, err := core.VerifyBlockHash(block119802, utils.GOERLI)
+		assert.NoError(t, err)
+		assert.NotNil(t, commitments)
 	})
 
 	t.Run("error if len of transactions do not match len of receipts", func(t *testing.T) {
@@ -213,7 +218,9 @@ func TestBlockHash(t *testing.T) {
 		expectedErr := fmt.Sprintf("len of transactions: %v do not match len of receipts: %v",
 			len(mainnetBlock1.Transactions), len(mainnetBlock1.Receipts))
 
-		assert.EqualError(t, core.VerifyBlockHash(mainnetBlock1, utils.MAINNET), expectedErr)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, utils.MAINNET)
+		assert.EqualError(t, err, expectedErr)
+		assert.Nil(t, commitments)
 	})
 
 	t.Run("error if hash of transaction doesn't match corresponding receipt hash",
@@ -226,6 +233,8 @@ func TestBlockHash(t *testing.T) {
 				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
 				mainnetBlock1.Transactions[1].Hash().String(), 1,
 				mainnetBlock1.Receipts[1].TransactionHash)
-			assert.EqualError(t, core.VerifyBlockHash(mainnetBlock1, utils.MAINNET), expectedErr)
+			commitments, err := core.VerifyBlockHash(mainnetBlock1, utils.MAINNET)
+			assert.EqualError(t, err, expectedErr)
+			assert.Nil(t, commitments)
 		})
 }
