@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,13 +36,13 @@ func TestBucketMover(t *testing.T) {
 	require.True(t, beforeCalled)
 
 	err := testDB.Update(func(txn db.Transaction) error {
-		err := mover.Migrate(txn)
+		err := mover.Migrate(txn, utils.MAINNET)
 		require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
 		return nil
 	})
 	require.NoError(t, err)
 	err = testDB.Update(func(txn db.Transaction) error {
-		err = mover.Migrate(txn)
+		err = mover.Migrate(txn, utils.MAINNET)
 		require.NoError(t, err)
 		return nil
 	})
