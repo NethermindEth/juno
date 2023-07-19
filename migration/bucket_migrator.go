@@ -4,12 +4,13 @@ import (
 	"bytes"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var _ Migration = (*BucketMigrator)(nil)
 
 type (
-	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte) error
+	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte, n utils.Network) error
 	BucketMigratorKeyFilter func([]byte) (bool, error)
 )
 
@@ -39,7 +40,7 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 }
 
 func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
-	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte) error {
+	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte, n utils.Network) error {
 		err := txn.Delete(key)
 		if err != nil {
 			return err
@@ -69,7 +70,7 @@ func (m *BucketMigrator) Before() {
 	m.before()
 }
 
-func (m *BucketMigrator) Migrate(txn db.Transaction) error {
+func (m *BucketMigrator) Migrate(txn db.Transaction, network utils.Network) error {
 	remainingInBatch := m.batchSize
 	iterator, err := txn.NewIterator()
 	if err != nil {
@@ -96,7 +97,7 @@ func (m *BucketMigrator) Migrate(txn db.Transaction) error {
 				return db.CloseAndWrapOnError(iterator.Close, err)
 			}
 
-			if err = m.do(txn, key, value); err != nil {
+			if err = m.do(txn, key, value, network); err != nil {
 				return db.CloseAndWrapOnError(iterator.Close, err)
 			}
 		}
