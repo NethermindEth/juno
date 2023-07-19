@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"runtime"
+	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -13,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type Migration interface {
@@ -37,6 +40,7 @@ var migrations = []Migration{
 	MigrationFunc(relocateContractStorageRootKeys),
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
+	MigrationFunc(calculateBlockCommitments),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -300,4 +304,32 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) er
 		}
 	}
 	return iterator.Close()
+}
+
+// calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
+func calculateBlockCommitments(txn db.Transaction, network utils.Network) error {
+	var txnLock sync.RWMutex
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+
+	for blockNumber := 0; ; blockNumber++ {
+		txnLock.RLock()
+		block, err := blockchain.BlockByNumber(txn, uint64(blockNumber))
+		txnLock.RUnlock()
+
+		if errors.Is(err, db.ErrKeyNotFound) {
+			break
+		}
+
+		workerPool.Go(func() error {
+			commitments, err := core.VerifyBlockHash(block, network)
+			if err != nil {
+				return err
+			}
+			txnLock.Lock()
+			defer txnLock.Unlock()
+			return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+		})
+	}
+
+	return workerPool.Wait()
 }

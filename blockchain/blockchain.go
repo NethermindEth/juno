@@ -335,7 +335,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := storeBlockCommitments(txn, block.Number, blockCommitments); err != nil {
+		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
 
@@ -383,7 +383,7 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	return nil
 }
 
-func storeBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
+func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	commitmentBytes, err := encoder.Marshal(commitments)

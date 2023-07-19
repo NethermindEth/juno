@@ -167,3 +167,31 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		return nil
 	}))
 }
+
+func TestCalculateBlockCommitments(t *testing.T) {
+	testdb := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testdb.Close())
+	})
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+	client := feeder.NewTestClient(t, utils.MAINNET)
+	gw := adaptfeeder.New(client)
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+	}
+
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		return calculateBlockCommitments(txn, utils.MAINNET)
+	}))
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := chain.BlockCommitmentsByNumber(i)
+		require.NoError(t, err)
+		assert.NotNil(t, b.TransactionCommitment)
+	}
+}
