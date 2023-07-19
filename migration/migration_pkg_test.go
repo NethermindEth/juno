@@ -91,7 +91,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, err)
 
 		b.EventsBloom = nil
-		require.NoError(t, chain.Store(b, su, nil))
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
 	require.NoError(t, testdb.Update(recalculateBloomFilters))

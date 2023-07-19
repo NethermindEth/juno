@@ -159,7 +159,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
 	timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opVerifyLabel))
-	_, err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	commitments, err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	timer.ObserveDuration()
 	return func() {
 		select {
@@ -172,7 +172,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 			timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opStoreLabel))
-			err = s.Blockchain.Store(block, stateUpdate, newClasses)
+			err = s.Blockchain.Store(block, commitments, stateUpdate, newClasses)
 			timer.ObserveDuration()
 
 			if err != nil {
