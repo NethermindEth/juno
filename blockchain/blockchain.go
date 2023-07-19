@@ -563,16 +563,18 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+) (*core.BlockCommitments, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return errors.New("block hashes do not match")
+		return nil, errors.New("block hashes do not match")
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return errors.New("block's GlobalStateRoot does not match state update's NewRoot")
+		return nil, errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
 
 	if err := core.VerifyClassHashes(newClasses); err != nil {
-		return err
+		return nil, err
 	}
 
 	return core.VerifyBlockHash(block, b.network)

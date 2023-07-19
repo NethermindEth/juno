@@ -92,57 +92,59 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
+type BlockCommitments struct {
+	TransactionCommitment *felt.Felt
+	EventCommitment       *felt.Felt
+}
+
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network utils.Network) error {
+func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
-		return fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
+		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
 	}
 
 	for i, tx := range b.Transactions {
 		if !tx.Hash().Equal(b.Receipts[i].TransactionHash) {
-			return fmt.Errorf(
+			return nil, fmt.Errorf(
 				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
 				tx.Hash().String(), i, b.Receipts[i].TransactionHash)
 		}
 	}
 
 	if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
-		return err
+		return nil, err
 	}
 
 	metaInfo := NetworkBlockHashMetaInfo(network)
-
 	unverifiableRange := metaInfo.UnverifiableRange
-	if unverifiableRange != nil {
-		// Check if the block number is in the unverifiable range
-		if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
-			// If so, return success
-			return nil
-		}
-	}
-
 	for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
 		var overrideSeq *felt.Felt
 		if b.SequencerAddress == nil {
 			overrideSeq = fallbackSeq
 		}
 
-		hash, err := blockHash(b, network, overrideSeq)
+		hash, commitments, err := blockHash(b, network, overrideSeq)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if hash.Equal(b.Hash) {
-			return nil
+			return commitments, nil
+		} else if unverifiableRange != nil {
+			// Check if the block number is in the unverifiable range
+			if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
+				// If so, return success
+				return commitments, nil
+			}
 		}
 	}
-	return errors.New("can not verify hash in block header")
+	return nil, errors.New("can not verify hash in block header")
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
+func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	metaInfo := NetworkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
@@ -152,10 +154,10 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
+func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return crypto.PedersenArray(
@@ -171,11 +173,11 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, error) {
 		&felt.Zero,   // reserved: extra data
 		chain,        // extra data: chain id
 		b.ParentHash, // parent hash
-	), nil
+	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
@@ -194,10 +196,10 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 	wg.Wait()
 
 	if tErr != nil {
-		return nil, tErr
+		return nil, nil, tErr
 	}
 	if eErr != nil {
-		return nil, eErr
+		return nil, nil, eErr
 	}
 
 	// Unlike the pre07Hash computation, we exclude the chain
@@ -218,7 +220,7 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		&felt.Zero,                                   // reserved: protocol version
 		&felt.Zero,                                   // reserved: extra data
 		b.ParentHash,                                 // parent block hash
-	), nil
+	), &BlockCommitments{TransactionCommitment: txCommitment, EventCommitment: eCommitment}, nil
 }
 
 func MarshalBlockNumber(blockNumber uint64) []byte {
