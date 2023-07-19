@@ -245,7 +245,6 @@ func normalizeBlock(originalBlock *core.Block) {
 			receipt.L2ToL1Message = nil
 		}
 	}
-
 }
 
 func testStateDiff(stateDiff *core.StateUpdate) error {
