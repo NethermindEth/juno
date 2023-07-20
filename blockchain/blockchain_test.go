@@ -390,6 +390,16 @@ func TestState(t *testing.T) {
 		_, _, err := chain.StateAtBlockHash(hash)
 		require.Error(t, err)
 	})
+
+	t.Run("zero hash", func(t *testing.T) {
+		hash := new(felt.Felt)
+		require.True(t, hash.IsZero())
+
+		state, closer, err := chain.StateAtBlockHash(hash)
+		require.NoError(t, err)
+		require.NotNil(t, state)
+		require.NoError(t, closer())
+	})
 }
 
 func TestEvents(t *testing.T) {

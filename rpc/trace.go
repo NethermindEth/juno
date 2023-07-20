@@ -96,8 +96,7 @@ func adaptTxExecutionInfo(tx core.Transaction, info vm.TransactionExecutionInfo)
 		}, nil
 	case *core.L1HandlerTransaction:
 		return L1HandlerTxnTrace{
-			// todo support it
-			FunctionInvocation: FunctionInvocation{},
+			FunctionInvocation: adaptCallInfo(info.ExecuteCallInfo),
 		}, nil
 	default:
 		msg := fmt.Sprintf("unknown transaction type %T", tx)

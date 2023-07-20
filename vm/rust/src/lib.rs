@@ -2,6 +2,7 @@ pub mod class;
 mod juno_state_reader;
 pub mod execution_info;
 
+use starknet_api::transaction::Fee;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
@@ -21,6 +22,7 @@ use blockifier::{
         objects::AccountTransactionContext,
         transaction_execution::Transaction,
         transactions::ExecutableTransaction,
+        account_transaction::AccountTransaction
     },
     fee::fee_utils::calculate_tx_fee,
 };
@@ -38,10 +40,7 @@ use starknet_api::{
     hash::StarkFelt,
     transaction::Fee,
 };
-use starknet_api::{
-    core::PatriciaKey,
-    transaction::{Calldata, Transaction as StarknetApiTransaction},
-};
+use starknet_api::transaction::{Calldata, Transaction as StarknetApiTransaction};
 use starknet_api::{
     core::{ChainId, ContractAddress, EntryPointSelector},
     hash::StarkHash,
@@ -175,7 +174,7 @@ pub extern "C" fn cairoVMExecute(
     for sn_api_txn in sn_api_txns {
         let contract_class = match sn_api_txn.clone() {
             StarknetApiTransaction::Declare(declare) => {
-                if classes.len() == 0 {
+                if classes.is_empty() {
                     report_error(reader_handle, "missing declared class".to_string().as_str());
                     return;
                 }
@@ -203,11 +202,11 @@ pub extern "C" fn cairoVMExecute(
                         return;
                 }
                 Some(*paid_fees_on_l1.remove(0))
-            }, 
+            },
             _ => None,
         };
 
-        let txn = Transaction::from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
+        let txn = transaction_from_api(sn_api_txn.clone(), contract_class);
         if txn.is_err() {
             report_error(reader_handle, txn.unwrap_err().to_string().as_str());
             return;
@@ -255,6 +254,37 @@ pub extern "C" fn cairoVMExecute(
     }
 }
 
+fn transaction_from_api(
+    tx: StarknetApiTransaction,
+    contract_class: Option<ContractClass>,
+) -> Result<Transaction, String> {
+    match tx {
+        StarknetApiTransaction::L1Handler(l1_handler) => {
+            Ok(Transaction::L1HandlerTransaction(L1HandlerTransaction {
+                tx: l1_handler,
+                // for now just passing non zero value
+                paid_fee_on_l1: Fee(1 as u128),
+            }))
+        }
+        StarknetApiTransaction::Declare(declare) => {
+            let declare_tx = DeclareTransaction::new(
+                declare,
+                contract_class.ok_or("Declare should be created with a ContractClass")?,
+            ).map_err(|e| e.to_string())?;
+            Ok(Transaction::AccountTransaction(AccountTransaction::Declare(declare_tx)))
+        }
+        StarknetApiTransaction::DeployAccount(deploy_account) => {
+            Ok(Transaction::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
+        }
+        StarknetApiTransaction::Invoke(invoke) => {
+            Ok(Transaction::AccountTransaction(AccountTransaction::Invoke(invoke)))
+        }
+        StarknetApiTransaction::Deploy(deploy) => {
+            Err(format!("Deploy transaction is not supported (transaction_hash={})", deploy.transaction_hash))
+        }
+    }
+}
+
 fn append_execution_info(reader_handle: usize, info: execution_info::TransactionExecutionInfo) {
     let json = serde_json::to_string(&info).unwrap();
     let json_cstr = CString::new(json.as_str()).unwrap();
@@ -281,7 +311,7 @@ fn build_block_context(
         block_number: BlockNumber(block_number),
         block_timestamp: BlockTimestamp(block_timestamp),
 
-        sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_address).unwrap()),
+        sequencer_address: ContractAddress::try_from(sequencer_address).unwrap(),
         // https://github.com/starknet-io/starknet-addresses/blob/df19b17d2c83f11c30e65e2373e8a0c65446f17c/bridged_tokens/mainnet.json
         // fee_token_address is the same for all networks
         fee_token_address: ContractAddress::try_from(

@@ -27,7 +27,7 @@ impl From<BlockifierTxInfo> for TransactionExecutionInfo {
             fee_transfer_call_info: match val.fee_transfer_call_info {
                 Some(v) => Some(v.into()),
                 None => None,
-            }
+            },
         }
     }
 }

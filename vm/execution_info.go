@@ -9,6 +9,8 @@ type TransactionExecutionInfo struct {
 	ValidateCallInfo    *CallInfo `json:"validate_call_info"`
 	ExecuteCallInfo     *CallInfo `json:"execute_call_info"`
 	FeeTransferCallInfo *CallInfo `json:"fee_transfer_call_info"`
+	// this field always empty for current blockifier version (v0.1.0-rc0)
+	RevertError *string `json:"revert_error"`
 }
 
 type CallInfo struct {

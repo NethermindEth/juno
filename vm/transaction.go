@@ -42,6 +42,8 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 		}
 	case *core.L1HandlerTransaction:
 		txnMap["L1Handler"] = t
+	case *core.DeployTransaction:
+		txnMap["Deploy"] = t
 	default:
 		return nil, fmt.Errorf("unsupported txn type %T", txn)
 	}

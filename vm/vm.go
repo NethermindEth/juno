@@ -162,7 +162,14 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 	txnsJSONCstr := C.CString(string(txnsJSON))
 	classesJSONCStr := C.CString(string(classesJSON))
 
-	sequencerAddressBytes := sequencerAddress.Bytes()
+	var address *felt.Felt
+	if sequencerAddress != nil {
+		address = sequencerAddress
+	} else {
+		address = core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+	}
+	sequencerAddressBytes := address.Bytes()
+
 	chainID := C.CString(network.ChainIDString())
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,

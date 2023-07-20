@@ -1168,16 +1168,16 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	state, closer, err := h.bcReader.StateAtBlockNumber(blockNumber - 1)
-	if err != nil {
-		return nil, ErrBlockNotFound
-	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_traceTransaction")
-
 	block, err := h.bcReader.BlockByNumber(blockNumber)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+
+	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_traceTransaction")
 
 	headState, headStateCloser, err := h.bcReader.HeadState()
 	if err != nil {
@@ -1209,7 +1209,16 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 	}
 
 	header := block.Header
-	_, info, err := h.vm.Execute(block.Transactions, classes, header.Number, header.Timestamp, header.SequencerAddress, state, h.network)
+	// todo how to check that block is pending?
+	if false {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	_, info, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
