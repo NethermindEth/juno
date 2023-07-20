@@ -192,7 +192,7 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
-	var txnJSONs []json.RawMessage
+	txnJSONs := []json.RawMessage{}
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)
 		if err != nil {
