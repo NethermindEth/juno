@@ -2042,8 +2042,6 @@ func TestEstimateMessageFee(t *testing.T) {
 }
 
 func TestTraceTransaction(t *testing.T) {
-	t.Skip()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -2057,26 +2055,31 @@ func TestTraceTransaction(t *testing.T) {
 		TransactionHash: hash,
 		ClassHash:       utils.HexToFelt(t, "0x000000000"),
 	}
-	mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(1), nil)
-	mockReader.EXPECT().TransactionByHash(hash).Return(tx, nil)
 
-	const blockID uint64 = 0
-
+	header := &core.Header{
+		ParentHash: utils.HexToFelt(t, "0x0"),
+		Number:     0,
+	}
+	block := &core.Block{
+		Header:       header,
+		Transactions: []core.Transaction{tx},
+	}
 	declaredClass := &core.DeclaredClass{
 		At:    3002,
-		Class: nil,
+		Class: &core.Cairo1Class{},
 	}
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	mockState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
+
+	mockReader.EXPECT().Receipt(hash).Return(nil, nil, header.Number, nil)
+	mockReader.EXPECT().BlockByNumber(header.Number).Return(block, nil)
 
 	nopCloser := func() error { return nil }
-	mockReader.EXPECT().StateAtBlockNumber(blockID).Return(mockState, nopCloser, nil)
-
-	header := &core.Header{}
-	mockReader.EXPECT().BlockHeaderByNumber(blockID).Return(header, nil)
+	mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
+	headState := mocks.NewMockStateHistoryReader(mockCtrl)
+	headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
+	mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
 	info := executionInfoResponse(t)
-	mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress, mockState, utils.MAINNET).Return(nil, info, nil)
+	mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress, nil, utils.MAINNET).Return(nil, info, nil)
 
 	trace, err := handler.TraceTransaction(*hash)
 	require.Nil(t, err)
