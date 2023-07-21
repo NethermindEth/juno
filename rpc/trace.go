@@ -11,12 +11,12 @@ import (
 )
 
 type TransactionTrace struct {
-	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     ExecuteInvocation  `json:"execute_invocation,omitempty"`
-	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"`
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 
-	ConstructorInvocation FunctionInvocation `json:"constructor_invocation,omitempty"`
-	FunctionInvocation    FunctionInvocation `json:"function_invocation,omitempty"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 }
 
 type ExecuteInvocation struct {
@@ -57,8 +57,8 @@ func adaptTxExecutionInfo(tx core.Transaction, info vm.TransactionExecutionInfo)
 	case *core.InvokeTransaction:
 		result.ValidateInvocation = adaptCallInfo(info.ValidateCallInfo)
 		result.FeeTransferInvocation = adaptCallInfo(info.FeeTransferCallInfo)
-		result.ExecuteInvocation = ExecuteInvocation{
-			FunctionInvocation: adaptCallInfo(info.ExecuteCallInfo),
+		result.ExecuteInvocation = &ExecuteInvocation{
+			FunctionInvocation: *adaptCallInfo(info.ExecuteCallInfo),
 		}
 	case *core.DeployAccountTransaction:
 		result.ValidateInvocation = adaptCallInfo(info.ValidateCallInfo)
@@ -74,10 +74,10 @@ func adaptTxExecutionInfo(tx core.Transaction, info vm.TransactionExecutionInfo)
 	return &result, nil
 }
 
-func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
+func adaptCallInfo(info *vm.CallInfo) *FunctionInvocation {
 	var result FunctionInvocation
 	if info == nil {
-		return result
+		return nil
 	}
 
 	result.FunctionCall = FunctionCall{
@@ -90,7 +90,7 @@ func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
 	result.CallType = CallType(info.Call.CallType)
 	result.Result = info.Execution.Retdata
 	result.Calls = utils.Map(info.InnerCalls, func(innerInfo vm.CallInfo) FunctionInvocation {
-		return adaptCallInfo(&innerInfo)
+		return *adaptCallInfo(&innerInfo)
 	})
 	result.Events = utils.Map(info.Execution.Events, func(event vm.OrderedEvent) EventContent {
 		e := event.Event
@@ -107,5 +107,5 @@ func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
 		}
 	})
 
-	return result
+	return &result
 }

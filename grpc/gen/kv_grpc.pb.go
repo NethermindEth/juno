@@ -8,7 +8,6 @@ package gen
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -90,12 +89,12 @@ type KVServer interface {
 }
 
 // UnimplementedKVServer should be embedded to have forward compatible implementations.
-type UnimplementedKVServer struct{}
+type UnimplementedKVServer struct {
+}
 
 func (UnimplementedKVServer) Version(context.Context, *emptypb.Empty) (*VersionReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
 }
-
 func (UnimplementedKVServer) Tx(KV_TxServer) error {
 	return status.Errorf(codes.Unimplemented, "method Tx not implemented")
 }
