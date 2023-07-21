@@ -2057,6 +2057,7 @@ func TestTraceTransaction(t *testing.T) {
 	}
 
 	header := &core.Header{
+		Hash:       utils.HexToFelt(t, "0xCAFEBABE"),
 		ParentHash: utils.HexToFelt(t, "0x0"),
 		Number:     0,
 	}
@@ -2069,7 +2070,7 @@ func TestTraceTransaction(t *testing.T) {
 		Class: &core.Cairo1Class{},
 	}
 
-	mockReader.EXPECT().Receipt(hash).Return(nil, nil, header.Number, nil)
+	mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 	mockReader.EXPECT().BlockByNumber(header.Number).Return(block, nil)
 
 	nopCloser := func() error { return nil }
