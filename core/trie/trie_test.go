@@ -11,6 +11,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -304,6 +305,64 @@ func TestMaxTrieHeight(t *testing.T) {
 	})
 }
 
+func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
+	// Not doing what this test requires--always updating the root key on commit--
+	// leads to some tricky errors. For example:
+	//
+	//  1. A trie is created and performs the following operations:
+	//     a. Put leaf
+	//     b. Commit
+	//     c. Delete leaf
+	//     d. Commit
+	//  2. A second trie is created with the same db transaction and immediately
+	//     calls [trie.Root].
+	//
+	// If the root key is not updated in the db transaction at step 1d,
+	// the second trie will initialise its root key to the wrong value
+	// (to the value the root key had at step 1b).
+
+	// We simulate the situation described above.
+
+	height := uint(251)
+
+	// The database transaction we will use to create both tries.
+	txn := db.NewMemTransaction()
+	tTxn := trie.NewTransactionStorage(txn, []byte{1, 2, 3})
+
+	// Step 1: Create first trie
+	tempTrie, err := trie.NewTriePedersen(tTxn, height)
+	require.NoError(t, err)
+
+	// Step 1a: Put
+	key := new(felt.Felt).SetUint64(1)
+	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(1))
+	require.NoError(t, err)
+
+	// Step 1b: Commit
+	require.NoError(t, tempTrie.Commit())
+
+	// Step 1c: Delete
+	_, err = tempTrie.Put(key, new(felt.Felt)) // Inserting zero felt is a deletion.
+	require.NoError(t, err)
+
+	want := new(felt.Felt)
+
+	// Step 1d: Commit
+	got, err := tempTrie.Root()
+	require.NoError(t, err)
+	// Ensure root value matches expectation.
+	assert.Equal(t, want, got)
+
+	// Step 2: Different trie created with the same db transaction and calls [trie.Root].
+	tTxn = trie.NewTransactionStorage(txn, []byte{1, 2, 3})
+	secondTrie, err := trie.NewTriePedersen(tTxn, height)
+	require.NoError(t, err)
+	got, err = secondTrie.Root()
+	require.NoError(t, err)
+	// Ensure root value is the same as the first trie.
+	assert.Equal(t, want, got)
+}
+
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
 	for i := 0; i < b.N; i++ {
@@ -346,7 +405,7 @@ func TestTrie_Iterate(t *testing.T) {
 	db, err := pebble.NewMem()
 	assert.Nil(t, err)
 
-	trie, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251, nil)
+	trie, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251)
 	assert.Nil(t, err)
 
 	for i := 0; i < 10; i++ {
@@ -491,7 +550,7 @@ func testTrie_GenerateProof(t *testing.T, gapGen func() int64) {
 	db, err := pebble.NewMem()
 	assert.Nil(t, err)
 
-	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251, nil)
+	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251)
 	assert.Nil(t, err)
 
 	sourcepaths := make([]*felt.Felt, 0)
@@ -605,7 +664,7 @@ func TestTrie_GenerateProof_SingleValue(t *testing.T) {
 	db, err := pebble.NewMem()
 	assert.Nil(t, err)
 
-	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251, nil)
+	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251)
 	assert.Nil(t, err)
 
 	for i := 0; i < 1; i++ {
@@ -623,7 +682,7 @@ func TestTrie_GenerateProof_SingleValue(t *testing.T) {
 		db2, err := pebble.NewMem()
 		assert.Nil(t, err)
 
-		tr2, err := trie.NewTriePedersen(trie.NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251, nil)
+		tr2, err := trie.NewTriePedersen(trie.NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251)
 		assert.Nil(t, err)
 
 		_, _ = tr2.Put(numToFelt(0), numToFelt(10))

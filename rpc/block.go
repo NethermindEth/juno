@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -30,6 +31,24 @@ func (s Status) MarshalJSON() ([]byte, error) {
 	default:
 		return nil, errors.New("unknown block status")
 	}
+}
+
+func (s *Status) UnmarshalJSON(bytes []byte) (err error) {
+	str := string(bytes)
+	switch str {
+	case "PENDING":
+		*s = StatusPending
+	case "ACCEPTED_ON_L2":
+		*s = StatusAcceptedL2
+	case "ACCEPTED_ON_L1":
+		*s = StatusAcceptedL1
+	case "REJECTED":
+		*s = StatusRejected
+	default:
+		err = fmt.Errorf("unknown block status %q", str)
+	}
+
+	return
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L520-L534

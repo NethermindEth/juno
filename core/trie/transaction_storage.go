@@ -3,11 +3,11 @@ package trie
 import (
 	"bytes"
 	"errors"
+	"github.com/NethermindEth/juno/encoder"
 	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -88,8 +88,7 @@ func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
 		return err
 	}
 
-	enc := encoder.NewEncoder(buffer)
-	err = enc.Encode(value)
+	_, err = value.WriteTo(buffer)
 	if err != nil {
 		return err
 	}
@@ -109,7 +108,7 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 	var node *Node
 	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
 		node = nodePool.Get().(*Node)
-		return encoder.Unmarshal(val, node)
+		return node.UnmarshalBinary(val)
 	}); err != nil {
 		return nil, err
 	}
@@ -178,6 +177,29 @@ func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 		return err
 	}
 	return t.txn.Delete(buffer.Bytes())
+}
+
+func (t *TransactionStorage) RootKey() (*bitset.BitSet, error) {
+	var rootKey *bitset.BitSet
+	if err := t.txn.Get(t.prefix, func(val []byte) error {
+		rootKey = new(bitset.BitSet)
+		return rootKey.UnmarshalBinary(val)
+	}); err != nil {
+		return nil, err
+	}
+	return rootKey, nil
+}
+
+func (t *TransactionStorage) PutRootKey(newRootKey *bitset.BitSet) error {
+	newRootKeyBytes, err := newRootKey.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	return t.txn.Set(t.prefix, newRootKeyBytes)
+}
+
+func (t *TransactionStorage) DeleteRootKey() error {
+	return t.txn.Delete(t.prefix)
 }
 
 func newMemStorage() Storage {

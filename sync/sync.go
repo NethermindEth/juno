@@ -28,6 +28,8 @@ type Synchronizer struct {
 	log utils.SimpleLogger
 
 	pendingPollInterval time.Duration
+
+	catchUpMode bool
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -168,12 +170,18 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number < block.Number {
+			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
 					s.HighestBlockHeader = highestBlock.Header
+
+					isBehind := s.HighestBlockHeader.Number > block.Number
+					if s.catchUpMode != isBehind {
+						resetStreams()
+					}
+					s.catchUpMode = isBehind
 				}
 			}
 
@@ -197,9 +205,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		s.HighestBlockHeader = nil
 	}()
 
-	fetchers := stream.New().WithMaxGoroutines(runtime.NumCPU())
-	verifiers := stream.New().WithMaxGoroutines(runtime.NumCPU())
-
+	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
 
 	nextHeight := s.nextHeight()
@@ -212,17 +218,19 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	for {
 		select {
 		case <-streamCtx.Done():
+			streamCancel()
+			fetchers.Wait()
+			verifiers.Wait()
+
 			select {
 			case <-syncCtx.Done():
-				streamCancel()
-				fetchers.Wait()
-				verifiers.Wait()
 				pendingSem <- struct{}{}
 				return
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
-				s.log.Warnw("Rolling back sync process", "height", nextHeight)
+				fetchers, verifiers = s.setupWorkers()
+				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
@@ -232,6 +240,14 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			nextHeight++
 		}
 	}
+}
+
+func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
+	numWorkers := 1
+	if s.catchUpMode {
+		numWorkers = runtime.GOMAXPROCS(0)
+	}
+	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(numWorkers)
 }
 
 func (s *Synchronizer) revertHead(forkBlock *core.Block) {

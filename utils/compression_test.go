@@ -8,10 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGzip64Encode(t *testing.T) {
+func TestGzip64(t *testing.T) {
 	bytes := []byte{0}
 	expectedComBytes := "H4sIAAAAAAAA/2IABAAA//+N7wLSAQAAAA=="
 	comBytes, err := utils.Gzip64Encode(bytes)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, comBytes, expectedComBytes)
+
+	decompBytes, err := utils.Gzip64Decode(comBytes)
+	require.NoError(t, err)
+	assert.Equal(t, bytes, decompBytes)
 }

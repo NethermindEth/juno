@@ -8,29 +8,32 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRevision0000(t *testing.T) {
+func TestMigration0000(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	t.Cleanup(func() {
 		require.NoError(t, testDB.Close())
 	})
 
 	t.Run("empty DB", func(t *testing.T) {
-		require.NoError(t, testDB.View(revision0000))
+		require.NoError(t, testDB.View(migration0000))
 	})
 
 	t.Run("non-empty DB", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set([]byte("asd"), []byte("123"))
 		}))
-		require.EqualError(t, testDB.View(revision0000), "initial DB should be empty")
+		require.EqualError(t, testDB.View(migration0000), "initial DB should be empty")
 	})
 }
 
@@ -99,4 +102,61 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, core.EventsBloom(b.Receipts), b.EventsBloom)
 	}
+}
+
+func TestChangeTrieNodeEncoding(t *testing.T) {
+	testdb := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testdb.Close())
+	})
+
+	buckets := []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
+
+	var n struct {
+		Value *felt.Felt
+		Left  *bitset.BitSet
+		Right *bitset.BitSet
+	}
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		// contract root keys, if changeTrieNodeEncoding tries to migrate these it
+		// will fail with an error since they are not valid trie.Node encodings.
+		require.NoError(t, txn.Set(db.ClassesTrie.Key(), []byte{1, 2, 3}))
+		require.NoError(t, txn.Set(db.StateTrie.Key(), []byte{1, 2, 3}))
+		require.NoError(t, txn.Set(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
+
+		for _, bucket := range buckets {
+			for i := 0; i < 5; i++ {
+				n.Value = new(felt.Felt).SetUint64(uint64(i))
+
+				encodedNode, err := encoder.Marshal(n)
+				if err != nil {
+					return err
+				}
+
+				if err = txn.Set(bucket.Key([]byte{byte(i)}), encodedNode); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}))
+
+	m := new(changeTrieNodeEncoding)
+	m.Before()
+	require.NoError(t, testdb.Update(m.Migrate))
+
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		for _, bucket := range buckets {
+			for i := 0; i < 5; i++ {
+				var coreNode trie.Node
+				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}))
 }

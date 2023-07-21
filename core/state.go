@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
+	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -11,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/sourcegraph/conc/pool"
 )
 
 const globalTrieHeight = 251
@@ -181,7 +184,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 		return nil, nil, err
 	}
 
-	gTrie, err := newTrie(tTxn, globalTrieHeight, rootKey)
+	gTrie, err := newTrie(tTxn, globalTrieHeight)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,6 +273,14 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	return ret
 }
 
+var (
+	noClassContractsClassHash = new(felt.Felt).SetUint64(0)
+
+	noClassContracts = map[felt.Felt]struct{}{
+		*new(felt.Felt).SetUint64(1): {},
+	}
+)
+
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
 	// replace contract instances
 	for _, replace := range diff.ReplacedClasses {
@@ -300,20 +311,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 	}
 
 	// update contract storages
-	for addr, storageDiff := range diff.StorageDiffs {
-		onValueChanged := func(location, oldValue *felt.Felt) error {
-			if logChanges {
-				return s.LogContractStorage(&addr, location, oldValue, blockNumber)
-			}
-			return nil
-		}
-
-		if err := s.updateContractStorage(stateTrie, &addr, storageDiff, onValueChanged); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return s.updateContractStorages(stateTrie, diff.StorageDiffs, blockNumber, logChanges)
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
@@ -379,19 +377,97 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return &class, nil
 }
 
+func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff []StorageDiff, blockNumber uint64, logChanges bool) (
+	*db.BufferedTransaction, error,
+) {
+	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
+	bufferedTxn := db.NewBufferedTransaction(s.txn)
+	bufferedState := NewState(bufferedTxn)
+	bufferedContract, err := NewContract(contractAddr, bufferedTxn)
+	if err != nil {
+		return nil, err
+	}
+
+	onValueChanged := func(location, oldValue *felt.Felt) error {
+		if logChanges {
+			return bufferedState.LogContractStorage(contractAddr, location, oldValue, blockNumber)
+		}
+		return nil
+	}
+
+	if err = bufferedContract.UpdateStorage(updateDiff, onValueChanged); err != nil {
+		return nil, err
+	}
+
+	return bufferedTxn, nil
+}
+
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorage(stateTrie *trie.Trie, addr *felt.Felt, diff []StorageDiff, onChanged OnValueChanged) error {
-	contract, err := NewContract(addr, s.txn)
+func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt][]StorageDiff, blockNumber uint64, logChanges bool) error {
+	// make sure all noClassContracts are deployed
+	for addr := range diffs {
+		if _, ok := noClassContracts[addr]; !ok {
+			continue
+		}
+
+		_, err := NewContract(&addr, s.txn)
+		if err != nil {
+			if !errors.Is(err, ErrContractNotDeployed) {
+				return err
+			}
+			// Deploy noClassContract
+			err = s.putNewContract(stateTrie, &addr, noClassContractsClassHash, blockNumber)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// sort the contracts in decending diff size order
+	// so we start with the heaviest update first
+	keys := make([]felt.Felt, 0, len(diffs))
+	for key := range diffs {
+		keys = append(keys, key)
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return len(diffs[keys[i]]) > len(diffs[keys[j]])
+	})
+
+	// update per-contract storage Tries concurrently
+	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	for _, key := range keys {
+		conractAddr := key
+		updateDiff := diffs[conractAddr]
+		contractUpdaters.Go(func() (*db.BufferedTransaction, error) {
+			return s.updateStorageBuffered(&conractAddr, updateDiff, blockNumber, logChanges)
+		})
+	}
+
+	bufferedTxns, err := contractUpdaters.Wait()
 	if err != nil {
 		return err
 	}
 
-	if err = contract.UpdateStorage(diff, onChanged); err != nil {
-		return err
+	// flush buffered txns
+	for _, bufferedTxn := range bufferedTxns {
+		if err = bufferedTxn.Flush(); err != nil {
+			return err
+		}
 	}
 
-	return s.updateContractCommitment(stateTrie, contract)
+	for addr := range diffs {
+		contract, err := NewContract(&addr, s.txn)
+		if err != nil {
+			return err
+		}
+
+		if err = s.updateContractCommitment(stateTrie, contract); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // updateContractNonce updates nonce of the contract at the
@@ -514,6 +590,33 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 	for _, contract := range update.StateDiff.DeployedContracts {
 		if err = s.purgeContract(contract.Address); err != nil {
 			return err
+		}
+	}
+
+	// purge noClassContracts
+	//
+	// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
+	// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
+	// we can use the lack of key's existence as reason for purging noClassContracts.
+
+	for addr := range noClassContracts {
+		noClassC, err := NewContract(&addr, s.txn)
+		if err != nil {
+			if !errors.Is(err, ErrContractNotDeployed) {
+				return err
+			}
+			continue
+		}
+
+		r, err := noClassC.Root()
+		if err != nil {
+			return err
+		}
+
+		if r.Equal(&felt.Zero) {
+			if err = s.purgeContract(&addr); err != nil {
+				return err
+			}
 		}
 	}
 

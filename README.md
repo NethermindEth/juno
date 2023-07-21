@@ -27,6 +27,9 @@
   <a href="https://twitter.com/nethermindeth?s=20&t=xLC_xrid_f17DJqdJ2EZnA">
     <img src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white">
   </a>
+  <a href="https://t.me/+skAz9cUvo_AzZWM8">
+    <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white">
+  </a>
 </p>
 
 
@@ -40,6 +43,7 @@
 
 - Golang 1.20 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
+- [Rust](https://www.rust-lang.org/tools/install).
 - A C compiler: `gcc` or `clang`.
 
 ### Build and Run
@@ -61,7 +65,7 @@ docker run -d \
   -p 6060:6060 \
   -v /home/juno:/var/lib/juno \
   nethermind/juno \
-  --rpc-port 6060 \
+  --http-port 6060 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
 ```
@@ -75,13 +79,32 @@ To view logs from the Docker container, use the following command:
 docker logs -f juno
 ```
 
+## 📸 Snapshots
+
+Use the provided snapshots to quickly sync your Juno node with the current state of the network. 
+
+#### Mainnet
+
+| Network | Version | Size | Block | Download Link |
+| ------- | ------- | ---- | ----- | ------------- |
+| mainnet | >=v0.4.0  | 29.4 GB | 100713 | [juno_mainnet_100713.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.4.0_100713.tar) |
+
+#### Goerli
+
+| Network | Version | Size | Block | Download Link |
+| ------- | ------- | ---- | ----- | ------------- |
+| goerli | >=v0.4.0 | 31.6 GB | 830385 | [juno_goerli_830385.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.4.0_830385.tar) |
+
+#### Goerli2
+
+| Network | Version | Size | Block | Download Link |
+| ------- | ------- | ---- | ----- | ------------- |
+| goerli2 | >=v0.4.0 | 1.8 GB | 125026 | [juno_goerli2_125026.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.4.0_125026.tar) |
+
 ## ✔ Supported Features
 
-- Starknet state construction and storage using a path-based Merkle Patricia trie. 
-- Pedersen and `starknet_keccak` hash implementation over starknet field.
-- Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
-- Block and Transaction hash verification.
-- JSON-RPC Endpoints:
+- Starknet [v0.12.0](https://www.starknet.io/en/posts/ecosystem/starknet-quantum-leap-major-throughput-improvements-are-here) support.
+- JSON-RPC [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
   - `starknet_chainId`
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
@@ -99,6 +122,20 @@ docker logs -f juno
   - `starknet_getClassAt`
   - `starknet_syncing`
   - `starknet_getEvents`
+  - `starknet_call`
+  - `starknet_estimateFee`
+  - `starknet_addInvokeTransaction`
+  - `starknet_addDeclareTransaction`
+  - `starknet_addDeployAccountTransaction`
+- Juno's JSON-RPC:
+  - `juno_version`
+  - `juno_getTransactionStatus`
+- Integration of CairoVM. 
+- Verification of State from L1.
+- Handle L1 and L2 Reorgs.
+- Starknet state construction and storage using a path-based Merkle Patricia trie.
+- Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
+- Block and Transaction hash verification.
 
 ## 🛣 Roadmap
 
@@ -138,14 +175,17 @@ docker logs -f juno
 
 ### Phase 2
 
+<details>
+<summary></summary>
+
 The focus of Phase 2 will be to Verify the state from layer 1 and implement the remaining JSON-RPC endpoints.
 
 * [X] Starknet v0.11.0 support
     * [X] Poseidon state trie support
-* [ ] Blockchain: implement blockchain reorganization logic.
+* [X] Blockchain: implement blockchain reorganization logic.
 * [X] Synchronisation: implement verification of state from layer 1.
-* [ ] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
-    * [ ] Implement the remaining endpoints:
+* [X] JSON-RPC API [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
+    * [X] Implement the remaining endpoints:
         * [X] `starknet_syncing`
         * [X] `starknet_getNonce`
         * [X] `starknet_getStorageAt`
@@ -153,14 +193,15 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
         * [X] `starknet_getClass`
         * [X] `starknet_getClassAt`
         * [X] `starknet_getEvents`
-* [ ] Integration of [Starknet in Rust](https://github.com/lambdaclass/starknet_in_rust):
-  * [ ] `starknet_call`
-  * [ ] `starknet_estimateFee`
-* [ ] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/tree/v0.3.0-rc1):
+* [X] Integration of CairoVM:
+  * [X] `starknet_call`
+  * [X] `starknet_estimateFee`
+* [X] JSON-RPC Write API [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
     * [X] `starknet_addInvokeTransaction`
-    * [ ] `starknet_addDeclareTransaction`
-    * [ ] `starknet_addDeployAccountTransaction`
-    
+    * [X] `starknet_addDeclareTransaction`
+    * [X] `starknet_addDeployAccountTransaction`
+
+</details>
 
 ## 👍 Contribute
 

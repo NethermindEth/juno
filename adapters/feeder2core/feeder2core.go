@@ -44,6 +44,7 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         response.GasPrice,
 		},
 		Transactions: txns,
 		Receipts:     receipts,
@@ -72,6 +73,7 @@ func AdaptTransactionReceipt(response *feeder.TransactionReceipt) *core.Transact
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
+		Reverted:           response.ExecutionStatus == feeder.Reverted,
 	}
 }
 
@@ -143,7 +145,7 @@ func AdaptTransaction(transaction *feeder.Transaction) (core.Transaction, error)
 		return AdaptDeclareTransaction(transaction), nil
 	case "DEPLOY":
 		return AdaptDeployTransaction(transaction), nil
-	case "INVOKE_FUNCTION":
+	case "INVOKE_FUNCTION", "INVOKE":
 		return AdaptInvokeTransaction(transaction), nil
 	case "DEPLOY_ACCOUNT":
 		return AdaptDeployAccountTransaction(transaction), nil
@@ -159,7 +161,7 @@ func AdaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 		TransactionHash:      t.Hash,
 		SenderAddress:        t.SenderAddress,
 		MaxFee:               t.MaxFee,
-		TransactionSignature: t.Signature,
+		TransactionSignature: *t.Signature,
 		Nonce:                t.Nonce,
 		Version:              t.Version,
 		ClassHash:            t.ClassHash,
@@ -168,12 +170,15 @@ func AdaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 }
 
 func AdaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
+	if t.ContractAddress == nil {
+		t.ContractAddress = core.ContractAddress(&felt.Zero, t.ClassHash, t.ContractAddressSalt, *t.ConstructorCallData)
+	}
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
 		ContractAddressSalt: t.ContractAddressSalt,
 		ContractAddress:     t.ContractAddress,
 		ClassHash:           t.ClassHash,
-		ConstructorCallData: t.ConstructorCallData,
+		ConstructorCallData: *t.ConstructorCallData,
 		Version:             t.Version,
 	}
 }
@@ -184,8 +189,8 @@ func AdaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
 		ContractAddress:      t.ContractAddress,
 		EntryPointSelector:   t.EntryPointSelector,
 		Nonce:                t.Nonce,
-		CallData:             t.CallData,
-		TransactionSignature: t.Signature,
+		CallData:             *t.CallData,
+		TransactionSignature: *t.Signature,
 		MaxFee:               t.MaxFee,
 		Version:              t.Version,
 		SenderAddress:        t.SenderAddress,
@@ -198,7 +203,7 @@ func AdaptL1HandlerTransaction(t *feeder.Transaction) *core.L1HandlerTransaction
 		ContractAddress:    t.ContractAddress,
 		EntryPointSelector: t.EntryPointSelector,
 		Nonce:              t.Nonce,
-		CallData:           t.CallData,
+		CallData:           *t.CallData,
 		Version:            t.Version,
 	}
 }
@@ -207,7 +212,7 @@ func AdaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTra
 	return &core.DeployAccountTransaction{
 		DeployTransaction:    *AdaptDeployTransaction(t),
 		MaxFee:               t.MaxFee,
-		TransactionSignature: t.Signature,
+		TransactionSignature: *t.Signature,
 		Nonce:                t.Nonce,
 	}
 }
@@ -239,8 +244,10 @@ func AdaptCairo1Class(response *feeder.SierraDefinition, compiledClass json.RawM
 		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
 	}
 
-	if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
-		return nil, err
+	if compiledClass != nil {
+		if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
+			return nil, err
+		}
 	}
 	return class, nil
 }

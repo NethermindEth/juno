@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -13,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type Event struct {
@@ -57,6 +60,7 @@ type TransactionReceipt struct {
 	L1ToL2Message      *L1ToL2Message
 	L2ToL1Message      []*L2ToL1Message
 	TransactionHash    *felt.Felt
+	Reverted           bool
 }
 
 type Transaction interface {
@@ -213,11 +217,15 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
+<<<<<<< HEAD
 func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
 	return StrictTransactionHash(transaction, n, false)
 }
 
 func StrictTransactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
+=======
+func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+>>>>>>> origin/main
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n, force)
@@ -260,6 +268,7 @@ func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch {
 	case i.Version.IsZero():
+<<<<<<< HEAD
 		if force {
 			sender := i.ContractAddress
 			if sender == nil {
@@ -288,6 +297,17 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network, force bool) (*
 
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
 		return i.TransactionHash, nil
+=======
+		return crypto.PedersenArray(
+			invokeFelt,
+			i.Version,
+			i.ContractAddress,
+			i.EntryPointSelector,
+			crypto.PedersenArray(i.CallData...),
+			i.MaxFee,
+			n.ChainID(),
+		), nil
+>>>>>>> origin/main
 	case i.Version.IsOne():
 		return crypto.PedersenArray(
 			invokeFelt,
@@ -407,7 +427,7 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 	}
 
 	for _, t := range txs {
-		calculatedTxHash, hErr := transactionHash(t, n)
+		calculatedTxHash, hErr := TransactionHash(t, n)
 		if hErr != nil {
 			return fmt.Errorf("cannot calculate transaction hash of Transaction %s, reason: %w", t.Hash(), hErr)
 		}
@@ -474,20 +494,52 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
-		count := uint64(0)
-		for _, receipt := range receipts {
-			for _, event := range receipt.Events {
-				eventHash := crypto.PedersenArray(
-					event.From,
-					crypto.PedersenArray(event.Keys...),
-					crypto.PedersenArray(event.Data...),
-				)
+		eventCount := uint64(0)
+		numWorkers := runtime.GOMAXPROCS(0)
+		receiptPerWorker := len(receipts) / numWorkers
+		if receiptPerWorker == 0 {
+			receiptPerWorker = 1
+		}
+		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
+		var trieMutex sync.Mutex
 
-				if _, err := trie.Put(new(felt.Felt).SetUint64(count), eventHash); err != nil {
-					return err
-				}
-				count++
+		for receiptIdx := range receipts {
+			if receiptIdx%receiptPerWorker == 0 {
+				curReceiptIdx := receiptIdx
+				curEventIdx := eventCount
+
+				workerPool.Go(func() error {
+					maxIndex := curReceiptIdx + receiptPerWorker
+					if maxIndex > len(receipts) {
+						maxIndex = len(receipts)
+					}
+					receiptsSliced := receipts[curReceiptIdx:maxIndex]
+
+					for _, receipt := range receiptsSliced {
+						for _, event := range receipt.Events {
+							eventHash := crypto.PedersenArray(
+								event.From,
+								crypto.PedersenArray(event.Keys...),
+								crypto.PedersenArray(event.Data...),
+							)
+
+							eventTrieKey := new(felt.Felt).SetUint64(curEventIdx)
+							trieMutex.Lock()
+							_, err := trie.Put(eventTrieKey, eventHash)
+							trieMutex.Unlock()
+							if err != nil {
+								return err
+							}
+							curEventIdx++
+						}
+					}
+					return nil
+				})
 			}
+			eventCount += uint64(len(receipts[receiptIdx].Events))
+		}
+		if err := workerPool.Wait(); err != nil {
+			return err
 		}
 		root, err := trie.Root()
 		if err != nil {

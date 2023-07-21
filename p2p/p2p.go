@@ -21,6 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
+	p2pnet "github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
@@ -53,8 +54,9 @@ func New(
 	addr,
 	userAgent,
 	bootPeers string,
+	privKeyStr string,
 	bc *blockchain.Blockchain,
-	network0 utils.Network,
+	network utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	if addr == "" {
@@ -66,12 +68,12 @@ func New(
 		return nil, err
 	}
 
-	prvKey, err := privateKey()
+	prvKey, err := privateKey(privKeyStr)
 	if err != nil {
 		return nil, err
 	}
 
-	hst, err := libp2p.New(
+	p2phost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
 		libp2p.UserAgent(userAgent),
@@ -80,7 +82,7 @@ func New(
 		return nil, err
 	}
 
-	dhti, err := makeDHT(hst, network0, bootPeers)
+	p2pdht, err := makeDHT(p2phost, network, bootPeers)
 	if err != nil {
 		return nil, err
 	}
@@ -104,19 +106,18 @@ func New(
 		log:        log,
 	}
 
-	hst.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
+	p2phost.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
 
 	return &Service{
-		bootPeers:  bootPeers,
-		log:        log,
-		host:       hst,
-		network:    network0,
-		blockchain: bc,
-		dht:        dhti,
+		bootPeers: bootPeers,
+		log:       log,
+		host:      p2phost,
+		network:   network,
+		dht:       p2pdht,
 	}, nil
 }
 
-func makeDHT(host host.Host, network utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, network utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
 	bootPeers := []peer.AddrInfo{}
 	if cfgBootPeers != "" {
 		splitted := strings.Split(cfgBootPeers, ",")
@@ -131,7 +132,7 @@ func makeDHT(host host.Host, network utils.Network, cfgBootPeers string) (*dht.I
 	}
 
 	protocolPrefix := protocol.ID(fmt.Sprintf("/starknet/%s", network.String()))
-	return dht.New(context.Background(), host,
+	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(protocolPrefix),
 		dht.BootstrapPeers(bootPeers...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
@@ -139,9 +140,8 @@ func makeDHT(host host.Host, network utils.Network, cfgBootPeers string) (*dht.I
 	)
 }
 
-func privateKey() (crypto.PrivKey, error) {
-	privKeyStr, ok := os.LookupEnv("P2P_PRIVATE_KEY")
-	if !ok {
+func privateKey(privKeyStr string) (crypto.PrivKey, error) {
+	if privKeyStr == "" {
 		// Creates a new key pair for this host.
 		prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.Ed25519, keyLength, rand.Reader)
 		if err != nil {
@@ -180,7 +180,7 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 				return
 			case evnt := <-sub.Out():
 				typedEvnt := evnt.(event.EvtPeerConnectednessChanged)
-				if typedEvnt.Connectedness == network.Connected {
+				if typedEvnt.Connectedness == p2pnet.Connected {
 					ch <- typedEvnt
 				}
 			}

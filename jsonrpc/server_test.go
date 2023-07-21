@@ -4,12 +4,14 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestServer_RegisterMethod(t *testing.T) {
-	server := jsonrpc.NewServer()
+	server := jsonrpc.NewServer(utils.NewNopZapLogger())
 	tests := map[string]struct {
 		handler    any
 		paramNames []jsonrpc.Parameter
@@ -109,14 +111,28 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
+			"validationSlice",
+			[]jsonrpc.Parameter{{Name: "param"}},
+			func(v []validationStruct) (int, *jsonrpc.Error) {
+				return v[0].A, nil
+			},
+		},
+		{
 			"validationPointer",
 			[]jsonrpc.Parameter{{Name: "param"}},
 			func(v *validationStruct) (int, *jsonrpc.Error) {
 				return v.A, nil
 			},
 		},
+		{
+			"validationMapPointer",
+			[]jsonrpc.Parameter{{Name: "param"}},
+			func(v map[string]*validationStruct) (int, *jsonrpc.Error) {
+				return v["expectedkey"].A, nil
+			},
+		},
 	}
-	server := jsonrpc.NewServer()
+	server := jsonrpc.NewServer(utils.NewNopZapLogger()).WithValidator(validator.New())
 	for _, m := range methods {
 		require.NoError(t, server.RegisterMethod(m))
 	}
@@ -316,6 +332,22 @@ func TestHandle(t *testing.T) {
 		},
 		"valid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 1} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+		},
+		"invalid value in slice struct": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [ [{"A": 0}] ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+		},
+		"valid value in slice of struct": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [[{"A": 1}]], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+		},
+		"invalid value in map of pointer": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "notthexpectedkey" : {"A": 0}} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+		},
+		"valid value in map of pointer": {
+			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "expectedkey" : {"A": 1}} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
 		// spec tests

@@ -13,9 +13,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    
+      with:
+        fetch-depth: 0
+
     - name: Define docker image tag
-      run: echo "DOCKER_IMAGE_TAG=${{ github.actor }}-${{ github.sha }}" >> $GITHUB_ENV
+      run: echo "DOCKER_IMAGE_TAG=$(git describe --tags)" >> $GITHUB_ENV
     
     - name: Set node host
       id: set-host
@@ -73,12 +75,12 @@ jobs:
                     -v /root/juno_$network:/var/lib/juno \
                     nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
                     --db-path /var/lib/juno \
-                    --rpc-port $port \
+                    --http-port $port \
                     --network $network \
                     --colour=false \
                     $ETH_NODE_PARAM \
                     $PPROF_PARAM
-                port=$((port+1))
+                port=$((port+5))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
 

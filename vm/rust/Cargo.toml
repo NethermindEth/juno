@@ -1,0 +1,20 @@
+[package]
+name = "juno-starknet-rs"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = "1.0.160"
+serde_json = { version = "1.0.96", features = ["raw_value"] }
+blockifier = {git = "https://github.com/starkware-libs/blockifier", rev = "74e7e97"}
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "8f620bc" }
+cairo-vm = "0.8.2"
+cairo-lang-casm = "2.1.0-rc0"
+cairo-lang-starknet = "2.1.0-rc0"
+
+starknet = { rev = "starknet-core/v0.4.0", git = "https://github.com/xJonathanLEI/starknet-rs" }
+
+[lib]
+crate-type = ["staticlib"]
