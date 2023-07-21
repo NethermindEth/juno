@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -23,14 +24,12 @@ type Client struct {
 	log     utils.SimpleLogger
 }
 
-type (
-	closeTestClient func()
-)
-
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient() (*Client, closeTestClient) {
+func NewTestClient(t *testing.T) *Client {
 	srv := newTestServer()
-	return NewClient(srv.URL, utils.NewNopZapLogger()), srv.Close
+	t.Cleanup(srv.Close)
+
+	return NewClient(srv.URL, utils.NewNopZapLogger())
 }
 
 func newTestServer() *httptest.Server {
