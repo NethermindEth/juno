@@ -117,4 +117,5 @@ type TransactionReceipt struct {
 	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages"`
 	TransactionHash    *felt.Felt          `json:"transaction_hash"`
 	TransactionIndex   uint64              `json:"transaction_index"`
+	RevertError        string              `json:"revert_error"`
 }
