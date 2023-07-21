@@ -56,7 +56,7 @@ type SnapServer interface {
 
 var _ SnapServer = &State{}
 
-const maxNodePerRequest = 2
+const maxNodePerRequest = 4
 
 func (s *State) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) {
 	// TODO: check the block hash

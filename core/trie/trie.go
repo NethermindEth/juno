@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/NethermindEth/juno/db/pebble"
-	xslices "golang.org/x/exp/slices"
 	"math/big"
-	"sort"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -126,17 +124,6 @@ func (t *Trie) bitSetToFelt(path *bitset.BitSet) *felt.Felt {
 		panic(fmt.Sprintf("key too long to fit in Felt %d %d", len(pathWords), felt.Limbs))
 	}
 
-	var pathBytes [felt.Bytes]byte
-	for idx, word := range pathWords {
-		startBytes := 24 - (idx * 8)
-		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
-	}
-
-	return new(felt.Felt).SetBytes(pathBytes[:])
-}
-
-func BitSetToFeltForce(path *bitset.BitSet) *felt.Felt {
-	pathWords := path.Bytes()
 	var pathBytes [felt.Bytes]byte
 	for idx, word := range pathWords {
 		startBytes := 24 - (idx * 8)
@@ -600,12 +587,12 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	}).dump(level+1, t.rootKey)
 }
 
-func bitSetToArray(path *bitset.BitSet) []byte {
+func bitsetToBigInt(path *bitset.BitSet) *big.Int {
 
 	buff := make([]byte, 8*len(path.Bytes()))
 
 	for i, b := range path.Bytes() {
-		binary.BigEndian.PutUint64(buff[24-i*8:], b)
+		binary.BigEndian.PutUint64(buff[len(buff)-8-i*8:], b)
 	}
 
 	theint := &big.Int{}
@@ -614,20 +601,11 @@ func bitSetToArray(path *bitset.BitSet) []byte {
 		theint = theint.Lsh(theint, 251-path.Len())
 	}
 
-	return theint.Bytes()
-}
-
-func ReverseSlice[T comparable](s []T) {
-	sort.SliceStable(s, func(i, j int) bool {
-		return i > j
-	})
+	return theint
 }
 
 func IsBitsetHigher(b1, b2 *bitset.BitSet) bool {
-	b1buff := bitSetToArray(b1)
-	b2buff := bitSetToArray(b2)
-
-	return xslices.Compare(b1buff, b2buff) > 0
+	return bitsetToBigInt(b1).Cmp(bitsetToBigInt(b2)) > 0
 }
 
 func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt, proofs []*ProofNode, hash HashFunc) (bool, error) {
@@ -651,8 +629,6 @@ func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt
 	hasNext := false
 	lastPath := tr2.FeltToBitSet(paths[len(paths)-1])
 	for _, proof := range proofs {
-		fmt.Printf("%v %08b %d vs %08b %d\n", IsBitsetHigher(proof.Key, lastPath), bitSetToArray(proof.Key), proof.Key.Len(), bitSetToArray(lastPath), lastPath.Len())
-
 		if IsBitsetHigher(proof.Key, lastPath) {
 			hasNext = true
 		}
