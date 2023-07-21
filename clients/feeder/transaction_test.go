@@ -10,10 +10,10 @@ import (
 
 func TestUnmarshalExecutionStatus(t *testing.T) {
 	es := new(feeder.ExecutionStatus)
-	require.NoError(t, es.UnmarshalJSON([]byte("SUCCEEDED")))
+	require.NoError(t, es.UnmarshalJSON([]byte(`"SUCCEEDED"`)))
 	assert.Equal(t, feeder.Succeeded, *es)
 
-	require.NoError(t, es.UnmarshalJSON([]byte("REVERTED")))
+	require.NoError(t, es.UnmarshalJSON([]byte(`"REVERTED"`)))
 	assert.Equal(t, feeder.Reverted, *es)
 
 	require.ErrorContains(t, es.UnmarshalJSON([]byte("ABC")), "unknown ExecutionStatus")
@@ -21,10 +21,10 @@ func TestUnmarshalExecutionStatus(t *testing.T) {
 
 func TestUnmarshalFinalityStatus(t *testing.T) {
 	fs := new(feeder.FinalityStatus)
-	require.NoError(t, fs.UnmarshalJSON([]byte("ACCEPTED_ON_L1")))
+	require.NoError(t, fs.UnmarshalJSON([]byte(`"ACCEPTED_ON_L1"`)))
 	assert.Equal(t, feeder.AcceptedOnL1, *fs)
 
-	require.NoError(t, fs.UnmarshalJSON([]byte("ACCEPTED_ON_L2")))
+	require.NoError(t, fs.UnmarshalJSON([]byte(`"ACCEPTED_ON_L2"`)))
 	assert.Equal(t, feeder.AcceptedOnL2, *fs)
 
 	require.ErrorContains(t, fs.UnmarshalJSON([]byte("ABC")), "unknown FinalityStatus")

@@ -15,9 +15,9 @@ const (
 
 func (es *ExecutionStatus) UnmarshalJSON(data []byte) error {
 	switch string(data) {
-	case "SUCCEEDED":
+	case `"SUCCEEDED"`:
 		*es = Succeeded
-	case "REVERTED":
+	case `"REVERTED"`:
 		*es = Reverted
 	default:
 		return errors.New("unknown ExecutionStatus")
@@ -34,9 +34,9 @@ const (
 
 func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
 	switch string(data) {
-	case "ACCEPTED_ON_L2":
+	case `"ACCEPTED_ON_L2"`:
 		*fs = AcceptedOnL2
-	case "ACCEPTED_ON_L1":
+	case `"ACCEPTED_ON_L1"`:
 		*fs = AcceptedOnL1
 	default:
 		return errors.New("unknown FinalityStatus")
