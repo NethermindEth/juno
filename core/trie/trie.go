@@ -377,12 +377,7 @@ func (t *Trie) put(nodeKey *bitset.BitSet, value *felt.Felt, isProof bool) (*fel
 			commonKey, _ = findCommonKey(sibling.key, nodeKey)
 		}
 
-		if commonKey.Equal(nodeKey) {
-			// The new node is the same as the commonKey
-			// Need to add sibling to it.
-			return nil, nil
-		} else if commonKey.Equal(sibling.key) {
-			// The new node should be a child of the sibling
+		if commonKey.Equal(nodeKey) && isProof {
 			return nil, nil
 		}
 
