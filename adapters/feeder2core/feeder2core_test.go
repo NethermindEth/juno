@@ -17,22 +17,31 @@ func TestAdaptBlock(t *testing.T) {
 	tests := []struct {
 		number          uint64
 		protocolVersion string
+		network         utils.Network
 	}{
 		{
-			number: 147,
+			number:  147,
+			network: utils.MAINNET,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
+			network:         utils.MAINNET,
+		},
+		{
+			number:          304740,
+			protocolVersion: "0.12.1",
+			network:         utils.INTEGRATION,
 		},
 	}
 
-	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
 	ctx := context.Background()
 
 	for _, test := range tests {
-		t.Run("mainnet block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
+		t.Run(test.network.String()+" block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
+			client, serverClose := feeder.NewTestClient(test.network)
+			t.Cleanup(serverClose)
+
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
 			block, err := feeder2core.AdaptBlock(response)
@@ -54,6 +63,7 @@ func TestAdaptBlock(t *testing.T) {
 			if assert.Equal(t, len(response.Receipts), len(block.Receipts)) {
 				for i, feederReceipt := range response.Receipts {
 					assert.Equal(t, feederReceipt.ExecutionStatus == feeder.Reverted, block.Receipts[i].Reverted)
+					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
 				}
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
