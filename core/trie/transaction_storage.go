@@ -2,6 +2,8 @@ package trie
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
@@ -9,6 +11,7 @@ import (
 )
 
 var _ Storage = (*TransactionStorage)(nil)
+var notSameDb error = errors.New("not same db")
 
 // bufferPool caches unused buffer objects for later reuse.
 var bufferPool = sync.Pool{
@@ -55,6 +58,27 @@ func (t *TransactionStorage) dbKey(key *bitset.BitSet, buffer *bytes.Buffer) (in
 	return int64(len(t.prefix)) + keyLen, err
 }
 
+func (t *TransactionStorage) keyToBitset(key []byte) (*bitset.BitSet, error) {
+	if !bytes.Equal(t.prefix, key[:len(t.prefix)]) {
+		return nil, notSameDb
+	}
+
+	buff := bytes.NewBuffer(key)
+
+	_, err := io.CopyN(io.Discard, buff, int64(len(t.prefix)))
+	if err != nil {
+		return nil, err
+	}
+
+	bts := &bitset.BitSet{}
+	_, err = bts.ReadFrom(buff)
+	if err != nil {
+		return nil, err
+	}
+
+	return bts, nil
+}
+
 func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
@@ -88,6 +112,60 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 		return nil, err
 	}
 	return node, err
+}
+
+func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) (bool, error)) error {
+	buffer := getBuffer()
+	defer bufferPool.Put(buffer)
+	_, err := t.dbKey(key, buffer)
+	if err != nil {
+		return err
+	}
+
+	it, err := t.txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
+	ok := it.Seek(buffer.Bytes())
+	for ok {
+		btset, err := t.keyToBitset(it.Key())
+		if err == notSameDb {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		bts, err := it.Value()
+		if err != nil {
+			return err
+		}
+
+		/*
+			keystr := hex.EncodeToString(it.Key())
+			valstr := hex.EncodeToString(bts)
+			fmt.Printf("R %s -> %s\n", keystr, valstr)
+		*/
+
+		node := nodePool.Get().(*Node)
+		err = node.UnmarshalBinary(bts)
+		if err != nil {
+			return err
+		}
+
+		cont, err := consumer(btset, node)
+		if err != nil {
+			return err
+		}
+		if !cont {
+			break
+		}
+
+		ok = it.Next()
+	}
+
+	return nil
 }
 
 func (t *TransactionStorage) Delete(key *bitset.BitSet) error {

@@ -1,12 +1,18 @@
 package trie_test
 
 import (
+	"fmt"
+	"github.com/NethermindEth/juno/core/crypto"
+	"golang.org/x/exp/rand"
+	"math"
+	"math/big"
 	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -376,4 +382,382 @@ func BenchmarkTriePut(b *testing.B) {
 		}
 		return t.Commit()
 	}))
+}
+
+func numToFeltMul(num, multiplier int64) *felt.Felt {
+	f := felt.Zero
+	int1 := big.NewInt(int64(num))
+	int2 := big.NewInt(int64(multiplier))
+
+	return f.SetBigInt(int1.Mul(int1, int2))
+}
+
+func numToFelt(num int) *felt.Felt {
+	return numToFeltBigInt(big.NewInt(int64(num)))
+}
+
+func numToFeltBigInt(num *big.Int) *felt.Felt {
+	f := felt.Zero
+	return f.SetBigInt(num)
+}
+
+func TestTrie_Iterate(t *testing.T) {
+	db, err := pebble.NewMem()
+	assert.Nil(t, err)
+
+	trie, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251)
+	assert.Nil(t, err)
+
+	for i := 0; i < 10; i++ {
+		_, err = trie.Put(numToFelt(i), numToFelt(i+10))
+		assert.Nil(t, err)
+	}
+	err = trie.Commit()
+	assert.Nil(t, err)
+
+	tests := []struct {
+		name           string
+		startKey       *felt.Felt
+		count          int
+		expectedKeys   []*felt.Felt
+		expectedValues []*felt.Felt
+	}{
+		{
+			name:     "all",
+			startKey: numToFelt(0),
+			count:    10,
+			expectedKeys: []*felt.Felt{
+				numToFelt(0),
+				numToFelt(1),
+				numToFelt(2),
+				numToFelt(3),
+				numToFelt(4),
+				numToFelt(5),
+				numToFelt(6),
+				numToFelt(7),
+				numToFelt(8),
+				numToFelt(9),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(10),
+				numToFelt(11),
+				numToFelt(12),
+				numToFelt(13),
+				numToFelt(14),
+				numToFelt(15),
+				numToFelt(16),
+				numToFelt(17),
+				numToFelt(18),
+				numToFelt(19),
+			},
+		},
+		{
+			name:     "limited",
+			startKey: numToFelt(0),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(0),
+				numToFelt(1),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(10),
+				numToFelt(11),
+			},
+		},
+		{
+			name:     "limited with offset",
+			startKey: numToFelt(3),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(3),
+				numToFelt(4),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(13),
+				numToFelt(14),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			keys := make([]*felt.Felt, 0)
+			values := make([]*felt.Felt, 0)
+
+			err := trie.Iterate(test.startKey, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+				keys = append(keys, key)
+				values = append(values, value)
+				return len(keys) < test.count, nil
+			})
+			assert.Nil(t, err)
+
+			assert.Equal(t, test.expectedKeys, keys)
+			assert.Equal(t, test.expectedValues, values)
+		})
+	}
+}
+
+func TestTrie_GenerateProof(t *testing.T) {
+	t.Run("with trie of interval 1", func(t *testing.T) {
+		testTrie_GenerateProof(t, func() int64 {
+			return 1
+		})
+	})
+	t.Run("with trie of gap 1", func(t *testing.T) {
+		testTrie_GenerateProof(t, func() int64 {
+			return 2
+		})
+	})
+	t.Run("with trie of gap 2", func(t *testing.T) {
+		testTrie_GenerateProof(t, func() int64 {
+			return 3
+		})
+	})
+	t.Run("with trie of gap 10", func(t *testing.T) {
+		testTrie_GenerateProof(t, func() int64 {
+			return 10
+		})
+	})
+	t.Run("with trie of gap 1000000", func(t *testing.T) {
+		testTrie_GenerateProof(t, func() int64 {
+			return 1000000
+		})
+	})
+
+	for seednum := 0; seednum < 10; seednum++ {
+		t.Run("with trie rand 10", func(t *testing.T) {
+			rng := rand.New(rand.NewSource(uint64(seednum)))
+			testTrie_GenerateProof(t, func() int64 {
+				return rng.Int63n(10) + 1
+			})
+		})
+		t.Run("with trie rand 100", func(t *testing.T) {
+			rng := rand.New(rand.NewSource(uint64(seednum)))
+			testTrie_GenerateProof(t, func() int64 {
+				return rng.Int63n(100) + 1
+			})
+		})
+		t.Run("with trie rand 1000000", func(t *testing.T) {
+			rng := rand.New(rand.NewSource(uint64(seednum)))
+			testTrie_GenerateProof(t, func() int64 {
+				return rng.Int63n(1000000000000) + 1
+			})
+		})
+	}
+}
+
+func testTrie_GenerateProof(t *testing.T, gapGen func() int64) {
+	db, err := pebble.NewMem()
+	assert.Nil(t, err)
+
+	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251)
+	assert.Nil(t, err)
+
+	sourcepaths := make([]*felt.Felt, 0)
+	sourcevalues := make([]*felt.Felt, 0)
+	curidx := big.NewInt(0)
+	for i := 0; i < 10; i++ {
+		value := *curidx
+		value.Add(&value, big.NewInt(10))
+		sourcepaths = append(sourcepaths, numToFeltBigInt(curidx))
+		sourcevalues = append(sourcevalues, numToFeltBigInt(&value))
+		curidx.Add(curidx, big.NewInt(gapGen()))
+	}
+
+	for i, sourcepath := range sourcepaths {
+		_, err = tr1.Put(sourcepath, sourcevalues[i])
+		assert.Nil(t, err)
+	}
+
+	tr1root, err := tr1.Root()
+	assert.Nil(t, err)
+
+	tests := []struct {
+		name     string
+		startIdx int
+		count    int
+		hasNext  bool
+	}{
+		{
+			name:     "single value proof",
+			startIdx: 5,
+			count:    1,
+			hasNext:  true,
+		},
+		{
+			name:     "single value proof at start",
+			startIdx: 0,
+			count:    1,
+			hasNext:  true,
+		},
+		{
+			name:     "single value proof at end",
+			startIdx: 9,
+			count:    1,
+			hasNext:  false,
+		},
+		{
+			name:     "multi value proof",
+			startIdx: 5,
+			count:    4,
+			hasNext:  true,
+		},
+		{
+			name:     "multi value proof at start",
+			startIdx: 0,
+			count:    4,
+			hasNext:  true,
+		},
+		{
+			name:     "multi value proof at end",
+			startIdx: 6,
+			count:    4,
+			hasNext:  false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			paths := sourcepaths[test.startIdx : test.startIdx+test.count]
+			values := sourcevalues[test.startIdx : test.startIdx+test.count]
+
+			proofs, err := tr1.ProofTo(paths[0])
+			assert.Nil(t, err)
+
+			if test.count > 1 {
+				proof2, err := tr1.ProofTo(paths[len(paths)-1])
+				assert.Nil(t, err)
+
+				proofs = append(proofs, proof2...)
+			}
+
+			for _, proof := range proofs {
+				assert.NotEqual(t, tr1root, proof.Hash)
+			}
+
+			hasNext, err := trie.VerifyTrie(tr1root, paths, values, proofs, crypto.Pedersen)
+			assert.NoError(t, err)
+			assert.Equal(t, test.hasNext, hasNext)
+		})
+	}
+
+	/*
+			// There can be cases where the proof overlap and this fail anyway
+		t.Run("additional leaves without proof would fail", func(t *testing.T) {
+			paths := sourcepaths[3:8]
+			values := sourcevalues[3:8]
+
+			proof, err := tr1.ProofTo(paths[0])
+			assert.Nil(t, err)
+			proof2, err := tr1.ProofTo(paths[len(paths)-3])
+			assert.Nil(t, err)
+
+			proofs := append(proof, proof2...)
+
+			_, err = trie.VerifyTrie(tr1root, paths, values, proofs, crypto.Pedersen)
+			assert.Error(t, err)
+		})
+	*/
+}
+
+func TestTrie_GenerateProof_SingleValue(t *testing.T) {
+	db, err := pebble.NewMem()
+	assert.Nil(t, err)
+
+	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(db.NewTransaction(true), []byte{1}), 251)
+	assert.Nil(t, err)
+
+	for i := 0; i < 1; i++ {
+		_, err = tr1.Put(numToFelt(i), numToFelt(i+10))
+		assert.Nil(t, err)
+	}
+
+	err = tr1.Commit()
+	assert.Nil(t, err)
+
+	tr1root, err := tr1.Root()
+	assert.Nil(t, err)
+
+	t.Run("test single value proof", func(t *testing.T) {
+		db2, err := pebble.NewMem()
+		assert.Nil(t, err)
+
+		tr2, err := trie.NewTriePedersen(trie.NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251)
+		assert.Nil(t, err)
+
+		_, _ = tr2.Put(numToFelt(0), numToFelt(10))
+
+		proof, err := tr1.ProofTo(numToFelt(0))
+		assert.Nil(t, err)
+		for _, node := range proof {
+			err := tr2.SetProofNode(node.Key, node.Hash)
+			assert.Nil(t, err)
+		}
+
+		tr2root, err := tr2.Root()
+
+		assert.Equal(t, tr1root, tr2root)
+	})
+}
+
+func Test_isBitsetHigher(t *testing.T) {
+	tests := []struct {
+		n1       int
+		n2       int
+		isHigher bool
+	}{
+		{
+			n1:       10,
+			n2:       0,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       0,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       4,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       4,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       0,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       300,
+			n2:       1,
+			isHigher: true,
+		},
+		{
+			n1:       1,
+			n2:       300,
+			isHigher: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%d %d %v", test.n1, test.n2, test.isHigher), func(t *testing.T) {
+			assert.Equal(t, trie.IsBitsetHigher(
+				trie.FeltToBitSet(numToFelt(test.n1), 251),
+				trie.FeltToBitSet(numToFelt(test.n2), 251)),
+				test.isHigher)
+			assert.Equal(t, trie.IsBitsetHigher(
+				trie.FeltToBitSet(numToFeltMul(int64(test.n1), math.MaxInt64), 251),
+				trie.FeltToBitSet(numToFeltMul(int64(test.n2), math.MaxInt64), 251)),
+				test.isHigher)
+		})
+	}
 }
