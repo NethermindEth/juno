@@ -7,13 +7,12 @@
 package gen
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	_ "google.golang.org/protobuf/types/known/wrapperspb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -359,18 +358,15 @@ func file_kv_proto_rawDescGZIP() []byte {
 	return file_kv_proto_rawDescData
 }
 
-var (
-	file_kv_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-	file_kv_proto_msgTypes  = make([]protoimpl.MessageInfo, 3)
-	file_kv_proto_goTypes   = []interface{}{
-		(Op)(0),               // 0: database.Op
-		(*Cursor)(nil),        // 1: database.Cursor
-		(*Pair)(nil),          // 2: database.Pair
-		(*VersionReply)(nil),  // 3: database.VersionReply
-		(*emptypb.Empty)(nil), // 4: google.protobuf.Empty
-	}
-)
-
+var file_kv_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_kv_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_kv_proto_goTypes = []interface{}{
+	(Op)(0),               // 0: database.Op
+	(*Cursor)(nil),        // 1: database.Cursor
+	(*Pair)(nil),          // 2: database.Pair
+	(*VersionReply)(nil),  // 3: database.VersionReply
+	(*emptypb.Empty)(nil), // 4: google.protobuf.Empty
+}
 var file_kv_proto_depIdxs = []int32{
 	0, // 0: database.Cursor.op:type_name -> database.Op
 	4, // 1: database.KV.Version:input_type -> google.protobuf.Empty
