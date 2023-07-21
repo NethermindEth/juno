@@ -10,38 +10,14 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-type TransactionTrace interface {
-	trace()
-}
-
-type DeclareTxnTrace struct {
-	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
-	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-}
-
-func (DeclareTxnTrace) trace() {}
-
-type InvokeTxnTrace struct {
+type TransactionTrace struct {
 	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
 	ExecuteInvocation     ExecuteInvocation  `json:"execute_invocation,omitempty"`
 	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-}
 
-func (InvokeTxnTrace) trace() {}
-
-type DeployAccountTxnTrace struct {
-	ValidateInvocation    FunctionInvocation `json:"validate_invocation,omitempty"`
 	ConstructorInvocation FunctionInvocation `json:"constructor_invocation,omitempty"`
-	FeeTransferInvocation FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	FunctionInvocation    FunctionInvocation `json:"function_invocation,omitempty"`
 }
-
-func (DeployAccountTxnTrace) trace() {}
-
-type L1HandlerTxnTrace struct {
-	FunctionInvocation FunctionInvocation `json:"function_invocation,omitempty"`
-}
-
-func (L1HandlerTxnTrace) trace() {}
 
 type ExecuteInvocation struct {
 	FunctionInvocation
@@ -71,37 +47,31 @@ type EventContent struct {
 	Data []felt.Felt `json:"data"`
 }
 
-func adaptTxExecutionInfo(tx core.Transaction, info vm.TransactionExecutionInfo) (TransactionTrace, *jsonrpc.Error) {
+func adaptTxExecutionInfo(tx core.Transaction, info vm.TransactionExecutionInfo) (*TransactionTrace, *jsonrpc.Error) {
+	var result TransactionTrace
+
 	switch tx.(type) {
 	case *core.DeclareTransaction:
-		return DeclareTxnTrace{
-			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
-			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
-		}, nil
+		result.ValidateInvocation = adaptCallInfo(info.ValidateCallInfo)
+		result.FeeTransferInvocation = adaptCallInfo(info.FeeTransferCallInfo)
 	case *core.InvokeTransaction:
-		return InvokeTxnTrace{
-			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
-			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
-			ExecuteInvocation: ExecuteInvocation{
-				FunctionInvocation: adaptCallInfo(info.ExecuteCallInfo),
-				// todo add revert info
-			},
-		}, nil
-	case *core.DeployAccountTransaction:
-		return DeployAccountTxnTrace{
-			ValidateInvocation:    adaptCallInfo(info.ValidateCallInfo),
-			FeeTransferInvocation: adaptCallInfo(info.FeeTransferCallInfo),
-			// todo support constructor
-			ConstructorInvocation: FunctionInvocation{},
-		}, nil
-	case *core.L1HandlerTransaction:
-		return L1HandlerTxnTrace{
+		result.ValidateInvocation = adaptCallInfo(info.ValidateCallInfo)
+		result.FeeTransferInvocation = adaptCallInfo(info.FeeTransferCallInfo)
+		result.ExecuteInvocation = ExecuteInvocation{
 			FunctionInvocation: adaptCallInfo(info.ExecuteCallInfo),
-		}, nil
+		}
+	case *core.DeployAccountTransaction:
+		result.ValidateInvocation = adaptCallInfo(info.ValidateCallInfo)
+		result.FeeTransferInvocation = adaptCallInfo(info.FeeTransferCallInfo)
+		result.ConstructorInvocation = adaptCallInfo(info.ExecuteCallInfo)
+	case *core.L1HandlerTransaction:
+		result.FunctionInvocation = adaptCallInfo(info.ExecuteCallInfo)
 	default:
 		msg := fmt.Sprintf("unknown transaction type %T", tx)
 		return nil, jsonrpc.Err(jsonrpc.InternalError, msg)
 	}
+
+	return &result, nil
 }
 
 func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
