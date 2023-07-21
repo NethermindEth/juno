@@ -3,7 +3,6 @@ package trie
 import (
 	"bytes"
 	"errors"
-	"github.com/NethermindEth/juno/encoder"
 	"io"
 	"sync"
 
@@ -150,7 +149,7 @@ func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bits
 		*/
 
 		node := nodePool.Get().(*Node)
-		err = encoder.Unmarshal(bts, node)
+		err = node.UnmarshalBinary(bts)
 		if err != nil {
 			return err
 		}
