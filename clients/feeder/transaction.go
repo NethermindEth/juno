@@ -70,6 +70,7 @@ type TransactionStatus struct {
 	BlockNumber      uint64          `json:"block_number"`
 	TransactionIndex uint64          `json:"transaction_index"`
 	Transaction      *Transaction    `json:"transaction"`
+	RevertError      string          `json:"revert_error"`
 }
 
 type Event struct {

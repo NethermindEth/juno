@@ -403,3 +403,13 @@ func TestCompiledClassDefinition(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, json.Valid(class))
 }
+
+func TestTransactionStatusRevertError(t *testing.T) {
+	client, closeFn := feeder.NewTestClient(utils.INTEGRATION)
+	t.Cleanup(closeFn)
+
+	txnHash := utils.HexToFelt(t, "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998")
+	status, err := client.Transaction(context.Background(), txnHash)
+	require.NoError(t, err)
+	require.NotEmpty(t, status.RevertError)
+}
