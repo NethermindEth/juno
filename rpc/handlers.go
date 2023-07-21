@@ -1163,7 +1163,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
-	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
+	_, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
@@ -1208,9 +1208,8 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		classes = append(classes, class.Class)
 	}
 
-	header := block.Header
-	// todo how to check that block is pending?
-	if false {
+	pendingBlock := blockHash == nil
+	if pendingBlock {
 		height, hErr := h.bcReader.Height()
 		if hErr != nil {
 			return nil, ErrBlockNotFound
@@ -1218,6 +1217,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		blockNumber = height + 1
 	}
 
+	header := block.Header
 	_, info, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
 	if err != nil {
 		rpcErr := *ErrContractError

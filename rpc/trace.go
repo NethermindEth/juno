@@ -81,7 +81,6 @@ func adaptCallInfo(info *vm.CallInfo) FunctionInvocation {
 	}
 
 	result.FunctionCall = FunctionCall{
-		// todo fill ContractAddress
 		EntryPointSelector: info.Call.EntryPointSelector,
 		Calldata:           info.Call.Calldata,
 	}

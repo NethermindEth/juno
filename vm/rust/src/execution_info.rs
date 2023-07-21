@@ -52,7 +52,6 @@ impl From<BlockifierCallInfo> for CallInfo {
 
 #[derive(Debug,Serialize)]
 pub struct CallEntryPoint {
-    // todo add contract_address
     pub entry_point_selector: EntryPointSelector,
     pub calldata: Calldata,
 
