@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 )
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -69,6 +70,8 @@ type Blockchain struct {
 	database db.DB
 
 	log utils.SimpleLogger
+
+	newHeads event.FeedOf[*core.Header]
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
@@ -317,6 +320,8 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
+		b.newHeads.Send(block.Header)
+
 		for i, tx := range block.Transactions {
 			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
 				block.Receipts[i]); err != nil {
@@ -732,10 +737,10 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFil
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.database.Update(revertHead)
+	return b.database.Update(b.revertHead)
 }
 
-func revertHead(txn db.Transaction) error {
+func (b *Blockchain) revertHead(txn db.Transaction) error {
 	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
@@ -758,12 +763,22 @@ func revertHead(txn db.Transaction) error {
 		return err
 	}
 
+	genesisBlock := blockNumber == 0
+
 	// remove block header
 	if err = txn.Delete(db.BlockHeadersByNumber.Key(numBytes)); err != nil {
 		return err
 	}
 	if err = txn.Delete(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal())); err != nil {
 		return err
+	}
+	if !genesisBlock {
+		var newHeader *core.Header
+		newHeader, err = blockHeaderByNumber(txn, blockNumber-1)
+		if err != nil {
+			return err
+		}
+		b.newHeads.Send(newHeader)
 	}
 
 	if err = removeTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
@@ -781,7 +796,7 @@ func revertHead(txn db.Transaction) error {
 	}
 
 	// update chain height
-	if blockNumber == 0 {
+	if genesisBlock {
 		return txn.Delete(db.ChainHeight.Key())
 	}
 
@@ -876,4 +891,8 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		pending,
 		core.NewState(txn),
 	), txn.Discard, nil
+}
+
+func (b *Blockchain) SubscribeNewHeads(sink chan<- *core.Header) event.Subscription {
+	return b.newHeads.Subscribe(sink)
 }

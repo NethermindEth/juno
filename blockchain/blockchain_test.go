@@ -708,3 +708,43 @@ func TestPending(t *testing.T) {
 		require.NoError(t, pErr)
 	})
 }
+
+func TestSubscribeNewHeads(t *testing.T) {
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testDB.Close())
+	})
+	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+	client, closeFn := feeder.NewTestClient(utils.MAINNET)
+	t.Cleanup(closeFn)
+	gw := adaptfeeder.New(client)
+
+	block0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(block0, su0, nil))
+
+	sink := make(chan *core.Header, 2048)
+	chain.SubscribeNewHeads(sink)
+
+	t.Run("send on store", func(t *testing.T) {
+		block1, err := gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+		su1, err := gw.StateUpdate(context.Background(), 1)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block1, su1, nil))
+
+		got1, notClosed := <-sink
+		require.True(t, notClosed)
+		assert.Equal(t, block1.Header, got1)
+	})
+
+	t.Run("send on revert", func(t *testing.T) {
+		require.NoError(t, chain.RevertHead())
+
+		got0, notClosed := <-sink
+		require.True(t, notClosed)
+		assert.Equal(t, block0.Header, got0)
+	})
+}
