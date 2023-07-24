@@ -560,16 +560,13 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 		return defaultSyncState, nil
 	}
 
-	startingBlockNumberAsHex := NumAsHex(startingBlockHeader.Number)
-	currentBlockNumberAsHex := NumAsHex(head.Number)
-	highestBlockNumberAsHex := NumAsHex(highestBlockHeader.Number)
 	return &Sync{
 		StartingBlockHash:   startingBlockHeader.Hash,
-		StartingBlockNumber: &startingBlockNumberAsHex,
+		StartingBlockNumber: &startingBlockHeader.Number,
 		CurrentBlockHash:    head.Hash,
-		CurrentBlockNumber:  &currentBlockNumberAsHex,
+		CurrentBlockNumber:  &head.Number,
 		HighestBlockHash:    highestBlockHeader.Hash,
-		HighestBlockNumber:  &highestBlockNumberAsHex,
+		HighestBlockNumber:  &highestBlockHeader.Number,
 	}, nil
 }
 
