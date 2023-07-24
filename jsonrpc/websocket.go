@@ -101,15 +101,12 @@ type WebsocketConnParams struct {
 	ReadLimit int64
 	// Maximum time to write a message.
 	WriteDuration time.Duration
-	// Maximum time to read a message.
-	ReadDuration time.Duration
 }
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
 		ReadLimit:     32 * 1024 * 1024,
 		WriteDuration: 5 * time.Second,
-		ReadDuration:  30 * time.Second,
 	}
 }
 
@@ -131,7 +128,7 @@ func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnPa
 func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 	for {
 		// Read next message from the client.
-		_, r, err := wsc.Read(ctx)
+		_, r, err := wsc.conn.Read(ctx)
 		if err != nil {
 			return err
 		}
@@ -153,12 +150,6 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 			return err
 		}
 	}
-}
-
-func (wsc *websocketConn) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
-	readCtx, readCancel := context.WithTimeout(ctx, wsc.params.ReadDuration)
-	defer readCancel()
-	return wsc.conn.Read(readCtx)
 }
 
 func (wsc *websocketConn) Write(ctx context.Context, msg []byte) error {
