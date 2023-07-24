@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/sourcegraph/conc/stream"
 )
 
@@ -30,6 +31,7 @@ type Synchronizer struct {
 	pendingPollInterval time.Duration
 
 	catchUpMode bool
+	newBlock    event.FeedOf[*core.Block]
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -160,6 +162,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.newBlock.Send(block)
 
 			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
@@ -321,4 +324,8 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
 	})
+}
+
+func (s *Synchronizer) SubscribeNewBlocks(sink chan<- *core.Block) event.Subscription {
+	return s.newBlock.Subscribe(sink)
 }

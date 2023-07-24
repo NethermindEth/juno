@@ -273,6 +273,18 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		}
 	}
 
+	submethods := []jsonrpc.SubscribeMethod{
+		{
+			Name:            "juno_subscribe_newHeads",
+			Handler:         rpcHandler.SubscribeNewHeads,
+			UnsubMethodName: "juno_unsubscribe_newHeads",
+		},
+	}
+	for _, submethod := range submethods {
+		jsonrpcServer.RegisterSubscribeMethod(submethod)
+	}
+	// TODO should we disallow subscriptions over HTTP?
+
 	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)

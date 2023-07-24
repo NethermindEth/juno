@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/event"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -1149,4 +1150,29 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	}
 
 	return estimates, nil
+}
+
+func (h *Handler) SubscribeNewHeads(ctx context.Context) (event.Subscription, *jsonrpc.Error) {
+	subscriptionServer := jsonrpc.SubscriptionServerFromContext(ctx)
+	sub := event.NewSubscription(func(quit <-chan struct{}) error {
+		sink := make(chan *core.Block)
+		sub := h.synchronizer.SubscribeNewBlocks(sink)
+		defer func() {
+			sub.Unsubscribe()
+			close(sink) // TODO is this right? Does Unsubscribe close the sink for us?
+		}()
+		for {
+			select {
+			case err := <-sub.Err():
+				return err
+			case block := <-sink:
+				if err := subscriptionServer.Send(block.Header); err != nil {
+					return err
+				}
+			case <-quit:
+				return nil
+			}
+		}
+	})
+	return sub, nil
 }
