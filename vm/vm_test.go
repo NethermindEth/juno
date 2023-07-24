@@ -161,8 +161,8 @@ func TestExecute(t *testing.T) {
 		_, _, err := New().Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, network)
 		require.NoError(t, err)
 	})
-	t.Run("nil data", func(t *testing.T) {
-		_, _, err := New().Execute(nil, nil, 0, 0, nil, state, network)
+	t.Run("zero data", func(t *testing.T) {
+		_, _, err := New().Execute(nil, nil, 0, 0, &felt.Zero, state, network)
 		require.NoError(t, err)
 	})
 }

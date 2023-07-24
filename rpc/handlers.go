@@ -1218,7 +1218,15 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 	}
 
 	header := block.Header
-	_, info, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
+
+	var sequencerAddress *felt.Felt
+	if header.SequencerAddress != nil {
+		sequencerAddress = header.SequencerAddress
+	} else {
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+	}
+
+	_, info, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()

@@ -2057,9 +2057,10 @@ func TestTraceTransaction(t *testing.T) {
 	}
 
 	header := &core.Header{
-		Hash:       utils.HexToFelt(t, "0xCAFEBABE"),
-		ParentHash: utils.HexToFelt(t, "0x0"),
-		Number:     0,
+		Hash:             utils.HexToFelt(t, "0xCAFEBABE"),
+		ParentHash:       utils.HexToFelt(t, "0x0"),
+		Number:           0,
+		SequencerAddress: utils.HexToFelt(t, "0X111"),
 	}
 	block := &core.Block{
 		Header:       header,
