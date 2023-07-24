@@ -766,14 +766,37 @@ func revertHead(txn db.Transaction) error {
 		return err
 	}
 
+	if err = removeTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
+		return err
+	}
+
+	// remove state update
+	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
+		return err
+	}
+
+	// remove pending
+	if err = txn.Delete(db.Pending.Key()); err != nil {
+		return err
+	}
+
+	// update chain height
+	if blockNumber == 0 {
+		return txn.Delete(db.ChainHeight.Key())
+	}
+
+	heightBin := core.MarshalBlockNumber(blockNumber - 1)
+	return txn.Set(db.ChainHeight.Key(), heightBin)
+}
+
+func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error {
 	blockIDAndIndex := txAndReceiptDBKey{
 		Number: blockNumber,
 	}
 	// remove txs and receipts
-	for i := uint64(0); i < header.TransactionCount; i++ {
+	for i := uint64(0); i < numTxs; i++ {
 		blockIDAndIndex.Index = i
-		var reorgedTxn core.Transaction
-		reorgedTxn, err = transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
+		reorgedTxn, err := transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
 		if err != nil {
 			return err
 		}
@@ -790,23 +813,7 @@ func revertHead(txn db.Transaction) error {
 		}
 	}
 
-	// remove state update
-	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
-		return err
-	}
-
-	// remove pending
-	if err := txn.Delete(db.Pending.Key()); err != nil {
-		return err
-	}
-
-	// update chain height
-	if blockNumber == 0 {
-		return txn.Delete(db.ChainHeight.Key())
-	}
-
-	heightBin := core.MarshalBlockNumber(blockNumber - 1)
-	return txn.Set(db.ChainHeight.Key(), heightBin)
+	return nil
 }
 
 // StorePending stores a pending block given that it is for the next height
