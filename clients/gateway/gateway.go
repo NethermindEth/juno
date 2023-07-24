@@ -16,6 +16,42 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+type ErrorCode string
+
+var (
+	BlockNotFound                   ErrorCode = "StarknetErrorCode.BLOCK_NOT_FOUND"
+	EntryPointNotFound              ErrorCode = "StarknetErrorCode.ENTRY_POINT_NOT_FOUND_IN_CONTRACT"
+	OutOfRangeContractAddress       ErrorCode = "StarknetErrorCode.OUT_OF_RANGE_CONTRACT_ADDRESS"
+	SchemaValidationError           ErrorCode = "StarknetErrorCode.SCHEMA_VALIDATION_ERROR"
+	TransactionFailed               ErrorCode = "StarknetErrorCode.TRANSACTION_FAILED"
+	UninitializedContract           ErrorCode = "StarknetErrorCode.UNINITIALIZED_CONTRACT"
+	OutOfRangeBlockHash             ErrorCode = "StarknetErrorCode.OUT_OF_RANGE_BLOCK_HASH"
+	OutOfRangeTransactionHash       ErrorCode = "StarknetErrorCode.OUT_OF_RANGE_TRANSACTION_HASH"
+	MalformedRequest                ErrorCode = "StarknetErrorCode.MALFORMED_REQUEST"
+	UnsupportedSelectorForFee       ErrorCode = "StarknetErrorCode.UNSUPPORTED_SELECTOR_FOR_FEE"
+	InvalidContractDefinition       ErrorCode = "StarknetErrorCode.INVALID_CONTRACT_DEFINITION"
+	NotPermittedContract            ErrorCode = "StarknetErrorCode.NON_PERMITTED_CONTRACT"
+	UndeclaredClass                 ErrorCode = "StarknetErrorCode.UNDECLARED_CLASS"
+	TransactionLimitExceeded        ErrorCode = "StarknetErrorCode.TRANSACTION_LIMIT_EXCEEDED"
+	InvalidTransactionNonce         ErrorCode = "StarknetErrorCode.INVALID_TRANSACTION_NONCE"
+	OutOfRangeFee                   ErrorCode = "StarknetErrorCode.OUT_OF_RANGE_FEE"
+	InvalidTransactionVersion       ErrorCode = "StarknetErrorCode.INVALID_TRANSACTION_VERSION"
+	InvalidProgram                  ErrorCode = "StarknetErrorCode.INVALID_PROGRAM"
+	DeprecatedTransaction           ErrorCode = "StarknetErrorCode.DEPRECATED_TRANSACTION"
+	InvalidCompiledClassHash        ErrorCode = "StarknetErrorCode.INVALID_COMPILED_CLASS_HASH"
+	CompilationFailed               ErrorCode = "StarknetErrorCode.COMPILATION_FAILED"
+	UnauthorizedEntryPointForInvoke ErrorCode = "StarknetErrorCode.UNAUTHORIZED_ENTRY_POINT_FOR_INVOKE"
+	InvalidContractClass            ErrorCode = "StarknetErrorCode.INVALID_CONTRACT_CLASS"
+	ClassHashNotFound               ErrorCode = "StarknetErrorCode.CLASS_HASH_NOT_FOUND"
+	ClassAlreadyDeclared            ErrorCode = "StarknetErrorCode.CLASS_ALREADY_DECLARED"
+	InsufficientMaxFee              ErrorCode = "StarknetErrorCode.INSUFFICIENT_MAX_FEE"
+	InsufficientAccountBalance      ErrorCode = "StarknetErrorCode.INSUFFICIENT_ACCOUNT_BALANCE"
+	ValidationFailure               ErrorCode = "StarknetErrorCode.VALIDATION_FAILURE"
+	ContractBytecodeSizeTooLarge    ErrorCode = "StarknetErrorCode.CONTRACT_BYTECODE_SIZE_TOO_LARGE"
+	NonAccount                      ErrorCode = "StarknetErrorCode.NON_ACCOUNT"
+	DuplicateTx                     ErrorCode = "StarknetErrorCode.DUPLICATE_TX"
+)
+
 type Client struct {
 	url     string
 	client  *http.Client
@@ -134,8 +170,8 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 
 func (c *Client) tryDecodeErr(resp io.Reader) error {
 	var gatewayError struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
+		Code    ErrorCode `json:"code"`
+		Message string    `json:"message"`
 	}
 
 	if err := json.NewDecoder(resp).Decode(&gatewayError); err != nil {
