@@ -1,6 +1,5 @@
-mod juno_state_reader;
 pub mod class;
-
+mod juno_state_reader;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
@@ -93,7 +92,12 @@ pub extern "C" fn cairoVMCall(
     let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let mut context = EntryPointExecutionContext::new(
-        build_block_context(chain_id_str, block_number, block_timestamp, StarkFelt::default()),
+        build_block_context(
+            chain_id_str,
+            block_number,
+            block_timestamp,
+            StarkFelt::default(),
+        ),
         AccountTransactionContext::default(),
         4_000_000,
     );
@@ -260,7 +264,8 @@ fn build_block_context(
                 N_STEPS_FEE_WEIGHT * 10.0,
             ),
             (KECCAK_BUILTIN_NAME.to_string(), 0.0),
-        ]).into(),
+        ])
+        .into(),
         invoke_tx_max_n_steps: 1_000_000,
         validate_max_n_steps: 1_000_000,
         max_recursion_depth: 50,
