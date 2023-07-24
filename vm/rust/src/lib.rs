@@ -263,7 +263,7 @@ fn build_block_context(
                 SEGMENT_ARENA_BUILTIN_NAME.to_string(),
                 N_STEPS_FEE_WEIGHT * 10.0,
             ),
-            (KECCAK_BUILTIN_NAME.to_string(), 0.0),
+            (KECCAK_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 2048.0),
         ])
         .into(),
         invoke_tx_max_n_steps: 1_000_000,
