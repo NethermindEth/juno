@@ -259,30 +259,19 @@ fn transaction_from_api(
     contract_class: Option<ContractClass>,
 ) -> Result<Transaction, String> {
     match tx {
-        StarknetApiTransaction::L1Handler(l1_handler) => {
-            Ok(Transaction::L1HandlerTransaction(L1HandlerTransaction {
-                tx: l1_handler,
-                // for now just passing non zero value
-                paid_fee_on_l1: Fee(1 as u128),
-            }))
-        }
-        StarknetApiTransaction::Declare(declare) => {
-            let declare_tx = DeclareTransaction::new(
-                declare,
-                contract_class.ok_or("Declare should be created with a ContractClass")?,
-            ).map_err(|e| e.to_string())?;
-            Ok(Transaction::AccountTransaction(AccountTransaction::Declare(declare_tx)))
-        }
-        StarknetApiTransaction::DeployAccount(deploy_account) => {
-            Ok(Transaction::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
-        }
-        StarknetApiTransaction::Invoke(invoke) => {
-            Ok(Transaction::AccountTransaction(AccountTransaction::Invoke(invoke)))
-        }
         StarknetApiTransaction::Deploy(deploy) => {
-            Err(format!("Deploy transaction is not supported (transaction_hash={})", deploy.transaction_hash))
+            return Err(format!("Deploy transaction is not supported (transaction_hash={})", deploy.transaction_hash))
+        },
+        StarknetApiTransaction::Declare(declare) if contract_class.is_none() => {
+            return Err(format!("Declare transaction must be created with a ContractClass (transaction_hash={})", declare.transaction_hash()))
         }
-    }
+        _ => {} // all ok
+    };
+
+    let paid_fee_on_l1 = Some(Fee(1 as u128));
+
+    Transaction::from_api(tx, contract_class, paid_fee_on_l1)
+        .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
 fn append_execution_info(reader_handle: usize, info: execution_info::TransactionExecutionInfo) {
