@@ -3,17 +3,22 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const unsubscribeTemplate = `{"jsonrpc": "2.0", "method": "test_unsubscribe", "params": [%d], "id": 1}`
 
 func TestServer_RegisterMethod(t *testing.T) {
 	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
@@ -74,7 +79,98 @@ func TestServer_RegisterMethod(t *testing.T) {
 	})
 }
 
+func TestSubscribeUnsubscribe(t *testing.T) {
+	id := 1
+	values := []int{1, 2, 3}
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	server.WithIDGen(func() (uint64, error) {
+		// This won't work with multiple subscriptions, but we only create
+		// a single subscription in this test so it won't matter.
+		return uint64(id), nil
+	})
+	submethod := jsonrpc.SubscribeMethod{
+		Name: "test_subscribe",
+		Handler: func(subServer *jsonrpc.SubscriptionServer) (event.Subscription, *jsonrpc.Error) {
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				for _, value := range values {
+					select {
+					case <-quit:
+						return nil
+					default:
+						if err := subServer.Send(value); err != nil {
+							return err
+						}
+					}
+				}
+				<-quit
+				return nil
+			}), nil
+		},
+		UnsubMethodName: "test_unsubscribe",
+	}
+	server.RegisterSubscribeMethod(submethod)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	wg := conc.NewWaitGroup()
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	wg.Go(func() {
+	Outer:
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				err := server.Handle(context.Background(), serverConn)
+				if err != nil {
+					require.ErrorIs(t, err, io.EOF)
+					break Outer
+				}
+				require.NoError(t, err)
+			}
+		}
+	})
+
+	// Initial subscription handshake.
+	req := `{"jsonrpc": "2.0", "method": "test_subscribe", "params": [], "id": 1}`
+	write(t, clientConn, req)
+	want := fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
+	got := read(t, clientConn, len(want))
+	require.Equal(t, want, got)
+
+	// All values are received.
+	for _, value := range values {
+		want = fmt.Sprintf(`{"jsonrpc":"2.0","method":"test_subscribe","params":{"subscription":%d,"result":%d}}`, id, value)
+		got = read(t, clientConn, len(want))
+		assert.Equal(t, want, got)
+	}
+
+	// Invalid unsubscribe.
+	bogusID := id + 1
+	write(t, clientConn, fmt.Sprintf(unsubscribeTemplate, bogusID))
+	want = fmt.Sprintf(`{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal Error","data":"subscription %d not found"},"id":1}`, bogusID)
+	got = read(t, clientConn, len(want))
+	assert.Equal(t, want, got)
+
+	// Unsubscribe.
+	write(t, clientConn, fmt.Sprintf(unsubscribeTemplate, id))
+	want = fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
+	got = read(t, clientConn, len(want))
+	assert.Equal(t, want, got)
+}
+
 func TestHandle(t *testing.T) {
+	t.Parallel()
+
 	type validationStruct struct {
 		A int `validate:"min=1"`
 	}
@@ -443,17 +539,25 @@ func TestHandle(t *testing.T) {
 	}
 
 	for desc, test := range tests {
+		desc := desc
+		test := test
 		t.Run(desc, func(t *testing.T) {
+			t.Parallel()
+
 			serverConn, clientConn := net.Pipe()
 			t.Cleanup(func() {
 				require.NoError(t, serverConn.Close())
 				require.NoError(t, clientConn.Close())
 			})
 
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 			wg := conc.NewWaitGroup()
-			t.Cleanup(wg.Wait)
+			t.Cleanup(func() {
+				cancel()
+				wg.Wait()
+			})
 			wg.Go(func() {
-				err := server.Handle(context.Background(), serverConn)
+				err := server.Handle(ctx, serverConn)
 				require.NoError(t, err)
 			})
 

@@ -5,8 +5,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -15,7 +18,9 @@ import (
 
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -51,6 +56,15 @@ type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data,omitempty"`
+}
+
+func getRandomID() (uint64, error) {
+	var b [8]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint64(b[:]), nil
 }
 
 func Err(code int, data any) *Error {
@@ -109,14 +123,27 @@ type Method struct {
 	needsContext bool
 }
 
+type SubscribeMethod struct {
+	Name            string
+	Handler         func(*SubscriptionServer) (event.Subscription, *Error)
+	UnsubMethodName string
+}
+
 type Server struct {
-	methods   map[string]Method
-	validator Validator
-	pool      *pool.Pool
-	log       utils.SimpleLogger
+	methods          map[string]Method
+	subscribeMethods map[string]SubscribeMethod
+	validator        Validator
+	log              utils.SimpleLogger
+	pool             *pool.Pool
+	wg               *conc.WaitGroup
+	idgen            func() (uint64, error)
 
 	// metrics
 	requests *prometheus.CounterVec
+
+	// mu protects subscriptions.
+	mu            sync.Mutex
+	subscriptions map[uint64]event.Subscription
 }
 
 type Validator interface {
@@ -126,9 +153,13 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 	s := &Server{
-		log:     log,
-		methods: make(map[string]Method),
-		pool:    pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		pool:             pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		log:              log,
+		methods:          make(map[string]Method),
+		subscribeMethods: make(map[string]SubscribeMethod),
+		subscriptions:    make(map[uint64]event.Subscription),
+		wg:               conc.NewWaitGroup(),
+		idgen:            getRandomID,
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "server",
@@ -143,6 +174,11 @@ func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 // WithValidator registers a validator to validate handler struct arguments
 func (s *Server) WithValidator(validator Validator) *Server {
 	s.validator = validator
+	return s
+}
+
+func (s *Server) WithIDGen(idgen func() (uint64, error)) *Server {
+	s.idgen = idgen
 	return s
 }
 
@@ -181,6 +217,27 @@ func (s *Server) RegisterMethod(method Method) error {
 	return nil
 }
 
+// RegisterSubscribeMethod registers the subscription method.
+func (s *Server) RegisterSubscribeMethod(submethod SubscribeMethod) {
+	s.subscribeMethods[submethod.Name] = submethod
+	unsubmethod := Method{
+		Name:   submethod.UnsubMethodName,
+		Params: []Parameter{{Name: "id"}},
+		Handler: func(id uint64) (uint64, *Error) {
+			_, found := s.subscriptions[id]
+			if !found {
+				return 0, Err(InternalError, fmt.Sprintf("subscription %d not found", id))
+			}
+			s.unsubscribe(id)
+			return id, nil
+		},
+	}
+	if err := s.RegisterMethod(unsubmethod); err != nil {
+		// Should not happen.
+		panic(err)
+	}
+}
+
 // Handle reads a JSON-RPC request from conn and writes the response.
 func (s *Server) Handle(ctx context.Context, conn io.ReadWriter) error {
 	resp, err := s.handle(ctx, conn)
@@ -196,11 +253,11 @@ func (s *Server) Handle(ctx context.Context, conn io.ReadWriter) error {
 	return nil
 }
 
-// handle processes a request to the server
+// handle processes a request to the server.
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
-func (s *Server) handle(ctx context.Context, reader io.Reader) ([]byte, error) {
-	bufferedReader := bufio.NewReader(reader)
+func (s *Server) handle(ctx context.Context, conn io.ReadWriter) ([]byte, error) {
+	bufferedReader := bufio.NewReader(conn)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
 		Version: "2.0",
@@ -212,8 +269,11 @@ func (s *Server) handle(ctx context.Context, reader io.Reader) ([]byte, error) {
 	if !requestIsBatch {
 		req := new(request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
+			if errors.Is(jsonErr, io.EOF) { // Connection closed.
+				return nil, jsonErr
+			}
 			res.Error = Err(InvalidJSON, jsonErr.Error())
-		} else if resObject, handleErr := s.handleRequest(ctx, req); handleErr != nil {
+		} else if resObject, handleErr := s.handleRequest(ctx, req, conn); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				res.ID = req.ID
 			}
@@ -225,11 +285,14 @@ func (s *Server) handle(ctx context.Context, reader io.Reader) ([]byte, error) {
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
+			if errors.Is(batchJSONErr, io.EOF) { // Connection closed.
+				return nil, batchJSONErr
+			}
 			res.Error = Err(InvalidJSON, batchJSONErr.Error())
 		} else if len(batchReq) == 0 {
 			res.Error = Err(InvalidRequest, "empty batch")
 		} else {
-			return s.handleBatchRequest(ctx, batchReq)
+			return s.handleBatchRequest(ctx, batchReq, conn)
 		}
 	}
 
@@ -239,7 +302,7 @@ func (s *Server) handle(ctx context.Context, reader io.Reader) ([]byte, error) {
 	return json.Marshal(res)
 }
 
-func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, error) {
+func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage, conn io.ReadWriter) ([]byte, error) {
 	var (
 		responses []json.RawMessage
 		mutex     sync.Mutex
@@ -265,6 +328,9 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 		req := new(request)
 		if err := reqDec.Decode(req); err != nil {
+			if errors.Is(err, io.EOF) { // Connection closed.
+				return nil, err
+			}
 			addResponse(&response{
 				Version: "2.0",
 				Error:   Err(InvalidRequest, err.Error()),
@@ -276,7 +342,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		s.pool.Go(func() {
 			defer wg.Done()
 
-			resp, err := s.handleRequest(ctx, req)
+			resp, err := s.handleRequest(ctx, req, conn)
 			if err != nil {
 				resp = &response{
 					Version: "2.0",
@@ -323,7 +389,7 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
-func (s *Server) handleRequest(ctx context.Context, req *request) (*response, error) {
+func (s *Server) handleRequest(ctx context.Context, req *request, conn io.ReadWriter) (*response, error) {
 	start := time.Now()
 	reqJSON, err := json.Marshal(req)
 	if err == nil {
@@ -343,30 +409,82 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 	}
 
 	calledMethod, found := s.methods[req.Method]
-	if !found {
-		res.Error = Err(MethodNotFound, nil)
-		return res, nil
+	if found {
+		args, err := s.buildArguments(ctx, req.Params, calledMethod)
+		if err != nil {
+			res.Error = Err(InvalidParams, err.Error())
+			return res, nil
+		}
+
+		tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
+		if res.ID == nil { // notification
+			return nil, nil
+		}
+
+		if errAny := tuple[1].Interface(); !isNil(errAny) {
+			res.Error = errAny.(*Error)
+			return res, nil
+		}
+
+		res.Result = tuple[0].Interface()
+	} else {
+		subMethod, subFound := s.subscribeMethods[req.Method]
+		if !subFound {
+			res.Error = Err(MethodNotFound, nil)
+			return res, nil
+		}
+		res.Result, res.Error = s.handleSubscription(ctx, conn, subMethod)
 	}
 
-	args, err := s.buildArguments(ctx, req.Params, calledMethod)
-	if err != nil {
-		res.Error = Err(InvalidParams, err.Error())
-		return res, nil
-	}
-
-	s.requests.WithLabelValues(req.Method).Inc()
-	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
-	if res.ID == nil { // notification
-		return nil, nil
-	}
-
-	if errAny := tuple[1].Interface(); !isNil(errAny) {
-		res.Error = errAny.(*Error)
-		return res, nil
-	}
-
-	res.Result = tuple[0].Interface()
 	return res, nil
+}
+
+func (s *Server) handleSubscription(ctx context.Context, conn io.ReadWriter, subMethod SubscribeMethod) (any, *Error) {
+	var err error
+	var id uint64
+	for {
+		id, err = s.idgen()
+		if err == nil {
+			break
+		}
+		s.log.Warnw("Failed to generate subscription id, retrying", "err", err)
+	}
+	subscriptionServer := &SubscriptionServer{
+		id:         id,
+		conn:       conn,
+		methodName: subMethod.Name,
+	}
+	sub, rpcErr := subMethod.Handler(subscriptionServer)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	s.mu.Lock()
+	s.subscriptions[id] = sub
+	s.mu.Unlock()
+	s.wg.Go(func() {
+		select {
+		case <-ctx.Done():
+		case err := <-sub.Err():
+			if err != nil {
+				s.log.Warnw("Subscription failed", "err", err)
+				// The handler is responsible for notifying the client
+				// that the subscription failed.
+			}
+		}
+		s.unsubscribe(id)
+	})
+	return id, nil
+}
+
+func (s *Server) unsubscribe(id uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sub, found := s.subscriptions[id]
+	if !found {
+		return
+	}
+	sub.Unsubscribe()
+	delete(s.subscriptions, id)
 }
 
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
