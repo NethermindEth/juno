@@ -134,7 +134,7 @@ func (wsc *websocketConn) ReadWriteLoop() error {
 	var err error
 	for err == nil {
 		// Handle will read and write the connection once.
-		err = wsc.rpc.Handle(wsc)
+		err = wsc.rpc.Handle(wsc.ctx, wsc)
 	}
 	return err
 }

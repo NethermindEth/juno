@@ -1,10 +1,13 @@
 package jsonrpc_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
@@ -64,6 +67,89 @@ func TestServer_RegisterMethod(t *testing.T) {
 		})
 		assert.NoError(t, err)
 	})
+}
+
+func TestSubscribeUnsubscribe(t *testing.T) {
+	id := 1
+	values := []int{1, 2, 3}
+	server := jsonrpc.NewServer(utils.NewNopZapLogger())
+	server.WithIDGen(func() (uint64, error) {
+		// This won't work with multiple subscriptions, but we only create
+		// a single subscription in this test so it won't matter.
+		return uint64(id), nil
+	})
+	submethod := jsonrpc.SubscribeMethod{
+		Name: "test_subscribe",
+		Handler: func(ctx context.Context) (event.Subscription, *jsonrpc.Error) {
+			subscriptionServer := jsonrpc.SubscriptionServerFromContext(ctx)
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				for _, value := range values {
+					select {
+					case <-ctx.Done():
+						return nil
+					case <-quit:
+						return nil
+					default:
+						if err := subscriptionServer.Send(value); err != nil {
+							return err
+						}
+					}
+				}
+				// Simulate a successful subscription that does not prematurely exit.
+				// TODO: make a test for a subscription that does prematurely exit.
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-quit:
+					return nil
+				}
+			}), nil
+		},
+		UnsubMethodName: "test_unsubscribe",
+	}
+	server.RegisterSubscribeMethod(submethod)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	serverConn, clientConn := testConns(t, ctx)
+
+	wg := conc.NewWaitGroup()
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	wg.Go(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				err := server.Handle(context.Background(), serverConn)
+				require.NoError(t, err)
+			}
+		}
+	})
+
+	// Initial subscription handshake.
+	req := `{"jsonrpc": "2.0", "method": "test_subscribe", "params": [], "id": 1}`
+	write(t, clientConn, req)
+	want := fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
+	got := read(t, clientConn, len(want))
+	require.Equal(t, want, got)
+
+	// All values are received.
+	for _, value := range values {
+		want = fmt.Sprintf(`{"jsonrpc":"2.0","method":"test_subscribe","params":{"subscription":%d,"result":%d}}`, id, value)
+		got = read(t, clientConn, len(want))
+		assert.Equal(t, want, got)
+	}
+
+	// Unsubscribe.
+	req = `{"jsonrpc": "2.0", "method": "test_unsubscribe", "params": [%d], "id": 1}`
+	write(t, clientConn, fmt.Sprintf(req, id))
+	want = `{"jsonrpc":"2.0","result":true,"id":1}`
+	got = read(t, clientConn, len(want))
+	assert.Equal(t, want, got)
 }
 
 func TestHandle(t *testing.T) {
@@ -403,11 +489,11 @@ func TestHandle(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			serverConn, clientConn := testConns(t)
+			serverConn, clientConn := testConns(t, context.Background())
 
 			wg := conc.NewWaitGroup()
 			wg.Go(func() {
-				err := server.Handle(serverConn)
+				err := server.Handle(context.Background(), serverConn)
 				require.NoError(t, err)
 			})
 			t.Cleanup(wg.Wait)
@@ -432,7 +518,7 @@ func write(t *testing.T, c *jsonrpc.MemConn, data string) {
 }
 
 // testConns returns in-memory server and client connections, respectively.
-func testConns(t *testing.T) (*jsonrpc.MemConn, *jsonrpc.MemConn) {
+func testConns(t *testing.T, ctx context.Context) (*jsonrpc.MemConn, *jsonrpc.MemConn) {
 	serverSend := make(chan []byte)
 	serverRecv := make(chan []byte)
 	t.Cleanup(func() {
@@ -440,8 +526,8 @@ func testConns(t *testing.T) (*jsonrpc.MemConn, *jsonrpc.MemConn) {
 		close(serverRecv)
 	})
 
-	serverConn := jsonrpc.NewMemConn(serverSend, serverRecv)
-	clientConn := jsonrpc.NewMemConn(serverRecv, serverSend)
+	serverConn := jsonrpc.NewMemConn(ctx, serverSend, serverRecv)
+	clientConn := jsonrpc.NewMemConn(ctx, serverRecv, serverSend)
 
 	return serverConn, clientConn
 }

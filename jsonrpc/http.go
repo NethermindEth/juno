@@ -100,7 +100,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if conn == nil {
 		return
 	}
-	if err := h.rpc.Handle(conn); err != nil {
+	if err := h.rpc.Handle(context.Background(), conn); err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 }
