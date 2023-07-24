@@ -1957,65 +1957,99 @@ func TestTransactionStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	network := utils.INTEGRATION
-	client, closeFn := feeder.NewTestClient(network)
-	t.Cleanup(closeFn)
+	tests := []struct {
+		network           utils.Network
+		verifiedTxHash    *felt.Felt
+		nonVerifiedTxHash *felt.Felt
+	}{
+		{
+			network:           utils.MAINNET,
+			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
+			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
+		},
+		{
+			network:           utils.INTEGRATION,
+			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+		},
+	}
 
-	t.Run("found l1", func(t *testing.T) {
-		gw := adaptfeeder.New(client)
+	for _, test := range tests {
+		t.Run(test.network.String(), func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
 
-		block, err := gw.BlockLatest(context.Background())
-		require.NoError(t, err)
+			client, closeFn := feeder.NewTestClient(test.network)
+			t.Cleanup(closeFn)
 
-		tx := block.Transactions[0]
+			t.Run("tx found in db", func(t *testing.T) {
+				gw := adaptfeeder.New(client)
 
-		t.Run("not verified", func(t *testing.T) {
-			mockReader := mocks.NewMockReader(mockCtrl)
-			mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-			mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-			mockReader.EXPECT().L1Head().Return(nil, nil)
+				block, err := gw.BlockLatest(context.Background())
+				require.NoError(t, err)
 
-			handler := rpc.New(mockReader, nil, network, nil, nil, "", nil)
+				tx := block.Transactions[0]
 
-			want := &rpc.TransactionStatus{
-				Finality:  rpc.TxnAcceptedOnL2,
-				Execution: rpc.TxnSuccess,
-			}
-			status, rpcErr := handler.TransactionStatus(*tx.Hash())
-			require.Nil(t, rpcErr)
-			require.Equal(t, want, status)
+				t.Run("not verified", func(t *testing.T) {
+					mockReader := mocks.NewMockReader(mockCtrl)
+					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
+					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
+					mockReader.EXPECT().L1Head().Return(nil, nil)
+
+					handler := rpc.New(mockReader, nil, test.network, nil, nil, "", nil)
+
+					want := &rpc.TransactionStatus{
+						Finality:  rpc.TxnAcceptedOnL2,
+						Execution: rpc.TxnSuccess,
+					}
+					status, rpcErr := handler.TransactionStatus(*tx.Hash())
+					require.Nil(t, rpcErr)
+					require.Equal(t, want, status)
+				})
+				t.Run("verified", func(t *testing.T) {
+					mockReader := mocks.NewMockReader(mockCtrl)
+					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
+					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
+					mockReader.EXPECT().L1Head().Return(&core.L1Head{
+						BlockNumber: block.Number + 1,
+					}, nil)
+
+					handler := rpc.New(mockReader, nil, test.network, nil, nil, "", nil)
+
+					want := &rpc.TransactionStatus{
+						Finality:  rpc.TxnAcceptedOnL1,
+						Execution: rpc.TxnSuccess,
+					}
+					status, rpcErr := handler.TransactionStatus(*tx.Hash())
+					require.Nil(t, rpcErr)
+					require.Equal(t, want, status)
+				})
+			})
+			t.Run("transaction not found in db", func(t *testing.T) {
+				t.Run("verified", func(t *testing.T) {
+					mockReader := mocks.NewMockReader(mockCtrl)
+					mockReader.EXPECT().TransactionByHash(test.verifiedTxHash).Return(nil, db.ErrKeyNotFound)
+					handler := rpc.New(mockReader, nil, test.network, nil, client, "", nil)
+
+					status, err := handler.TransactionStatus(*test.verifiedTxHash)
+					require.Nil(t, err)
+					require.Equal(t, rpc.TxnAcceptedOnL1, status.Finality)
+					require.Equal(t, rpc.TxnSuccess, status.Execution)
+				})
+
+				t.Run("not verified", func(t *testing.T) {
+					mockReader := mocks.NewMockReader(mockCtrl)
+					mockReader.EXPECT().TransactionByHash(test.nonVerifiedTxHash).Return(nil, db.ErrKeyNotFound)
+					handler := rpc.New(mockReader, nil, test.network, nil, client, "", nil)
+
+					status, err := handler.TransactionStatus(*test.nonVerifiedTxHash)
+					require.Nil(t, err)
+					require.Equal(t, rpc.TxnAcceptedOnL2, status.Finality)
+					require.Equal(t, rpc.TxnSuccess, status.Execution)
+				})
+			})
 		})
-		t.Run("verified", func(t *testing.T) {
-			mockReader := mocks.NewMockReader(mockCtrl)
-			mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-			mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-			mockReader.EXPECT().L1Head().Return(&core.L1Head{
-				BlockNumber: block.Number + 1,
-			}, nil)
-
-			handler := rpc.New(mockReader, nil, network, nil, nil, "", nil)
-
-			want := &rpc.TransactionStatus{
-				Finality:  rpc.TxnAcceptedOnL1,
-				Execution: rpc.TxnSuccess,
-			}
-			status, rpcErr := handler.TransactionStatus(*tx.Hash())
-			require.Nil(t, rpcErr)
-			require.Equal(t, want, status)
-		})
-	})
-	t.Run("transaction not found in db", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3")
-
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
-		handler := rpc.New(mockReader, nil, network, nil, client, "", nil)
-
-		status, err := handler.TransactionStatus(*hash)
-		require.Nil(t, err)
-		require.Equal(t, rpc.TxnAcceptedOnL1, status.Finality)
-		require.Equal(t, rpc.TxnSuccess, status.Execution)
-	})
+	}
 }
 
 func TestCall(t *testing.T) {

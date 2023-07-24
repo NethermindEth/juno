@@ -1068,7 +1068,12 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 		case feeder.AcceptedOnL2:
 			status.Finality = TxnAcceptedOnL2
 		default:
-			return nil, jsonrpc.Err(jsonrpc.InternalError, "unknown FinalityStatus")
+			// pre-0.12.1
+			if txStatus.Status == "ACCEPTED_ON_L1" {
+				status.Finality = TxnAcceptedOnL1
+			} else {
+				status.Finality = TxnAcceptedOnL2
+			}
 		}
 
 		switch txStatus.ExecutionStatus {
@@ -1077,7 +1082,8 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 		case feeder.Reverted:
 			status.Execution = TxnFailure
 		default:
-			return nil, jsonrpc.Err(jsonrpc.InternalError, "unknown ExecutionStatus")
+			// pre-0.12.1
+			status.Execution = TxnSuccess
 		}
 	default:
 		return nil, txErr
