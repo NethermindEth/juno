@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	"nhooyr.io/websocket"
 )
 
-const closeReasonMaxBytes = 125
+const (
+	closeReasonMaxBytes = 125
+	pingTimeout         = 10 * time.Second
+)
 
 type Websocket struct {
 	rpc        *Server
@@ -101,12 +105,15 @@ type WebsocketConnParams struct {
 	ReadLimit int64
 	// Maximum time to write a message.
 	WriteDuration time.Duration
+	// Time between pings.
+	PingInterval time.Duration
 }
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
 		ReadLimit:     32 * 1024 * 1024,
 		WriteDuration: 5 * time.Second,
+		PingInterval:  3 * time.Minute,
 	}
 }
 
@@ -152,9 +159,30 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 	}
 }
 
+func (wsc *websocketConn) PingLoop(ctx context.Context) error {
+	ticker := time.NewTicker(wsc.params.PingInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := wsc.Ping(ctx); err != nil {
+				return fmt.Errorf("ping/pong failed: %w", err)
+			}
+		}
+	}
+}
+
 func (wsc *websocketConn) Write(ctx context.Context, msg []byte) error {
 	writeCtx, writeCancel := context.WithTimeout(ctx, wsc.params.WriteDuration)
 	defer writeCancel()
 	// Use MessageText since JSON is a text format.
 	return wsc.conn.Write(writeCtx, websocket.MessageText, msg)
+}
+
+func (wsc *websocketConn) Ping(ctx context.Context) error {
+	pingCtx, pingCancel := context.WithTimeout(ctx, pingTimeout)
+	defer pingCancel()
+	return wsc.conn.Ping(pingCtx)
 }

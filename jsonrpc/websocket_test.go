@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
@@ -16,7 +17,7 @@ import (
 )
 
 // The caller is responsible for closing the connection.
-func testConnection(t *testing.T) *websocket.Conn {
+func testConnection(t *testing.T, params *jsonrpc.WebsocketConnParams) *websocket.Conn {
 	method := jsonrpc.Method{
 		Name:   "test_echo",
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
@@ -30,6 +31,7 @@ func testConnection(t *testing.T) *websocket.Conn {
 	rpc := jsonrpc.NewServer(utils.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethod(method))
 	ws := jsonrpc.NewWebsocket(l, rpc, utils.NewNopZapLogger())
+	ws.WithConnParams(params)
 	go func() {
 		t.Helper()
 		require.NoError(t, ws.Run(context.Background()))
@@ -47,7 +49,7 @@ func testConnection(t *testing.T) *websocket.Conn {
 }
 
 func TestHandler(t *testing.T) {
-	conn := testConnection(t)
+	conn := testConnection(t, jsonrpc.DefaultWebsocketConnParams())
 
 	msg := `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
 	err := conn.Write(context.Background(), websocket.MessageText, []byte(msg))
@@ -59,4 +61,11 @@ func TestHandler(t *testing.T) {
 	assert.Equal(t, want, string(got))
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestPingsEveryPingInterval(t *testing.T) {
+	params := jsonrpc.DefaultWebsocketConnParams()
+	params.PingInterval = 250 * time.Millisecond
+	conn := testConnection(t, params)
+	conn.CloseRead(context.Background()) // Will unblock on ping.
 }
