@@ -20,13 +20,13 @@ const (
 func (s BlockStatus) MarshalJSON() ([]byte, error) {
 	switch s {
 	case BlockPending:
-		return []byte("\"PENDING\""), nil
+		return []byte(`"PENDING"`), nil
 	case BlockAcceptedL2:
-		return []byte("\"ACCEPTED_ON_L2\""), nil
+		return []byte(`"ACCEPTED_ON_L2"`), nil
 	case BlockAcceptedL1:
-		return []byte("\"ACCEPTED_ON_L1\""), nil
+		return []byte(`"ACCEPTED_ON_L1"`), nil
 	case BlockRejected:
-		return []byte("\"REJECTED\""), nil
+		return []byte(`"REJECTED"`), nil
 	default:
 		return nil, errors.New("unknown block status")
 	}

@@ -49,15 +49,15 @@ func (t TransactionType) MarshalJSON() ([]byte, error) {
 
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	switch string(data) {
-	case "\"DECLARE\"":
+	case `"DECLARE"`:
 		*t = TxnDeclare
-	case "\"DEPLOY\"":
+	case `"DEPLOY"`:
 		*t = TxnDeploy
-	case "\"DEPLOY_ACCOUNT\"":
+	case `"DEPLOY_ACCOUNT"`:
 		*t = TxnDeployAccount
-	case "\"INVOKE\"", "\"INVOKE_FUNCTION\"":
+	case `"INVOKE"`, `"INVOKE_FUNCTION"`:
 		*t = TxnInvoke
-	case "\"L1_HANDLER\"":
+	case `"L1_HANDLER"`:
 		*t = TxnL1Handler
 	default:
 		return errors.New("unknown TransactionType")
@@ -75,9 +75,9 @@ const (
 func (es TxnExecutionStatus) MarshalJSON() ([]byte, error) {
 	switch es {
 	case TxnSuccess:
-		return []byte("\"SUCCEEDED\""), nil
+		return []byte(`"SUCCEEDED"`), nil
 	case TxnFailure:
-		return []byte("\"REVERTED\""), nil
+		return []byte(`"REVERTED"`), nil
 	default:
 		return nil, errors.New("unknown ExecutionStatus")
 	}
@@ -93,9 +93,9 @@ const (
 func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
 	switch fs {
 	case TxnAcceptedOnL1:
-		return []byte("\"ACCEPTED_ON_L1\""), nil
+		return []byte(`"ACCEPTED_ON_L1"`), nil
 	case TxnAcceptedOnL2:
-		return []byte("\"ACCEPTED_ON_L2\""), nil
+		return []byte(`"ACCEPTED_ON_L2"`), nil
 	default:
 		return nil, errors.New("unknown FinalityStatus")
 	}
