@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -23,19 +24,34 @@ type Gateway interface {
 }
 
 var (
-	ErrBlockNotFound            = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrContractNotFound         = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
-	ErrNoBlock                  = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex           = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
-	ErrClassHashNotFound        = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
-	ErrInvalidContinuationToken = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
-	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
-	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
-	ErrInvlaidContractClass     = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
-	ErrClassAlreadyDeclared     = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
-	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
-	ErrContractError            = &jsonrpc.Error{Code: 40, Message: "Contract error"}
+	ErrContractNotFound           = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrBlockNotFound              = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrInvalidTxIndex             = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound          = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	ErrTxnHashNotFound            = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
+	ErrPageSizeTooBig             = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
+	ErrNoBlock                    = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidContinuationToken   = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
+	ErrTooManyKeysInFilter        = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrContractError              = &jsonrpc.Error{Code: 40, Message: "Contract error"}
+	ErrInvalidContractClass       = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
+	ErrClassAlreadyDeclared       = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
+	ErrInternal                   = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
+	ErrInvalidTransactionNonce    = &jsonrpc.Error{Code: 52, Message: "Invalid transaction nonce"}
+	ErrInsufficientMaxFee         = &jsonrpc.Error{Code: 53, Message: "Max fee is smaller than the validation's actual fee"}
+	ErrInsufficientAccountBalance = &jsonrpc.Error{Code: 54, Message: "Account balance is smaller than the transaction's max_fee"}
+	ErrValidationFailure          = &jsonrpc.Error{Code: 55, Message: "Account validation failed"}
+	ErrCompilationFailed          = &jsonrpc.Error{Code: 56, Message: "Compilation failed"}
+	ErrContractClassSizeTooLarge  = &jsonrpc.Error{Code: 57, Message: "Contract class size is too large"}
+	ErrNonAccount                 = &jsonrpc.Error{Code: 58, Message: "Sender address is not an account contract"}
+	ErrDuplicateTx                = &jsonrpc.Error{Code: 59, Message: "A transaction with the same hash already exists in the mempool"}
+	ErrCompiledClassHashMismatch  = &jsonrpc.Error{
+		Code:    60,
+		Message: "the compiled class hash did not match the one supplied in the transaction",
+	}
+	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
+	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
+	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
 )
 
 const (
@@ -869,7 +885,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
 	resp, err := h.gatewayClient.AddTransaction(invokeTx)
 	if err != nil {
-		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
+		return nil, makeJSONErrorFromGatewayError(err)
 	}
 
 	invokeRes := new(AddInvokeTxResponse)
@@ -881,21 +897,43 @@ func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxRe
 	return invokeRes, nil
 }
 
-// getAddInvokeTxCode returns the relevant Code for a given addInvokeTx error
-func getAddInvokeTxCode(err error) int {
-	switch {
-	case strings.Contains(err.Error(), "contract address") && strings.Contains(err.Error(), "is out of range"):
-		return jsonrpc.InvalidParams
-	case strings.Contains(err.Error(), "Fee") && strings.Contains(err.Error(), "is out of range"):
-		return jsonrpc.InvalidParams
-	case strings.Contains(err.Error(), "Missing data for required field"):
-		return jsonrpc.InvalidParams
-	case strings.Contains(err.Error(), "not supported. Supported versions"):
-		return jsonrpc.InvalidParams
-	case strings.Contains(err.Error(), "max_fee must be bigger than 0"):
-		return jsonrpc.InvalidParams
+func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
+	gatewayErr, ok := err.(*gateway.Error)
+	if !ok {
+		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	switch gatewayErr.Code {
+	case gateway.InvalidContractClass:
+		return ErrInvalidContractClass
+	case gateway.UndeclaredClass:
+		return ErrClassHashNotFound
+	case gateway.ClassAlreadyDeclared:
+		return ErrClassAlreadyDeclared
+	case gateway.InsufficientMaxFee:
+		return ErrInsufficientMaxFee
+	case gateway.InsufficientAccountBalance:
+		return ErrInsufficientAccountBalance
+	case gateway.ValidateFailure:
+		return ErrValidationFailure
+	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
+		return ErrContractClassSizeTooLarge
+	case gateway.DuplicatedTransaction:
+		return ErrDuplicateTx
+	case gateway.InvalidTransactionNonce:
+		return ErrInvalidTransactionNonce
+	case gateway.CompilationFailed:
+		return ErrCompilationFailed
+	case gateway.InvalidCompiledClassHash:
+		return ErrCompiledClassHashMismatch
+	case gateway.InvalidTransactionVersion:
+		return ErrUnsupportedTxVersion
+	case gateway.InvalidContractClassVersion:
+		return ErrUnsupportedContractClassVersion
 	default:
-		return jsonrpc.InternalError
+		unexpectedErr := ErrUnexpectedError
+		unexpectedErr.Data = gatewayErr.Message
+		return unexpectedErr
 	}
 }
 
@@ -913,7 +951,7 @@ func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*De
 			ErrClassHashNotFound.Data = err.Error()
 			return nil, ErrClassHashNotFound
 		}
-		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
+		return nil, makeJSONErrorFromGatewayError(err)
 	}
 
 	deployResp := new(DeployAccountTxResponse)
@@ -985,13 +1023,7 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 
 	resp, err := h.gatewayClient.AddTransaction(declareTx)
 	if err != nil {
-		if strings.Contains(err.Error(), "Invalid contract class") {
-			return nil, ErrInvlaidContractClass
-		} else if strings.Contains(err.Error(), "Class already declared") {
-			return nil, ErrClassAlreadyDeclared
-		}
-
-		return nil, jsonrpc.Err(getAddInvokeTxCode(err), err.Error())
+		return nil, makeJSONErrorFromGatewayError(err)
 	}
 
 	declareRes := new(DeclareTxResponse)

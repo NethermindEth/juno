@@ -10,11 +10,11 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -1754,11 +1754,13 @@ func TestAddInvokeTransaction(t *testing.T) {
 		invokeTx := json.RawMessage{}
 
 		mockGateway.EXPECT().AddTransaction(invokeTx).
-			Return(nil, errors.New("['Missing data for required field.']"))
+			Return(nil, &gateway.Error{
+				Message: "['Missing data for required field.']",
+			})
 
 		_, err := handler.AddInvokeTransaction(invokeTx)
 		require.NotNil(t, err)
-		assert.Equal(t, jsonrpc.InvalidParams, err.Code)
+		assert.Equal(t, rpc.ErrUnexpectedError.Code, err.Code)
 	})
 
 	t.Run("ok", func(t *testing.T) {
@@ -1848,27 +1850,31 @@ func TestAddDeclareTransaction(t *testing.T) {
 	t.Run("empty transaction", func(t *testing.T) {
 		tx := json.RawMessage("{}")
 
-		expectedErr := jsonrpc.Error{
-			Code:    jsonrpc.InvalidParams,
-			Message: "Invalid Params",
-			Data:    errors.New("{'type': ['Missing data for required field.']}").Error(),
-		}
+		expectedErr := rpc.ErrUnexpectedError
+		expectedErr.Data = "{'type': ['Missing data for required field.']}"
 
-		mockGateway.EXPECT().AddTransaction(tx).Return(nil, errors.New("{'type': ['Missing data for required field.']}"))
+		mockGateway.EXPECT().AddTransaction(tx).
+			Return(nil, &gateway.Error{
+				Message: expectedErr.Data.(string),
+			})
 
 		resp, handlerErr := handler.AddDeclareTransaction(tx)
 		require.Nil(t, resp)
-		assert.Equal(t, expectedErr, *handlerErr)
+		assert.Equal(t, expectedErr, handlerErr)
 	})
 
 	t.Run("invalid contract class", func(t *testing.T) {
 		tx := json.RawMessage("{}")
 
-		mockGateway.EXPECT().AddTransaction(tx).Return(nil, errors.New("Invalid contract class"))
+		mockGateway.EXPECT().AddTransaction(tx).
+			Return(nil, &gateway.Error{
+				Code:    gateway.InvalidContractClass,
+				Message: "Invalid contract class",
+			})
 
 		resp, handlerErr := handler.AddDeclareTransaction(tx)
 		require.Nil(t, resp)
-		assert.Equal(t, *rpc.ErrInvlaidContractClass, *handlerErr)
+		assert.Equal(t, *rpc.ErrInvalidContractClass, *handlerErr)
 	})
 }
 
