@@ -150,6 +150,7 @@ type TransactionReceipt struct {
 	MessagesSent    []*MsgToL1         `json:"messages_sent"`
 	Events          []*Event           `json:"events"`
 	ContractAddress *felt.Felt         `json:"contract_address,omitempty"`
+	RevertReason    string             `json:"revert_reason,omitempty"`
 }
 
 type AddInvokeTxResponse struct {
