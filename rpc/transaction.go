@@ -75,9 +75,9 @@ const (
 func (es TxnExecutionStatus) MarshalJSON() ([]byte, error) {
 	switch es {
 	case TxnSuccess:
-		return []byte("\"SUCCESS\""), nil
+		return []byte("\"SUCCEEDED\""), nil
 	case TxnFailure:
-		return []byte("\"FAILURE\""), nil
+		return []byte("\"REVERTED\""), nil
 	default:
 		return nil, errors.New("unknown ExecutionStatus")
 	}
