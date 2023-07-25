@@ -81,8 +81,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, testdb.Close())
 	})
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {

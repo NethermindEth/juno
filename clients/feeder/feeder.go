@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -62,11 +63,11 @@ func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
 
-type closeTestClient func()
-
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(network utils.Network) (*Client, closeTestClient) {
+func NewTestClient(t *testing.T, network utils.Network) *Client {
 	srv := newTestServer(network)
+	t.Cleanup(srv.Close)
+
 	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
 	c.client = &http.Client{
 		Transport: &http.Transport{
@@ -83,7 +84,7 @@ func NewTestClient(network utils.Network) (*Client, closeTestClient) {
 			MaxIdleConnsPerHost: 1000,
 		},
 	}
-	return c, srv.Close
+	return c
 }
 
 func newTestServer(network utils.Network) *httptest.Server {
