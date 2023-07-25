@@ -454,6 +454,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		MessagesSent:    messages,
 		Events:          events,
 		ContractAddress: contractAddress,
+		RevertReason:    receipt.RevertReason,
 	}, nil
 }
 
