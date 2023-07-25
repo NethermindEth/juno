@@ -31,7 +31,19 @@ func TestAddInvokeTx(t *testing.T) {
 		require.NoError(t, err)
 		resp, err := client.AddTransaction(invokeTxByte)
 
-		assert.NotNil(t, err)
+		require.Error(t, err)
+		assert.Nil(t, resp)
+
+		gatewayErr, ok := err.(*gateway.Error)
+		require.True(t, ok)
+		assert.Equal(t, gateway.ErrorCode("Malformed Request"), gatewayErr.Code)
+		assert.Equal(t, "empty request", gatewayErr.Message)
+	})
+
+	t.Run("empty req", func(t *testing.T) {
+		resp, err := client.AddTransaction(nil)
+
+		require.EqualError(t, err, "500 Internal Server Error")
 		assert.Nil(t, resp)
 	})
 }

@@ -47,7 +47,10 @@ func newTestServer() *httptest.Server {
 
 		// empty request: "{}"
 		emptyReqLen := 4
-		if len(b) <= emptyReqLen {
+		if string(b) == "null" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		} else if len(b) <= emptyReqLen {
 			w.WriteHeader(http.StatusBadRequest)
 			_, err = w.Write([]byte(`{"code": "Malformed Request", "message": "empty request"}`))
 			if err != nil {
@@ -103,12 +106,17 @@ func (c *Client) post(url string, data any) (io.ReadCloser, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err = c.tryDecodeErr(resp.Body)
-		// decoding failed, at least pass info about http code
-		if err == nil {
-			err = fmt.Errorf("received non 200 status code: %d", resp.StatusCode)
+		var gatewayError Error
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr == nil && len(body) > 0 {
+			if err := json.Unmarshal(body, &gatewayError); err == nil {
+				if len(gatewayError.Code) != 0 {
+					return nil, &gatewayError
+				}
+			}
+			return nil, errors.New(string(body))
 		}
-		return nil, err
+		return nil, errors.New(resp.Status)
 	}
 
 	return resp.Body, nil
@@ -131,19 +139,13 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	return c.client.Do(req)
 }
 
-func (c *Client) tryDecodeErr(resp io.Reader) error {
-	var gatewayError struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	}
+type ErrorCode string
 
-	if err := json.NewDecoder(resp).Decode(&gatewayError); err != nil {
-		c.log.Errorw("failed to decode gateway error", "err", err)
-	}
+type Error struct {
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+}
 
-	var err error
-	if gatewayError.Message != "" {
-		err = errors.New(gatewayError.Message)
-	}
-	return err
+func (e Error) Error() string {
+	return e.Message
 }
