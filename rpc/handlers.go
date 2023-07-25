@@ -1136,7 +1136,11 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 		blockNumber = height + 1
 	}
 
-	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, header.SequencerAddress, state, h.network)
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+	}
+	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
