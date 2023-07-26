@@ -2,8 +2,10 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -64,7 +66,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) {
+func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -114,6 +116,14 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
+		ethNodeURL, err := url.Parse(n.cfg.EthNode)
+		if err != nil {
+			n.log.Errorw("Failed to parse Ethereum node URL", "url", n.cfg.EthNode, "err", err)
+			return nil, err
+		}
+		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
+			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
+		}
 		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
 			n.log.Errorw("Error creating L1 client", "err", err)

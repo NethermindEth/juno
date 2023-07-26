@@ -63,7 +63,7 @@ const (
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage        = "Enables the pprof server and listens on port 9080."
 	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage      = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"

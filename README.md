@@ -72,6 +72,7 @@ docker run -d \
 
 You should replace `<YOUR-ETH-NODE> `with your actual Ethereum node address.
 If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
+Make sure you are using the websocket URL `ws`/`wss` and not the http URL `http`/`https`.
 
 To view logs from the Docker container, use the following command:
 
