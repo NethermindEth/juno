@@ -81,14 +81,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 
 	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
 	if err != nil {
-		log.Errorw("Error creating DB logger", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
 	database, err := pebble.New(cfg.DatabasePath, dbLog)
 	if err != nil {
-		log.Errorw("Error opening DB", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("open DB: %w", err)
 	}
 
 	chain := blockchain.New(database, cfg.Network, log)
@@ -100,8 +98,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
 	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
 	if err != nil {
-		log.Errorw("Failed to create RPC servers", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
 
 	n := &Node{
@@ -118,16 +115,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	} else {
 		ethNodeURL, err := url.Parse(n.cfg.EthNode)
 		if err != nil {
-			n.log.Errorw("Failed to parse Ethereum node URL", "url", n.cfg.EthNode, "err", err)
-			return nil, err
+			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 		}
 		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
 			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
 		}
 		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
-			n.log.Errorw("Error creating L1 client", "err", err)
-			return nil, err
+			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 
 		n.services = append(n.services, l1Client)
@@ -145,8 +140,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
 		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
 		if err != nil {
-			log.Errorw("Error setting up p2p", "err", err)
-			return nil, err
+			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
 
 		n.services = append(n.services, p2pService)
@@ -304,15 +298,13 @@ func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleL
 	var coreContractAddress common.Address
 	coreContractAddress, err := chain.Network().CoreContractAddress()
 	if err != nil {
-		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
-		return nil, err
+		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
 	}
 
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
 	if err != nil {
-		log.Errorw("Error creating ethSubscriber", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 	return l1.NewClient(ethSubscriber, chain, log), nil
 }
