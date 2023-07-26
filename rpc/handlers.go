@@ -1163,16 +1163,18 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	return estimates, nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) {
+func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
-	calldata = append(calldata, msg.Payload...)
+	for payloadIdx := range msg.Payload {
+		calldata = append(calldata, &msg.Payload[payloadIdx])
+	}
 	tx := BroadcastedTransaction{
 		Transaction: Transaction{
 			Type:               TxnL1Handler,
-			ContractAddress:    msg.To,
-			EntryPointSelector: msg.Selector,
+			ContractAddress:    &msg.To,
+			EntryPointSelector: &msg.Selector,
 			CallData:           &calldata,
 			Version:            &felt.Zero, // Needed for transaction hash calculation.
 			Nonce:              &felt.Zero, // Needed for transaction hash calculation.

@@ -130,10 +130,10 @@ type MsgFromL1 struct {
 	// The address of the L1 contract sending the message.
 	From common.Address `json:"from_address" validate:"required"`
 	// The address of the L1 contract sending the message.
-	To *felt.Felt `json:"to_address" validate:"required"`
+	To felt.Felt `json:"to_address" validate:"required"`
 	// The payload of the message.
-	Payload  []*felt.Felt `json:"payload" validate:"required"`
-	Selector *felt.Felt   `json:"entry_point_selector" validate:"required"`
+	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
 }
 
 type MsgToL1 struct {
