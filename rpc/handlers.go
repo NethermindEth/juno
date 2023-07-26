@@ -25,7 +25,7 @@ type Gateway interface {
 var (
 	ErrBlockNotFound            = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrContractNotFound         = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 25, Message: "Transaction hash not found"}
+	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
 	ErrNoBlock                  = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
 	ErrInvalidTxIndex           = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
 	ErrClassHashNotFound        = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
