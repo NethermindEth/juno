@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -873,25 +872,63 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 	return set(blockchain.EventFilterTo, toID)
 }
 
-// AddInvokeTransaction relays an invoke transaction to the gateway.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L11
-// Note: No checks are performed on the incoming request since we rely on the gateway to perform sanity checks.
-// As this handler is just as a proxy. Any error returned by the gateway is returned to the user as a jsonrpc error.
-func (h *Handler) AddInvokeTransaction(invokeTx json.RawMessage) (*AddInvokeTxResponse, *jsonrpc.Error) {
-	resp, err := h.gatewayClient.AddTransaction(invokeTx)
+// AddTransaction relays a transaction to the gateway.
+func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *jsonrpc.Error) {
+	var request map[string]any
+	err := json.Unmarshal(txnJSON, &request)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
+	}
+
+	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
+		request["type"] = feeder.TxnInvoke.String()
+
+		updatedReq, errIn := json.Marshal(request)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+		txnJSON = updatedReq
+	} else if version, ok := request["version"]; ok && version == "0x2" {
+		contractClass, ok := request["contract_class"].(map[string]interface{})
+		if !ok {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'contract_class': ['Missing data for required field.']}")
+		}
+		sierraProg, ok := contractClass["sierra_program"]
+		if !ok {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
+		}
+
+		sierraProgBytes, errIn := json.Marshal(sierraProg)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+
+		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+
+		contractClass["sierra_program"] = gwSierraProg
+
+		updatedReq, errIn := json.Marshal(request)
+		if errIn != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		}
+		txnJSON = updatedReq
+	}
+
+	resp, err := h.gatewayClient.AddTransaction(txnJSON)
 	if err != nil {
 		return nil, makeJSONErrorFromGatewayError(err)
 	}
 
-	invokeRes := new(AddInvokeTxResponse)
-	err = json.Unmarshal(resp, invokeRes)
+	var response AddTxResponse
+	err = json.Unmarshal(resp, &response)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	return invokeRes, nil
+	return &response, nil
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
@@ -934,31 +971,6 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	}
 }
 
-// AddDeployAccountTransaction relays an deploy account transaction to the gateway.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L74
-// Note: This handler is a proxy. No checks are performed on the incoming request
-// since we rely on the gateway to perform sanity checks. Any error returned by the
-// gateway is returned to the user as a jsonrpc error.
-func (h *Handler) AddDeployAccountTransaction(deployAcntTx json.RawMessage) (*DeployAccountTxResponse, *jsonrpc.Error) {
-	resp, err := h.gatewayClient.AddTransaction(deployAcntTx)
-	if err != nil {
-		if strings.Contains(err.Error(), "Class hash not found") {
-			ErrClassHashNotFound.Data = err.Error()
-			return nil, ErrClassHashNotFound
-		}
-		return nil, makeJSONErrorFromGatewayError(err)
-	}
-
-	deployResp := new(DeployAccountTxResponse)
-	if err = json.Unmarshal(resp, deployResp); err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-
-	return deployResp, nil
-}
-
 // PendingTransactions gets the transactions in the pending block
 //
 // It follows the specification defined here:
@@ -974,62 +986,6 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 		}
 	}
 	return pendingTxns, nil
-}
-
-// AddDeclareTransaction relays a declare transaction to the gateway.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_write_api.json#L39
-// Note: The gateway expects the sierra_program to be gzip compressed and 64-base encoded. We perform this operation,
-// and then relay the transaction to the gateway.
-func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
-	var request map[string]any
-	err := json.Unmarshal(declareTx, &request)
-	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-
-	if version, ok := request["version"]; ok && version == "0x2" {
-		contractClass, ok := request["contract_class"].(map[string]interface{})
-		if !ok {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'contract_class': ['Missing data for required field.']}")
-		}
-		sierraProg, ok := contractClass["sierra_program"]
-		if !ok {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
-		}
-
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		contractClass["sierra_program"] = gwSierraProg
-
-		updatedReq, errIn := json.Marshal(request)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-		declareTx = updatedReq
-	}
-
-	resp, err := h.gatewayClient.AddTransaction(declareTx)
-	if err != nil {
-		return nil, makeJSONErrorFromGatewayError(err)
-	}
-
-	declareRes := new(DeclareTxResponse)
-	err = json.Unmarshal(resp, declareRes)
-	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-
-	return declareRes, nil
 }
 
 func (h *Handler) Version() (string, *jsonrpc.Error) {

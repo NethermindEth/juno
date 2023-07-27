@@ -230,17 +230,17 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		{
 			Name:    "starknet_addInvokeTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: rpcHandler.AddInvokeTransaction,
+			Handler: rpcHandler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeployAccountTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: rpcHandler.AddDeployAccountTransaction,
+			Handler: rpcHandler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: rpcHandler.AddDeclareTransaction,
+			Handler: rpcHandler.AddTransaction,
 		},
 		{
 			Name:    "starknet_getEvents",

@@ -10,11 +10,11 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -1742,7 +1742,7 @@ func TestEvents(t *testing.T) {
 	})
 }
 
-func TestAddInvokeTransaction(t *testing.T) {
+func TestAddTransaction(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -1750,186 +1750,46 @@ func TestAddInvokeTransaction(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, nil, nil, "", log)
 
-	t.Run("required fields are missing", func(t *testing.T) {
-		invokeTx := json.RawMessage{}
-
-		mockGateway.EXPECT().AddTransaction(invokeTx).
-			Return(nil, &gateway.Error{
-				Message: "['Missing data for required field.']",
-			})
-
-		_, err := handler.AddInvokeTransaction(invokeTx)
+	t.Run("invalid json", func(t *testing.T) {
+		_, err := handler.AddTransaction(json.RawMessage(`{]`))
 		require.NotNil(t, err)
-		assert.Equal(t, rpc.ErrUnexpectedError.Code, err.Code)
+		assert.Equal(t, jsonrpc.InvalidJSON, err.Code)
 	})
 
-	t.Run("ok", func(t *testing.T) {
-		invokeTx := `{
-  "type": "INVOKE_FUNCTION",
-  "version": "0x1",
-  "max_fee": "0x630a0aff77",
-  "signature": [
-    "3528007825596418374026627280134684856450592690572806863856267180750827721823",
-    "1245823039743824185280620435679602775503159522192240958005687298327230184621"
-  ],
-  "nonce": "0x2",
-  "sender_address": "0x3fdcbeb68e607c8febf01d7ef274cbf68091a0bd1556c0b8f8e80d732f7850f",
-  "calldata": [
-    "1",
-    "834014391734518171968827433472208778143213814961523717423700643029090972826",
-    "1530486729947006463063166157847785599120665941190480211966374137237989315360",
-    "0",
-    "1",
-    "1",
-    "1"
-  ]
-}`
-		invokeTxByte, err := json.Marshal(invokeTx)
-		require.NoError(t, err)
-
-		expectedInvokeResp := &rpc.AddInvokeTxResponse{
-			TransactionHash: new(felt.Felt).SetBytes([]byte("random")),
+	t.Run("ok response", func(t *testing.T) {
+		mockGateway.EXPECT().AddTransaction(gomock.Any()).Return(json.RawMessage(`
+		{
+			"transaction_hash" : "0x1",
+			"contract_address" : "0x2",
+			"class_hash" : "0x3"
 		}
-		expectedInvokeRespB, err := json.Marshal(expectedInvokeResp)
-		require.NoError(t, err)
+		`), nil)
 
-		mockGateway.EXPECT().AddTransaction(invokeTxByte).Return(expectedInvokeRespB, nil)
-
-		resp, handlerErr := handler.AddInvokeTransaction(invokeTxByte)
-		require.Nil(t, handlerErr)
-		assert.Equal(t, expectedInvokeResp.TransactionHash, resp.TransactionHash)
+		response, err := handler.AddTransaction(json.RawMessage(`{}`))
+		require.Nil(t, err)
+		assert.Equal(t, "0x1", response.TransactionHash.String())
+		assert.Equal(t, "0x2", response.ContractAddress.String())
+		assert.Equal(t, "0x3", response.ClassHash.String())
 	})
-}
 
-func TestAddDeclareTransaction(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockGateway := mocks.NewMockGateway(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, nil, nil, "", log)
-
-	t.Run("correct V2", func(t *testing.T) {
+	t.Run("compresses sierra program", func(t *testing.T) {
 		declareTxV2 := `{"contract_class":{"sierra_program":["0x0","0x0"]},"type":"DECLARE","version":"0x2"}`
 		gwDeclareTxV2 := `{"contract_class":{"sierra_program":"H4sIAAAAAAAA/4pWMqgwUNIBk7GAAAAA//9n6XuWDQAAAA=="},"type":"DECLARE","version":"0x2"}`
 
-		tx := json.RawMessage(declareTxV2)
-		expectedDeclareResp := &rpc.DeclareTxResponse{
-			TransactionHash: new(felt.Felt).SetBytes([]byte("randomrandom")),
-			ClassHash:       new(felt.Felt).SetBytes([]byte("randomrandom")),
-		}
-		expectedDeclareRespB, err := json.Marshal(expectedDeclareResp)
-		require.NoError(t, err)
+		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwDeclareTxV2)).Return(json.RawMessage(`{}`), nil)
 
-		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwDeclareTxV2)).Return(expectedDeclareRespB, nil)
-
-		resp, handlerErr := handler.AddDeclareTransaction(tx)
-
-		require.Nil(t, handlerErr)
-		assert.Equal(t, *expectedDeclareResp, *resp)
+		_, err := handler.AddTransaction(json.RawMessage(declareTxV2))
+		require.Nil(t, err)
 	})
 
-	t.Run("correct V1", func(t *testing.T) {
-		declareTxV1 := `{"type":"DECLARE","version":"0x1","contract_class":{"sierra_program":"H4sIAAAAAAAA/1IyqDBQAgQAAP//Jz3M3QUAAAA="}}`
-		tx := json.RawMessage(declareTxV1)
-		expectedDeclareResp := &rpc.DeclareTxResponse{
-			TransactionHash: new(felt.Felt).SetBytes([]byte("randomrandom")),
-			ClassHash:       new(felt.Felt).SetBytes([]byte("randomrandom")),
-		}
-		expectedDeclareRespB, err := json.Marshal(expectedDeclareResp)
-		require.NoError(t, err)
+	t.Run("changes invoke type", func(t *testing.T) {
+		invokeTxn := `{"type":"INVOKE"}`
+		gwInvokeTxn := `{"type":"INVOKE_FUNCTION"}`
 
-		mockGateway.EXPECT().AddTransaction(json.RawMessage(declareTxV1)).Return(expectedDeclareRespB, nil)
+		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwInvokeTxn)).Return(json.RawMessage(`{}`), nil)
 
-		resp, handlerErr := handler.AddDeclareTransaction(tx)
-
-		require.Nil(t, handlerErr)
-		assert.Equal(t, *expectedDeclareResp, *resp)
-	})
-
-	t.Run("empty transaction", func(t *testing.T) {
-		tx := json.RawMessage("{}")
-
-		expectedErr := rpc.ErrUnexpectedError
-		expectedErr.Data = "{'type': ['Missing data for required field.']}"
-
-		mockGateway.EXPECT().AddTransaction(tx).
-			Return(nil, &gateway.Error{
-				Message: expectedErr.Data.(string),
-			})
-
-		resp, handlerErr := handler.AddDeclareTransaction(tx)
-		require.Nil(t, resp)
-		assert.Equal(t, expectedErr, handlerErr)
-	})
-
-	t.Run("invalid contract class", func(t *testing.T) {
-		tx := json.RawMessage("{}")
-
-		mockGateway.EXPECT().AddTransaction(tx).
-			Return(nil, &gateway.Error{
-				Code:    gateway.InvalidContractClass,
-				Message: "Invalid contract class",
-			})
-
-		resp, handlerErr := handler.AddDeclareTransaction(tx)
-		require.Nil(t, resp)
-		assert.Equal(t, *rpc.ErrInvalidContractClass, *handlerErr)
-	})
-}
-
-func TestAddDeployAccountTransaction(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockGateway := mocks.NewMockGateway(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, nil, nil, "", log)
-
-	// Note: the actual content of this string doesn't matter since we are
-	// just testing that the handler interacts with the gateway correctly.
-	// We provide this working request body to help with manual testing.
-	deployTx := `{
-		"type":"DEPLOY_ACCOUNT",
-		"version":"0x1",
-		"max_fee":"0xbf391377813",
-		"signature":["3181116721778572998251180091272735527476035532097685864422911613793631652139","2164526032249652743885469077097605297290471695393275387091246233695764674017"],
-		"nonce":"0x0",
-		"class_hash":"0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
-		"contract_address_salt":"0x6d44a6aecb4339e23a9619355f101cf3cb9baec289fcd9fd51486655c1bb8a8",
-		"constructor_calldata":["3586049313439572922481980579704165954735883178084413432649542503692532358709]"
-	}`
-
-	t.Run("test ErrClassHashNotFound", func(t *testing.T) {
-		deployTxByte, err := json.Marshal(deployTx)
-		require.NoError(t, err)
-
-		mockGateway.EXPECT().AddTransaction(deployTxByte).Return(nil, errors.New("Class hash not found"))
-
-		resp, handlerErr := handler.AddDeployAccountTransaction(deployTxByte)
-
-		require.Nil(t, resp)
-		assert.Equal(t, handlerErr.Message, "Class hash not found")
-		assert.Equal(t, handlerErr.Code, rpc.ErrClassHashNotFound.Code)
-	})
-
-	t.Run("ok", func(t *testing.T) {
-		deployTxByte, err := json.Marshal(deployTx)
-		require.NoError(t, err)
-
-		expectedDeployResp := &rpc.DeployAccountTxResponse{
-			TransactionHash: new(felt.Felt).SetBytes([]byte("random")),
-			ContractAddress: new(felt.Felt).SetBytes([]byte("random")),
-		}
-		expectedDeployRespB, err := json.Marshal(expectedDeployResp)
-		require.NoError(t, err)
-
-		mockGateway.EXPECT().AddTransaction(deployTxByte).Return(expectedDeployRespB, nil)
-
-		resp, handlerErr := handler.AddDeployAccountTransaction(deployTxByte)
-		require.Nil(t, handlerErr)
-		assert.Equal(t, expectedDeployResp.TransactionHash, resp.TransactionHash)
-		assert.Equal(t, expectedDeployResp.ContractAddress, resp.ContractAddress)
+		_, err := handler.AddTransaction(json.RawMessage(invokeTxn))
+		require.Nil(t, err)
 	})
 }
 
