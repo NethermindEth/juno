@@ -163,18 +163,10 @@ type TransactionReceipt struct {
 	RevertReason    string             `json:"revert_reason,omitempty"`
 }
 
-type AddInvokeTxResponse struct {
+type AddTxResponse struct {
 	TransactionHash *felt.Felt `json:"transaction_hash"`
-}
-
-type DeployAccountTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ContractAddress *felt.Felt `json:"contract_address"`
-}
-
-type DeclareTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ClassHash       *felt.Felt `json:"class_hash"`
+	ContractAddress *felt.Felt `json:"contract_address,omitempty"`
+	ClassHash       *felt.Felt `json:"class_hash,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1273-L1287
