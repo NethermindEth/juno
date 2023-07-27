@@ -28,7 +28,7 @@ func TestHTTP(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	rpc := jsonrpc.NewServer(log)
 	require.NoError(t, rpc.RegisterMethod(method))
-	server := jsonrpc.NewHTTP(listener, rpc, log)
+	server := jsonrpc.NewHTTP("/vX.Y.Z", listener, rpc, log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(func() {
