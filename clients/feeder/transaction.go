@@ -2,6 +2,7 @@ package feeder
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -44,22 +45,72 @@ func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type TransactionType uint8
+
+const (
+	Invalid TransactionType = iota
+	TxnDeclare
+	TxnDeploy
+	TxnDeployAccount
+	TxnInvoke
+	TxnL1Handler
+)
+
+func (t TransactionType) String() string {
+	switch t {
+	case TxnDeclare:
+		return "DECLARE"
+	case TxnDeploy:
+		return "DEPLOY"
+	case TxnDeployAccount:
+		return "DEPLOY_ACCOUNT"
+	case TxnInvoke:
+		return "INVOKE_FUNCTION"
+	case TxnL1Handler:
+		return "L1_HANDLER"
+	default:
+		return "<unknown>"
+	}
+}
+
+func (t TransactionType) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%q", t)), nil
+}
+
+func (t *TransactionType) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"DECLARE"`:
+		*t = TxnDeclare
+	case `"DEPLOY"`:
+		*t = TxnDeploy
+	case `"DEPLOY_ACCOUNT"`:
+		*t = TxnDeployAccount
+	case `"INVOKE"`, `"INVOKE_FUNCTION"`:
+		*t = TxnInvoke
+	case `"L1_HANDLER"`:
+		*t = TxnL1Handler
+	default:
+		return errors.New("unknown TransactionType")
+	}
+	return nil
+}
+
 // Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
-	Hash                *felt.Felt    `json:"transaction_hash,omitempty" copier:"must,nopanic"`
-	Version             *felt.Felt    `json:"version,omitempty"`
-	ContractAddress     *felt.Felt    `json:"contract_address,omitempty"`
-	ContractAddressSalt *felt.Felt    `json:"contract_address_salt,omitempty"`
-	ClassHash           *felt.Felt    `json:"class_hash,omitempty"`
-	ConstructorCallData *[]*felt.Felt `json:"constructor_calldata,omitempty"`
-	Type                string        `json:"type,omitempty"`
-	SenderAddress       *felt.Felt    `json:"sender_address,omitempty"`
-	MaxFee              *felt.Felt    `json:"max_fee,omitempty"`
-	Signature           *[]*felt.Felt `json:"signature,omitempty"`
-	CallData            *[]*felt.Felt `json:"calldata,omitempty"`
-	EntryPointSelector  *felt.Felt    `json:"entry_point_selector,omitempty"`
-	Nonce               *felt.Felt    `json:"nonce,omitempty"`
-	CompiledClassHash   *felt.Felt    `json:"compiled_class_hash,omitempty"`
+	Hash                *felt.Felt      `json:"transaction_hash,omitempty" copier:"must,nopanic"`
+	Version             *felt.Felt      `json:"version,omitempty"`
+	ContractAddress     *felt.Felt      `json:"contract_address,omitempty"`
+	ContractAddressSalt *felt.Felt      `json:"contract_address_salt,omitempty"`
+	ClassHash           *felt.Felt      `json:"class_hash,omitempty"`
+	ConstructorCallData *[]*felt.Felt   `json:"constructor_calldata,omitempty"`
+	Type                TransactionType `json:"type,omitempty"`
+	SenderAddress       *felt.Felt      `json:"sender_address,omitempty"`
+	MaxFee              *felt.Felt      `json:"max_fee,omitempty"`
+	Signature           *[]*felt.Felt   `json:"signature,omitempty"`
+	CallData            *[]*felt.Felt   `json:"calldata,omitempty"`
+	EntryPointSelector  *felt.Felt      `json:"entry_point_selector,omitempty"`
+	Nonce               *felt.Felt      `json:"nonce,omitempty"`
+	CompiledClassHash   *felt.Felt      `json:"compiled_class_hash,omitempty"`
 }
 
 type TransactionStatus struct {

@@ -142,15 +142,15 @@ func AdaptL2ToL1Message(response *feeder.L2ToL1Message) *core.L2ToL1Message {
 func AdaptTransaction(transaction *feeder.Transaction) (core.Transaction, error) {
 	txType := transaction.Type
 	switch txType {
-	case "DECLARE":
+	case feeder.TxnDeclare:
 		return AdaptDeclareTransaction(transaction), nil
-	case "DEPLOY":
+	case feeder.TxnDeploy:
 		return AdaptDeployTransaction(transaction), nil
-	case "INVOKE_FUNCTION", "INVOKE":
+	case feeder.TxnInvoke:
 		return AdaptInvokeTransaction(transaction), nil
-	case "DEPLOY_ACCOUNT":
+	case feeder.TxnDeployAccount:
 		return AdaptDeployAccountTransaction(transaction), nil
-	case "L1_HANDLER":
+	case feeder.TxnL1Handler:
 		return AdaptL1HandlerTransaction(transaction), nil
 	default:
 		return nil, fmt.Errorf("unknown transaction type %q", txType)

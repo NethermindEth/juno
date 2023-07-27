@@ -198,7 +198,6 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
 	}
-	feederTxn.Type = broadcastedTxn.Type.String()
 
 	txn, err := feeder2core.AdaptTransaction(&feederTxn)
 	if err != nil {
