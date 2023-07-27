@@ -23,16 +23,17 @@ type Gateway interface {
 }
 
 var (
-	ErrBlockNotFound            = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrContractNotFound         = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrTxnHashNotFound          = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
-	ErrNoBlock                  = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidTxIndex           = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
-	ErrClassHashNotFound        = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	ErrBlockNotFound     = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrContractNotFound  = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrTxnHashNotFound   = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
+	ErrNoBlock           = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidTxIndex    = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	// message is not the same as in the spec, should be "The supplied continuation token is invalid or unknown"
 	ErrInvalidContinuationToken = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
 	ErrPageSizeTooBig           = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
 	ErrTooManyKeysInFilter      = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
-	ErrInvlaidContractClass     = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
+	ErrInvalidContractClass     = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared     = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                 = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
 	ErrContractError            = &jsonrpc.Error{Code: 40, Message: "Contract error"}
@@ -174,6 +175,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
 func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	// there is no https://github.com/starkware-libs/starknet-specs/blob/v0.4.0-rc2/api/starknet_api_openrpc.json#L1414 in response?
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
@@ -948,6 +950,7 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 // Note: The gateway expects the sierra_program to be gzip compressed and 64-base encoded. We perform this operation,
 // and then relay the transaction to the gateway.
 func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxResponse, *jsonrpc.Error) {
+	// is it ok to keep it as is i.e. json.RawMessage
 	var request map[string]any
 	err := json.Unmarshal(declareTx, &request)
 	if err != nil {
@@ -986,7 +989,7 @@ func (h *Handler) AddDeclareTransaction(declareTx json.RawMessage) (*DeclareTxRe
 	resp, err := h.gatewayClient.AddTransaction(declareTx)
 	if err != nil {
 		if strings.Contains(err.Error(), "Invalid contract class") {
-			return nil, ErrInvlaidContractClass
+			return nil, ErrInvalidContractClass
 		} else if strings.Contains(err.Error(), "Class already declared") {
 			return nil, ErrClassAlreadyDeclared
 		}

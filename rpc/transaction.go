@@ -163,8 +163,8 @@ type DeployAccountTxResponse struct {
 }
 
 type DeclareTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ClassHash       *felt.Felt `json:"class_hash"`
+	TransactionHash *felt.Felt `json:"transaction_hash,omitempty"`
+	ClassHash       *felt.Felt `json:"class_hash,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1273-L1287

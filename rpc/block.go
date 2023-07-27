@@ -74,12 +74,12 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
 type BlockHeader struct {
-	Hash             *felt.Felt `json:"block_hash,omitempty"`
+	Hash             *felt.Felt `json:"block_hash"`
 	ParentHash       *felt.Felt `json:"parent_hash"`
-	Number           *uint64    `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt `json:"new_root,omitempty"`
+	Number           *uint64    `json:"block_number"`
+	NewRoot          *felt.Felt `json:"new_root"`
 	Timestamp        uint64     `json:"timestamp"`
-	SequencerAddress *felt.Felt `json:"sequencer_address,omitempty"`
+	SequencerAddress *felt.Felt `json:"sequencer_address"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131

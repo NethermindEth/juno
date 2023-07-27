@@ -1867,7 +1867,7 @@ func TestAddDeclareTransaction(t *testing.T) {
 
 		resp, handlerErr := handler.AddDeclareTransaction(tx)
 		require.Nil(t, resp)
-		assert.Equal(t, *rpc.ErrInvlaidContractClass, *handlerErr)
+		assert.Equal(t, *rpc.ErrInvalidContractClass, *handlerErr)
 	})
 }
 
