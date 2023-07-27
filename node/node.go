@@ -288,13 +288,13 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
 	}
-	httpServer := jsonrpc.NewHTTP(httpListener, jsonrpcServer, log)
+	httpServer := jsonrpc.NewHTTP("/v0_4", httpListener, jsonrpcServer, log)
 
 	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
 	}
-	wsServer := jsonrpc.NewWebsocket(wsListener, jsonrpcServer, log)
+	wsServer := jsonrpc.NewWebsocket("/v0_4", wsListener, jsonrpcServer, log)
 
 	return []service.Service{httpServer, wsServer}, nil
 }

@@ -19,14 +19,16 @@ type Websocket struct {
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
 	listener   net.Listener
+	urlPrefix  string
 }
 
-func NewWebsocket(listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   listener,
+		urlPrefix:  urlPrefix,
 	}
 	return ws
 }
@@ -78,8 +80,12 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 func (ws *Websocket) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
+	handler := ws.Handler(ctx)
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle(ws.urlPrefix, handler)
 	srv := &http.Server{
-		Handler:           ws.Handler(ctx),
+		Handler:           mux,
 		ReadHeaderTimeout: 1 * time.Second,
 	}
 
