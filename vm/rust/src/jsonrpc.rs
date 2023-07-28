@@ -69,21 +69,3 @@ pub struct FunctionCall {
     pub entry_point_selector: EntryPointSelector,
     pub calldata: Calldata,
 }
-
-/*
-#[derive(Serialize, Deserialize)]
-pub struct ExecuteInvocation {
-    #[serde(flatten)]
-    pub function_invocation: FunctionInvocation,
-    pub revert_reason: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum EntryPointType {
-    External,
-    L1Handler,
-    Constructor,
-}
-
-*/
