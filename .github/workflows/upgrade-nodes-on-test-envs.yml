@@ -78,6 +78,7 @@ jobs:
                     --http-port $port \
                     --network $network \
                     --colour=false \
+                    --pending-poll-interval 5s \
                     $ETH_NODE_PARAM \
                     $PPROF_PARAM
                 port=$((port+5))
