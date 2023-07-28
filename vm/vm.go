@@ -31,7 +31,7 @@ type VM interface {
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-	) ([]*felt.Felt, error)
+	) ([]*felt.Felt, []json.RawMessage, error)
 }
 
 type vm struct{}
@@ -141,7 +141,7 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-) ([]*felt.Felt, error) {
+) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{
 		state: state,
 	}
@@ -150,12 +150,12 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	paidFeesOnL1CStr := C.CString(string(paidFeesOnL1Bytes))
@@ -180,9 +180,15 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 	C.free(unsafe.Pointer(chainID))
 
 	if len(context.err) > 0 {
-		return nil, errors.New(context.err)
+		return nil, nil, errors.New(context.err)
 	}
-	return context.gasConsumed, nil
+
+	var executionInfoJSON []json.RawMessage
+	for _, jsonStr := range context.executionInfoJSON {
+		executionInfoJSON = append(executionInfoJSON, json.RawMessage(jsonStr))
+	}
+
+	return context.gasConsumed, executionInfoJSON, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

@@ -1162,7 +1162,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
 	_, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -1185,15 +1185,11 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in starknet_traceTransaction")
 
-	var (
-		txIndex int
-		tx      core.Transaction
-	)
+	var txIndex int
 	var classes []core.Class
 	for i, transaction := range block.Transactions {
 		if transaction.Hash().Equal(&hash) {
 			txIndex = i
-			tx = transaction
 		}
 
 		declareTx, ok := transaction.(*core.DeclareTransaction)
@@ -1232,9 +1228,10 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (*TransactionTrace, *jsonrpc.
 		rpcErr.Data = err.Error()
 		return nil, &rpcErr
 	}
+	fmt.Println("test")
 	txInfo := info[txIndex]
 
-	return adaptTxExecutionInfo(tx, txInfo)
+	return txInfo, nil
 }
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {

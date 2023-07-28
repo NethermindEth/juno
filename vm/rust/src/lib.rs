@@ -1,6 +1,7 @@
 pub mod class;
 mod juno_state_reader;
 pub mod execution_info;
+pub mod jsonrpc;
 
 use starknet_api::transaction::Fee;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
@@ -245,9 +246,10 @@ pub extern "C" fn cairoVMExecute(
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
                 );
 
+                let info = execution_info::TransactionExecutionInfo::from(t);
                 append_execution_info(
                     reader_handle,
-                    t.into(),
+                    info.into(),
                 );
             },
         }
@@ -274,7 +276,7 @@ fn transaction_from_api(
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
-fn append_execution_info(reader_handle: usize, info: execution_info::TransactionExecutionInfo) {
+fn append_execution_info(reader_handle: usize, info: jsonrpc::TransactionTrace) {
     let json = serde_json::to_string(&info).unwrap();
     let json_cstr = CString::new(json.as_str()).unwrap();
     unsafe {
