@@ -172,17 +172,13 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	gw := adaptfeeder.New(client)
 
-	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
-
-	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
+	mainnetBlock0 := utils.NoErr(gw.BlockByNumber(context.Background(), 0))(t)
+	mainnetStateUpdate0 := utils.NoErr(gw.StateUpdate(context.Background(), 0))(t)
 
 	require.NoError(t, chain.Store(mainnetBlock0, mainnetStateUpdate0, nil))
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
-		mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
-		require.NoError(t, err)
+		mainnetBlock1 := utils.NoErr(gw.BlockByNumber(context.Background(), 1))(t)
 
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
 		assert.EqualError(t, chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil), "block hashes do not match")
