@@ -40,8 +40,7 @@ func TestNew(t *testing.T) {
 		assert.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
 		chain = blockchain.New(testDB, utils.MAINNET, log)
-		b, err := chain.Head()
-		require.NoError(t, err)
+		b := utils.NoErr(chain.Head())(t)
 		assert.Equal(t, block0, b)
 	})
 }
@@ -67,7 +66,7 @@ func TestHeight(t *testing.T) {
 		assert.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
 		chain = blockchain.New(testDB, utils.MAINNET, log)
-		height, err := chain.Height()
+		height := utils.NoErr(chain.Height())(t)
 		require.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
 	})
@@ -79,19 +78,15 @@ func TestBlockByNumberAndHash(t *testing.T) {
 		client := feeder.NewTestClient(t, utils.MAINNET)
 		gw := adaptfeeder.New(client)
 
-		block, err := gw.BlockByNumber(context.Background(), 0)
-		require.NoError(t, err)
-		update, err := gw.StateUpdate(context.Background(), 0)
-		require.NoError(t, err)
+		block := utils.NoErr(gw.BlockByNumber(context.Background(), 0))(t)
+		update := utils.NoErr(gw.StateUpdate(context.Background(), 0))(t)
 
 		require.NoError(t, chain.Store(block, update, nil))
 
-		storedByNumber, err := chain.BlockByNumber(block.Number)
-		require.NoError(t, err)
+		storedByNumber := utils.NoErr(chain.BlockByNumber(block.Number))(t)
 		assert.Equal(t, block, storedByNumber)
 
-		storedByHash, err := chain.BlockByHash(block.Hash)
-		require.NoError(t, err)
+		storedByHash := utils.NoErr(chain.BlockByHash(block.Hash))(t)
 		assert.Equal(t, block, storedByHash)
 	})
 	t.Run("GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
@@ -99,9 +94,8 @@ func TestBlockByNumberAndHash(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("GetBlockByHash returns error if block doesn't exist", func(t *testing.T) {
-		f, err := new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		_, err = chain.BlockByHash(f)
+		f := utils.NoErr(new(felt.Felt).SetRandom())(t)
+		_, err := chain.BlockByHash(f)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 }
@@ -196,7 +190,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	t.Run("error when block global state root does not match state update's new root",
 		func(t *testing.T) {
-			mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
+			mainnetBlock1 := utils.NoErr(gw.BlockByNumber(context.Background(), 1))(t)
 			require.NoError(t, err)
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
@@ -210,57 +204,45 @@ func TestStore(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
 
-	block0, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
+	block0 := utils.NoErr(gw.BlockByNumber(context.Background(), 0))(t)
 
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
+	stateUpdate0 := utils.NoErr(gw.StateUpdate(context.Background(), 0))(t)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
 		require.NoError(t, chain.Store(block0, stateUpdate0, nil))
 
-		headBlock, err := chain.Head()
-		require.NoError(t, err)
+		headBlock := utils.NoErr(chain.Head())(t)
 		assert.Equal(t, block0, headBlock)
 
-		root, err := chain.StateCommitment()
-		require.NoError(t, err)
+		root := utils.NoErr(chain.StateCommitment())(t)
 		assert.Equal(t, stateUpdate0.NewRoot, root)
 
-		got0Block, err := chain.BlockByNumber(0)
-		require.NoError(t, err)
+		got0Block := utils.NoErr(chain.BlockByNumber(0))(t)
 		assert.Equal(t, block0, got0Block)
 
-		got0Update, err := chain.StateUpdateByHash(block0.Hash)
-		require.NoError(t, err)
+		got0Update := utils.NoErr(chain.StateUpdateByHash(block0.Hash))(t)
 		assert.Equal(t, stateUpdate0, got0Update)
 	})
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
-		block1, err := gw.BlockByNumber(context.Background(), 1)
-		require.NoError(t, err)
+		block1 := utils.NoErr(gw.BlockByNumber(context.Background(), 1))(t)
 
-		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
-		require.NoError(t, err)
+		stateUpdate1 := utils.NoErr(gw.StateUpdate(context.Background(), 1))(t)
 
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
 		require.NoError(t, chain.Store(block0, stateUpdate0, nil))
 		require.NoError(t, chain.Store(block1, stateUpdate1, nil))
 
-		headBlock, err := chain.Head()
-		require.NoError(t, err)
+		headBlock := utils.NoErr(chain.Head())(t)
 		assert.Equal(t, block1, headBlock)
 
-		root, err := chain.StateCommitment()
-		require.NoError(t, err)
+		root := utils.NoErr(chain.StateCommitment())(t)
 		assert.Equal(t, stateUpdate1.NewRoot, root)
 
-		got1Block, err := chain.BlockByNumber(1)
-		require.NoError(t, err)
+		got1Block := utils.NoErr(chain.BlockByNumber(1))(t)
 		assert.Equal(t, block1, got1Block)
 
-		got1Update, err := chain.StateUpdateByNumber(1)
-		require.NoError(t, err)
+		got1Update := utils.NoErr(chain.StateUpdateByNumber(1))(t)
 		assert.Equal(t, stateUpdate1, got1Update)
 	})
 }
@@ -272,11 +254,8 @@ func TestTransactionAndReceipt(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
-		b, err := gw.BlockByNumber(context.Background(), i)
-		require.NoError(t, err)
-
-		su, err := gw.StateUpdate(context.Background(), i)
-		require.NoError(t, err)
+		b := utils.NoErr(gw.BlockByNumber(context.Background(), i))(t)
+		su := utils.NoErr(gw.StateUpdate(context.Background(), i))(t)
 
 		require.NoError(t, chain.Store(b, su, nil))
 	}
@@ -302,16 +281,13 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
 		for i := uint64(0); i < 3; i++ {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(context.Background(), i)
-				require.NoError(t, err)
+				block := utils.NoErr(gw.BlockByNumber(context.Background(), i))(t)
 
 				for j, expectedTx := range block.Transactions {
-					gotTx, err := chain.TransactionByHash(expectedTx.Hash())
-					require.NoError(t, err)
+					gotTx := utils.NoErr(chain.TransactionByHash(expectedTx.Hash()))(t)
 					assert.Equal(t, expectedTx, gotTx)
 
-					gotTx, err = chain.TransactionByBlockNumberAndIndex(block.Number, uint64(j))
-					require.NoError(t, err)
+					gotTx = utils.NoErr(chain.TransactionByBlockNumberAndIndex(block.Number, uint64(j)))(t)
 					assert.Equal(t, expectedTx, gotTx)
 				}
 			})
@@ -321,8 +297,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
 		for i := uint64(0); i < 3; i++ {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(context.Background(), i)
-				require.NoError(t, err)
+				block := utils.NoErr(gw.BlockByNumber(context.Background(), i))(t)
 
 				for _, expectedR := range block.Receipts {
 					gotR, hash, number, err := chain.Receipt(expectedR.TransactionHash)
@@ -353,10 +328,8 @@ func TestState(t *testing.T) {
 
 	var existingBlockHash *felt.Felt
 	for i := uint64(0); i < 2; i++ {
-		block, err := gw.BlockByNumber(context.Background(), i)
-		require.NoError(t, err)
-		su, err := gw.StateUpdate(context.Background(), i)
-		require.NoError(t, err)
+		block := utils.NoErr(gw.BlockByNumber(context.Background(), i))(t)
+		su := utils.NoErr(gw.StateUpdate(context.Background(), i))(t)
 
 		require.NoError(t, chain.Store(block, su, nil))
 		existingBlockHash = block.Hash
@@ -403,10 +376,8 @@ func TestEvents(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := 0; i < 7; i++ {
-		b, err := gw.BlockByNumber(context.Background(), uint64(i))
-		require.NoError(t, err)
-		s, err := gw.StateUpdate(context.Background(), uint64(i))
-		require.NoError(t, err)
+		b := utils.NoErr(gw.BlockByNumber(context.Background(), uint64(i)))(t)
+		s := utils.NoErr(gw.StateUpdate(context.Background(), uint64(i)))(t)
 
 		if b.Number < 6 {
 			require.NoError(t, chain.Store(b, s, nil))
@@ -419,17 +390,17 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
-		filter, err := chain.EventFilter(nil, nil)
+		filter := utils.NoErr(chain.EventFilter(nil, nil))(t)
 
 		t.Run("block number", func(t *testing.T) {
-			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
+			err := filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
 			require.NoError(t, err)
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, uint64(44))
 			require.NoError(t, err)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
-			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, &felt.Zero)
+			err := filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, &felt.Zero)
 			require.Error(t, err)
 			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom, &felt.Zero)
 			require.Error(t, err)
@@ -440,8 +411,7 @@ func TestEvents(t *testing.T) {
 
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}})
-		require.NoError(t, err)
+		filter := utils.NoErr(chain.EventFilter(from, [][]felt.Felt{{}, {}, {}}))(t)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
@@ -465,6 +435,7 @@ func TestEvents(t *testing.T) {
 				var lastToken *blockchain.ContinuationToken
 				var gotEvents []*blockchain.FilteredEvent
 				for i := 0; i < len(allEvents)+1; i++ {
+					var err error
 					gotEvents, lastToken, err = filter.Events(lastToken, chunkSize)
 					require.NoError(t, err)
 					accEvents = append(accEvents, gotEvents...)
@@ -481,8 +452,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with keys", func(t *testing.T) {
 		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}})
-		require.NoError(t, err)
+		filter := utils.NoErr(chain.EventFilter(from, [][]felt.Felt{{*key}}))(t)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
 			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
@@ -499,11 +469,10 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with not matching keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]felt.Felt{
+		filter := utils.NoErr(chain.EventFilter(from, [][]felt.Felt{
 			{*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
 			{*utils.HexToFelt(t, "0xDEADBEEF")},
-		})
-		require.NoError(t, err)
+		}))(t)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
 		events, cToken, err := filter.Events(nil, 10)
@@ -522,11 +491,8 @@ func TestRevert(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
-		b, err := gw.BlockByNumber(context.Background(), i)
-		require.NoError(t, err)
-
-		su, err := gw.StateUpdate(context.Background(), i)
-		require.NoError(t, err)
+		b := utils.NoErr(gw.BlockByNumber(context.Background(), i))(t)
+		su := utils.NoErr(gw.StateUpdate(context.Background(), i))(t)
 
 		require.NoError(t, chain.Store(b, su, nil))
 	}
@@ -534,18 +500,15 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 
 	t.Run("height should rollback", func(t *testing.T) {
-		height, err := chain.Height()
-		require.NoError(t, err)
+		height := utils.NoErr(chain.Height())(t)
 		assert.Equal(t, uint64(1), height)
 	})
 	t.Run("head should revert", func(t *testing.T) {
-		block, err := chain.Head()
-		require.NoError(t, err)
+		block := utils.NoErr(chain.Head())(t)
 		assert.Equal(t, uint64(1), block.Number)
 	})
 	t.Run("headsheader should revert", func(t *testing.T) {
-		header, err := chain.HeadsHeader()
-		require.NoError(t, err)
+		header := utils.NoErr(chain.HeadsHeader())(t)
 		assert.Equal(t, uint64(1), header.Number)
 	})
 
@@ -572,10 +535,7 @@ func TestRevert(t *testing.T) {
 
 	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
 		require.NoError(t, testdb.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
-			if err != nil {
-				return err
-			}
+			it := utils.NoErr(txn.NewIterator())(t)
 			assert.False(t, it.Next(), it.Key())
 			return nil
 		}))
@@ -602,8 +562,7 @@ func TestL1Update(t *testing.T) {
 		t.Run(fmt.Sprintf("update L1 head to block %d", head.BlockNumber), func(t *testing.T) {
 			chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, utils.NewNopZapLogger())
 			require.NoError(t, chain.SetL1Head(head))
-			got, err := chain.L1Head()
-			require.NoError(t, err)
+			got := utils.NoErr(chain.L1Head())(t)
 			assert.Equal(t, head, got)
 		})
 	}
@@ -618,10 +577,8 @@ func TestPending(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	b, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
-	su, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
+	b := utils.NoErr(gw.BlockByNumber(context.Background(), 0))(t)
+	su := utils.NoErr(gw.StateUpdate(context.Background(), 0))(t)
 
 	t.Run("store genesis as pending", func(t *testing.T) {
 		pendingGenesis := blockchain.Pending{
@@ -642,10 +599,8 @@ func TestPending(t *testing.T) {
 	})
 
 	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
-		b, err = gw.BlockByNumber(context.Background(), 2)
-		require.NoError(t, err)
-		su, err = gw.StateUpdate(context.Background(), 2)
-		require.NoError(t, err)
+		b := utils.NoErr(gw.BlockByNumber(context.Background(), 2))(t)
+		su := utils.NoErr(gw.StateUpdate(context.Background(), 2))(t)
 
 		notExpectedPending := blockchain.Pending{
 			Block:       b,
@@ -655,15 +610,13 @@ func TestPending(t *testing.T) {
 	})
 
 	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
-		_, _, err = chain.PendingState()
+		_, _, err := chain.PendingState()
 		require.Error(t, err)
 	})
 
 	t.Run("store expected pending block", func(t *testing.T) {
-		b, err = gw.BlockByNumber(context.Background(), 1)
-		require.NoError(t, err)
-		su, err = gw.StateUpdate(context.Background(), 1)
-		require.NoError(t, err)
+		b := utils.NoErr(gw.BlockByNumber(context.Background(), 1))(t)
+		su := utils.NoErr(gw.StateUpdate(context.Background(), 1))(t)
 
 		expectedPending := blockchain.Pending{
 			Block:       b,
@@ -708,20 +661,16 @@ func TestSubscribeNewHeads(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
-	su0, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
+	block0 := utils.NoErr(gw.BlockByNumber(context.Background(), 0))(t)
+	su0 := utils.NoErr(gw.StateUpdate(context.Background(), 0))(t)
 	require.NoError(t, chain.Store(block0, su0, nil))
 
 	sink := make(chan *core.Header, 2048)
 	chain.SubscribeNewHeads(sink)
 
 	t.Run("send on store", func(t *testing.T) {
-		block1, err := gw.BlockByNumber(context.Background(), 1)
-		require.NoError(t, err)
-		su1, err := gw.StateUpdate(context.Background(), 1)
-		require.NoError(t, err)
+		block1 := utils.NoErr(gw.BlockByNumber(context.Background(), 1))(t)
+		su1 := utils.NoErr(gw.StateUpdate(context.Background(), 1))(t)
 		require.NoError(t, chain.Store(block1, su1, nil))
 
 		got1, notClosed := <-sink
