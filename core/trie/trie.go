@@ -2,17 +2,17 @@
 package trie
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/db/pebble"
-	"math/big"
-	"strings"
-
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
+	"math/big"
+	"strings"
 )
 
 // Storage is the Persistent storage for the [Trie]
@@ -179,6 +179,9 @@ func path(key, parentKey *bitset.BitSet) *bitset.BitSet {
 	// drop parent key, and one more MSB since left/right relation already encodes that information
 	if parentKey != nil {
 		path.Shrink(path.Len() - parentKey.Len() - 1)
+		if path.Len() == 0 { // Could be in case of proof node where the parent temporarily does not have one of the child node
+			return nil
+		}
 		path.DeleteAt(path.Len() - 1)
 	}
 	return path
@@ -238,13 +241,40 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 }
 
 func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) error {
-	// TODO: Dirty nodes?
-	// Since the length of the bitset is t.height, its always going to loop through the key until it reach
-	// another DB.
-	return t.storage.IterateFrom(t.feltToBitSet(startValue), func(key *bitset.BitSet, node *Node) (bool, error) {
-		// fmt.Printf("the len %d\n", key.Len())
-		return consumer(t.bitSetToFelt(key), node.Value)
-	})
+	startValueKey := FeltToBitSet(startValue, 251)
+	_, err := t.doIterate(startValueKey, t.rootKey, consumer)
+
+	return err
+}
+
+func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
+	if key == nil {
+		return true, nil
+	}
+
+	thenode, err := t.storage.Get(key)
+	if err != nil {
+		return false, err
+	}
+
+	if key.Len() == 251 {
+		keyAsFelt := t.bitSetToFelt(key)
+		return consumer(keyAsFelt, thenode.Value)
+	}
+
+	// TODO: Double check this
+	if !IsBitsetHigher(startValue, thenode.Right) {
+		next, err := t.doIterate(startValue, thenode.Left, consumer)
+		if err != nil {
+			return false, err
+		}
+
+		if !next {
+			return false, nil
+		}
+	}
+
+	return t.doIterate(startValue, thenode.Right, consumer)
 }
 
 type ProofNode struct {
@@ -260,18 +290,9 @@ func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
 	}
 
 	result := make([]*ProofNode, 0, len(nodes))
-	for i := len(nodes) - 1; i >= 0; i-- {
-		curnode := nodes[i]
-		if len(result) == 0 {
-			result = append(result, &ProofNode{
-				Key:  curnode.key,
-				Hash: curnode.node.Value,
-			})
-			continue
-		}
-
-		lastkey := nodes[i+1].key
-		if curnode.node.Left.Equal(lastkey) {
+	for i, curnode := range nodes[:len(nodes)-1] {
+		nextKey := nodes[i+1].key
+		if curnode.node.Left.Equal(nextKey) {
 			othernode, err := t.storage.Get(curnode.node.Right)
 			if err != nil {
 				return nil, err
@@ -293,6 +314,31 @@ func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
 	}
 
 	return result, nil
+}
+
+func NormalizedBitsetStr(b *bitset.BitSet) string {
+	var buffer bytes.Buffer
+	buffer.WriteString(fmt.Sprintf("%d ", b.Len()))
+
+	offset := 251 - b.Len()
+	backoffset := uint(251 - 64)
+	// backoffset := uint(0)
+
+	for i := 0; i < 64; i++ {
+		if uint(i)+backoffset < offset {
+			buffer.WriteString(".")
+			continue
+		}
+
+		if b.Test(uint(i) - offset + backoffset) {
+			buffer.WriteString("1")
+		} else {
+			buffer.WriteString("0")
+		}
+
+	}
+
+	return buffer.String()
 }
 
 func (t *Trie) SetProofNode(key *bitset.BitSet, value *felt.Felt) error {
@@ -377,13 +423,19 @@ func (t *Trie) put(nodeKey *bitset.BitSet, value *felt.Felt, isProof bool) (*fel
 			commonKey, _ = findCommonKey(sibling.key, nodeKey)
 		}
 
-		if commonKey.Equal(nodeKey) {
-			// The new node is the same as the commonKey
-			// Need to add sibling to it.
+		if commonKey.Equal(nodeKey) && isProof {
 			return nil, nil
-		} else if commonKey.Equal(sibling.key) {
-			// The new node should be a child of the sibling
-			return nil, nil
+		}
+
+		if isProof {
+			n, err := t.storage.Get(commonKey)
+			if err != nil && err != db.ErrKeyNotFound {
+				return nil, err
+			}
+
+			if n != nil {
+				return nil, nil
+			}
 		}
 
 		newParent := &Node{}
@@ -634,7 +686,9 @@ func bitsetToBigInt(path *bitset.BitSet) *big.Int {
 }
 
 func IsBitsetHigher(b1, b2 *bitset.BitSet) bool {
-	return bitsetToBigInt(b1).Cmp(bitsetToBigInt(b2)) > 0
+	bi1 := bitsetToBigInt(b1)
+	bi2 := bitsetToBigInt(b2)
+	return bi1.Cmp(bi2) > 0
 }
 
 func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt, proofs []*ProofNode, hash HashFunc) (bool, error) {

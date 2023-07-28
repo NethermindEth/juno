@@ -273,6 +273,87 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	return ret
 }
 
+func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
+	stateTrie, storageCloser, err := s.storage()
+	if err != nil {
+		return err
+	}
+
+	for i, path := range paths {
+		_, err := stateTrie.Put(path, hashes[i])
+		if err != nil {
+			return err
+		}
+
+		err = s.putNewContract(stateTrie, path, classHashes[i], 0)
+		if err != nil && err != ErrContractAlreadyDeployed {
+			return err
+		}
+		if err == ErrContractAlreadyDeployed {
+			_, err = s.replaceContract(stateTrie, path, classHashes[i])
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = s.updateContractNonce(stateTrie, path, nonces[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	root, err := stateTrie.Root()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("The root is %s\n", root.String())
+
+	err = stateTrie.Commit()
+	if err != nil {
+		return err
+	}
+
+	if err = storageCloser(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *State) UpdateStorageRaw(contractPath *felt.Felt, paths []*felt.Felt, values []*felt.Felt) error {
+	stateTrie, storageCloser, err := s.storage()
+	if err != nil {
+		return err
+	}
+
+	diffs := make([]StorageDiff, 0)
+	for i, path := range paths {
+		diffs = append(diffs, StorageDiff{
+			Key:   path,
+			Value: values[i],
+		})
+	}
+
+	err = s.updateContractStorages(stateTrie, map[felt.Felt][]StorageDiff{
+		*contractPath: diffs,
+	}, 0, false)
+	if err != nil {
+		return err
+	}
+
+	err = stateTrie.Commit()
+	if err != nil {
+		return err
+	}
+
+	if err = storageCloser(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 var (
 	noClassContractsClassHash = new(felt.Felt).SetUint64(0)
 

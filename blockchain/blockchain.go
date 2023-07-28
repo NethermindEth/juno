@@ -339,6 +339,26 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 	})
 }
 
+func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		if err := core.NewState(txn).UpdateRaw(paths, classHashes, hashes, nonces); err != nil {
+			return err
+		}
+
+		return txn.Set(db.ChainHeight.Key(), core.MarshalBlockNumber(uint64(0)))
+	})
+}
+
+func (b *Blockchain) StoreStorageDirect(storagePath *felt.Felt, paths []*felt.Felt, values []*felt.Felt) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		if err := core.NewState(txn).UpdateStorageRaw(storagePath, paths, values); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {

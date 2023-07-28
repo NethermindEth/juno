@@ -217,15 +217,15 @@ func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
 }
 
-<<<<<<< HEAD
-func transactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
-	return StrictTransactionHash(transaction, n, false)
+func ForceTransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+	return transactionHash(transaction, n, true)
 }
 
-func StrictTransactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
-=======
 func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
->>>>>>> origin/main
+	return transactionHash(transaction, n, false)
+}
+
+func transactionHash(transaction Transaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n, force)
@@ -268,36 +268,6 @@ func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network, force bool) (*felt.Felt, error) {
 	switch {
 	case i.Version.IsZero():
-<<<<<<< HEAD
-		if force {
-			sender := i.ContractAddress
-			if sender == nil {
-				sender = i.SenderAddress
-			}
-
-			felts := []*felt.Felt{
-				invokeFelt,
-				i.Version,
-				sender,
-				i.EntryPointSelector,
-				crypto.PedersenArray(i.CallData...),
-				i.MaxFee,
-				n.ChainID(),
-			}
-
-			for i, key := range felts {
-				if key == nil {
-					fmt.Printf("null at %d", i)
-				}
-			}
-
-			result := crypto.PedersenArray(felts...)
-			return result, nil
-		}
-
-		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
-		return i.TransactionHash, nil
-=======
 		return crypto.PedersenArray(
 			invokeFelt,
 			i.Version,
@@ -307,7 +277,6 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network, force bool) (*
 			i.MaxFee,
 			n.ChainID(),
 		), nil
->>>>>>> origin/main
 	case i.Version.IsOne():
 		return crypto.PedersenArray(
 			invokeFelt,

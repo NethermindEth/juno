@@ -34,7 +34,7 @@ func (h *verifier) VerifyBlock(block *core.Block) error {
 	}
 
 	for _, transaction := range block.Transactions {
-		recalculatedHash, err := core.StrictTransactionHash(transaction, h.network, false)
+		recalculatedHash, err := core.ForceTransactionHash(transaction, h.network)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (h *verifier) VerifyBlock(block *core.Block) error {
 			continue
 		}
 
-		recalculatedHash, err = core.StrictTransactionHash(transaction, h.network, true)
+		recalculatedHash, err = core.ForceTransactionHash(transaction, h.network)
 		if err != nil {
 			return err
 		}

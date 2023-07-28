@@ -34,6 +34,13 @@ func NewContract(addr *felt.Felt, txn db.Transaction) (*Contract, error) {
 	}, nil
 }
 
+func NewContractDontCareDeployed(addr *felt.Felt, txn db.Transaction) (*Contract, error) {
+	return &Contract{
+		Address: addr,
+		txn:     txn,
+	}, nil
+}
+
 // DeployContract sets up the database for a new contract.
 func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*Contract, error) {
 	contractDeployed, err := deployed(addr, txn)

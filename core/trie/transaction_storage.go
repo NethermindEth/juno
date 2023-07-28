@@ -2,7 +2,9 @@ package trie
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 
@@ -142,11 +144,9 @@ func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bits
 			return err
 		}
 
-		/*
-			keystr := hex.EncodeToString(it.Key())
-			valstr := hex.EncodeToString(bts)
-			fmt.Printf("R %s -> %s\n", keystr, valstr)
-		*/
+		keystr := hex.EncodeToString(it.Key())
+		valstr := hex.EncodeToString(bts)
+		fmt.Printf("R %s -> %s\n", keystr, valstr)
 
 		node := nodePool.Get().(*Node)
 		err = node.UnmarshalBinary(bts)

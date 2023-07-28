@@ -10,7 +10,9 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -18,8 +20,9 @@ import (
 
 type MutableStorage interface {
 	SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error
-	SetAddress(path *felt.Felt, nodeHash *felt.Felt, storageRoot *felt.Felt, classHash *felt.Felt, nonce *felt.Felt) error
-	SetStorage(storagePath *felt.Felt, path *felt.Felt, value *felt.Felt) error
+	SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error
+	SetStorage(storagePath *felt.Felt, paths []*felt.Felt, values []*felt.Felt) error
+	GetStateRoot() (*felt.Felt, error)
 }
 
 func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockHash *felt.Felt) error {
@@ -35,6 +38,11 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 		response, err := server.GetClassRange(rootInfo.ClassRoot, startAddr, nil)
 		if err != nil {
 			return err
+		}
+
+		if len(response.Paths) == 0 {
+			// TODO: Usually we try another peer in this case
+			break
 		}
 
 		// TODO: Verify class hashes
@@ -55,26 +63,47 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 
 	storageJobs := make([]*core.StorageRangeRequest, 0)
 
+	maxint := big.NewInt(1)
+	maxint.Lsh(maxint, 251)
 	startAddr = &felt.Zero
 	hasNext = true
 	for hasNext {
-		response, err := server.GetAddressRange(rootInfo.StorageRoot, startAddr, nil)
+		theint := startAddr.BigInt(big.NewInt(0))
+		theint.Mul(theint, big.NewInt(100))
+		theint.Div(theint, maxint)
+
+		curstateroot, err := targetTrie.GetStateRoot()
 		if err != nil {
 			return err
+		}
+
+		fmt.Printf("Startadd is %s%% %s \n", theint.String(), curstateroot.String())
+
+		response, err := server.GetAddressRange(rootInfo.StorageRoot, startAddr, nil)
+		if err != nil {
+			return errors.Wrap(err, "error get address range")
 		}
 
 		// TODO: Verify hashes
 		hasNext, err = trie.VerifyTrie(rootInfo.StorageRoot, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error verifying tree")
+		}
+
+		classHashes := make([]*felt.Felt, 0)
+		nonces := make([]*felt.Felt, 0)
+
+		for i := range response.Paths {
+			classHashes = append(classHashes, response.Leaves[i].ClassHash)
+			nonces = append(nonces, response.Leaves[i].Nonce)
+		}
+
+		err = targetTrie.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
+		if err != nil {
+			return errors.Wrap(err, "error setting address")
 		}
 
 		for i, path := range response.Paths {
-			err := targetTrie.SetAddress(path, response.Hashes[i], response.Leaves[i].StorageRoot, response.Leaves[i].ClassHash, response.Leaves[i].Nonce)
-			if err != nil {
-				return err
-			}
-
 			storageJobs = append(storageJobs, &core.StorageRangeRequest{
 				Path:      path,
 				Hash:      response.Leaves[i].StorageRoot,
@@ -89,7 +118,15 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 
 	curIdx := 0
 	for curIdx < len(storageJobs) {
-		batchSize := 1
+
+		curstateroot, err := targetTrie.GetStateRoot()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("storage jobs %d/%d %s\n", curIdx, len(storageJobs), curstateroot.String())
+
+		batchSize := 1000
 		batch := make([]*core.StorageRangeRequest, 0)
 		for i := 0; i < batchSize; i++ {
 			if i+curIdx >= len(storageJobs) {
@@ -106,6 +143,9 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 
 		responses, err := server.GetContractRange(rootInfo.StorageRoot, requests)
 		if err != nil {
+			fmt.Printf("Contract range failed\n")
+			request := requests[0]
+			fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
 			return err
 		}
 
@@ -114,50 +154,88 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 
 		for i, response := range responses {
 			request := requests[i]
+			if len(response.Paths) == 0 {
+				// TODO: need to check if its really empty
+				continue
+			}
+
 			hasNext, err := trie.VerifyTrie(request.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
 			if err != nil {
+				fmt.Printf("Verification failed\n")
+				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
+				for i, path := range response.Paths {
+					fmt.Printf("S %s -> %s\n", path.String(), response.Values[i].String())
+				}
+
 				return err
 			}
 			if hasNext {
+				fmt.Printf("Adding next\n")
 				batch[i].StartAddr = response.Paths[len(response.Paths)-1]
 				longRangeJobs = append(longRangeJobs, batch[i])
 			}
 
-			for idx, path := range response.Paths {
-				err = targetTrie.SetStorage(request.Path, path, response.Paths[idx])
-				if err != nil {
-					return err
-				}
+			err = targetTrie.SetStorage(request.Path, response.Paths, response.Values)
+			if err != nil {
+				fmt.Printf("Set storage failed\n")
+				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
+				return err
 			}
 		}
 	}
 
-	for _, job := range longRangeJobs {
+	fmt.Printf("Starting long range\n")
+	for lri, job := range longRangeJobs {
+
+		curstateroot, err := targetTrie.GetStateRoot()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("long range %d/%d %s\n", lri, len(longRangeJobs), curstateroot.String())
+
 		startAddr = job.StartAddr
 		hasNext = true
 		for hasNext {
+			theint := startAddr.BigInt(big.NewInt(0))
+			theint.Mul(theint, big.NewInt(100))
+			theint.Div(theint, maxint)
+			fmt.Printf("long range %s %s %s%% %s %v\n", job.Path, job.Hash, theint.String(), startAddr.String(), hasNext)
+
+			job.StartAddr = startAddr
 			responses, err := server.GetContractRange(rootInfo.StorageRoot, []*core.StorageRangeRequest{job})
 			if err != nil {
+				fmt.Printf("Contract range failed\n")
 				return err
 			}
 
 			response := responses[0] // TODO: it can return nothing
 
 			// TODO: Verify hashes
-			hasNext, err = trie.VerifyTrie(rootInfo.StorageRoot, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
+			hasNext, err = trie.VerifyTrie(job.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
 			if err != nil {
+				fmt.Printf("Contract range verify failed %s %s\n", rootInfo.StorageRoot.String(), rootInfo.ClassRoot.String())
 				return err
 			}
 
-			for idx, path := range response.Paths {
-				err = targetTrie.SetStorage(job.Path, path, response.Values[idx])
-				if err != nil {
-					return err
-				}
+			err = targetTrie.SetStorage(job.Path, response.Paths, response.Values)
+			if err != nil {
+				fmt.Printf("Contract range storage failed\n")
+				return err
 			}
 
 			startAddr = response.Paths[len(response.Paths)-1]
 		}
+	}
+
+	stateroot, err := targetTrie.GetStateRoot()
+	if err != nil {
+		return err
+	}
+	if !stateroot.Equal(rootInfo.StorageRoot) {
+		fmt.Printf("State root match mismatch %s %s\n", stateroot.String(), rootInfo.StorageRoot.String())
+	} else {
+		fmt.Printf("State root match\n")
 	}
 
 	return nil
@@ -165,7 +243,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 
 func TestSnapCopyTrie(t *testing.T) {
 	var d db.DB
-	d, _ = pebble.New("/home/amirul/fastworkscratch/smalljuno", utils.NewNopZapLogger())
+	d, _ = pebble.New("/home/amirul/fastworkscratch/largejuno", utils.NewNopZapLogger())
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
 	state, closer, err := bc.HeadState()
@@ -174,7 +252,16 @@ func TestSnapCopyTrie(t *testing.T) {
 	}
 	defer closer()
 
-	err = CopyTrieProcedure(state.(core.SnapServer), &noopTrie{}, &felt.Zero)
+	os.RemoveAll("/home/amirul/fastworkscratch/atragetJuno")
+	var d2 db.DB
+	d2, _ = pebble.New("/home/amirul/fastworkscratch/atragetJuno", utils.NewNopZapLogger())
+	bc2 := blockchain.New(d2, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
+
+	target := &noopTrie{
+		blockchain: bc2,
+	}
+
+	err = CopyTrieProcedure(state.(core.SnapServer), target, &felt.Zero)
 	assert.NoError(t, err)
 }
 
@@ -257,21 +344,47 @@ func TestCopyTrie(t *testing.T) {
 }
 
 type noopTrie struct {
+	addrCount  int
+	blockchain *blockchain.Blockchain
 }
 
-func (n noopTrie) SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error {
+func (n *noopTrie) GetStateRoot() (*felt.Felt, error) {
+	state, close, err := n.blockchain.HeadState()
+	if err == db.ErrKeyNotFound {
+		return &felt.Zero, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	trie, closer2, err := state.(core.StateReaderStorage).StorageTrie()
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := trie.Root()
+	if err != nil {
+		return nil, err
+	}
+
+	closer2()
+	close()
+
+	return root, nil
+}
+
+func (n *noopTrie) SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error {
 	fmt.Printf("Class %s %s %s\n", path.String(), classHash.String(), class)
 	return nil
 }
 
-func (n noopTrie) SetAddress(path *felt.Felt, nodeHash *felt.Felt, storageRoot *felt.Felt, classHash *felt.Felt, nonce *felt.Felt) error {
-	fmt.Printf("Address %s %s %s %s %s\n", path.String(), nodeHash.String(), storageRoot.String(), classHash.String(), nonce.String())
-	return nil
+func (n *noopTrie) SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error {
+	n.addrCount++
+	return n.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
 }
 
-func (n noopTrie) SetStorage(storagePath *felt.Felt, path *felt.Felt, value *felt.Felt) error {
-	fmt.Printf("Storage %s %s %s\n", storagePath.String(), path.String(), value.String())
-	return nil
+func (n *noopTrie) SetStorage(storagePath *felt.Felt, path []*felt.Felt, value []*felt.Felt) error {
+	return n.blockchain.StoreStorageDirect(storagePath, path, value)
 }
 
 var _ MutableStorage = &noopTrie{}

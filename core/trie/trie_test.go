@@ -1,6 +1,8 @@
 package trie_test
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/NethermindEth/juno/core/crypto"
 	"golang.org/x/exp/rand"
@@ -759,5 +761,21 @@ func Test_isBitsetHigher(t *testing.T) {
 				trie.FeltToBitSet(numToFeltMul(int64(test.n2), math.MaxInt64), 251)),
 				test.isHigher)
 		})
+	}
+}
+
+func Test_FieldOrder(t *testing.T) {
+
+	for i := 0; i < 10; i++ {
+		bignum := big.NewInt(int64(i))
+		thefelt := numToFeltBigInt(bignum)
+		thebitset := trie.FeltToBitSet(thefelt, 251)
+
+		buff := bytes.NewBuffer(make([]byte, 0))
+		thebitset.WriteTo(buff)
+
+		ashex := hex.EncodeToString(buff.Bytes())
+
+		fmt.Printf("%s %s\n", thefelt.String(), ashex)
 	}
 }

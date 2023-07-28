@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 )
@@ -56,7 +57,7 @@ type SnapServer interface {
 
 var _ SnapServer = &State{}
 
-const maxNodePerRequest = 4
+const maxNodePerRequest = 1024 * 16
 
 func (s *State) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) {
 	// TODO: check the block hash
@@ -89,27 +90,33 @@ func (s *State) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) {
 	}, nil
 }
 
-func iterateWithLimit(trie *trie.Trie, startAddr *felt.Felt, limitAddr *felt.Felt, maxNode int, consumer func(key, value *felt.Felt) error) ([]*trie.ProofNode, error) {
+func iterateWithLimit(srcTrie *trie.Trie, startAddr *felt.Felt, limitAddr *felt.Felt, maxNode int, consumer func(key, value *felt.Felt) error, hashFunc trie.HashFunc) ([]*trie.ProofNode, error) {
+	pathes := make([]*felt.Felt, 0)
+	hashes := make([]*felt.Felt, 0)
+
 	// TODO: Verify class trie
 	var startPath *felt.Felt
 	var endPath *felt.Felt
 	count := 0
-	err := trie.Iterate(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
-		if startPath == nil {
-			startPath = key
-		}
-		endPath = key
-
+	err := srcTrie.Iterate(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
 		// Need at least one.
 		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
 			return false, nil
 		}
+
+		if startPath == nil {
+			startPath = key
+		}
+
+		pathes = append(pathes, key)
+		hashes = append(hashes, value)
 
 		err := consumer(key, value)
 		if err != nil {
 			return false, err
 		}
 
+		endPath = key
 		count++
 		if count >= maxNode {
 			return false, nil
@@ -122,18 +129,36 @@ func iterateWithLimit(trie *trie.Trie, startAddr *felt.Felt, limitAddr *felt.Fel
 	}
 
 	if count == 1 {
-		return trie.ProofTo(startPath)
+		return srcTrie.ProofTo(startPath)
 	} else if count > 1 {
-		leftProof, err := trie.ProofTo(startPath)
+		leftProof, err := srcTrie.ProofTo(startPath)
 		if err != nil {
 			return nil, err
 		}
-		rightProof, err := trie.ProofTo(endPath)
+		rightProof, err := srcTrie.ProofTo(endPath)
 		if err != nil {
 			return nil, err
 		}
 
-		return append(leftProof, rightProof...), nil
+		skippedcount := 0
+		proofs := leftProof
+		for _, proof := range rightProof {
+			alreadyExist := false
+			for _, node := range proofs {
+				if node.Key.Equal(proof.Key) {
+					alreadyExist = true
+					break
+				}
+			}
+			if alreadyExist {
+				skippedcount += 1
+				continue
+			}
+
+			proofs = append(proofs, proof)
+		}
+
+		return proofs, nil
 	}
 
 	return nil, nil
@@ -165,7 +190,7 @@ func (s *State) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt
 
 		response.Classes = append(response.Classes, class.Class)
 		return nil
-	})
+	}, crypto.Poseidon)
 
 	return response, err
 }
@@ -217,9 +242,9 @@ func (s *State) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limit
 
 		response.Leaves = append(response.Leaves, leaf)
 		return nil
-	})
+	}, crypto.Pedersen)
 
-	return response, nil
+	return response, err
 }
 
 func (s *State) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest) ([]*StorageRangeResult, error) {
@@ -274,7 +299,7 @@ func (s *State) handleStorageRangeRequest(request *StorageRangeRequest, nodeLimi
 		response.Paths = append(response.Paths, key)
 		response.Values = append(response.Values, value)
 		return nil
-	})
+	}, crypto.Pedersen)
 
 	return response, err
 }

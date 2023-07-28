@@ -18,6 +18,7 @@ type DB struct {
 // New opens a new database at the given path
 func New(path string, logger pebble.Logger) (db.DB, error) {
 	return newPebble(path, &pebble.Options{
+		Cache:  pebble.NewCache(32000000000),
 		Logger: logger,
 	})
 }
