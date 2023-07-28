@@ -277,7 +277,11 @@ func (c *converter) coreTxToProtobufTx(
 }
 
 func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p2pproto.ContractClass, error) {
-	switch class := theclass.Class.(type) {
+	return coreUndeclaredClassToProtobufClass(hash, theclass.Class)
+}
+
+func coreUndeclaredClassToProtobufClass(hash *felt.Felt, theclass core.Class) (*p2pproto.ContractClass, error) {
+	switch class := theclass.(type) {
 	case *core.Cairo0Class:
 		abistr, err := class.Abi.MarshalJSON()
 		if err != nil {
@@ -312,7 +316,7 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 			},
 		}, nil
 	default:
-		return nil, errors.Errorf("unsupported class type %T", theclass.Class)
+		return nil, errors.Errorf("unsupported class type %T", theclass)
 	}
 }
 

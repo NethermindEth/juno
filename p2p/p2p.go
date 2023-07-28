@@ -1,5 +1,5 @@
 // I don't remember how this is usually done. This will do for now...
-//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto
+//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto ./proto/snap.proto
 
 package p2p
 
@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/NethermindEth/juno/core"
 	"os"
 	"strings"
 	"time"
@@ -106,7 +107,33 @@ func New(
 		log:        log,
 	}
 
+	snapSyncServer := snapSyncServer{
+		snapServer: func() (core.SnapServer, func(), error) {
+			state, closer, err := bc.HeadState()
+			if err != nil {
+				return nil, nil, err
+			}
+
+			closeWrapper := func() {
+				err := closer()
+				if err != nil {
+					log.Warnw("error closing state", err)
+				}
+			}
+
+			snapServer, ok := state.(core.SnapServer)
+			if !ok {
+				closeWrapper()
+				return nil, nil, err
+			}
+
+			return snapServer, closeWrapper, nil
+		},
+		log: log,
+	}
+
 	p2phost.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
+	p2phost.SetStreamHandler(snapSyncProto, snapSyncServer.handleStream)
 
 	return &Service{
 		bootPeers: bootPeers,
