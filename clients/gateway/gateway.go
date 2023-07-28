@@ -96,24 +96,11 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 }
 
 func (c *Client) AddTransaction(txn json.RawMessage) (json.RawMessage, error) {
-	endpoint := c.url + "/add_transaction"
-
-	body, err := c.post(endpoint, txn)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	res, readErr := io.ReadAll(body)
-	if readErr != nil {
-		return nil, readErr
-	}
-
-	return res, nil
+	return c.post(c.url+"/add_transaction", txn)
 }
 
 // post performs additional utility function over doPost method
-func (c *Client) post(url string, data any) (io.ReadCloser, error) {
+func (c *Client) post(url string, data any) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
@@ -121,6 +108,7 @@ func (c *Client) post(url string, data any) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		var gatewayError Error
@@ -136,7 +124,7 @@ func (c *Client) post(url string, data any) (io.ReadCloser, error) {
 		return nil, errors.New(resp.Status)
 	}
 
-	return resp.Body, nil
+	return io.ReadAll(resp.Body)
 }
 
 // doPost performs a "POST" http request with the given URL and a JSON payload derived from the provided data
