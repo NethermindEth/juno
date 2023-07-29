@@ -116,38 +116,49 @@ func (s *State) Contract(addr *felt.Felt) (*Contract, error) {
 // Root returns the state commitment.
 func (s *State) Root() (*felt.Felt, error) {
 	var storageRoot, classesRoot *felt.Felt
+	var err error
+
+	if storageRoot, classesRoot, err = s.StateAndClassRoot(); err != nil {
+		return nil, err
+	}
+
+	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
+}
+
+func (s *State) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
+	var storageRoot, classesRoot *felt.Felt
 
 	sStorage, closer, err := s.storage()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if storageRoot, err = sStorage.Root(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = closer(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	classes, closer, err := s.classesTrie()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if classesRoot, err = classes.Root(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = closer(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if classesRoot.IsZero() {
-		return storageRoot, nil
+		return storageRoot, nil, nil
 	}
 
-	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
+	return storageRoot, classesRoot, nil
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
@@ -306,8 +317,6 @@ func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes [
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("The root is %s\n", root.String())
 
 	err = stateTrie.Commit()
 	if err != nil {

@@ -72,6 +72,14 @@ func (d *DB) View(fn func(txn db.Transaction) error) error {
 	return db.CloseAndWrapOnError(txn.Discard, fn(txn))
 }
 
+// View : see db.DB.View
+func (d *DB) PersistedView() (db.Transaction, func() error, error) {
+	txn := d.NewTransaction(false)
+	return txn, func() error {
+		return db.CloseAndWrapOnError(txn.Discard, nil)
+	}, nil
+}
+
 // Update : see db.DB.Update
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(true)

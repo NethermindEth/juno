@@ -21,8 +21,6 @@ type Storage interface {
 	Get(key *bitset.BitSet) (*Node, error)
 	Delete(key *bitset.BitSet) error
 
-	IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) (bool, error)) error
-
 	PutRootKey(newRootKey *bitset.BitSet) error
 	RootKey() (*bitset.BitSet, error)
 	DeleteRootKey() error

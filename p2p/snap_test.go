@@ -25,7 +25,7 @@ type MutableStorage interface {
 	GetStateRoot() (*felt.Felt, error)
 }
 
-func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockHash *felt.Felt) error {
+func CopyTrieProcedure(server blockchain.SnapServer, targetTrie MutableStorage, blockHash *felt.Felt) error {
 	// TODO: refresh
 	rootInfo, err := server.GetTrieRootAt(blockHash)
 	if err != nil {
@@ -61,7 +61,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 		startAddr = response.Paths[len(response.Paths)-1]
 	}
 
-	storageJobs := make([]*core.StorageRangeRequest, 0)
+	storageJobs := make([]*blockchain.StorageRangeRequest, 0)
 
 	maxint := big.NewInt(1)
 	maxint.Lsh(maxint, 251)
@@ -104,7 +104,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 		}
 
 		for i, path := range response.Paths {
-			storageJobs = append(storageJobs, &core.StorageRangeRequest{
+			storageJobs = append(storageJobs, &blockchain.StorageRangeRequest{
 				Path:      path,
 				Hash:      response.Leaves[i].StorageRoot,
 				StartAddr: &felt.Zero,
@@ -114,7 +114,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 		startAddr = response.Paths[len(response.Paths)-1]
 	}
 
-	longRangeJobs := make([]*core.StorageRangeRequest, 0)
+	longRangeJobs := make([]*blockchain.StorageRangeRequest, 0)
 
 	curIdx := 0
 	for curIdx < len(storageJobs) {
@@ -127,7 +127,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 		fmt.Printf("storage jobs %d/%d %s\n", curIdx, len(storageJobs), curstateroot.String())
 
 		batchSize := 1000
-		batch := make([]*core.StorageRangeRequest, 0)
+		batch := make([]*blockchain.StorageRangeRequest, 0)
 		for i := 0; i < batchSize; i++ {
 			if i+curIdx >= len(storageJobs) {
 				break
@@ -136,7 +136,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 			batch = append(batch, storageJobs[i+curIdx])
 		}
 
-		requests := make([]*core.StorageRangeRequest, 0, len(batch))
+		requests := make([]*blockchain.StorageRangeRequest, 0, len(batch))
 		for _, job := range batch {
 			requests = append(requests, job)
 		}
@@ -203,7 +203,7 @@ func CopyTrieProcedure(server core.SnapServer, targetTrie MutableStorage, blockH
 			fmt.Printf("long range %s %s %s%% %s %v\n", job.Path, job.Hash, theint.String(), startAddr.String(), hasNext)
 
 			job.StartAddr = startAddr
-			responses, err := server.GetContractRange(rootInfo.StorageRoot, []*core.StorageRangeRequest{job})
+			responses, err := server.GetContractRange(rootInfo.StorageRoot, []*blockchain.StorageRangeRequest{job})
 			if err != nil {
 				fmt.Printf("Contract range failed\n")
 				return err
@@ -246,12 +246,6 @@ func TestSnapCopyTrie(t *testing.T) {
 	d, _ = pebble.New("/home/amirul/fastworkscratch/largejuno", utils.NewNopZapLogger())
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
-	state, closer, err := bc.HeadState()
-	if err != nil {
-		panic(err)
-	}
-	defer closer()
-
 	os.RemoveAll("/home/amirul/fastworkscratch/atragetJuno")
 	var d2 db.DB
 	d2, _ = pebble.New("/home/amirul/fastworkscratch/atragetJuno", utils.NewNopZapLogger())
@@ -261,7 +255,11 @@ func TestSnapCopyTrie(t *testing.T) {
 		blockchain: bc2,
 	}
 
-	err = CopyTrieProcedure(state.(core.SnapServer), target, &felt.Zero)
+	header, err := bc.HeadsHeader()
+	if err != nil {
+		panic(err)
+	}
+	err = CopyTrieProcedure(bc, target, header.Hash)
 	assert.NoError(t, err)
 }
 

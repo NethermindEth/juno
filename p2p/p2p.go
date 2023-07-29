@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/NethermindEth/juno/core"
 	"os"
 	"strings"
 	"time"
@@ -108,26 +107,10 @@ func New(
 	}
 
 	snapSyncServer := snapSyncServer{
-		snapServer: func() (core.SnapServer, func(), error) {
-			state, closer, err := bc.HeadState()
-			if err != nil {
-				return nil, nil, err
-			}
-
-			closeWrapper := func() {
-				err := closer()
-				if err != nil {
-					log.Warnw("error closing state", err)
-				}
-			}
-
-			snapServer, ok := state.(core.SnapServer)
-			if !ok {
-				closeWrapper()
-				return nil, nil, err
-			}
-
-			return snapServer, closeWrapper, nil
+		snapServer: func() (blockchain.SnapServer, func(), error) {
+			// TODO: clean this up
+			return bc, func() {
+			}, nil
 		},
 		log: log,
 	}

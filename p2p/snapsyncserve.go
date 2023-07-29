@@ -2,10 +2,10 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/NethermindEth/juno/blockchain"
 	"io"
 	"reflect"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -14,7 +14,7 @@ import (
 const snapSyncProto = "/juno/starknet/snap-sync/1"
 
 type snapSyncServer struct {
-	snapServer func() (core.SnapServer, func(), error)
+	snapServer func() (blockchain.SnapServer, func(), error)
 
 	log utils.SimpleLogger
 }
@@ -137,7 +137,7 @@ func (s *snapSyncServer) HandleContractRange(contractRangeRequest *p2pproto.GetC
 	defer closer()
 
 	root := fieldElementToFelt(contractRangeRequest.Root)
-	requests := MapValueViaReflect[[]*core.StorageRangeRequest](contractRangeRequest.Requests)
+	requests := MapValueViaReflect[[]*blockchain.StorageRangeRequest](contractRangeRequest.Requests)
 
 	response, err := snapServer.GetContractRange(root, requests)
 	if err != nil {

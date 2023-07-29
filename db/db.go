@@ -20,6 +20,9 @@ type DB interface {
 	// View should handle committing or discarding the transaction. Transaction should be discarded when fn
 	// returns an error
 	View(fn func(txn Transaction) error) error
+
+	PersistedView() (Transaction, func() error, error)
+
 	// Update creates a read-write transaction and calls fn with the given transaction
 	// Update should handle committing or discarding the transaction. Transaction should be discarded when fn
 	// returns an error

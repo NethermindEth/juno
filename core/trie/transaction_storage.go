@@ -2,9 +2,7 @@ package trie
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"sync"
 
@@ -114,58 +112,6 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 		return nil, err
 	}
 	return node, err
-}
-
-func (t *TransactionStorage) IterateFrom(key *bitset.BitSet, consumer func(*bitset.BitSet, *Node) (bool, error)) error {
-	buffer := getBuffer()
-	defer bufferPool.Put(buffer)
-	_, err := t.dbKey(key, buffer)
-	if err != nil {
-		return err
-	}
-
-	it, err := t.txn.NewIterator()
-	if err != nil {
-		return err
-	}
-
-	ok := it.Seek(buffer.Bytes())
-	for ok {
-		btset, err := t.keyToBitset(it.Key())
-		if err == notSameDb {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		bts, err := it.Value()
-		if err != nil {
-			return err
-		}
-
-		keystr := hex.EncodeToString(it.Key())
-		valstr := hex.EncodeToString(bts)
-		fmt.Printf("R %s -> %s\n", keystr, valstr)
-
-		node := nodePool.Get().(*Node)
-		err = node.UnmarshalBinary(bts)
-		if err != nil {
-			return err
-		}
-
-		cont, err := consumer(btset, node)
-		if err != nil {
-			return err
-		}
-		if !cont {
-			break
-		}
-
-		ok = it.Next()
-	}
-
-	return nil
 }
 
 func (t *TransactionStorage) Delete(key *bitset.BitSet) error {

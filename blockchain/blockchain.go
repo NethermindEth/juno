@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -45,6 +44,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
+	ErrMissingSnapshot        = errors.New("State snapshot missing")
 	supportedStarknetVersion  = semver.MustParse("0.12.0")
 )
 
@@ -63,21 +63,39 @@ func checkBlockVersion(protocolVersion string) error {
 
 var _ Reader = (*Blockchain)(nil)
 
+type snapshotRecord struct {
+	stateRoot *felt.Felt
+	classRoot *felt.Felt
+	blockHash *felt.Felt
+	txn       db.Transaction
+	closer    func() error
+}
+
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network  utils.Network
 	database db.DB
+
+	snapshots []*snapshotRecord
 
 	log utils.SimpleLogger
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
 	RegisterCoreTypesToEncoder()
-	return &Blockchain{
+	bc := &Blockchain{
 		database: database,
 		network:  network,
 		log:      log,
 	}
+
+	// TODO: Used only for testing though...
+	err := bc.seedSnapshot()
+	if err != nil {
+		fmt.Printf("Error seeding snapshot %s", err)
+	}
+
+	return bc
 }
 
 func (b *Blockchain) Network() utils.Network {
@@ -307,16 +325,30 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
-	return b.database.Update(func(txn db.Transaction) error {
+	var thestateroot *felt.Felt
+	var theclassroot *felt.Felt
+	var headerhash *felt.Felt
+
+	err := b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+
+		state := core.NewState(txn)
+		if err := state.Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
+
+		var err error
+		if thestateroot, theclassroot, err = state.StateAndClassRoot(); err != nil {
+			return err
+		}
+
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
+		headerhash = block.Hash
+
 		for i, tx := range block.Transactions {
 			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
 				block.Receipts[i]); err != nil {
@@ -337,6 +369,39 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
+
+	if err != nil {
+		return err
+	}
+
+	txn, closer, err := b.database.PersistedView()
+	if err != nil {
+		return err
+	}
+
+	dbsnap := snapshotRecord{
+		stateRoot: thestateroot,
+		classRoot: theclassroot,
+		blockHash: headerhash,
+		txn:       txn,
+		closer:    closer,
+	}
+
+	// TODO: Reorgs
+	b.snapshots = append(b.snapshots, &dbsnap)
+	if len(b.snapshots) > 128 {
+		toremove := b.snapshots[0]
+		err = toremove.closer()
+		if err != nil {
+			return err
+		}
+
+		// TODO: I think internally, it keep the old array.
+		// maybe the append copy it to a new array, who knows...
+		b.snapshots = b.snapshots[1:]
+	}
+
+	return nil
 }
 
 func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
@@ -889,4 +954,53 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		pending,
 		core.NewState(txn),
 	), txn.Discard, nil
+}
+
+func (b *Blockchain) seedSnapshot() error {
+	headheader, err := b.HeadsHeader()
+	if err != nil {
+		return err
+	}
+
+	state, scloser, err := b.HeadState()
+	if err != nil {
+		return err
+	}
+
+	defer scloser()
+
+	stateS := state.(*core.State)
+	thestateroot, theclassroot, err := stateS.StateAndClassRoot()
+	if err != nil {
+		return err
+	}
+
+	txn, closer, err := b.database.PersistedView()
+	if err != nil {
+		return err
+	}
+
+	dbsnap := snapshotRecord{
+		stateRoot: thestateroot,
+		classRoot: theclassroot,
+		blockHash: headheader.Hash,
+		txn:       txn,
+		closer:    closer,
+	}
+
+	// TODO: Reorgs
+	b.snapshots = append(b.snapshots, &dbsnap)
+	if len(b.snapshots) > 128 {
+		toremove := b.snapshots[0]
+		err = toremove.closer()
+		if err != nil {
+			return err
+		}
+
+		// TODO: I think internally, it keep the old array.
+		// maybe the append copy it to a new array, who knows...
+		b.snapshots = b.snapshots[1:]
+	}
+
+	return nil
 }

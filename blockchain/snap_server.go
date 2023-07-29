@@ -1,7 +1,8 @@
-package core
+package blockchain
 
 import (
 	"fmt"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -15,7 +16,7 @@ type TrieRootInfo struct {
 type ClassRangeResult struct {
 	Paths       []*felt.Felt
 	ClassHashes []*felt.Felt
-	Classes     []Class
+	Classes     []core.Class
 
 	Proofs []*trie.ProofNode
 }
@@ -55,38 +56,38 @@ type SnapServer interface {
 	GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest) ([]*StorageRangeResult, error)
 }
 
-var _ SnapServer = &State{}
+var _ SnapServer = &Blockchain{}
 
 const maxNodePerRequest = 1024 * 16
 
-func (s *State) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) {
-	// TODO: check the block hash
-
-	strie, stateCloser, err := s.storage()
-	if err != nil {
-		return nil, err
-	}
-	defer stateCloser()
-
-	storageRoot, err := strie.Root()
-	if err != nil {
-		return nil, err
+func (b *Blockchain) FindSnapshotMatching(filter func(record *snapshotRecord) bool) (*snapshotRecord, error) {
+	var snapshot *snapshotRecord
+	for _, record := range b.snapshots {
+		if filter(record) {
+			snapshot = record
+			break
+		}
 	}
 
-	ctrie, classCloser, err := s.classesTrie()
-	if err != nil {
-		return nil, err
+	if snapshot == nil {
+		return nil, ErrMissingSnapshot
 	}
-	defer classCloser()
 
-	classRoot, err := ctrie.Root()
+	return snapshot, nil
+}
+
+func (b *Blockchain) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) {
+	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+		return record.blockHash.Equal(blockHash)
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &TrieRootInfo{
-		StorageRoot: storageRoot,
-		ClassRoot:   classRoot,
+		StorageRoot: snapshot.stateRoot,
+		ClassRoot:   snapshot.classRoot,
 	}, nil
 }
 
@@ -164,9 +165,18 @@ func iterateWithLimit(srcTrie *trie.Trie, startAddr *felt.Felt, limitAddr *felt.
 	return nil, nil
 }
 
-func (s *State) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*ClassRangeResult, error) {
+func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*ClassRangeResult, error) {
+	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+		return record.classRoot.Equal(classTrieRootHash)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s := core.NewState(snapshot.txn)
+
 	// TODO: Verify class trie
-	ctrie, classCloser, err := s.classesTrie()
+	ctrie, classCloser, err := s.ClassTrie()
 	if err != nil {
 		return nil, err
 	}
@@ -195,9 +205,18 @@ func (s *State) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt
 	return response, err
 }
 
-func (s *State) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*AddressRangeResult, error) {
+func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*AddressRangeResult, error) {
+	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+		return record.stateRoot.Equal(rootHash)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s := core.NewState(snapshot.txn)
+
 	// TODO: Verify class trie
-	strie, scloser, err := s.storage()
+	strie, scloser, err := s.StorageTrie()
 	if err != nil {
 		return nil, err
 	}
@@ -247,13 +266,22 @@ func (s *State) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limit
 	return response, err
 }
 
-func (s *State) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest) ([]*StorageRangeResult, error) {
+func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest) ([]*StorageRangeResult, error) {
+	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+		return record.stateRoot.Equal(storageTrieRootHash)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s := core.NewState(snapshot.txn)
+
 	curNodeLimit := maxNodePerRequest
 
 	responses := make([]*StorageRangeResult, 0)
 
 	for _, request := range requests {
-		response, err := s.handleStorageRangeRequest(request, curNodeLimit)
+		response, err := b.handleStorageRangeRequest(s, request, curNodeLimit)
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +297,7 @@ func (s *State) GetContractRange(storageTrieRootHash *felt.Felt, requests []*Sto
 	return responses, nil
 }
 
-func (s *State) handleStorageRangeRequest(request *StorageRangeRequest, nodeLimit int) (*StorageRangeResult, error) {
+func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRangeRequest, nodeLimit int) (*StorageRangeResult, error) {
 	contract, err := s.Contract(request.Path)
 	if err != nil {
 		return nil, err
