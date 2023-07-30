@@ -3,7 +3,6 @@ mod juno_state_reader;
 pub mod execution_info;
 pub mod jsonrpc;
 
-use starknet_api::transaction::Fee;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
@@ -23,7 +22,6 @@ use blockifier::{
         objects::AccountTransactionContext,
         transaction_execution::Transaction,
         transactions::ExecutableTransaction,
-        account_transaction::AccountTransaction
     },
     fee::fee_utils::calculate_tx_fee,
 };
@@ -50,7 +48,7 @@ use starknet_api::{
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
-    fn JunoAppendExecutionInfo(reader_handle: usize, json_cstr: *const c_char);
+    fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_char);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar);
 }
@@ -207,7 +205,7 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
-        let txn = transaction_from_api(sn_api_txn.clone(), contract_class);
+        let txn = transaction_from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
         if txn.is_err() {
             report_error(reader_handle, txn.unwrap_err().to_string().as_str());
             return;
@@ -247,7 +245,7 @@ pub extern "C" fn cairoVMExecute(
                 );
 
                 let info = execution_info::TransactionExecutionInfo::from(t);
-                append_execution_info(
+                append_trace(
                     reader_handle,
                     info.into(),
                 );
@@ -259,6 +257,7 @@ pub extern "C" fn cairoVMExecute(
 fn transaction_from_api(
     tx: StarknetApiTransaction,
     contract_class: Option<ContractClass>,
+    paid_fee_on_l1: Option<Fee>,
 ) -> Result<Transaction, String> {
     match tx {
         StarknetApiTransaction::Deploy(deploy) => {
@@ -270,17 +269,15 @@ fn transaction_from_api(
         _ => {} // all ok
     };
 
-    let paid_fee_on_l1 = Some(Fee(1 as u128));
-
     Transaction::from_api(tx, contract_class, paid_fee_on_l1)
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
-fn append_execution_info(reader_handle: usize, info: jsonrpc::TransactionTrace) {
-    let json = serde_json::to_string(&info).unwrap();
+fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace) {
+    let json = serde_json::to_string(&trace).unwrap();
     let json_cstr = CString::new(json.as_str()).unwrap();
     unsafe {
-        JunoAppendExecutionInfo(reader_handle, json_cstr.as_ptr());
+        JunoAppendTrace(reader_handle, json_cstr.as_ptr());
     };
 }
 

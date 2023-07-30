@@ -2,7 +2,7 @@ use serde::Serialize;
 use crate::execution_info::{TransactionExecutionInfo, CallInfo, CallType, MessageToL1};
 use starknet_api::core::{ContractAddress, EntryPointSelector, ClassHash};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, EventContent, EthAddress, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EventContent};
 use starknet_api::deprecated_contract_class::EntryPointType;
 
 #[derive(Serialize)]

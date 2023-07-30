@@ -50,7 +50,7 @@ type callContext struct {
 	response []*felt.Felt
 	// amount of gas consumed per transaction during VM execution
 	gasConsumed []*felt.Felt
-	trace       string
+	traces      []string
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -68,10 +68,10 @@ func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
 	context.err = C.GoString(str)
 }
 
-//export JunoAppendExecutionInfo
-func JunoAppendExecutionInfo(readerHandle C.uintptr_t, jsonStr *C.char) {
+//export JunoAppendTrace
+func JunoAppendTrace(readerHandle C.uintptr_t, jsonTrace *C.char) {
 	context := unwrapContext(readerHandle)
-	context.trace = C.GoString(jsonStr)
+	context.traces = append(context.traces, C.GoString(jsonTrace))
 }
 
 //export JunoAppendResponse
@@ -183,12 +183,12 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		return nil, nil, errors.New(context.err)
 	}
 
-	var executionInfoJSON []json.RawMessage
-	for _, jsonStr := range context.executionInfoJSON {
-		executionInfoJSON = append(executionInfoJSON, json.RawMessage(jsonStr))
+	var traces []json.RawMessage
+	for _, trace := range context.traces {
+		traces = append(traces, json.RawMessage(trace))
 	}
 
-	return context.gasConsumed, executionInfoJSON, nil
+	return context.gasConsumed, traces, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -1113,7 +1111,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
-	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
+	gasesConsumed, _, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1215,23 +1213,21 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 
 	header := block.Header
 
-	var sequencerAddress *felt.Felt
-	if header.SequencerAddress != nil {
-		sequencerAddress = header.SequencerAddress
-	} else {
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 
-	_, info, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network)
+	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
+		sequencerAddress, state, h.network, []*felt.Felt{})
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
 		return nil, &rpcErr
 	}
-	fmt.Println("test")
-	txInfo := info[txIndex]
+	trace := traces[txIndex]
 
-	return txInfo, nil
+	return trace, nil
 }
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {
