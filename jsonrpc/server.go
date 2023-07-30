@@ -261,10 +261,10 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 	start := time.Now()
 	reqJSON, err := json.Marshal(req)
 	if err == nil {
-		s.log.Infow("Serving RPC request", "request", string(reqJSON))
+		s.log.Debugw("Serving RPC request", "request", string(reqJSON))
 	}
 	defer func() {
-		s.log.Infow("Responding to RPC request", "method", req.Method, "id", req.ID, "took", time.Since(start))
+		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", time.Since(start))
 	}()
 
 	if err = req.isSane(); err != nil {
