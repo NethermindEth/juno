@@ -119,11 +119,12 @@ func New(
 	p2phost.SetStreamHandler(snapSyncProto, snapSyncServer.handleStream)
 
 	return &Service{
-		bootPeers: bootPeers,
-		log:       log,
-		host:      p2phost,
-		network:   network,
-		dht:       p2pdht,
+		bootPeers:  bootPeers,
+		log:        log,
+		blockchain: bc,
+		host:       p2phost,
+		network:    network,
+		dht:        p2pdht,
 	}, nil
 }
 
@@ -308,7 +309,7 @@ func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 	return listenAddrs, nil
 }
 
-func (s *Service) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Service, error) {
+func (s *Service) CreateBlockSyncProvider() (*BlockSyncProvider, service.Service, error) {
 	peerManager, err := NewP2PPeerPoolManager(s, blockSyncProto, s.log)
 	if err != nil {
 		return nil, nil, err
@@ -320,4 +321,18 @@ func (s *Service) CreateBlockSyncProvider() (BlockSyncPeerManager, service.Servi
 	}
 
 	return blockSyncPeerManager, peerManager, nil
+}
+
+func (s *Service) CreateSnapProvider() (*SnapProvider, service.Service, error) {
+	peerManager, err := NewP2PPeerPoolManager(s, snapSyncProto, s.log)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	provider, err := NewSnapProvider(peerManager.OpenStream, s.blockchain, s.log)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return provider, peerManager, nil
 }

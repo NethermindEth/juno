@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -17,7 +18,7 @@ import (
 
 func TestSnapCopyTrie(t *testing.T) {
 	var d db.DB
-	d, _ = pebble.New("/home/amirul/workscratch/smalljuno", utils.NewNopZapLogger())
+	d, _ = pebble.New("/home/amirul/fastworkscratch/largejuno", utils.NewNopZapLogger())
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
 	targetdir := "/home/amirul/fastworkscratch3/targetjuno"
@@ -30,13 +31,13 @@ func TestSnapCopyTrie(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.DEBUG, false)
 	assert.NoError(t, err)
 
-	syncer := SnapSyncher{
-		consensus:  &localConsensus{bc},
-		snapServer: bc,
-		blockchain: bc2,
-		baseSync:   &NoopService{},
-		log:        logger,
-	}
+	syncer := NewSnapSyncer(
+		&NoopService{},
+		&localConsensus{bc},
+		bc,
+		bc2,
+		logger,
+	)
 
 	err = syncer.Run(context.Background())
 	assert.NoError(t, err)
@@ -131,12 +132,37 @@ type localConsensus struct {
 	blockchain *blockchain.Blockchain
 }
 
-func (n *localConsensus) GetStateUpdateForBlock(blockNumber uint64) (*core.StateUpdate, error) {
+func (n *localConsensus) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *localConsensus) BlockLatest(ctx context.Context) (*core.Block, error) {
+	return n.blockchain.Head()
+}
+
+func (n *localConsensus) BlockPending(ctx context.Context) (*core.Block, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *localConsensus) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *localConsensus) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *localConsensus) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
 	return n.blockchain.StateUpdateByNumber(blockNumber)
 }
 
-func (n *localConsensus) GetCurrentHead() (*core.Header, error) {
-	return n.blockchain.HeadsHeader()
+func (n *localConsensus) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
-var _ Consensus = &localConsensus{}
+var _ starknetdata.StarknetData = &localConsensus{}

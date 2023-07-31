@@ -122,11 +122,15 @@ func (s *State) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
+	return CalculateCombinedRoot(storageRoot, classesRoot), nil
+}
+
+func CalculateCombinedRoot(storageRoot *felt.Felt, classesRoot *felt.Felt) *felt.Felt {
 	if classesRoot.IsZero() {
-		return storageRoot, nil
+		return storageRoot
 	}
 
-	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
+	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot)
 }
 
 func (s *State) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {

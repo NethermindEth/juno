@@ -17,19 +17,11 @@ import (
 
 const blockSyncProto = "/core/blocks-sync/1"
 
-type BlockSyncPeerManager interface {
-	GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error)
-	GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error)
-	GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error)
-}
-
-var _ BlockSyncPeerManager = &blockSyncPeerManager{}
-
 const headerLRUSize = 1000
 
 type streamProvider = func(ctx context.Context) (network.Stream, func(), error)
 
-type blockSyncPeerManager struct {
+type BlockSyncProvider struct {
 	streamProvider streamProvider
 	logger         utils.SimpleLogger
 
@@ -44,7 +36,7 @@ func NewBlockSyncPeerManager(
 	streamProvider streamProvider,
 	bc *blockchain.Blockchain,
 	logger utils.SimpleLogger,
-) (*blockSyncPeerManager, error) {
+) (*BlockSyncProvider, error) {
 	converter := NewConverter(&blockchainClassProvider{
 		blockchain: bc,
 	})
@@ -54,7 +46,7 @@ func NewBlockSyncPeerManager(
 		return nil, err
 	}
 
-	peerManager := &blockSyncPeerManager{
+	peerManager := &BlockSyncProvider{
 		streamProvider: streamProvider,
 		converter:      converter,
 		verifier: &verifier{
@@ -69,7 +61,7 @@ func NewBlockSyncPeerManager(
 	return peerManager, nil
 }
 
-func (ip *blockSyncPeerManager) getHeaderByBlockNumber(ctx context.Context, number uint64) (*p2pproto.BlockHeader, error) {
+func (ip *BlockSyncProvider) getHeaderByBlockNumber(ctx context.Context, number uint64) (*p2pproto.BlockHeader, error) {
 	ip.lruMutex.Lock()
 	cachedHeader, ok := ip.headerByBlockNumberLru.Get(number)
 	ip.lruMutex.Unlock()
@@ -110,7 +102,7 @@ func (ip *blockSyncPeerManager) getHeaderByBlockNumber(ctx context.Context, numb
 	return blockHeaders[0], nil
 }
 
-func (ip *blockSyncPeerManager) getBlockByHeaderRequest(
+func (ip *BlockSyncProvider) getBlockByHeaderRequest(
 	ctx context.Context,
 	headerRequest *p2pproto.GetBlockHeaders,
 ) (*core.Block, map[felt.Felt]core.Class, error) {
@@ -180,7 +172,7 @@ func (ip *blockSyncPeerManager) getBlockByHeaderRequest(
 	return block, declaredClasses, nil
 }
 
-func (ip *blockSyncPeerManager) sendBlockSyncRequest(ctx context.Context, request *p2pproto.Request) (*p2pproto.Response, error) {
+func (ip *BlockSyncProvider) sendBlockSyncRequest(ctx context.Context, request *p2pproto.Request) (*p2pproto.Response, error) {
 	stream, closeFunc, err := ip.streamProvider(ctx)
 	if err != nil {
 		return nil, err
@@ -213,7 +205,7 @@ func (ip *blockSyncPeerManager) sendBlockSyncRequest(ctx context.Context, reques
 	return resp, nil
 }
 
-func (ip *blockSyncPeerManager) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error) {
+func (ip *BlockSyncProvider) GetBlockByNumber(ctx context.Context, number uint64) (*core.Block, map[felt.Felt]core.Class, error) {
 	request := &p2pproto.GetBlockHeaders{
 		StartBlock: &p2pproto.GetBlockHeaders_BlockNumber{
 			BlockNumber: number,
@@ -224,7 +216,7 @@ func (ip *blockSyncPeerManager) GetBlockByNumber(ctx context.Context, number uin
 	return ip.getBlockByHeaderRequest(ctx, request)
 }
 
-func (ip *blockSyncPeerManager) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error) {
+func (ip *BlockSyncProvider) GetBlockByHash(ctx context.Context, hash *felt.Felt) (*core.Block, map[felt.Felt]core.Class, error) {
 	request := &p2pproto.GetBlockHeaders{
 		StartBlock: &p2pproto.GetBlockHeaders_BlockHash{
 			BlockHash: feltToFieldElement(hash),
@@ -235,7 +227,7 @@ func (ip *blockSyncPeerManager) GetBlockByHash(ctx context.Context, hash *felt.F
 	return ip.getBlockByHeaderRequest(ctx, request)
 }
 
-func (ip *blockSyncPeerManager) GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error) {
+func (ip *BlockSyncProvider) GetStateUpdate(ctx context.Context, number uint64) (*core.StateUpdate, error) {
 	// Ideally, it should pass the block number. but we'll just wing it here for now.
 	header, err := ip.getHeaderByBlockNumber(ctx, number)
 	if err != nil {

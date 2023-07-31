@@ -206,6 +206,10 @@ func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt
 }
 
 func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*AddressRangeResult, error) {
+	if rootHash == nil {
+		fmt.Printf("root hash is nil in address range")
+		return nil, fmt.Errorf("root hash is nil")
+	}
 	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.stateRoot.Equal(rootHash)
 	})

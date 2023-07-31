@@ -2,8 +2,10 @@ package sync
 
 import (
 	"context"
+	errors2 "errors"
 	"fmt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/starknetdata"
 	big "math/big"
 	"sync"
 	"sync/atomic"
@@ -19,11 +21,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Consensus interface {
-	GetCurrentHead() (*core.Header, error)
-	GetStateUpdateForBlock(blockNumber uint64) (*core.StateUpdate, error)
-}
-
 type MutableStorage interface {
 	SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error
 	SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error
@@ -33,11 +30,11 @@ type MutableStorage interface {
 }
 
 type SnapSyncher struct {
-	baseSync   service.Service
-	consensus  Consensus
-	snapServer blockchain.SnapServer
-	blockchain *blockchain.Blockchain
-	log        utils.Logger
+	baseSync     service.Service
+	starknetData starknetdata.StarknetData
+	snapServer   *reliableSnapServer
+	blockchain   *blockchain.Blockchain
+	log          utils.Logger
 
 	startingBlock    *core.Header
 	lastBlock        *core.Header
@@ -60,15 +57,17 @@ type SnapSyncher struct {
 
 func NewSnapSyncer(
 	baseSyncher service.Service,
-	consensus Consensus,
+	consensus starknetdata.StarknetData,
 	server blockchain.SnapServer,
 	blockchain *blockchain.Blockchain,
 	log utils.Logger,
 ) *SnapSyncher {
 	return &SnapSyncher{
-		baseSync:   baseSyncher,
-		consensus:  consensus,
-		snapServer: server,
+		baseSync:     baseSyncher,
+		starknetData: consensus,
+		snapServer: &reliableSnapServer{
+			innerServer: server,
+		},
 		blockchain: blockchain,
 		log:        log,
 	}
@@ -161,7 +160,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	s.log.Infow("first phase completed")
 
 	for i := s.startingBlock.Number + 1; i <= s.lastBlock.Number; i++ {
-		stateUpdate, err := s.consensus.GetStateUpdateForBlock(i)
+		stateUpdate, err := s.starknetData.StateUpdate(ctx, i)
 		if err != nil {
 			return errors.Wrap(err, "error fetching state update")
 		}
@@ -228,7 +227,6 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 		close(s.addressRangeDone)
 	}()
 
-	totaladded := 0
 	maxint := big.NewInt(1)
 	maxint.Lsh(maxint, 251)
 	startAddr := &felt.Zero
@@ -243,52 +241,63 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 		curstateroot := s.currentStateRoot
 
 		s.log.Infow("snap range progress", "progress", theint)
-
-		response, err := s.snapServer.GetAddressRange(curstateroot, startAddr, nil)
+		nextHasNext, nextStartAddress, err := s.fetchAndProcessRange(ctx, curstateroot, startAddr)
+		if errors2.Is(err, context.Canceled) {
+			return err
+		}
 		if err != nil {
-			return errors.Wrap(err, "error get address range")
+			s.log.Warnw("error fetching snap range", "error", err)
+		} else {
+			hasNext = nextHasNext
+			nextStartAddress = nextStartAddress
 		}
-
-		// TODO: Verify hashes
-		hasNext, err = trie.VerifyTrie(curstateroot, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
-		if err != nil {
-			return errors.Wrap(err, "error verifying tree")
-		}
-
-		classHashes := make([]*felt.Felt, 0)
-		nonces := make([]*felt.Felt, 0)
-
-		for i := range response.Paths {
-			classHashes = append(classHashes, response.Leaves[i].ClassHash)
-			nonces = append(nonces, response.Leaves[i].Nonce)
-		}
-
-		// TODO: l0 class not in trie
-		err = s.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
-		if err != nil {
-			return errors.Wrap(err, "error setting address")
-		}
-
-		for i, path := range response.Paths {
-			totaladded++
-			select {
-			case s.storageRangeJob <- &blockchain.StorageRangeRequest{
-				Path:      path,
-				Hash:      response.Leaves[i].StorageRoot,
-				StartAddr: &felt.Zero,
-			}:
-				atomic.AddInt32(&s.storageRangeJobCount, 1)
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-
-		startAddr = response.Paths[len(response.Paths)-1]
 	}
 
-	fmt.Printf("Address range completed %d\n", totaladded)
+	fmt.Printf("Address range completed\n")
 
 	return nil
+}
+
+func (s *SnapSyncher) fetchAndProcessRange(ctx context.Context, curstateroot *felt.Felt, startAddr *felt.Felt) (bool, *felt.Felt, error) {
+	response, err := s.snapServer.GetAddressRange(curstateroot, startAddr, nil)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "error get address range")
+	}
+
+	// TODO: Verify hashes
+	hasNext, err := trie.VerifyTrie(curstateroot, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "error verifying tree")
+	}
+
+	classHashes := make([]*felt.Felt, 0)
+	nonces := make([]*felt.Felt, 0)
+
+	for i := range response.Paths {
+		classHashes = append(classHashes, response.Leaves[i].ClassHash)
+		nonces = append(nonces, response.Leaves[i].Nonce)
+	}
+
+	// TODO: l0 class not in trie
+	err = s.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "error setting address")
+	}
+
+	for i, path := range response.Paths {
+		select {
+		case s.storageRangeJob <- &blockchain.StorageRangeRequest{
+			Path:      path,
+			Hash:      response.Leaves[i].StorageRoot,
+			StartAddr: &felt.Zero,
+		}:
+			atomic.AddInt32(&s.storageRangeJobCount, 1)
+		case <-ctx.Done():
+			return false, nil, ctx.Err()
+		}
+	}
+
+	return hasNext, response.Paths[len(response.Paths)-1], nil
 }
 
 func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
@@ -457,16 +466,16 @@ func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx 
 	}
 }
 
-func (s *SnapSyncher) initState(context.Context) error {
-	head, err := s.consensus.GetCurrentHead()
+func (s *SnapSyncher) initState(ctx context.Context) error {
+	head, err := s.starknetData.BlockLatest(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting current head")
 	}
 
-	s.startingBlock = head
-	s.lastBlock = head
+	s.startingBlock = head.Header
+	s.lastBlock = head.Header
 
-	rootInfo, err := s.snapServer.GetTrieRootAt(s.startingBlock.Hash)
+	rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.startingBlock)
 	if err != nil {
 		return errors.Wrap(err, "error getting trie root")
 	}
@@ -496,7 +505,7 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 			return nil
 		}
 
-		head, err := s.consensus.GetCurrentHead()
+		head, err := s.starknetData.BlockLatest(ctx)
 		if err != nil {
 			return errors.Wrap(err, "error getting current head")
 		}
@@ -507,9 +516,9 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 		}
 
 		s.log.Infow("Switching snap pivot", "hash", head.Hash, "number", head.Number)
-		s.lastBlock = head
+		s.lastBlock = head.Header
 
-		rootInfo, err := s.snapServer.GetTrieRootAt(s.startingBlock.Hash)
+		rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.startingBlock)
 		if err != nil {
 			return errors.Wrap(err, "error getting trie root")
 		}

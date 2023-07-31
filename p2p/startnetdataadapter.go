@@ -17,7 +17,7 @@ const classLruSize = 16000
 
 type StartnetDataAdapter struct {
 	base      starknetdata.StarknetData
-	p2p       BlockSyncPeerManager
+	p2p       *BlockSyncProvider
 	network   utils.Network
 	converter converter
 	logger    utils.SimpleLogger
@@ -38,7 +38,7 @@ func (s *StartnetDataAdapter) StateUpdatePending(ctx context.Context) (*core.Sta
 
 func NewStarknetDataAdapter(
 	base starknetdata.StarknetData,
-	p2p BlockSyncPeerManager,
+	p2p *BlockSyncProvider,
 	bc *blockchain.Blockchain,
 	logger utils.SimpleLogger,
 ) (starknetdata.StarknetData, error) {

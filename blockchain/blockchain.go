@@ -1004,3 +1004,9 @@ func (b *Blockchain) seedSnapshot() error {
 
 	return nil
 }
+
+func (b *Blockchain) Close() {
+	for _, snapshot := range b.snapshots {
+		snapshot.closer()
+	}
+}

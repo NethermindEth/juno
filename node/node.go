@@ -49,7 +49,8 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
-	P2PSync      bool   `mapstructure:"p2pSync"`
+	P2PSync      bool   `mapstructure:"p2p-sync"`
+	P2PSnapSync  bool   `mapstructure:"p2p-snap-sync"`
 }
 
 type Node struct {
@@ -97,9 +98,10 @@ func New(cfg *Config, version string) (*Node, error) {
 	var starkdata starknetdata.StarknetData
 	starkdata = adaptfeeder.New(client)
 
+	var p2pService *p2p.Service
 	if cfg.P2P {
 		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, chain, cfg.Network, log)
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, chain, cfg.Network, log)
 		if err != nil {
 			log.Errorw("Error setting up p2p", "err", err)
 			return nil, err
@@ -134,7 +136,21 @@ func New(cfg *Config, version string) (*Node, error) {
 		return nil, err
 	}
 
-	services = append(services, synchronizer)
+	if cfg.P2P && cfg.P2PSnapSync {
+		log.Warnw("enabling p2p snap sync")
+
+		snapProvider, service, err := p2pService.CreateSnapProvider()
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, service)
+
+		snapsyncer := sync.NewSnapSyncer(synchronizer, starkdata, snapProvider, chain, log)
+		services = append(services, snapsyncer)
+	} else {
+		services = append(services, synchronizer)
+	}
+
 	services = append(services, rpcService...)
 
 	n := &Node{
@@ -337,6 +353,7 @@ func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleL
 func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg), "version", n.version)
 	defer func() {
+		n.blockchain.Close()
 		if closeErr := n.db.Close(); closeErr != nil {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
 		}
