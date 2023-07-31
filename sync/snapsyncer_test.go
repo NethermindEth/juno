@@ -27,22 +27,26 @@ func TestSnapCopyTrie(t *testing.T) {
 	d2, _ = pebble.New(targetdir, utils.NewNopZapLogger())
 	bc2 := blockchain.New(d2, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
-	target := &noopTrie{
-		blockchain: bc2,
-	}
-
 	logger, err := utils.NewZapLogger(utils.DEBUG, false)
 	assert.NoError(t, err)
 
 	syncer := SnapSyncher{
 		consensus:  &localConsensus{bc},
 		snapServer: bc,
-		targetTrie: target,
+		blockchain: bc2,
+		baseSync:   &NoopService{},
 		log:        logger,
 	}
 
 	err = syncer.Run(context.Background())
 	assert.NoError(t, err)
+}
+
+type NoopService struct {
+}
+
+func (n NoopService) Run(ctx context.Context) error {
+	return nil
 }
 
 func TestCopyTrie(t *testing.T) {
@@ -122,56 +126,6 @@ func TestCopyTrie(t *testing.T) {
 		panic(err)
 	}
 }
-
-type noopTrie struct {
-	addrCount  int
-	blockchain *blockchain.Blockchain
-}
-
-func (n *noopTrie) ApplyStateUpdate(update *core.StateUpdate, validate bool) error {
-	return nil
-}
-
-func (n *noopTrie) GetStateRoot() (*felt.Felt, error) {
-	state, close, err := n.blockchain.HeadState()
-	if err == db.ErrKeyNotFound {
-		return &felt.Zero, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	trie, closer2, err := state.(core.StateReaderStorage).StorageTrie()
-	if err != nil {
-		return nil, err
-	}
-
-	root, err := trie.Root()
-	if err != nil {
-		return nil, err
-	}
-
-	closer2()
-	close()
-
-	return root, nil
-}
-
-func (n *noopTrie) SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error {
-	fmt.Printf("Class %s %s %s\n", path.String(), classHash.String(), class)
-	return nil
-}
-
-func (n *noopTrie) SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error {
-	n.addrCount++
-	return n.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
-}
-
-func (n *noopTrie) SetStorage(storagePath *felt.Felt, path []*felt.Felt, value []*felt.Felt) error {
-	return n.blockchain.StoreStorageDirect(storagePath, path, value)
-}
-
-var _ MutableStorage = &noopTrie{}
 
 type localConsensus struct {
 	blockchain *blockchain.Blockchain

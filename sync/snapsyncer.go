@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"github.com/NethermindEth/juno/db"
 	big "math/big"
 	"sync"
 	"sync/atomic"
@@ -32,10 +33,10 @@ type MutableStorage interface {
 }
 
 type SnapSyncher struct {
-	baseSync   *Synchronizer
+	baseSync   service.Service
 	consensus  Consensus
 	snapServer blockchain.SnapServer
-	targetTrie MutableStorage
+	blockchain *blockchain.Blockchain
 	log        utils.Logger
 
 	startingBlock    *core.Header
@@ -55,6 +56,22 @@ type SnapSyncher struct {
 
 	largeStorageRangeJobCount int32
 	largeStorageRangeJob      chan *blockchain.StorageRangeRequest
+}
+
+func NewSnapSyncer(
+	baseSyncher service.Service,
+	consensus Consensus,
+	server blockchain.SnapServer,
+	blockchain *blockchain.Blockchain,
+	log utils.Logger,
+) *SnapSyncher {
+	return &SnapSyncher{
+		baseSync:   baseSyncher,
+		consensus:  consensus,
+		snapServer: server,
+		blockchain: blockchain,
+		log:        log,
+	}
 }
 
 func (s *SnapSyncher) Run(ctx context.Context) error {
@@ -80,6 +97,15 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		s.poolLatestBlock(ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := s.runClassRangeWorker(ctx)
+		if err != nil {
+			s.log.Errorw("error in class range worker", "err", err)
+		}
 	}()
 
 	wg.Add(1)
@@ -142,14 +168,58 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 
 		shouldValidate := i == s.lastBlock.Number
 
-		err = s.targetTrie.ApplyStateUpdate(stateUpdate, shouldValidate)
+		err = s.ApplyStateUpdate(stateUpdate, shouldValidate)
 		if err != nil {
 			return errors.Wrap(err, "error applying state update")
 		}
 	}
 
+	return s.baseSync.Run(ctx)
+}
+
+func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
+	totaladded := 0
+	maxint := big.NewInt(1)
+	maxint.Lsh(maxint, 251)
+	startAddr := &felt.Zero
+	hasNext := true
+	for hasNext {
+		// TODO: Error need some way
+		theint := startAddr.BigInt(big.NewInt(0))
+		theint.Mul(theint, big.NewInt(100))
+		theint.Div(theint, maxint)
+
+		classRoot := s.currentClassRoot
+		if classRoot == nil || classRoot.IsZero() {
+			s.log.Infow("no class root", "progress", theint)
+			return nil
+		}
+
+		s.log.Infow("class range progress", "progress", theint)
+
+		response, err := s.snapServer.GetClassRange(classRoot, startAddr, nil)
+		if err != nil {
+			return errors.Wrap(err, "error get address range")
+		}
+
+		// TODO: Verify hashes
+		hasNext, err = trie.VerifyTrie(classRoot, response.Paths, response.ClassHashes, response.Proofs, crypto.Pedersen)
+		if err != nil {
+			return errors.Wrap(err, "error verifying tree")
+		}
+
+		for i, path := range response.Paths {
+			err := s.SetClasss(path, response.ClassHashes[i], response.Classes[i])
+			if err != nil {
+				return errors.Wrap(err, "error verifying tree")
+			}
+		}
+
+		startAddr = response.Paths[len(response.Paths)-1]
+	}
+
+	fmt.Printf("Class range completed %d\n", totaladded)
 	return nil
-	// return s.baseSync.Run(ctx)
 }
 
 func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
@@ -194,7 +264,7 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 		}
 
 		// TODO: l0 class not in trie
-		err = s.targetTrie.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
+		err = s.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
 		if err != nil {
 			return errors.Wrap(err, "error setting address")
 		}
@@ -311,7 +381,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				atomic.AddInt32(&s.largeStorageRangeJobCount, 1)
 			}
 
-			err = s.targetTrie.SetStorage(request.Path, response.Paths, response.Values)
+			err = s.SetStorage(request.Path, response.Paths, response.Values)
 			if err != nil {
 				fmt.Printf("Set storage failed\n")
 				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
@@ -374,7 +444,7 @@ func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx 
 				return err
 			}
 
-			err = s.targetTrie.SetStorage(job.Path, response.Paths, response.Values)
+			err = s.SetStorage(job.Path, response.Paths, response.Values)
 			if err != nil {
 				fmt.Printf("Contract range storage failed\n")
 				return err
@@ -446,6 +516,48 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 		s.currentStateRoot = rootInfo.StorageRoot
 		s.currentClassRoot = rootInfo.ClassRoot
 	}
+}
+
+func (s *SnapSyncher) ApplyStateUpdate(update *core.StateUpdate, validate bool) error {
+	return nil
+}
+
+func (s *SnapSyncher) GetStateRoot() (*felt.Felt, error) {
+	state, close, err := s.blockchain.HeadState()
+	if err == db.ErrKeyNotFound {
+		return &felt.Zero, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	trie, closer2, err := state.(core.StateReaderStorage).StorageTrie()
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := trie.Root()
+	if err != nil {
+		return nil, err
+	}
+
+	closer2()
+	close()
+
+	return root, nil
+}
+
+func (s *SnapSyncher) SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error {
+	// TODO: this
+	return nil
+}
+
+func (s *SnapSyncher) SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error {
+	return s.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
+}
+
+func (s *SnapSyncher) SetStorage(storagePath *felt.Felt, path []*felt.Felt, value []*felt.Felt) error {
+	return s.blockchain.StoreStorageDirect(storagePath, path, value)
 }
 
 var _ service.Service = (*SnapSyncher)(nil)
