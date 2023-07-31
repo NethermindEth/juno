@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
@@ -232,15 +231,46 @@ func (m *changeTrieNodeEncoding) Before() {
 	}
 }
 
+type node struct {
+	Value *felt.Felt
+	Left  *bitset.BitSet
+	Right *bitset.BitSet
+}
+
+func (n *node) _WriteTo(buf *bytes.Buffer) (int64, error) {
+	if n.Value == nil {
+		return 0, errors.New("cannot marshal node with nil value")
+	}
+
+	totalBytes := int64(0)
+
+	valueB := n.Value.Bytes()
+	wrote, err := buf.Write(valueB[:])
+	totalBytes += int64(wrote)
+	if err != nil {
+		return totalBytes, err
+	}
+
+	if n.Left != nil {
+		wrote, err := n.Left.WriteTo(buf)
+		totalBytes += wrote
+		if err != nil {
+			return totalBytes, err
+		}
+		wrote, err = n.Right.WriteTo(buf) // n.Right is non-nil by design
+		totalBytes += wrote
+		if err != nil {
+			return totalBytes, err
+		}
+	}
+
+	return totalBytes, nil
+}
+
 func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) error {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
-	var n struct {
-		Value *felt.Felt
-		Left  *bitset.BitSet
-		Right *bitset.BitSet
-	}
-
+	var n node
 	var buf bytes.Buffer
 	var updatedNodes uint64
 
@@ -278,8 +308,7 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) er
 				return err
 			}
 
-			coreNode := trie.Node(n)
-			if _, err = coreNode.WriteTo(&buf); err != nil {
+			if _, err = n._WriteTo(&buf); err != nil {
 				return err
 			}
 
