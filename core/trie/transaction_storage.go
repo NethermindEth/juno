@@ -28,9 +28,10 @@ var nodePool = sync.Pool{
 }
 
 func getBuffer() *bytes.Buffer {
-	buffer := bufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	return buffer
+	// buffer := bufferPool.Get().(*bytes.Buffer)
+	// buffer.Reset()
+	// return buffer
+	return bytes.NewBuffer(make([]byte, 0, 32))
 }
 
 // TransactionStorage is a database transaction on a trie.
@@ -106,7 +107,8 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 
 	var node *Node
 	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
-		node = nodePool.Get().(*Node)
+		// node = nodePool.Get().(*Node)
+		node = &Node{}
 		return node.UnmarshalBinary(val)
 	}); err != nil {
 		return nil, err

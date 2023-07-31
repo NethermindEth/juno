@@ -694,6 +694,7 @@ func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt
 	if err != nil {
 		return false, err
 	}
+	defer db2.Close()
 
 	tr2, err := NewTrie(NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251, hash)
 	if err != nil {

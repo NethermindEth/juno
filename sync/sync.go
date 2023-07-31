@@ -144,10 +144,13 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
+	s.log.Infow("Sanity block", "number", block.Number)
 	err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	s.log.Infow("Sanity done", "number", block.Number)
 	return func() {
 		select {
 		case <-ctx.Done():
+			s.log.Infow("Cancelled", "number", block.Number)
 			return
 		default:
 			if err != nil {
@@ -155,8 +158,10 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.log.Infow("Storing block", "number", block.Number)
 			err = s.Blockchain.Store(block, stateUpdate, newClasses)
 			if err != nil {
+				s.log.Infow("Error", "err", err)
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
@@ -169,6 +174,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.log.Infow("Stored block", "number", block.Number)
 
 			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)

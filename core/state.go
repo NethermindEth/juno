@@ -122,6 +122,10 @@ func (s *State) Root() (*felt.Felt, error) {
 		return nil, err
 	}
 
+	if classesRoot.IsZero() {
+		return storageRoot, nil
+	}
+
 	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 }
 
@@ -152,10 +156,6 @@ func (s *State) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
 
 	if err = closer(); err != nil {
 		return nil, nil, err
-	}
-
-	if classesRoot.IsZero() {
-		return storageRoot, nil, nil
 	}
 
 	return storageRoot, classesRoot, nil
@@ -311,11 +311,6 @@ func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes [
 		if err != nil {
 			return err
 		}
-	}
-
-	root, err := stateTrie.Root()
-	if err != nil {
-		return err
 	}
 
 	err = stateTrie.Commit()
