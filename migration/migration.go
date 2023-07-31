@@ -66,25 +66,26 @@ func MigrateIfNeeded(targetDB db.DB) error {
 		migration := migrations[i]
 		migration.Before()
 		for {
-			if err = targetDB.Update(func(txn db.Transaction) error {
-				if err = migration.Migrate(txn); err != nil {
-					if !errors.Is(err, ErrCallWithNewTransaction) {
+			var migrationErr error
+			if dbErr := targetDB.Update(func(txn db.Transaction) error {
+				migrationErr = migration.Migrate(txn)
+				if migrationErr != nil {
+					if errors.Is(migrationErr, ErrCallWithNewTransaction) {
 						return nil // Run the migration again with a new transaction.
 					}
-					return err
+					return migrationErr
 				}
 
 				// Migration successful. Bump the version.
 				var versionBytes [8]byte
 				binary.BigEndian.PutUint64(versionBytes[:], i+1)
-				if err = txn.Set(db.SchemaVersion.Key(), versionBytes[:]); err != nil {
-					return err
-				}
-				return nil
-			}); err == nil {
+				return txn.Set(db.SchemaVersion.Key(), versionBytes[:])
+			}); dbErr != nil {
+				return dbErr
+			} else if migrationErr == nil {
 				break
-			} else if !errors.Is(err, ErrCallWithNewTransaction) {
-				return err
+			} else if !errors.Is(migrationErr, ErrCallWithNewTransaction) {
+				return migrationErr
 			}
 		}
 	}
