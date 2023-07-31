@@ -1,6 +1,5 @@
 pub mod class;
 mod juno_state_reader;
-pub mod execution_info;
 pub mod jsonrpc;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
@@ -244,10 +243,10 @@ pub extern "C" fn cairoVMExecute(
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
                 );
 
-                let info = execution_info::TransactionExecutionInfo::from(t);
+                // let info = execution_info::TransactionExecutionInfo::from(t);
                 append_trace(
                     reader_handle,
-                    info.into(),
+                    t.into(),
                 );
             },
         }
