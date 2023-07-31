@@ -1163,13 +1163,14 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
 	_, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return nil, ErrTxnHashNotFound
 	}
 
 	block, err := h.bcReader.BlockByNumber(blockNumber)
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	pendingBlock := blockHash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
@@ -1177,7 +1178,15 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_traceTransaction")
 
-	headState, headStateCloser, err := h.bcReader.HeadState()
+	var (
+		headState       core.StateReader
+		headStateCloser blockchain.StateCloser
+	)
+	if pendingBlock {
+		headState, headStateCloser, err = h.bcReader.PendingState()
+	} else {
+		headState, headStateCloser, err = h.bcReader.HeadState()
+	}
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
@@ -1202,7 +1211,6 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 		classes = append(classes, class.Class)
 	}
 
-	pendingBlock := blockHash == nil
 	if pendingBlock {
 		height, hErr := h.bcReader.Height()
 		if hErr != nil {
