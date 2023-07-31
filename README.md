@@ -86,21 +86,24 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 #### Mainnet
 
-| Network | Version | Size | Block | Download Link |
-| ------- | ------- | ---- | ----- | ------------- |
-| mainnet | >=v0.4.0  | 29.4 GB | 100713 | [juno_mainnet_100713.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.4.0_100713.tar) |
+| Version | Size | Block | Download Link |
+| ------- | ---- | ----- | ------------- |
+| >=v0.4.0  | 29.4 GB | 100713 | [juno_mainnet_100713.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.4.0_100713.tar) |
+| **>=v0.4.0**  | **36.5 GB** | **136902** | [**juno_mainnet_136902.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.5.0_136902.tar) |
 
 #### Goerli
 
-| Network | Version | Size | Block | Download Link |
-| ------- | ------- | ---- | ----- | ------------- |
-| goerli | >=v0.4.0 | 31.6 GB | 830385 | [juno_goerli_830385.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.4.0_830385.tar) |
+| Version | Size | Block | Download Link |
+| ------- | ---- | ----- | ------------- |
+| >=v0.4.0 | 31.6 GB | 830385 | [juno_goerli_830385.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.4.0_830385.tar) |
+| **>=v0.4.0** | **32.3 GB** | **839969** | [**juno_goerli_839969.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.5.0_839969.tar) |
 
 #### Goerli2
 
-| Network | Version | Size | Block | Download Link |
-| ------- | ------- | ---- | ----- | ------------- |
-| goerli2 | >=v0.4.0 | 1.8 GB | 125026 | [juno_goerli2_125026.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.4.0_125026.tar) |
+| Version | Size | Block | Download Link |
+| ------- | ---- | ----- | ------------- |
+| >=v0.4.0 | 1.8 GB | 125026 | [juno_goerli2_125026.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.4.0_125026.tar) |
+| **>=v0.4.0** | **4.5 GB** | **135973** | [**juno_goerli2_135973.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.5.0_135973.tar) |
 
 ## ✔ Supported Features
 
