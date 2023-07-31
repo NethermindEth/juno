@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +15,7 @@ import (
 func TestTransactionStorage(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	prefix := []byte{37, 44}
-	key := bitset.New(44)
+	key := trie.NewKey(44, nil)
 
 	value, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
@@ -28,7 +27,7 @@ func TestTransactionStorage(t *testing.T) {
 	t.Run("put a node", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
-			return tTxn.Put(key, node)
+			return tTxn.Put(&key, node)
 		}))
 	})
 
@@ -36,7 +35,7 @@ func TestTransactionStorage(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
 			var got *trie.Node
-			got, err = tTxn.Get(key)
+			got, err = tTxn.Get(&key)
 			require.NoError(t, err)
 			assert.Equal(t, node, got)
 			return err
@@ -47,7 +46,7 @@ func TestTransactionStorage(t *testing.T) {
 		// Successfully delete a node and return an error to force a roll back.
 		require.Error(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
-			err = tTxn.Delete(key)
+			err = tTxn.Delete(&key)
 			require.NoError(t, err)
 			return errors.New("should rollback")
 		}))
@@ -57,7 +56,7 @@ func TestTransactionStorage(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
 			var got *trie.Node
-			got, err = tTxn.Get(key)
+			got, err = tTxn.Get(&key)
 			assert.Equal(t, node, got)
 			return err
 		}))
@@ -67,23 +66,23 @@ func TestTransactionStorage(t *testing.T) {
 		// Delete a node.
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
-			return tTxn.Delete(key)
+			return tTxn.Delete(&key)
 		}))
 
 		// Node should no longer exist in the database.
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
-			_, err = tTxn.Get(key)
+			_, err = tTxn.Get(&key)
 			return err
 		}), db.ErrKeyNotFound.Error())
 	})
 
-	rootKey := new(bitset.BitSet).Set(1)
+	rootKey := trie.NewKey(8, []byte{0x2})
 
 	t.Run("put root key", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
-			return tTxn.PutRootKey(rootKey)
+			return tTxn.PutRootKey(&rootKey)
 		}))
 	})
 
@@ -92,7 +91,7 @@ func TestTransactionStorage(t *testing.T) {
 			tTxn := trie.NewTransactionStorage(txn, prefix)
 			gotRootKey, err := tTxn.RootKey()
 			require.NoError(t, err)
-			assert.Equal(t, rootKey, gotRootKey)
+			assert.Equal(t, rootKey, *gotRootKey)
 			return nil
 		}))
 	})
