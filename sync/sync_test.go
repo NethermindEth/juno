@@ -29,8 +29,7 @@ func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
 		t.Helper()
@@ -152,12 +151,10 @@ func TestSyncBlocks(t *testing.T) {
 
 func TestReorg(t *testing.T) {
 	t.Parallel()
-	mainClient, mainCloseFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(mainCloseFn)
+	mainClient := feeder.NewTestClient(t, utils.MAINNET)
 	mainGw := adaptfeeder.New(mainClient)
 
-	integClient, integCloseFn := feeder.NewTestClient(utils.INTEGRATION)
-	t.Cleanup(integCloseFn)
+	integClient := feeder.NewTestClient(t, utils.INTEGRATION)
 	integGw := adaptfeeder.New(integClient)
 
 	testDB := pebble.NewMemTest()
@@ -194,8 +191,7 @@ func TestReorg(t *testing.T) {
 func TestPending(t *testing.T) {
 	t.Parallel()
 
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest()

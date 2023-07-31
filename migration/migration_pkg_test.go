@@ -14,25 +14,26 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRevision0000(t *testing.T) {
+func TestMigration0000(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	t.Cleanup(func() {
 		require.NoError(t, testDB.Close())
 	})
 
 	t.Run("empty DB", func(t *testing.T) {
-		require.NoError(t, testDB.View(revision0000))
+		require.NoError(t, testDB.View(migration0000))
 	})
 
 	t.Run("non-empty DB", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set([]byte("asd"), []byte("123"))
 		}))
-		require.EqualError(t, testDB.View(revision0000), "initial DB should be empty")
+		require.EqualError(t, testDB.View(migration0000), "initial DB should be empty")
 	})
 }
 
@@ -80,8 +81,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, testdb.Close())
 	})
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
@@ -111,7 +111,11 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	buckets := []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
 
-	var n trieNode
+	var n struct {
+		Value *felt.Felt
+		Left  *bitset.BitSet
+		Right *bitset.BitSet
+	}
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		// contract root keys, if changeTrieNodeEncoding tries to migrate these it
 		// will fail with an error since they are not valid trie.Node encodings.
@@ -137,7 +141,9 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		return nil
 	}))
 
-	require.NoError(t, testdb.Update(changeTrieNodeEncoding))
+	m := new(changeTrieNodeEncoding)
+	m.Before()
+	require.NoError(t, testdb.Update(m.Migrate))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		for _, bucket := range buckets {

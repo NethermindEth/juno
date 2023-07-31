@@ -19,14 +19,16 @@ type Websocket struct {
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
 	listener   net.Listener
+	urlPrefix  string
 }
 
-func NewWebsocket(listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   listener,
+		urlPrefix:  urlPrefix,
 	}
 	return ws
 }
@@ -78,8 +80,12 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 func (ws *Websocket) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
+	handler := ws.Handler(ctx)
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle(ws.urlPrefix, handler)
 	srv := &http.Server{
-		Handler:           ws.Handler(ctx),
+		Handler:           mux,
 		ReadHeaderTimeout: 1 * time.Second,
 	}
 
@@ -101,15 +107,12 @@ type WebsocketConnParams struct {
 	ReadLimit int64
 	// Maximum time to write a message.
 	WriteDuration time.Duration
-	// Maximum time to read a message.
-	ReadDuration time.Duration
 }
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
 		ReadLimit:     32 * 1024 * 1024,
 		WriteDuration: 5 * time.Second,
-		ReadDuration:  30 * time.Second,
 	}
 }
 
@@ -131,7 +134,7 @@ func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnPa
 func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 	for {
 		// Read next message from the client.
-		_, r, err := wsc.Read(ctx)
+		_, r, err := wsc.conn.Read(ctx)
 		if err != nil {
 			return err
 		}
@@ -153,12 +156,6 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 			return err
 		}
 	}
-}
-
-func (wsc *websocketConn) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
-	readCtx, readCancel := context.WithTimeout(ctx, wsc.params.ReadDuration)
-	defer readCancel()
-	return wsc.conn.Read(readCtx)
 }
 
 func (wsc *websocketConn) Write(ctx context.Context, msg []byte) error {

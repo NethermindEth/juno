@@ -169,8 +169,7 @@ func TestBlockHash(t *testing.T) {
 		tc := testcase
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client, closeFn := feeder.NewTestClient(tc.chain)
-			t.Cleanup(closeFn)
+			client := feeder.NewTestClient(t, tc.chain)
 			gw := adaptfeeder.New(client)
 
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
@@ -184,8 +183,7 @@ func TestBlockHash(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
@@ -198,8 +196,7 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		client, closeFn := feeder.NewTestClient(utils.GOERLI)
-		t.Cleanup(closeFn)
+		client := feeder.NewTestClient(t, utils.GOERLI)
 		goerliGW := adaptfeeder.New(client)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)

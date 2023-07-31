@@ -25,10 +25,10 @@ func TestHTTP(t *testing.T) {
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
-	rpc := jsonrpc.NewServer()
-	require.NoError(t, rpc.RegisterMethod(method))
 	log := utils.NewNopZapLogger()
-	server := jsonrpc.NewHTTP(listener, rpc, log)
+	rpc := jsonrpc.NewServer(log)
+	require.NoError(t, rpc.RegisterMethod(method))
+	server := jsonrpc.NewHTTP("/vX.Y.Z", listener, rpc, log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(func() {
@@ -55,4 +55,24 @@ func TestHTTP(t *testing.T) {
 	got, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, want, string(got))
+
+	t.Run("GET", func(t *testing.T) {
+		t.Run("root path", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+			require.NoError(t, err)
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, resp.Body.Close())
+		})
+
+		t.Run("non-root path", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, "GET", url+"/notfound", http.NoBody)
+			require.NoError(t, err)
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusNotFound, resp.StatusCode)
+			require.NoError(t, resp.Body.Close())
+		})
+	})
 }

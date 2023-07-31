@@ -40,6 +40,8 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 		txnMap["Declare"] = map[string]any{
 			"V" + clearQueryBit(t.Version).Text(felt.Base10): t,
 		}
+	case *core.L1HandlerTransaction:
+		txnMap["L1Handler"] = t
 	default:
 		return nil, errors.New("unsupported txn type")
 	}

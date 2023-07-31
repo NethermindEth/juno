@@ -14,33 +14,46 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-type revision func(transaction db.Transaction) error
+type Migration interface {
+	Before()
+	Migrate(db.Transaction) error
+}
 
-// Revisions list contains a set of revisions that can be applied to a database
-// After making breaking changes to the DB layout, add new revisions to this list.
-var revisions = []revision{
-	revision0000,
-	relocateContractStorageRootKeys,
-	recalculateBloomFilters,
-	changeTrieNodeEncoding,
+type MigrationFunc func(db.Transaction) error
+
+// Migrate returns f(txn).
+func (f MigrationFunc) Migrate(txn db.Transaction) error {
+	return f(txn)
+}
+
+// Before is a no-op.
+func (f MigrationFunc) Before() {}
+
+// migrations contains a set of migrations that can be applied to a database.
+// After making breaking changes to the DB layout, add new migrations to this list.
+var migrations = []Migration{
+	MigrationFunc(migration0000),
+	MigrationFunc(relocateContractStorageRootKeys),
+	MigrationFunc(recalculateBloomFilters),
+	new(changeTrieNodeEncoding),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
 func MigrateIfNeeded(targetDB db.DB) error {
 	/*
-		Schema version of the targetDB determines which set of revisions need to be applied to the database.
-		After revision is successfully executed, which may update the database, schema version is incremented
+		Schema version of the targetDB determines which set of migrations need to be applied to the database.
+		After a migration is successfully executed, which may update the database, the schema version is incremented
 		by 1 by this loop.
 
 		For example;
 
-		Assume an empty DB, which has a schema version of 0. So we start applying the revisions from the
+		Assume an empty DB, which has a schema version of 0. So we start applying the migrations from the
 		very first one in the list and increment the schema version as we go. After the loop exists we
-		end up with a database which's schema version is len(revisions).
+		end up with a database which's schema version is len(migrations).
 
 		After running that Juno version for a while, if the user updates its Juno version which adds new
-		revisions to the list, MigrateIfNeeded will skip the already applied revisions and only apply the
+		migrations to the list, MigrateIfNeeded will skip the already applied migrations and only apply the
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
@@ -49,23 +62,30 @@ func MigrateIfNeeded(targetDB db.DB) error {
 		return err
 	}
 
-	for i := version; i < uint64(len(revisions)); i++ {
-		if err = targetDB.Update(func(txn db.Transaction) error {
-			if err = revisions[i](txn); err != nil {
-				if errors.Is(err, ErrCallWithNewTransaction) {
-					// rerun the same revision
-					i--
-					return nil
+	for i := version; i < uint64(len(migrations)); i++ {
+		migration := migrations[i]
+		migration.Before()
+		for {
+			if err = targetDB.Update(func(txn db.Transaction) error {
+				if err = migration.Migrate(txn); err != nil {
+					if !errors.Is(err, ErrCallWithNewTransaction) {
+						return nil // Run the migration again with a new transaction.
+					}
+					return err
 				}
+
+				// Migration successful. Bump the version.
+				var versionBytes [8]byte
+				binary.BigEndian.PutUint64(versionBytes[:], i+1)
+				if err = txn.Set(db.SchemaVersion.Key(), versionBytes[:]); err != nil {
+					return err
+				}
+				return nil
+			}); err == nil {
+				break
+			} else if !errors.Is(err, ErrCallWithNewTransaction) {
 				return err
 			}
-
-			// revision returned with no errors, bump the version
-			var versionBytes [8]byte
-			binary.BigEndian.PutUint64(versionBytes[:], i+1)
-			return txn.Set(db.SchemaVersion.Key(), versionBytes[:])
-		}); err != nil {
-			return err
 		}
 	}
 
@@ -86,8 +106,8 @@ func SchemaVersion(targetDB db.DB) (uint64, error) {
 	return version, db.CloseAndWrapOnError(txn.Discard, nil)
 }
 
-// revision0000 makes sure the targetDB is empty
-func revision0000(txn db.Transaction) error {
+// migration0000 makes sure the targetDB is empty
+func migration0000(txn db.Transaction) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -176,32 +196,45 @@ func recalculateBloomFilters(txn db.Transaction) error {
 	}
 }
 
-var trieNodeBuckets = map[db.Bucket]*struct {
-	seekTo  []byte
-	skipLen int
-}{
-	db.ClassesTrie: {
-		seekTo:  db.ClassesTrie.Key(),
-		skipLen: 1,
-	},
-	db.StateTrie: {
-		seekTo:  db.StateTrie.Key(),
-		skipLen: 1,
-	},
-	db.ContractStorage: {
-		seekTo:  db.ContractStorage.Key(),
-		skipLen: 1 + felt.Bytes,
-	},
+// changeTrieNodeEncoding migrates to using a custom encoding for trie nodes
+// that minimises memory allocations. Always use new(changeTrieNodeEncoding)
+// before calling Before(), otherwise it will panic.
+type changeTrieNodeEncoding struct {
+	trieNodeBuckets map[db.Bucket]*struct {
+		seekTo  []byte
+		skipLen int
+	}
 }
 
-type trieNode struct {
-	Value *felt.Felt
-	Left  *bitset.BitSet
-	Right *bitset.BitSet
+func (m *changeTrieNodeEncoding) Before() {
+	m.trieNodeBuckets = map[db.Bucket]*struct {
+		seekTo  []byte
+		skipLen int
+	}{
+		db.ClassesTrie: {
+			seekTo:  db.ClassesTrie.Key(),
+			skipLen: 1,
+		},
+		db.StateTrie: {
+			seekTo:  db.StateTrie.Key(),
+			skipLen: 1,
+		},
+		db.ContractStorage: {
+			seekTo:  db.ContractStorage.Key(),
+			skipLen: 1 + felt.Bytes,
+		},
+	}
 }
 
-func changeTrieNodeEncoding(txn db.Transaction) error {
-	var n trieNode
+func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction) error {
+	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
+	// We instead define a cutom struct to force the encoder to use the default encoding.
+	var n struct {
+		Value *felt.Felt
+		Left  *bitset.BitSet
+		Right *bitset.BitSet
+	}
+
 	var buf bytes.Buffer
 	var updatedNodes uint64
 
@@ -210,7 +243,7 @@ func changeTrieNodeEncoding(txn db.Transaction) error {
 		for it.Seek(seekTo); it.Valid(); it.Next() {
 			key := it.Key()
 			if !bytes.HasPrefix(key, bucketPrefix) {
-				delete(trieNodeBuckets, bucket)
+				delete(m.trieNodeBuckets, bucket)
 				break
 			}
 
@@ -226,7 +259,7 @@ func changeTrieNodeEncoding(txn db.Transaction) error {
 			// dont use too much memory.
 			const updatedNodesBatch = 1_000_000
 			if updatedNodes >= updatedNodesBatch {
-				trieNodeBuckets[bucket].seekTo = key
+				m.trieNodeBuckets[bucket].seekTo = key
 				return ErrCallWithNewTransaction
 			}
 
@@ -259,7 +292,7 @@ func changeTrieNodeEncoding(txn db.Transaction) error {
 		return err
 	}
 
-	for bucket, info := range trieNodeBuckets {
+	for bucket, info := range m.trieNodeBuckets {
 		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
 			return db.CloseAndWrapOnError(iterator.Close, err)
 		}

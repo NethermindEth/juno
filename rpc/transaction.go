@@ -49,20 +49,56 @@ func (t TransactionType) MarshalJSON() ([]byte, error) {
 
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	switch string(data) {
-	case "\"DECLARE\"":
+	case `"DECLARE"`:
 		*t = TxnDeclare
-	case "\"DEPLOY\"":
+	case `"DEPLOY"`:
 		*t = TxnDeploy
-	case "\"DEPLOY_ACCOUNT\"":
+	case `"DEPLOY_ACCOUNT"`:
 		*t = TxnDeployAccount
-	case "\"INVOKE\"", "\"INVOKE_FUNCTION\"":
+	case `"INVOKE"`, `"INVOKE_FUNCTION"`:
 		*t = TxnInvoke
-	case "\"L1_HANDLER\"":
+	case `"L1_HANDLER"`:
 		*t = TxnL1Handler
 	default:
 		return errors.New("unknown TransactionType")
 	}
 	return nil
+}
+
+type TxnExecutionStatus uint8
+
+const (
+	TxnSuccess TxnExecutionStatus = iota + 1
+	TxnFailure
+)
+
+func (es TxnExecutionStatus) MarshalJSON() ([]byte, error) {
+	switch es {
+	case TxnSuccess:
+		return []byte(`"SUCCEEDED"`), nil
+	case TxnFailure:
+		return []byte(`"REVERTED"`), nil
+	default:
+		return nil, errors.New("unknown ExecutionStatus")
+	}
+}
+
+type TxnFinalityStatus uint8
+
+const (
+	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
+	TxnAcceptedOnL2
+)
+
+func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
+	switch fs {
+	case TxnAcceptedOnL1:
+		return []byte(`"ACCEPTED_ON_L1"`), nil
+	case TxnAcceptedOnL2:
+		return []byte(`"ACCEPTED_ON_L2"`), nil
+	default:
+		return nil, errors.New("unknown FinalityStatus")
+	}
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -85,7 +121,23 @@ type Transaction struct {
 	CompiledClassHash   *felt.Felt      `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
 }
 
+type TransactionStatus struct {
+	Finality  TxnFinalityStatus  `json:"finality_status"`
+	Execution TxnExecutionStatus `json:"execution_status"`
+}
+
+type MsgFromL1 struct {
+	// The address of the L1 contract sending the message.
+	From common.Address `json:"from_address" validate:"required"`
+	// The address of the L1 contract sending the message.
+	To felt.Felt `json:"to_address" validate:"required"`
+	// The payload of the message.
+	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
+}
+
 type MsgToL1 struct {
+	From    *felt.Felt     `json:"from_address"`
 	To      common.Address `json:"to_address"`
 	Payload []*felt.Felt   `json:"payload"`
 }
@@ -98,35 +150,30 @@ type Event struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type            TransactionType `json:"type"`
-	Hash            *felt.Felt      `json:"transaction_hash"`
-	ActualFee       *felt.Felt      `json:"actual_fee"`
-	Status          Status          `json:"status"`
-	BlockHash       *felt.Felt      `json:"block_hash,omitempty"`
-	BlockNumber     *uint64         `json:"block_number,omitempty"`
-	MessagesSent    []*MsgToL1      `json:"messages_sent"`
-	Events          []*Event        `json:"events"`
-	ContractAddress *felt.Felt      `json:"contract_address,omitempty"`
+	Type            TransactionType    `json:"type"`
+	Hash            *felt.Felt         `json:"transaction_hash"`
+	ActualFee       *felt.Felt         `json:"actual_fee"`
+	ExecutionStatus TxnExecutionStatus `json:"execution_status"`
+	FinalityStatus  TxnFinalityStatus  `json:"finality_status"`
+	BlockHash       *felt.Felt         `json:"block_hash,omitempty"`
+	BlockNumber     *uint64            `json:"block_number,omitempty"`
+	MessagesSent    []*MsgToL1         `json:"messages_sent"`
+	Events          []*Event           `json:"events"`
+	ContractAddress *felt.Felt         `json:"contract_address,omitempty"`
+	RevertReason    string             `json:"revert_reason,omitempty"`
 }
 
-type AddInvokeTxResponse struct {
+type AddTxResponse struct {
 	TransactionHash *felt.Felt `json:"transaction_hash"`
-}
-
-type DeployAccountTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ContractAddress *felt.Felt `json:"contract_address"`
-}
-
-type DeclareTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ClassHash       *felt.Felt `json:"class_hash"`
+	ContractAddress *felt.Felt `json:"contract_address,omitempty"`
+	ClassHash       *felt.Felt `json:"class_hash,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1273-L1287
 type BroadcastedTransaction struct {
 	Transaction
 	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
 type FeeEstimate struct {
@@ -135,26 +182,28 @@ type FeeEstimate struct {
 	OverallFee  *felt.Felt `json:"overall_fee"`
 }
 
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network utils.Network) (core.Transaction, core.Class, error) {
+//nolint:gocyclo
+func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+	network utils.Network,
+) (core.Transaction, core.Class, *felt.Felt, error) {
 	var feederTxn feeder.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	feederTxn.Type = broadcastedTxn.Type.String()
 
 	txn, err := feeder2core.AdaptTransaction(&feederTxn)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var declaredClass core.Class
 	if len(broadcastedTxn.ContractClass) != 0 {
 		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	} else if broadcastedTxn.Type == TxnDeclare {
-		return nil, nil, errors.New("declare without a class definition")
+		return nil, nil, nil, errors.New("declare without a class definition")
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
@@ -162,7 +211,7 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network
 		case *core.Cairo0Class:
 			t.ClassHash, err = vm.Cairo0ClassHash(c)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		case *core.Cairo1Class:
 			t.ClassHash = c.Hash()
@@ -171,9 +220,10 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network
 
 	txnHash, err := core.TransactionHash(txn, network)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
+	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
 		t.TransactionHash = txnHash
@@ -181,12 +231,15 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction, network
 		t.TransactionHash = txnHash
 	case *core.DeployAccountTransaction:
 		t.TransactionHash = txnHash
+	case *core.L1HandlerTransaction:
+		t.TransactionHash = txnHash
+		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
-		return nil, nil, errors.New("unsupported transaction")
+		return nil, nil, nil, errors.New("unsupported transaction")
 	}
 
 	if txn.Hash() == nil {
-		return nil, nil, errors.New("deprecated transaction type")
+		return nil, nil, nil, errors.New("deprecated transaction type")
 	}
-	return txn, declaredClass, nil
+	return txn, declaredClass, paidFeeOnL1, nil
 }

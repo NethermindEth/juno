@@ -16,13 +16,13 @@ func TestBlockId(t *testing.T) {
 		expectedBlockID rpc.BlockID
 	}{
 		"latest": {
-			blockIDJSON: "\"latest\"",
+			blockIDJSON: `"latest"`,
 			expectedBlockID: rpc.BlockID{
 				Latest: true,
 			},
 		},
 		"pending": {
-			blockIDJSON: "\"pending\"",
+			blockIDJSON: `"pending"`,
 			expectedBlockID: rpc.BlockID{
 				Pending: true,
 			},
@@ -54,7 +54,7 @@ func TestBlockId(t *testing.T) {
 		blockIDJSON string
 	}{
 		"unknown tag": {
-			blockIDJSON: "\"unknown tag\"",
+			blockIDJSON: `"unknown tag"`,
 		},
 		"an empyt json object": {
 			blockIDJSON: "{  }",

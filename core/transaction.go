@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -13,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type Event struct {
@@ -58,6 +61,7 @@ type TransactionReceipt struct {
 	L2ToL1Message      []*L2ToL1Message
 	TransactionHash    *felt.Felt
 	Reverted           bool
+	RevertReason       string
 }
 
 type Transaction interface {
@@ -428,20 +432,52 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
-		count := uint64(0)
-		for _, receipt := range receipts {
-			for _, event := range receipt.Events {
-				eventHash := crypto.PedersenArray(
-					event.From,
-					crypto.PedersenArray(event.Keys...),
-					crypto.PedersenArray(event.Data...),
-				)
+		eventCount := uint64(0)
+		numWorkers := runtime.GOMAXPROCS(0)
+		receiptPerWorker := len(receipts) / numWorkers
+		if receiptPerWorker == 0 {
+			receiptPerWorker = 1
+		}
+		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
+		var trieMutex sync.Mutex
 
-				if _, err := trie.Put(new(felt.Felt).SetUint64(count), eventHash); err != nil {
-					return err
-				}
-				count++
+		for receiptIdx := range receipts {
+			if receiptIdx%receiptPerWorker == 0 {
+				curReceiptIdx := receiptIdx
+				curEventIdx := eventCount
+
+				workerPool.Go(func() error {
+					maxIndex := curReceiptIdx + receiptPerWorker
+					if maxIndex > len(receipts) {
+						maxIndex = len(receipts)
+					}
+					receiptsSliced := receipts[curReceiptIdx:maxIndex]
+
+					for _, receipt := range receiptsSliced {
+						for _, event := range receipt.Events {
+							eventHash := crypto.PedersenArray(
+								event.From,
+								crypto.PedersenArray(event.Keys...),
+								crypto.PedersenArray(event.Data...),
+							)
+
+							eventTrieKey := new(felt.Felt).SetUint64(curEventIdx)
+							trieMutex.Lock()
+							_, err := trie.Put(eventTrieKey, eventHash)
+							trieMutex.Unlock()
+							if err != nil {
+								return err
+							}
+							curEventIdx++
+						}
+					}
+					return nil
+				})
 			}
+			eventCount += uint64(len(receipts[receiptIdx].Events))
+		}
+		if err := workerPool.Wait(); err != nil {
+			return err
 		}
 		root, err := trie.Root()
 		if err != nil {

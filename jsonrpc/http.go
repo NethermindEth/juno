@@ -16,16 +16,18 @@ const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
 var _ service.Service = (*HTTP)(nil)
 
 type HTTP struct {
-	rpc      *Server
-	log      utils.SimpleLogger
-	listener net.Listener
+	rpc       *Server
+	log       utils.SimpleLogger
+	listener  net.Listener
+	urlPrefix string
 }
 
-func NewHTTP(listener net.Listener, rpc *Server, log utils.SimpleLogger) *HTTP {
+func NewHTTP(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *HTTP {
 	return &HTTP{
-		rpc:      rpc,
-		log:      log,
-		listener: listener,
+		urlPrefix: urlPrefix,
+		rpc:       rpc,
+		log:       log,
+		listener:  listener,
 	}
 }
 
@@ -33,9 +35,12 @@ func NewHTTP(listener net.Listener, rpc *Server, log utils.SimpleLogger) *HTTP {
 func (h *HTTP) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
+	mux := http.NewServeMux()
+	mux.Handle("/", h)
+	mux.Handle(h.urlPrefix, h)
 	srv := &http.Server{
 		Addr:    h.listener.Addr().String(),
-		Handler: h,
+		Handler: mux,
 		// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
 		ReadTimeout: 30 * time.Second,
 	}
@@ -55,9 +60,15 @@ func (h *HTTP) Run(ctx context.Context) error {
 
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
-	if req.Method != "POST" {
+	if req.Method == "GET" {
+		status := http.StatusNotFound
+		if req.URL.Path == "/" {
+			status = http.StatusOK
+		}
+		writer.WriteHeader(status)
+		return
+	} else if req.Method != "POST" {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
-		req.Close = true
 		return
 	}
 

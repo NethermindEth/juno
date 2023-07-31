@@ -2,8 +2,11 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -17,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -24,6 +28,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
@@ -42,6 +47,10 @@ type Config struct {
 	Pprof               bool           `mapstructure:"pprof"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+
+	P2P          bool   `mapstructure:"p2p"`
+	P2PAddr      string `mapstructure:"p2p-addr"`
+	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
 }
 
 type Node struct {
@@ -57,7 +66,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) {
+func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
 		if err != nil {
@@ -72,25 +81,24 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
 	if err != nil {
-		log.Errorw("Error creating DB logger", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
 	database, err := pebble.New(cfg.DatabasePath, dbLog)
 	if err != nil {
-		log.Errorw("Error opening DB", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("open DB: %w", err)
 	}
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL())
+
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
-	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, version, log), log)
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
+	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
 	if err != nil {
-		log.Errorw("Failed to create RPC servers", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
 
 	n := &Node{
@@ -105,10 +113,16 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
+		ethNodeURL, err := url.Parse(n.cfg.EthNode)
+		if err != nil {
+			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		}
+		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
+			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
+		}
 		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
-			n.log.Errorw("Error creating L1 client", "err", err)
-			return nil, err
+			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 
 		n.services = append(n.services, l1Client)
@@ -120,6 +134,16 @@ func New(cfg *Config, version string) (*Node, error) {
 
 	if n.cfg.GRPCPort > 0 {
 		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
+	}
+
+	if cfg.P2P {
+		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		if err != nil {
+			return nil, fmt.Errorf("set up p2p service: %w", err)
+		}
+
+		n.services = append(n.services, p2pService)
 	}
 
 	return n, nil
@@ -206,17 +230,17 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		{
 			Name:    "starknet_addInvokeTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: rpcHandler.AddInvokeTransaction,
+			Handler: rpcHandler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeployAccountTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: rpcHandler.AddDeployAccountTransaction,
+			Handler: rpcHandler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: rpcHandler.AddDeclareTransaction,
+			Handler: rpcHandler.AddTransaction,
 		},
 		{
 			Name:    "starknet_getEvents",
@@ -246,9 +270,14 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
 			Handler: rpcHandler.EstimateFee,
 		},
+		{
+			Name:    "starknet_estimateMessageFee",
+			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
+			Handler: rpcHandler.EstimateMessageFee,
+		},
 	}
 
-	jsonrpcServer := jsonrpc.NewServer().WithValidator(validator.Validator())
+	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
 	for _, method := range methods {
 		if err := jsonrpcServer.RegisterMethod(method); err != nil {
 			return nil, err
@@ -259,13 +288,13 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
 	}
-	httpServer := jsonrpc.NewHTTP(httpListener, jsonrpcServer, log)
+	httpServer := jsonrpc.NewHTTP("/v0_4", httpListener, jsonrpcServer, log)
 
 	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
 	}
-	wsServer := jsonrpc.NewWebsocket(wsListener, jsonrpcServer, log)
+	wsServer := jsonrpc.NewWebsocket("/v0_4", wsListener, jsonrpcServer, log)
 
 	return []service.Service{httpServer, wsServer}, nil
 }
@@ -274,15 +303,13 @@ func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleL
 	var coreContractAddress common.Address
 	coreContractAddress, err := chain.Network().CoreContractAddress()
 	if err != nil {
-		log.Errorw("Error finding core contract address for network", "err", err, "network", chain.Network())
-		return nil, err
+		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
 	}
 
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
 	if err != nil {
-		log.Errorw("Error creating ethSubscriber", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 	return l1.NewClient(ethSubscriber, chain, log), nil
 }
@@ -291,7 +318,7 @@ func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleL
 // All the services blocking and any errors returned by service run function is logged.
 // Run will wait for all services to return before exiting.
 func (n *Node) Run(ctx context.Context) {
-	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg))
+	n.log.Infow("Starting Juno...", "config", fmt.Sprintf("%+v", *n.cfg), "version", n.version)
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
@@ -304,7 +331,6 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-
 	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
 		s := s

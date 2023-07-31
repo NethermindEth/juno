@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/sourcegraph/conc"
 )
 
 type Header struct {
@@ -50,7 +51,7 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
-func networkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
+func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	fallBackSequencerAddress, err := new(felt.Felt).SetString(
 		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	if err != nil {
@@ -111,7 +112,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 		return err
 	}
 
-	metaInfo := networkBlockHashMetaInfo(network)
+	metaInfo := NetworkBlockHashMetaInfo(network)
 
 	unverifiableRange := metaInfo.UnverifiableRange
 	if unverifiableRange != nil {
@@ -142,7 +143,7 @@ func VerifyBlockHash(b *Block, network utils.Network) error {
 
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
-	metaInfo := networkBlockHashMetaInfo(network)
+	metaInfo := NetworkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
 		return pre07Hash(b, network.ChainID())
@@ -180,14 +181,23 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
 		seqAddr = overrideSeqAddr
 	}
 
-	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
-	if err != nil {
-		return nil, err
-	}
+	wg := conc.NewWaitGroup()
+	var txCommitment, eCommitment *felt.Felt
+	var tErr, eErr error
 
-	eCommitment, err := eventCommitment(b.Receipts)
-	if err != nil {
-		return nil, err
+	wg.Go(func() {
+		txCommitment, tErr = transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
+	})
+	wg.Go(func() {
+		eCommitment, eErr = eventCommitment(b.Receipts)
+	})
+	wg.Wait()
+
+	if tErr != nil {
+		return nil, tErr
+	}
+	if eErr != nil {
+		return nil, eErr
 	}
 
 	// Unlike the pre07Hash computation, we exclude the chain
