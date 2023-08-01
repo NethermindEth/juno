@@ -65,7 +65,7 @@ docker run -d \
   -p 6060:6060 \
   -v /home/juno:/var/lib/juno \
   nethermind/juno \
-  --http-port 6060 \
+  --rpc-port 6060 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
 ```

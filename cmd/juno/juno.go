@@ -28,8 +28,7 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 const (
 	configF              = "config"
 	logLevelF            = "log-level"
-	httpPortF            = "http-port"
-	wsPortF              = "ws-port"
+	rpcPortF             = "rpc-port"
 	grpcPortF            = "grpc-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
@@ -44,8 +43,7 @@ const (
 	metricsPortF         = "metrics-port"
 
 	defaultConfig              = ""
-	defaultHTTPPort            = 6060
-	defaultWSPort              = 6061
+	defaultRPCPort             = 6060
 	defaultGRPCPort            = 0
 	defaultDBPath              = ""
 	defaultEthNode             = ""
@@ -60,8 +58,7 @@ const (
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
-	httpPortUsage     = "The port on which the HTTP RPC server will listen for requests."
-	wsPortUsage       = "The port on which the Websocket RPC server will listen for requests."
+	rpcPortUsage      = "The port on which the RPC server will listen for requests."
 	grpcPortUsage     = "The port on which the gRPC server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
@@ -153,8 +150,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
-	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
-	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
+	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)

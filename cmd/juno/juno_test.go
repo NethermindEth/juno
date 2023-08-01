@@ -22,8 +22,7 @@ func TestConfigPrecedence(t *testing.T) {
 	// checks on the config, those will be checked by the StarknetNode
 	// implementation.
 	defaultLogLevel := utils.INFO
-	defaultHTTPPort := uint16(6060)
-	defaultWSPort := uint16(6061)
+	defaultRPCPort := uint16(6060)
 	defaultDBPath := ""
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
@@ -42,8 +41,7 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultHTTPPort,
-				WSPort:              defaultWSPort,
+				RPCPort:             defaultRPCPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -56,8 +54,7 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultHTTPPort,
-				WSPort:              defaultWSPort,
+				RPCPort:             defaultRPCPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -75,8 +72,7 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultHTTPPort,
-				WSPort:              defaultWSPort,
+				RPCPort:             defaultRPCPort,
 				Network:             defaultNetwork,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
@@ -86,15 +82,14 @@ func TestConfigPrecedence(t *testing.T) {
 		"config file with all settings but without any other flags": {
 			cfgFile: true,
 			cfgFileContents: `log-level: debug
-http-port: 4576
+rpc-port: 4576
 db-path: /home/.juno
 network: goerli2
 pprof: true
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
-				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
+				RPCPort:             4576,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
@@ -106,12 +101,11 @@ pprof: true
 		"config file with some settings but without any other flags": {
 			cfgFile: true,
 			cfgFileContents: `log-level: debug
-http-port: 4576
+rpc-port: 4576
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
-				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
+				RPCPort:             4576,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -122,13 +116,12 @@ http-port: 4576
 		},
 		"all flags without config file": {
 			inputArgs: []string{
-				"--log-level", "debug", "--http-port", "4576",
+				"--log-level", "debug", "--rpc-port", "4576",
 				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
-				HTTPPort:     4576,
-				WSPort:       defaultWSPort,
+				RPCPort:      4576,
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        true,
@@ -138,13 +131,12 @@ http-port: 4576
 		},
 		"some flags without config file": {
 			inputArgs: []string{
-				"--log-level", "debug", "--http-port", "4576", "--db-path", "/home/.juno",
+				"--log-level", "debug", "--rpc-port", "4576", "--db-path", "/home/.juno",
 				"--network", "integration",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
-				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
+				RPCPort:             4576,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.INTEGRATION,
 				Colour:              defaultColour,
@@ -155,20 +147,19 @@ http-port: 4576
 		"all setting set in both config file and flags": {
 			cfgFile: true,
 			cfgFileContents: `log-level: debug
-http-port: 4576
+rpc-port: 4576
 db-path: /home/config-file/.juno
 network: goerli
 pprof: true
 pending-poll-interval: 5s
 `,
 			inputArgs: []string{
-				"--log-level", "error", "--http-port", "4577",
+				"--log-level", "error", "--rpc-port", "4577",
 				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.ERROR,
-				HTTPPort:            4577,
-				WSPort:              defaultWSPort,
+				RPCPort:             4577,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.INTEGRATION,
 				Pprof:               true,
@@ -180,14 +171,13 @@ pending-poll-interval: 5s
 		"some setting set in both config file and flags": {
 			cfgFile: true,
 			cfgFileContents: `log-level: warn
-http-port: 4576
+rpc-port: 4576
 network: goerli
 `,
-			inputArgs: []string{"--db-path", "/home/flag/.juno", "--ws-port", "4577"},
+			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.WARN,
-				HTTPPort:            4576,
-				WSPort:              4577,
+				RPCPort:             4576,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.GOERLI,
 				Pprof:               defaultPprof,
@@ -197,14 +187,12 @@ network: goerli
 			},
 		},
 		"some setting set in default, config file and flags": {
-			cfgFile: true,
-			cfgFileContents: `network: goerli2
-ws-port: 4577`,
-			inputArgs: []string{"--db-path", "/home/flag/.juno", "--pprof"},
+			cfgFile:         true,
+			cfgFileContents: `network: goerli2`,
+			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
-				HTTPPort:            defaultHTTPPort,
-				WSPort:              4577,
+				RPCPort:             defaultRPCPort,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
