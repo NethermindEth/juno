@@ -40,8 +40,7 @@ const defaultPprofPort = 9080
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	HTTPPort            uint16         `mapstructure:"http-port"`
-	WSPort              uint16         `mapstructure:"ws-port"`
+	RPCPort             uint16         `mapstructure:"rpc-port"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
@@ -103,7 +102,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	rpcSrv, err := makeRPC(cfg.HTTPPort, rpcHandler, log)
+	rpcSrv, err := makeRPC(cfg.RPCPort, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
