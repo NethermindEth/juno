@@ -30,6 +30,7 @@ const (
 	SchemaVersion
 	Pending
 	BlockCommitments
+	Temporary // used temporarily for migrations
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
