@@ -3,7 +3,6 @@ package jsonrpc
 import (
 	"context"
 	"errors"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -20,21 +19,15 @@ type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
-	listener   net.Listener
-	urlPrefix  string
-
 	// metrics
 	requests prometheus.Counter
 }
 
-func NewWebsocket(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
-		listener:   listener,
-		urlPrefix:  urlPrefix,
-
 		requests: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "ws",
@@ -52,67 +45,40 @@ func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 	return ws
 }
 
-// Handler processes an HTTP request and upgrades it to a websocket connection.
+// ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
 // The connection's entire "lifetime" is spent in this function.
-func (ws *Websocket) Handler(ctx context.Context) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil /* TODO: options */)
-		if err != nil {
-			ws.log.Errorw("Failed to upgrade connection", "err", err)
-			return
-		}
-
-		// TODO include connection information, such as the remote address, in the logs.
-
-		wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
-
-		err = wsc.ReadWriteLoop(ctx)
-
-		var errClose websocket.CloseError
-		if errors.As(err, &errClose) {
-			ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
-			return
-		}
-
-		ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
-		errString := err.Error()
-		if len(errString) > closeReasonMaxBytes {
-			errString = errString[:closeReasonMaxBytes]
-		}
-		if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
-			// Don't log an error if the connection is already closed, which can happen
-			// in benign scenarios like timeouts. Unfortunately the error is not exported
-			// from the websocket package so we match the string instead.
-			if !strings.Contains(err.Error(), "already wrote close") {
-				ws.log.Errorw("Failed to close websocket connection", "err", err)
-			}
-		}
-	})
-}
-
-func (ws *Websocket) Run(ctx context.Context) error {
-	errCh := make(chan error)
-
-	handler := ws.Handler(ctx)
-	mux := http.NewServeMux()
-	mux.Handle("/", handler)
-	mux.Handle(ws.urlPrefix, handler)
-	srv := &http.Server{
-		Handler:           mux,
-		ReadHeaderTimeout: 1 * time.Second,
+func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
+	if err != nil {
+		ws.log.Errorw("Failed to upgrade connection", "err", err)
+		return
 	}
 
-	go func() {
-		<-ctx.Done()
-		errCh <- srv.Shutdown(context.Background())
-		close(errCh)
-	}()
+	// TODO include connection information, such as the remote address, in the logs.
 
-	if err := srv.Serve(ws.listener); !errors.Is(err, http.ErrServerClosed) {
-		return err
+	wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
+
+	err = wsc.ReadWriteLoop(r.Context())
+
+	var errClose websocket.CloseError
+	if errors.As(err, &errClose) {
+		ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
+		return
 	}
 
-	return <-errCh
+	ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
+	errString := err.Error()
+	if len(errString) > closeReasonMaxBytes {
+		errString = errString[:closeReasonMaxBytes]
+	}
+	if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
+		// Don't log an error if the connection is already closed, which can happen
+		// in benign scenarios like timeouts. Unfortunately the error is not exported
+		// from the websocket package so we match the string instead.
+		if !strings.Contains(err.Error(), "already wrote close") {
+			ws.log.Errorw("Failed to close websocket connection", "err", err)
+		}
+	}
 }
 
 type WebsocketConnParams struct {
