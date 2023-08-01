@@ -1197,10 +1197,6 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 	paidFeesOnL1 := []*felt.Felt{}
 
 	for i, transaction := range block.Transactions {
-		if transaction.Hash().Equal(&hash) {
-			txIndex = i
-		}
-
 		switch tx := transaction.(type) {
 		case *core.DeclareTransaction:
 			class, stateErr := headState.Class(tx.ClassHash)
@@ -1211,6 +1207,11 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 		case *core.L1HandlerTransaction:
 			var fee felt.Felt
 			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
+		}
+
+		if transaction.Hash().Equal(&hash) {
+			txIndex = i
+			break
 		}
 	}
 
