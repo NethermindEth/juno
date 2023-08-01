@@ -3,13 +3,14 @@ package p2p
 import (
 	"bufio"
 	"bytes"
-	"io"
-
+	"encoding/binary"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/p2pproto"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/zstd"
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
+	"io"
 )
 
 func readCompressedProtobuf(stream io.Reader, request proto.Message) error {
@@ -64,7 +65,13 @@ func writeCompressedProtobuf(stream io.Writer, resp proto.Message) error {
 		return err
 	}
 
-	_, err = io.Copy(stream, buffer)
+	bwriter := bufio.NewWriter(stream)
+	_, err = io.Copy(bwriter, buffer)
+	if err != nil {
+		return err
+	}
+
+	err = bwriter.Flush()
 	if err != nil {
 		return err
 	}
@@ -86,6 +93,30 @@ func feltToFieldElement(flt *felt.Felt) *p2pproto.FieldElement {
 		return nil
 	}
 	return &p2pproto.FieldElement{Elements: flt.Marshal()}
+}
+
+func bitsetToProto(bset *bitset.BitSet) *p2pproto.Path {
+	thebytes := make([]byte, len(bset.Bytes())*8)
+
+	for i, u := range bset.Bytes() {
+		binary.LittleEndian.PutUint64(thebytes[i*8:], u)
+	}
+
+	return &p2pproto.Path{
+		Length:  uint32(bset.Len()),
+		Element: thebytes,
+	}
+}
+
+func protoToBitset(path *p2pproto.Path) *bitset.BitSet {
+	numcount := (len(path.Element) + 7) / 8
+	theint := make([]uint64, numcount)
+
+	for i := 0; i < numcount; i++ {
+		theint[i] = binary.LittleEndian.Uint64(path.Element[i*8:])
+	}
+
+	return bitset.FromWithLength(uint(path.Length), theint)
 }
 
 func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {

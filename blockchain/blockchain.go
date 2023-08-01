@@ -414,9 +414,9 @@ func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, h
 	})
 }
 
-func (b *Blockchain) StoreStorageDirect(storagePath *felt.Felt, paths []*felt.Felt, values []*felt.Felt) error {
+func (b *Blockchain) StoreStorageDirect(diffs map[felt.Felt][]core.StorageDiff) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := core.NewState(txn).UpdateStorageRaw(storagePath, paths, values); err != nil {
+		if err := core.NewState(txn).UpdateStorageRaw(diffs); err != nil {
 			return err
 		}
 

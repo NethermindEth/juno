@@ -329,23 +329,13 @@ func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes [
 	return nil
 }
 
-func (s *State) UpdateStorageRaw(contractPath *felt.Felt, paths []*felt.Felt, values []*felt.Felt) error {
+func (s *State) UpdateStorageRaw(diffs map[felt.Felt][]StorageDiff) error {
 	stateTrie, storageCloser, err := s.storage()
 	if err != nil {
 		return err
 	}
 
-	diffs := make([]StorageDiff, 0)
-	for i, path := range paths {
-		diffs = append(diffs, StorageDiff{
-			Key:   path,
-			Value: values[i],
-		})
-	}
-
-	err = s.updateContractStorages(stateTrie, map[felt.Felt][]StorageDiff{
-		*contractPath: diffs,
-	}, 0, false)
+	err = s.updateContractStorages(stateTrie, diffs, 0, false)
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/log"
+	"time"
 )
 
 type reliableSnapServer struct {
@@ -15,12 +16,23 @@ type reliableSnapServer struct {
 }
 
 func (r *reliableSnapServer) GetTrieRootAt(ctx context.Context, block *core.Header) (*blockchain.TrieRootInfo, error) {
+	first := true
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
+
+		if !first {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Second):
+			}
+		}
+		first = false
 
 		rootInfo, err := r.innerServer.GetTrieRootAt(block.Hash)
 		if err != nil {

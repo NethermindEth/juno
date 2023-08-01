@@ -62,14 +62,14 @@ message AddressRange {
 
 message AddressRangeLeaf {
   starknet.common.FieldElement contract_storage_root = 1;
-  starknet.common.FieldElement class = 2;
+  starknet.common.FieldElement class_hash = 2;
   starknet.common.FieldElement nonce = 3;
 }
 
 message GetContractRange {
   starknet.common.FieldElement root = 1;
   repeated ContractRangeRequest requests = 2;
-  uint64 mx_nodes = 3;
+  uint64 max_nodes = 3;
 }
 
 message ContractRangeRequest {
@@ -92,7 +92,7 @@ message ContractRangeResponse {
 // Its a bitset in juno. Its a truncated field_element. Probably should use bytes though... But I'm lazy.
 message Path {
   uint32 length = 1;
-  starknet.common.FieldElement full_path = 2;
+  bytes element = 2; // little endian
 }
 
 message ProofNode {

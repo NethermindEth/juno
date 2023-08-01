@@ -165,6 +165,7 @@ func (s *snapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRan
 	}
 	defer closer()
 
+	fmt.Printf("Handling address range with root %s\n", addressRange.Root.String())
 	response, err := snapServer.GetAddressRange(
 		fieldElementToFelt(addressRange.Root),
 		fieldElementToFelt(addressRange.StartAddr),

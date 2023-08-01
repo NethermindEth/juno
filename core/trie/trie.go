@@ -666,7 +666,7 @@ func (t *Trie) dump(level int, parentP *bitset.BitSet) {
 	}).dump(level+1, t.rootKey)
 }
 
-func bitsetToBigInt(path *bitset.BitSet) *big.Int {
+func BitsetToBigInt(path *bitset.BitSet) *big.Int {
 
 	buff := make([]byte, 8*len(path.Bytes()))
 
@@ -684,8 +684,8 @@ func bitsetToBigInt(path *bitset.BitSet) *big.Int {
 }
 
 func IsBitsetHigher(b1, b2 *bitset.BitSet) bool {
-	bi1 := bitsetToBigInt(b1)
-	bi2 := bitsetToBigInt(b2)
+	bi1 := BitsetToBigInt(b1)
+	bi2 := BitsetToBigInt(b2)
 	return bi1.Cmp(bi2) > 0
 }
 

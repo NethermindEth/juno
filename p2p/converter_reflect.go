@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"github.com/bits-and-blooms/bitset"
 	"reflect"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -36,6 +37,8 @@ func init() {
 	registerMapping[*p2pproto.FieldElement, *felt.Felt](fieldElementToFelt)
 	registerMapping[common.Address, *p2pproto.EthereumAddress](addressToProto)
 	registerMapping[*p2pproto.EthereumAddress, common.Address](protoToAddress)
+	registerMapping[*bitset.BitSet, *p2pproto.Path](bitsetToProto)
+	registerMapping[*p2pproto.Path, *bitset.BitSet](protoToBitset)
 }
 
 func MapValueViaReflect[T any](source interface{}) T {

@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/pkg/errors"
 )
 
 type TrieRootInfo struct {
@@ -30,9 +31,9 @@ type AddressRangeResult struct {
 }
 
 type AddressRangeLeaf struct {
-	StorageRoot *felt.Felt
-	ClassHash   *felt.Felt
-	Nonce       *felt.Felt
+	ContractStorageRoot *felt.Felt
+	ClassHash           *felt.Felt
+	Nonce               *felt.Felt
 }
 
 type StorageRangeRequest struct {
@@ -58,7 +59,7 @@ type SnapServer interface {
 
 var _ SnapServer = &Blockchain{}
 
-const maxNodePerRequest = 1024 * 16
+const maxNodePerRequest = 1024 * 1024 // I just want it to process faster
 
 func (b *Blockchain) FindSnapshotMatching(filter func(record *snapshotRecord) bool) (*snapshotRecord, error) {
 	var snapshot *snapshotRecord
@@ -91,7 +92,13 @@ func (b *Blockchain) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) 
 	}, nil
 }
 
-func iterateWithLimit(srcTrie *trie.Trie, startAddr *felt.Felt, limitAddr *felt.Felt, maxNode int, consumer func(key, value *felt.Felt) error, hashFunc trie.HashFunc) ([]*trie.ProofNode, error) {
+func iterateWithLimit(
+	srcTrie *trie.Trie,
+	startAddr *felt.Felt,
+	limitAddr *felt.Felt,
+	maxNode int,
+	consumer func(key, value *felt.Felt) error,
+	hashFunc trie.HashFunc) ([]*trie.ProofNode, error) {
 	pathes := make([]*felt.Felt, 0)
 	hashes := make([]*felt.Felt, 0)
 
@@ -159,6 +166,16 @@ func iterateWithLimit(srcTrie *trie.Trie, startAddr *felt.Felt, limitAddr *felt.
 			proofs = append(proofs, proof)
 		}
 
+		root, err := srcTrie.Root()
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = trie.VerifyTrie(root, pathes, hashes, proofs, hashFunc)
+		if err != nil {
+			return nil, errors.Wrap(err, "error double checking root")
+		}
+
 		return proofs, nil
 	}
 
@@ -207,7 +224,6 @@ func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt
 
 func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*AddressRangeResult, error) {
 	if rootHash == nil {
-		fmt.Printf("root hash is nil in address range")
 		return nil, fmt.Errorf("root hash is nil")
 	}
 	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
@@ -258,9 +274,9 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 		}
 
 		leaf := &AddressRangeLeaf{
-			StorageRoot: croot,
-			ClassHash:   classHash,
-			Nonce:       nonce,
+			ContractStorageRoot: croot,
+			ClassHash:           classHash,
+			Nonce:               nonce,
 		}
 
 		response.Leaves = append(response.Leaves, leaf)
@@ -302,6 +318,10 @@ func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests [
 }
 
 func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRangeRequest, nodeLimit int) (*StorageRangeResult, error) {
+	if request.Hash == nil {
+		return nil, errors.New("request hash is nil")
+	}
+
 	contract, err := s.Contract(request.Path)
 	if err != nil {
 		return nil, err

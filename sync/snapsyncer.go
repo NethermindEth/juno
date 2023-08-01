@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	big "math/big"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -73,6 +77,22 @@ func NewSnapSyncer(
 	}
 }
 
+var (
+	addressDurations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "juno_address_durations",
+		Help: "Time in address get",
+	}, []string{"phase"})
+	storageDurations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "juno_storage_durations",
+		Help: "Time in address get",
+	}, []string{"phase"})
+	largeStorageDurations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "juno_large_storage_durations",
+		Help: "Time in address get",
+	}, []string{"phase"})
+)
+var metricOnce *sync.Once = &sync.Once{}
+
 func (s *SnapSyncher) Run(ctx context.Context) error {
 	// 1. Get the current head
 	// 2. Start the snap sync with pivot set to that head
@@ -84,6 +104,14 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	// 5. Then do some cleanup, mark things and complete and such.
 	// 6. Probably download old state updato/bodies too
 	// 7. Send back control to base sync.
+
+	starttime := time.Now()
+	go func() {
+		metricOnce.Do(func() {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(":2112", nil)
+		})
+	}()
 
 	err := s.initState(ctx)
 	if err != nil {
@@ -157,7 +185,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 
 	close(s.phase1Done)
 	wg.Wait()
-	s.log.Infow("first phase completed")
+	s.log.Infow("first phase completed", "duration", time.Now().Sub(starttime).String())
 
 	for i := s.startingBlock.Number + 1; i <= s.lastBlock.Number; i++ {
 		stateUpdate, err := s.starknetData.StateUpdate(ctx, i)
@@ -202,7 +230,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 		}
 
 		// TODO: Verify hashes
-		hasNext, err = trie.VerifyTrie(classRoot, response.Paths, response.ClassHashes, response.Proofs, crypto.Pedersen)
+		hasNext, err = trie.VerifyTrie(classRoot, response.Paths, response.ClassHashes, response.Proofs, crypto.Poseidon)
 		if err != nil {
 			return errors.Wrap(err, "error verifying tree")
 		}
@@ -249,7 +277,7 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 			s.log.Warnw("error fetching snap range", "error", err)
 		} else {
 			hasNext = nextHasNext
-			nextStartAddress = nextStartAddress
+			startAddr = nextStartAddress
 		}
 	}
 
@@ -259,13 +287,18 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 }
 
 func (s *SnapSyncher) fetchAndProcessRange(ctx context.Context, curstateroot *felt.Felt, startAddr *felt.Felt) (bool, *felt.Felt, error) {
+	starttime := time.Now()
 	response, err := s.snapServer.GetAddressRange(curstateroot, startAddr, nil)
+	addressDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
+	starttime = time.Now()
 	if err != nil {
 		return false, nil, errors.Wrap(err, "error get address range")
 	}
 
 	// TODO: Verify hashes
 	hasNext, err := trie.VerifyTrie(curstateroot, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
+	addressDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
+	starttime = time.Now()
 	if err != nil {
 		return false, nil, errors.Wrap(err, "error verifying tree")
 	}
@@ -279,22 +312,31 @@ func (s *SnapSyncher) fetchAndProcessRange(ctx context.Context, curstateroot *fe
 	}
 
 	// TODO: l0 class not in trie
+	starttime = time.Now()
 	err = s.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
+	addressDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
+	starttime = time.Now()
 	if err != nil {
 		return false, nil, errors.Wrap(err, "error setting address")
 	}
 
 	for i, path := range response.Paths {
+		if response.Leaves[i].ContractStorageRoot == nil {
+			return false, nil, errors.New("storage root is nil")
+		}
+
+		starttime = time.Now()
 		select {
 		case s.storageRangeJob <- &blockchain.StorageRangeRequest{
 			Path:      path,
-			Hash:      response.Leaves[i].StorageRoot,
+			Hash:      response.Leaves[i].ContractStorageRoot,
 			StartAddr: &felt.Zero,
 		}:
 			atomic.AddInt32(&s.storageRangeJobCount, 1)
 		case <-ctx.Done():
 			return false, nil, ctx.Err()
 		}
+		addressDurations.WithLabelValues("queueing").Add(float64(time.Now().Sub(starttime).Microseconds()))
 	}
 
 	return hasNext, response.Paths[len(response.Paths)-1], nil
@@ -303,7 +345,7 @@ func (s *SnapSyncher) fetchAndProcessRange(ctx context.Context, curstateroot *fe
 func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
 	totalprocessed := 0
 	for {
-		batchSize := 1000
+		batchSize := 100000
 		requests := make([]*blockchain.StorageRangeRequest, 0)
 
 	requestloop:
@@ -342,7 +384,9 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 
 		curstateroot := s.currentStateRoot
 
+		starttime := time.Now()
 		responses, err := s.snapServer.GetContractRange(curstateroot, requests)
+		storageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
 			fmt.Printf("Contract range failed\n")
 			request := requests[0]
@@ -359,6 +403,8 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 		}
 
+		allDiffs := map[felt.Felt][]core.StorageDiff{}
+
 		for i, response := range responses {
 			request := requests[i]
 
@@ -373,7 +419,9 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				continue
 			}
 
+			starttime := time.Now()
 			hasNext, err := trie.VerifyTrie(request.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
+			storageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
 			if err != nil {
 				fmt.Printf("Verification failed\n")
 				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
@@ -384,21 +432,35 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				return err
 			}
 
-			if hasNext {
-				requests[i].StartAddr = response.Paths[len(response.Paths)-1]
-				s.largeStorageRangeJob <- requests[i]
-				atomic.AddInt32(&s.largeStorageRangeJobCount, 1)
+			diffs := make([]core.StorageDiff, 0)
+			for i, path := range response.Paths {
+				diffs = append(diffs, core.StorageDiff{
+					Key:   path,
+					Value: response.Values[i],
+				})
 			}
 
-			err = s.SetStorage(request.Path, response.Paths, response.Values)
-			if err != nil {
-				fmt.Printf("Set storage failed\n")
-				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
-				return err
+			allDiffs[*request.Path] = diffs
+			starttime = time.Now()
+			if hasNext {
+				fmt.Printf("Adding large storage %s, %s, %s\n", request.Path, request.Hash, request.StartAddr)
+				select {
+				case s.largeStorageRangeJob <- request:
+				case <-ctx.Done():
+				}
+				atomic.AddInt32(&s.largeStorageRangeJobCount, 1)
 			}
+			storageDurations.WithLabelValues("queueing").Add(float64(time.Now().Sub(starttime).Microseconds()))
 
 			atomic.AddInt32(&s.storageRangeJobCount, -1)
 			totalprocessed++
+		}
+
+		starttime = time.Now()
+		err = s.SetStorage(allDiffs)
+		storageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
+		if err != nil {
+			return err
 		}
 	}
 }
@@ -439,7 +501,10 @@ func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx 
 			fmt.Printf("long range %d: %s %s %s%% %s %v\n", workerIdx, job.Path, job.Hash, theint.String(), startAddr.String(), hasNext)
 
 			job.StartAddr = startAddr
+			starttime := time.Now()
 			responses, err := s.snapServer.GetContractRange(curstateroot, []*blockchain.StorageRangeRequest{job})
+			largeStorageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
+			starttime = time.Now()
 			if err != nil {
 				fmt.Printf("Contract range failed\n")
 				return err
@@ -449,11 +514,25 @@ func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx 
 
 			// TODO: Verify hashes
 			hasNext, err = trie.VerifyTrie(job.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
+			largeStorageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
+			starttime = time.Now()
 			if err != nil {
 				return err
 			}
 
-			err = s.SetStorage(job.Path, response.Paths, response.Values)
+			diffs := make([]core.StorageDiff, 0)
+			for i, path := range response.Paths {
+				diffs = append(diffs, core.StorageDiff{
+					Key:   path,
+					Value: response.Values[i],
+				})
+			}
+
+			err = s.SetStorage(map[felt.Felt][]core.StorageDiff{
+				*job.Path: diffs,
+			})
+			largeStorageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
+			starttime = time.Now()
 			if err != nil {
 				fmt.Printf("Contract range storage failed\n")
 				return err
@@ -565,8 +644,8 @@ func (s *SnapSyncher) SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, cl
 	return s.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
 }
 
-func (s *SnapSyncher) SetStorage(storagePath *felt.Felt, path []*felt.Felt, value []*felt.Felt) error {
-	return s.blockchain.StoreStorageDirect(storagePath, path, value)
+func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff) error {
+	return s.blockchain.StoreStorageDirect(diffs)
 }
 
 var _ service.Service = (*SnapSyncher)(nil)
