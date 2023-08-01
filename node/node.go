@@ -342,8 +342,6 @@ type rpcServer struct {
 }
 
 func (srv *rpcServer) Run(ctx context.Context) error {
-	errCh := make(chan error)
-
 	httpSrv := &http.Server{
 		Addr:    srv.listener.Addr().String(),
 		Handler: srv.mux,
@@ -351,17 +349,23 @@ func (srv *rpcServer) Run(ctx context.Context) error {
 		ReadTimeout: 30 * time.Second,
 	}
 
-	go func() {
-		<-ctx.Done()
-		errCh <- httpSrv.Shutdown(context.Background())
-		close(errCh)
-	}()
+	errCh := make(chan error)
+	defer close(errCh)
 
-	if err := httpSrv.Serve(srv.listener); !errors.Is(err, http.ErrServerClosed) {
+	var wg conc.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() {
+		if err := httpSrv.Serve(srv.listener); !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	})
+
+	select {
+	case <-ctx.Done():
+		return httpSrv.Shutdown(context.Background())
+	case err := <-errCh:
 		return err
 	}
-
-	return <-errCh
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
