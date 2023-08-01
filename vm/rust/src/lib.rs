@@ -5,7 +5,7 @@ pub mod jsonrpc;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
-    ffi::{c_char, c_uchar, c_ulonglong, CStr, CString},
+    ffi::{c_char, c_uchar, c_ulonglong, CStr, CString, c_void},
     slice,
 };
 
@@ -47,7 +47,7 @@ use starknet_api::{
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
-    fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_char);
+    fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar);
 }
@@ -273,9 +273,12 @@ fn transaction_from_api(
 
 fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace) {
     let json = serde_json::to_string(&trace).unwrap();
-    let json_cstr = CString::new(json.as_str()).unwrap();
+    let json_bytes = json.into_bytes();
+    let ptr = json_bytes.as_ptr();
+    let len = json_bytes.len();
+
     unsafe {
-        JunoAppendTrace(reader_handle, json_cstr.as_ptr());
+        JunoAppendTrace(reader_handle, ptr as *const c_void, len);
     };
 }
 

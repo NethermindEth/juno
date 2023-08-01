@@ -1170,7 +1170,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	pendingBlock := blockHash == nil
+	isPending := blockHash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
@@ -1182,7 +1182,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
-	if pendingBlock {
+	if isPending {
 		headState, headStateCloser, err = h.bcReader.PendingState()
 	} else {
 		headState, headStateCloser, err = h.bcReader.HeadState()
@@ -1194,24 +1194,27 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 
 	var txIndex int
 	var classes []core.Class
+	paidFeesOnL1 := []*felt.Felt{}
+
 	for i, transaction := range block.Transactions {
 		if transaction.Hash().Equal(&hash) {
 			txIndex = i
 		}
 
-		declareTx, ok := transaction.(*core.DeclareTransaction)
-		if !ok {
-			continue
+		switch tx := transaction.(type) {
+		case *core.DeclareTransaction:
+			class, stateErr := headState.Class(tx.ClassHash)
+			if stateErr != nil {
+				return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
+			}
+			classes = append(classes, class.Class)
+		case *core.L1HandlerTransaction:
+			var fee felt.Felt
+			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
 		}
-
-		class, stateErr := headState.Class(declareTx.ClassHash)
-		if stateErr != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
-		}
-		classes = append(classes, class.Class)
 	}
 
-	if pendingBlock {
+	if isPending {
 		height, hErr := h.bcReader.Height()
 		if hErr != nil {
 			return nil, ErrBlockNotFound
@@ -1226,8 +1229,8 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 
-	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, []*felt.Felt{})
+	_, traces, err := h.vm.Execute(block.Transactions[:txIndex+1], classes, blockNumber, header.Timestamp,
+		sequencerAddress, state, h.network, paidFeesOnL1)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
