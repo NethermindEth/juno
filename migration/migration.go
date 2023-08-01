@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
@@ -40,6 +41,9 @@ var migrations = []Migration{
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
 	MigrationFunc(calculateBlockCommitments),
+	NewBucketMigrator(db.ClassesTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ClassesTrie)),
+	NewBucketMigrator(db.StateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.StateTrie)),
+	NewBucketMigrator(db.ContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -361,4 +365,49 @@ func calculateBlockCommitments(txn db.Transaction, network utils.Network) error 
 	}
 
 	return workerPool.Wait()
+}
+
+func bitset2Key(bs *bitset.BitSet) *trie.Key {
+	bsWords := bs.Bytes()
+	if len(bsWords) > felt.Limbs {
+		panic("key too long to fit in Felt")
+	}
+
+	var bsBytes [felt.Bytes]byte
+	for idx, word := range bsWords {
+		startBytes := 24 - (idx * 8)
+		binary.BigEndian.PutUint64(bsBytes[startBytes:startBytes+8], word)
+	}
+
+	f := new(felt.Felt).SetBytes(bsBytes[:])
+	fBytes := f.Bytes()
+	k := trie.NewKey(uint8(bs.Len()), fBytes[:])
+	return &k
+}
+
+func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ utils.Network) error {
+	var bs bitset.BitSet
+	var tempBuf bytes.Buffer
+	if err := bs.UnmarshalBinary(value); err != nil {
+		return err
+	}
+	trieKey := bitset2Key(&bs)
+	_, err := trieKey.WriteTo(&tempBuf)
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(key, tempBuf.Bytes())
+}
+
+func rootKeysFilter(target db.Bucket) BucketMigratorKeyFilter {
+	rootKeysLen := map[db.Bucket]int{
+		db.ClassesTrie:     1,
+		db.StateTrie:       1,
+		db.ContractStorage: 1 + felt.Bytes,
+	}
+
+	return func(key []byte) (bool, error) {
+		return len(key) == rootKeysLen[target], nil
+	}
 }

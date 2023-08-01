@@ -195,3 +195,23 @@ func TestCalculateBlockCommitments(t *testing.T) {
 		assert.NotNil(t, b.TransactionCommitment)
 	}
 }
+
+func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
+	memTxn := db.NewMemTransaction()
+
+	bs := bitset.New(251)
+	bsBytes, err := bs.MarshalBinary()
+	require.NoError(t, err)
+
+	key := []byte{0}
+	err = memTxn.Set(key, bsBytes)
+	require.NoError(t, err)
+
+	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, utils.MAINNET))
+
+	var trieKey trie.Key
+	err = memTxn.Get(key, trieKey.UnmarshalBinary)
+	require.NoError(t, err)
+	require.Equal(t, bs.Len(), uint(trieKey.Len()))
+	require.Equal(t, felt.Zero, trieKey.Felt())
+}
