@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -102,7 +103,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
+	rpcSrv, err := makeRPC(cfg.HTTPPort, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -113,7 +114,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   append(services, synchronizer),
+		services:   []service.Service{rpcSrv, synchronizer},
 	}
 
 	if n.cfg.EthNode == "" {
@@ -165,7 +166,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	return n, nil
 }
 
-func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) ([]service.Service, error) { //nolint: funlen
+func makeRPC(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) (*rpcServer, error) { //nolint: funlen
 	methods := []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -310,19 +311,57 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		}
 	}
 
-	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
+		return nil, fmt.Errorf("listen on http port %d: %w", port, err)
 	}
-	httpServer := jsonrpc.NewHTTP("/v0_4", httpListener, jsonrpcServer, log)
+	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
 
-	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
-	if err != nil {
-		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
+	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
+
+	rpcHTTPHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Upgrade") == "websocket" {
+			wsHandler.ServeHTTP(w, req)
+			return
+		}
+		httpHandler.ServeHTTP(w, req)
+	})
+	mux := http.NewServeMux()
+	mux.Handle("/", rpcHTTPHandler)
+	mux.Handle("/v0_4", rpcHTTPHandler)
+
+	return &rpcServer{
+		listener: listener,
+		mux:      mux,
+	}, nil
+}
+
+type rpcServer struct {
+	listener net.Listener
+	mux      *http.ServeMux
+}
+
+func (srv *rpcServer) Run(ctx context.Context) error {
+	errCh := make(chan error)
+
+	httpSrv := &http.Server{
+		Addr:    srv.listener.Addr().String(),
+		Handler: srv.mux,
+		// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
+		ReadTimeout: 30 * time.Second,
 	}
-	wsServer := jsonrpc.NewWebsocket("/v0_4", wsListener, jsonrpcServer, log)
 
-	return []service.Service{httpServer, wsServer}, nil
+	go func() {
+		<-ctx.Done()
+		errCh <- httpSrv.Shutdown(context.Background())
+		close(errCh)
+	}()
+
+	if err := httpSrv.Serve(srv.listener); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return <-errCh
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
