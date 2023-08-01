@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	json "encoding/json"
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
@@ -52,12 +53,13 @@ func (mr *MockVMMockRecorder) Call(arg0, arg1, arg2, arg3, arg4, arg5, arg6 inte
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 uint64, arg4 *felt.Felt, arg5 core.StateReader, arg6 utils.Network, arg7 []*felt.Felt) ([]*felt.Felt, error) {
+func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 uint64, arg4 *felt.Felt, arg5 core.StateReader, arg6 utils.Network, arg7 []*felt.Felt) ([]*felt.Felt, []json.RawMessage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].([]*felt.Felt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]json.RawMessage)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Execute indicates an expected call of Execute.

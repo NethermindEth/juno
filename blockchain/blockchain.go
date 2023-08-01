@@ -715,6 +715,12 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+	if blockHash.IsZero() {
+		txn := db.NewMemTransaction()
+		emptyState := core.NewState(txn)
+		return emptyState, txn.Discard, nil
+	}
+
 	txn := b.database.NewTransaction(false)
 	header, err := blockHeaderByHash(txn, blockHash)
 	if err != nil {

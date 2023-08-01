@@ -615,11 +615,9 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getNonce")
 
 	nonce, err := stateReader.ContractNonce(&address)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getNonce", "err", closerErr)
-	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -636,11 +634,9 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
 	value, err := stateReader.ContractStorage(&address, &key)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getStorageAt", "err", closerErr)
-	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -657,11 +653,9 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
 	classHash, err := stateReader.ContractClassHash(&address)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getClassHashAt", "err", closerErr)
-	}
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -800,12 +794,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if err != nil {
 		return nil, ErrInternal
 	}
-
-	defer func() {
-		if closerErr := filter.Close(); closerErr != nil {
-			h.log.Errorw("Error closing event filter in events", "err", closerErr)
-		}
-	}()
+	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
 
 	var cToken *blockchain.ContinuationToken
 	if len(args.ContinuationToken) > 0 {
@@ -998,11 +987,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			h.log.Errorw("Failed to close state in starknet_call", "err", closeErr)
-		}
-	}()
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
 
 	header, err := h.blockHeaderByID(&id)
 	if err != nil {
@@ -1086,11 +1071,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			h.log.Errorw("Failed to close state in starknet_estimateFee", "err", closeErr)
-		}
-	}()
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, err := h.blockHeaderByID(&id)
 	if err != nil {
@@ -1130,7 +1111,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
-	gasesConsumed, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
+	gasesConsumed, _, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1173,4 +1154,96 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		return nil, rpcErr
 	}
 	return &estimates[0], nil
+}
+
+// TraceTransaction returns the trace for a given executed transaction, including internal calls
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
+func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
+	_, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	block, err := h.bcReader.BlockByNumber(blockNumber)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	isPending := blockHash == nil
+
+	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_traceTransaction")
+
+	var (
+		headState       core.StateReader
+		headStateCloser blockchain.StateCloser
+	)
+	if isPending {
+		headState, headStateCloser, err = h.bcReader.PendingState()
+	} else {
+		headState, headStateCloser, err = h.bcReader.HeadState()
+	}
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+	defer h.callAndLogErr(headStateCloser, "Failed to close head state in starknet_traceTransaction")
+
+	var txIndex int
+	var classes []core.Class
+	paidFeesOnL1 := []*felt.Felt{}
+
+	for i, transaction := range block.Transactions {
+		switch tx := transaction.(type) {
+		case *core.DeclareTransaction:
+			class, stateErr := headState.Class(tx.ClassHash)
+			if stateErr != nil {
+				return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
+			}
+			classes = append(classes, class.Class)
+		case *core.L1HandlerTransaction:
+			var fee felt.Felt
+			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
+		}
+
+		if transaction.Hash().Equal(&hash) {
+			txIndex = i
+			break
+		}
+	}
+
+	if isPending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	header := block.Header
+
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+	}
+
+	_, traces, err := h.vm.Execute(block.Transactions[:txIndex+1], classes, blockNumber, header.Timestamp,
+		sequencerAddress, state, h.network, paidFeesOnL1)
+	if err != nil {
+		rpcErr := *ErrContractError
+		rpcErr.Data = err.Error()
+		return nil, &rpcErr
+	}
+	trace := traces[txIndex]
+
+	return trace, nil
+}
+
+func (h *Handler) callAndLogErr(f func() error, msg string) {
+	if err := f(); err != nil {
+		h.log.Errorw(msg, "err", err)
+	}
 }

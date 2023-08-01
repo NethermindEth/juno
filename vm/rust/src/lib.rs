@@ -1,10 +1,11 @@
 pub mod class;
 mod juno_state_reader;
+pub mod jsonrpc;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
-    ffi::{c_char, c_uchar, c_ulonglong, CStr, CString},
+    ffi::{c_char, c_uchar, c_ulonglong, CStr, CString, c_void},
     slice,
 };
 
@@ -37,10 +38,7 @@ use starknet_api::{
     hash::StarkFelt,
     transaction::Fee,
 };
-use starknet_api::{
-    core::PatriciaKey,
-    transaction::{Calldata, Transaction as StarknetApiTransaction},
-};
+use starknet_api::transaction::{Calldata, Transaction as StarknetApiTransaction};
 use starknet_api::{
     core::{ChainId, ContractAddress, EntryPointSelector},
     hash::StarkHash,
@@ -49,6 +47,7 @@ use starknet_api::{
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
+    fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar);
 }
@@ -173,7 +172,7 @@ pub extern "C" fn cairoVMExecute(
     for sn_api_txn in sn_api_txns {
         let contract_class = match sn_api_txn.clone() {
             StarknetApiTransaction::Declare(declare) => {
-                if classes.len() == 0 {
+                if classes.is_empty() {
                     report_error(reader_handle, "missing declared class".to_string().as_str());
                     return;
                 }
@@ -201,11 +200,11 @@ pub extern "C" fn cairoVMExecute(
                         return;
                 }
                 Some(*paid_fees_on_l1.remove(0))
-            }, 
+            },
             _ => None,
         };
 
-        let txn = Transaction::from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
+        let txn = transaction_from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
         if txn.is_err() {
             report_error(reader_handle, txn.unwrap_err().to_string().as_str());
             return;
@@ -242,10 +241,45 @@ pub extern "C" fn cairoVMExecute(
                 JunoAppendGasConsumed(
                     reader_handle,
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
-                )
+                );
+
+                append_trace(
+                    reader_handle,
+                    t.into(),
+                );
             },
         }
     }
+}
+
+fn transaction_from_api(
+    tx: StarknetApiTransaction,
+    contract_class: Option<ContractClass>,
+    paid_fee_on_l1: Option<Fee>,
+) -> Result<Transaction, String> {
+    match tx {
+        StarknetApiTransaction::Deploy(deploy) => {
+            return Err(format!("Deploy transaction is not supported (transaction_hash={})", deploy.transaction_hash))
+        },
+        StarknetApiTransaction::Declare(declare) if contract_class.is_none() => {
+            return Err(format!("Declare transaction must be created with a ContractClass (transaction_hash={})", declare.transaction_hash()))
+        }
+        _ => {} // all ok
+    };
+
+    Transaction::from_api(tx, contract_class, paid_fee_on_l1)
+        .map_err(|err| format!("failed to create transaction from api: {:?}", err))
+}
+
+fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace) {
+    let json = serde_json::to_string(&trace).unwrap();
+    let json_bytes = json.into_bytes();
+    let ptr = json_bytes.as_ptr();
+    let len = json_bytes.len();
+
+    unsafe {
+        JunoAppendTrace(reader_handle, ptr as *const c_void, len);
+    };
 }
 
 fn report_error(reader_handle: usize, msg: &str) {
@@ -266,7 +300,7 @@ fn build_block_context(
         block_number: BlockNumber(block_number),
         block_timestamp: BlockTimestamp(block_timestamp),
 
-        sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_address).unwrap()),
+        sequencer_address: ContractAddress::try_from(sequencer_address).unwrap(),
         // https://github.com/starknet-io/starknet-addresses/blob/df19b17d2c83f11c30e65e2373e8a0c65446f17c/bridged_tokens/mainnet.json
         // fee_token_address is the same for all networks
         fee_token_address: ContractAddress::try_from(

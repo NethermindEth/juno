@@ -31,7 +31,7 @@ type VM interface {
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-	) ([]*felt.Felt, error)
+	) ([]*felt.Felt, []json.RawMessage, error)
 }
 
 type vm struct{}
@@ -50,6 +50,7 @@ type callContext struct {
 	response []*felt.Felt
 	// amount of gas consumed per transaction during VM execution
 	gasConsumed []*felt.Felt
+	traces      []json.RawMessage
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -65,6 +66,13 @@ func unwrapContext(readerHandle C.uintptr_t) *callContext {
 func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
 	context := unwrapContext(readerHandle)
 	context.err = C.GoString(str)
+}
+
+//export JunoAppendTrace
+func JunoAppendTrace(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.traces = append(context.traces, json.RawMessage(byteSlice))
 }
 
 //export JunoAppendResponse
@@ -134,7 +142,7 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-) ([]*felt.Felt, error) {
+) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{
 		state: state,
 	}
@@ -143,12 +151,12 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	paidFeesOnL1CStr := C.CString(string(paidFeesOnL1Bytes))
@@ -156,6 +164,7 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 	classesJSONCStr := C.CString(string(classesJSON))
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
+
 	chainID := C.CString(network.ChainIDString())
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
@@ -172,13 +181,14 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 	C.free(unsafe.Pointer(chainID))
 
 	if len(context.err) > 0 {
-		return nil, errors.New(context.err)
+		return nil, nil, errors.New(context.err)
 	}
-	return context.gasConsumed, nil
+
+	return context.gasConsumed, context.traces, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
-	var txnJSONs []json.RawMessage
+	txnJSONs := []json.RawMessage{}
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)
 		if err != nil {
