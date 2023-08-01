@@ -3,10 +3,13 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
+	gosync "sync"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -64,9 +67,24 @@ type Node struct {
 	version string
 }
 
+var metricOnce *gosync.Once = &gosync.Once{}
+
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) {
+
+	go func() {
+		port, ok := os.LookupEnv("METRIC_PORT")
+		if !ok {
+			port = ":2112"
+		}
+
+		metricOnce.Do(func() {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(port, nil)
+		})
+	}()
+
 	services := make([]service.Service, 0)
 
 	if cfg.DatabasePath == "" {

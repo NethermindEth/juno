@@ -404,9 +404,56 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 	return nil
 }
 
+func (b *Blockchain) ApplyNoVerify(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		if err := verifyBlock(txn, block); err != nil {
+			return err
+		}
+
+		state := core.NewState(txn)
+		if err := state.Update(block.Number, stateUpdate, newClasses); err != nil {
+			return err
+		}
+
+		if err := StoreBlockHeader(txn, block.Header); err != nil {
+			return err
+		}
+
+		for i, tx := range block.Transactions {
+			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+				block.Receipts[i]); err != nil {
+				return err
+			}
+		}
+
+		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+			return err
+		}
+
+		if err := txn.Delete(db.Pending.Key()); err != nil {
+			return err
+		}
+
+		// Head of the blockchain is maintained as follows:
+		// [db.ChainHeight]() -> (BlockNumber)
+		heightBin := core.MarshalBlockNumber(block.Number)
+		return txn.Set(db.ChainHeight.Key(), heightBin)
+	})
+}
+
 func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		if err := core.NewState(txn).UpdateRaw(paths, classHashes, hashes, nonces); err != nil {
+			return err
+		}
+
+		return txn.Set(db.ChainHeight.Key(), core.MarshalBlockNumber(uint64(0)))
+	})
+}
+
+func (b *Blockchain) StoreClassDirect(declaredClasses []core.DeclaredV1Class, classDefinitions map[felt.Felt]core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		if err := core.NewState(txn).UpdateClassDirect(declaredClasses, classDefinitions); err != nil {
 			return err
 		}
 

@@ -52,14 +52,25 @@ type StorageRangeResult struct {
 
 type SnapServer interface {
 	GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error)
-	GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*ClassRangeResult, error)
-	GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*AddressRangeResult, error)
-	GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest) ([]*StorageRangeResult, error)
+	GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error)
+	GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*AddressRangeResult, error)
+	GetContractRange(rootHAsh *felt.Felt, requests []*StorageRangeRequest, maxNodes uint64) ([]*StorageRangeResult, error)
 }
 
 var _ SnapServer = &Blockchain{}
+var ShouldVerifyTrie bool = false
 
 const maxNodePerRequest = 1024 * 1024 // I just want it to process faster
+func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
+	if specifiedMaxNodes == 0 {
+		return 1024 * 16
+	}
+
+	if specifiedMaxNodes < maxNodePerRequest {
+		return specifiedMaxNodes
+	}
+	return maxNodePerRequest
+}
 
 func (b *Blockchain) FindSnapshotMatching(filter func(record *snapshotRecord) bool) (*snapshotRecord, error) {
 	var snapshot *snapshotRecord
@@ -96,7 +107,7 @@ func iterateWithLimit(
 	srcTrie *trie.Trie,
 	startAddr *felt.Felt,
 	limitAddr *felt.Felt,
-	maxNode int,
+	maxNode uint64,
 	consumer func(key, value *felt.Felt) error,
 	hashFunc trie.HashFunc) ([]*trie.ProofNode, error) {
 	pathes := make([]*felt.Felt, 0)
@@ -105,7 +116,7 @@ func iterateWithLimit(
 	// TODO: Verify class trie
 	var startPath *felt.Felt
 	var endPath *felt.Felt
-	count := 0
+	count := uint64(0)
 	err := srcTrie.Iterate(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
 		// Need at least one.
 		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
@@ -166,14 +177,16 @@ func iterateWithLimit(
 			proofs = append(proofs, proof)
 		}
 
-		root, err := srcTrie.Root()
-		if err != nil {
-			return nil, err
-		}
+		if ShouldVerifyTrie {
+			root, err := srcTrie.Root()
+			if err != nil {
+				return nil, err
+			}
 
-		_, err = trie.VerifyTrie(root, pathes, hashes, proofs, hashFunc)
-		if err != nil {
-			return nil, errors.Wrap(err, "error double checking root")
+			_, err = trie.VerifyTrie(root, pathes, hashes, proofs, hashFunc)
+			if err != nil {
+				return nil, errors.Wrap(err, "error double checking root")
+			}
 		}
 
 		return proofs, nil
@@ -182,7 +195,7 @@ func iterateWithLimit(
 	return nil, nil
 }
 
-func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*ClassRangeResult, error) {
+func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error) {
 	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.classRoot.Equal(classTrieRootHash)
 	})
@@ -206,7 +219,7 @@ func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt
 		Proofs:      nil,
 	}
 
-	response.Proofs, err = iterateWithLimit(ctrie, startAddr, limitAddr, maxNodePerRequest, func(key, value *felt.Felt) error {
+	response.Proofs, err = iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(maxNodes), func(key, value *felt.Felt) error {
 		response.Paths = append(response.Paths, key)
 		response.ClassHashes = append(response.ClassHashes, value)
 
@@ -222,7 +235,7 @@ func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt
 	return response, err
 }
 
-func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*AddressRangeResult, error) {
+func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*AddressRangeResult, error) {
 	if rootHash == nil {
 		return nil, fmt.Errorf("root hash is nil")
 	}
@@ -249,7 +262,7 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 		Proofs: nil,
 	}
 
-	response.Proofs, err = iterateWithLimit(strie, startAddr, limitAddr, maxNodePerRequest, func(key, value *felt.Felt) error {
+	response.Proofs, err = iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(maxNodes), func(key, value *felt.Felt) error {
 		response.Paths = append(response.Paths, key)
 		response.Hashes = append(response.Hashes, value)
 
@@ -286,7 +299,7 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 	return response, err
 }
 
-func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest) ([]*StorageRangeResult, error) {
+func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest, maxNodes uint64) ([]*StorageRangeResult, error) {
 	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.stateRoot.Equal(storageTrieRootHash)
 	})
@@ -296,18 +309,18 @@ func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests [
 
 	s := core.NewState(snapshot.txn)
 
-	curNodeLimit := maxNodePerRequest
+	curNodeLimit := int64(determineMaxNodes(maxNodes))
 
 	responses := make([]*StorageRangeResult, 0)
 
 	for _, request := range requests {
-		response, err := b.handleStorageRangeRequest(s, request, curNodeLimit)
+		response, err := b.handleStorageRangeRequest(s, request, uint64(curNodeLimit))
 		if err != nil {
 			return nil, err
 		}
 
 		responses = append(responses, response)
-		curNodeLimit -= len(response.Paths)
+		curNodeLimit -= int64(len(response.Paths))
 
 		if curNodeLimit <= 0 {
 			break
@@ -317,7 +330,7 @@ func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests [
 	return responses, nil
 }
 
-func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRangeRequest, nodeLimit int) (*StorageRangeResult, error) {
+func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRangeRequest, nodeLimit uint64) (*StorageRangeResult, error) {
 	if request.Hash == nil {
 		return nil, errors.New("request hash is nil")
 	}

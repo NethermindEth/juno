@@ -61,7 +61,7 @@ func (ip *SnapProvider) GetTrieRootAt(blockHash *felt.Felt) (*blockchain.TrieRoo
 	return MapValueViaReflect[*blockchain.TrieRootInfo](response.GetRootInfo()), nil
 }
 
-func (ip *SnapProvider) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*blockchain.ClassRangeResult, error) {
+func (ip *SnapProvider) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.ClassRangeResult, error) {
 	ctx := context.Background()
 	request := &p2pproto.SnapRequest{
 		Request: &p2pproto.SnapRequest_GetClassRange{
@@ -69,7 +69,7 @@ func (ip *SnapProvider) GetClassRange(classTrieRootHash *felt.Felt, startAddr *f
 				Root:      feltToFieldElement(classTrieRootHash),
 				StartAddr: feltToFieldElement(startAddr),
 				LimitAddr: feltToFieldElement(limitAddr),
-				MaxNodes:  9999,
+				MaxNodes:  maxNodes,
 			},
 		},
 	}
@@ -99,7 +99,7 @@ func (ip *SnapProvider) GetClassRange(classTrieRootHash *felt.Felt, startAddr *f
 	}, nil
 }
 
-func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*blockchain.AddressRangeResult, error) {
+func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.AddressRangeResult, error) {
 	ctx := context.Background()
 	request := &p2pproto.SnapRequest{
 		Request: &p2pproto.SnapRequest_GetAddressRange{
@@ -107,7 +107,7 @@ func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Fel
 				Root:      feltToFieldElement(rootHash),
 				StartAddr: feltToFieldElement(startAddr),
 				LimitAddr: feltToFieldElement(limitAddr),
-				MaxNodes:  9999,
+				MaxNodes:  maxNodes,
 			},
 		},
 	}
@@ -120,14 +120,14 @@ func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Fel
 	return MapValueViaReflect[*blockchain.AddressRangeResult](response.GetAddressRange()), nil
 }
 
-func (ip *SnapProvider) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest) ([]*blockchain.StorageRangeResult, error) {
+func (ip *SnapProvider) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes uint64) ([]*blockchain.StorageRangeResult, error) {
 	ctx := context.Background()
 	request := &p2pproto.SnapRequest{
 		Request: &p2pproto.SnapRequest_GetContractRange{
 			GetContractRange: &p2pproto.GetContractRange{
 				Root:     feltToFieldElement(storageTrieRootHash),
 				Requests: MapValueViaReflect[[]*p2pproto.ContractRangeRequest](requests),
-				MaxNodes: 9999999,
+				MaxNodes: maxNodes,
 			},
 		},
 	}

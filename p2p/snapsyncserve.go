@@ -111,7 +111,7 @@ func (s *snapSyncServer) HandleClassRangeRequest(classRange *p2pproto.GetClassRa
 	}
 	defer closer()
 
-	response, err := snapServer.GetClassRange(fieldElementToFelt(classRange.Root), fieldElementToFelt(classRange.StartAddr), fieldElementToFelt(classRange.LimitAddr))
+	response, err := snapServer.GetClassRange(fieldElementToFelt(classRange.Root), fieldElementToFelt(classRange.StartAddr), fieldElementToFelt(classRange.LimitAddr), classRange.MaxNodes)
 	if err == blockchain.ErrMissingSnapshot {
 		return nil, nil // Hmm....
 	}
@@ -145,7 +145,7 @@ func (s *snapSyncServer) HandleContractRange(contractRangeRequest *p2pproto.GetC
 	root := fieldElementToFelt(contractRangeRequest.Root)
 	requests := MapValueViaReflect[[]*blockchain.StorageRangeRequest](contractRangeRequest.Requests)
 
-	response, err := snapServer.GetContractRange(root, requests)
+	response, err := snapServer.GetContractRange(root, requests, contractRangeRequest.MaxNodes)
 	if err == blockchain.ErrMissingSnapshot {
 		return nil, nil // Hmm....
 	}
@@ -170,6 +170,7 @@ func (s *snapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRan
 		fieldElementToFelt(addressRange.Root),
 		fieldElementToFelt(addressRange.StartAddr),
 		fieldElementToFelt(addressRange.LimitAddr),
+		addressRange.MaxNodes,
 	)
 	if err == blockchain.ErrMissingSnapshot {
 		return nil, nil // Hmm....

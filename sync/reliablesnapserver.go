@@ -55,14 +55,14 @@ func (r *reliableSnapServer) GetTrieRootAt(ctx context.Context, block *core.Head
 	}
 }
 
-func (r *reliableSnapServer) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*blockchain.ClassRangeResult, error) {
-	return r.innerServer.GetClassRange(classTrieRootHash, startAddr, limitAddr)
+func (r *reliableSnapServer) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.ClassRangeResult, error) {
+	return r.innerServer.GetClassRange(classTrieRootHash, startAddr, limitAddr, maxNodes)
 }
 
-func (r *reliableSnapServer) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt) (*blockchain.AddressRangeResult, error) {
-	return r.innerServer.GetAddressRange(rootHash, startAddr, limitAddr)
+func (r *reliableSnapServer) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.AddressRangeResult, error) {
+	return r.innerServer.GetAddressRange(rootHash, startAddr, limitAddr, maxNodes)
 }
 
-func (r *reliableSnapServer) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest) ([]*blockchain.StorageRangeResult, error) {
-	return r.innerServer.GetContractRange(storageTrieRootHash, requests)
+func (r *reliableSnapServer) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes uint64) ([]*blockchain.StorageRangeResult, error) {
+	return r.innerServer.GetContractRange(storageTrieRootHash, requests, maxNodes)
 }

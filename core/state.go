@@ -252,6 +252,18 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
+	err = s.UpdateNoVerify(blockNumber, update, declaredClasses)
+	if err != nil {
+		return err
+	}
+
+	ret := s.verifyStateUpdateRoot(update.NewRoot)
+
+	return ret
+}
+
+func (s *State) UpdateNoVerify(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
+	var err error
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
 		if err = s.putClass(&cHash, class, blockNumber); err != nil {
@@ -283,9 +295,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	ret := s.verifyStateUpdateRoot(update.NewRoot)
-
-	return ret
+	return nil
 }
 
 func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
@@ -350,6 +360,27 @@ func (s *State) UpdateStorageRaw(diffs map[felt.Felt][]StorageDiff) error {
 	}
 
 	return nil
+}
+
+func (s *State) UpdateClassDirect(declaredClasses []DeclaredV1Class, classDefinitions map[felt.Felt]Class) error {
+	classesTrie, classesCloser, err := s.classesTrie()
+	if err != nil {
+		return err
+	}
+
+	for _, declaredClass := range declaredClasses {
+		if _, found := classDefinitions[*declaredClass.ClassHash]; !found {
+			continue
+		}
+
+		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
+		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
+		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
+			return err
+		}
+	}
+
+	return classesCloser()
 }
 
 var (

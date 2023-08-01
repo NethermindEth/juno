@@ -11,8 +11,25 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"math/big"
 	"strings"
+)
+
+var (
+	iterate_count = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_iterate_count",
+		Help: "Time in address get",
+	})
+	verify_count = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_verify_count",
+		Help: "Time in address get",
+	})
+	iterate_leaves_count = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_iterate_leaves_count",
+		Help: "Time in address get",
+	})
 )
 
 // Storage is the Persistent storage for the [Trie]
@@ -246,6 +263,7 @@ func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, valu
 }
 
 func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
+	iterate_count.Inc()
 	if key == nil {
 		return true, nil
 	}
@@ -256,6 +274,7 @@ func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer
 	}
 
 	if key.Len() == 251 {
+		iterate_leaves_count.Inc()
 		keyAsFelt := t.bitSetToFelt(key)
 		return consumer(keyAsFelt, thenode.Value)
 	}
@@ -702,6 +721,7 @@ func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt
 	}
 
 	for i, path := range paths {
+		verify_count.Inc() // I know its not efficient
 		_, err := tr2.Put(path, hashes[i])
 		if err != nil {
 			return false, err
