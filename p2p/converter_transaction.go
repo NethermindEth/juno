@@ -281,6 +281,10 @@ func coreClassToProtobufClass(hash *felt.Felt, theclass *core.DeclaredClass) (*p
 }
 
 func coreUndeclaredClassToProtobufClass(hash *felt.Felt, theclass core.Class) (*p2pproto.ContractClass, error) {
+	if theclass == nil {
+		return nil, nil
+	}
+
 	switch class := theclass.(type) {
 	case *core.Cairo0Class:
 		abistr, err := class.Abi.MarshalJSON()

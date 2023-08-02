@@ -4,8 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -481,6 +484,27 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return &class, nil
 }
 
+func (s *State) SetClass(classHash *felt.Felt, class Class) error {
+	classKey := db.Class.Key(classHash.Marshal())
+
+	declaredClass := DeclaredClass{
+		At:    0, // Is this important
+		Class: class,
+	}
+
+	bytes, err := encoder.Marshal(declaredClass)
+	if err != nil {
+		return err
+	}
+
+	err = s.txn.Set(classKey, bytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff []StorageDiff, blockNumber uint64, logChanges bool) (
 	*db.BufferedTransaction, error,
 ) {
@@ -506,10 +530,17 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff []Stor
 	return bufferedTxn, nil
 }
 
+var updateContractDuration = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "juno_update_contract_duration",
+	Help: "Time in address get",
+}, []string{"phase"})
+
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
 func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt][]StorageDiff, blockNumber uint64, logChanges bool) error {
 	// make sure all noClassContracts are deployed
+
+	starttime := time.Now()
 	for addr := range diffs {
 		if _, ok := noClassContracts[addr]; !ok {
 			continue
@@ -527,6 +558,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			}
 		}
 	}
+	updateContractDuration.WithLabelValues("new_contract").Add(float64(time.Now().Sub(starttime).Microseconds()))
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
@@ -540,6 +572,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		})
 	}
 
+	starttime = time.Now()
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
@@ -554,6 +587,8 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	if err != nil {
 		return err
 	}
+	updateContractDuration.WithLabelValues("buffer_update").Add(float64(time.Now().Sub(starttime).Microseconds()))
+	starttime = time.Now()
 
 	// flush buffered txns
 	for _, bufferedTxn := range bufferedTxns {
@@ -561,6 +596,8 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			return err
 		}
 	}
+	updateContractDuration.WithLabelValues("buffer_flush").Add(float64(time.Now().Sub(starttime).Microseconds()))
+	starttime = time.Now()
 
 	for addr := range diffs {
 		contract, err := NewContract(&addr, s.txn)
@@ -572,6 +609,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			return err
 		}
 	}
+	updateContractDuration.WithLabelValues("commitment").Add(float64(time.Now().Sub(starttime).Microseconds()))
 
 	return nil
 }

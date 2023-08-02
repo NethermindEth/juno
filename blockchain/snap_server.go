@@ -1,11 +1,13 @@
 package blockchain
 
 import (
+	errors2 "errors"
 	"fmt"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
 	"github.com/pkg/errors"
 )
 
@@ -15,9 +17,8 @@ type TrieRootInfo struct {
 }
 
 type ClassRangeResult struct {
-	Paths       []*felt.Felt
-	ClassHashes []*felt.Felt
-	Classes     []core.Class
+	Paths            []*felt.Felt
+	ClassCommitments []*felt.Felt
 
 	Proofs []*trie.ProofNode
 }
@@ -55,6 +56,7 @@ type SnapServer interface {
 	GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error)
 	GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*AddressRangeResult, error)
 	GetContractRange(rootHAsh *felt.Felt, requests []*StorageRangeRequest, maxNodes uint64) ([]*StorageRangeResult, error)
+	GetClasses(classes []*felt.Felt) ([]core.Class, error)
 }
 
 var _ SnapServer = &Blockchain{}
@@ -213,22 +215,14 @@ func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt
 	defer classCloser()
 
 	response := &ClassRangeResult{
-		Paths:       nil,
-		ClassHashes: nil,
-		Classes:     nil,
-		Proofs:      nil,
+		Paths:            nil,
+		ClassCommitments: nil,
+		Proofs:           nil,
 	}
 
 	response.Proofs, err = iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(maxNodes), func(key, value *felt.Felt) error {
 		response.Paths = append(response.Paths, key)
-		response.ClassHashes = append(response.ClassHashes, value)
-
-		class, err := s.Class(key)
-		if err != nil {
-			return err
-		}
-
-		response.Classes = append(response.Classes, class.Class)
+		response.ClassCommitments = append(response.ClassCommitments, value)
 		return nil
 	}, crypto.Poseidon)
 
@@ -367,4 +361,37 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 	}, crypto.Pedersen)
 
 	return response, err
+}
+
+func (b *Blockchain) GetClasses(classes []*felt.Felt) ([]core.Class, error) {
+	s, closer, err := b.HeadState()
+	if errors2.Is(err, db.ErrKeyNotFound) {
+		return make([]core.Class, len(classes)), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err := closer()
+		if err != nil {
+			b.log.Errorw("error closing state", "error", err)
+		}
+	}()
+
+	response := make([]core.Class, 0)
+	for _, classKey := range classes {
+		class, err := s.Class(classKey)
+		if errors.Is(err, db.ErrKeyNotFound) {
+			response = append(response, nil)
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		response = append(response, class.Class)
+	}
+
+	return response, nil
 }

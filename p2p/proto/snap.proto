@@ -11,6 +11,7 @@ message SnapRequest {
     GetClassRange get_class_range = 2;
     GetAddressRange get_address_range = 3;
     GetContractRange get_contract_range = 4;
+    GetClasses get_classes = 5;
   }
 }
 
@@ -20,6 +21,7 @@ message SnapResponse {
     ClassRange class_range = 2;
     AddressRange address_range = 3;
     ContractRange contract_range = 4;
+    Classes classes = 5;
   }
 }
 
@@ -32,6 +34,14 @@ message RootInfo {
   starknet.common.FieldElement class_root = 2;
 }
 
+message GetClasses {
+  repeated starknet.common.FieldElement hashes = 1;
+}
+
+message Classes {
+  repeated starknet.common.ContractClass classes = 1;
+}
+
 message GetClassRange {
   starknet.common.FieldElement root = 1;
   starknet.common.FieldElement start_addr = 2;
@@ -41,9 +51,8 @@ message GetClassRange {
 
 message ClassRange {
   repeated starknet.common.FieldElement paths = 1;
-  repeated starknet.common.FieldElement class_hashes = 2;
-  repeated starknet.common.ContractClass classes = 3;
-  repeated ProofNode proofs = 4;
+  repeated starknet.common.FieldElement class_commitments = 2; // Do we need this actually? Can't we infer them from the V1 classes within the address range?
+  repeated ProofNode proofs = 3;
 }
 
 message GetAddressRange {

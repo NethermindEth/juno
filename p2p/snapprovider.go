@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/pkg/errors"
 )
 
 type SnapProvider struct {
@@ -79,24 +78,42 @@ func (ip *SnapProvider) GetClassRange(classTrieRootHash *felt.Felt, startAddr *f
 		return nil, err
 	}
 
-	classes := make([]core.Class, 0)
 	protoclassrange := response.GetClassRange()
 
-	for _, protoClass := range protoclassrange.Classes {
-		_, cls, err := ip.converter.protobufClassToCoreClass(protoClass)
-		if err != nil {
-			return nil, errors.Wrap(err, "error converting class")
-		}
+	return &blockchain.ClassRangeResult{
+		Paths:            fieldElementsToFelts(protoclassrange.Paths),
+		ClassCommitments: fieldElementsToFelts(protoclassrange.ClassCommitments),
+		Proofs:           MapValueViaReflect[[]*trie.ProofNode](protoclassrange.Proofs),
+	}, nil
+}
 
-		classes = append(classes, cls)
+func (ip *SnapProvider) GetClasses(classes []*felt.Felt) ([]core.Class, error) {
+	ctx := context.Background()
+	request := &p2pproto.SnapRequest{
+		Request: &p2pproto.SnapRequest_GetClasses{
+			GetClasses: &p2pproto.GetClasses{
+				Hashes: feltsToFieldElements(classes),
+			},
+		},
 	}
 
-	return &blockchain.ClassRangeResult{
-		Paths:       fieldElementsToFelts(protoclassrange.Paths),
-		ClassHashes: fieldElementsToFelts(protoclassrange.ClassHashes),
-		Classes:     classes,
-		Proofs:      MapValueViaReflect[[]*trie.ProofNode](protoclassrange.Proofs),
-	}, nil
+	response, err := ip.sendSnapRequest(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	protoclasses := response.GetClasses()
+
+	coreclasses := make([]core.Class, 0)
+	for _, class := range protoclasses.Classes {
+		_, cls, err := ip.converter.protobufClassToCoreClass(class)
+		if err != nil {
+			return nil, err
+		}
+		coreclasses = append(coreclasses, cls)
+	}
+
+	return coreclasses, nil
 }
 
 func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.AddressRangeResult, error) {

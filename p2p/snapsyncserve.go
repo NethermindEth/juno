@@ -49,6 +49,13 @@ func (s *snapSyncServer) HandleSnapSyncRequest(request *p2pproto.SnapRequest) (*
 				AddressRange: response,
 			},
 		}, err
+	case *p2pproto.SnapRequest_GetClasses:
+		response, err := s.HandleGetClasses(v.GetClasses)
+		return &p2pproto.SnapResponse{
+			Response: &p2pproto.SnapResponse_Classes{
+				Classes: response,
+			},
+		}, err
 	default:
 		return nil, fmt.Errorf("unexpected request type %t", v)
 	}
@@ -119,19 +126,10 @@ func (s *snapSyncServer) HandleClassRangeRequest(classRange *p2pproto.GetClassRa
 		return nil, err
 	}
 
-	classes := make([]*p2pproto.ContractClass, len(response.Classes))
-	for i, class := range response.Classes {
-		classes[i], err = coreUndeclaredClassToProtobufClass(response.ClassHashes[i], class)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &p2pproto.ClassRange{
-		Paths:       feltsToFieldElements(response.Paths),
-		ClassHashes: feltsToFieldElements(response.ClassHashes),
-		Classes:     classes,
-		Proofs:      MapValueViaReflect[[]*p2pproto.ProofNode](response.Proofs),
+		Paths:            feltsToFieldElements(response.Paths),
+		ClassCommitments: feltsToFieldElements(response.ClassCommitments),
+		Proofs:           MapValueViaReflect[[]*p2pproto.ProofNode](response.Proofs),
 	}, nil
 }
 
@@ -165,7 +163,6 @@ func (s *snapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRan
 	}
 	defer closer()
 
-	fmt.Printf("Handling address range with root %s\n", addressRange.Root.String())
 	response, err := snapServer.GetAddressRange(
 		fieldElementToFelt(addressRange.Root),
 		fieldElementToFelt(addressRange.StartAddr),
@@ -180,4 +177,30 @@ func (s *snapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRan
 	}
 
 	return MapValueViaReflect[*p2pproto.AddressRange](response), nil
+}
+
+func (s *snapSyncServer) HandleGetClasses(classes *p2pproto.GetClasses) (*p2pproto.Classes, error) {
+	snapServer, closer, err := s.snapServer()
+	if err != nil {
+		return nil, err
+	}
+	defer closer()
+
+	keys := fieldElementsToFelts(classes.Hashes)
+	response, err := snapServer.GetClasses(keys)
+	if err != nil {
+		return nil, err
+	}
+
+	protoclasses := make([]*p2pproto.ContractClass, 0)
+	for i, class := range response {
+		protoclass, err := coreUndeclaredClassToProtobufClass(keys[i], class)
+		if err != nil {
+			return nil, err
+		}
+
+		protoclasses = append(protoclasses, protoclass)
+	}
+
+	return &p2pproto.Classes{Classes: protoclasses}, nil
 }

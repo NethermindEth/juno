@@ -447,9 +447,22 @@ func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, h
 	})
 }
 
-func (b *Blockchain) StoreClassDirect(paths []*felt.Felt, hashes []*felt.Felt) error {
+func (b *Blockchain) StoreClassCommitments(paths []*felt.Felt, hashes []*felt.Felt) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		return core.NewState(txn).UpdateClassDirect(paths, hashes)
+	})
+}
+
+func (b *Blockchain) StoreClasses(hashes []*felt.Felt, classes []core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		state := core.NewState(txn)
+		for i, hash := range hashes {
+			err := state.SetClass(hash, classes[i])
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

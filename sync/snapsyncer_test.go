@@ -18,7 +18,7 @@ import (
 
 func TestSnapCopyTrie(t *testing.T) {
 	var d db.DB
-	d, _ = pebble.New("/home/amirul/fastworkscratch/largejuno", utils.NewNopZapLogger())
+	d, _ = pebble.New("/home/amirul/fastworkscratch/largejuno_goerli", utils.NewNopZapLogger())
 	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
 
 	targetdir := "/home/amirul/fastworkscratch3/targetjuno"
@@ -33,7 +33,7 @@ func TestSnapCopyTrie(t *testing.T) {
 
 	syncer := NewSnapSyncer(
 		&NoopService{},
-		&localConsensus{bc},
+		&localStarknetData{bc},
 		bc,
 		bc2,
 		logger,
@@ -128,41 +128,41 @@ func TestCopyTrie(t *testing.T) {
 	}
 }
 
-type localConsensus struct {
+type localStarknetData struct {
 	blockchain *blockchain.Blockchain
 }
 
-func (n *localConsensus) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
+func (n *localStarknetData) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (n *localConsensus) BlockLatest(ctx context.Context) (*core.Block, error) {
+func (n *localStarknetData) BlockLatest(ctx context.Context) (*core.Block, error) {
 	return n.blockchain.Head()
 }
 
-func (n *localConsensus) BlockPending(ctx context.Context) (*core.Block, error) {
+func (n *localStarknetData) BlockPending(ctx context.Context) (*core.Block, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (n *localConsensus) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
+func (n *localStarknetData) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (n *localConsensus) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
+func (n *localStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (n *localConsensus) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
+func (n *localStarknetData) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
 	return n.blockchain.StateUpdateByNumber(blockNumber)
 }
 
-func (n *localConsensus) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
+func (n *localStarknetData) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-var _ starknetdata.StarknetData = &localConsensus{}
+var _ starknetdata.StarknetData = &localStarknetData{}

@@ -80,13 +80,32 @@ func (r *reliableSnapServer) GetClassRange(ctx context.Context, classTrieRootHas
 
 		// TODO: Verify hashes
 		var hasNext bool
-		hasNext, err = trie.VerifyTrie(classTrieRootHash, response.Paths, response.ClassHashes, response.Proofs, crypto.Poseidon)
+		hasNext, err = trie.VerifyTrie(classTrieRootHash, response.Paths, response.ClassCommitments, response.Proofs, crypto.Poseidon)
 		if err != nil {
 			log.Warn("error verifying trie", "err", err)
 			continue
 		}
 
 		return hasNext, response, nil
+	}
+}
+
+func (r *reliableSnapServer) GetClasses(ctx context.Context, classes []*felt.Felt) ([]core.Class, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		response, err := r.innerServer.GetClasses(classes)
+		if err != nil {
+			log.Warn("error fetching class range", "err", err)
+			continue
+		}
+
+		// TODO: Verify hashes
+		return response, nil
 	}
 }
 
