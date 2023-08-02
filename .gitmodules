@@ -1,0 +1,3 @@
+[submodule "p2p/starknet-p2p-specs"]
+	path = p2p/starknet-p2p-specs
+	url = https://github.com/starknet-io/starknet-p2p-specs.git
