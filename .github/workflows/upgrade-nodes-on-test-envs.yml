@@ -28,7 +28,7 @@ jobs:
           echo "HOST=${{ secrets.RELEASE_IP }}" >> $GITHUB_ENV
         fi
         
-    - name: Trigger build_and_push_docker_image
+    - name: Trigger build_and_push_docker_image_amd
       id: trigger-build
       uses: benc-uk/workflow-dispatch@v1
       with:
@@ -37,12 +37,12 @@ jobs:
         ref: ${{ github.ref }}
         inputs: '{"tag": "${{ env.DOCKER_IMAGE_TAG }}"}'
 
-    - name: Wait for build_and_push_docker_image workflow to complete
+    - name: Wait for build_and_push_docker_image_amd workflow to complete
       uses: fountainhead/action-wait-for-check@v1.1.0
       id: wait-for-build
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        checkName: build_and_push_docker_image
+        checkName: build_and_push_docker_image_amd
         intervalSeconds: 60
         timeoutSeconds: 1800
     
