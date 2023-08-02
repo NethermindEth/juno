@@ -55,7 +55,8 @@ jobs:
         password: ${{ secrets.VM_PASSWORD }}
         envs: DOCKER_IMAGE_TAG
         script: |
-            port=6060
+            rpcPort=6060
+            metricsPort=9090
             for network in mainnet goerli goerli2 integration; do
                 docker stop juno_$network
                 docker rm juno_$network
@@ -71,18 +72,21 @@ jobs:
                 fi
                 docker run -d \
                     --name juno_$network \
-                    -p $port:$port \
+                    -p $rpcPort:$rpcPort \
+                    -p $metricsPort:$metricsPort \
                     -v /root/juno_$network:/var/lib/juno \
                     nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
                     --db-path /var/lib/juno \
-                    --http-port $port \
+                    --http-port $rpcPort \
                     --network $network \
                     --colour=false \
                     --pending-poll-interval 5s \
                     --metrics \
+                    --metrics-port $metricsPort \
                     $ETH_NODE_PARAM \
                     $PPROF_PARAM
-                port=$((port+5))
+                rpcPort=$((rpcPort+5))
+                metricsPort=$((metricsPort+5))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
 
