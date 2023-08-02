@@ -272,7 +272,7 @@ func (s *State) UpdateNoVerify(blockNumber uint64, update *StateUpdate, declared
 	}
 
 	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
-		return err
+		return errors.Join(err, errors.New("error updating undeclaret"))
 	}
 
 	stateTrie, storageCloser, err := s.storage()
@@ -282,13 +282,13 @@ func (s *State) UpdateNoVerify(blockNumber uint64, update *StateUpdate, declared
 
 	// register deployed contracts
 	for _, contract := range update.StateDiff.DeployedContracts {
-		if err = s.putNewContract(stateTrie, contract.Address, contract.ClassHash, blockNumber); err != nil {
-			return err
+		if err = s.putNewContract(stateTrie, contract.Address, contract.ClassHash, blockNumber); err != nil && err != ErrContractAlreadyDeployed {
+			return errors.Join(err, errors.New("error putting new contract"))
 		}
 	}
 
 	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
-		return err
+		return errors.Join(err, errors.New("error updating contract"))
 	}
 
 	if err = storageCloser(); err != nil {
@@ -362,20 +362,14 @@ func (s *State) UpdateStorageRaw(diffs map[felt.Felt][]StorageDiff) error {
 	return nil
 }
 
-func (s *State) UpdateClassDirect(declaredClasses []DeclaredV1Class, classDefinitions map[felt.Felt]Class) error {
+func (s *State) UpdateClassDirect(paths []*felt.Felt, hashes []*felt.Felt) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
 	}
 
-	for _, declaredClass := range declaredClasses {
-		if _, found := classDefinitions[*declaredClass.ClassHash]; !found {
-			continue
-		}
-
-		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
-		leafValue := crypto.Poseidon(leafVersion, declaredClass.CompiledClassHash)
-		if _, err = classesTrie.Put(declaredClass.ClassHash, leafValue); err != nil {
+	for i, path := range paths {
+		if _, err = classesTrie.Put(path, hashes[i]); err != nil {
 			return err
 		}
 	}
@@ -540,9 +534,11 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for key := range diffs {
 		keys = append(keys, key)
 	}
-	sort.SliceStable(keys, func(i, j int) bool {
-		return len(diffs[keys[i]]) > len(diffs[keys[j]])
-	})
+	if len(keys) < 100 {
+		sort.SliceStable(keys, func(i, j int) bool {
+			return len(diffs[keys[i]]) > len(diffs[keys[j]])
+		})
+	}
 
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))

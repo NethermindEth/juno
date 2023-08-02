@@ -406,12 +406,8 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 
 func (b *Blockchain) ApplyNoVerify(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := verifyBlock(txn, block); err != nil {
-			return err
-		}
-
 		state := core.NewState(txn)
-		if err := state.Update(block.Number, stateUpdate, newClasses); err != nil {
+		if err := state.UpdateNoVerify(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
 
@@ -451,13 +447,9 @@ func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, h
 	})
 }
 
-func (b *Blockchain) StoreClassDirect(declaredClasses []core.DeclaredV1Class, classDefinitions map[felt.Felt]core.Class) error {
+func (b *Blockchain) StoreClassDirect(paths []*felt.Felt, hashes []*felt.Felt) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := core.NewState(txn).UpdateClassDirect(declaredClasses, classDefinitions); err != nil {
-			return err
-		}
-
-		return txn.Set(db.ChainHeight.Key(), core.MarshalBlockNumber(uint64(0)))
+		return core.NewState(txn).UpdateClassDirect(paths, hashes)
 	})
 }
 

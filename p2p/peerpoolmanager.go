@@ -51,7 +51,7 @@ func NewP2PPeerPoolManager(p2p p2pServer, proto protocol.ID, logger utils.Simple
 		syncPeerMtx:                 &sync.Mutex{},
 		syncPeerUpdateChan:          make(chan int),
 		pickedBlockSyncPeers:        map[peer.ID]int{},
-		maxConcurrentRequestPerPeer: 4,
+		maxConcurrentRequestPerPeer: 128,
 	}
 
 	return peerManager, nil

@@ -2,9 +2,12 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/log"
 	"time"
@@ -13,6 +16,12 @@ import (
 type reliableSnapServer struct {
 	innerServer blockchain.SnapServer
 	log         utils.Logger
+}
+
+var RetryableErr = errors.New("retryable error")
+
+func isErrorRetryable(err error) bool {
+	return errors.Is(err, RetryableErr)
 }
 
 func (r *reliableSnapServer) GetTrieRootAt(ctx context.Context, block *core.Header) (*blockchain.TrieRootInfo, error) {
@@ -55,12 +64,61 @@ func (r *reliableSnapServer) GetTrieRootAt(ctx context.Context, block *core.Head
 	}
 }
 
-func (r *reliableSnapServer) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.ClassRangeResult, error) {
-	return r.innerServer.GetClassRange(classTrieRootHash, startAddr, limitAddr, maxNodes)
+func (r *reliableSnapServer) GetClassRange(ctx context.Context, classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (bool, *blockchain.ClassRangeResult, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return false, nil, ctx.Err()
+		default:
+		}
+
+		response, err := r.innerServer.GetClassRange(classTrieRootHash, startAddr, limitAddr, maxNodes)
+		if err != nil {
+			log.Warn("error fetching class range", "err", err)
+			continue
+		}
+
+		// TODO: Verify hashes
+		var hasNext bool
+		hasNext, err = trie.VerifyTrie(classTrieRootHash, response.Paths, response.ClassHashes, response.Proofs, crypto.Poseidon)
+		if err != nil {
+			log.Warn("error verifying trie", "err", err)
+			continue
+		}
+
+		return hasNext, response, nil
+	}
 }
 
-func (r *reliableSnapServer) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.AddressRangeResult, error) {
-	return r.innerServer.GetAddressRange(rootHash, startAddr, limitAddr, maxNodes)
+func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (bool, *blockchain.AddressRangeResult, error) {
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false, nil, ctx.Err()
+		default:
+		}
+
+		starttime := time.Now()
+		response, err := r.innerServer.GetAddressRange(rootHash, startAddr, limitAddr, maxNodes)
+		addressDurations.WithLabelValues("get").Observe(float64(time.Now().Sub(starttime).Microseconds()))
+		if err != nil {
+			log.Warn("error fetching address range", "err", err)
+			continue
+		}
+
+		// TODO: Verify hashes
+		starttime = time.Now()
+		hasNext, err := trie.VerifyTrie(rootHash, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
+		addressDurations.WithLabelValues("verify").Observe(float64(time.Now().Sub(starttime).Microseconds()))
+		if err != nil {
+			log.Warn("error verifying trie", "err", err)
+			continue
+		}
+
+		return hasNext, response, nil
+	}
+
 }
 
 func (r *reliableSnapServer) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes uint64) ([]*blockchain.StorageRangeResult, error) {
