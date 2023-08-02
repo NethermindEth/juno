@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,6 +65,16 @@ func TestService(t *testing.T) {
 	case <-time.After(time.Second):
 		require.True(t, false, "no events were emitted")
 	}
+
+	t.Run("new stream", func(t *testing.T) {
+		stream, err := peerA.NewStream(testCtx, identify.ID)
+		require.NoError(t, err)
+		require.NoError(t, stream.Close())
+
+		stream, err = peerB.NewStream(testCtx, identify.ID)
+		require.NoError(t, err)
+		require.NoError(t, stream.Close())
+	})
 
 	cancel()
 	wg.Wait()
