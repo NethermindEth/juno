@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -18,10 +17,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/grpc"
-	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/node/rpc"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
@@ -29,7 +28,6 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
@@ -102,7 +100,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	rpcSrv, err := makeRPC(cfg.RPCPort, rpcHandler, log)
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.RPCPort))
+	if err != nil {
+		return nil, fmt.Errorf("listen on http port %d: %w", cfg.RPCPort, err)
+	}
+	rpcSrv, err := rpcserver.New(listener, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -163,208 +165,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	}
 
 	return n, nil
-}
-
-func makeRPC(port uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) (*rpcServer, error) { //nolint: funlen
-	methods := []jsonrpc.Method{
-		{
-			Name:    "starknet_chainId",
-			Handler: rpcHandler.ChainID,
-		},
-		{
-			Name:    "starknet_blockNumber",
-			Handler: rpcHandler.BlockNumber,
-		},
-		{
-			Name:    "starknet_blockHashAndNumber",
-			Handler: rpcHandler.BlockHashAndNumber,
-		},
-		{
-			Name:    "starknet_getBlockWithTxHashes",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.BlockWithTxHashes,
-		},
-		{
-			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.BlockWithTxs,
-		},
-		{
-			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TransactionByHash,
-		},
-		{
-			Name:    "starknet_getTransactionReceipt",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TransactionReceiptByHash,
-		},
-		{
-			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.BlockTransactionCount,
-		},
-		{
-			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: rpcHandler.TransactionByBlockIDAndIndex,
-		},
-		{
-			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.StateUpdate,
-		},
-		{
-			Name:    "starknet_syncing",
-			Handler: rpcHandler.Syncing,
-		},
-		{
-			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: rpcHandler.Nonce,
-		},
-		{
-			Name:    "starknet_getStorageAt",
-			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
-			Handler: rpcHandler.StorageAt,
-		},
-		{
-			Name:    "starknet_getClassHashAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: rpcHandler.ClassHashAt,
-		},
-		{
-			Name:    "starknet_getClass",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
-			Handler: rpcHandler.Class,
-		},
-		{
-			Name:    "starknet_getClassAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: rpcHandler.ClassAt,
-		},
-		{
-			Name:    "starknet_addInvokeTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: rpcHandler.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeployAccountTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: rpcHandler.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeclareTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: rpcHandler.AddTransaction,
-		},
-		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: rpcHandler.Events,
-		},
-		{
-			Name:    "starknet_pendingTransactions",
-			Handler: rpcHandler.PendingTransactions,
-		},
-		{
-			Name:    "juno_version",
-			Handler: rpcHandler.Version,
-		},
-		{
-			Name:    "juno_getTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TransactionStatus,
-		},
-		{
-			Name:    "starknet_call",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: rpcHandler.Call,
-		},
-		{
-			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: rpcHandler.EstimateFee,
-		},
-		{
-			Name:    "starknet_estimateMessageFee",
-			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: rpcHandler.EstimateMessageFee,
-		},
-		{
-			Name:    "starknet_traceTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TraceTransaction,
-		},
-		{
-			Name:    "starknet_simulateTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: rpcHandler.SimulateTransactions,
-		},
-	}
-
-	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
-	for _, method := range methods {
-		if err := jsonrpcServer.RegisterMethod(method); err != nil {
-			return nil, err
-		}
-	}
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", port, err)
-	}
-	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
-
-	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
-
-	rpcHTTPHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.Header.Get("Upgrade") == "websocket" {
-			wsHandler.ServeHTTP(w, req)
-			return
-		}
-		httpHandler.ServeHTTP(w, req)
-	})
-	mux := http.NewServeMux()
-	mux.Handle("/", rpcHTTPHandler)
-	mux.Handle("/v0_4", rpcHTTPHandler)
-
-	return &rpcServer{
-		listener: listener,
-		mux:      mux,
-	}, nil
-}
-
-type rpcServer struct {
-	listener net.Listener
-	mux      *http.ServeMux
-}
-
-func (srv *rpcServer) Run(ctx context.Context) error {
-	httpSrv := &http.Server{
-		Addr:    srv.listener.Addr().String(),
-		Handler: srv.mux,
-		// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-		ReadTimeout: 30 * time.Second,
-	}
-
-	errCh := make(chan error)
-	defer close(errCh)
-
-	var wg conc.WaitGroup
-	defer wg.Wait()
-	wg.Go(func() {
-		if err := httpSrv.Serve(srv.listener); !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-	})
-
-	select {
-	case <-ctx.Done():
-		return httpSrv.Shutdown(context.Background())
-	case err := <-errCh:
-		return err
-	}
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
