@@ -15,6 +15,7 @@ import (
 )
 
 func TestService(t *testing.T) {
+	timeout := time.Second * 30
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	peerA, err := p2p.New(
@@ -62,7 +63,7 @@ func TestService(t *testing.T) {
 	select {
 	case evt := <-events:
 		require.Equal(t, network.Connected, evt.Connectedness)
-	case <-time.After(time.Second):
+	case <-time.After(timeout):
 		require.True(t, false, "no events were emitted")
 	}
 
@@ -74,6 +75,27 @@ func TestService(t *testing.T) {
 		stream, err = peerB.NewStream(testCtx, identify.ID)
 		require.NoError(t, err)
 		require.NoError(t, stream.Close())
+	})
+
+	t.Run("gossip", func(t *testing.T) {
+		topic := "coolTopic"
+		ch, closer, err := peerA.SubscribeToTopic(topic)
+		require.NoError(t, err)
+
+		// allow subscription to be propagated to peerB
+		time.Sleep(time.Second)
+
+		gossipedMessage := []byte(`veryImportantMessage`)
+		require.NoError(t, peerB.PublishOnTopic(topic, gossipedMessage))
+
+		select {
+		case <-time.After(timeout):
+			require.Equal(t, true, false)
+		case msg := <-ch:
+			require.Equal(t, gossipedMessage, msg)
+		}
+
+		closer()
 	})
 
 	cancel()
