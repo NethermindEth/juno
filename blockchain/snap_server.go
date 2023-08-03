@@ -49,6 +49,9 @@ type StorageRangeResult struct {
 	Values []*felt.Felt
 
 	Proofs []*trie.ProofNode
+
+	UpdatedContract      *AddressRangeLeaf
+	UpdatedContractProof []*trie.ProofNode
 }
 
 type SnapServer interface {
@@ -344,14 +347,49 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 		return nil, err
 	}
 
-	if !sroot.Equal(request.Hash) {
-		return nil, fmt.Errorf("storage root hash mismatch %s vs %s", sroot.String(), request.Hash.String())
-	}
-
 	response := &StorageRangeResult{
 		Paths:  nil,
 		Values: nil,
 		Proofs: nil,
+	}
+
+	if !sroot.Equal(request.Hash) {
+		storageTrie, closer, err := s.StorageTrie()
+		if err != nil {
+			return nil, err
+		}
+
+		defer func() {
+			err := closer()
+			if err != nil {
+				b.log.Errorw("error closing trie", "error", err)
+			}
+		}()
+
+		proofs, err := storageTrie.ProofTo(request.Path)
+		if err != nil {
+			return nil, err
+		}
+
+		nonce, err := contract.Nonce()
+		if err != nil {
+			return nil, err
+		}
+
+		classHash, err := contract.ClassHash()
+		if err != nil {
+			return nil, err
+		}
+
+		response.UpdatedContract = &AddressRangeLeaf{
+			ContractStorageRoot: sroot,
+			ClassHash:           classHash,
+			Nonce:               nonce,
+		}
+
+		response.UpdatedContractProof = proofs
+
+		return nil, fmt.Errorf("storage root hash mismatch %s vs %s", sroot.String(), request.Hash.String())
 	}
 
 	response.Proofs, err = iterateWithLimit(strie, request.StartAddr, request.LimitAddr, nodeLimit, func(key, value *felt.Felt) error {

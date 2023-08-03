@@ -96,6 +96,9 @@ message ContractRangeResponse {
   repeated starknet.common.FieldElement paths = 1;
   repeated starknet.common.FieldElement values = 2;
   repeated ProofNode proofs = 3;
+
+  AddressRangeLeaf updated_contract = 4;
+  repeated ProofNode updated_contract_proof = 5;
 }
 
 // Its a bitset in juno. Its a truncated field_element. Probably should use bytes though... But I'm lazy.

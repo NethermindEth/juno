@@ -96,24 +96,35 @@ var (
 		Name: "juno_storage_durations",
 		Help: "Time in address get",
 	}, []string{"phase"})
-	largeStorageDurations = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "juno_large_storage_durations",
-		Help: "Time in address get",
-	}, []string{"phase"})
 	storageStoreSize = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "juno_storage_store_size",
 		Help: "Time in address get",
 	})
+	storageStoreSizeTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_storage_store_size_total",
+		Help: "Time in address get",
+	})
+
+	largeStorageDurations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "juno_large_storage_durations",
+		Help: "Time in address get",
+	}, []string{"phase"})
 	largeStorageStoreSize = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "juno_large_storage_store_size",
 		Help: "Time in address get",
 	})
+
 	largeStorageStoreJobSize = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "juno_large_storage_store_job_size",
 		Help: "Time in address get",
 	})
 	rangeProgress = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "juno_range_progress",
+		Help: "Time in address get",
+	})
+
+	largeStorageStoreJobSizeTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_large_storage_store_job_size_total",
 		Help: "Time in address get",
 	})
 )
@@ -139,7 +150,7 @@ const (
 
 	classesJobQueueSize = 128
 
-	maxPivotDistance = 64
+	maxPivotDistance = 2
 )
 
 func (s *SnapSyncher) initState(ctx context.Context) error {
@@ -167,8 +178,8 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 
 	s.addressRangeDone = make(chan interface{})
 	s.storageRangeDone = make(chan interface{})
-	s.classesJob = make(chan *felt.Felt, 100000)
-	s.phase1Done = make(chan interface{}, classesJobQueueSize)
+	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
+	s.phase1Done = make(chan interface{})
 
 	s.mtxM = &sync.Mutex{}
 	s.mtxN = &sync.Mutex{}
@@ -443,8 +454,6 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 		}
 		hasNext = newHasNext
 
-		s.log.Infow("got nodes", "count", len(response.Paths))
-
 		classHashes := make([]*felt.Felt, 0)
 		nonces := make([]*felt.Felt, 0)
 		for i := range response.Paths {
@@ -535,7 +544,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				if len(requests) > 0 {
 					break requestloop
 				}
-				fmt.Printf("storage no job\n")
 			case <-addressdonechecker:
 				// Its done...
 				return nil
@@ -543,8 +551,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				requests = append(requests, job)
 			}
 		}
-
-		s.log.Infow("storage", "workerId", workerIdx, "requestCount", len(requests))
 
 		curstateroot := s.currentStateRoot
 
@@ -559,11 +565,13 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			unprocessedRequest := requests[i]
 			select {
 			case s.storageRangeJobRetry <- unprocessedRequest:
+				break
 			case <-ctx.Done():
 				return ctx.Err()
 			}
 		}
 
+		totalSize := 0
 		allDiffs := map[felt.Felt][]core.StorageDiff{}
 		largeStorageRequests := make([]*blockchain.StorageRangeRequest, 0)
 
@@ -601,6 +609,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 					Value: response.Values[i],
 				})
 			}
+			totalSize += len(diffs)
 
 			allDiffs[*request.Path] = diffs
 			if hasNext {
@@ -614,7 +623,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		storageStoreSize.Set(float64(len(allDiffs)))
 
 		starttime = time.Now()
-		err = s.SetStorage(allDiffs, s.storageRangeJobCount > highPriorityStorageJobThreshold)
+		err = s.SetStorage(allDiffs, s.storageRangeJobCount > highPriorityStorageJobThreshold, false)
 		storageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		starttime = time.Now()
 
@@ -627,6 +636,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 					queued = true
 					atomic.AddInt32(&s.largeStorageRangeJobCount, 1)
 				case <-ctx.Done():
+					return ctx.Err()
 				case <-time.After(time.Second):
 					fmt.Printf("Storage queue stall\n")
 				}
@@ -708,6 +718,7 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		largeStorageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		starttime = time.Now()
 		if err != nil {
+			s.log.Warnw("trie verification failed in large store")
 			return err
 		}
 
@@ -841,12 +852,12 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
 			counter -= jobsize
 
 			starttime := time.Now()
-			err := s.SetStorage(tostore, false)
+			err := s.SetStorage(tostore, false, true)
 			largeStorageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
 			if err != nil {
 				return errors.Join(err, errors.New("error storing large storage"))
 			}
-			s.log.Infow("large storage store", "size", len(curmap), "time", time.Now().Sub(starttime))
+			s.log.Infow("large storage store", "size", len(curmap), "total", jobsize, "time", time.Now().Sub(starttime))
 		}
 	}
 
@@ -857,7 +868,7 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
 		return nil
 	}
 
-	err = s.SetStorage(curmap, false)
+	err = s.SetStorage(curmap, false, true)
 	if err != nil {
 		return errors.Join(err, errors.New("error storing large storage"))
 	}
@@ -870,18 +881,21 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(time.Second):
+		case <-time.After(time.Second * 10):
+			break
 		case <-s.phase1Done:
 			return nil
 		}
 
 		head, err := s.starknetData.BlockLatest(ctx)
 		if err != nil {
+			s.log.Infow("Error pooling latest block", "lastblock", s.lastBlock.Number, "err", err)
 			return errors.Join(err, errors.New("error getting current head"))
 		}
 
 		// TODO: Race issue
-		if head.Number-s.startingBlock.Number < maxPivotDistance {
+		if head.Number-s.lastBlock.Number < maxPivotDistance {
+			s.log.Infow("Not updating pivot yet", "lastblock", s.lastBlock.Number, "head", head.Number, "diff", head.Number-s.lastBlock.Number)
 			continue
 		}
 
@@ -1009,10 +1023,13 @@ func (s *SnapSyncher) SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, cl
 	defer s.mtxM.Unlock()
 	s.mtxN.Unlock()
 
-	return s.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
+	starttime := time.Now()
+	err := s.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
+	addressDurations.WithLabelValues("effective_set").Observe(float64(time.Now().Sub(starttime).Microseconds()))
+	return err
 }
 
-func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, higherPriority bool) error {
+func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, higherPriority bool, isLargeStore bool) error {
 	// if !higherPriority {
 	s.mtxL.Lock()
 	defer s.mtxL.Unlock()
@@ -1023,7 +1040,27 @@ func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, higherP
 	defer s.mtxM.Unlock()
 	s.mtxN.Unlock()
 
-	return s.blockchain.StoreStorageDirect(diffs)
+	starttime := time.Now()
+	err := s.blockchain.StoreStorageDirect(diffs)
+
+	if isLargeStore {
+		jobsize := 0
+		for _, storageDiffs := range diffs {
+			jobsize += len(storageDiffs)
+		}
+		largeStorageDurations.WithLabelValues("effective_set").Add(float64(time.Now().Sub(starttime).Microseconds()))
+		largeStorageStoreJobSizeTotal.Add(float64(jobsize))
+	} else {
+		jobsize := 0
+		for _, storageDiffs := range diffs {
+			jobsize += len(storageDiffs)
+		}
+		storageDurations.WithLabelValues("effective_set").Add(float64(time.Now().Sub(starttime).Microseconds()))
+		storageStoreSizeTotal.Add(float64(jobsize))
+	}
+
+	return err
+
 }
 
 func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
