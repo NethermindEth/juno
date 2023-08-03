@@ -255,17 +255,17 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
-func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) error {
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
 	startValueKey := FeltToBitSet(startValue, 251)
-	_, err := t.doIterate(startValueKey, t.rootKey, consumer)
+	neverStopped, err := t.doIterate(startValueKey, t.rootKey, consumer)
 
-	return err
+	return neverStopped, err
 }
 
 func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
 	iterate_count.Inc()
 	if key == nil {
-		return true, nil
+		return false, nil
 	}
 
 	thenode, err := t.storage.Get(key)

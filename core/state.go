@@ -65,10 +65,17 @@ func NewState(txn db.Transaction) *State {
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
 // queried later with [GetContractClass].
-func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
+func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64, nonce *felt.Felt) error {
 	contract, err := DeployContract(addr, classHash, s.txn)
 	if err != nil {
 		return err
+	}
+
+	if nonce != nil {
+		err := contract.UpdateNonce(nonce)
+		if err != nil {
+			return err
+		}
 	}
 
 	numBytes := MarshalBlockNumber(blockNumber)
@@ -285,7 +292,7 @@ func (s *State) UpdateNoVerify(blockNumber uint64, update *StateUpdate, declared
 
 	// register deployed contracts
 	for _, contract := range update.StateDiff.DeployedContracts {
-		if err = s.putNewContract(stateTrie, contract.Address, contract.ClassHash, blockNumber); err != nil && err != ErrContractAlreadyDeployed {
+		if err = s.putNewContract(stateTrie, contract.Address, contract.ClassHash, blockNumber, nil); err != nil && err != ErrContractAlreadyDeployed {
 			return errors.Join(err, errors.New("error putting new contract"))
 		}
 	}
@@ -313,7 +320,7 @@ func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes [
 			return err
 		}
 
-		err = s.putNewContract(stateTrie, path, classHashes[i], 0)
+		err = s.putNewContract(stateTrie, path, classHashes[i], 0, nonces[i])
 		if err != nil && err != ErrContractAlreadyDeployed {
 			return err
 		}
@@ -322,9 +329,12 @@ func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes [
 			if err != nil {
 				return err
 			}
+			_, err = s.updateContractNonce(stateTrie, path, nonces[i])
+			if err != nil {
+				return err
+			}
 		}
 
-		_, err = s.updateContractNonce(stateTrie, path, nonces[i])
 		if err != nil {
 			return err
 		}
@@ -342,13 +352,13 @@ func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes [
 	return nil
 }
 
-func (s *State) UpdateStorageRaw(diffs map[felt.Felt][]StorageDiff) error {
+func (s *State) UpdateStorageRaw(diffs map[felt.Felt][]StorageDiff, classes map[felt.Felt]*felt.Felt, nonces map[felt.Felt]*felt.Felt) error {
 	stateTrie, storageCloser, err := s.storage()
 	if err != nil {
 		return err
 	}
 
-	err = s.updateContractStorages(stateTrie, diffs, 0, false)
+	err = s.updateContractStorages(stateTrie, diffs, classes, nonces, 0, false)
 	if err != nil {
 		return err
 	}
@@ -418,7 +428,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 	}
 
 	// update contract storages
-	return s.updateContractStorages(stateTrie, diff.StorageDiffs, blockNumber, logChanges)
+	return s.updateContractStorages(stateTrie, diff.StorageDiffs, nil, nil, blockNumber, logChanges)
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
@@ -537,24 +547,45 @@ var updateContractDuration = promauto.NewCounterVec(prometheus.CounterOpts{
 
 // updateContractStorage applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt][]StorageDiff, blockNumber uint64, logChanges bool) error {
+func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt][]StorageDiff, classes map[felt.Felt]*felt.Felt, nonces map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) error {
 	// make sure all noClassContracts are deployed
 
 	starttime := time.Now()
 	for addr := range diffs {
-		if _, ok := noClassContracts[addr]; !ok {
+		_, isNoClassContract := noClassContracts[addr]
+		_, hasClass := classes[addr]
+		_, hasNonce := classes[addr]
+		if !isNoClassContract && !hasClass && !hasNonce {
 			continue
 		}
 
-		_, err := NewContract(&addr, s.txn)
+		ctrk, err := NewContract(&addr, s.txn)
 		if err != nil {
 			if !errors.Is(err, ErrContractNotDeployed) {
 				return err
 			}
+
 			// Deploy noClassContract
-			err = s.putNewContract(stateTrie, &addr, noClassContractsClassHash, blockNumber)
+			classHash := classes[addr]
+			if classHash == nil {
+				classHash = noClassContractsClassHash
+			}
+			err = s.putNewContract(stateTrie, &addr, classHash, blockNumber, nonces[addr])
 			if err != nil {
 				return err
+			}
+		} else {
+			if nonce, ok := nonces[addr]; ok {
+				err := ctrk.UpdateNonce(nonce)
+				if err != nil {
+					return err
+				}
+			}
+			if newClassHash, ok := classes[addr]; ok {
+				err := ctrk.Replace(newClassHash)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -566,11 +597,9 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for key := range diffs {
 		keys = append(keys, key)
 	}
-	if len(keys) < 100 {
-		sort.SliceStable(keys, func(i, j int) bool {
-			return len(diffs[keys[i]]) > len(diffs[keys[j]])
-		})
-	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return len(diffs[keys[i]]) > len(diffs[keys[j]])
+	})
 
 	starttime = time.Now()
 	// update per-contract storage Tries concurrently

@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/log"
 	"time"
 )
 
@@ -45,18 +44,18 @@ func (r *reliableSnapServer) GetTrieRootAt(ctx context.Context, block *core.Head
 
 		rootInfo, err := r.innerServer.GetTrieRootAt(block.Hash)
 		if err != nil {
-			log.Warn("error fetching trie root", "err", err)
+			r.log.Warnw("error fetching trie root", "err", err)
 			continue
 		}
 
 		if rootInfo == nil || rootInfo.StorageRoot == nil {
-			log.Warn("nil root info")
+			r.log.Warnw("nil root info")
 			continue
 		}
 
 		combinedRoot := core.CalculateCombinedRoot(rootInfo.StorageRoot, rootInfo.ClassRoot)
 		if !block.GlobalStateRoot.Equal(combinedRoot) {
-			log.Warn("global state root mismatched")
+			r.log.Warnw("global state root mismatched")
 			continue
 		}
 
@@ -74,7 +73,7 @@ func (r *reliableSnapServer) GetClassRange(ctx context.Context, classTrieRootHas
 
 		response, err := r.innerServer.GetClassRange(classTrieRootHash, startAddr, limitAddr, maxNodes)
 		if err != nil {
-			log.Warn("error fetching class range", "err", err)
+			r.log.Warnw("error fetching class range", "err", err)
 			continue
 		}
 
@@ -82,7 +81,7 @@ func (r *reliableSnapServer) GetClassRange(ctx context.Context, classTrieRootHas
 		var hasNext bool
 		hasNext, err = trie.VerifyTrie(classTrieRootHash, response.Paths, response.ClassCommitments, response.Proofs, crypto.Poseidon)
 		if err != nil {
-			log.Warn("error verifying trie", "err", err)
+			r.log.Warnw("error verifying trie", "err", err)
 			continue
 		}
 
@@ -100,7 +99,7 @@ func (r *reliableSnapServer) GetClasses(ctx context.Context, classes []*felt.Fel
 
 		response, err := r.innerServer.GetClasses(classes)
 		if err != nil {
-			log.Warn("error fetching class range", "err", err)
+			r.log.Warnw("error fetching class range", "err", err)
 			continue
 		}
 
@@ -122,7 +121,7 @@ func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt
 		response, err := r.innerServer.GetAddressRange(rootHash, startAddr, limitAddr, maxNodes)
 		addressDurations.WithLabelValues("get").Observe(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
-			log.Warn("error fetching address range", "err", err)
+			r.log.Warnw("error fetching address range", "err", err)
 			continue
 		}
 
@@ -131,7 +130,7 @@ func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt
 		hasNext, err := trie.VerifyTrie(rootHash, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
 		addressDurations.WithLabelValues("verify").Observe(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
-			log.Warn("error verifying trie", "err", err)
+			r.log.Warnw("error verifying trie", "err", err)
 			continue
 		}
 

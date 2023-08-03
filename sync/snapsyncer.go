@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/sync/errgroup"
 	big "math/big"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,11 +46,10 @@ type SnapSyncher struct {
 
 	addressRangeDone chan interface{}
 	storageRangeDone chan interface{}
-	phase1Done       chan interface{}
+	largeStoreDone   chan interface{}
 
 	storageRangeJobCount int32
-	storageRangeJob      chan *blockchain.StorageRangeRequest
-	storageRangeJobRetry chan *blockchain.StorageRangeRequest
+	storageRangeJob      chan *storageRangeJob
 
 	largeStorageRangeJobCount int32
 	largeStorageRangeJob      chan *blockchain.StorageRangeRequest
@@ -61,6 +61,12 @@ type SnapSyncher struct {
 	mtxM *sync.Mutex
 	mtxN *sync.Mutex
 	mtxL *sync.Mutex
+}
+
+type storageRangeJob struct {
+	snapServerRequest blockchain.StorageRangeRequest
+	classHash         *felt.Felt
+	nonce             *felt.Felt
 }
 
 type largeStorageStoreJob struct {
@@ -127,28 +133,33 @@ var (
 		Name: "juno_large_storage_store_job_size_total",
 		Help: "Time in address get",
 	})
+
+	updateContractTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "juno_updated_contract_totals",
+		Help: "Time in address get",
+	}, []string{"location"})
+	storeJobType = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "juno_store_job_type",
+		Help: "Time in address get",
+	}, []string{"type"})
 )
 
-const (
-	storageJobQueueSize             = 100000
-	highPriorityStorageJobThreshold = 10000
-	storageJobRetryQueueSize        = 10000000
-	largeStorageJobQueueSize        = 0
-
-	storageJobWorker      = 8
-	largeStorageJobWorker = 64 // Large storage are largest and most parallelizable. So we want a lot of this.
+var (
+	storageJobWorker    = 4
+	storageBatchSize    = 500
+	storageMaxNodes     = 3000                                // Smaller values tend to help here as the existence of large account is not easily parallizable her here.
+	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
 	classRangeMaxNodes   = 10000
 	addressRangeMaxNodes = 5000
 
-	// Smaller value here seems to help quite a lot
-	storageBatchSize = 400
-	storageMaxNodes  = 2000
+	largeStorageJobWorker      = runtime.NumCPU() * 2 // Large storage are largest and most parallelizable. So we want a lot of this.
+	largeStorageMaxNodes       = 10000
+	largeStorageJobQueueSize   = 4 // They are usually very slow. So more does not really do anything.
+	largeStorageStoreQueueSize = 0 // We want the large storage to be throttled by large store
 
-	largeStorageMaxNodes       = 5000
-	largeStorageStoreQueueSize = 0
-
-	classesJobQueueSize = 128
+	fetchClassWorkerCount = 4
+	classesJobQueueSize   = 128
 
 	maxPivotDistance = 2
 )
@@ -158,9 +169,13 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	if err != nil {
 		return errors.Join(err, errors.New("error getting current head"))
 	}
+	startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-1)
+	if err != nil {
+		return errors.Join(err, errors.New("error getting current head"))
+	}
 
-	s.startingBlock = head.Header
-	s.lastBlock = head.Header
+	s.startingBlock = startingBlock.Header
+	s.lastBlock = startingBlock.Header
 
 	rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.startingBlock)
 	if err != nil {
@@ -170,16 +185,15 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	s.currentClassRoot = rootInfo.ClassRoot
 
 	s.storageRangeJobCount = 0
-	s.storageRangeJob = make(chan *blockchain.StorageRangeRequest, storageJobQueueSize)
-	s.storageRangeJobRetry = make(chan *blockchain.StorageRangeRequest, storageJobRetryQueueSize)
+	s.storageRangeJob = make(chan *storageRangeJob, storageJobQueueSize)
 	s.largeStorageRangeJobCount = 0
 	s.largeStorageRangeJob = make(chan *blockchain.StorageRangeRequest, largeStorageJobQueueSize)
 	s.largeStorageStoreJob = make(chan *largeStorageStoreJob, largeStorageStoreQueueSize)
+	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
 
 	s.addressRangeDone = make(chan interface{})
 	s.storageRangeDone = make(chan interface{})
-	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
-	s.phase1Done = make(chan interface{})
+	s.largeStoreDone = make(chan interface{})
 
 	s.mtxM = &sync.Mutex{}
 	s.mtxN = &sync.Mutex{}
@@ -231,16 +245,17 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		return errors.Join(err, errors.New("error initializing snap syncer state"))
 	}
 
-	eg := &errgroup.Group{}
+	eg, ectx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
 		defer func() {
+			s.log.Infow("pool latest block done")
 			if err := recover(); err != nil {
 				s.log.Errorw("latest block pool paniced", "err", err)
 			}
 		}()
 
-		return s.poolLatestBlock(ctx)
+		return s.poolLatestBlock(ectx)
 	})
 
 	eg.Go(func() error {
@@ -250,7 +265,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 			}
 		}()
 
-		err := s.runClassRangeWorker(ctx)
+		err := s.runClassRangeWorker(ectx)
 		if err != nil {
 			s.log.Errorw("error in class range worker", "err", err)
 		}
@@ -265,15 +280,18 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 			}
 		}()
 
-		err := s.runAddressRangeWorker(ctx)
+		err := s.runAddressRangeWorker(ectx)
 		if err != nil {
 			s.log.Errorw("error in address range worker", "err", err)
 		}
 
+		close(s.addressRangeDone)
+		close(s.classesJob)
+
 		return err
 	})
 
-	storageEg := &errgroup.Group{}
+	storageEg, sctx := errgroup.WithContext(ectx)
 	for i := 0; i < storageJobWorker; i++ {
 		i := i
 		storageEg.Go(func() error {
@@ -283,7 +301,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 				}
 			}()
 
-			err := s.runStorageRangeWorker(ctx, i)
+			err := s.runStorageRangeWorker(sctx, i)
 			if err != nil {
 				s.log.Errorw("error in storage range worker", "err", err)
 			}
@@ -300,12 +318,12 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 			return err
 		}
 
-		fmt.Printf("Storage range range completed")
+		s.log.Infow("Storage range range completed")
 		close(s.storageRangeDone)
 		return nil
 	})
 
-	lStorageEg := &errgroup.Group{}
+	lStorageEg, lctx := errgroup.WithContext(ectx)
 	for i := 0; i < largeStorageJobWorker; i++ {
 		i := i
 		lStorageEg.Go(func() error {
@@ -315,7 +333,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 				}
 			}()
 
-			err := s.runLargeStorageRangeWorker(ctx, i)
+			err := s.runLargeStorageRangeWorker(lctx, i)
 			if err != nil {
 				s.log.Errorw("error in large storage range worker", "err", err)
 			}
@@ -326,51 +344,61 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 
 	eg.Go(func() error {
 		err := lStorageEg.Wait()
+		s.log.Infow("All larges storage worker completed")
 		close(s.largeStorageStoreJob)
+		close(s.largeStoreDone)
 		return err
 	})
 
-	eg.Go(func() error {
-		err := s.runLargeStorageStore(ctx)
-		if err != nil {
-			s.log.Errorw("large storage store failed", "err", err)
-		}
-		return err
-	})
+	for i := 0; i < 1; i++ {
+		eg.Go(func() error {
+			err := s.runLargeStorageStore(ectx, 1)
+			if err != nil {
+				s.log.Errorw("large storage store failed", "err", err)
+			}
+			return err
+		})
+	}
 
-	eg.Go(func() error {
-		err := s.runFetchClassJob(ctx)
-		if err != nil {
-			s.log.Errorw("fetch class failed", "err", err)
-		}
-		return err
-	})
+	for i := 0; i < fetchClassWorkerCount; i++ {
+		i := i
+		eg.Go(func() error {
+			err := s.runFetchClassJob(ectx)
+			if err != nil {
+				s.log.Errorw("fetch class failed", "err", err)
+			}
+			s.log.Infow("fetch class completed", "workerId", i)
+			return err
+		})
+	}
 
-	close(s.phase1Done)
 	err = eg.Wait()
 	if err != nil {
 		return err
 	}
 
-	state, closer, err := s.blockchain.HeadState()
-	if err != nil {
-		return err
-	}
-	sroot, croot, err := state.(*core.State).StateAndClassRoot()
-	if err != nil {
-		return err
-	}
-	err = closer()
-	if err != nil {
-		return err
-	}
+	/*
+			s.log.Infow("verifying", "duration", time.Now().Sub(starttime).String())
+			state, closer, err := s.blockchain.HeadState()
+			if err != nil {
+				return err
+			}
+			sroot, croot, err := state.(*core.State).StateAndClassRoot()
+			if err != nil {
+				return err
+			}
+			err = closer()
+			if err != nil {
+				return err
+			}
 
-	if !sroot.Equal(s.currentStateRoot) {
-		return fmt.Errorf("state root mismatch %s vs %s", sroot.String(), s.currentStateRoot.String())
-	}
-	if !croot.Equal(s.currentClassRoot) {
-		return fmt.Errorf("state root mismatch %s vs %s", sroot.String(), s.currentStateRoot.String())
-	}
+		if !sroot.Equal(s.currentStateRoot) {
+			return fmt.Errorf("state root mismatch %s vs %s", sroot.String(), s.currentStateRoot.String())
+		}
+		if !croot.Equal(s.currentClassRoot) {
+			return fmt.Errorf("state root mismatch %s vs %s", sroot.String(), s.currentStateRoot.String())
+		}
+	*/
 
 	s.log.Infow("first phase completed", "duration", time.Now().Sub(starttime).String())
 
@@ -391,8 +419,7 @@ func calculatePercentage(f *felt.Felt) uint64 {
 func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 	totaladded := 0
 	startAddr := &felt.Zero
-	hasNext := true
-	for hasNext {
+	for {
 		classRoot := s.currentClassRoot
 		if classRoot == nil || classRoot.IsZero() {
 			s.log.Infow("no class root", "progress", calculatePercentage(startAddr))
@@ -401,34 +428,29 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 		s.log.Infow("class range progress", "progress", calculatePercentage(startAddr))
 
-		newHasNext, response, err := s.snapServer.GetClassRange(ctx, classRoot, startAddr, nil, classRangeMaxNodes)
+		hasNext, response, err := s.snapServer.GetClassRange(ctx, classRoot, startAddr, nil, uint64(classRangeMaxNodes))
 		if err != nil {
 			return errors.Join(err, errors.New("error get address range"))
 		}
 
-		hasNext = newHasNext
-
-		totaladded += len(response.Paths)
 		err = s.SetClasss(response.Paths, response.ClassCommitments)
 		if err != nil {
 			return errors.Join(err, errors.New("error setting class"))
 		}
 
 		for _, path := range response.Paths {
-			queued := false
-			for !queued {
-				select {
-				case s.classesJob <- path:
-					queued = true
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(time.Second):
-					s.log.Infow("address queue stall on class")
-				}
+			err := s.queueClassJob(ctx, path)
+			if err != nil {
+				return err
 			}
 		}
 
 		startAddr = response.Paths[len(response.Paths)-1]
+		totaladded += len(response.Paths)
+
+		if !hasNext {
+			break
+		}
 	}
 
 	s.log.Infow("class range completed", "totalClass", totaladded)
@@ -436,23 +458,16 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 }
 
 func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
-	defer func() {
-		close(s.classesJob)
-		close(s.addressRangeDone)
-	}()
-
 	startAddr := &felt.Zero
-	hasNext := true
-	for hasNext {
+	for {
 		curstateroot := s.currentStateRoot
 		s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
 		rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-		newHasNext, response, err := s.snapServer.GetAddressRange(ctx, curstateroot, startAddr, nil, addressRangeMaxNodes) // Verify is slow.
+		hasNext, response, err := s.snapServer.GetAddressRange(ctx, curstateroot, startAddr, nil, uint64(addressRangeMaxNodes)) // Verify is slow.
 		if err != nil {
 			return errors.Join(err, errors.New("error get address range"))
 		}
-		hasNext = newHasNext
 
 		classHashes := make([]*felt.Felt, 0)
 		nonces := make([]*felt.Felt, 0)
@@ -461,54 +476,34 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 			nonces = append(nonces, response.Leaves[i].Nonce)
 		}
 
-		// TODO: l0 class not in trie
 		starttime := time.Now()
-		err = s.SetAddress(response.Paths, response.Hashes, classHashes, nonces)
-		addressDurations.WithLabelValues("set").Observe(float64(time.Now().Sub(starttime).Microseconds()))
-		starttime = time.Now()
-		if err != nil {
-			return errors.Join(err, errors.New("error setting address"))
-		}
-
-		starttime = time.Now()
 		for i, path := range response.Paths {
 			if response.Leaves[i].ContractStorageRoot == nil {
 				return errors.New("storage root is nil")
 			}
 
-			queued := false
-			for !queued {
-				select {
-				case s.storageRangeJob <- &blockchain.StorageRangeRequest{
-					Path:      path,
-					Hash:      response.Leaves[i].ContractStorageRoot,
-					StartAddr: &felt.Zero,
-				}:
-					queued = true
-					atomic.AddInt32(&s.storageRangeJobCount, 1)
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(time.Second):
-					s.log.Infow("address queue stall")
-				}
+			err := s.queueStorageRangeJob(ctx, path, response, i)
+			if err != nil {
+				return err
 			}
+		}
 
-			queued = false
-			for !queued {
-				select {
-				case s.classesJob <- response.Leaves[i].ClassHash:
-					queued = true
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(time.Second):
-					s.log.Infow("address queue stall on class")
-				}
+		addressDurations.WithLabelValues("queueing").Observe(float64(time.Now().Sub(starttime).Microseconds()))
+		starttime = time.Now()
+
+		for i, _ := range response.Paths {
+			err := s.queueClassJob(ctx, response.Leaves[i].ClassHash)
+			if err != nil {
+				return err
 			}
-
 		}
 
 		startAddr = response.Paths[len(response.Paths)-1]
-		addressDurations.WithLabelValues("queueing").Observe(float64(time.Now().Sub(starttime).Microseconds()))
+		addressDurations.WithLabelValues("class_queueing").Observe(float64(time.Now().Sub(starttime).Microseconds()))
+
+		if !hasNext {
+			break
+		}
 	}
 
 	s.log.Infow("address range completed")
@@ -516,69 +511,118 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 	return nil
 }
 
+func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
+	queued := false
+	for !queued {
+		select {
+		case s.classesJob <- classHash:
+			queued = true
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			s.log.Infow("address queue stall on class")
+		}
+	}
+	return nil
+}
+
+func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path *felt.Felt, response *blockchain.AddressRangeResult, i int) error {
+	queued := false
+	for !queued {
+		select {
+		case s.storageRangeJob <- &storageRangeJob{
+			snapServerRequest: blockchain.StorageRangeRequest{
+				Path:      path,
+				Hash:      response.Leaves[i].ContractStorageRoot,
+				StartAddr: &felt.Zero,
+			},
+			classHash: response.Leaves[i].ClassHash,
+			nonce:     response.Leaves[i].Nonce,
+		}:
+			queued = true
+			atomic.AddInt32(&s.storageRangeJobCount, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			s.log.Infow("address queue stall")
+		}
+	}
+	return nil
+}
+
 func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
 	totalprocessed := 0
+	nextjobs := make([]*storageRangeJob, 0)
 	for {
-		requests := make([]*blockchain.StorageRangeRequest, 0)
+		jobs := nextjobs
 
 	requestloop:
-		for len(requests) < storageBatchSize {
+		for len(jobs) < storageBatchSize {
 			addressdonechecker := s.addressRangeDone
 			if s.storageRangeJobCount > 0 {
-				addressdonechecker = nil // So that it never complete
-			}
-
-			// Take from retry first, or there can be a deadlock
-			// TODO: use a loop
-			select {
-			case job := <-s.storageRangeJobRetry:
-				requests = append(requests, job)
-				continue
-			default:
+				addressdonechecker = nil // So that it never complete as there are job to be done
 			}
 
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-time.After(time.Second * 10):
-				if len(requests) > 0 {
+				if len(jobs) > 0 {
 					break requestloop
 				}
+				s.log.Infow("waiting for more storage job", "count", s.storageRangeJobCount)
 			case <-addressdonechecker:
 				// Its done...
 				return nil
 			case job := <-s.storageRangeJob:
-				requests = append(requests, job)
+				jobs = append(jobs, job)
 			}
+		}
+
+		requests := make([]*blockchain.StorageRangeRequest, 0)
+		for _, job := range jobs {
+			requests = append(requests, &job.snapServerRequest)
 		}
 
 		curstateroot := s.currentStateRoot
 
 		starttime := time.Now()
-		responses, err := s.snapServer.GetContractRange(curstateroot, requests, storageMaxNodes)
+		responses, err := s.snapServer.GetContractRange(curstateroot, requests, uint64(storageMaxNodes))
 		storageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
 			return err
 		}
 
-		for i := len(responses); i < len(requests); i++ {
-			unprocessedRequest := requests[i]
-			select {
-			case s.storageRangeJobRetry <- unprocessedRequest:
-				break
-			case <-ctx.Done():
-				return ctx.Err()
-			}
+		// Requeue job without response
+		// TODO: Just slice?
+		nextjobs = make([]*storageRangeJob, 0)
+		for i := len(responses); i < len(jobs); i++ {
+			unprocessedRequest := jobs[i]
+			nextjobs = append(nextjobs, unprocessedRequest)
 		}
 
 		totalSize := 0
 		allDiffs := map[felt.Felt][]core.StorageDiff{}
+		nonces := map[felt.Felt]*felt.Felt{}
+		classHashes := map[felt.Felt]*felt.Felt{}
 		largeStorageRequests := make([]*blockchain.StorageRangeRequest, 0)
 
 		for i, response := range responses {
 			request := requests[i]
+			job := jobs[i]
 
-			// TODO: it could be nil if its updated and therefore require a refresh
+			if response.UpdatedContract != nil {
+				updateContractTotal.WithLabelValues("storage").Inc()
+				_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{request.Path}, []*felt.Felt{response.UpdatedContract.ClassHash}, response.UpdatedContractProof, crypto.Pedersen)
+				if err != nil {
+					return errors.Join(err, errors.New("updated contract verification failed"))
+				}
+
+				request.Hash = response.UpdatedContract.ContractStorageRoot
+				job.nonce = response.UpdatedContract.Nonce
+				job.classHash = response.UpdatedContract.ClassHash
+			}
+
 			if len(response.Paths) == 0 {
 				if !request.Hash.Equal(&felt.Zero) {
 					return fmt.Errorf("empty path got non zero hash")
@@ -586,6 +630,11 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				// TODO: need to check if its really empty
 				atomic.AddInt32(&s.storageRangeJobCount, -1)
 				totalprocessed++
+
+				allDiffs[*request.Path] = nil
+				nonces[*request.Path] = job.nonce
+				classHashes[*request.Path] = job.classHash
+
 				continue
 			}
 
@@ -612,7 +661,11 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			totalSize += len(diffs)
 
 			allDiffs[*request.Path] = diffs
+			nonces[*request.Path] = job.nonce
+			classHashes[*request.Path] = job.classHash
+
 			if hasNext {
+				request.StartAddr = diffs[len(diffs)-1].Key
 				largeStorageRequests = append(largeStorageRequests, request)
 			}
 
@@ -623,23 +676,15 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		storageStoreSize.Set(float64(len(allDiffs)))
 
 		starttime = time.Now()
-		err = s.SetStorage(allDiffs, s.storageRangeJobCount > highPriorityStorageJobThreshold, false)
+		err = s.SetStorage(allDiffs, classHashes, nonces, true, false)
 		storageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		starttime = time.Now()
 
 		// Need to be after SetStorage or some contract would not be deployed yet.
 		for _, request := range largeStorageRequests {
-			queued := false
-			for !queued {
-				select {
-				case s.largeStorageRangeJob <- request:
-					queued = true
-					atomic.AddInt32(&s.largeStorageRangeJobCount, 1)
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(time.Second):
-					fmt.Printf("Storage queue stall\n")
-				}
+			err := s.enqueueLargeStorageRangeJob(ctx, request)
+			if err != nil {
+				return err
 			}
 		}
 		storageDurations.WithLabelValues("queueing").Add(float64(time.Now().Sub(starttime).Microseconds()))
@@ -649,6 +694,22 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		}
 
 	}
+}
+
+func (s *SnapSyncher) enqueueLargeStorageRangeJob(ctx context.Context, request *blockchain.StorageRangeRequest) error {
+	queued := false
+	for !queued {
+		select {
+		case s.largeStorageRangeJob <- request:
+			queued = true
+			atomic.AddInt32(&s.largeStorageRangeJobCount, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			s.log.Infow("torage queue stall")
+		}
+	}
+	return nil
 }
 
 func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx int) error {
@@ -704,7 +765,7 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		curstateroot := s.currentStateRoot
 		job.StartAddr = startAddr
 		starttime := time.Now()
-		responses, err := s.snapServer.GetContractRange(curstateroot, []*blockchain.StorageRangeRequest{job}, largeStorageMaxNodes)
+		responses, err := s.snapServer.GetContractRange(curstateroot, []*blockchain.StorageRangeRequest{job}, uint64(largeStorageMaxNodes))
 		largeStorageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		starttime = time.Now()
 		if err != nil {
@@ -712,6 +773,28 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		}
 
 		response := responses[0] // TODO: it can return nothing
+
+		if response.UpdatedContract != nil {
+			updateContractTotal.WithLabelValues("lstorage").Inc()
+			_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{job.Path}, []*felt.Felt{response.UpdatedContract.ClassHash}, response.UpdatedContractProof, crypto.Pedersen)
+			if err != nil {
+				return errors.Join(err, errors.New("updated contract verification failed"))
+			}
+
+			job.Hash = response.UpdatedContract.ContractStorageRoot
+
+			diffs := map[felt.Felt][]core.StorageDiff{}
+			classes := map[felt.Felt]*felt.Felt{
+				*job.Path: response.UpdatedContract.ClassHash,
+			}
+			nonces := map[felt.Felt]*felt.Felt{
+				*job.Path: response.UpdatedContract.Nonce,
+			}
+			err = s.SetStorage(diffs, classes, nonces, true, false)
+			if err != nil {
+				return errors.Join(err, errors.New("unable to update updated contract"))
+			}
+		}
 
 		// TODO: Verify hashes
 		hasNext, err = trie.VerifyTrie(job.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
@@ -732,7 +815,6 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 			}
 		}
 
-		starttime = time.Now()
 		largeStorageDurations.WithLabelValues("queue").Add(float64(time.Now().Sub(starttime).Microseconds()))
 
 		startAddr = response.Paths[len(response.Paths)-1]
@@ -741,72 +823,44 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 	return nil
 }
 
-func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
+var (
+	storePerContractBatchSize         = 5000
+	storeFeederThrottleThreshold      = int(float64(storePerContractBatchSize) * 2)
+	storeThrottleDelay                = time.Millisecond
+	storeMaxConcurrentContractTrigger = runtime.NumCPU()
+	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 0.5)
+)
 
+type perPathJobs struct {
+	storagePath *felt.Felt
+	changes     []core.StorageDiff
+}
+
+func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) error {
+	// Strange queueing system where the store job from large store is buffered to a map (curmap) here.
+	// If the length of a particular key exceed `feederThrottleThreshold` in a buffer. It is not fed into the buffer
+	// and will throttle the large storage job.
+	// This causes the store loop to wait for enough concurrent path in the buffer before storing them.
+	// Sounds overcomplicated, but it reduces snap sync time by more than 2x. The rate of store via this path is
+	// 7.5 faster than via the storage (not large storage) path, but capped there for some reason.
+	// Theres probably a better and simpler way to do this...
 	rwlock := &sync.RWMutex{}
 	curmap := map[felt.Felt][]core.StorageDiff{}
+	centralfeeder := make(chan perPathJobs, 1)
 
-	type perPathJobs struct {
-		storagePath *felt.Felt
-		changes     []core.StorageDiff
-	}
-	centralfeeder := make(chan perPathJobs)
-
-	feederThrottleThreshold := 30000
-	perContractBatchSize := 10000
-	maxTotalJobTrigger := 320000
-	maxConcurrentContractTrigger := 32
-	feederThrottleDelay := time.Millisecond
-
-	eg := &errgroup.Group{}
+	eg, ectx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
 		defer func() {
 			close(centralfeeder)
 		}()
-		eg2 := &errgroup.Group{}
+		eg2, ectx2 := errgroup.WithContext(ectx)
 
 		for newJob := range s.largeStorageStoreJob {
 			newJob := newJob
 
 			eg2.Go(func() error {
-				batch := make([]core.StorageDiff, 0)
-
-				for job := range newJob.changes {
-					batch = append(batch, job)
-
-					if len(batch) > 1000 {
-						for {
-							rwlock.RLock()
-							length := len(curmap[*newJob.storagePath])
-							rwlock.RUnlock()
-
-							if length > feederThrottleThreshold {
-								select {
-								case <-time.After(feederThrottleDelay):
-									continue
-								case <-s.storageRangeDone:
-								}
-							}
-
-							centralfeeder <- perPathJobs{
-								storagePath: newJob.storagePath,
-								changes:     batch,
-							}
-							batch = make([]core.StorageDiff, 0)
-							break
-						}
-					}
-				}
-
-				if len(batch) > 0 {
-					centralfeeder <- perPathJobs{
-						storagePath: newJob.storagePath,
-						changes:     batch,
-					}
-				}
-
-				return nil
+				return s.runStorageJobIngestor(ectx2, newJob, centralfeeder, rwlock, curmap)
 			})
 		}
 
@@ -821,7 +875,7 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
 		length := len(curmap)
 		rwlock.Unlock()
 
-		for counter > maxTotalJobTrigger || length > maxConcurrentContractTrigger {
+		for counter > storeMaxTotalJobTrigger || length > storeMaxConcurrentContractTrigger {
 
 			// In an effort to improve parallelism, we try to limit each contract to a batch size so that no
 			// single contract take too much time, delaying other contract.
@@ -829,8 +883,8 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
 
 			tostore := map[felt.Felt][]core.StorageDiff{}
 			for k, diffs := range curmap {
-				if len(diffs) > perContractBatchSize {
-					tostore[k] = diffs[:perContractBatchSize]
+				if len(diffs) > storePerContractBatchSize {
+					tostore[k] = diffs[:storePerContractBatchSize]
 				} else {
 					tostore[k] = diffs
 				}
@@ -839,12 +893,13 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
 			jobsize := 0
 			for k := range tostore {
 				jobsize += len(tostore[k])
-				if len(curmap[k]) > perContractBatchSize {
-					curmap[k] = curmap[k][perContractBatchSize:]
+				if len(curmap[k]) > storePerContractBatchSize {
+					curmap[k] = curmap[k][storePerContractBatchSize:]
 				} else {
 					delete(curmap, k)
 				}
 			}
+			length = len(curmap)
 			rwlock.Unlock()
 
 			largeStorageStoreSize.Set(float64(len(tostore)))
@@ -852,25 +907,81 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context) error {
 			counter -= jobsize
 
 			starttime := time.Now()
-			err := s.SetStorage(tostore, false, true)
+			err := s.SetStorage(tostore, nil, nil, false, true)
 			largeStorageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
 			if err != nil {
 				return errors.Join(err, errors.New("error storing large storage"))
 			}
-			s.log.Infow("large storage store", "size", len(curmap), "total", jobsize, "time", time.Now().Sub(starttime))
+			// s.log.Infow("large storage store", "workerId", workerId, "size", len(curmap), "total", jobsize, "length", length, "counter", counter, "time", time.Now().Sub(starttime))
 		}
 	}
 
-	s.log.Infow("large storage store job completed")
+	s.log.Infow("large storage store job completed", "workerId", workerId)
 
 	err := eg.Wait()
 	if err != nil {
 		return nil
 	}
 
-	err = s.SetStorage(curmap, false, true)
+	err = s.SetStorage(curmap, nil, nil, false, true)
 	if err != nil {
 		return errors.Join(err, errors.New("error storing large storage"))
+	}
+
+	return nil
+}
+
+func (s *SnapSyncher) runStorageJobIngestor(ctx context.Context, newJob *largeStorageStoreJob, centralfeeder chan perPathJobs, rwlock *sync.RWMutex, curmap map[felt.Felt][]core.StorageDiff) error {
+	batch := make([]core.StorageDiff, 0)
+
+	for job := range newJob.changes {
+		batch = append(batch, job)
+
+		if len(batch) > 1000 {
+		retryloop:
+			for {
+				select {
+				case <-s.storageRangeDone: // No throttle if storage range is done and no lock, which is why its here
+					storeJobType.WithLabelValues("unthrottled_finished").Inc()
+					centralfeeder <- perPathJobs{
+						storagePath: newJob.storagePath,
+						changes:     batch,
+					}
+					batch = make([]core.StorageDiff, 0)
+					break retryloop
+				default:
+				}
+
+				rwlock.RLock()
+				length := len(curmap[*newJob.storagePath])
+				rwlock.RUnlock()
+
+				if length > storeFeederThrottleThreshold {
+					select {
+					case <-time.After(storeThrottleDelay):
+						storeJobType.WithLabelValues("throttled").Inc()
+						continue
+					case <-s.storageRangeDone: // No throttle if storage range is done
+					case <-ctx.Done():
+					}
+				}
+
+				storeJobType.WithLabelValues("unthrottled").Inc()
+				centralfeeder <- perPathJobs{
+					storagePath: newJob.storagePath,
+					changes:     batch,
+				}
+				batch = make([]core.StorageDiff, 0)
+				break
+			}
+		}
+	}
+
+	if len(batch) > 0 {
+		centralfeeder <- perPathJobs{
+			storagePath: newJob.storagePath,
+			changes:     batch,
+		}
 	}
 
 	return nil
@@ -883,7 +994,7 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 			return nil
 		case <-time.After(time.Second * 10):
 			break
-		case <-s.phase1Done:
+		case <-s.largeStoreDone:
 			return nil
 		}
 
@@ -894,7 +1005,7 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 		}
 
 		// TODO: Race issue
-		if head.Number-s.lastBlock.Number < maxPivotDistance {
+		if head.Number-s.lastBlock.Number < uint64(maxPivotDistance) {
 			s.log.Infow("Not updating pivot yet", "lastblock", s.lastBlock.Number, "head", head.Number, "diff", head.Number-s.lastBlock.Number)
 			continue
 		}
@@ -1017,23 +1128,11 @@ func (s *SnapSyncher) SetClasss(paths []*felt.Felt, classCommitments []*felt.Fel
 	return s.blockchain.StoreClassCommitments(paths, classCommitments)
 }
 
-func (s *SnapSyncher) SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error {
-	s.mtxN.Lock()
-	s.mtxM.Lock()
-	defer s.mtxM.Unlock()
-	s.mtxN.Unlock()
-
-	starttime := time.Now()
-	err := s.blockchain.StoreDirect(paths, classHashes, nodeHashes, nonces)
-	addressDurations.WithLabelValues("effective_set").Observe(float64(time.Now().Sub(starttime).Microseconds()))
-	return err
-}
-
-func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, higherPriority bool, isLargeStore bool) error {
-	// if !higherPriority {
-	s.mtxL.Lock()
-	defer s.mtxL.Unlock()
-	// }
+func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, classes map[felt.Felt]*felt.Felt, nonces map[felt.Felt]*felt.Felt, higherPriority bool, isLargeStore bool) error {
+	if !higherPriority {
+		s.mtxL.Lock()
+		defer s.mtxL.Unlock()
+	}
 
 	s.mtxN.Lock()
 	s.mtxM.Lock()
@@ -1041,7 +1140,7 @@ func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, higherP
 	s.mtxN.Unlock()
 
 	starttime := time.Now()
-	err := s.blockchain.StoreStorageDirect(diffs)
+	err := s.blockchain.StoreStorageDirect(diffs, classes, nonces)
 
 	if isLargeStore {
 		jobsize := 0

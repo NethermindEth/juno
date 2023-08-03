@@ -466,9 +466,9 @@ func (b *Blockchain) StoreClasses(hashes []*felt.Felt, classes []core.Class) err
 	})
 }
 
-func (b *Blockchain) StoreStorageDirect(diffs map[felt.Felt][]core.StorageDiff) error {
+func (b *Blockchain) StoreStorageDirect(diffs map[felt.Felt][]core.StorageDiff, classes map[felt.Felt]*felt.Felt, nonces map[felt.Felt]*felt.Felt) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := core.NewState(txn).UpdateStorageRaw(diffs); err != nil {
+		if err := core.NewState(txn).UpdateStorageRaw(diffs, classes, nonces); err != nil {
 			return err
 		}
 

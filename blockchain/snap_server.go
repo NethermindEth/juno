@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type TrieRootInfo struct {
@@ -108,6 +110,11 @@ func (b *Blockchain) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) 
 	}, nil
 }
 
+var skipProof = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "snap_server_skip_proof",
+	Help: "Time in address get",
+}, []string{"skipped"})
+
 func iterateWithLimit(
 	srcTrie *trie.Trie,
 	startAddr *felt.Felt,
@@ -122,7 +129,7 @@ func iterateWithLimit(
 	var startPath *felt.Felt
 	var endPath *felt.Felt
 	count := uint64(0)
-	err := srcTrie.Iterate(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+	neverStopped, err := srcTrie.Iterate(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
 		// Need at least one.
 		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
 			return false, nil
@@ -152,6 +159,12 @@ func iterateWithLimit(
 		return nil, err
 	}
 
+	if neverStopped && startAddr.Equal(&felt.Zero) {
+		skipProof.WithLabelValues("yes").Inc()
+		return nil, nil // No need for proof
+	}
+	skipProof.WithLabelValues("no").Inc()
+
 	if count == 1 {
 		return srcTrie.ProofTo(startPath)
 	} else if count > 1 {
@@ -164,23 +177,7 @@ func iterateWithLimit(
 			return nil, err
 		}
 
-		skippedcount := 0
-		proofs := leftProof
-		for _, proof := range rightProof {
-			alreadyExist := false
-			for _, node := range proofs {
-				if node.Key.Equal(proof.Key) {
-					alreadyExist = true
-					break
-				}
-			}
-			if alreadyExist {
-				skippedcount += 1
-				continue
-			}
-
-			proofs = append(proofs, proof)
-		}
+		proofs := append(leftProof, rightProof...)
 
 		if ShouldVerifyTrie {
 			root, err := srcTrie.Root()
