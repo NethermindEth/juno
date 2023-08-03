@@ -285,3 +285,7 @@ func (s *Service) PublishOnTopic(topic string, data []byte) error {
 
 	return t.Publish(s.runCtx, data)
 }
+
+func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {
+	s.host.SetStreamHandler(pid, handler)
+}
