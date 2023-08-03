@@ -2,6 +2,7 @@ package p2p_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/stretchr/testify/require"
 )
@@ -96,6 +98,32 @@ func TestService(t *testing.T) {
 		}
 
 		closer()
+	})
+
+	t.Run("protocol handler", func(t *testing.T) {
+		ch := make(chan []byte)
+
+		superSecretProtocol := protocol.ID("superSecretProtocol")
+		peerA.SetProtocolHandler(superSecretProtocol, func(stream network.Stream) {
+			read, err := io.ReadAll(stream)
+			require.NoError(t, err)
+			ch <- read
+		})
+
+		peerAStream, err := peerB.NewStream(testCtx, superSecretProtocol)
+		require.NoError(t, err)
+
+		superSecretMessage := []byte(`superSecretMessage`)
+		_, err = peerAStream.Write(superSecretMessage)
+		require.NoError(t, err)
+		require.NoError(t, peerAStream.Close())
+
+		select {
+		case <-time.After(timeout):
+			require.Equal(t, true, false)
+		case msg := <-ch:
+			require.Equal(t, superSecretMessage, msg)
+		}
 	})
 
 	cancel()
