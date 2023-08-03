@@ -59,6 +59,7 @@
     "timestamp": 1638978017,
     "transaction_receipts": [
         {
+            "execution_status": "SUCCEEDED",
             "transaction_index": 0,
             "transaction_hash": "0x782806917e338d148960fe9d801cabdf41c197d144db73cde4a16499321e2a",
             "l2_to_l1_messages": [],
@@ -78,6 +79,7 @@
             "actual_fee": "0x0"
         },
         {
+            "execution_status": "SUCCEEDED",
             "transaction_index": 1,
             "transaction_hash": "0x7e845e48e9e9350f4f638ab145ab58346e767396aa84a5f9b695a27332f301b",
             "l2_to_l1_messages": [],
@@ -97,6 +99,7 @@
             "actual_fee": "0x0"
         },
         {
+            "execution_status": "SUCCEEDED",
             "transaction_index": 2,
             "transaction_hash": "0x5b99cc55d38c5dd909eeda916a2564364577a8d348b05c00de1419e1ff318e2",
             "l2_to_l1_messages": [],
@@ -116,6 +119,7 @@
             "actual_fee": "0x0"
         },
         {
+            "execution_status": "SUCCEEDED",
             "transaction_index": 3,
             "transaction_hash": "0x53028e485df33f22d4a6cd3a539759bce78e940314906c3057d206b57d4ce3f",
             "l2_to_l1_messages": [],

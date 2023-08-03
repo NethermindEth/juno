@@ -14,8 +14,9 @@ on:
         options:
         - official
         - non-official
+
 jobs:
-  build_and_push_docker_image:
+  build_and_push_docker_image_amd:
     if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-latest
     steps:
@@ -37,9 +38,62 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          platforms: ${{ github.event.inputs.repo_type == 'official' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: 'linux/amd64'
           push: true
-          tags: ${{ github.event.inputs.repo_type == 'official' && 'nethermind/juno' || 'nethermindeth/juno' }}:${{ github.event.inputs.tag }}
+          tags: nethermindeth/juno:${{ github.event.inputs.tag }}
+
+  build_and_push_docker_image_arm:
+    if: github.repository_owner == 'NethermindEth'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+            fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+            
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: Build and push ARM
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: 'linux/arm64'
+          push: true
+          tags: nethermindeth/juno:${{ github.event.inputs.tag }}-arm
+      
+      - name: Cleanup self-hosted
+        run: |
+          docker system prune -af
+
+  create_and_push_official_image:
+    if: github.repository_owner == 'NethermindEth' && github.event.inputs.repo_type == 'official'
+    needs: [build_and_push_docker_image_amd, build_and_push_docker_image_arm]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Create and push manifest
+        run: |
+          export DOCKER_CLI_EXPERIMENTAL=enabled
+          docker manifest create nethermind/juno:${{ github.event.inputs.tag }} \
+            nethermindeth/juno:${{ github.event.inputs.tag }} \
+            nethermindeth/juno:${{ github.event.inputs.tag }}-arm
+          docker manifest annotate nethermind/juno:${{ github.event.inputs.tag }} nethermindeth/juno:${{ github.event.inputs.tag }}-arm --os linux --arch arm64
+          docker manifest push nethermind/juno:${{ github.event.inputs.tag }}
           
       - name: Clean up environment
         if: always()

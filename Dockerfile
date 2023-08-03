@@ -1,9 +1,9 @@
 # Stage 1: Build golang dependencies and binaries
-FROM alpine:3.18 AS build
+FROM ubuntu:23.04 AS build
 
 # Install Alpine Dependencies
-RUN apk update && \
-    apk add build-base clang upx cargo go git
+RUN apt-get update && \
+    apt-get install build-essential cargo git golang upx-ucl -y
 
 WORKDIR /app
 
@@ -14,14 +14,12 @@ COPY . .
 RUN make juno
 
 # Compress the executable with UPX
-RUN upx /app/build/juno
+RUN upx-ucl /app/build/juno
 
 # Stage 2: Build Docker image
-FROM alpine:3.18 AS runtime
+FROM ubuntu:23.04 AS runtime
 
-# Install runtime dependencies
-RUN apk update --no-cache && \
-    apk add --no-cache libgcc
+RUN apt-get update && apt-get install -y ca-certificates
 
 COPY --from=build /app/build/juno /usr/local/bin/
 

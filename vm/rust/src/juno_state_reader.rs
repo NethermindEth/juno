@@ -30,7 +30,8 @@ extern "C" {
         reader_handle: usize,
         contract_address: *const c_uchar,
     ) -> *const c_uchar;
-    fn JunoStateGetCompiledClass(reader_handle: usize, class_hash: *const c_uchar) -> *const c_char;
+    fn JunoStateGetCompiledClass(reader_handle: usize, class_hash: *const c_uchar)
+        -> *const c_char;
 }
 
 pub struct JunoStateReader {

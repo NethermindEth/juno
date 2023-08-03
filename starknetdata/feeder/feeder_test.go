@@ -17,8 +17,7 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -36,8 +35,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -53,8 +51,7 @@ func TestBlockLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -80,8 +77,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client, serverClose := feeder.NewTestClient(utils.GOERLI)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.GOERLI)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -101,12 +97,10 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli, serverClose := feeder.NewTestClient(utils.GOERLI)
-	t.Cleanup(serverClose)
+	clientGoerli := feeder.NewTestClient(t, utils.GOERLI)
 	adapterGoerli := adaptfeeder.New(clientGoerli)
 
-	clientMainnet, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
+	clientMainnet := feeder.NewTestClient(t, utils.MAINNET)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := context.Background()
@@ -178,8 +172,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client, serverClose := feeder.NewTestClient(utils.INTEGRATION)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
 	adapter := adaptfeeder.New(client)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")

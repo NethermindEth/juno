@@ -142,9 +142,7 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 }
 
 func TestVerifyTransactionHash(t *testing.T) {
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
-
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
 	txnHash0 := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")

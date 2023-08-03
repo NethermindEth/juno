@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"runtime"
+	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -11,19 +13,21 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type Migration interface {
 	Before()
-	Migrate(db.Transaction) error
+	Migrate(db.Transaction, utils.Network) error
 }
 
-type MigrationFunc func(db.Transaction) error
+type MigrationFunc func(db.Transaction, utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(txn db.Transaction) error {
-	return f(txn)
+func (f MigrationFunc) Migrate(txn db.Transaction, network utils.Network) error {
+	return f(txn, network)
 }
 
 // Before is a no-op.
@@ -36,11 +40,12 @@ var migrations = []Migration{
 	MigrationFunc(relocateContractStorageRootKeys),
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
+	MigrationFunc(calculateBlockCommitments),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(targetDB db.DB) error {
+func MigrateIfNeeded(targetDB db.DB, network utils.Network) error {
 	/*
 		Schema version of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
@@ -66,25 +71,26 @@ func MigrateIfNeeded(targetDB db.DB) error {
 		migration := migrations[i]
 		migration.Before()
 		for {
-			if err = targetDB.Update(func(txn db.Transaction) error {
-				if err = migration.Migrate(txn); err != nil {
-					if !errors.Is(err, ErrCallWithNewTransaction) {
+			var migrationErr error
+			if dbErr := targetDB.Update(func(txn db.Transaction) error {
+				migrationErr = migration.Migrate(txn, network)
+				if migrationErr != nil {
+					if errors.Is(migrationErr, ErrCallWithNewTransaction) {
 						return nil // Run the migration again with a new transaction.
 					}
-					return err
+					return migrationErr
 				}
 
 				// Migration successful. Bump the version.
 				var versionBytes [8]byte
 				binary.BigEndian.PutUint64(versionBytes[:], i+1)
-				if err = txn.Set(db.SchemaVersion.Key(), versionBytes[:]); err != nil {
-					return err
-				}
-				return nil
-			}); err == nil {
+				return txn.Set(db.SchemaVersion.Key(), versionBytes[:])
+			}); dbErr != nil {
+				return dbErr
+			} else if migrationErr == nil {
 				break
-			} else if !errors.Is(err, ErrCallWithNewTransaction) {
-				return err
+			} else if !errors.Is(migrationErr, ErrCallWithNewTransaction) {
+				return migrationErr
 			}
 		}
 	}
@@ -107,7 +113,7 @@ func SchemaVersion(targetDB db.DB) (uint64, error) {
 }
 
 // migration0000 makes sure the targetDB is empty
-func migration0000(txn db.Transaction) error {
+func migration0000(txn db.Transaction, _ utils.Network) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -126,7 +132,7 @@ func migration0000(txn db.Transaction) error {
 // After: the key to the root of the contract storage trie is stored at 3+<contractAddress>.
 //
 // This enables us to remove the db.ContractRootKey prefix.
-func relocateContractStorageRootKeys(txn db.Transaction) error {
+func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -179,7 +185,7 @@ func relocateContractStorageRootKeys(txn db.Transaction) error {
 }
 
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
-func recalculateBloomFilters(txn db.Transaction) error {
+func recalculateBloomFilters(txn db.Transaction, _ utils.Network) error {
 	blockchain.RegisterCoreTypesToEncoder()
 	for blockNumber := uint64(0); ; blockNumber++ {
 		block, err := blockchain.BlockByNumber(txn, blockNumber)
@@ -226,7 +232,7 @@ func (m *changeTrieNodeEncoding) Before() {
 	}
 }
 
-func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction) error {
+func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) error {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
 	var n struct {
@@ -298,4 +304,32 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction) error {
 		}
 	}
 	return iterator.Close()
+}
+
+// calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
+func calculateBlockCommitments(txn db.Transaction, network utils.Network) error {
+	var txnLock sync.RWMutex
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+
+	for blockNumber := 0; ; blockNumber++ {
+		txnLock.RLock()
+		block, err := blockchain.BlockByNumber(txn, uint64(blockNumber))
+		txnLock.RUnlock()
+
+		if errors.Is(err, db.ErrKeyNotFound) {
+			break
+		}
+
+		workerPool.Go(func() error {
+			commitments, err := core.VerifyBlockHash(block, network)
+			if err != nil {
+				return err
+			}
+			txnLock.Lock()
+			defer txnLock.Unlock()
+			return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+		})
+	}
+
+	return workerPool.Wait()
 }

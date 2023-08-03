@@ -61,6 +61,7 @@ type TransactionReceipt struct {
 	L2ToL1Message      []*L2ToL1Message
 	TransactionHash    *felt.Felt
 	Reverted           bool
+	RevertReason       string
 }
 
 type Transaction interface {
