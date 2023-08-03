@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	"nhooyr.io/websocket"
 )
 
@@ -19,15 +21,28 @@ type Websocket struct {
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
 	listener   net.Listener
+	urlPrefix  string
+
+	// metrics
+	requests prometheus.Counter
 }
 
-func NewWebsocket(listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(urlPrefix string, listener net.Listener, rpc *Server, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   listener,
+		urlPrefix:  urlPrefix,
+
+		requests: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "rpc",
+			Subsystem: "ws",
+			Name:      "requests",
+		}),
 	}
+
+	metrics.MustRegister(ws.requests)
 	return ws
 }
 
@@ -49,7 +64,7 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 
 		// TODO include connection information, such as the remote address, in the logs.
 
-		wsc := newWebsocketConn(conn, ws.rpc, ws.connParams)
+		wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
 
 		err = wsc.ReadWriteLoop(ctx)
 
@@ -78,8 +93,12 @@ func (ws *Websocket) Handler(ctx context.Context) http.Handler {
 func (ws *Websocket) Run(ctx context.Context) error {
 	errCh := make(chan error)
 
+	handler := ws.Handler(ctx)
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle(ws.urlPrefix, handler)
 	srv := &http.Server{
-		Handler:           ws.Handler(ctx),
+		Handler:           mux,
 		ReadHeaderTimeout: 1 * time.Second,
 	}
 
@@ -101,37 +120,36 @@ type WebsocketConnParams struct {
 	ReadLimit int64
 	// Maximum time to write a message.
 	WriteDuration time.Duration
-	// Maximum time to read a message.
-	ReadDuration time.Duration
 }
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
 		ReadLimit:     32 * 1024 * 1024,
 		WriteDuration: 5 * time.Second,
-		ReadDuration:  30 * time.Second,
 	}
 }
 
 type websocketConn struct {
-	conn   *websocket.Conn
-	rpc    *Server
-	params *WebsocketConnParams
+	conn     *websocket.Conn
+	rpc      *Server
+	params   *WebsocketConnParams
+	requests prometheus.Counter
 }
 
-func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams) *websocketConn {
+func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, requests prometheus.Counter) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
-		conn:   conn,
-		rpc:    rpc,
-		params: params,
+		conn:     conn,
+		rpc:      rpc,
+		params:   params,
+		requests: requests,
 	}
 }
 
 func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 	for {
 		// Read next message from the client.
-		_, r, err := wsc.Read(ctx)
+		_, r, err := wsc.conn.Read(ctx)
 		if err != nil {
 			return err
 		}
@@ -139,6 +157,7 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 		// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
 		// permits concurrent writes.
 
+		wsc.requests.Inc()
 		// Decode the message, call the handler, encode the response.
 		resp, err := wsc.rpc.Handle(r)
 		if err != nil {
@@ -153,12 +172,6 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 			return err
 		}
 	}
-}
-
-func (wsc *websocketConn) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
-	readCtx, readCancel := context.WithTimeout(ctx, wsc.params.ReadDuration)
-	defer readCancel()
-	return wsc.conn.Read(readCtx)
 }
 
 func (wsc *websocketConn) Write(ctx context.Context, msg []byte) error {

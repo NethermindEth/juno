@@ -28,7 +28,7 @@ jobs:
           echo "HOST=${{ secrets.RELEASE_IP }}" >> $GITHUB_ENV
         fi
         
-    - name: Trigger build_and_push_docker_image
+    - name: Trigger build_and_push_docker_image_amd
       id: trigger-build
       uses: benc-uk/workflow-dispatch@v1
       with:
@@ -37,12 +37,12 @@ jobs:
         ref: ${{ github.ref }}
         inputs: '{"tag": "${{ env.DOCKER_IMAGE_TAG }}"}'
 
-    - name: Wait for build_and_push_docker_image workflow to complete
+    - name: Wait for build_and_push_docker_image_amd workflow to complete
       uses: fountainhead/action-wait-for-check@v1.1.0
       id: wait-for-build
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        checkName: build_and_push_docker_image
+        checkName: build_and_push_docker_image_amd
         intervalSeconds: 60
         timeoutSeconds: 1800
     
@@ -55,7 +55,8 @@ jobs:
         password: ${{ secrets.VM_PASSWORD }}
         envs: DOCKER_IMAGE_TAG
         script: |
-            port=6060
+            rpcPort=6060
+            metricsPort=9090
             for network in mainnet goerli goerli2 integration; do
                 docker stop juno_$network
                 docker rm juno_$network
@@ -71,16 +72,21 @@ jobs:
                 fi
                 docker run -d \
                     --name juno_$network \
-                    -p $port:$port \
+                    -p $rpcPort:$rpcPort \
+                    -p $metricsPort:$metricsPort \
                     -v /root/juno_$network:/var/lib/juno \
                     nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
                     --db-path /var/lib/juno \
-                    --http-port $port \
+                    --http-port $rpcPort \
                     --network $network \
                     --colour=false \
+                    --pending-poll-interval 5s \
+                    --metrics \
+                    --metrics-port $metricsPort \
                     $ETH_NODE_PARAM \
                     $PPROF_PARAM
-                port=$((port+5))
+                rpcPort=$((rpcPort+5))
+                metricsPort=$((metricsPort+5))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
 

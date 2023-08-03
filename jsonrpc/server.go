@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -100,6 +102,9 @@ type Server struct {
 	methods   map[string]Method
 	validator Validator
 	log       utils.SimpleLogger
+
+	// metrics
+	requests *prometheus.CounterVec
 }
 
 type Validator interface {
@@ -108,10 +113,18 @@ type Validator interface {
 
 // NewServer instantiates a JSONRPC server
 func NewServer(log utils.SimpleLogger) *Server {
-	return &Server{
+	s := &Server{
 		log:     log,
 		methods: make(map[string]Method),
+		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "rpc",
+			Subsystem: "server",
+			Name:      "requests",
+		}, []string{"method"}),
 	}
+
+	metrics.MustRegister(s.requests)
+	return s
 }
 
 // WithValidator registers a validator to validate handler struct arguments
@@ -261,10 +274,10 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 	start := time.Now()
 	reqJSON, err := json.Marshal(req)
 	if err == nil {
-		s.log.Infow("Serving RPC request", "request", string(reqJSON))
+		s.log.Debugw("Serving RPC request", "request", string(reqJSON))
 	}
 	defer func() {
-		s.log.Infow("Responding to RPC request", "method", req.Method, "id", req.ID, "took", time.Since(start))
+		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", time.Since(start))
 	}()
 
 	if err = req.isSane(); err != nil {
@@ -288,6 +301,7 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 		return res, nil
 	}
 
+	s.requests.WithLabelValues(req.Method).Inc()
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
 		return nil, nil

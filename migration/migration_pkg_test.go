@@ -26,14 +26,18 @@ func TestMigration0000(t *testing.T) {
 	})
 
 	t.Run("empty DB", func(t *testing.T) {
-		require.NoError(t, testDB.View(migration0000))
+		require.NoError(t, testDB.View(func(txn db.Transaction) error {
+			return migration0000(txn, utils.MAINNET)
+		}))
 	})
 
 	t.Run("non-empty DB", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set([]byte("asd"), []byte("123"))
 		}))
-		require.EqualError(t, testDB.View(migration0000), "initial DB should be empty")
+		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
+			return migration0000(txn, utils.MAINNET)
+		}), "initial DB should be empty")
 	})
 }
 
@@ -55,7 +59,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, relocateContractStorageRootKeys(txn))
+	require.NoError(t, relocateContractStorageRootKeys(txn, utils.MAINNET))
 
 	// Each root-key entry should have been moved to its new location
 	// and the old entry should not exist.
@@ -81,8 +85,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, testdb.Close())
 	})
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client, closeFn := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
@@ -92,10 +95,12 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, err)
 
 		b.EventsBloom = nil
-		require.NoError(t, chain.Store(b, su, nil))
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	require.NoError(t, testdb.Update(recalculateBloomFilters))
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		return recalculateBloomFilters(txn, utils.MAINNET)
+	}))
 
 	for i := uint64(0); i < 3; i++ {
 		b, err := chain.BlockByNumber(i)
@@ -144,7 +149,9 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	m := new(changeTrieNodeEncoding)
 	m.Before()
-	require.NoError(t, testdb.Update(m.Migrate))
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		return m.Migrate(txn, utils.MAINNET)
+	}))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		for _, bucket := range buckets {
@@ -159,4 +166,32 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 		return nil
 	}))
+}
+
+func TestCalculateBlockCommitments(t *testing.T) {
+	testdb := pebble.NewMemTest()
+	t.Cleanup(func() {
+		require.NoError(t, testdb.Close())
+	})
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+	client := feeder.NewTestClient(t, utils.MAINNET)
+	gw := adaptfeeder.New(client)
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+	}
+
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		return calculateBlockCommitments(txn, utils.MAINNET)
+	}))
+
+	for i := uint64(0); i < 3; i++ {
+		b, err := chain.BlockCommitmentsByNumber(i)
+		require.NoError(t, err)
+		assert.NotNil(t, b.TransactionCommitment)
+	}
 }

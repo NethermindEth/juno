@@ -3,52 +3,33 @@ package rpc
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1999-L2008
-type Status uint8
+// https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
+type BlockStatus uint8
 
 const (
-	StatusPending Status = iota
-	StatusAcceptedL2
-	StatusAcceptedL1
-	StatusRejected
+	BlockPending BlockStatus = iota
+	BlockAcceptedL2
+	BlockAcceptedL1
+	BlockRejected
 )
 
-func (s Status) MarshalJSON() ([]byte, error) {
+func (s BlockStatus) MarshalJSON() ([]byte, error) {
 	switch s {
-	case StatusPending:
-		return []byte("\"PENDING\""), nil
-	case StatusAcceptedL2:
-		return []byte("\"ACCEPTED_ON_L2\""), nil
-	case StatusAcceptedL1:
-		return []byte("\"ACCEPTED_ON_L1\""), nil
-	case StatusRejected:
-		return []byte("\"REJECTED\""), nil
+	case BlockPending:
+		return []byte(`"PENDING"`), nil
+	case BlockAcceptedL2:
+		return []byte(`"ACCEPTED_ON_L2"`), nil
+	case BlockAcceptedL1:
+		return []byte(`"ACCEPTED_ON_L1"`), nil
+	case BlockRejected:
+		return []byte(`"REJECTED"`), nil
 	default:
 		return nil, errors.New("unknown block status")
 	}
-}
-
-func (s *Status) UnmarshalJSON(bytes []byte) (err error) {
-	str := string(bytes)
-	switch str {
-	case "PENDING":
-		*s = StatusPending
-	case "ACCEPTED_ON_L2":
-		*s = StatusAcceptedL2
-	case "ACCEPTED_ON_L1":
-		*s = StatusAcceptedL1
-	case "REJECTED":
-		*s = StatusRejected
-	default:
-		err = fmt.Errorf("unknown block status %q", str)
-	}
-
-	return
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L520-L534
@@ -103,14 +84,14 @@ type BlockHeader struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status Status `json:"status"`
+	Status BlockStatus `json:"status"`
 	BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
 type BlockWithTxHashes struct {
-	Status Status `json:"status"`
+	Status BlockStatus `json:"status"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
