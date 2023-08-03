@@ -197,7 +197,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				} else {
 					s.HighestBlockHeader = highestBlock.Header
 
-					isBehind := s.HighestBlockHeader.Number > block.Number
+					isBehind := s.HighestBlockHeader.Number > block.Number+uint64(maxWorkers())
 					if s.catchUpMode != isBehind {
 						resetStreams()
 					}
@@ -263,6 +263,14 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			nextHeight++
 		}
 	}
+}
+
+func maxWorkers() int {
+	m, mProcs := 16, runtime.GOMAXPROCS(0)
+	if mProcs > m {
+		return m
+	}
+	return mProcs
 }
 
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
