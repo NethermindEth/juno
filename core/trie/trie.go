@@ -10,17 +10,16 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/bits-and-blooms/bitset"
 )
 
 // Storage is the Persistent storage for the [Trie]
 type Storage interface {
-	Put(key *bitset.BitSet, value *Node) error
-	Get(key *bitset.BitSet) (*Node, error)
-	Delete(key *bitset.BitSet) error
+	Put(key *Key, value *Node) error
+	Get(key *Key) (*Node, error)
+	Delete(key *Key) error
 
-	PutRootKey(newRootKey *bitset.BitSet) error
-	RootKey() (*bitset.BitSet, error)
+	PutRootKey(newRootKey *Key) error
+	RootKey() (*Key, error)
 	DeleteRootKey() error
 }
 
@@ -44,27 +43,27 @@ type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 type Trie struct {
-	height  uint
-	rootKey *bitset.BitSet
+	height  uint8
+	rootKey *Key
 	maxKey  *felt.Felt
 	storage Storage
 	hash    hashFunc
 
-	dirtyNodes     []*bitset.BitSet
+	dirtyNodes     []*Key
 	rootKeyIsDirty bool
 }
 
-type NewTrieFunc func(Storage, uint) (*Trie, error)
+type NewTrieFunc func(Storage, uint8) (*Trie, error)
 
-func NewTriePedersen(storage Storage, height uint) (*Trie, error) {
+func NewTriePedersen(storage Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage Storage, height uint) (*Trie, error) {
+func NewTriePoseidon(storage Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage Storage, height uint, hash hashFunc) (*Trie, error) {
+func newTrie(storage Storage, height uint8, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -88,7 +87,7 @@ func newTrie(storage Storage, height uint, hash hashFunc) (*Trie, error) {
 }
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
-func RunOnTempTrie(height uint, do func(*Trie) error) error {
+func RunOnTempTrie(height uint8, do func(*Trie) error) error {
 	trie, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return err
@@ -96,30 +95,23 @@ func RunOnTempTrie(height uint, do func(*Trie) error) error {
 	return do(trie)
 }
 
-// feltToBitSet Converts a key, given in felt, to a bitset which when followed on a [Trie],
+// feltToBitSet Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) feltToBitSet(k *felt.Felt) *bitset.BitSet {
-	if k == nil {
-		return nil
-	}
-
-	kBits := k.Bits()
-	return bitset.FromWithLength(t.height, kBits[:])
+func (t *Trie) feltToKey(k *felt.Felt) Key {
+	kBytes := k.Bytes()
+	return NewKey(t.height, kBytes[:])
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
-func findCommonKey(longerKey, shorterKey *bitset.BitSet) (*bitset.BitSet, bool) {
+func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
-	commonKey := shorterKey.Clone()
-	for i := uint(0); i < shorterKey.Len()-divergentBit+1; i++ {
-		commonKey.DeleteAt(0)
-	}
+	commonKey := *shorterKey
+	commonKey.DeleteLSB(shorterKey.Len() - divergentBit + 1)
 	return commonKey, divergentBit == shorterKey.Len()+1
 }
 
-func findDivergentBit(longerKey, shorterKey *bitset.BitSet) uint {
-	divergentBit := uint(0)
-	// todo: use NextSetMany for performance
+func findDivergentBit(longerKey, shorterKey *Key) uint8 {
+	divergentBit := uint8(0)
 	for divergentBit <= shorterKey.Len() &&
 		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
 		divergentBit++
@@ -127,7 +119,7 @@ func findDivergentBit(longerKey, shorterKey *bitset.BitSet) uint {
 	return divergentBit
 }
 
-func isSubset(longerKey, shorterKey *bitset.BitSet) bool {
+func isSubset(longerKey, shorterKey *Key) bool {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
 	return divergentBit == shorterKey.Len()+1
 }
@@ -137,12 +129,11 @@ func isSubset(longerKey, shorterKey *bitset.BitSet) bool {
 // for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
 //
 // [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
-func path(key, parentKey *bitset.BitSet) *bitset.BitSet {
-	path := key.Clone()
+func path(key, parentKey *Key) Key {
+	path := *key
 	// drop parent key, and one more MSB since left/right relation already encodes that information
 	if parentKey != nil {
-		path.Shrink(path.Len() - parentKey.Len() - 1)
-		path.DeleteAt(path.Len() - 1)
+		path.Truncate(path.Len() - parentKey.Len() - 1)
 	}
 	return path
 }
@@ -150,14 +141,14 @@ func path(key, parentKey *bitset.BitSet) *bitset.BitSet {
 // storageNode is the on-disk representation of a [Node],
 // where key is the storage key and node is the value.
 type storageNode struct {
-	key  *bitset.BitSet
+	key  *Key
 	node *Node
 }
 
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
+func (t *Trie) nodesFromRoot(key *Key) ([]storageNode, error) {
 	var nodes []storageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -188,7 +179,8 @@ func (t *Trie) nodesFromRoot(key *bitset.BitSet) ([]storageNode, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	value, err := t.storage.Get(t.feltToBitSet(key))
+	storageKey := t.feltToKey(key)
+	value, err := t.storage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return &felt.Zero, nil
@@ -209,12 +201,12 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToBitSet(key)
+	nodeKey := t.feltToKey(key)
 	node := &Node{
 		Value: value,
 	}
 
-	nodes, err := t.nodesFromRoot(nodeKey)
+	nodes, err := t.nodesFromRoot(&nodeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -230,10 +222,10 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			return nil, nil // no-op
 		}
 
-		if err = t.storage.Put(nodeKey, node); err != nil {
+		if err = t.storage.Put(&nodeKey, node); err != nil {
 			return nil, err
 		}
-		t.setRootKey(nodeKey)
+		t.setRootKey(&nodeKey)
 		return &old, nil
 	} else {
 		// Replace if key already exist
@@ -249,32 +241,32 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 				return &old, nil
 			}
 
-			if err = t.storage.Put(nodeKey, node); err != nil {
+			if err = t.storage.Put(&nodeKey, node); err != nil {
 				return nil, err
 			}
-			t.dirtyNodes = append(t.dirtyNodes, nodeKey)
+			t.dirtyNodes = append(t.dirtyNodes, &nodeKey)
 			return &old, nil
 		} else if value.IsZero() {
 			// trying to insert 0 to a key that does not exist
 			return nil, nil // no-op
 		}
 
-		commonKey, _ := findCommonKey(nodeKey, sibling.key)
+		commonKey, _ := findCommonKey(&nodeKey, sibling.key)
 		newParent := &Node{}
 		var leftChild, rightChild *Node
 		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
-			newParent.Left, newParent.Right = sibling.key, nodeKey
+			newParent.Left, newParent.Right = sibling.key, &nodeKey
 			leftChild, rightChild = sibling.node, node
 		} else {
-			newParent.Left, newParent.Right = nodeKey, sibling.key
+			newParent.Left, newParent.Right = &nodeKey, sibling.key
 			leftChild, rightChild = node, sibling.node
 		}
 
-		leftPath := path(newParent.Left, commonKey)
-		rightPath := path(newParent.Right, commonKey)
+		leftPath := path(newParent.Left, &commonKey)
+		rightPath := path(newParent.Right, &commonKey)
 
-		newParent.Value = t.hash(leftChild.Hash(leftPath, t.hash), rightChild.Hash(rightPath, t.hash))
-		if err = t.storage.Put(commonKey, newParent); err != nil {
+		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+		if err = t.storage.Put(&commonKey, newParent); err != nil {
 			return nil, err
 		}
 
@@ -283,32 +275,32 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 
 			// replace the link to our sibling with the new parent
 			if siblingParent.node.Left.Equal(sibling.key) {
-				commonKey.CopyFull(siblingParent.node.Left)
+				*siblingParent.node.Left = commonKey
 			} else {
-				commonKey.CopyFull(siblingParent.node.Right)
+				*siblingParent.node.Right = commonKey
 			}
 
 			if err = t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
 				return nil, err
 			}
-			t.dirtyNodes = append(t.dirtyNodes, commonKey)
+			t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 		} else {
-			t.setRootKey(commonKey)
+			t.setRootKey(&commonKey)
 		}
 
-		if err = t.storage.Put(nodeKey, node); err != nil {
+		if err = t.storage.Put(&nodeKey, node); err != nil {
 			return nil, err
 		}
 		return &old, nil
 	}
 }
 
-func (t *Trie) setRootKey(newRootKey *bitset.BitSet) {
+func (t *Trie) setRootKey(newRootKey *Key) {
 	t.rootKey = newRootKey
 	t.rootKeyIsDirty = true
 }
 
-func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
+func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 	node, err := t.storage.Get(key)
 	if err != nil {
 		return nil, err
@@ -347,7 +339,7 @@ func (t *Trie) updateValueIfDirty(key *bitset.BitSet) (*Node, error) {
 	leftPath := path(node.Left, key)
 	rightPath := path(node.Right, key)
 
-	node.Value = t.hash(leftChild.Hash(leftPath, t.hash), rightChild.Hash(rightPath, t.hash))
+	node.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
 
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
@@ -373,30 +365,30 @@ func (t *Trie) deleteLast(nodes []storageNode) error {
 		return err
 	}
 
-	var siblingKey *bitset.BitSet
+	var siblingKey Key
 	if parent.node.Left.Equal(last.key) {
-		siblingKey = parent.node.Right.Clone()
+		siblingKey = *parent.node.Right
 	} else {
-		siblingKey = parent.node.Left.Clone()
+		siblingKey = *parent.node.Left
 	}
 
 	if len(nodes) == 2 { // sibling should become root
-		t.setRootKey(siblingKey)
+		t.setRootKey(&siblingKey)
 		return nil
 	}
 	// sibling should link to grandparent (len(affectedNodes) > 2)
 	grandParent := &nodes[len(nodes)-3]
 	// replace link to parent with a link to sibling
 	if grandParent.node.Left.Equal(parent.key) {
-		siblingKey.CopyFull(grandParent.node.Left)
+		*grandParent.node.Left = siblingKey
 	} else {
-		siblingKey.CopyFull(grandParent.node.Right)
+		*grandParent.node.Right = siblingKey
 	}
 
 	if err := t.storage.Put(grandParent.key, grandParent.node); err != nil {
 		return err
 	}
-	t.dirtyNodes = append(t.dirtyNodes, siblingKey)
+	t.dirtyNodes = append(t.dirtyNodes, &siblingKey)
 	return nil
 }
 
@@ -427,7 +419,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	t.dirtyNodes = nil
 
 	path := path(t.rootKey, nil)
-	return root.Hash(path, t.hash), nil
+	return root.Hash(&path, t.hash), nil
 }
 
 // Commit forces root calculation
@@ -437,7 +429,7 @@ func (t *Trie) Commit() error {
 }
 
 // RootKey returns db key of the [Trie] root node
-func (t *Trie) RootKey() *bitset.BitSet {
+func (t *Trie) RootKey() *Key {
 	return t.rootKey
 }
 
@@ -459,7 +451,7 @@ The following can be printed:
 
 The spacing to represent the levels of the trie can remain the same.
 */
-func (t *Trie) dump(level int, parentP *bitset.BitSet) {
+func (t *Trie) dump(level int, parentP *Key) {
 	if t.rootKey == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
 		return

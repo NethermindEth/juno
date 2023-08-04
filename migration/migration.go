@@ -41,6 +41,16 @@ var migrations = []Migration{
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
 	MigrationFunc(calculateBlockCommitments),
+	NewBucketMigrator(db.ClassesTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ClassesTrie)),
+	NewBucketMigrator(db.StateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.StateTrie)),
+	NewBucketMigrator(db.ContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
+	NewBucketMigrator(db.ClassesTrie, migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)).WithKeyFilter(nodesFilter(db.ClassesTrie)),
+	NewBucketMover(db.Temporary, db.ClassesTrie),
+	NewBucketMigrator(db.StateTrie, migrateTrieNodesFromBitsetToTrieKey(db.StateTrie)).WithKeyFilter(nodesFilter(db.StateTrie)),
+	NewBucketMover(db.Temporary, db.StateTrie),
+	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
+		WithKeyFilter(nodesFilter(db.ContractStorage)),
+	NewBucketMover(db.Temporary, db.ContractStorage),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -232,15 +242,77 @@ func (m *changeTrieNodeEncoding) Before() {
 	}
 }
 
+type node struct {
+	Value *felt.Felt
+	Left  *bitset.BitSet
+	Right *bitset.BitSet
+}
+
+func (n *node) _WriteTo(buf *bytes.Buffer) (int64, error) {
+	if n.Value == nil {
+		return 0, errors.New("cannot marshal node with nil value")
+	}
+
+	totalBytes := int64(0)
+
+	valueB := n.Value.Bytes()
+	wrote, err := buf.Write(valueB[:])
+	totalBytes += int64(wrote)
+	if err != nil {
+		return totalBytes, err
+	}
+
+	if n.Left != nil {
+		wrote, err := n.Left.WriteTo(buf)
+		totalBytes += wrote
+		if err != nil {
+			return totalBytes, err
+		}
+		wrote, err = n.Right.WriteTo(buf) // n.Right is non-nil by design
+		totalBytes += wrote
+		if err != nil {
+			return totalBytes, err
+		}
+	}
+
+	return totalBytes, nil
+}
+
+func (n *node) _UnmarshalBinary(data []byte) error {
+	if len(data) < felt.Bytes {
+		return errors.New("size of input data is less than felt size")
+	}
+	if n.Value == nil {
+		n.Value = new(felt.Felt)
+	}
+	n.Value.SetBytes(data[:felt.Bytes])
+	data = data[felt.Bytes:]
+
+	if len(data) == 0 {
+		n.Left = nil
+		n.Right = nil
+		return nil
+	}
+
+	stream := bytes.NewReader(data)
+
+	if n.Left == nil {
+		n.Left = new(bitset.BitSet)
+		n.Right = new(bitset.BitSet)
+	}
+
+	_, err := n.Left.ReadFrom(stream)
+	if err != nil {
+		return err
+	}
+	_, err = n.Right.ReadFrom(stream)
+	return err
+}
+
 func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) error {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
-	var n struct {
-		Value *felt.Felt
-		Left  *bitset.BitSet
-		Right *bitset.BitSet
-	}
-
+	var n node
 	var buf bytes.Buffer
 	var updatedNodes uint64
 
@@ -278,8 +350,7 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) er
 				return err
 			}
 
-			coreNode := trie.Node(n)
-			if _, err = coreNode.WriteTo(&buf); err != nil {
+			if _, err = n._WriteTo(&buf); err != nil {
 				return err
 			}
 
@@ -332,4 +403,96 @@ func calculateBlockCommitments(txn db.Transaction, network utils.Network) error 
 	}
 
 	return workerPool.Wait()
+}
+
+func bitset2Key(bs *bitset.BitSet) *trie.Key {
+	bsWords := bs.Bytes()
+	if len(bsWords) > felt.Limbs {
+		panic("key too long to fit in Felt")
+	}
+
+	var bsBytes [felt.Bytes]byte
+	for idx, word := range bsWords {
+		startBytes := 24 - (idx * 8)
+		binary.BigEndian.PutUint64(bsBytes[startBytes:startBytes+8], word)
+	}
+
+	f := new(felt.Felt).SetBytes(bsBytes[:])
+	fBytes := f.Bytes()
+	k := trie.NewKey(uint8(bs.Len()), fBytes[:])
+	return &k
+}
+
+func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ utils.Network) error {
+	var bs bitset.BitSet
+	var tempBuf bytes.Buffer
+	if err := bs.UnmarshalBinary(value); err != nil {
+		return err
+	}
+	trieKey := bitset2Key(&bs)
+	_, err := trieKey.WriteTo(&tempBuf)
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(key, tempBuf.Bytes())
+}
+
+var rootKeysLen = map[db.Bucket]int{
+	db.ClassesTrie:     1,
+	db.StateTrie:       1,
+	db.ContractStorage: 1 + felt.Bytes,
+}
+
+func rootKeysFilter(target db.Bucket) BucketMigratorKeyFilter {
+	return func(key []byte) (bool, error) {
+		return len(key) == rootKeysLen[target], nil
+	}
+}
+
+func nodesFilter(target db.Bucket) BucketMigratorKeyFilter {
+	return func(key []byte) (bool, error) {
+		return len(key) != rootKeysLen[target], nil
+	}
+}
+
+func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc {
+	return func(txn db.Transaction, key, value []byte, _ utils.Network) error {
+		var n node
+		var tempBuf bytes.Buffer
+		if err := n._UnmarshalBinary(value); err != nil {
+			return err
+		}
+
+		trieNode := trie.Node{
+			Value: n.Value,
+		}
+		if n.Left != nil {
+			trieNode.Left = bitset2Key(n.Left)
+			trieNode.Right = bitset2Key(n.Right)
+		}
+
+		if _, err := trieNode.WriteTo(&tempBuf); err != nil {
+			return err
+		}
+
+		if err := txn.Delete(key); err != nil {
+			return err
+		}
+
+		orgKeyPrefix := key[:rootKeysLen[target]]
+		bsBytes := key[rootKeysLen[target]:]
+		var bs bitset.BitSet
+		if err := bs.UnmarshalBinary(bsBytes); err != nil {
+			return err
+		}
+
+		var keyBuffer bytes.Buffer
+		if _, err := bitset2Key(&bs).WriteTo(&keyBuffer); err != nil {
+			return err
+		}
+
+		orgKeyPrefix[0] = byte(db.Temporary) // move the node to temporary bucket
+		return txn.Set(append(orgKeyPrefix, keyBuffer.Bytes()...), tempBuf.Bytes())
+	}
 }

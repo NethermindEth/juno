@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +22,7 @@ func TestNodeHash(t *testing.T) {
 	node := trie.Node{
 		Value: new(felt.Felt).SetBytes(valueBytes),
 	}
-	path := bitset.FromWithLength(6, []uint64{42})
+	path := trie.NewKey(6, []byte{42})
 
-	assert.Equal(t, expected, node.Hash(path, crypto.Pedersen), "TestTrieNode_Hash failed")
+	assert.Equal(t, expected, node.Hash(&path, crypto.Pedersen), "TestTrieNode_Hash failed")
 }

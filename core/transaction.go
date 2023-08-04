@@ -376,7 +376,7 @@ func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion stri
 	return nil
 }
 
-const commitmentTrieHeight uint = 64
+const commitmentTrieHeight = 64
 
 // transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.

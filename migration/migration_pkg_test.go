@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -194,4 +195,71 @@ func TestCalculateBlockCommitments(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, b.TransactionCommitment)
 	}
+}
+
+func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
+	memTxn := db.NewMemTransaction()
+
+	bs := bitset.New(251)
+	bsBytes, err := bs.MarshalBinary()
+	require.NoError(t, err)
+
+	key := []byte{0}
+	err = memTxn.Set(key, bsBytes)
+	require.NoError(t, err)
+
+	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, utils.MAINNET))
+
+	var trieKey trie.Key
+	err = memTxn.Get(key, trieKey.UnmarshalBinary)
+	require.NoError(t, err)
+	require.Equal(t, bs.Len(), uint(trieKey.Len()))
+	require.Equal(t, felt.Zero, trieKey.Felt())
+}
+
+func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
+	migrator := migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)
+	memTxn := db.NewMemTransaction()
+
+	bs := bitset.New(251)
+	bsBytes, err := bs.MarshalBinary()
+	require.NoError(t, err)
+
+	n := node{
+		Value: new(felt.Felt).SetUint64(123),
+		Left:  bitset.New(37),
+		Right: bitset.New(44),
+	}
+
+	var nodeBytes bytes.Buffer
+	wrote, err := n._WriteTo(&nodeBytes)
+	require.True(t, wrote > 0)
+	require.NoError(t, err)
+
+	nodeKey := db.ClassesTrie.Key(bsBytes)
+	err = memTxn.Set(nodeKey, nodeBytes.Bytes())
+	require.NoError(t, err)
+
+	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), utils.MAINNET))
+
+	err = memTxn.Get(db.ClassesTrie.Key(bsBytes), func(b []byte) error {
+		return nil
+	})
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	var nodeKeyBuf bytes.Buffer
+	newNodeKey := bitset2Key(bs)
+	wrote, err = newNodeKey.WriteTo(&nodeKeyBuf)
+	require.True(t, wrote > 0)
+	require.NoError(t, err)
+
+	var trieNode trie.Node
+	err = memTxn.Get(db.Temporary.Key(nodeKeyBuf.Bytes()), trieNode.UnmarshalBinary)
+	require.NoError(t, err)
+
+	require.Equal(t, n.Value, trieNode.Value)
+	require.Equal(t, n.Left.Len(), uint(trieNode.Left.Len()))
+	require.Equal(t, n.Right.Len(), uint(trieNode.Right.Len()))
+	require.Equal(t, felt.Zero, trieNode.Left.Felt())
+	require.Equal(t, felt.Zero, trieNode.Right.Felt())
 }
