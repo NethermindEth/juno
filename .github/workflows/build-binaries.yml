@@ -8,57 +8,65 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        arch: [
-          {
-            'go' : 'amd64',
-            'cc' : 'x86_64'
-          },
-          {
-            'go': 'arm64',
-            'cc': 'aarch64'
-          }
-        ]
-        os: [
-          {
-            'go' : 'linux',
-            'cc' : 'linux'
-          },
-          {
-            'go': 'darwin',
-            'cc': 'macos'
-          },
-          {
-            'go': 'windows',
-            'cc': 'windows-gnu'
-          }
-        ]
-        go-version: ['1.20.3']
+        include:
+          - os: ubuntu-latest
+            architecture: amd64
+          - os: macOS-latest
+            architecture: amd64
+          - os: self-hosted
+            architecture: arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Install UPX
-        run: sudo apt-get install -y upx-ucl
-      - name: Install Go
-        uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.go-version }}
+          fetch-depth: 0
 
-      - name: Install C cross compiler
-        uses: goto-bus-stop/setup-zig@v2
+      - name: Get latest tag
+        id: tag
+        run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
 
+      - name: Install dependencies (Ubuntu or self-hosted)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y upx-ucl build-essential cargo git golang
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install upx cargo-c
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.3
+          
       - name: Build Juno
         run: |
-          GOOS=${{ matrix.os['go'] }} GOARCH=${{ matrix.arch['go'] }} CGO_ENABLED=1 CC="zig cc -target ${{ matrix.arch['cc'] }}-${{ matrix.os['cc'] }}"  make juno
-          if [[ ${{ matrix.os }} == "linux" ]]; then
-              upx build/juno
+          make juno
+          upx build/juno
+          mv build/juno juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}
+
+      - name: Generate Checksum
+        id: checksum
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            shasum -a 256 juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }} > juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}.sha256
+          else
+            sha256sum juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }} > juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}.sha256
           fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: juno-${{ matrix.os }}-${{ matrix.arch }}
-          path: build/juno
+          name: juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}
+          path: |
+            juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}
+            juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}.sha256
+
+      - name: Cleanup
+        if: matrix.os == 'self-hosted'
+        run: |
+          rm juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}
+          rm juno-${{ env.TAG }}-${{ runner.os }}-${{ matrix.architecture }}.sha256
