@@ -138,6 +138,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		v.AutomaticEnv() // Enable automatic binding of env variables to the configuration.
 
+		if err := cmd.ExecuteContext(ctx); err != nil {
+			os.Exit(1)
+		}
+
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
 		// encoding.TextUnmarshaller interface (see the LogLevel type for an example).
 		return v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
