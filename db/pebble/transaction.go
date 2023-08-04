@@ -2,6 +2,8 @@ package pebble
 
 import (
 	"errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io"
 	"sync"
 
@@ -12,6 +14,11 @@ import (
 var ErrDiscardedTransaction = errors.New("discarded txn")
 
 var _ db.Transaction = (*Transaction)(nil)
+
+var setCount = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "juno_tx_set_count",
+	Help: "Time in address get",
+})
 
 type Transaction struct {
 	batch    *pebble.Batch
@@ -57,6 +64,7 @@ func (t *Transaction) Set(key, val []byte) error {
 	if len(key) == 0 {
 		return errors.New("empty key")
 	}
+	setCount.Inc()
 	return t.batch.Set(key, val, pebble.Sync)
 }
 

@@ -71,7 +71,7 @@ type storageRangeJob struct {
 
 type largeStorageStoreJob struct {
 	storagePath *felt.Felt
-	changes     chan core.StorageDiff
+	changes     []core.StorageDiff
 }
 
 func NewSnapSyncer(
@@ -154,7 +154,7 @@ var (
 	addressRangeMaxNodes = 5000
 
 	largeStorageJobWorker      = runtime.NumCPU() * 2 // Large storage are largest and most parallelizable. So we want a lot of this.
-	largeStorageMaxNodes       = 10000
+	largeStorageMaxNodes       = 20000
 	largeStorageJobQueueSize   = 4 // They are usually very slow. So more does not really do anything.
 	largeStorageStoreQueueSize = 0 // We want the large storage to be throttled by large store
 
@@ -214,7 +214,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 			return errors.Join(err, errors.New("error fetching state update"))
 		}
 
-		s.log.Infow("applying block", "blockNumber", i)
+		s.log.Infow("applying block", "blockNumber", i, "lastBlock", s.lastBlock.Number)
 
 		err = s.ApplyStateUpdate(uint64(i), stateUpdate, false)
 		if err != nil {
@@ -334,7 +334,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 			}()
 
 			err := s.runLargeStorageRangeWorker(lctx, i)
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				s.log.Errorw("error in large storage range worker", "err", err)
 			}
 			s.log.Infow("Large storage worker completed", "workerId", i)
@@ -353,7 +353,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	for i := 0; i < 1; i++ {
 		eg.Go(func() error {
 			err := s.runLargeStorageStore(ectx, 1)
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				s.log.Errorw("large storage store failed", "err", err)
 			}
 			return err
@@ -744,19 +744,6 @@ func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx 
 }
 
 func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, job *blockchain.StorageRangeRequest) error {
-	outchan := make(chan core.StorageDiff)
-	defer func() {
-		close(outchan)
-	}()
-
-	select {
-	case s.largeStorageStoreJob <- &largeStorageStoreJob{
-		storagePath: job.Path,
-		changes:     outchan,
-	}:
-	case <-ctx.Done():
-	}
-
 	startAddr := job.StartAddr
 	hasNext := true
 	for hasNext {
@@ -783,7 +770,9 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 
 			job.Hash = response.UpdatedContract.ContractStorageRoot
 
-			diffs := map[felt.Felt][]core.StorageDiff{}
+			diffs := map[felt.Felt][]core.StorageDiff{
+				*job.Path: nil,
+			}
 			classes := map[felt.Felt]*felt.Felt{
 				*job.Path: response.UpdatedContract.ClassHash,
 			}
@@ -805,14 +794,20 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 			return err
 		}
 
+		diffs := make([]core.StorageDiff, 0)
 		for i, path := range response.Paths {
-			select {
-			case outchan <- core.StorageDiff{
+			diffs = append(diffs, core.StorageDiff{
 				Key:   path,
 				Value: response.Values[i],
-			}:
-			case <-ctx.Done():
-			}
+			})
+		}
+
+		select {
+		case s.largeStorageStoreJob <- &largeStorageStoreJob{
+			storagePath: job.Path,
+			changes:     diffs,
+		}:
+		case <-ctx.Done():
 		}
 
 		largeStorageDurations.WithLabelValues("queue").Add(float64(time.Now().Sub(starttime).Microseconds()))
@@ -825,62 +820,24 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 
 var (
 	storePerContractBatchSize         = 5000
-	storeFeederThrottleThreshold      = int(float64(storePerContractBatchSize) * 2)
-	storeThrottleDelay                = time.Millisecond
 	storeMaxConcurrentContractTrigger = runtime.NumCPU()
-	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 0.5)
+	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 4)
 )
 
-type perPathJobs struct {
-	storagePath *felt.Felt
-	changes     []core.StorageDiff
-}
-
 func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) error {
-	// Strange queueing system where the store job from large store is buffered to a map (curmap) here.
-	// If the length of a particular key exceed `feederThrottleThreshold` in a buffer. It is not fed into the buffer
-	// and will throttle the large storage job.
-	// This causes the store loop to wait for enough concurrent path in the buffer before storing them.
-	// Sounds overcomplicated, but it reduces snap sync time by more than 2x. The rate of store via this path is
-	// 7.5 faster than via the storage (not large storage) path, but capped there for some reason.
-	// Theres probably a better and simpler way to do this...
-	rwlock := &sync.RWMutex{}
+	// Attempt to buffer the jobs into maps of path and diffs. This is done because it can be parallelized.
+	// I did try other more complicated technique but unable to make it significantly faster.
 	curmap := map[felt.Felt][]core.StorageDiff{}
-	centralfeeder := make(chan perPathJobs, 1)
+	totalChanges := 0
+	for job := range s.largeStorageStoreJob {
+		totalChanges += len(job.changes)
 
-	eg, ectx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		defer func() {
-			close(centralfeeder)
-		}()
-		eg2, ectx2 := errgroup.WithContext(ectx)
-
-		for newJob := range s.largeStorageStoreJob {
-			newJob := newJob
-
-			eg2.Go(func() error {
-				return s.runStorageJobIngestor(ectx2, newJob, centralfeeder, rwlock, curmap)
-			})
-		}
-
-		return eg2.Wait()
-	})
-
-	counter := 0
-	for job := range centralfeeder {
-		counter += len(job.changes)
-		rwlock.Lock()
 		curmap[*job.storagePath] = append(curmap[*job.storagePath], job.changes...)
 		length := len(curmap)
-		rwlock.Unlock()
 
-		for counter > storeMaxTotalJobTrigger || length > storeMaxConcurrentContractTrigger {
-
+		for totalChanges > storeMaxTotalJobTrigger || length > storeMaxConcurrentContractTrigger {
 			// In an effort to improve parallelism, we try to limit each contract to a batch size so that no
 			// single contract take too much time, delaying other contract.
-			rwlock.Lock()
-
 			tostore := map[felt.Felt][]core.StorageDiff{}
 			for k, diffs := range curmap {
 				if len(diffs) > storePerContractBatchSize {
@@ -900,11 +857,10 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) er
 				}
 			}
 			length = len(curmap)
-			rwlock.Unlock()
 
 			largeStorageStoreSize.Set(float64(len(tostore)))
 			largeStorageStoreJobSize.Set(float64(jobsize))
-			counter -= jobsize
+			totalChanges -= jobsize
 
 			starttime := time.Now()
 			err := s.SetStorage(tostore, nil, nil, false, true)
@@ -912,77 +868,15 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) er
 			if err != nil {
 				return errors.Join(err, errors.New("error storing large storage"))
 			}
-			// s.log.Infow("large storage store", "workerId", workerId, "size", len(curmap), "total", jobsize, "length", length, "counter", counter, "time", time.Now().Sub(starttime))
+			s.log.Infow("large storage store", "workerId", workerId, "size", len(curmap), "total", jobsize, "length", length, "totalChanges", totalChanges, "time", time.Now().Sub(starttime))
 		}
 	}
 
-	s.log.Infow("large storage store job completed", "workerId", workerId)
-
-	err := eg.Wait()
-	if err != nil {
-		return nil
-	}
-
-	err = s.SetStorage(curmap, nil, nil, false, true)
+	err := s.SetStorage(curmap, nil, nil, false, true)
 	if err != nil {
 		return errors.Join(err, errors.New("error storing large storage"))
 	}
-
-	return nil
-}
-
-func (s *SnapSyncher) runStorageJobIngestor(ctx context.Context, newJob *largeStorageStoreJob, centralfeeder chan perPathJobs, rwlock *sync.RWMutex, curmap map[felt.Felt][]core.StorageDiff) error {
-	batch := make([]core.StorageDiff, 0)
-
-	for job := range newJob.changes {
-		batch = append(batch, job)
-
-		if len(batch) > 1000 {
-		retryloop:
-			for {
-				select {
-				case <-s.storageRangeDone: // No throttle if storage range is done and no lock, which is why its here
-					storeJobType.WithLabelValues("unthrottled_finished").Inc()
-					centralfeeder <- perPathJobs{
-						storagePath: newJob.storagePath,
-						changes:     batch,
-					}
-					batch = make([]core.StorageDiff, 0)
-					break retryloop
-				default:
-				}
-
-				rwlock.RLock()
-				length := len(curmap[*newJob.storagePath])
-				rwlock.RUnlock()
-
-				if length > storeFeederThrottleThreshold {
-					select {
-					case <-time.After(storeThrottleDelay):
-						storeJobType.WithLabelValues("throttled").Inc()
-						continue
-					case <-s.storageRangeDone: // No throttle if storage range is done
-					case <-ctx.Done():
-					}
-				}
-
-				storeJobType.WithLabelValues("unthrottled").Inc()
-				centralfeeder <- perPathJobs{
-					storagePath: newJob.storagePath,
-					changes:     batch,
-				}
-				batch = make([]core.StorageDiff, 0)
-				break
-			}
-		}
-	}
-
-	if len(batch) > 0 {
-		centralfeeder <- perPathJobs{
-			storagePath: newJob.storagePath,
-			changes:     batch,
-		}
-	}
+	s.log.Infow("large storage store job completed", "workerId", workerId)
 
 	return nil
 }

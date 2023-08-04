@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
