@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
@@ -35,9 +36,10 @@ type Service struct {
 	network   utils.Network
 	log       utils.SimpleLogger
 
-	dht    *dht.IpfsDHT
-	pubsub *pubsub.PubSub
-	topics map[string]*pubsub.Topic
+	dht        *dht.IpfsDHT
+	pubsub     *pubsub.PubSub
+	topics     map[string]*pubsub.Topic
+	topicsLock sync.RWMutex
 
 	runCtx context.Context
 }
@@ -231,7 +233,16 @@ func (s *Service) NewStream(ctx context.Context, pids ...protocol.ID) (network.S
 }
 
 func (s *Service) joinTopic(topic string) (*pubsub.Topic, error) {
-	if existingTopic, found := s.topics[topic]; found {
+	existingTopic := func() *pubsub.Topic {
+		s.topicsLock.RLock()
+		defer s.topicsLock.RUnlock()
+		if t, found := s.topics[topic]; found {
+			return t
+		}
+		return nil
+	}()
+
+	if existingTopic != nil {
 		return existingTopic, nil
 	}
 
@@ -239,6 +250,9 @@ func (s *Service) joinTopic(topic string) (*pubsub.Topic, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	s.topicsLock.Lock()
+	defer s.topicsLock.Unlock()
 	s.topics[topic] = newTopic
 	return newTopic, nil
 }
