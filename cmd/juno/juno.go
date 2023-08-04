@@ -138,8 +138,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		v.AutomaticEnv() // Enable automatic binding of env variables to the configuration.
 
-		if err := cmd.ExecuteContext(ctx); err != nil {
-			os.Exit(1)
+		if err := v.BindPFlags(cmd.Flags()); err != nil {
+			return nil
 		}
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
