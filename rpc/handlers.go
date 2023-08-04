@@ -23,6 +23,7 @@ type Gateway interface {
 }
 
 var (
+	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
 	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrInvalidTxIndex                  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
@@ -1108,7 +1109,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
-	_, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
+	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
@@ -1117,76 +1118,19 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	isPending := blockHash == nil
 
-	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	traceResults, traceBlockErr := h.traceBlockTransactions(block)
+	if traceBlockErr != nil {
+		return nil, traceBlockErr
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_traceTransaction")
 
-	var (
-		headState       core.StateReader
-		headStateCloser blockchain.StateCloser
-	)
-	if isPending {
-		headState, headStateCloser, err = h.bcReader.PendingState()
-	} else {
-		headState, headStateCloser, err = h.bcReader.HeadState()
-	}
-	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-	defer h.callAndLogErr(headStateCloser, "Failed to close head state in starknet_traceTransaction")
-
-	var txIndex int
-	var classes []core.Class
-	paidFeesOnL1 := []*felt.Felt{}
-
-	for i, transaction := range block.Transactions {
-		switch tx := transaction.(type) {
-		case *core.DeclareTransaction:
-			class, stateErr := headState.Class(tx.ClassHash)
-			if stateErr != nil {
-				return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
-			}
-			classes = append(classes, class.Class)
-		case *core.L1HandlerTransaction:
-			var fee felt.Felt
-			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
-		}
-
-		if transaction.Hash().Equal(&hash) {
-			txIndex = i
-			break
+	for _, traceResult := range traceResults {
+		if traceResult.TransactionHash.Equal(&hash) {
+			return traceResult.TraceRoot, nil
 		}
 	}
 
-	if isPending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
-	header := block.Header
-
-	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
-	}
-
-	_, traces, err := h.vm.Execute(block.Transactions[:txIndex+1], classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1)
-	if err != nil {
-		rpcErr := *ErrContractError
-		rpcErr.Data = err.Error()
-		return nil, &rpcErr
-	}
-	trace := traces[txIndex]
-
-	return trace, nil
+	return nil, ErrNoTraceAvailable
 }
 
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
@@ -1257,6 +1201,90 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
 			FeeEstimate:      estimate,
+		})
+	}
+
+	return result, nil
+}
+
+func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	block, err := h.bcReader.BlockByHash(&blockHash)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	return h.traceBlockTransactions(block)
+}
+
+func (h *Handler) traceBlockTransactions(block *core.Block) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	isPending := block.Hash == nil
+
+	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
+
+	var (
+		headState       core.StateReader
+		headStateCloser blockchain.StateCloser
+	)
+	if isPending {
+		headState, headStateCloser, err = h.bcReader.PendingState()
+	} else {
+		headState, headStateCloser, err = h.bcReader.HeadState()
+	}
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
+
+	var classes []core.Class
+	paidFeesOnL1 := []*felt.Felt{}
+
+	for _, transaction := range block.Transactions {
+		switch tx := transaction.(type) {
+		case *core.DeclareTransaction:
+			class, stateErr := headState.Class(tx.ClassHash)
+			if stateErr != nil {
+				return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
+			}
+			classes = append(classes, class.Class)
+		case *core.L1HandlerTransaction:
+			var fee felt.Felt
+			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
+		}
+	}
+
+	blockNumber := block.Number
+	if isPending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	header := block.Header
+
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+	}
+
+	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
+		sequencerAddress, state, h.network, paidFeesOnL1)
+	if err != nil {
+		rpcErr := *ErrContractError
+		rpcErr.Data = err.Error()
+		return nil, &rpcErr
+	}
+
+	var result []TracedBlockTransaction
+	for i, trace := range traces {
+		result = append(result, TracedBlockTransaction{
+			TraceRoot:       trace,
+			TransactionHash: block.Transactions[i].Hash(),
 		})
 	}
 
