@@ -26,6 +26,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func nopCloser() error { return nil }
+
 func TestChainId(t *testing.T) {
 	for _, n := range []utils.Network{utils.MAINNET, utils.GOERLI, utils.GOERLI2, utils.INTEGRATION} {
 		t.Run(n.String(), func(t *testing.T) {
@@ -1223,10 +1225,9 @@ func TestNonce(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	NoopCloser := func() error { return nil }
 
 	t.Run("non-existent contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(nil, errors.New("non-existent contract"))
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
@@ -1237,7 +1238,7 @@ func TestNonce(t *testing.T) {
 	expectedNonce := new(felt.Felt).SetUint64(1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
@@ -1246,7 +1247,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
@@ -1255,7 +1256,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Number: 0}, felt.Zero)
@@ -1297,10 +1298,9 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	NoopCloser := func() error { return nil }
 
 	t.Run("non-existent contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, errors.New("non-existent contract"))
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
@@ -1309,7 +1309,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(&felt.Zero, errors.New("non-existent key"))
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
@@ -1320,7 +1320,7 @@ func TestStorageAt(t *testing.T) {
 	expectedStorage := new(felt.Felt).SetUint64(1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
@@ -1329,7 +1329,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Hash: &felt.Zero})
@@ -1338,7 +1338,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Number: 0})
@@ -1380,10 +1380,9 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	NoopCloser := func() error { return nil }
 
 	t.Run("non-existent contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, errors.New("non-existent contract"))
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
@@ -1394,7 +1393,7 @@ func TestClassHashAt(t *testing.T) {
 	expectedClassHash := new(felt.Felt).SetUint64(3)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
@@ -1403,7 +1402,7 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
@@ -1412,7 +1411,7 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
@@ -1967,10 +1966,9 @@ func TestCall(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	NoopCloser := func() error { return nil }
 
 	t.Run("call - unknown contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
 
@@ -2008,9 +2006,8 @@ func TestEstimateMessageFee(t *testing.T) {
 		GasPrice:  new(felt.Felt).SetUint64(42),
 	}
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	NoopCloser := func() error { return nil }
 
-	mockReader.EXPECT().HeadState().Return(mockState, NoopCloser, nil)
+	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
@@ -2028,7 +2025,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.NotNil(t, sequencerAddress)
 			assert.Len(t, paidFeesOnL1, 1)
 
-			return []*felt.Felt{expectedGasConsumed}, []json.RawMessage{}, nil
+			return []*felt.Felt{expectedGasConsumed}, []json.RawMessage{{}}, nil
 		},
 	)
 
@@ -2075,7 +2072,6 @@ func TestTraceTransaction(t *testing.T) {
 	mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 	mockReader.EXPECT().BlockByNumber(header.Number).Return(block, nil)
 
-	nopCloser := func() error { return nil }
 	mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 	headState := mocks.NewMockStateHistoryReader(mockCtrl)
 	headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
@@ -2091,4 +2087,34 @@ func TestTraceTransaction(t *testing.T) {
 	trace, err := handler.TraceTransaction(*hash)
 	require.Nil(t, err)
 	assert.Equal(t, vmTrace, trace)
+}
+
+func TestSimulateTransactions(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	const network = utils.MAINNET
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
+
+	t.Run("failure if simulation flags provided", func(t *testing.T) {
+		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		require.NotNil(t, err)
+	})
+	t.Run("ok with zero values", func(t *testing.T) {
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+
+		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}).
+			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
+
+		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, nil)
+		require.Nil(t, err)
+	})
 }

@@ -1066,67 +1066,14 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 }
 
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	var estimates []FeeEstimate
-	state, closer, err := h.stateByBlockID(&id)
+	result, err := h.SimulateTransactions(id, broadcastedTxns, nil)
 	if err != nil {
-		return nil, ErrBlockNotFound
-	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
-
-	header, err := h.blockHeaderByID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, err
 	}
 
-	var txns []core.Transaction
-	var classes []core.Class
-
-	paidFeesOnL1 := make([]*felt.Felt, 0)
-	for idx := range broadcastedTxns {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&broadcastedTxns[idx], h.network)
-		if aErr != nil {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
-		}
-
-		if paidFeeOnL1 != nil {
-			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
-		}
-
-		txns = append(txns, txn)
-		if declaredClass != nil {
-			classes = append(classes, declaredClass)
-		}
-	}
-
-	blockNumber := header.Number
-	if id.Pending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
-	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
-	}
-	gasesConsumed, _, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
-	if err != nil {
-		rpcErr := *ErrContractError
-		rpcErr.Data = err.Error()
-		return nil, &rpcErr
-	}
-
-	for _, gasConsumed := range gasesConsumed {
-		estimates = append(estimates, FeeEstimate{
-			GasConsumed: gasConsumed,
-			GasPrice:    header.GasPrice,
-			OverallFee:  new(felt.Felt).Mul(gasConsumed, header.GasPrice),
-		})
-	}
-
-	return estimates, nil
+	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
+		return tx.FeeEstimate
+	}), nil
 }
 
 func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
@@ -1240,6 +1187,80 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 	trace := traces[txIndex]
 
 	return trace, nil
+}
+
+func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+) ([]SimulatedTransaction, *jsonrpc.Error) {
+	if len(simulationFlags) > 0 {
+		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Simulation flags are not supported")
+	}
+
+	state, closer, err := h.stateByBlockID(&id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
+
+	header, err := h.blockHeaderByID(&id)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	var txns []core.Transaction
+	var classes []core.Class
+
+	paidFeesOnL1 := make([]*felt.Felt, 0)
+	for idx := range transactions {
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.network)
+		if aErr != nil {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+		}
+
+		if paidFeeOnL1 != nil {
+			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
+		}
+
+		txns = append(txns, txn)
+		if declaredClass != nil {
+			classes = append(classes, declaredClass)
+		}
+	}
+
+	blockNumber := header.Number
+	if id.Pending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+	}
+	gasesConsumed, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
+	if err != nil {
+		rpcErr := *ErrContractError
+		rpcErr.Data = err.Error()
+		return nil, &rpcErr
+	}
+
+	var result []SimulatedTransaction
+	for i, gasConsumed := range gasesConsumed {
+		estimate := FeeEstimate{
+			GasConsumed: gasConsumed,
+			GasPrice:    header.GasPrice,
+			OverallFee:  new(felt.Felt).Mul(gasConsumed, header.GasPrice),
+		}
+		result = append(result, SimulatedTransaction{
+			TransactionTrace: traces[i],
+			FeeEstimate:      estimate,
+		})
+	}
+
+	return result, nil
 }
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {

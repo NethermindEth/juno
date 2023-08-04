@@ -296,6 +296,11 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: rpcHandler.TraceTransaction,
 		},
+		{
+			Name:    "starknet_simulateTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
+			Handler: rpcHandler.SimulateTransactions,
+		},
 	}
 
 	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
