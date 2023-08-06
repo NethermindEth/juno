@@ -141,6 +141,7 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Juno v0.5.0-rc0")
 	return c.client.Do(req)
 }
 

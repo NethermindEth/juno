@@ -187,6 +187,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err != nil {
 				return nil, err
 			}
+			req.Header.Set("User-Agent", "Juno v0.5.0-rc0")
 
 			res, err = c.client.Do(req)
 			if err == nil {
