@@ -17,9 +17,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -221,7 +219,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 		}
 	}
 
-	err = s.doubleCheckStateTrie(ctx)
+	err = s.verifyStatTrie(ctx)
 	if err != nil {
 		return err
 	}
@@ -736,13 +734,6 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		if response.UpdatedContract != nil {
 			updateContractTotal.WithLabelValues("lstorage").Inc()
 
-			commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
-			s.log.Infow("Updating hash in lstorage", "path", job.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
-			_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{job.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
-			if err != nil {
-				return errors.Join(errors.New("updated contract verification failed"), err)
-			}
-
 			job.Hash = response.UpdatedContract.ContractStorageRoot
 
 			diffs := map[felt.Felt][]core.StorageDiff{
@@ -761,21 +752,12 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 			}
 		}
 
-		// TODO: Verify hashes
-		hasNext, err = trie.VerifyTrie(job.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
-		largeStorageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
-		starttime = time.Now()
-		if err != nil {
-			s.log.Warnw("trie verification failed in large store")
-			return err
-		}
-
-		diffs := make([]core.StorageDiff, 0)
+		diffs := make([]core.StorageDiff, len(response.Paths))
 		for i, path := range response.Paths {
-			diffs = append(diffs, core.StorageDiff{
+			diffs[i] = core.StorageDiff{
 				Key:   path,
 				Value: response.Values[i],
-			})
+			}
 		}
 
 		select {
@@ -1050,12 +1032,6 @@ func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, classes
 	defer s.mtxM.Unlock()
 	s.mtxN.Unlock()
 
-	/*
-		for _, storageDiffs := range diffs {
-			Reverse(storageDiffs)
-		}
-	*/
-
 	starttime := time.Now()
 	err := s.blockchain.StoreStorageDirect(diffs, classes, nonces)
 
@@ -1080,7 +1056,6 @@ func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, classes
 }
 
 func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
-
 	keyBatches := make([]*felt.Felt, 0)
 	for key := range s.classesJob {
 		if key == nil || key.IsZero() {
@@ -1132,7 +1107,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 	return nil
 }
 
-func (s *SnapSyncher) doubleCheckStateTrie(ctx context.Context) error {
+func (s *SnapSyncher) verifyStatTrie(ctx context.Context) error {
 
 	sr, cl, err := s.blockchain.HeadState()
 	if err != nil {
