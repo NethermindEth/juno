@@ -445,7 +445,7 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 		s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
 		rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-		hasNext, response, err := s.snapServer.GetAddressRange(ctx, s.currentStateRoot, startAddr, nil, uint64(addressRangeMaxNodes)) // Verify is slow.
+		hasNext, response, _, err := s.snapServer.GetAddressRange(ctx, s.currentStateRoot, startAddr, nil, uint64(addressRangeMaxNodes)) // Verify is slow.
 		if err != nil {
 			return errors.Join(err, errors.New("error get address range"))
 		}
@@ -570,7 +570,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		s.log.Infow("storage range", "rootDistance", s.lastBlock.Number-s.startingBlock.Number, "root", curstateroot.String(), "requestcount", len(requests))
 
 		starttime := time.Now()
-		responses, err := s.snapServer.GetContractRange(curstateroot, requests, uint64(storageMaxNodes), 20)
+		responses, hasNexes, err := s.snapServer.GetContractRange(ctx, curstateroot, requests, uint64(storageMaxNodes), 20)
 		storageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
 			return err
@@ -593,19 +593,9 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		for i, response := range responses {
 			request := requests[i]
 			job := jobs[i]
+			storageLeafSize.Observe(float64(len(response.Paths)))
 
 			if response.UpdatedContract != nil {
-				updateContractTotal.WithLabelValues("storage").Inc()
-				commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
-				s.log.Infow("Updating hash in storage", "path", request.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
-				// TODO: Verify UpdatedContractHash
-				_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
-				if err != nil {
-					return errors.Join(err, errors.New("updated contract verification failed"))
-				}
-
-				s.log.Infow("changed info", "nonce", job.nonce.String(), "newNonce", response.UpdatedContract.Nonce.String(), "class", job.classHash.String(), "newClass", response.UpdatedContract.ClassHash.String())
-				request.Hash = response.UpdatedContract.ContractStorageRoot
 				job.nonce = response.UpdatedContract.Nonce
 				job.classHash = response.UpdatedContract.ClassHash
 			}
@@ -625,17 +615,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				continue
 			}
 
-			starttime := time.Now()
-			hasNext, err := trie.VerifyTrie(request.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
-			storageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
-			if err != nil {
-				fmt.Printf("Verification failed\n")
-				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
-				return err
-			}
-
-			storageLeafSize.Observe(float64(len(response.Paths)))
-
 			diffs := make([]core.StorageDiff, 0)
 			for i, path := range response.Paths {
 				diffs = append(diffs, core.StorageDiff{
@@ -649,7 +628,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			nonces[*request.Path] = job.nonce
 			classHashes[*request.Path] = job.classHash
 
-			if hasNext {
+			if hasNexes[i] {
 				request.StartAddr = diffs[len(diffs)-1].Key
 				largeStorageRequests = append(largeStorageRequests, request)
 			}
@@ -744,7 +723,7 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		job.StartAddr = startAddr
 		starttime := time.Now()
 		curstateroot := s.currentStateRoot
-		responses, err := s.snapServer.GetContractRange(curstateroot, []*blockchain.StorageRangeRequest{job}, uint64(largeStorageMaxNodes), uint64(largeStorageMaxNodes))
+		responses, hasNexes, err := s.snapServer.GetContractRange(ctx, curstateroot, []*blockchain.StorageRangeRequest{job}, uint64(largeStorageMaxNodes), uint64(largeStorageMaxNodes))
 		largeStorageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		starttime = time.Now()
 		if err != nil {
@@ -752,13 +731,14 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		}
 
 		response := responses[0] // TODO: it can return nothing
+		hasNext = hasNexes[0]
 
 		if response.UpdatedContract != nil {
 			updateContractTotal.WithLabelValues("lstorage").Inc()
 
 			commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
 			s.log.Infow("Updating hash in lstorage", "path", job.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
-			_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{job.Path}, []*felt.Felt{response.UpdatedContractHash}, response.UpdatedContractProof, crypto.Pedersen)
+			_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{job.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
 			if err != nil {
 				return errors.Join(errors.New("updated contract verification failed"), err)
 			}
@@ -1219,7 +1199,7 @@ func (s *SnapSyncher) doubleCheckStateTrie(ctx context.Context) error {
 			s.log.Infow("double check", "progress", calculatePercentage(startAddr))
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-			hasNext, response, err := s.snapServer.GetAddressRange(ctx, s.currentStateRoot, startAddr, nil, 4000) // Verify is slow.
+			hasNext, response, hashes, err := s.snapServer.GetAddressRange(ctx, s.currentStateRoot, startAddr, nil, 4000) // Verify is slow.
 			if err != nil {
 				return errors.Join(err, errors.New("error get address range"))
 			}
@@ -1230,7 +1210,7 @@ func (s *SnapSyncher) doubleCheckStateTrie(ctx context.Context) error {
 					return errors.Join(err, errors.New("error get address range"))
 				}
 
-				if !h.Equal(response.Hashes[i]) {
+				if !h.Equal(hashes[i]) {
 					ctrk, err := srs.Contract(path)
 					if err != nil {
 						return errors.Join(err, errors.New("unable to open contract"))
@@ -1241,7 +1221,7 @@ func (s *SnapSyncher) doubleCheckStateTrie(ctx context.Context) error {
 					strie, _ := ctrk.StorageTrie()
 					sroot, _ := strie.Root()
 
-					msg := fmt.Sprintf("Path not same %s: %s vs %s\n", path.String(), h.String(), response.Hashes[i].String())
+					msg := fmt.Sprintf("Path not same %s: %s vs %s\n", path.String(), h.String(), hashes[i].String())
 					fmt.Print(msg)
 					addrChanged = append(addrChanged, msg)
 					msg = fmt.Sprintf("Nonce %s vs %s\n", response.Leaves[i].Nonce.String(), nonce.String())

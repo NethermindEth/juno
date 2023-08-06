@@ -62,7 +62,6 @@ message GetAddressRange {
 
 message AddressRange {
   repeated FieldElement paths = 1;
-  repeated FieldElement hashes = 2;
   repeated ProofNode proofs = 3;
   repeated AddressRangeLeaf leaves = 4;
 }
@@ -97,7 +96,6 @@ message ContractRangeResponse {
   repeated ProofNode proofs = 3;
 
   AddressRangeLeaf updated_contract = 4;
-  FieldElement updated_contract_hash = 5;
   repeated ProofNode updated_contract_proof = 6;
 }
 

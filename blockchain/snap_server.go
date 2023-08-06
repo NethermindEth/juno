@@ -27,7 +27,6 @@ type ClassRangeResult struct {
 
 type AddressRangeResult struct {
 	Paths  []*felt.Felt
-	Hashes []*felt.Felt
 	Leaves []*AddressRangeLeaf
 
 	Proofs []*trie.ProofNode
@@ -53,7 +52,6 @@ type StorageRangeResult struct {
 	Proofs []*trie.ProofNode
 
 	UpdatedContract      *AddressRangeLeaf
-	UpdatedContractHash  *felt.Felt
 	UpdatedContractProof []*trie.ProofNode
 }
 
@@ -80,7 +78,7 @@ func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
 	return maxNodePerRequest
 }
 
-func (b *Blockchain) FindSnapshotMatching(filter func(record *snapshotRecord) bool) (*snapshotRecord, error) {
+func (b *Blockchain) findSnapshotMatching(filter func(record *snapshotRecord) bool) (*snapshotRecord, error) {
 	var snapshot *snapshotRecord
 	for _, record := range b.snapshots {
 		if filter(record) {
@@ -97,7 +95,7 @@ func (b *Blockchain) FindSnapshotMatching(filter func(record *snapshotRecord) bo
 }
 
 func (b *Blockchain) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) {
-	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.blockHash.Equal(blockHash)
 	})
 
@@ -199,7 +197,7 @@ func iterateWithLimit(
 }
 
 func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error) {
-	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.classRoot.Equal(classTrieRootHash)
 	})
 	if err != nil {
@@ -234,7 +232,7 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 	if rootHash == nil {
 		return nil, fmt.Errorf("root hash is nil")
 	}
-	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.stateRoot.Equal(rootHash)
 	})
 	if err != nil {
@@ -252,14 +250,12 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 
 	response := &AddressRangeResult{
 		Paths:  nil,
-		Hashes: nil,
 		Leaves: nil,
 		Proofs: nil,
 	}
 
 	response.Proofs, err = iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(maxNodes), func(key, value *felt.Felt) error {
 		response.Paths = append(response.Paths, key)
-		response.Hashes = append(response.Hashes, value)
 
 		classHash, err := s.ContractClassHash(key)
 		if err != nil {
@@ -295,7 +291,7 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 }
 
 func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*StorageRangeResult, error) {
-	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
+	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.stateRoot.Equal(storageTrieRootHash)
 	})
 	if err != nil {
@@ -374,11 +370,6 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 			return nil, err
 		}
 
-		val, err := storageTrie.Get(request.Path)
-		if err != nil {
-			return nil, err
-		}
-
 		nonce, err := contract.Nonce()
 		if err != nil {
 			return nil, err
@@ -389,9 +380,6 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 			return nil, err
 		}
 
-		fmt.Printf("updating contract hash from %s to %s. nonce: %s, classHash: %s, %s\n", request.Hash, sroot.String(), val.String(), nonce.String(), classHash.String())
-
-		response.UpdatedContractHash = val
 		response.UpdatedContract = &AddressRangeLeaf{
 			ContractStorageRoot: sroot,
 			ClassHash:           classHash,

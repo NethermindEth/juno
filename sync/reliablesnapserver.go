@@ -108,12 +108,11 @@ func (r *reliableSnapServer) GetClasses(ctx context.Context, classes []*felt.Fel
 	}
 }
 
-func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (bool, *blockchain.AddressRangeResult, error) {
-
+func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (bool, *blockchain.AddressRangeResult, []*felt.Felt, error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return false, nil, ctx.Err()
+			return false, nil, nil, ctx.Err()
 		default:
 		}
 
@@ -125,20 +124,67 @@ func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt
 			continue
 		}
 
-		// TODO: Verify hashes
+		hashes := make([]*felt.Felt, len(response.Leaves))
+		for i, leaf := range response.Leaves {
+			hashes[i] = core.CalculateContractCommitment(leaf.ContractStorageRoot, leaf.ClassHash, leaf.Nonce)
+		}
+
 		starttime = time.Now()
-		hasNext, err := trie.VerifyTrie(rootHash, response.Paths, response.Hashes, response.Proofs, crypto.Pedersen)
+		hasNext, err := trie.VerifyTrie(rootHash, response.Paths, hashes, response.Proofs, crypto.Pedersen)
 		addressDurations.WithLabelValues("verify").Observe(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
 			r.log.Warnw("error verifying trie", "err", err)
 			continue
 		}
 
-		return hasNext, response, nil
+		return hasNext, response, nil, nil
 	}
 
 }
 
-func (r *reliableSnapServer) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*blockchain.StorageRangeResult, error) {
-	return r.innerServer.GetContractRange(storageTrieRootHash, requests, maxNodes, maxNodesPerContract)
+func (r *reliableSnapServer) GetContractRange(ctx context.Context, storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*blockchain.StorageRangeResult, []bool, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		default:
+		}
+
+		responses, err := r.innerServer.GetContractRange(storageTrieRootHash, requests, maxNodes, maxNodesPerContract)
+		if err != nil {
+			r.log.Warnw("error fetching class range", "err", err)
+			continue
+		}
+
+		hasnexes := make([]bool, 0)
+
+		for i, response := range responses {
+			request := requests[i]
+
+			if response.UpdatedContract != nil {
+				updateContractTotal.WithLabelValues("storage").Inc()
+				commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
+				r.log.Infow("Updating hash in storage", "path", request.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
+				_, err := trie.VerifyTrie(request.Hash, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
+				if err != nil {
+					r.log.Warnw("error fetching storage range. updated contract verification failed", "err", err)
+					continue
+				}
+
+				request.Hash = response.UpdatedContract.ContractStorageRoot
+			}
+
+			starttime := time.Now()
+			hasNext, err := trie.VerifyTrie(request.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
+			storageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
+			if err != nil {
+				r.log.Warnw("error fetching storage range. updated contract verification failed", "err", err)
+				continue
+			}
+
+			hasnexes = append(hasnexes, hasNext)
+		}
+
+		return responses, hasnexes, nil
+	}
 }
