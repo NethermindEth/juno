@@ -1,12 +1,16 @@
 package trie_test
 
 import (
+	"math/big"
+	"math/rand"
 	"strconv"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -374,4 +378,304 @@ func BenchmarkTriePut(b *testing.B) {
 		}
 		return t.Commit()
 	}))
+}
+
+func numToFelt(num int) *felt.Felt {
+	return numToFeltBigInt(big.NewInt(int64(num)))
+}
+
+func numToFeltBigInt(num *big.Int) *felt.Felt {
+	f := felt.Zero
+	return f.SetBigInt(num)
+}
+
+func TestTrie_Iterate(t *testing.T) {
+	memdb, err := pebble.NewMem()
+	assert.Nil(t, err)
+
+	tr, err := trie.NewTriePedersen(trie.NewTransactionStorage(memdb.NewTransaction(true), []byte{1}), 251)
+	assert.Nil(t, err)
+
+	for i := 0; i < 10; i++ {
+		_, err = tr.Put(numToFelt(i), numToFelt(i+10))
+		assert.Nil(t, err)
+	}
+	err = tr.Commit()
+	assert.Nil(t, err)
+
+	tests := []struct {
+		name           string
+		startKey       *felt.Felt
+		count          int
+		expectedKeys   []*felt.Felt
+		expectedValues []*felt.Felt
+	}{
+		{
+			name:     "all",
+			startKey: numToFelt(0),
+			count:    10,
+			expectedKeys: []*felt.Felt{
+				numToFelt(0),
+				numToFelt(1),
+				numToFelt(2),
+				numToFelt(3),
+				numToFelt(4),
+				numToFelt(5),
+				numToFelt(6),
+				numToFelt(7),
+				numToFelt(8),
+				numToFelt(9),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(10),
+				numToFelt(11),
+				numToFelt(12),
+				numToFelt(13),
+				numToFelt(14),
+				numToFelt(15),
+				numToFelt(16),
+				numToFelt(17),
+				numToFelt(18),
+				numToFelt(19),
+			},
+		},
+		{
+			name:     "limited",
+			startKey: numToFelt(0),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(0),
+				numToFelt(1),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(10),
+				numToFelt(11),
+			},
+		},
+		{
+			name:     "limited with offset",
+			startKey: numToFelt(3),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(3),
+				numToFelt(4),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(13),
+				numToFelt(14),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			keys := make([]*felt.Felt, 0)
+			values := make([]*felt.Felt, 0)
+
+			_, err := tr.Iterate(test.startKey, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+				keys = append(keys, key)
+				values = append(values, value)
+				return len(keys) < test.count, nil
+			})
+			assert.Nil(t, err)
+
+			assert.Equal(t, test.expectedKeys, keys)
+			assert.Equal(t, test.expectedValues, values)
+		})
+	}
+}
+
+func TestTrie_GenerateProof(t *testing.T) {
+	t.Run("with trie of interval 1", func(t *testing.T) {
+		testTrieGenerateProof(t, func() int64 {
+			return 1
+		})
+	})
+	t.Run("with trie of gap 1", func(t *testing.T) {
+		testTrieGenerateProof(t, func() int64 {
+			return 2
+		})
+	})
+	t.Run("with trie of gap 2", func(t *testing.T) {
+		testTrieGenerateProof(t, func() int64 {
+			return 3
+		})
+	})
+	t.Run("with trie of gap 10", func(t *testing.T) {
+		testTrieGenerateProof(t, func() int64 {
+			return 10
+		})
+	})
+	t.Run("with trie of gap 1000000", func(t *testing.T) {
+		testTrieGenerateProof(t, func() int64 {
+			return 1000000
+		})
+	})
+
+	for seednum := 0; seednum < 10; seednum++ {
+		t.Run("with trie rand 10", func(t *testing.T) {
+			rng := rand.New(rand.NewSource(int64(seednum)))
+			testTrieGenerateProof(t, func() int64 {
+				return rng.Int63n(10) + 1
+			})
+		})
+		t.Run("with trie rand 100", func(t *testing.T) {
+			rng := rand.New(rand.NewSource(int64(seednum)))
+			testTrieGenerateProof(t, func() int64 {
+				return rng.Int63n(100) + 1
+			})
+		})
+		t.Run("with trie rand 1000000", func(t *testing.T) {
+			rng := rand.New(rand.NewSource(int64(seednum)))
+			testTrieGenerateProof(t, func() int64 {
+				return rng.Int63n(1000000000000) + 1
+			})
+		})
+	}
+}
+
+func testTrieGenerateProof(t *testing.T, gapGen func() int64) {
+	memdb, err := pebble.NewMem()
+	assert.NoError(t, err)
+
+	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(memdb.NewTransaction(true), []byte{1}), 251)
+	assert.NoError(t, err)
+
+	sourcepaths := make([]*felt.Felt, 0)
+	sourcevalues := make([]*felt.Felt, 0)
+	curidx := big.NewInt(0)
+	for i := 0; i < 10; i++ {
+		value := *curidx
+		value.Add(&value, big.NewInt(10))
+		sourcepaths = append(sourcepaths, numToFeltBigInt(curidx))
+		sourcevalues = append(sourcevalues, numToFeltBigInt(&value))
+		curidx.Add(curidx, big.NewInt(gapGen()))
+	}
+
+	for i, sourcepath := range sourcepaths {
+		_, err = tr1.Put(sourcepath, sourcevalues[i])
+		assert.NoError(t, err)
+	}
+
+	tr1root, err := tr1.Root()
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		startIdx int
+		count    int
+		hasNext  bool
+	}{
+		{
+			name:     "single value proof",
+			startIdx: 5,
+			count:    1,
+			hasNext:  true,
+		},
+		{
+			name:     "single value proof at start",
+			startIdx: 0,
+			count:    1,
+			hasNext:  true,
+		},
+		{
+			name:     "single value proof at end",
+			startIdx: 9,
+			count:    1,
+			hasNext:  false,
+		},
+		{
+			name:     "multi value proof",
+			startIdx: 5,
+			count:    4,
+			hasNext:  true,
+		},
+		{
+			name:     "multi value proof at start",
+			startIdx: 0,
+			count:    4,
+			hasNext:  true,
+		},
+		{
+			name:     "multi value proof at end",
+			startIdx: 6,
+			count:    4,
+			hasNext:  false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			paths := sourcepaths[test.startIdx : test.startIdx+test.count]
+			values := sourcevalues[test.startIdx : test.startIdx+test.count]
+
+			proofs, err := tr1.RangeProof(paths[0], paths[len(paths)-1])
+			assert.NoError(t, err)
+
+			for _, proof := range proofs {
+				assert.NotEqual(t, tr1root, proof.Hash)
+			}
+
+			hasNext, err := trie.VerifyTrie(tr1root, paths, values, proofs, 251, crypto.Pedersen)
+			assert.NoError(t, err)
+			assert.Equal(t, test.hasNext, hasNext)
+		})
+	}
+
+	t.Run("missing leaf should fail the proof", func(t *testing.T) {
+		paths := sourcepaths[3:8]
+		values := sourcevalues[3:8]
+
+		proofs, err := tr1.RangeProof(paths[0], paths[len(paths)-1])
+		assert.NoError(t, err)
+
+		trimmedpath := make([]*felt.Felt, 4)
+		copy(trimmedpath[:2], paths)
+		copy(trimmedpath[2:], paths[3:])
+
+		_, err = trie.VerifyTrie(tr1root, trimmedpath, values, proofs, 251, crypto.Pedersen)
+		assert.Error(t, err)
+	})
+}
+
+func TestTrie_GenerateProof_SingleValue(t *testing.T) {
+	memdb, err := pebble.NewMem()
+	assert.NoError(t, err)
+
+	tr1, err := trie.NewTriePedersen(trie.NewTransactionStorage(memdb.NewTransaction(true), []byte{1}), 251)
+	assert.NoError(t, err)
+
+	for i := 0; i < 1; i++ {
+		_, err = tr1.Put(numToFelt(i), numToFelt(i+10))
+		assert.NoError(t, err)
+	}
+
+	err = tr1.Commit()
+	assert.NoError(t, err)
+
+	tr1root, err := tr1.Root()
+	assert.NoError(t, err)
+
+	t.Run("test single value proof", func(t *testing.T) {
+		db2, err := pebble.NewMem()
+		assert.NoError(t, err)
+
+		tr2, err := trie.NewTriePedersen(trie.NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251)
+		assert.NoError(t, err)
+
+		_, err = tr2.Put(numToFelt(0), numToFelt(10))
+		assert.NoError(t, err)
+
+		proof, err := tr1.RangeProof(numToFelt(0), numToFelt(0))
+		assert.NoError(t, err)
+		for _, node := range proof {
+			err = tr2.SetProofNode(*node.Key, node.Hash)
+			assert.NoError(t, err)
+		}
+
+		tr2root, err := tr2.Root()
+		assert.NoError(t, err)
+
+		assert.Equal(t, tr1root, tr2root)
+	})
 }
