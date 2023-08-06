@@ -195,8 +195,7 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 // Iterate the trie from startValue in ascending order until the consumer returned false or an error occur. Return true
 // if end of trie is reached.
 // TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
-//
-//	block cache should have a pretty good hit rate.
+// block cache should have a pretty good hit rate.
 func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
 	startValueKey := t.feltToKey(startValue)
 	neverStopped, err := t.doIterate(&startValueKey, t.rootKey, consumer)
@@ -313,7 +312,7 @@ func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
 }
 
 func (t *Trie) SetProofNode(key Key, value *felt.Felt) error {
-	_, err := t.put(key, value, true)
+	_, err := t.put(key, value)
 	return err
 }
 
@@ -324,11 +323,11 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 
 	nodeKey := t.feltToKey(key)
-	return t.put(nodeKey, value, false)
+	return t.put(nodeKey, value)
 }
 
 //nolint:gocyclo
-func (t *Trie) put(nodeKey Key, value *felt.Felt, isProof bool) (*felt.Felt, error) {
+func (t *Trie) put(nodeKey Key, value *felt.Felt) (*felt.Felt, error) {
 	old := felt.Zero
 	node := &Node{
 		Value: value,
