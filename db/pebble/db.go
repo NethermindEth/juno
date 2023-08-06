@@ -19,6 +19,7 @@ type DB struct {
 func New(path string, logger pebble.Logger) (db.DB, error) {
 	return newPebble(path, &pebble.Options{
 		Logger: logger,
+		Cache:  pebble.NewCache(1000000000),
 	})
 }
 

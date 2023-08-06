@@ -684,13 +684,13 @@ func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *Contrac
 		return err
 	}
 
-	commitment := calculateContractCommitment(root, cHash, nonce)
+	commitment := CalculateContractCommitment(root, cHash, nonce)
 
 	_, err = stateTrie.Put(contract.Address, commitment)
 	return err
 }
 
-func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
+func CalculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 

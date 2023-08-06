@@ -1,25 +1,33 @@
-package p2p
+package snap
+
+//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/snap.proto
 
 import (
 	"fmt"
-	"github.com/NethermindEth/juno/blockchain"
 	"io"
 	"reflect"
 
-	"github.com/NethermindEth/juno/p2p/p2pproto"
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/p2p/snap/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
-const snapSyncProto = "/juno/starknet/snap-sync/1"
+const Proto = "/juno/starknet/snap-sync/1"
 
-type snapSyncServer struct {
-	snapServer func() (blockchain.SnapServer, func(), error)
-
-	log utils.SimpleLogger
+type SnapSyncServer struct {
+	snapServer blockchain.SnapServer
+	log        utils.SimpleLogger
 }
 
-func (s *snapSyncServer) HandleSnapSyncRequest(request *p2pproto.SnapRequest) (*p2pproto.SnapResponse, error) {
+func NewSnapSyncServer(server blockchain.SnapServer, log utils.SimpleLogger) *SnapSyncServer {
+	return &SnapSyncServer{
+		snapServer: server,
+		log:        log,
+	}
+}
+
+func (s *SnapSyncServer) HandleSnapSyncRequest(request *p2pproto.SnapRequest) (*p2pproto.SnapResponse, error) {
 	switch v := request.Request.(type) {
 	case *p2pproto.SnapRequest_GetTrieRoot:
 		response, err := s.HandleTrieRootRequest(v.GetTrieRoot)
@@ -61,7 +69,7 @@ func (s *snapSyncServer) HandleSnapSyncRequest(request *p2pproto.SnapRequest) (*
 	}
 }
 
-func (s *snapSyncServer) handleStream(stream network.Stream) {
+func (s *SnapSyncServer) HandleStream(stream network.Stream) {
 	err := s.DoHandleStream(stream)
 	if err != nil {
 		s.log.Errorw("error handling block sync", err)
@@ -72,7 +80,7 @@ func (s *snapSyncServer) handleStream(stream network.Stream) {
 	}
 }
 
-func (s *snapSyncServer) DoHandleStream(stream io.ReadWriteCloser) error {
+func (s *SnapSyncServer) DoHandleStream(stream io.ReadWriteCloser) error {
 	msg := p2pproto.SnapRequest{}
 	err := readCompressedProtobuf(stream, &msg)
 	if err != nil {
@@ -93,14 +101,8 @@ func (s *snapSyncServer) DoHandleStream(stream io.ReadWriteCloser) error {
 	return nil
 }
 
-func (s *snapSyncServer) HandleTrieRootRequest(root *p2pproto.GetRootInfo) (*p2pproto.RootInfo, error) {
-	snapServer, closer, err := s.snapServer()
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
-	info, err := snapServer.GetTrieRootAt(fieldElementToFelt(root.BlockHash))
+func (s *SnapSyncServer) HandleTrieRootRequest(root *p2pproto.GetRootInfo) (*p2pproto.RootInfo, error) {
+	info, err := s.snapServer.GetTrieRootAt(fieldElementToFelt(root.BlockHash))
 	if err == blockchain.ErrMissingSnapshot {
 		return nil, nil // Hmm....
 	}
@@ -111,14 +113,8 @@ func (s *snapSyncServer) HandleTrieRootRequest(root *p2pproto.GetRootInfo) (*p2p
 	return MapValueViaReflect[*p2pproto.RootInfo](info), nil
 }
 
-func (s *snapSyncServer) HandleClassRangeRequest(classRange *p2pproto.GetClassRange) (*p2pproto.ClassRange, error) {
-	snapServer, closer, err := s.snapServer()
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
-	response, err := snapServer.GetClassRange(fieldElementToFelt(classRange.Root), fieldElementToFelt(classRange.StartAddr), fieldElementToFelt(classRange.LimitAddr), classRange.MaxNodes)
+func (s *SnapSyncServer) HandleClassRangeRequest(classRange *p2pproto.GetClassRange) (*p2pproto.ClassRange, error) {
+	response, err := s.snapServer.GetClassRange(fieldElementToFelt(classRange.Root), fieldElementToFelt(classRange.StartAddr), fieldElementToFelt(classRange.LimitAddr), classRange.MaxNodes)
 	if err == blockchain.ErrMissingSnapshot {
 		return nil, nil // Hmm....
 	}
@@ -133,17 +129,11 @@ func (s *snapSyncServer) HandleClassRangeRequest(classRange *p2pproto.GetClassRa
 	}, nil
 }
 
-func (s *snapSyncServer) HandleContractRange(contractRangeRequest *p2pproto.GetContractRange) (*p2pproto.ContractRange, error) {
-	snapServer, closer, err := s.snapServer()
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
+func (s *SnapSyncServer) HandleContractRange(contractRangeRequest *p2pproto.GetContractRange) (*p2pproto.ContractRange, error) {
 	root := fieldElementToFelt(contractRangeRequest.Root)
 	requests := MapValueViaReflect[[]*blockchain.StorageRangeRequest](contractRangeRequest.Requests)
 
-	response, err := snapServer.GetContractRange(root, requests, contractRangeRequest.MaxNodes)
+	response, err := s.snapServer.GetContractRange(root, requests, contractRangeRequest.MaxNodes, contractRangeRequest.MaxNodesPerContract)
 	if err == blockchain.ErrMissingSnapshot {
 		return nil, nil // Hmm....
 	}
@@ -156,14 +146,8 @@ func (s *snapSyncServer) HandleContractRange(contractRangeRequest *p2pproto.GetC
 	}, nil
 }
 
-func (s *snapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRange) (*p2pproto.AddressRange, error) {
-	snapServer, closer, err := s.snapServer()
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
-	response, err := snapServer.GetAddressRange(
+func (s *SnapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRange) (*p2pproto.AddressRange, error) {
+	response, err := s.snapServer.GetAddressRange(
 		fieldElementToFelt(addressRange.Root),
 		fieldElementToFelt(addressRange.StartAddr),
 		fieldElementToFelt(addressRange.LimitAddr),
@@ -179,15 +163,9 @@ func (s *snapSyncServer) HandleAddressRange(addressRange *p2pproto.GetAddressRan
 	return MapValueViaReflect[*p2pproto.AddressRange](response), nil
 }
 
-func (s *snapSyncServer) HandleGetClasses(classes *p2pproto.GetClasses) (*p2pproto.Classes, error) {
-	snapServer, closer, err := s.snapServer()
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
+func (s *SnapSyncServer) HandleGetClasses(classes *p2pproto.GetClasses) (*p2pproto.Classes, error) {
 	keys := fieldElementsToFelts(classes.Hashes)
-	response, err := snapServer.GetClasses(keys)
+	response, err := s.snapServer.GetClasses(keys)
 	if err != nil {
 		return nil, err
 	}

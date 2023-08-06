@@ -2,7 +2,9 @@ package sync
 
 import (
 	"context"
-	"fmt"
+	"os"
+	"testing"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -11,9 +13,6 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestSnapCopyTrie(t *testing.T) {
@@ -48,84 +47,6 @@ type NoopService struct {
 
 func (n NoopService) Run(ctx context.Context) error {
 	return nil
-}
-
-func TestCopyTrie(t *testing.T) {
-	var d db.DB
-	d, _ = pebble.New("/home/amirul/fastworkscratch/largejuno", utils.NewNopZapLogger())
-	bc := blockchain.New(d, utils.MAINNET, utils.NewNopZapLogger()) // Needed because class loader need encoder to be registered
-
-	state, closer, err := bc.HeadState()
-	if err != nil {
-		panic(err)
-	}
-	defer closer()
-
-	stateAsStorage := state.(core.StateReaderStorage)
-
-	storageTrie, closer, err := stateAsStorage.StorageTrie()
-	if err != nil {
-		panic(err)
-	}
-	defer closer()
-
-	os.RemoveAll("/home/amirul/fastworkscratch/scratchtrie")
-	db2, _ := pebble.New("/home/amirul/fastworkscratch/scratchtrie", utils.NewNopZapLogger())
-	tx2 := db2.NewTransaction(true)
-	state2 := core.NewState(tx2)
-	storageTrie2, closer2, err := state2.StorageTrie()
-	if err != nil {
-		panic(err)
-	}
-	defer closer2()
-
-	r, _ := storageTrie.Root()
-	fmt.Printf("Root is %s", r.String())
-
-	startTime := time.Now()
-	idx := 0
-	err = storageTrie.Iterate(&felt.Zero, func(key *felt.Felt, value *felt.Felt) (bool, error) {
-		idx++
-		if idx%1000 == 0 {
-			duration := time.Now().Sub(startTime)
-			startTime = time.Now()
-
-			storageTrie2.Root()
-
-			duration2 := time.Now().Sub(startTime)
-			startTime = time.Now()
-
-			fmt.Printf("Progress %d %s %s\n", idx, duration, duration2)
-		}
-		_, err := storageTrie2.Put(key, value)
-		if err != nil {
-			return false, err
-		}
-		return true, nil
-	})
-
-	assert.NoError(t, err)
-
-	startTime = time.Now()
-	rt1, err := storageTrie.Root()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Calculating root\n")
-	rt2, err := storageTrie2.Root()
-	if err != nil {
-		panic(err)
-	}
-
-	duration := time.Now().Sub(startTime)
-	startTime = time.Now()
-	fmt.Printf("Root calculated in %s\n", duration)
-
-	assert.Equal(t, rt1, rt2)
-
-	if err != nil {
-		panic(err)
-	}
 }
 
 type localStarknetData struct {

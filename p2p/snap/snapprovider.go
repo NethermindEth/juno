@@ -1,4 +1,4 @@
-package p2p
+package snap
 
 import (
 	"context"
@@ -6,37 +6,37 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/p2p/p2pproto"
+	"github.com/NethermindEth/juno/p2p/snap/p2pproto"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/miolini/datacounter"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type SnapProvider struct {
 	streamProvider streamProvider
 	logger         utils.SimpleLogger
-
-	converter *converter
-	verifier  *verifier
 }
+
+type streamProvider = func(ctx context.Context) (network.Stream, func(), error)
 
 var _ blockchain.SnapServer = &SnapProvider{}
 
+var (
+	snapDataTotals = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_snap_data_totals",
+		Help: "Time in address get",
+	})
+)
+
 func NewSnapProvider(
 	streamProvider streamProvider,
-	bc *blockchain.Blockchain,
 	logger utils.SimpleLogger,
 ) (*SnapProvider, error) {
-	converter := NewConverter(&blockchainClassProvider{
-		blockchain: bc,
-	})
-
 	peerManager := &SnapProvider{
 		streamProvider: streamProvider,
-		converter:      converter,
-		verifier: &verifier{
-			network: bc.Network(),
-		},
-		logger: logger,
+		logger:         logger,
 	}
 
 	return peerManager, nil
@@ -106,7 +106,7 @@ func (ip *SnapProvider) GetClasses(classes []*felt.Felt) ([]core.Class, error) {
 
 	coreclasses := make([]core.Class, 0)
 	for _, class := range protoclasses.Classes {
-		_, cls, err := ip.converter.protobufClassToCoreClass(class)
+		_, cls, err := protobufClassToCoreClass(class)
 		if err != nil {
 			return nil, err
 		}
@@ -137,14 +137,15 @@ func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Fel
 	return MapValueViaReflect[*blockchain.AddressRangeResult](response.GetAddressRange()), nil
 }
 
-func (ip *SnapProvider) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes uint64) ([]*blockchain.StorageRangeResult, error) {
+func (ip *SnapProvider) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*blockchain.StorageRangeResult, error) {
 	ctx := context.Background()
 	request := &p2pproto.SnapRequest{
 		Request: &p2pproto.SnapRequest_GetContractRange{
 			GetContractRange: &p2pproto.GetContractRange{
-				Root:     feltToFieldElement(storageTrieRootHash),
-				Requests: MapValueViaReflect[[]*p2pproto.ContractRangeRequest](requests),
-				MaxNodes: maxNodes,
+				Root:                feltToFieldElement(storageTrieRootHash),
+				Requests:            MapValueViaReflect[[]*p2pproto.ContractRangeRequest](requests),
+				MaxNodes:            maxNodes,
+				MaxNodesPerContract: maxNodesPerContract,
 			},
 		},
 	}
@@ -182,7 +183,9 @@ func (ip *SnapProvider) sendSnapRequest(ctx context.Context, request *p2pproto.S
 	}
 
 	resp := &p2pproto.SnapResponse{}
-	err = readCompressedProtobuf(stream, resp)
+	countingReader := datacounter.NewReaderCounter(stream)
+	err = readCompressedProtobuf(countingReader, resp)
+	snapDataTotals.Add(float64(countingReader.Count()))
 	if err != nil {
 		return nil, err
 	}

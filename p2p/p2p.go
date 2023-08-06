@@ -1,5 +1,5 @@
 // I don't remember how this is usually done. This will do for now...
-//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto ./proto/snap.proto
+//go:generate protoc --go_out=proto --proto_path=proto ./proto/common.proto ./proto/propagation.proto ./proto/sync.proto
 
 package p2p
 
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/p2p/snap"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -106,17 +107,9 @@ func New(
 		log:        log,
 	}
 
-	snapSyncServer := snapSyncServer{
-		snapServer: func() (blockchain.SnapServer, func(), error) {
-			// TODO: clean this up
-			return bc, func() {
-			}, nil
-		},
-		log: log,
-	}
-
+	snapSyncServer := snap.NewSnapSyncServer(bc, log)
 	p2phost.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
-	p2phost.SetStreamHandler(snapSyncProto, snapSyncServer.handleStream)
+	p2phost.SetStreamHandler(snap.Proto, snapSyncServer.HandleStream)
 
 	return &Service{
 		bootPeers:  bootPeers,
@@ -323,13 +316,13 @@ func (s *Service) CreateBlockSyncProvider() (*BlockSyncProvider, service.Service
 	return blockSyncPeerManager, peerManager, nil
 }
 
-func (s *Service) CreateSnapProvider() (*SnapProvider, service.Service, error) {
-	peerManager, err := NewP2PPeerPoolManager(s, snapSyncProto, s.log)
+func (s *Service) CreateSnapProvider() (*snap.SnapProvider, service.Service, error) {
+	peerManager, err := NewP2PPeerPoolManager(s, snap.Proto, s.log)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	provider, err := NewSnapProvider(peerManager.OpenStream, s.blockchain, s.log)
+	provider, err := snap.NewSnapProvider(peerManager.OpenStream, s.log)
 	if err != nil {
 		return nil, nil, err
 	}

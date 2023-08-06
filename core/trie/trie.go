@@ -274,6 +274,9 @@ func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer
 	}
 
 	if key.Len() == 251 {
+		if IsBitsetHigher(startValue, key) {
+			return true, nil
+		}
 		iterate_leaves_count.Inc()
 		keyAsFelt := t.bitSetToFelt(key)
 		return consumer(keyAsFelt, thenode.Value)

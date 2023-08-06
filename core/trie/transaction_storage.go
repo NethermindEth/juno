@@ -28,10 +28,9 @@ var nodePool = sync.Pool{
 }
 
 func getBuffer() *bytes.Buffer {
-	// buffer := bufferPool.Get().(*bytes.Buffer)
-	// buffer.Reset()
-	// return buffer
-	return bytes.NewBuffer(make([]byte, 0, 32))
+	buffer := bufferPool.Get().(*bytes.Buffer)
+	buffer.Reset()
+	return buffer
 }
 
 // TransactionStorage is a database transaction on a trie.

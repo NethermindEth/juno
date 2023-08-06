@@ -53,6 +53,7 @@ type StorageRangeResult struct {
 	Proofs []*trie.ProofNode
 
 	UpdatedContract      *AddressRangeLeaf
+	UpdatedContractHash  *felt.Felt
 	UpdatedContractProof []*trie.ProofNode
 }
 
@@ -60,7 +61,7 @@ type SnapServer interface {
 	GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error)
 	GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error)
 	GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*AddressRangeResult, error)
-	GetContractRange(rootHAsh *felt.Felt, requests []*StorageRangeRequest, maxNodes uint64) ([]*StorageRangeResult, error)
+	GetContractRange(rootHAsh *felt.Felt, requests []*StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*StorageRangeResult, error)
 	GetClasses(classes []*felt.Felt) ([]core.Class, error)
 }
 
@@ -293,7 +294,7 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 	return response, err
 }
 
-func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest, maxNodes uint64) ([]*StorageRangeResult, error) {
+func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests []*StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*StorageRangeResult, error) {
 	snapshot, err := b.FindSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.stateRoot.Equal(storageTrieRootHash)
 	})
@@ -308,7 +309,12 @@ func (b *Blockchain) GetContractRange(storageTrieRootHash *felt.Felt, requests [
 	responses := make([]*StorageRangeResult, 0)
 
 	for _, request := range requests {
-		response, err := b.handleStorageRangeRequest(s, request, uint64(curNodeLimit))
+		contractLimit := uint64(curNodeLimit)
+		if contractLimit > maxNodesPerContract {
+			contractLimit = maxNodesPerContract
+		}
+
+		response, err := b.handleStorageRangeRequest(s, request, contractLimit)
 		if err != nil {
 			return nil, err
 		}
@@ -368,6 +374,11 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 			return nil, err
 		}
 
+		val, err := storageTrie.Get(request.Path)
+		if err != nil {
+			return nil, err
+		}
+
 		nonce, err := contract.Nonce()
 		if err != nil {
 			return nil, err
@@ -378,15 +389,15 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 			return nil, err
 		}
 
+		fmt.Printf("updating contract hash from %s to %s. nonce: %s, classHash: %s, %s\n", request.Hash, sroot.String(), val.String(), nonce.String(), classHash.String())
+
+		response.UpdatedContractHash = val
 		response.UpdatedContract = &AddressRangeLeaf{
 			ContractStorageRoot: sroot,
 			ClassHash:           classHash,
 			Nonce:               nonce,
 		}
-
 		response.UpdatedContractProof = proofs
-
-		return nil, fmt.Errorf("storage root hash mismatch %s vs %s", sroot.String(), request.Hash.String())
 	}
 
 	response.Proofs, err = iterateWithLimit(strie, request.StartAddr, request.LimitAddr, nodeLimit, func(key, value *felt.Felt) error {

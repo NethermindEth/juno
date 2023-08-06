@@ -139,6 +139,6 @@ func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt
 
 }
 
-func (r *reliableSnapServer) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes uint64) ([]*blockchain.StorageRangeResult, error) {
-	return r.innerServer.GetContractRange(storageTrieRootHash, requests, maxNodes)
+func (r *reliableSnapServer) GetContractRange(storageTrieRootHash *felt.Felt, requests []*blockchain.StorageRangeRequest, maxNodes, maxNodesPerContract uint64) ([]*blockchain.StorageRangeResult, error) {
+	return r.innerServer.GetContractRange(storageTrieRootHash, requests, maxNodes, maxNodesPerContract)
 }

@@ -24,14 +24,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type MutableStorage interface {
-	SetClasss(path *felt.Felt, classHash *felt.Felt, class core.Class) error
-	SetAddress(paths []*felt.Felt, nodeHashes []*felt.Felt, classHashes []*felt.Felt, nonces []*felt.Felt) error
-	SetStorage(storagePath *felt.Felt, paths []*felt.Felt, values []*felt.Felt) error
-	GetStateRoot() (*felt.Felt, error)
-	ApplyStateUpdate(update *core.StateUpdate, validate bool) error
-}
-
 type SnapSyncher struct {
 	baseSync     service.Service
 	starknetData starknetdata.StarknetData
@@ -133,35 +125,47 @@ var (
 		Name: "juno_large_storage_store_job_size_total",
 		Help: "Time in address get",
 	})
+	pivotUpdates = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "juno_pivot_update",
+		Help: "Time in address get",
+	})
 
 	updateContractTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "juno_updated_contract_totals",
 		Help: "Time in address get",
 	}, []string{"location"})
-	storeJobType = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "juno_store_job_type",
-		Help: "Time in address get",
-	}, []string{"type"})
+
+	storageLeafSize = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "juno_storage_leaf_size",
+		Help:    "Time in address get",
+		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
+	})
+	storageLargeLeafSize = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "juno_storage_large_leaf_size",
+		Help:    "Time in address get",
+		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
+	})
 )
 
 var (
 	storageJobWorker    = 4
-	storageBatchSize    = 500
-	storageMaxNodes     = 3000                                // Smaller values tend to help here as the existence of large account is not easily parallizable her here.
+	storageBatchSize    = 2000
+	storageMaxNodes     = 100000                              // Smaller values tend to help here as the existence of large account is not easily parallizable her here.
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
 	classRangeMaxNodes   = 10000
 	addressRangeMaxNodes = 5000
 
 	largeStorageJobWorker      = runtime.NumCPU() * 2 // Large storage are largest and most parallelizable. So we want a lot of this.
-	largeStorageMaxNodes       = 20000
+	largeStorageMaxNodes       = 4000
 	largeStorageJobQueueSize   = 4 // They are usually very slow. So more does not really do anything.
 	largeStorageStoreQueueSize = 0 // We want the large storage to be throttled by large store
 
 	fetchClassWorkerCount = 4
 	classesJobQueueSize   = 128
 
-	maxPivotDistance = 2
+	maxPivotDistance     = 1
+	newPivotHeadDistance = uint64(1)
 )
 
 func (s *SnapSyncher) initState(ctx context.Context) error {
@@ -169,7 +173,7 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	if err != nil {
 		return errors.Join(err, errors.New("error getting current head"))
 	}
-	startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-1)
+	startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
 	if err != nil {
 		return errors.Join(err, errors.New("error getting current head"))
 	}
@@ -209,17 +213,17 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	}
 
 	for i := s.startingBlock.Number; i <= s.lastBlock.Number; i++ {
-		stateUpdate, err := s.starknetData.StateUpdate(ctx, uint64(i))
-		if err != nil {
-			return errors.Join(err, errors.New("error fetching state update"))
-		}
-
 		s.log.Infow("applying block", "blockNumber", i, "lastBlock", s.lastBlock.Number)
 
-		err = s.ApplyStateUpdate(uint64(i), stateUpdate, false)
+		err = s.ApplyStateUpdate(uint64(i))
 		if err != nil {
 			return errors.Join(err, errors.New("error applying state update"))
 		}
+	}
+
+	err = s.doubleCheckStateTrie(ctx)
+	if err != nil {
+		return err
 	}
 
 	s.log.Infow("delegating to standard synchronizer")
@@ -227,6 +231,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 }
 
 func (s *SnapSyncher) runPhase1(ctx context.Context) error {
+	updateContractTotal.WithLabelValues("test").Inc()
 	// 1. Get the current head
 	// 2. Start the snap sync with pivot set to that head
 	// 3. If at any moment, if:
@@ -377,29 +382,6 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		return err
 	}
 
-	/*
-			s.log.Infow("verifying", "duration", time.Now().Sub(starttime).String())
-			state, closer, err := s.blockchain.HeadState()
-			if err != nil {
-				return err
-			}
-			sroot, croot, err := state.(*core.State).StateAndClassRoot()
-			if err != nil {
-				return err
-			}
-			err = closer()
-			if err != nil {
-				return err
-			}
-
-		if !sroot.Equal(s.currentStateRoot) {
-			return fmt.Errorf("state root mismatch %s vs %s", sroot.String(), s.currentStateRoot.String())
-		}
-		if !croot.Equal(s.currentClassRoot) {
-			return fmt.Errorf("state root mismatch %s vs %s", sroot.String(), s.currentStateRoot.String())
-		}
-	*/
-
 	s.log.Infow("first phase completed", "duration", time.Now().Sub(starttime).String())
 
 	return nil
@@ -460,11 +442,10 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 	startAddr := &felt.Zero
 	for {
-		curstateroot := s.currentStateRoot
 		s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
 		rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-		hasNext, response, err := s.snapServer.GetAddressRange(ctx, curstateroot, startAddr, nil, uint64(addressRangeMaxNodes)) // Verify is slow.
+		hasNext, response, err := s.snapServer.GetAddressRange(ctx, s.currentStateRoot, startAddr, nil, uint64(addressRangeMaxNodes)) // Verify is slow.
 		if err != nil {
 			return errors.Join(err, errors.New("error get address range"))
 		}
@@ -586,8 +567,10 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 
 		curstateroot := s.currentStateRoot
 
+		s.log.Infow("storage range", "rootDistance", s.lastBlock.Number-s.startingBlock.Number, "root", curstateroot.String(), "requestcount", len(requests))
+
 		starttime := time.Now()
-		responses, err := s.snapServer.GetContractRange(curstateroot, requests, uint64(storageMaxNodes))
+		responses, err := s.snapServer.GetContractRange(curstateroot, requests, uint64(storageMaxNodes), 20)
 		storageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
 			return err
@@ -613,11 +596,15 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 
 			if response.UpdatedContract != nil {
 				updateContractTotal.WithLabelValues("storage").Inc()
-				_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{request.Path}, []*felt.Felt{response.UpdatedContract.ClassHash}, response.UpdatedContractProof, crypto.Pedersen)
+				commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
+				s.log.Infow("Updating hash in storage", "path", request.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
+				// TODO: Verify UpdatedContractHash
+				_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
 				if err != nil {
 					return errors.Join(err, errors.New("updated contract verification failed"))
 				}
 
+				s.log.Infow("changed info", "nonce", job.nonce.String(), "newNonce", response.UpdatedContract.Nonce.String(), "class", job.classHash.String(), "newClass", response.UpdatedContract.ClassHash.String())
 				request.Hash = response.UpdatedContract.ContractStorageRoot
 				job.nonce = response.UpdatedContract.Nonce
 				job.classHash = response.UpdatedContract.ClassHash
@@ -644,12 +631,10 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			if err != nil {
 				fmt.Printf("Verification failed\n")
 				fmt.Printf("Request %s %s\n", request.Hash.String(), request.Path.String())
-				for i, path := range response.Paths {
-					fmt.Printf("S %s -> %s\n", path.String(), response.Values[i].String())
-				}
-
 				return err
 			}
+
+			storageLeafSize.Observe(float64(len(response.Paths)))
 
 			diffs := make([]core.StorageDiff, 0)
 			for i, path := range response.Paths {
@@ -746,26 +731,36 @@ func (s *SnapSyncher) runLargeStorageRangeWorker(ctx context.Context, workerIdx 
 func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, job *blockchain.StorageRangeRequest) error {
 	startAddr := job.StartAddr
 	hasNext := true
+	totalPaths := 0
 	for hasNext {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		s.log.Infow("large storage", "workerId", workerIdx, "path", job.Path, "percentage", calculatePercentage(startAddr))
 
-		curstateroot := s.currentStateRoot
 		job.StartAddr = startAddr
 		starttime := time.Now()
-		responses, err := s.snapServer.GetContractRange(curstateroot, []*blockchain.StorageRangeRequest{job}, uint64(largeStorageMaxNodes))
+		curstateroot := s.currentStateRoot
+		responses, err := s.snapServer.GetContractRange(curstateroot, []*blockchain.StorageRangeRequest{job}, uint64(largeStorageMaxNodes), uint64(largeStorageMaxNodes))
 		largeStorageDurations.WithLabelValues("get").Add(float64(time.Now().Sub(starttime).Microseconds()))
 		starttime = time.Now()
 		if err != nil {
-			return err
+			return errors.Join(errors.New("fetch failed"), err)
 		}
 
 		response := responses[0] // TODO: it can return nothing
 
 		if response.UpdatedContract != nil {
 			updateContractTotal.WithLabelValues("lstorage").Inc()
-			_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{job.Path}, []*felt.Felt{response.UpdatedContract.ClassHash}, response.UpdatedContractProof, crypto.Pedersen)
+
+			commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
+			s.log.Infow("Updating hash in lstorage", "path", job.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
+			_, err := trie.VerifyTrie(curstateroot, []*felt.Felt{job.Path}, []*felt.Felt{response.UpdatedContractHash}, response.UpdatedContractProof, crypto.Pedersen)
 			if err != nil {
-				return errors.Join(err, errors.New("updated contract verification failed"))
+				return errors.Join(errors.New("updated contract verification failed"), err)
 			}
 
 			job.Hash = response.UpdatedContract.ContractStorageRoot
@@ -779,6 +774,7 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 			nonces := map[felt.Felt]*felt.Felt{
 				*job.Path: response.UpdatedContract.Nonce,
 			}
+
 			err = s.SetStorage(diffs, classes, nonces, true, false)
 			if err != nil {
 				return errors.Join(err, errors.New("unable to update updated contract"))
@@ -813,13 +809,16 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 		largeStorageDurations.WithLabelValues("queue").Add(float64(time.Now().Sub(starttime).Microseconds()))
 
 		startAddr = response.Paths[len(response.Paths)-1]
+		totalPaths += len(diffs)
 	}
+
+	storageLargeLeafSize.Observe(float64(totalPaths))
 
 	return nil
 }
 
 var (
-	storePerContractBatchSize         = 5000
+	storePerContractBatchSize         = 500
 	storeMaxConcurrentContractTrigger = runtime.NumCPU()
 	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 4)
 )
@@ -848,10 +847,10 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) er
 			}
 
 			jobsize := 0
-			for k := range tostore {
+			for k, v := range tostore {
 				jobsize += len(tostore[k])
-				if len(curmap[k]) > storePerContractBatchSize {
-					curmap[k] = curmap[k][storePerContractBatchSize:]
+				if len(curmap[k]) > len(v) {
+					curmap[k] = curmap[k][len(v):]
 				} else {
 					delete(curmap, k)
 				}
@@ -868,13 +867,44 @@ func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) er
 			if err != nil {
 				return errors.Join(err, errors.New("error storing large storage"))
 			}
-			s.log.Infow("large storage store", "workerId", workerId, "size", len(curmap), "total", jobsize, "length", length, "totalChanges", totalChanges, "time", time.Now().Sub(starttime))
+			// s.log.Infow("large storage store", "workerId", workerId, "size", len(curmap), "total", jobsize, "length", length, "totalChanges", totalChanges, "time", time.Now().Sub(starttime))
 		}
 	}
 
-	err := s.SetStorage(curmap, nil, nil, false, true)
-	if err != nil {
-		return errors.Join(err, errors.New("error storing large storage"))
+	s.log.Infow("final store", "workerId", workerId)
+	for len(curmap) > 0 {
+		// In an effort to improve parallelism, we try to limit each contract to a batch size so that no
+		// single contract take too much time, delaying other contract.
+		tostore := map[felt.Felt][]core.StorageDiff{}
+		for k, diffs := range curmap {
+			if len(diffs) > storePerContractBatchSize {
+				tostore[k] = diffs[:storePerContractBatchSize]
+			} else {
+				tostore[k] = diffs
+			}
+		}
+
+		jobsize := 0
+		for k, v := range tostore {
+			jobsize += len(tostore[k])
+			if len(curmap[k]) > len(v) {
+				curmap[k] = curmap[k][len(v):]
+			} else {
+				delete(curmap, k)
+			}
+		}
+
+		largeStorageStoreSize.Set(float64(len(tostore)))
+		largeStorageStoreJobSize.Set(float64(jobsize))
+		totalChanges -= jobsize
+
+		starttime := time.Now()
+		err := s.SetStorage(tostore, nil, nil, false, true)
+		largeStorageDurations.WithLabelValues("set").Add(float64(time.Now().Sub(starttime).Microseconds()))
+		if err != nil {
+			return errors.Join(err, errors.New("error storing large storage"))
+		}
+		s.log.Infow("large storage store", "workerId", workerId, "size", len(curmap), "total", jobsize, "totalChanges", totalChanges, "time", time.Now().Sub(starttime))
 	}
 	s.log.Infow("large storage store job completed", "workerId", workerId)
 
@@ -895,19 +925,25 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 		head, err := s.starknetData.BlockLatest(ctx)
 		if err != nil {
 			s.log.Infow("Error pooling latest block", "lastblock", s.lastBlock.Number, "err", err)
+			continue
+		}
+		newTarget, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
+		if err != nil {
 			return errors.Join(err, errors.New("error getting current head"))
 		}
 
 		// TODO: Race issue
-		if head.Number-s.lastBlock.Number < uint64(maxPivotDistance) {
-			s.log.Infow("Not updating pivot yet", "lastblock", s.lastBlock.Number, "head", head.Number, "diff", head.Number-s.lastBlock.Number)
+		if newTarget.Number-s.lastBlock.Number < uint64(maxPivotDistance) {
+			s.log.Infow("Not updating pivot yet", "lastblock", s.lastBlock.Number, "newTarget", newTarget.Number, "diff", newTarget.Number-s.lastBlock.Number)
 			continue
 		}
 
-		s.log.Infow("Switching snap pivot", "hash", head.Hash, "number", head.Number)
-		s.lastBlock = head.Header
+		pivotUpdates.Inc()
 
-		rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.startingBlock)
+		s.log.Infow("Switching snap pivot", "hash", newTarget.Hash, "number", newTarget.Number)
+		s.lastBlock = newTarget.Header
+
+		rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.lastBlock)
 		if err != nil {
 			return errors.Join(err, errors.New("error getting trie root"))
 		}
@@ -916,8 +952,13 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 	}
 }
 
-func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64, update *core.StateUpdate, validate bool) error {
+func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64) error {
 	ctx := context.Background()
+
+	update, err := s.starknetData.StateUpdate(ctx, blockNumber)
+	if err != nil {
+		return errors.Join(err, errors.New("error fetching state update"))
+	}
 
 	unknownClasses, err := s.fetchUnknownClasses(ctx, update)
 	if err != nil {
@@ -927,10 +968,6 @@ func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64, update *core.StateUpd
 	block, err := s.starknetData.BlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return err
-	}
-
-	if validate {
-		return s.blockchain.Store(block, update, unknownClasses)
 	}
 
 	return s.blockchain.ApplyNoVerify(block, update, unknownClasses)
@@ -1033,6 +1070,12 @@ func (s *SnapSyncher) SetStorage(diffs map[felt.Felt][]core.StorageDiff, classes
 	defer s.mtxM.Unlock()
 	s.mtxN.Unlock()
 
+	/*
+		for _, storageDiffs := range diffs {
+			Reverse(storageDiffs)
+		}
+	*/
+
 	starttime := time.Now()
 	err := s.blockchain.StoreStorageDirect(diffs, classes, nonces)
 
@@ -1103,6 +1146,129 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			}
 
 			keyBatches = newBatch
+		}
+	}
+
+	return nil
+}
+
+func (s *SnapSyncher) doubleCheckStateTrie(ctx context.Context) error {
+
+	sr, cl, err := s.blockchain.HeadState()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := cl()
+		if err != nil {
+			fmt.Printf("error %s\n", err)
+		}
+	}()
+
+	srs := sr.(*core.State)
+
+	srstate, cl2, err := srs.StorageTrie()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := cl2()
+		if err != nil {
+			fmt.Printf("error %s\n", err)
+		}
+	}()
+	cstate, cl3, err := srs.ClassTrie()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := cl3()
+		if err != nil {
+			fmt.Printf("error %s\n", err)
+		}
+	}()
+
+	sroot, err := srstate.Root()
+	if err != nil {
+		return err
+	}
+
+	croot, err := cstate.Root()
+	if err != nil {
+		return err
+	}
+
+	s.log.Infow("address range completed", "sroot", sroot.String(), "csroot", s.currentStateRoot.String(), "croot", croot.String(), "ccroot", s.currentClassRoot.String())
+
+	mismatched := false
+	if !sroot.Equal(s.currentStateRoot) {
+		mismatched = true
+		fmt.Printf("mismatched state root")
+	}
+	if !croot.Equal(s.currentClassRoot) {
+		mismatched = true
+		fmt.Printf("mismatched class root")
+	}
+
+	if mismatched {
+		addrChanged := make([]string, 0)
+		startAddr := &felt.Zero
+		for {
+			s.log.Infow("double check", "progress", calculatePercentage(startAddr))
+			rangeProgress.Set(float64(calculatePercentage(startAddr)))
+
+			hasNext, response, err := s.snapServer.GetAddressRange(ctx, s.currentStateRoot, startAddr, nil, 4000) // Verify is slow.
+			if err != nil {
+				return errors.Join(err, errors.New("error get address range"))
+			}
+
+			for i, path := range response.Paths {
+				h, err := srstate.Get(path)
+				if err != nil {
+					return errors.Join(err, errors.New("error get address range"))
+				}
+
+				if !h.Equal(response.Hashes[i]) {
+					ctrk, err := srs.Contract(path)
+					if err != nil {
+						return errors.Join(err, errors.New("unable to open contract"))
+					}
+
+					nonce, _ := ctrk.Nonce()
+					chash, _ := ctrk.ClassHash()
+					strie, _ := ctrk.StorageTrie()
+					sroot, _ := strie.Root()
+
+					msg := fmt.Sprintf("Path not same %s: %s vs %s\n", path.String(), h.String(), response.Hashes[i].String())
+					fmt.Print(msg)
+					addrChanged = append(addrChanged, msg)
+					msg = fmt.Sprintf("Nonce %s vs %s\n", response.Leaves[i].Nonce.String(), nonce.String())
+					fmt.Print(msg)
+					addrChanged = append(addrChanged, msg)
+					msg = fmt.Sprintf("ClassHash %s vs %s\n", response.Leaves[i].ClassHash.String(), chash.String())
+					fmt.Print(msg)
+					addrChanged = append(addrChanged, msg)
+					msg = fmt.Sprintf("Sroot %s vs %s\n", response.Leaves[i].ContractStorageRoot.String(), sroot.String())
+					fmt.Print(msg)
+					addrChanged = append(addrChanged, msg)
+				}
+			}
+
+			startAddr = response.Paths[len(response.Paths)-1]
+
+			if !hasNext {
+				break
+			}
+		}
+
+		for _, s2 := range addrChanged {
+			fmt.Printf(s2)
+		}
+
+		if len(addrChanged) > 0 {
+			return fmt.Errorf("not same")
 		}
 	}
 

@@ -1,0 +1,152 @@
+syntax = "proto3";
+option go_package = "../p2pproto";
+
+package starknet.snap;
+
+message SnapRequest {
+  oneof request {
+    GetRootInfo get_trie_root = 1;
+    GetClassRange get_class_range = 2;
+    GetAddressRange get_address_range = 3;
+    GetContractRange get_contract_range = 4;
+    GetClasses get_classes = 5;
+  }
+}
+
+message SnapResponse {
+  oneof response {
+    RootInfo root_info = 1;
+    ClassRange class_range = 2;
+    AddressRange address_range = 3;
+    ContractRange contract_range = 4;
+    Classes classes = 5;
+  }
+}
+
+message GetRootInfo {
+  FieldElement block_hash = 1;
+}
+
+message RootInfo {
+  FieldElement storage_root = 1;
+  FieldElement class_root = 2;
+}
+
+message GetClasses {
+  repeated FieldElement hashes = 1;
+}
+
+message Classes {
+  repeated ContractClass classes = 1;
+}
+
+message GetClassRange {
+  FieldElement root = 1;
+  FieldElement start_addr = 2;
+  FieldElement limit_addr = 3;
+  uint64 max_nodes = 4;
+}
+
+message ClassRange {
+  repeated FieldElement paths = 1;
+  repeated FieldElement class_commitments = 2; // Do we need this actually? Can't we infer them from the V1 classes within the address range?
+  repeated ProofNode proofs = 3;
+}
+
+message GetAddressRange {
+  FieldElement root = 1;
+  FieldElement start_addr = 2;
+  FieldElement limit_addr = 3;
+  uint64 max_nodes = 4;
+}
+
+message AddressRange {
+  repeated FieldElement paths = 1;
+  repeated FieldElement hashes = 2;
+  repeated ProofNode proofs = 3;
+  repeated AddressRangeLeaf leaves = 4;
+}
+
+message AddressRangeLeaf {
+  FieldElement contract_storage_root = 1;
+  FieldElement class_hash = 2;
+  FieldElement nonce = 3;
+}
+
+message GetContractRange {
+  FieldElement root = 1;
+  repeated ContractRangeRequest requests = 2;
+  uint64 max_nodes = 3;
+  uint64 max_nodes_per_contract = 4;
+}
+
+message ContractRangeRequest {
+  FieldElement path = 1;
+  FieldElement hash = 2;
+  FieldElement start_addr = 3;
+  FieldElement limit_addr = 4;
+}
+
+message ContractRange {
+  repeated ContractRangeResponse responses = 1;
+}
+
+message ContractRangeResponse {
+  repeated FieldElement paths = 1;
+  repeated FieldElement values = 2;
+  repeated ProofNode proofs = 3;
+
+  AddressRangeLeaf updated_contract = 4;
+  FieldElement updated_contract_hash = 5;
+  repeated ProofNode updated_contract_proof = 6;
+}
+
+// Its a bitset in juno. Its a truncated field_element. Probably should use bytes though... But I'm lazy.
+message Path {
+  uint32 length = 1;
+  bytes element = 2; // little endian
+}
+
+message ProofNode {
+  Path key = 1;
+  FieldElement hash = 2;
+}
+
+message FieldElement { bytes elements = 1; }
+
+message ContractClass {
+  oneof class {
+    Cairo0Class cairo0 = 1;
+    Cairo1Class cairo1 = 2;
+  }
+}
+
+message Cairo0Class {
+  message EntryPoint {
+    FieldElement selector = 1;
+    FieldElement offset = 2;
+  }
+
+  repeated EntryPoint constructor_entry_points = 1;
+  repeated EntryPoint external_entry_points = 2;
+  repeated EntryPoint l1_handler_entry_points = 3;
+  string program = 4;
+  string abi = 5;
+  FieldElement hash = 6; // Ahh... great.
+}
+
+message Cairo1Class {
+  message EntryPoint {
+    FieldElement selector = 1;
+    uint64 index = 2;
+  }
+
+  repeated EntryPoint constructor_entry_points = 1;
+  repeated EntryPoint external_entry_points = 2;
+  repeated EntryPoint l1_handler_entry_points = 3;
+  repeated FieldElement program = 4;
+  FieldElement program_hash = 5;
+  string abi = 6;
+  string semantic_versioning = 7;
+  FieldElement hash = 8;
+}

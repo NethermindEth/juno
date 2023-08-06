@@ -1,10 +1,12 @@
-package p2p
+package snap
 
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/p2pproto"
+	"github.com/NethermindEth/juno/p2p/snap/p2pproto"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/zstd"
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
@@ -91,6 +93,30 @@ func feltToFieldElement(flt *felt.Felt) *p2pproto.FieldElement {
 		return nil
 	}
 	return &p2pproto.FieldElement{Elements: flt.Marshal()}
+}
+
+func bitsetToProto(bset *bitset.BitSet) *p2pproto.Path {
+	thebytes := make([]byte, len(bset.Bytes())*8)
+
+	for i, u := range bset.Bytes() {
+		binary.LittleEndian.PutUint64(thebytes[i*8:], u)
+	}
+
+	return &p2pproto.Path{
+		Length:  uint32(bset.Len()),
+		Element: thebytes,
+	}
+}
+
+func protoToBitset(path *p2pproto.Path) *bitset.BitSet {
+	numcount := (len(path.Element) + 7) / 8
+	theint := make([]uint64, numcount)
+
+	for i := 0; i < numcount; i++ {
+		theint[i] = binary.LittleEndian.Uint64(path.Element[i*8:])
+	}
+
+	return bitset.FromWithLength(uint(path.Length), theint)
 }
 
 func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {

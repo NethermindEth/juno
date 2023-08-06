@@ -486,13 +486,14 @@ func TestTrie_Iterate(t *testing.T) {
 			keys := make([]*felt.Felt, 0)
 			values := make([]*felt.Felt, 0)
 
-			err := trie.Iterate(test.startKey, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+			_, err := trie.Iterate(test.startKey, func(key *felt.Felt, value *felt.Felt) (bool, error) {
 				keys = append(keys, key)
 				values = append(values, value)
 				return len(keys) < test.count, nil
 			})
 			assert.Nil(t, err)
 
+			fmt.Printf("%s vs %s\n", test.expectedKeys[0], keys[0])
 			assert.Equal(t, test.expectedKeys, keys)
 			assert.Equal(t, test.expectedValues, values)
 		})
