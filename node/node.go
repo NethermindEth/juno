@@ -39,6 +39,7 @@ const defaultPprofPort = 9080
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
+	HTTPHost            string         `mapstructure:"http-host"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
 	WSPort              uint16         `mapstructure:"ws-port"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
@@ -102,7 +103,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
+	services, err := makeRPC(
+		net.JoinHostPort(cfg.HTTPHost, fmt.Sprintf("%d", cfg.HTTPPort)),
+		cfg.WSPort,
+		rpcHandler,
+		log,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -165,7 +171,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	return n, nil
 }
 
-func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) ([]service.Service, error) { //nolint: funlen
+func makeRPC(
+	httpEndpoint string,
+	wsPort uint16,
+	rpcHandler *rpc.Handler,
+	log utils.SimpleLogger,
+) ([]service.Service, error) { //nolint: funlen
 	methods := []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -310,9 +321,9 @@ func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleL
 		}
 	}
 
-	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
+	httpListener, err := net.Listen("tcp", httpEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
+		return nil, fmt.Errorf("listen on http endpoint %s: %w", httpListener.Addr().String(), err)
 	}
 	httpServer := jsonrpc.NewHTTP("/v0_4", httpListener, jsonrpcServer, log)
 
