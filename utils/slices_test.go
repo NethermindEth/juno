@@ -41,3 +41,27 @@ func TestFilter(t *testing.T) {
 		assert.Equal(t, []int{2, 4, 6}, actual)
 	})
 }
+
+func TestIndexFunc(t *testing.T) {
+	t.Run("nil slice", func(t *testing.T) {
+		var input []int
+		idx := IndexFunc(input, func(int) bool {
+			return true
+		})
+		assert.Equal(t, -1, idx)
+	})
+	t.Run("element not present", func(t *testing.T) {
+		input := []int{1, 2, 3, 4}
+		idx := IndexFunc(input, func(v int) bool {
+			return v < 0
+		})
+		assert.Equal(t, -1, idx)
+	})
+	t.Run("element present", func(t *testing.T) {
+		input := []int{1, 2, 3, 4}
+		idx := IndexFunc(input, func(v int) bool {
+			return v == 3
+		})
+		assert.Equal(t, 2, idx)
+	})
+}

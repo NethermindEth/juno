@@ -1119,18 +1119,19 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 		return nil, ErrBlockNotFound
 	}
 
-	traceResults, traceBlockErr := h.traceBlockTransactions(block)
+	txIndex := utils.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
+		return tx.Hash().Equal(&hash)
+	})
+	if txIndex == -1 {
+		return nil, ErrTxnHashNotFound
+	}
+
+	traceResults, traceBlockErr := h.traceBlockTransactions(block, txIndex+1)
 	if traceBlockErr != nil {
 		return nil, traceBlockErr
 	}
 
-	for _, traceResult := range traceResults {
-		if traceResult.TransactionHash.Equal(&hash) {
-			return traceResult.TraceRoot, nil
-		}
-	}
-
-	return nil, ErrNoTraceAvailable
+	return traceResults[txIndex].TraceRoot, nil
 }
 
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
@@ -1213,10 +1214,10 @@ func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTran
 		return nil, ErrBlockNotFound
 	}
 
-	return h.traceBlockTransactions(block)
+	return h.traceBlockTransactions(block, len(block.Transactions))
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(block *core.Block, maxTransactionIdx int) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
@@ -1242,7 +1243,8 @@ func (h *Handler) traceBlockTransactions(block *core.Block) ([]TracedBlockTransa
 	var classes []core.Class
 	paidFeesOnL1 := []*felt.Felt{}
 
-	for _, transaction := range block.Transactions {
+	transactions := block.Transactions[:maxTransactionIdx]
+	for _, transaction := range transactions {
 		switch tx := transaction.(type) {
 		case *core.DeclareTransaction:
 			class, stateErr := headState.Class(tx.ClassHash)
@@ -1272,7 +1274,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block) ([]TracedBlockTransa
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 
-	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
+	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
 		sequencerAddress, state, h.network, paidFeesOnL1)
 	if err != nil {
 		rpcErr := *ErrContractError
@@ -1284,7 +1286,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block) ([]TracedBlockTransa
 	for i, trace := range traces {
 		result = append(result, TracedBlockTransaction{
 			TraceRoot:       trace,
-			TransactionHash: block.Transactions[i].Hash(),
+			TransactionHash: transactions[i].Hash(),
 		})
 	}
 
