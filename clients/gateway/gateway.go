@@ -39,14 +39,16 @@ type Client struct {
 	client  *http.Client
 	timeout time.Duration
 	log     utils.SimpleLogger
+	version string
 }
 
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T) *Client {
 	srv := newTestServer()
+	version := "v0.0.1-test"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, utils.NewNopZapLogger())
+	return NewClient(srv.URL, version, utils.NewNopZapLogger())
 }
 
 func newTestServer() *httptest.Server {
@@ -85,13 +87,14 @@ func newTestServer() *httptest.Server {
 	}))
 }
 
-func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
+func NewClient(gatewayURL, version string, log utils.SimpleLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
 		url:     gatewayURL,
 		timeout: 10 * time.Second,
 		client:  http.DefaultClient,
 		log:     log,
+		version: version,
 	}
 }
 
@@ -141,7 +144,7 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Juno v0.5.0-rc0")
+	req.Header.Set("User-Agent", c.version)
 	return c.client.Do(req)
 }
 

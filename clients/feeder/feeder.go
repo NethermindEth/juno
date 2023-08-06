@@ -28,6 +28,7 @@ type Client struct {
 	maxWait    time.Duration
 	minWait    time.Duration
 	log        utils.SimpleLogger
+	version    string
 }
 
 func (c *Client) WithBackoff(b Backoff) *Client {
@@ -66,9 +67,10 @@ func NopBackoff(d time.Duration) time.Duration {
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T, network utils.Network) *Client {
 	srv := newTestServer(network)
+	version := "v0.0.1-test"
 	t.Cleanup(srv.Close)
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
+	c := NewClient(srv.URL, version).WithBackoff(NopBackoff).WithMaxRetries(0)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -142,7 +144,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 	}))
 }
 
-func NewClient(clientURL string) *Client {
+func NewClient(clientURL, version string) *Client {
 	return &Client{
 		url:        clientURL,
 		client:     http.DefaultClient,
@@ -151,6 +153,7 @@ func NewClient(clientURL string) *Client {
 		maxWait:    10 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
+		version:	version,
 	}
 }
 
@@ -187,7 +190,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err != nil {
 				return nil, err
 			}
-			req.Header.Set("User-Agent", "Juno v0.5.0-rc0")
+			req.Header.Set("User-Agent", c.version)
 
 			res, err = c.client.Do(req)
 			if err == nil {

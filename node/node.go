@@ -96,10 +96,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	}
 
 	chain := blockchain.New(database, cfg.Network, log)
-	client := feeder.NewClient(cfg.Network.FeederURL())
+	client := feeder.NewClient(cfg.Network.FeederURL(), version)
 
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), version, log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
 	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
