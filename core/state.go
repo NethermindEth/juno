@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -15,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/bits-and-blooms/bitset"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -198,9 +198,9 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	var rootKey *bitset.BitSet
+	var rootKey *trie.Key
 	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(bitset.BitSet)
+		rootKey = new(trie.Key)
 		return rootKey.UnmarshalBinary(val)
 	})
 
@@ -227,12 +227,13 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 		}
 
 		if resultingRootKey != nil {
-			rootKeyBytes, marshalErr := resultingRootKey.MarshalBinary()
+			var rootKeyBytes bytes.Buffer
+			_, marshalErr := resultingRootKey.WriteTo(&rootKeyBytes)
 			if marshalErr != nil {
 				return marshalErr
 			}
 
-			return s.txn.Set(rootKeyDBKey, rootKeyBytes)
+			return s.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
 		}
 		return s.txn.Delete(rootKeyDBKey)
 	}

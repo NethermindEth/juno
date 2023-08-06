@@ -153,8 +153,7 @@ func TestTrieDeleteBasic(t *testing.T) {
 				// Check the final rootKey
 
 				if test.expectRootKey != nil {
-					expectKeyBytes := test.expectRootKey.Bits()
-					assert.Equal(t, expectKeyBytes[:], tempTrie.RootKey().Bytes())
+					assert.Equal(t, *test.expectRootKey, tempTrie.RootKey().Felt())
 				} else {
 					assert.Nil(t, tempTrie.RootKey())
 				}
@@ -297,8 +296,7 @@ func TestMaxTrieHeight(t *testing.T) {
 	})
 
 	t.Run("insert invalid key", func(t *testing.T) {
-		height := uint64(felt.Bits)
-		require.NoError(t, trie.RunOnTempTrie(uint(height), func(tt *trie.Trie) error {
+		require.NoError(t, trie.RunOnTempTrie(uint8(felt.Bits), func(tt *trie.Trie) error {
 			badKey := new(felt.Felt).Sub(&felt.Zero, new(felt.Felt).SetUint64(1))
 			_, err := tt.Put(badKey, new(felt.Felt))
 			assert.Error(t, err)
@@ -325,7 +323,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 
 	// We simulate the situation described above.
 
-	height := uint(251)
+	height := uint8(251)
 
 	// The database transaction we will use to create both tries.
 	txn := db.NewMemTransaction()

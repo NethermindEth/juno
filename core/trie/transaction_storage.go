@@ -3,11 +3,9 @@ package trie
 import (
 	"bytes"
 	"errors"
-	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/bits-and-blooms/bitset"
 )
 
 var _ Storage = (*TransactionStorage)(nil)
@@ -48,7 +46,7 @@ func NewTransactionStorage(txn db.Transaction, prefix []byte) *TransactionStorag
 
 // dbKey creates a byte array to be used as a key to our KV store
 // it simply appends the given key to the configured prefix
-func (t *TransactionStorage) dbKey(key *bitset.BitSet, buffer *bytes.Buffer) (int64, error) {
+func (t *TransactionStorage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error) {
 	_, err := buffer.Write(t.prefix)
 	if err != nil {
 		return 0, err
@@ -58,28 +56,31 @@ func (t *TransactionStorage) dbKey(key *bitset.BitSet, buffer *bytes.Buffer) (in
 	return int64(len(t.prefix)) + keyLen, err
 }
 
-func (t *TransactionStorage) keyToBitset(key []byte) (*bitset.BitSet, error) {
-	if !bytes.Equal(t.prefix, key[:len(t.prefix)]) {
-		return nil, notSameDb
-	}
+func (t *TransactionStorage) keyToBitset(key []byte) (*Key, error) {
+	panic("redo this")
+	/*
+		if !bytes.Equal(t.prefix, key[:len(t.prefix)]) {
+			return nil, notSameDb
+		}
 
-	buff := bytes.NewBuffer(key)
+		buff := bytes.NewBuffer(key)
 
-	_, err := io.CopyN(io.Discard, buff, int64(len(t.prefix)))
-	if err != nil {
-		return nil, err
-	}
+		_, err := io.CopyN(io.Discard, buff, int64(len(t.prefix)))
+		if err != nil {
+			return nil, err
+		}
 
-	bts := &bitset.BitSet{}
-	_, err = bts.ReadFrom(buff)
-	if err != nil {
-		return nil, err
-	}
+		bts := &bitset.BitSet{}
+		_, err = bts.ReadFrom(buff)
+		if err != nil {
+			return nil, err
+		}
 
-	return bts, nil
+		return bts, nil
+	*/
 }
 
-func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
+func (t *TransactionStorage) Put(key *Key, value *Node) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	keyLen, err := t.dbKey(key, buffer)
@@ -96,7 +97,7 @@ func (t *TransactionStorage) Put(key *bitset.BitSet, value *Node) error {
 	return t.txn.Set(encodedBytes[:keyLen], encodedBytes[keyLen:])
 }
 
-func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
+func (t *TransactionStorage) Get(key *Key) (*Node, error) {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -115,7 +116,7 @@ func (t *TransactionStorage) Get(key *bitset.BitSet) (*Node, error) {
 	return node, err
 }
 
-func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
+func (t *TransactionStorage) Delete(key *Key) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -125,10 +126,10 @@ func (t *TransactionStorage) Delete(key *bitset.BitSet) error {
 	return t.txn.Delete(buffer.Bytes())
 }
 
-func (t *TransactionStorage) RootKey() (*bitset.BitSet, error) {
-	var rootKey *bitset.BitSet
+func (t *TransactionStorage) RootKey() (*Key, error) {
+	var rootKey *Key
 	if err := t.txn.Get(t.prefix, func(val []byte) error {
-		rootKey = new(bitset.BitSet)
+		rootKey = new(Key)
 		return rootKey.UnmarshalBinary(val)
 	}); err != nil {
 		return nil, err
@@ -136,12 +137,14 @@ func (t *TransactionStorage) RootKey() (*bitset.BitSet, error) {
 	return rootKey, nil
 }
 
-func (t *TransactionStorage) PutRootKey(newRootKey *bitset.BitSet) error {
-	newRootKeyBytes, err := newRootKey.MarshalBinary()
+func (t *TransactionStorage) PutRootKey(newRootKey *Key) error {
+	buffer := getBuffer()
+	defer bufferPool.Put(buffer)
+	_, err := newRootKey.WriteTo(buffer)
 	if err != nil {
 		return err
 	}
-	return t.txn.Set(t.prefix, newRootKeyBytes)
+	return t.txn.Set(t.prefix, buffer.Bytes())
 }
 
 func (t *TransactionStorage) DeleteRootKey() error {

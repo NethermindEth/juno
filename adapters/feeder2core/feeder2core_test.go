@@ -17,22 +17,30 @@ func TestAdaptBlock(t *testing.T) {
 	tests := []struct {
 		number          uint64
 		protocolVersion string
+		network         utils.Network
 	}{
 		{
-			number: 147,
+			number:  147,
+			network: utils.MAINNET,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
+			network:         utils.MAINNET,
+		},
+		{
+			number:          304740,
+			protocolVersion: "0.12.1",
+			network:         utils.INTEGRATION,
 		},
 	}
 
-	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
 	ctx := context.Background()
 
 	for _, test := range tests {
-		t.Run("mainnet block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
+		t.Run(test.network.String()+" block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
+			client := feeder.NewTestClient(t, test.network)
+
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
 			block, err := feeder2core.AdaptBlock(response)
@@ -54,6 +62,7 @@ func TestAdaptBlock(t *testing.T) {
 			if assert.Equal(t, len(response.Receipts), len(block.Receipts)) {
 				for i, feederReceipt := range response.Receipts {
 					assert.Equal(t, feederReceipt.ExecutionStatus == feeder.Reverted, block.Receipts[i].Reverted)
+					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
 				}
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
@@ -66,8 +75,7 @@ func TestAdaptBlock(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.MAINNET)
 	ctx := context.Background()
 
 	for _, number := range numbers {
@@ -118,8 +126,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient, integServerClose := feeder.NewTestClient(utils.INTEGRATION)
-		t.Cleanup(integServerClose)
+		integClient := feeder.NewTestClient(t, utils.INTEGRATION)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
@@ -161,8 +168,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client, serverClose := feeder.NewTestClient(utils.GOERLI)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.GOERLI)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
@@ -199,11 +205,8 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli, serverClose := feeder.NewTestClient(utils.GOERLI)
-	t.Cleanup(serverClose)
-
-	clientMainnet, serverClose := feeder.NewTestClient(utils.MAINNET)
-	t.Cleanup(serverClose)
+	clientGoerli := feeder.NewTestClient(t, utils.GOERLI)
+	clientMainnet := feeder.NewTestClient(t, utils.MAINNET)
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
@@ -314,8 +317,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client, serverClose := feeder.NewTestClient(utils.INTEGRATION)
-	t.Cleanup(serverClose)
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 

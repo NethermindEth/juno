@@ -42,6 +42,8 @@ const (
 	p2pBootPeersF        = "p2p-boot-peers"
 	p2pSyncF             = "p2p-sync"
 	p2pSnapSyncF         = "p2p-snap-sync"
+	metricsF             = "metrics"
+	metricsPortF         = "metrics-port"
 
 	defaultConfig              = ""
 	defaultHTTPPort            = 6060
@@ -57,6 +59,8 @@ const (
 	defaultP2pBootPeers        = ""
 	defaultP2pSync             = false
 	defaultP2pSnapSync         = false
+	defaultMetrics             = false
+	defaultMetricsPort         = 9090
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -67,7 +71,7 @@ const (
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage        = "Enables the pprof server and listens on port 9080."
 	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage      = "Address to the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
@@ -75,6 +79,8 @@ const (
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 	p2pSyncUsage             = "enable syncing from p2p"
 	p2pSnapSyncUsage         = "enable snap syncing from p2p"
+	metricsUsage             = "enable prometheus endpoint"
+	metricsPortUsage         = "The port on which the prometheus server will listen for requests"
 )
 
 var Version string
@@ -167,6 +173,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
 	junoCmd.Flags().Bool(p2pSyncF, defaultP2pSync, p2pSyncUsage)
 	junoCmd.Flags().Bool(p2pSnapSyncF, defaultP2pSync, p2pSyncUsage)
+	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
+	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 
 	return junoCmd
 }

@@ -2,22 +2,20 @@ package trie
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/bits-and-blooms/bitset"
 )
 
 // A Node represents a node in the [Trie]
 type Node struct {
 	Value *felt.Felt
-	Left  *bitset.BitSet
-	Right *bitset.BitSet
+	Left  *Key
+	Right *Key
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *bitset.BitSet, hashFunc hashFunc) *felt.Felt {
+func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 	if path.Len() == 0 {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -25,24 +23,11 @@ func (n *Node) Hash(path *bitset.BitSet, hashFunc hashFunc) *felt.Felt {
 		return &hash
 	}
 
-	pathWords := path.Bytes()
-	if len(pathWords) > felt.Limbs {
-		panic("key too long to fit in Felt")
-	}
-
-	var pathBytes [felt.Bytes]byte
-	for idx, word := range pathWords {
-		startBytes := 24 - (idx * 8)
-		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
-	}
-
-	pathFelt := new(felt.Felt).SetBytes(pathBytes[:])
-
+	pathFelt := path.Felt()
 	// https://docs.starknet.io/documentation/develop/State/starknet-state/
-	hash := hashFunc(n.Value, pathFelt)
-
+	hash := hashFunc(n.Value, &pathFelt)
 	pathFelt.SetUint64(uint64(path.Len()))
-	return hash.Add(hash, pathFelt)
+	return hash.Add(hash, &pathFelt)
 }
 
 func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
@@ -92,17 +77,13 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 		return nil
 	}
 
-	stream := bytes.NewReader(data)
-
 	if n.Left == nil {
-		n.Left = new(bitset.BitSet)
-		n.Right = new(bitset.BitSet)
+		n.Left = new(Key)
+		n.Right = new(Key)
 	}
 
-	_, err := n.Left.ReadFrom(stream)
-	if err != nil {
+	if err := n.Left.UnmarshalBinary(data); err != nil {
 		return err
 	}
-	_, err = n.Right.ReadFrom(stream)
-	return err
+	return n.Right.UnmarshalBinary(data[n.Left.EncodedLen():])
 }

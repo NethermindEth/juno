@@ -4,8 +4,10 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var _ db.DB = (*DB)(nil)
@@ -13,14 +15,33 @@ var _ db.DB = (*DB)(nil)
 type DB struct {
 	pebble *pebble.DB
 	wMutex *sync.Mutex
+
+	// metrics
+	readCounter  prometheus.Counter
+	writeCounter prometheus.Counter
 }
 
 // New opens a new database at the given path
 func New(path string, logger pebble.Logger) (db.DB, error) {
-	return newPebble(path, &pebble.Options{
+	pDB, err := newPebble(path, &pebble.Options{
 		Logger: logger,
 		Cache:  pebble.NewCache(1000000000),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	pDB.readCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "db",
+		Name:      "read",
+	})
+	pDB.writeCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "db",
+		Name:      "write",
+	})
+	metrics.MustRegister(pDB.readCounter, pDB.writeCounter)
+
+	return pDB, nil
 }
 
 // NewMem opens a new in-memory database
@@ -39,17 +60,20 @@ func NewMemTest() db.DB {
 	return memDB
 }
 
-func newPebble(path string, options *pebble.Options) (db.DB, error) {
+func newPebble(path string, options *pebble.Options) (*DB, error) {
 	pDB, err := pebble.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{pDB, new(sync.Mutex)}, nil
+	return &DB{pebble: pDB, wMutex: new(sync.Mutex)}, nil
 }
 
 // NewTransaction : see db.DB.NewTransaction
 func (d *DB) NewTransaction(update bool) db.Transaction {
-	txn := &Transaction{}
+	txn := &Transaction{
+		readCounter:  d.readCounter,
+		writeCounter: d.writeCounter,
+	}
 	if update {
 		d.wMutex.Lock()
 		txn.lock = d.wMutex

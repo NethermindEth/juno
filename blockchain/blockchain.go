@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 )
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -45,7 +46,7 @@ type Reader interface {
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 	ErrMissingSnapshot        = errors.New("State snapshot missing")
-	supportedStarknetVersion  = semver.MustParse("0.12.0")
+	supportedStarknetVersion  = semver.MustParse("0.12.1")
 )
 
 func checkBlockVersion(protocolVersion string) error {
@@ -79,6 +80,8 @@ type Blockchain struct {
 	snapshots []*snapshotRecord
 
 	log utils.SimpleLogger
+
+	newHeads event.FeedOf[*core.Header]
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
@@ -324,7 +327,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	var thestateroot *felt.Felt
 	var theclassroot *felt.Felt
 	var headerhash *felt.Felt
@@ -347,7 +350,9 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
+
 		headerhash = block.Hash
+		b.newHeads.Send(block.Header)
 
 		for i, tx := range block.Transactions {
 			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
@@ -357,6 +362,10 @@ func (b *Blockchain) Store(block *core.Block, stateUpdate *core.StateUpdate, new
 		}
 
 		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+			return err
+		}
+
+		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
 
@@ -507,6 +516,39 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	}
 
 	return nil
+}
+
+func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
+	numBytes := core.MarshalBlockNumber(blockNumber)
+
+	commitmentBytes, err := encoder.Marshal(commitments)
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(db.BlockCommitments.Key(numBytes), commitmentBytes)
+}
+
+func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
+	var commitments *core.BlockCommitments
+	return commitments, b.database.View(func(txn db.Transaction) error {
+		var err error
+		commitments, err = blockCommitmentsByNumber(txn, blockNumber)
+		return err
+	})
+}
+
+func blockCommitmentsByNumber(txn db.Transaction, blockNumber uint64) (*core.BlockCommitments, error) {
+	numBytes := core.MarshalBlockNumber(blockNumber)
+
+	var commitments *core.BlockCommitments
+	if err := txn.Get(db.BlockCommitments.Key(numBytes), func(val []byte) error {
+		commitments = new(core.BlockCommitments)
+		return encoder.Unmarshal(val, commitments)
+	}); err != nil {
+		return nil, err
+	}
+	return commitments, nil
 }
 
 // StoreBlockHeader stores the given block in the database.
@@ -695,16 +737,18 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
-func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+) (*core.BlockCommitments, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
-		return errors.New("block hashes do not match")
+		return nil, errors.New("block hashes do not match")
 	}
 	if !block.GlobalStateRoot.Equal(stateUpdate.NewRoot) {
-		return errors.New("block's GlobalStateRoot does not match state update's NewRoot")
+		return nil, errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
 
 	if err := core.VerifyClassHashes(newClasses); err != nil {
-		return err
+		return nil, err
 	}
 
 	return core.VerifyBlockHash(block, b.network)
@@ -847,6 +891,12 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+	if blockHash.IsZero() {
+		txn := db.NewMemTransaction()
+		emptyState := core.NewState(txn)
+		return emptyState, txn.Discard, nil
+	}
+
 	txn := b.database.NewTransaction(false)
 	header, err := blockHeaderByHash(txn, blockHash)
 	if err != nil {
@@ -869,10 +919,10 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFil
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.database.Update(revertHead)
+	return b.database.Update(b.revertHead)
 }
 
-func revertHead(txn db.Transaction) error {
+func (b *Blockchain) revertHead(txn db.Transaction) error {
 	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
@@ -895,22 +945,58 @@ func revertHead(txn db.Transaction) error {
 		return err
 	}
 
+	genesisBlock := blockNumber == 0
+
 	// remove block header
-	if err = txn.Delete(db.BlockHeadersByNumber.Key(numBytes)); err != nil {
-		return err
+	for _, key := range [][]byte{
+		db.BlockHeadersByNumber.Key(numBytes),
+		db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()),
+		db.BlockCommitments.Key(numBytes),
+	} {
+		if err = txn.Delete(key); err != nil {
+			return err
+		}
 	}
-	if err = txn.Delete(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal())); err != nil {
+	if !genesisBlock {
+		var newHeader *core.Header
+		newHeader, err = blockHeaderByNumber(txn, blockNumber-1)
+		if err != nil {
+			return err
+		}
+		b.newHeads.Send(newHeader)
+	}
+
+	if err = removeTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
 		return err
 	}
 
+	// remove state update
+	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
+		return err
+	}
+
+	// remove pending
+	if err = txn.Delete(db.Pending.Key()); err != nil {
+		return err
+	}
+
+	// update chain height
+	if genesisBlock {
+		return txn.Delete(db.ChainHeight.Key())
+	}
+
+	heightBin := core.MarshalBlockNumber(blockNumber - 1)
+	return txn.Set(db.ChainHeight.Key(), heightBin)
+}
+
+func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error {
 	blockIDAndIndex := txAndReceiptDBKey{
 		Number: blockNumber,
 	}
 	// remove txs and receipts
-	for i := uint64(0); i < header.TransactionCount; i++ {
+	for i := uint64(0); i < numTxs; i++ {
 		blockIDAndIndex.Index = i
-		var reorgedTxn core.Transaction
-		reorgedTxn, err = transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
+		reorgedTxn, err := transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
 		if err != nil {
 			return err
 		}
@@ -927,23 +1013,7 @@ func revertHead(txn db.Transaction) error {
 		}
 	}
 
-	// remove state update
-	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
-		return err
-	}
-
-	// remove pending
-	if err := txn.Delete(db.Pending.Key()); err != nil {
-		return err
-	}
-
-	// update chain height
-	if blockNumber == 0 {
-		return txn.Delete(db.ChainHeight.Key())
-	}
-
-	heightBin := core.MarshalBlockNumber(blockNumber - 1)
-	return txn.Set(db.ChainHeight.Key(), heightBin)
+	return nil
 }
 
 // StorePending stores a pending block given that it is for the next height
@@ -1061,4 +1131,8 @@ func (b *Blockchain) Close() {
 	for _, snapshot := range b.snapshots {
 		snapshot.closer()
 	}
+}
+
+func (b *Blockchain) SubscribeNewHeads(sink chan<- *core.Header) event.Subscription {
+	return b.newHeads.Subscribe(sink)
 }

@@ -2,28 +2,26 @@ package pebble
 
 import (
 	"errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var ErrDiscardedTransaction = errors.New("discarded txn")
 
 var _ db.Transaction = (*Transaction)(nil)
 
-var setCount = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "juno_tx_set_count",
-	Help: "Time in address get",
-})
-
 type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot
 	lock     *sync.Mutex
+
+	// metrics
+	readCounter  prometheus.Counter
+	writeCounter prometheus.Counter
 }
 
 // Discard : see db.Transaction.Discard
@@ -64,7 +62,10 @@ func (t *Transaction) Set(key, val []byte) error {
 	if len(key) == 0 {
 		return errors.New("empty key")
 	}
-	setCount.Inc()
+
+	if t.writeCounter != nil {
+		t.writeCounter.Inc()
+	}
 	return t.batch.Set(key, val, pebble.Sync)
 }
 
@@ -72,6 +73,10 @@ func (t *Transaction) Set(key, val []byte) error {
 func (t *Transaction) Delete(key []byte) error {
 	if t.batch == nil {
 		return errors.New("read only transaction")
+	}
+
+	if t.writeCounter != nil {
+		t.writeCounter.Inc()
 	}
 	return t.batch.Delete(key, pebble.Sync)
 }
@@ -88,6 +93,10 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		val, closer, err = t.snapshot.Get(key)
 	} else {
 		return ErrDiscardedTransaction
+	}
+
+	if t.readCounter != nil {
+		t.readCounter.Inc()
 	}
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {

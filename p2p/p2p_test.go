@@ -2,6 +2,7 @@ package p2p_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"testing"
@@ -12,6 +13,8 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,6 +25,7 @@ func TestService(t *testing.T) {
 	}
 	bc := blockchain.New(db, utils.INTEGRATION, utils.NewNopZapLogger())
 
+	timeout := time.Second * 30
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	peerA, err := p2p.New(
@@ -71,9 +75,66 @@ func TestService(t *testing.T) {
 	select {
 	case evt := <-events:
 		require.Equal(t, network.Connected, evt.Connectedness)
-	case <-time.After(time.Second):
+	case <-time.After(timeout):
 		require.True(t, false, "no events were emitted")
 	}
+
+	t.Run("new stream", func(t *testing.T) {
+		stream, err := peerA.NewStream(testCtx, identify.ID)
+		require.NoError(t, err)
+		require.NoError(t, stream.Close())
+
+		stream, err = peerB.NewStream(testCtx, identify.ID)
+		require.NoError(t, err)
+		require.NoError(t, stream.Close())
+	})
+
+	t.Run("gossip", func(t *testing.T) {
+		topic := "coolTopic"
+		ch, closer, err := peerA.SubscribeToTopic(topic)
+		require.NoError(t, err)
+
+		// allow subscription to be propagated to peerB
+		time.Sleep(time.Second)
+
+		gossipedMessage := []byte(`veryImportantMessage`)
+		require.NoError(t, peerB.PublishOnTopic(topic, gossipedMessage))
+
+		select {
+		case <-time.After(timeout):
+			require.Equal(t, true, false)
+		case msg := <-ch:
+			require.Equal(t, gossipedMessage, msg)
+		}
+
+		closer()
+	})
+
+	t.Run("protocol handler", func(t *testing.T) {
+		ch := make(chan []byte)
+
+		superSecretProtocol := protocol.ID("superSecretProtocol")
+		peerA.SetProtocolHandler(superSecretProtocol, func(stream network.Stream) {
+			read, err := io.ReadAll(stream)
+			require.NoError(t, err)
+			ch <- read
+		})
+
+		peerAStream, err := peerB.NewStream(testCtx, superSecretProtocol)
+		require.NoError(t, err)
+
+		superSecretMessage := []byte(`superSecretMessage`)
+		_, err = peerAStream.Write(superSecretMessage)
+		require.NoError(t, err)
+		require.NoError(t, peerAStream.Close())
+
+		select {
+		case <-time.After(timeout):
+			require.Equal(t, true, false)
+		case msg := <-ch:
+			require.Equal(t, superSecretMessage, msg)
+		}
+	})
 
 	cancel()
 	wg.Wait()

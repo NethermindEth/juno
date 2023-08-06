@@ -10,8 +10,7 @@ import (
 )
 
 func TestAddInvokeTx(t *testing.T) {
-	client, closeFn := gateway.NewTestClient()
-	t.Cleanup(closeFn)
+	client := gateway.NewTestClient(t)
 
 	t.Run("Correct request", func(t *testing.T) {
 		invokeTx := "{\"max_fee\":\"0x1\",\"version\":\"0x1\",\"signature\":[],\"nonce\":\"0x1\",\"type\":\"INVOKE\",\"sender_address\":\"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb\",\"calldata\":[]}"
@@ -32,7 +31,19 @@ func TestAddInvokeTx(t *testing.T) {
 		require.NoError(t, err)
 		resp, err := client.AddTransaction(invokeTxByte)
 
-		assert.NotNil(t, err)
+		require.Error(t, err)
+		assert.Nil(t, resp)
+
+		gatewayErr, ok := err.(*gateway.Error)
+		require.True(t, ok)
+		assert.Equal(t, gateway.ErrorCode("Malformed Request"), gatewayErr.Code)
+		assert.Equal(t, "empty request", gatewayErr.Message)
+	})
+
+	t.Run("empty req", func(t *testing.T) {
+		resp, err := client.AddTransaction(nil)
+
+		require.EqualError(t, err, "500 Internal Server Error")
 		assert.Nil(t, resp)
 	})
 }

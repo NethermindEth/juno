@@ -51,6 +51,7 @@
     "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
     "transaction_receipts": [
         {
+            "execution_status": "SUCCEEDED",
             "transaction_index": 0,
             "transaction_hash": "0x2bde42641319b03e934e0495f9ac623bd58f4537b99f2b283b87e2a04f9f277",
             "l2_to_l1_messages": [],
@@ -63,6 +64,7 @@
             "actual_fee": "0x3ee86e11e00"
         },
         {
+            "execution_status": "SUCCEEDED",
             "transaction_index": 1,
             "transaction_hash": "0x623174ca7a7984c2f78b1e2ffc44a11ffe54446a04ad4aef90ac197148571fc",
             "l2_to_l1_messages": [],
