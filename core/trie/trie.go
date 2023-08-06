@@ -359,11 +359,6 @@ func (t *Trie) put(nodeKey Key, value *felt.Felt, isProof bool) (*felt.Felt, err
 		// Replace if key already exist
 		sibling := nodes[len(nodes)-1]
 		if nodeKey.Equal(sibling.key) {
-			if isProof {
-				// Ignore setting proof. It'll fail verification if not match anyway
-				return nil, nil
-			}
-
 			// we have to deference the Value, since the Node can released back
 			// to the NodePool and be reused anytime
 			old = *sibling.node.Value // record old value to return to caller
@@ -389,11 +384,6 @@ func (t *Trie) put(nodeKey Key, value *felt.Felt, isProof bool) (*felt.Felt, err
 			commonKey, _ = findCommonKey(&nodeKey, sibling.key)
 		} else {
 			commonKey, _ = findCommonKey(sibling.key, &nodeKey)
-		}
-
-		if commonKey.Equal(&nodeKey) && isProof {
-			// Ignore setting proof. It'll fail verification if not match anyway
-			return nil, nil
 		}
 
 		newParent := &Node{}
@@ -629,37 +619,37 @@ func (t *Trie) dump(level int, parentP *Key) {
 // Return true if the proofs shows the existence of more nodes to after the last path.
 // TODO: In context of snap sync, this does not store the calculated inner nodes, which is a waste of CPU cycle.
 func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*ProofNode, height uint8, hash HashFunc) (bool, error) {
-	tr2, err := newTrie(newMemStorage(), height, hash)
+	tr, err := newTrie(newMemStorage(), height, hash)
 	if err != nil {
 		return false, err
 	}
 
 	for i, path := range paths {
-		_, err = tr2.Put(path, hashes[i])
+		_, err = tr.Put(path, hashes[i])
 		if err != nil {
 			return false, err
 		}
 	}
 
 	hasNext := false
-	lastPath := tr2.feltToKey(paths[len(paths)-1])
+	lastPath := tr.feltToKey(paths[len(paths)-1])
 	for _, proof := range proofs {
 		if proof.Key.CmpAligned(&lastPath) > 0 {
 			hasNext = true
 		}
-		err = tr2.SetProofNode(*proof.Key, proof.Hash)
+		err = tr.SetProofNode(*proof.Key, proof.Hash)
 		if err != nil {
 			return false, err
 		}
 	}
 
-	tr2root, err := tr2.Root()
+	root, err := tr.Root()
 	if err != nil {
 		return false, nil
 	}
 
-	if !tr2root.Equal(expectedRoot) {
-		return false, fmt.Errorf("hash mismatch %s vs %s", tr2root.String(), expectedRoot.String())
+	if !root.Equal(expectedRoot) {
+		return false, fmt.Errorf("hash mismatch %s vs %s", root.String(), expectedRoot.String())
 	}
 
 	return hasNext, nil
