@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
 )
 
 // Storage is the Persistent storage for the [Trie]
@@ -135,12 +134,6 @@ func path(key, parentKey *Key) Key {
 	// drop parent key, and one more MSB since left/right relation already encodes that information
 	if parentKey != nil {
 		path.Truncate(path.Len() - parentKey.Len() - 1)
-		/* TODO: double check this
-		if path.Len() == 0 { // Could be in case of proof node where the parent temporarily does not have one of the child node
-			return nil
-		}
-		path.DeleteAt(path.Len() - 1)
-		*/
 	}
 	return path
 }
@@ -632,18 +625,11 @@ func (t *Trie) dump(level int, parentP *Key) {
 	}).dump(level+1, t.rootKey)
 }
 
-// VerifyTrie recalculate a trie root and throw error if it does not match the expected root
+// VerifyTrie recalculate a trie root and throw error if it does not match the expected root.
+// Return true if the proofs shows the existence of more nodes to after the last path.
 // TODO: In context of snap sync, this does not store the calculated inner nodes, which is a waste of CPU cycle.
 func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*ProofNode, height uint8, hash HashFunc) (bool, error) {
-	db2, err := pebble.NewMem()
-	if err != nil {
-		return false, err
-	}
-	defer func() {
-		_ = db2.Close()
-	}()
-
-	tr2, err := newTrie(NewTransactionStorage(db2.NewTransaction(true), []byte{1}), height, hash)
+	tr2, err := newTrie(newMemStorage(), height, hash)
 	if err != nil {
 		return false, err
 	}
