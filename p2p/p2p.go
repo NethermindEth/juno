@@ -17,7 +17,6 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/p2p/snap"
-	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -30,7 +29,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -55,8 +53,6 @@ type Service struct {
 
 	runCtx context.Context
 }
-
-var _ p2pServer = &Service{}
 
 func New(
 	addr,
@@ -226,7 +222,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 	err = s.setupIdentity()
 	if err != nil {
-		return errors.Wrap(err, "failed to setup identity protocol")
+		return errors.Join(err, errors.New("failed to setup identity protocol"))
 	}
 
 	// And some debug stuff
@@ -300,10 +296,6 @@ func (s *Service) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.
 	return ch, nil
 }
 
-func (s *Service) NewStream(ctx context.Context, id peer.ID, pcol protocol.ID) (network.Stream, error) {
-	return s.host.NewStream(ctx, id, pcol)
-}
-
 func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", s.host.ID()))
 	if err != nil {
@@ -318,32 +310,38 @@ func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 	return listenAddrs, nil
 }
 
-func (s *Service) CreateBlockSyncProvider() (*BlockSyncProvider, service.Service, error) {
-	peerManager, err := NewP2PPeerPoolManager(s, blockSyncProto, s.log)
+func (s *Service) CreateBlockSyncProvider() (*BlockSyncProvider, error) {
+	blockSyncPeerManager, err := NewBlockSyncPeerManager(func(ctx context.Context) (network.Stream, func(), error) {
+		str, err := s.NewStream(ctx, snap.Proto)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return str, func() {}, nil
+	}, s.blockchain, s.log)
+
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	blockSyncPeerManager, err := NewBlockSyncPeerManager(peerManager.OpenStream, s.blockchain, s.log)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return blockSyncPeerManager, peerManager, nil
+	return blockSyncPeerManager, nil
 }
 
-func (s *Service) CreateSnapProvider() (*snap.SnapProvider, service.Service, error) {
-	peerManager, err := NewP2PPeerPoolManager(s, snap.Proto, s.log)
+func (s *Service) CreateSnapProvider() (*snap.SnapProvider, error) {
+	provider, err := snap.NewSnapProvider(func(ctx context.Context) (network.Stream, func(), error) {
+		str, err := s.NewStream(ctx, snap.Proto)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return str, func() {}, nil
+	}, s.log)
+
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	provider, err := snap.NewSnapProvider(peerManager.OpenStream, s.log)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return provider, peerManager, nil
+	return provider, nil
 }
 
 // NewStream creates a bidirectional connection to a random peer that implements a set of protocol ids

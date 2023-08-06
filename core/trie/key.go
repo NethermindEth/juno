@@ -87,6 +87,16 @@ func (k *Key) String() string {
 	return fmt.Sprintf("(%d) %s", k.len, hex.EncodeToString(k.bitset[:]))
 }
 
+func (k *Key) AlignedString() string {
+	asbin := ""
+	for _, b := range k.bitset {
+		asbin += fmt.Sprintf("%08b", b)
+	}
+
+	asbin = asbin[(256 - int(k.len)):]
+	return fmt.Sprintf("(%d) %s", k.len, asbin)
+}
+
 // DeleteLSB right shifts and shortens the key
 func (k *Key) DeleteLSB(n uint8) {
 	if k.len < n {

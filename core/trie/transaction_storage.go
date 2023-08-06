@@ -56,30 +56,6 @@ func (t *TransactionStorage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error
 	return int64(len(t.prefix)) + keyLen, err
 }
 
-func (t *TransactionStorage) keyToBitset(key []byte) (*Key, error) {
-	panic("redo this")
-	/*
-		if !bytes.Equal(t.prefix, key[:len(t.prefix)]) {
-			return nil, notSameDb
-		}
-
-		buff := bytes.NewBuffer(key)
-
-		_, err := io.CopyN(io.Discard, buff, int64(len(t.prefix)))
-		if err != nil {
-			return nil, err
-		}
-
-		bts := &bitset.BitSet{}
-		_, err = bts.ReadFrom(buff)
-		if err != nil {
-			return nil, err
-		}
-
-		return bts, nil
-	*/
-}
-
 func (t *TransactionStorage) Put(key *Key, value *Node) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)

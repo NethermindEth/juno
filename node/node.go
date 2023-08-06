@@ -120,13 +120,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 
 		if cfg.P2PSync {
 			// TODO: Why is this complicated?
-			blockSyncManager, poolService, err := p2pService.CreateBlockSyncProvider()
+			blockSyncManager, err := p2pService.CreateBlockSyncProvider()
 			if err != nil {
 				log.Errorw("Error setting up p2p sync", "err", err)
 				return nil, err
 			}
-
-			services = append(services, poolService)
 
 			starkdata, err = p2p.NewStarknetDataAdapter(starkdata, blockSyncManager, chain, log)
 			if err != nil {
@@ -140,19 +138,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
+	rpcServices, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
+	services = append(services, rpcServices...)
 
 	if cfg.P2P && cfg.P2PSnapSync {
 		log.Warnw("enabling p2p snap sync")
 
-		snapProvider, service, err := p2pService.CreateSnapProvider()
+		snapProvider, err := p2pService.CreateSnapProvider()
 		if err != nil {
 			return nil, err
 		}
-		services = append(services, service)
 
 		snapsyncer := sync.NewSnapSyncer(synchronizer, starkdata, snapProvider, chain, log)
 		services = append(services, snapsyncer)
@@ -193,16 +191,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 
 	if n.cfg.GRPCPort > 0 {
 		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
-	}
-
-	if cfg.P2P {
-		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
-		if err != nil {
-			return nil, fmt.Errorf("set up p2p service: %w", err)
-		}
-
-		n.services = append(n.services, p2pService)
 	}
 
 	if n.cfg.Metrics {

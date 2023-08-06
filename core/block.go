@@ -151,7 +151,7 @@ func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error)
 	return nil, errors.New("can not verify hash in block header")
 }
 
-func BlockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, error) {
+func BlockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	return blockHash(b, network, overrideSeqAddr)
 }
 

@@ -2,15 +2,12 @@
 package trie
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/bits-and-blooms/bitset"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"math/big"
@@ -121,7 +118,7 @@ func RunOnTempTrie(height uint8, do func(*Trie) error) error {
 }
 
 func (t *Trie) FeltToBitSet(k *felt.Felt) Key {
-	return t.feltToBitSet(k)
+	return t.feltToKey(k)
 }
 
 // feltToBitSet Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
@@ -131,28 +128,19 @@ func (t *Trie) feltToKey(k *felt.Felt) Key {
 	return NewKey(t.height, kBytes[:])
 }
 
-func FeltToBitSet(k *felt.Felt, h uint) *bitset.BitSet {
-	if k == nil {
+func FeltToBitSet(k *felt.Felt, h uint8) *Key {
+	kBytes := k.Bytes()
+	nk := NewKey(h, kBytes[:])
+	return &nk
+}
+
+func (t *Trie) bitSetToFelt(path *Key) *felt.Felt {
+	if path == nil {
 		return nil
 	}
 
-	kBits := k.Bits()
-	return bitset.FromWithLength(h, kBits[:])
-}
-
-func (t *Trie) bitSetToFelt(path *bitset.BitSet) *felt.Felt {
-	pathWords := path.Bytes()
-	if len(pathWords) > felt.Limbs {
-		panic(fmt.Sprintf("key too long to fit in Felt %d %d", len(pathWords), felt.Limbs))
-	}
-
-	var pathBytes [felt.Bytes]byte
-	for idx, word := range pathWords {
-		startBytes := 24 - (idx * 8)
-		binary.BigEndian.PutUint64(pathBytes[startBytes:startBytes+8], word)
-	}
-
-	return new(felt.Felt).SetBytes(pathBytes[:])
+	f := path.Felt()
+	return &f
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
@@ -251,14 +239,14 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
-func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
 	startValueKey := FeltToBitSet(startValue, 251)
 	neverStopped, err := t.doIterate(startValueKey, t.rootKey, consumer)
 
 	return neverStopped, err
 }
 
-func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
+func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
 	iterate_count.Inc()
 	if key == nil {
 		return false, nil
@@ -270,7 +258,7 @@ func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer
 	}
 
 	if key.Len() == 251 {
-		if IsBitsetHigher(startValue, key) {
+		if IsKeyHigher(startValue, key) {
 			return true, nil
 		}
 		iterate_leaves_count.Inc()
@@ -279,7 +267,7 @@ func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer
 	}
 
 	// TODO: Double check this
-	if !IsBitsetHigher(startValue, thenode.Right) {
+	if !IsKeyHigher(startValue, thenode.Right) {
 		next, err := t.doIterate(startValue, thenode.Left, consumer)
 		if err != nil {
 			return false, err
@@ -294,13 +282,13 @@ func (t *Trie) doIterate(startValue *bitset.BitSet, key *bitset.BitSet, consumer
 }
 
 type ProofNode struct {
-	Key  *bitset.BitSet
+	Key  *Key
 	Hash *felt.Felt
 }
 
 func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
-	nodeKey := t.feltToBitSet(key)
-	nodes, err := t.nodesFromRoot(nodeKey)
+	nodeKey := t.feltToKey(key)
+	nodes, err := t.nodesFromRoot(&nodeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -332,32 +320,7 @@ func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
 	return result, nil
 }
 
-func NormalizedBitsetStr(b *bitset.BitSet) string {
-	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf("%d ", b.Len()))
-
-	offset := 251 - b.Len()
-	backoffset := uint(251 - 64)
-	// backoffset := uint(0)
-
-	for i := 0; i < 64; i++ {
-		if uint(i)+backoffset < offset {
-			buffer.WriteString(".")
-			continue
-		}
-
-		if b.Test(uint(i) - offset + backoffset) {
-			buffer.WriteString("1")
-		} else {
-			buffer.WriteString("0")
-		}
-
-	}
-
-	return buffer.String()
-}
-
-func (t *Trie) SetProofNode(key *bitset.BitSet, value *felt.Felt) error {
+func (t *Trie) SetProofNode(key Key, value *felt.Felt) error {
 	_, err := t.put(key, value, true)
 	return err
 }
@@ -370,7 +333,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
-	nodeKey := t.feltToBitSet(key)
+	nodeKey := t.feltToKey(key)
 	return t.put(nodeKey, value, false)
 }
 
@@ -509,7 +472,7 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 	}
 
 	// leaf node
-	if key.Len() == t.height && !key.Equal(bitset.New(t.height)) {
+	if key.Len() == t.height {
 		return node, nil
 	}
 
@@ -683,29 +646,25 @@ func (t *Trie) dump(level int, parentP *Key) {
 	}).dump(level+1, t.rootKey)
 }
 
-func BitsetToBigInt(path *bitset.BitSet) *big.Int {
-
-	buff := make([]byte, 8*len(path.Bytes()))
-
-	for i, b := range path.Bytes() {
-		binary.BigEndian.PutUint64(buff[len(buff)-8-i*8:], b)
-	}
-
+func KeyToBigInt(path *Key) *big.Int {
 	theint := &big.Int{}
-	theint = theint.SetBytes(buff)
+	theint = theint.SetBytes(path.bitset[:])
 	if path.Len() < 251 {
-		theint = theint.Lsh(theint, 251-path.Len())
+		theint = theint.Lsh(theint, 251-uint(path.len))
 	}
 
 	return theint
 }
 
-func IsBitsetHigher(b1, b2 *bitset.BitSet) bool {
-	bi1 := BitsetToBigInt(b1)
-	bi2 := BitsetToBigInt(b2)
-	return bi1.Cmp(bi2) > 0
+func IsKeyHigher(b1, b2 *Key) bool {
+	// No its not aligned, so need to convert to bigint
+	b1i := KeyToBigInt(b1)
+	b2i := KeyToBigInt(b2)
+	return b1i.Cmp(b2i) > 0
 }
 
+// VerifyTrie recalculate a trie root
+// TODO: In context of snap sync, this does not store the calculated inner nodes, which is a waste of CPU cycle.
 func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt, proofs []*ProofNode, hash HashFunc) (bool, error) {
 	db2, err := pebble.NewMem()
 	if err != nil {
@@ -729,10 +688,10 @@ func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt
 	hasNext := false
 	lastPath := tr2.FeltToBitSet(paths[len(paths)-1])
 	for _, proof := range proofs {
-		if IsBitsetHigher(proof.Key, lastPath) {
+		if IsKeyHigher(proof.Key, &lastPath) {
 			hasNext = true
 		}
-		err := tr2.SetProofNode(proof.Key, proof.Hash)
+		err := tr2.SetProofNode(*proof.Key, proof.Hash)
 		if err != nil {
 			return false, err
 		}

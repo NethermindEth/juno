@@ -1,11 +1,11 @@
 package snap
 
 import (
+	"github.com/NethermindEth/juno/core/trie"
 	"reflect"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/snap/p2pproto"
-	"github.com/bits-and-blooms/bitset"
 )
 
 var typeMapper = map[string]map[string]func(interface{}) interface{}{}
@@ -34,8 +34,8 @@ func registerMapping[T1 any, T2 any](f func(T1) T2) {
 func init() {
 	registerMapping[*felt.Felt, *p2pproto.FieldElement](feltToFieldElement)
 	registerMapping[*p2pproto.FieldElement, *felt.Felt](fieldElementToFelt)
-	registerMapping[*bitset.BitSet, *p2pproto.Path](bitsetToProto)
-	registerMapping[*p2pproto.Path, *bitset.BitSet](protoToBitset)
+	registerMapping[*trie.Key, *p2pproto.Path](bitsetToProto)
+	registerMapping[*p2pproto.Path, *trie.Key](protoToBitset)
 }
 
 func MapValueViaReflect[T any](source interface{}) T {

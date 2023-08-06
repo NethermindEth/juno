@@ -3,10 +3,9 @@ package snap
 import (
 	"bufio"
 	"bytes"
-	"encoding/binary"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/p2p/snap/p2pproto"
-	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/zstd"
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
@@ -95,28 +94,29 @@ func feltToFieldElement(flt *felt.Felt) *p2pproto.FieldElement {
 	return &p2pproto.FieldElement{Elements: flt.Marshal()}
 }
 
-func bitsetToProto(bset *bitset.BitSet) *p2pproto.Path {
-	thebytes := make([]byte, len(bset.Bytes())*8)
-
-	for i, u := range bset.Bytes() {
-		binary.LittleEndian.PutUint64(thebytes[i*8:], u)
+func bitsetToProto(bset *trie.Key) *p2pproto.Path {
+	// TODO: do this properly
+	buff := bytes.NewBuffer(make([]byte, 0))
+	_, err := bset.WriteTo(buff)
+	if err != nil {
+		panic(err)
 	}
 
 	return &p2pproto.Path{
 		Length:  uint32(bset.Len()),
-		Element: thebytes,
+		Element: buff.Bytes(),
 	}
 }
 
-func protoToBitset(path *p2pproto.Path) *bitset.BitSet {
-	numcount := (len(path.Element) + 7) / 8
-	theint := make([]uint64, numcount)
-
-	for i := 0; i < numcount; i++ {
-		theint[i] = binary.LittleEndian.Uint64(path.Element[i*8:])
+func protoToBitset(path *p2pproto.Path) *trie.Key {
+	// TODO: do this properly
+	k := trie.NewKey(0, make([]byte, 0))
+	err := k.UnmarshalBinary(path.Element)
+	if err != nil {
+		panic(err)
 	}
 
-	return bitset.FromWithLength(uint(path.Length), theint)
+	return &k
 }
 
 func feltsToFieldElements(felts []*felt.Felt) []*p2pproto.FieldElement {

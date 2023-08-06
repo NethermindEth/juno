@@ -179,7 +179,7 @@ func testBlockEncoding(originalBlock *core.Block, c *converter, v Verifier, netw
 			return errors.New("Event commit not match")
 		}
 
-		err = core.VerifyBlockHash(originalBlock, network)
+		_, err = core.VerifyBlockHash(originalBlock, network)
 		if err != nil {
 			return err
 		}

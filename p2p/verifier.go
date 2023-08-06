@@ -28,7 +28,7 @@ type verifier struct {
 }
 
 func (h *verifier) VerifyBlock(block *core.Block) error {
-	err := core.VerifyBlockHash(block, h.network)
+	_, err := core.VerifyBlockHash(block, h.network)
 	if err != nil {
 		return err
 	}
