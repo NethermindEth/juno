@@ -2125,50 +2125,109 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, mockVM, "", log)
 
-	blockHash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
-	tx := &core.DeclareTransaction{
-		TransactionHash: utils.HexToFelt(t, "0x000000001"),
-		ClassHash:       utils.HexToFelt(t, "0x000000000"),
-	}
+	const network = utils.MAINNET
+	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
-	header := &core.Header{
-		Hash:             blockHash,
-		ParentHash:       utils.HexToFelt(t, "0x0"),
-		Number:           0,
-		SequencerAddress: utils.HexToFelt(t, "0X111"),
-	}
-	block := &core.Block{
-		Header:       header,
-		Transactions: []core.Transaction{tx},
-	}
-	declaredClass := &core.DeclaredClass{
-		At:    3002,
-		Class: &core.Cairo1Class{},
-	}
+	t.Run("block not found", func(t *testing.T) {
+		blockHash := utils.HexToFelt(t, "0x0001")
+		mockReader.EXPECT().BlockByHash(blockHash).Return(nil, errors.New("some new err"))
 
-	mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+		result, err := handler.TraceBlockTransactions(*blockHash)
+		require.Equal(t, rpc.ErrBlockNotFound, err)
+		assert.Nil(t, result)
+	})
+	t.Run("pending block", func(t *testing.T) {
+		blockHash := utils.HexToFelt(t, "0x0001")
+		header := &core.Header{
+			// hash is not set because it's pending block
+			ParentHash: utils.HexToFelt(t, "0x0C3"),
+			Number:     0,
+		}
+		l1Tx := &core.L1HandlerTransaction{
+			TransactionHash: utils.HexToFelt(t, "0x000000C"),
+		}
+		declaredClass := &core.DeclaredClass{
+			At:    3002,
+			Class: &core.Cairo1Class{},
+		}
+		declareTx := &core.DeclareTransaction{
+			TransactionHash: utils.HexToFelt(t, "0x000000001"),
+			ClassHash:       utils.HexToFelt(t, "0x00000BC00"),
+		}
+		block := &core.Block{
+			Header:       header,
+			Transactions: []core.Transaction{l1Tx, declareTx},
+		}
 
-	mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-	headState := mocks.NewMockStateHistoryReader(mockCtrl)
-	headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-	mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+		state := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
+		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		const height uint64 = 8
+		mockReader.EXPECT().Height().Return(height, nil)
 
-	vmTrace := json.RawMessage(`{
-		"validate_invocation":{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":[],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[]},
-		"execute_invocation":{"entry_point_selector":"0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194","calldata":["0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"CONSTRUCTOR","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","calldata":["0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":[],"calls":[],"events":[{"keys":["0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"]}],"messages":[]}],"events":[],"messages":[]},
-		"fee_transfer_invocation":{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":["0x1"],"calls":[],"events":[{"keys":["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"]}],"messages":[]}],"events":[],"messages":[]}}
-	}`)
-	mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress, nil, utils.MAINNET, []*felt.Felt{}).Return(nil, []json.RawMessage{vmTrace}, nil)
+		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
+		vmTrace := json.RawMessage(`{
+			"validate_invocation": {},
+			"execute_invocation": {},
+			"fee_transfer_invocation": {}
+		}`)
+		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, height+1, header.Timestamp, sequencerAddress,
+			state, network, paidL1Fees).Return(nil, []json.RawMessage{vmTrace, vmTrace}, nil)
 
-	expectedResult := []rpc.TracedBlockTransaction{
-		{
-			TransactionHash: tx.Hash(),
-			TraceRoot:       vmTrace,
-		},
-	}
-	result, err := handler.TraceBlockTransactions(*blockHash)
-	require.Nil(t, err)
-	assert.Equal(t, expectedResult, result)
+		result, err := handler.TraceBlockTransactions(*blockHash)
+		require.Nil(t, err)
+		assert.Equal(t, vmTrace, result[0].TraceRoot)
+		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
+	})
+	t.Run("regular block", func(t *testing.T) {
+		blockHash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		tx := &core.DeclareTransaction{
+			TransactionHash: utils.HexToFelt(t, "0x000000001"),
+			ClassHash:       utils.HexToFelt(t, "0x000000000"),
+		}
+
+		header := &core.Header{
+			Hash:             blockHash,
+			ParentHash:       utils.HexToFelt(t, "0x0"),
+			Number:           0,
+			SequencerAddress: utils.HexToFelt(t, "0X111"),
+		}
+		block := &core.Block{
+			Header:       header,
+			Transactions: []core.Transaction{tx},
+		}
+		declaredClass := &core.DeclaredClass{
+			At:    3002,
+			Class: &core.Cairo1Class{},
+		}
+
+		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
+		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
+		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
+
+		vmTrace := json.RawMessage(`{
+			"validate_invocation":{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":[],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[]},
+			"execute_invocation":{"entry_point_selector":"0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194","calldata":["0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"CONSTRUCTOR","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","calldata":["0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":[],"calls":[],"events":[{"keys":["0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"]}],"messages":[]}],"events":[],"messages":[]},
+			"fee_transfer_invocation":{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":["0x1"],"calls":[],"events":[{"keys":["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"]}],"messages":[]}],"events":[],"messages":[]}}
+		}`)
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress, nil, network, []*felt.Felt{}).Return(nil, []json.RawMessage{vmTrace}, nil)
+
+		expectedResult := []rpc.TracedBlockTransaction{
+			{
+				TransactionHash: tx.Hash(),
+				TraceRoot:       vmTrace,
+			},
+		}
+		result, err := handler.TraceBlockTransactions(*blockHash)
+		require.Nil(t, err)
+		assert.Equal(t, expectedResult, result)
+	})
 }
