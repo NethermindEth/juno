@@ -13,7 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	"fmt"
+	
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -190,7 +191,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err != nil {
 				return nil, err
 			}
-			req.Header.Set("User-Agent", c.version)
+			req.Header.Set("User-Agent", fmt.Sprintf("Juno/%s Starknet Client", c.version))
 
 			res, err = c.client.Do(req)
 			if err == nil {
