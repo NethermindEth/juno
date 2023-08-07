@@ -164,7 +164,7 @@ var (
 	classesJobQueueSize   = 128
 
 	maxPivotDistance     = 1 // Set to 1 to test updated storage.
-	newPivotHeadDistance = uint64(1)
+	newPivotHeadDistance = uint64(0)
 
 	storePerContractBatchSize         = 500 // For some reason, the trie throughput is higher if the batch size is small.
 	storeMaxConcurrentContractTrigger = runtime.NumCPU()
@@ -1166,8 +1166,6 @@ func (s *SnapSyncher) verifyTrie(ctx context.Context) error {
 		return err
 	}
 
-	s.log.Infow("address range completed", "sroot", sroot.String(), "csroot", s.currentStateRoot.String(), "croot", croot.String(), "ccroot", s.currentClassRoot.String())
-
 	mismatched := false
 	if !sroot.Equal(s.currentStateRoot) {
 		mismatched = true
@@ -1179,6 +1177,7 @@ func (s *SnapSyncher) verifyTrie(ctx context.Context) error {
 	}
 
 	if mismatched {
+		s.log.Infow("root mistmatch", "sroot", sroot.String(), "csroot", s.currentStateRoot.String(), "croot", croot.String(), "ccroot", s.currentClassRoot.String())
 		addrChanged := make([]string, 0)
 		startAddr := &felt.Zero
 		for {
@@ -1237,6 +1236,8 @@ func (s *SnapSyncher) verifyTrie(ctx context.Context) error {
 			return fmt.Errorf("not same")
 		}
 	}
+
+	s.log.Infow("state match")
 
 	return nil
 }

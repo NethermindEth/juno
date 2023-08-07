@@ -4,6 +4,8 @@ package trie
 import (
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"math/big"
 	"strings"
 
@@ -21,6 +23,10 @@ type Storage interface {
 	PutRootKey(newRootKey *Key) error
 	RootKey() (*Key, error)
 	DeleteRootKey() error
+}
+
+type IterableStorage interface {
+	IterateLeaf(startKey *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error)
 }
 
 type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
@@ -192,12 +198,23 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
+var usingIterableStorage = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "juno_trie_iterable_storage",
+	Help: "Time in address get",
+}, []string{"iterable"})
+
 // Iterate the trie from startValue in ascending order until the consumer returned false or an error occur. Return true
 // if end of trie is reached.
 // TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
 // block cache should have a pretty good hit rate.
 func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
 	startValueKey := t.feltToKey(startValue)
+	if iter, ok := t.storage.(IterableStorage); ok {
+		usingIterableStorage.WithLabelValues("yes").Inc()
+		return iter.IterateLeaf(&startValueKey, consumer)
+	}
+	usingIterableStorage.WithLabelValues("no").Inc()
+
 	neverStopped, err := t.doIterate(&startValueKey, t.rootKey, consumer)
 
 	return neverStopped, err

@@ -150,7 +150,7 @@ message ContractRangeResponse {
   // So when the storage root is obsolete, but the root is not, and the server detect it, the server must populate
   // this field and the proof. This is different from ethereum, where the client is expected to detect this condition
   // and re-fetch the contract leaf to get the updated hash. I guess you can make it the same also. This seems to happen
-  // about 200 times throughout the sync.
+  // about 200 times per hour
   // Now, in theory you can always set `ContractRangeRequest.hash` to some wrong value and always rely on this mechanism
   // to verify the leaf, but then the client and the server would waste CPU cycle calculating and verifying proof.
   optional AddressRangeLeaf updated_contract = 4;
