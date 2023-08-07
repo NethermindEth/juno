@@ -150,6 +150,7 @@ func (r *reliableSnapServer) GetContractRange(ctx context.Context, storageTrieRo
 		default:
 		}
 
+		// TODO: sometimes the request.Hash is zero and it has no path at all. Might as well not request at all
 		responses, err := r.innerServer.GetContractRange(storageTrieRootHash, requests, maxNodes, maxNodesPerContract)
 		if err != nil {
 			r.log.Warnw("error fetching class range", "err", err)
@@ -161,11 +162,15 @@ func (r *reliableSnapServer) GetContractRange(ctx context.Context, storageTrieRo
 		for i, response := range responses {
 			request := requests[i]
 
+			if len(response.Paths) == 0 {
+				hasnexes = append(hasnexes, false)
+				continue
+			}
+
 			if response.UpdatedContract != nil {
-				updateContractTotal.WithLabelValues("storage").Inc()
 				commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
 				r.log.Infow("Updating hash in storage", "path", request.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
-				_, err := trie.VerifyTrie(request.Hash, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
+				_, err := trie.VerifyTrie(storageTrieRootHash, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
 				if err != nil {
 					r.log.Warnw("error fetching storage range. updated contract verification failed", "err", err)
 					continue

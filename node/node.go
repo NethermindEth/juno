@@ -119,7 +119,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		services = append(services, p2pService)
 
 		if cfg.P2PSync {
-			// TODO: Why is this complicated?
 			blockSyncManager, err := p2pService.CreateBlockSyncProvider()
 			if err != nil {
 				log.Errorw("Error setting up p2p sync", "err", err)

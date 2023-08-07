@@ -76,6 +76,7 @@ func NewSnapSyncer(
 		starknetData: consensus,
 		snapServer: &reliableSnapServer{
 			innerServer: server,
+			log:         log,
 		},
 		blockchain: blockchain,
 		log:        log,
@@ -148,7 +149,7 @@ var (
 var (
 	storageJobWorker    = 4
 	storageBatchSize    = 2000
-	storageMaxNodes     = 100000                              // Smaller values tend to help here as the existence of large account is not easily parallizable her here.
+	storageMaxNodes     = 100000
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
 	classRangeMaxNodes   = 10000
@@ -159,19 +160,43 @@ var (
 	largeStorageJobQueueSize   = 4 // They are usually very slow. So more does not really do anything.
 	largeStorageStoreQueueSize = 0 // We want the large storage to be throttled by large store
 
-	fetchClassWorkerCount = 4
+	fetchClassWorkerCount = 8 // Fairly parallelizable. But this is brute force...
 	classesJobQueueSize   = 128
 
-	maxPivotDistance     = 1
+	maxPivotDistance     = 1 // Set to 1 to test updated storage.
 	newPivotHeadDistance = uint64(1)
+
+	storePerContractBatchSize         = 500 // For some reason, the trie throughput is higher if the batch size is small.
+	storeMaxConcurrentContractTrigger = runtime.NumCPU()
+	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 4)
 )
 
-func (s *SnapSyncher) initState(ctx context.Context) error {
-	head, err := s.starknetData.BlockLatest(ctx)
-	if err != nil {
-		return errors.Join(err, errors.New("error getting current head"))
+func (s *SnapSyncher) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+
+		}
+
+		head, err := s.starknetData.BlockLatest(ctx)
+		if err != nil {
+			s.log.Warnw("error getting current head", "error", err)
+			continue
+		}
+		startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
+		if err != nil {
+			s.log.Warnw("error getting starting block", "error", err)
+			continue
+		}
+
+		return startingBlock, nil
 	}
-	startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
+}
+
+func (s *SnapSyncher) initState(ctx context.Context) error {
+	startingBlock, err := s.getNextStartingBlock(ctx)
 	if err != nil {
 		return errors.Join(err, errors.New("error getting current head"))
 	}
@@ -229,7 +254,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 }
 
 func (s *SnapSyncher) runPhase1(ctx context.Context) error {
-	updateContractTotal.WithLabelValues("test").Inc()
+	s.log.Infow("starting snap sync")
 	// 1. Get the current head
 	// 2. Start the snap sync with pivot set to that head
 	// 3. If at any moment, if:
@@ -457,10 +482,6 @@ func (s *SnapSyncher) runAddressRangeWorker(ctx context.Context) error {
 
 		starttime := time.Now()
 		for i, path := range response.Paths {
-			if response.Leaves[i].ContractStorageRoot == nil {
-				return errors.New("storage root is nil")
-			}
-
 			err := s.queueStorageRangeJob(ctx, path, response, i)
 			if err != nil {
 				return err
@@ -594,6 +615,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			storageLeafSize.Observe(float64(len(response.Paths)))
 
 			if response.UpdatedContract != nil {
+				updateContractTotal.WithLabelValues("storage").Inc()
 				job.nonce = response.UpdatedContract.Nonce
 				job.classHash = response.UpdatedContract.ClassHash
 			}
@@ -779,12 +801,6 @@ func (s *SnapSyncher) fetchLargeStorageSlot(ctx context.Context, workerIdx int, 
 	return nil
 }
 
-var (
-	storePerContractBatchSize         = 500
-	storeMaxConcurrentContractTrigger = runtime.NumCPU()
-	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 4)
-)
-
 func (s *SnapSyncher) runLargeStorageStore(ctx context.Context, workerId int) error {
 	// Attempt to buffer the jobs into maps of path and diffs. This is done because it can be parallelized.
 	// I did try other more complicated technique but unable to make it significantly faster.
@@ -884,12 +900,7 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 			return nil
 		}
 
-		head, err := s.starknetData.BlockLatest(ctx)
-		if err != nil {
-			s.log.Infow("Error pooling latest block", "lastblock", s.lastBlock.Number, "err", err)
-			continue
-		}
-		newTarget, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
+		newTarget, err := s.getNextStartingBlock(ctx)
 		if err != nil {
 			return errors.Join(err, errors.New("error getting current head"))
 		}

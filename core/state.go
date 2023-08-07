@@ -577,12 +577,16 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			}
 		} else {
 			if nonce, ok := nonces[addr]; ok {
+				cn, _ := ctrk.Nonce()
+				fmt.Printf("Replaced contract nonce %s %s %s\n", addr.String(), cn.String(), nonce.String())
 				err := ctrk.UpdateNonce(nonce)
 				if err != nil {
 					return err
 				}
 			}
 			if newClassHash, ok := classes[addr]; ok {
+				cn, _ := ctrk.ClassHash()
+				fmt.Printf("Replaced contract class %s %s %s\n", addr.String(), cn.String(), newClassHash.String())
 				err := ctrk.Replace(newClassHash)
 				if err != nil {
 					return err

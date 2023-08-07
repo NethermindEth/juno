@@ -54,8 +54,7 @@ type localStarknetData struct {
 }
 
 func (n *localStarknetData) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	//TODO implement me
-	panic("implement me")
+	return n.blockchain.BlockByNumber(blockNumber)
 }
 
 func (n *localStarknetData) BlockLatest(ctx context.Context) (*core.Block, error) {
