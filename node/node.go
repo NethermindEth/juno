@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/node/rpc"
+	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
@@ -104,7 +104,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", cfg.RPCPort, err)
 	}
-	rpcSrv, err := rpcserver.New(listener, rpcHandler, log)
+	rpcSrv, err := junohttp.New(listener, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}

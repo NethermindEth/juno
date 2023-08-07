@@ -1,11 +1,11 @@
-package rpcserver_test
+package junohttp_test
 
 import (
 	"context"
 	"net"
 	"testing"
 
-	"github.com/NethermindEth/juno/node/rpc"
+	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
 	rpcclient "github.com/ethereum/go-ethereum/rpc"
@@ -21,7 +21,7 @@ func TestServer(t *testing.T) {
 
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
-	server, err := rpcserver.New(listener, handler, log)
+	server, err := junohttp.New(listener, handler, log)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
