@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/ethereum"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
@@ -29,7 +30,6 @@ import (
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
 
@@ -163,14 +163,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
-	var coreContractAddress common.Address
-	coreContractAddress, err := chain.Network().CoreContractAddress()
-	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
-	}
-
-	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	ethSubscriber, err := ethereum.DialWithContext(context.Background(), ethNode, chain.Network(), log)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
