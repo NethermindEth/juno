@@ -3,95 +3,79 @@ package l1_test
 import (
 	"context"
 	"errors"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1"
-	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/golang/mock/gomock"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/stretchr/testify/require"
 )
 
-type fakeSubscription struct {
-	errChan chan error
-	closed  bool
+type mockL1 struct {
+	head *core.L1Head
 }
 
-func newFakeSubscription() *fakeSubscription {
-	return &fakeSubscription{
-		errChan: make(chan error),
-	}
+var _ l1.L1 = (*mockL1)(nil)
+
+func (m *mockL1) WatchL1Heads(ctx context.Context, heads chan<- *core.L1Head) event.Subscription {
+	return event.NewSubscription(func(unsubscribe <-chan struct{}) error {
+		heads <- m.head
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-unsubscribe:
+			return nil
+		}
+	})
 }
 
-func (s *fakeSubscription) Err() <-chan error {
-	return s.errChan
+func (m *mockL1) Close() {}
+
+type errMockL1 struct {
+	err error
 }
 
-func (s *fakeSubscription) Unsubscribe() {
-	if !s.closed {
-		close(s.errChan)
-		s.closed = true
-	}
+func (m *errMockL1) WatchL1Heads(ctx context.Context, heads chan<- *core.L1Head) event.Subscription {
+	return event.NewSubscription(func(unsubscribe <-chan struct{}) error {
+		return m.err
+	})
 }
 
-func TestFailToCreateSubscription(t *testing.T) {
-	t.Parallel()
+func (m *errMockL1) Close() {}
 
-	err := errors.New("test error")
+func TestL1(t *testing.T) {
+	log := utils.NewNopZapLogger()
 
-	network := utils.MAINNET
-	ctrl := gomock.NewController(t)
-	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
+	t.Run("unreliable subscription", func(t *testing.T) {
+		testDB := pebble.NewMemTest()
+		bc := blockchain.New(testDB, utils.MAINNET, log)
 
-	subscriber := mocks.NewMockSubscriber(ctrl)
+		testErr := errors.New("test err")
+		ml1 := &errMockL1{err: testErr}
+		client := l1.NewClient(ml1, bc, log)
+		require.ErrorIs(t, client.Run(context.Background()), testErr)
+	})
 
-	subscriber.
-		EXPECT().
-		WatchLogStateUpdate(gomock.Any(), gomock.Any()).
-		Return(newFakeSubscription(), err).
-		AnyTimes()
+	t.Run("reliable subscription", func(t *testing.T) {
+		testDB := pebble.NewMemTest()
+		bc := blockchain.New(testDB, utils.MAINNET, log)
 
-	subscriber.
-		EXPECT().
-		ChainID(gomock.Any()).
-		Return(network.DefaultL1ChainID(), nil).
-		Times(1)
-
-	subscriber.EXPECT().Close().Times(1)
-
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
-	cancel()
-}
-
-func TestMismatchedChainID(t *testing.T) {
-	t.Parallel()
-
-	network := utils.MAINNET
-	ctrl := gomock.NewController(t)
-	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
-
-	subscriber := mocks.NewMockSubscriber(ctrl)
-
-	subscriber.EXPECT().Close().Times(1)
-	subscriber.
-		EXPECT().
-		ChainID(gomock.Any()).
-		Return(new(big.Int), nil).
-		Times(1)
-
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	t.Cleanup(cancel)
-	err := client.Run(ctx)
-	require.ErrorContains(t, err, "mismatched L1 and L2 networks")
+		l1Head := &core.L1Head{
+			BlockHash: new(felt.Felt),
+			StateRoot: new(felt.Felt),
+		}
+		ml1 := &mockL1{head: l1Head}
+		client := l1.NewClient(ml1, bc, log)
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+		t.Cleanup(cancel)
+		require.NoError(t, client.Run(ctx))
+		got, err := bc.L1Head()
+		require.NoError(t, err)
+		require.Equal(t, l1Head, got)
+	})
 }
