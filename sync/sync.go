@@ -85,14 +85,6 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 				continue
 			}
 
-			if block == nil {
-				select {
-				case <-ctx.Done():
-				case <-time.After(time.Second):
-				}
-				continue
-			}
-
 			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
 			if err != nil {
 				continue
@@ -173,7 +165,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	return func() {
 		select {
 		case <-ctx.Done():
-			s.log.Infow("Cancelled", "number", block.Number)
 			return
 		default:
 			if err != nil {
@@ -186,7 +177,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			timer.ObserveDuration()
 
 			if err != nil {
-				s.log.Infow("Error", "err", err)
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
@@ -199,7 +189,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			s.log.Infow("Stored block", "number", block.Number)
 			s.totalBlocks.Inc()
 
 			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {

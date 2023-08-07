@@ -215,17 +215,6 @@ func (s *Service) Run(ctx context.Context) error {
 		return errors.Join(err, errors.New("failed to setup identity protocol"))
 	}
 
-	// And some debug stuff
-	go func() {
-		sub, err2 := s.host.EventBus().Subscribe(event.WildcardSubscription)
-		if err2 != nil {
-			panic(err2)
-		}
-		for event := range sub.Out() {
-			s.log.Infow("got event via bus", "event", event)
-		}
-	}()
-
 	<-s.runCtx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())

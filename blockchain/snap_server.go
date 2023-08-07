@@ -4,7 +4,6 @@ import (
 	errors2 "errors"
 	"fmt"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -64,7 +63,6 @@ type SnapServer interface {
 }
 
 var _ SnapServer = &Blockchain{}
-var ShouldVerifyTrie bool = false
 
 const maxNodePerRequest = 1024 * 1024 // I just want it to process faster
 func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
@@ -120,7 +118,7 @@ func iterateWithLimit(
 	limitAddr *felt.Felt,
 	maxNode uint64,
 	consumer func(key, value *felt.Felt) error,
-	hashFunc trie.HashFunc) ([]*trie.ProofNode, error) {
+) ([]*trie.ProofNode, error) {
 	pathes := make([]*felt.Felt, 0)
 	hashes := make([]*felt.Felt, 0)
 
@@ -164,36 +162,7 @@ func iterateWithLimit(
 	}
 	skipProof.WithLabelValues("no").Inc()
 
-	if count == 1 {
-		return srcTrie.ProofTo(startPath)
-	} else if count > 1 {
-		leftProof, err := srcTrie.ProofTo(startPath)
-		if err != nil {
-			return nil, err
-		}
-		rightProof, err := srcTrie.ProofTo(endPath)
-		if err != nil {
-			return nil, err
-		}
-
-		proofs := append(leftProof, rightProof...)
-
-		if ShouldVerifyTrie {
-			root, err := srcTrie.Root()
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = trie.VerifyTrie(root, pathes, hashes, proofs, hashFunc)
-			if err != nil {
-				return nil, errors.Wrap(err, "error double checking root")
-			}
-		}
-
-		return proofs, nil
-	}
-
-	return nil, nil
+	return srcTrie.RangeProof(startAddr, endPath)
 }
 
 func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error) {
@@ -223,7 +192,7 @@ func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt
 		response.Paths = append(response.Paths, key)
 		response.ClassCommitments = append(response.ClassCommitments, value)
 		return nil
-	}, crypto.Poseidon)
+	})
 
 	return response, err
 }
@@ -285,7 +254,7 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 
 		response.Leaves = append(response.Leaves, leaf)
 		return nil
-	}, crypto.Pedersen)
+	})
 
 	return response, err
 }
@@ -365,7 +334,7 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 			}
 		}()
 
-		proofs, err := storageTrie.ProofTo(request.Path)
+		proofs, err := storageTrie.RangeProof(request.Path, request.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -392,7 +361,7 @@ func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRa
 		response.Paths = append(response.Paths, key)
 		response.Values = append(response.Values, value)
 		return nil
-	}, crypto.Pedersen)
+	})
 
 	return response, err
 }

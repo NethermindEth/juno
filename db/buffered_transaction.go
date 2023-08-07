@@ -2,14 +2,7 @@ package db
 
 import (
 	"errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
-
-var setCount = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "juno_buff_tx_set_count",
-	Help: "Time in address get",
-})
 
 // BufferedTransaction buffers the updates in the memory to be later flushed to the underlying Transaction
 type BufferedTransaction struct {
@@ -65,7 +58,6 @@ func (t *BufferedTransaction) Get(key []byte, cb func([]byte) error) error {
 
 // Flush applies the pending changes to the underlying Transaction
 func (t *BufferedTransaction) Flush() error {
-	setCount.Add(float64(len(t.updates)))
 	for key, value := range t.updates {
 		keyBytes := []byte(key)
 		if value == nil {

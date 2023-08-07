@@ -79,7 +79,7 @@ func (r *reliableSnapServer) GetClassRange(ctx context.Context, classTrieRootHas
 
 		// TODO: Verify hashes
 		var hasNext bool
-		hasNext, err = trie.VerifyTrie(classTrieRootHash, response.Paths, response.ClassCommitments, response.Proofs, crypto.Poseidon)
+		hasNext, err = trie.VerifyTrie(classTrieRootHash, response.Paths, response.ClassCommitments, response.Proofs, 251, crypto.Poseidon)
 		if err != nil {
 			r.log.Warnw("error verifying trie", "err", err)
 			continue
@@ -130,7 +130,7 @@ func (r *reliableSnapServer) GetAddressRange(ctx context.Context, rootHash *felt
 		}
 
 		starttime = time.Now()
-		hasNext, err := trie.VerifyTrie(rootHash, response.Paths, hashes, response.Proofs, crypto.Pedersen)
+		hasNext, err := trie.VerifyTrie(rootHash, response.Paths, hashes, response.Proofs, 251, crypto.Pedersen)
 		addressDurations.WithLabelValues("verify").Observe(float64(time.Now().Sub(starttime).Microseconds()))
 		if err != nil {
 			r.log.Warnw("error verifying trie", "err", err)
@@ -170,7 +170,7 @@ func (r *reliableSnapServer) GetContractRange(ctx context.Context, storageTrieRo
 			if response.UpdatedContract != nil {
 				commitment := core.CalculateContractCommitment(response.UpdatedContract.ContractStorageRoot, response.UpdatedContract.ClassHash, response.UpdatedContract.Nonce)
 				r.log.Infow("Updating hash in storage", "path", request.Path.String(), "to", commitment.String(), "nonce", response.UpdatedContract.Nonce.String(), "classHash", response.UpdatedContract.ClassHash, "storageRoot", response.UpdatedContract.ContractStorageRoot)
-				_, err := trie.VerifyTrie(storageTrieRootHash, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, crypto.Pedersen)
+				_, err := trie.VerifyTrie(storageTrieRootHash, []*felt.Felt{request.Path}, []*felt.Felt{commitment}, response.UpdatedContractProof, 251, crypto.Pedersen)
 				if err != nil {
 					r.log.Warnw("error fetching storage range. updated contract verification failed", "err", err)
 					continue
@@ -180,7 +180,7 @@ func (r *reliableSnapServer) GetContractRange(ctx context.Context, storageTrieRo
 			}
 
 			starttime := time.Now()
-			hasNext, err := trie.VerifyTrie(request.Hash, response.Paths, response.Values, response.Proofs, crypto.Pedersen)
+			hasNext, err := trie.VerifyTrie(request.Hash, response.Paths, response.Values, response.Proofs, 251, crypto.Pedersen)
 			storageDurations.WithLabelValues("verify").Add(float64(time.Now().Sub(starttime).Microseconds()))
 			if err != nil {
 				r.log.Warnw("error fetching storage range. updated contract verification failed", "err", err)
