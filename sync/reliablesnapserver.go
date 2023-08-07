@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"errors"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -15,12 +14,6 @@ import (
 type reliableSnapServer struct {
 	innerServer blockchain.SnapServer
 	log         utils.Logger
-}
-
-var RetryableErr = errors.New("retryable error")
-
-func isErrorRetryable(err error) bool {
-	return errors.Is(err, RetryableErr)
 }
 
 func (r *reliableSnapServer) GetTrieRootAt(ctx context.Context, block *core.Header) (*blockchain.TrieRootInfo, error) {

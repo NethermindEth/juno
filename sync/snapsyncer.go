@@ -163,8 +163,8 @@ var (
 	fetchClassWorkerCount = 8 // Fairly parallelizable. But this is brute force...
 	classesJobQueueSize   = 128
 
-	maxPivotDistance     = 1 // Set to 1 to test updated storage.
-	newPivotHeadDistance = uint64(0)
+	maxPivotDistance     = 32        // Set to 1 to test updated storage.
+	newPivotHeadDistance = uint64(1) // This should be the reorg depth
 
 	storePerContractBatchSize         = 500 // For some reason, the trie throughput is higher if the batch size is small.
 	storeMaxConcurrentContractTrigger = runtime.NumCPU()
