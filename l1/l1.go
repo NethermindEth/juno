@@ -12,14 +12,12 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 )
 
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
-	WatchHeader(ctx context.Context, sink chan<- *types.Header) (event.Subscription, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 
@@ -27,24 +25,26 @@ type Subscriber interface {
 }
 
 type Client struct {
-	l1               Subscriber
-	l2Chain          *blockchain.Blockchain
-	log              utils.SimpleLogger
-	network          utils.Network
-	resubscribeDelay time.Duration
-	nonFinalisedLogs map[uint64]*contract.StarknetLogStateUpdate
+	l1                    Subscriber
+	l2Chain               *blockchain.Blockchain
+	log                   utils.SimpleLogger
+	network               utils.Network
+	resubscribeDelay      time.Duration
+	pollFinalisedInterval time.Duration
+	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
 }
 
 var _ service.Service = (*Client)(nil)
 
 func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger) *Client {
 	return &Client{
-		l1:               l1,
-		l2Chain:          chain,
-		log:              log,
-		network:          chain.Network(),
-		resubscribeDelay: 10 * time.Second,
-		nonFinalisedLogs: make(map[uint64]*contract.StarknetLogStateUpdate, 0),
+		l1:                    l1,
+		l2Chain:               chain,
+		log:                   log,
+		network:               chain.Network(),
+		resubscribeDelay:      10 * time.Second,
+		pollFinalisedInterval: time.Minute,
+		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
 	}
 }
 
@@ -53,20 +53,10 @@ func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
 	return c
 }
 
-func (c *Client) subscribeToHeaders(ctx context.Context, headerChan chan *types.Header) (event.Subscription, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
-		default:
-			headerSub, err := c.l1.WatchHeader(ctx, headerChan)
-			if err == nil {
-				return headerSub, nil
-			}
-			c.log.Warnw("Failed to subscribe to L1 headers", "tryAgainIn", c.resubscribeDelay, "err", err)
-			time.Sleep(c.resubscribeDelay)
-		}
-	}
+// WithPollFinalisedInterval sets the time to wait before checking for an update to the finalised L1 block.
+func (c *Client) WithPollFinalisedInterval(delay time.Duration) *Client {
+	c.pollFinalisedInterval = delay
+	return c
 }
 
 func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
@@ -101,7 +91,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
 }
 
-func (c *Client) Run(ctx context.Context) error { //nolint:gocyclo
+func (c *Client) Run(ctx context.Context) error {
 	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
@@ -118,29 +108,15 @@ func (c *Client) Run(ctx context.Context) error { //nolint:gocyclo
 	}
 	defer updateSub.Unsubscribe()
 
-	headerChan := make(chan *types.Header, buffer)
-	headerSub, err := c.subscribeToHeaders(ctx, headerChan)
-	if err != nil {
-		return err
-	}
-	defer headerSub.Unsubscribe()
-
 	c.log.Infow("Subscribed to L1 updates")
 
+	ticker := time.NewTicker(c.pollFinalisedInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case err := <-headerSub.Err():
-			c.log.Warnw("L1 header subscription failed, resubscribing", "error", err)
-			headerSub.Unsubscribe()
-
-			headerSub, err = c.subscribeToHeaders(ctx, headerChan)
-			if err != nil {
-				return err
-			}
-			defer headerSub.Unsubscribe() //nolint:gocritic
-		case <-headerChan:
+		case <-ticker.C:
 		Outer:
 			for {
 				select {
