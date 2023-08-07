@@ -80,7 +80,7 @@ func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogg
 
 	for i := version; i < uint64(len(migrations)); i++ {
 		if log != nil {
-			log.Infow("applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, uint64(len(migrations))-version))
+			log.Infow("applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, uint64(len(migrations))))
 		}
 		migration := migrations[i]
 		migration.Before()
