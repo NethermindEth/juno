@@ -117,3 +117,26 @@ func (k *Key) Truncate(length uint8) {
 		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
 	}
 }
+
+// CmpAligned is Cmp as if the value is bigendian bytes of key of the same length
+func (k Key) CmpAligned(other *Key) int {
+	// No its not aligned, so need to convert to bigint then left shift it so that the MSB is of the same index
+	height := k.len
+	if other.len > height {
+		height = other.len
+	}
+
+	b1i := k.alignedBitInt(height)
+	b2i := other.alignedBitInt(height)
+	return b1i.Cmp(b2i)
+}
+
+func (k Key) alignedBitInt(height uint8) *big.Int {
+	theint := &big.Int{}
+	theint = theint.SetBytes(k.bitset[:])
+	if k.len < height {
+		theint = theint.Lsh(theint, uint(height-k.len))
+	}
+
+	return theint
+}

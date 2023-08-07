@@ -15,7 +15,7 @@ type Node struct {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
+func (n *Node) Hash(path *Key, hashFunc HashFunc) *felt.Felt {
 	if path.Len() == 0 {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime

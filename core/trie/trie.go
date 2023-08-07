@@ -4,29 +4,12 @@ package trie
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"math/big"
-	"strings"
-)
-
-var (
-	iterate_count = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "juno_iterate_count",
-		Help: "Time in address get",
-	})
-	verify_count = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "juno_verify_count",
-		Help: "Time in address get",
-	})
-	iterate_leaves_count = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "juno_iterate_leaves_count",
-		Help: "Time in address get",
-	})
 )
 
 // Storage is the Persistent storage for the [Trie]
@@ -40,7 +23,6 @@ type Storage interface {
 	DeleteRootKey() error
 }
 
-type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
@@ -65,7 +47,7 @@ type Trie struct {
 	rootKey *Key
 	maxKey  *felt.Felt
 	storage Storage
-	hash    hashFunc
+	hash    HashFunc
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
@@ -81,11 +63,7 @@ func NewTriePoseidon(storage Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func NewTrie(storage Storage, height uint8, hash HashFunc) (*Trie, error) {
-	return newTrie(storage, height, hashFunc(hash))
-}
-
-func newTrie(storage Storage, height uint8, hash hashFunc) (*Trie, error) {
+func newTrie(storage Storage, height uint8, hash HashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -117,30 +95,11 @@ func RunOnTempTrie(height uint8, do func(*Trie) error) error {
 	return do(trie)
 }
 
-func (t *Trie) FeltToBitSet(k *felt.Felt) Key {
-	return t.feltToKey(k)
-}
-
 // feltToBitSet Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) feltToKey(k *felt.Felt) Key {
 	kBytes := k.Bytes()
 	return NewKey(t.height, kBytes[:])
-}
-
-func FeltToBitSet(k *felt.Felt, h uint8) *Key {
-	kBytes := k.Bytes()
-	nk := NewKey(h, kBytes[:])
-	return &nk
-}
-
-func (t *Trie) bitSetToFelt(path *Key) *felt.Felt {
-	if path == nil {
-		return nil
-	}
-
-	f := path.Felt()
-	return &f
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
@@ -175,12 +134,6 @@ func path(key, parentKey *Key) Key {
 	// drop parent key, and one more MSB since left/right relation already encodes that information
 	if parentKey != nil {
 		path.Truncate(path.Len() - parentKey.Len() - 1)
-		/* TODO: double check this
-		if path.Len() == 0 { // Could be in case of proof node where the parent temporarily does not have one of the child node
-			return nil
-		}
-		path.DeleteAt(path.Len() - 1)
-		*/
 	}
 	return path
 }
@@ -239,15 +192,18 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
+// Iterate the trie from startValue in ascending order until the consumer returned false or an error occur. Return true
+// if end of trie is reached.
+// TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
+// block cache should have a pretty good hit rate.
 func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
-	startValueKey := FeltToBitSet(startValue, 251)
-	neverStopped, err := t.doIterate(startValueKey, t.rootKey, consumer)
+	startValueKey := t.feltToKey(startValue)
+	neverStopped, err := t.doIterate(&startValueKey, t.rootKey, consumer)
 
 	return neverStopped, err
 }
 
 func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
-	iterate_count.Inc()
 	if key == nil {
 		return false, nil
 	}
@@ -257,17 +213,16 @@ func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Fe
 		return false, err
 	}
 
-	if key.Len() == 251 {
-		if IsKeyHigher(startValue, key) {
+	if key.Len() == t.height {
+		if startValue.CmpAligned(key) > 0 {
 			return true, nil
 		}
-		iterate_leaves_count.Inc()
-		keyAsFelt := t.bitSetToFelt(key)
-		return consumer(keyAsFelt, thenode.Value)
+		keyAsFelt := key.Felt()
+		return consumer(&keyAsFelt, thenode.Value)
 	}
 
-	// TODO: Double check this
-	if !IsKeyHigher(startValue, thenode.Right) {
+	// If the startvalue is higher than the right node, no point in going to left at all
+	if startValue.CmpAligned(thenode.Right) < 0 {
 		next, err := t.doIterate(startValue, thenode.Left, consumer)
 		if err != nil {
 			return false, err
@@ -286,7 +241,43 @@ type ProofNode struct {
 	Hash *felt.Felt
 }
 
-func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
+func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
+	if from.Equal(to) {
+		return t.proofTo(from)
+	}
+
+	leftProofs, err := t.proofTo(from)
+	if err != nil {
+		return nil, err
+	}
+
+	rightProofs, err := t.proofTo(to)
+	if err != nil {
+		return nil, err
+	}
+
+	fromKey := t.feltToKey(from)
+	toKey := t.feltToKey(to)
+
+	// Trim the proof from inner node or there might be cases where verification passes even with missing leaf
+	combinedProofs := make([]*ProofNode, 0, len(leftProofs)+len(rightProofs))
+	for _, proof := range leftProofs {
+		if proof.Key.CmpAligned(&fromKey) > 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, proof)
+	}
+	for _, proof := range rightProofs {
+		if proof.Key.CmpAligned(&toKey) < 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, proof)
+	}
+
+	return combinedProofs, err
+}
+
+func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
 	nodeKey := t.feltToKey(key)
 	nodes, err := t.nodesFromRoot(&nodeKey)
 	if err != nil {
@@ -321,26 +312,22 @@ func (t *Trie) ProofTo(key *felt.Felt) ([]*ProofNode, error) {
 }
 
 func (t *Trie) SetProofNode(key Key, value *felt.Felt) error {
-	_, err := t.put(key, value, true)
+	_, err := t.put(key, value)
 	return err
 }
 
 // Put updates the corresponding `value` for a `key`
-//
-//nolint:gocyclo
 func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
 	nodeKey := t.feltToKey(key)
-	return t.put(nodeKey, value, false)
+	return t.put(nodeKey, value)
 }
 
-// Put updates the corresponding `value` for a `key`
-//
 //nolint:gocyclo
-func (t *Trie) put(nodeKey Key, value *felt.Felt, isProof bool) (*felt.Felt, error) {
+func (t *Trie) put(nodeKey Key, value *felt.Felt) (*felt.Felt, error) {
 	old := felt.Zero
 	node := &Node{
 		Value: value,
@@ -371,10 +358,6 @@ func (t *Trie) put(nodeKey Key, value *felt.Felt, isProof bool) (*felt.Felt, err
 		// Replace if key already exist
 		sibling := nodes[len(nodes)-1]
 		if nodeKey.Equal(sibling.key) {
-			if isProof {
-				return nil, nil
-			}
-
 			// we have to deference the Value, since the Node can released back
 			// to the NodePool and be reused anytime
 			old = *sibling.node.Value // record old value to return to caller
@@ -400,21 +383,6 @@ func (t *Trie) put(nodeKey Key, value *felt.Felt, isProof bool) (*felt.Felt, err
 			commonKey, _ = findCommonKey(&nodeKey, sibling.key)
 		} else {
 			commonKey, _ = findCommonKey(sibling.key, &nodeKey)
-		}
-
-		if commonKey.Equal(&nodeKey) && isProof {
-			return nil, nil
-		}
-
-		if isProof {
-			n, err := t.storage.Get(&commonKey)
-			if err != nil && err != db.ErrKeyNotFound {
-				return nil, err
-			}
-
-			if n != nil {
-				return nil, nil
-			}
 		}
 
 		newParent := &Node{}
@@ -646,64 +614,41 @@ func (t *Trie) dump(level int, parentP *Key) {
 	}).dump(level+1, t.rootKey)
 }
 
-func KeyToBigInt(path *Key) *big.Int {
-	theint := &big.Int{}
-	theint = theint.SetBytes(path.bitset[:])
-	if path.Len() < 251 {
-		theint = theint.Lsh(theint, 251-uint(path.len))
-	}
-
-	return theint
-}
-
-func IsKeyHigher(b1, b2 *Key) bool {
-	// No its not aligned, so need to convert to bigint
-	b1i := KeyToBigInt(b1)
-	b2i := KeyToBigInt(b2)
-	return b1i.Cmp(b2i) > 0
-}
-
-// VerifyTrie recalculate a trie root
+// VerifyTrie recalculate a trie root and throw error if it does not match the expected root.
+// Return true if the proofs shows the existence of more nodes to after the last path.
 // TODO: In context of snap sync, this does not store the calculated inner nodes, which is a waste of CPU cycle.
-func VerifyTrie(expectedRoot *felt.Felt, paths []*felt.Felt, hashes []*felt.Felt, proofs []*ProofNode, hash HashFunc) (bool, error) {
-	db2, err := pebble.NewMem()
-	if err != nil {
-		return false, err
-	}
-	defer db2.Close()
-
-	tr2, err := NewTrie(NewTransactionStorage(db2.NewTransaction(true), []byte{1}), 251, hash)
+func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*ProofNode, height uint8, hash HashFunc) (bool, error) {
+	tr, err := newTrie(newMemStorage(), height, hash)
 	if err != nil {
 		return false, err
 	}
 
 	for i, path := range paths {
-		verify_count.Inc() // I know its not efficient
-		_, err := tr2.Put(path, hashes[i])
+		_, err = tr.Put(path, hashes[i])
 		if err != nil {
 			return false, err
 		}
 	}
 
 	hasNext := false
-	lastPath := tr2.FeltToBitSet(paths[len(paths)-1])
+	lastPath := tr.feltToKey(paths[len(paths)-1])
 	for _, proof := range proofs {
-		if IsKeyHigher(proof.Key, &lastPath) {
+		if proof.Key.CmpAligned(&lastPath) > 0 {
 			hasNext = true
 		}
-		err := tr2.SetProofNode(*proof.Key, proof.Hash)
+		err = tr.SetProofNode(*proof.Key, proof.Hash)
 		if err != nil {
 			return false, err
 		}
 	}
 
-	tr2root, err := tr2.Root()
+	root, err := tr.Root()
 	if err != nil {
 		return false, nil
 	}
 
-	if !tr2root.Equal(expectedRoot) {
-		return false, fmt.Errorf("hash mismatch %s vs %s", tr2root.String(), expectedRoot.String())
+	if !root.Equal(expectedRoot) {
+		return false, fmt.Errorf("hash mismatch %s vs %s", root.String(), expectedRoot.String())
 	}
 
 	return hasNext, nil
