@@ -15,6 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	clientVersion = "v0.0.1-test"
+)
+
 func TestDeclareTransactionUnmarshal(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 
@@ -218,8 +222,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseURL := "https\t://mock_feeder.io"
-	version := "v0.0.1-test"
-	client := feeder.NewClient(baseURL, version)
+	client := feeder.NewClient(baseURL, clientVersion)
 	_, _ = client.Block(context.Background(), strconv.Itoa(0))
 }
 
@@ -337,9 +340,8 @@ func TestHttpError(t *testing.T) {
 		callCount[r.URL.String()]++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
-	version := "v0.0.1-test"
 	t.Cleanup(srv.Close)
-	client := feeder.NewClient(srv.URL, version).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
+	client := feeder.NewClient(srv.URL, clientVersion).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := client.Block(context.Background(), strconv.Itoa(0))
@@ -373,10 +375,9 @@ func TestBackoffFailure(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 		try += 1
 	}))
-	version := "v0.0.1-test"
 	t.Cleanup(srv.Close)
 
-	c := feeder.NewClient(srv.URL, version).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
+	c := feeder.NewClient(srv.URL, clientVersion).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
 
 	_, err := c.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")

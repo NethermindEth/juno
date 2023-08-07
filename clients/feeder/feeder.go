@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,8 +14,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"fmt"
-	
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -154,7 +154,7 @@ func NewClient(clientURL, version string) *Client {
 		maxWait:    10 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
-		version:	version,
+		version:    version,
 	}
 }
 
