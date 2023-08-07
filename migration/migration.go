@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"runtime"
 	"sync"
 
@@ -55,7 +56,7 @@ var migrations = []Migration{
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(targetDB db.DB, network utils.Network) error {
+func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogger) error {
 	/*
 		Schema version of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
@@ -78,6 +79,9 @@ func MigrateIfNeeded(targetDB db.DB, network utils.Network) error {
 	}
 
 	for i := version; i < uint64(len(migrations)); i++ {
+		if log != nil {
+			log.Infow("applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, uint64(len(migrations))-version))
+		}
 		migration := migrations[i]
 		migration.Before()
 		for {
