@@ -45,14 +45,6 @@ type Block struct {
 	Receipts     []*TransactionReceipt
 }
 
-func (b *Block) CalculateEventCommitment() (*felt.Felt, error) {
-	return eventCommitment(b.Receipts)
-}
-
-func (b *Block) CalculateTransactionCommitment() (*felt.Felt, error) {
-	return transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
-}
-
 type blockHashMetaInfo struct {
 	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
 	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
@@ -149,10 +141,6 @@ func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error)
 		}
 	}
 	return nil, errors.New("can not verify hash in block header")
-}
-
-func BlockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
-	return blockHash(b, network, overrideSeqAddr)
 }
 
 // blockHash computes the block hash, with option to override sequence address

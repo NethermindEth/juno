@@ -2,14 +2,12 @@ package trie
 
 import (
 	"bytes"
-	"errors"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
 )
 
 var _ Storage = (*TransactionStorage)(nil)
-var notSameDb error = errors.New("not same db")
 
 // bufferPool caches unused buffer objects for later reuse.
 var bufferPool = sync.Pool{
@@ -83,8 +81,7 @@ func (t *TransactionStorage) Get(key *Key) (*Node, error) {
 
 	var node *Node
 	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
-		// node = nodePool.Get().(*Node)
-		node = &Node{}
+		node = nodePool.Get().(*Node)
 		return node.UnmarshalBinary(val)
 	}); err != nil {
 		return nil, err
