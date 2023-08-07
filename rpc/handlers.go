@@ -1217,7 +1217,7 @@ func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTran
 	return h.traceBlockTransactions(block, len(block.Transactions))
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block, maxTransactionIdx int) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
@@ -1243,7 +1243,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, maxTransactionIdx in
 	var classes []core.Class
 	paidFeesOnL1 := []*felt.Felt{}
 
-	transactions := block.Transactions[:maxTransactionIdx]
+	transactions := block.Transactions[:numTxns]
 	for _, transaction := range transactions {
 		switch tx := transaction.(type) {
 		case *core.DeclareTransaction:
