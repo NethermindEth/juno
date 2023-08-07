@@ -244,7 +244,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 		}
 	}
 
-	err = s.verifyStatTrie(ctx)
+	err = s.verifyTrie(ctx)
 	if err != nil {
 		return err
 	}
@@ -943,7 +943,7 @@ func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64) error {
 		return err
 	}
 
-	return s.blockchain.ApplyNoVerify(block, update, unknownClasses)
+	return s.blockchain.StoreNoVerify(block, update, unknownClasses)
 }
 
 func (s *SnapSyncher) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
@@ -1007,7 +1007,7 @@ func (s *SnapSyncher) GetStateRoot() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	trie, closer2, err := state.(core.StateReaderStorage).StorageTrie()
+	trie, closer2, err := state.(*core.State).StorageTrie()
 	if err != nil {
 		return nil, err
 	}
@@ -1118,7 +1118,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 	return nil
 }
 
-func (s *SnapSyncher) verifyStatTrie(ctx context.Context) error {
+func (s *SnapSyncher) verifyTrie(ctx context.Context) error {
 
 	sr, cl, err := s.blockchain.HeadState()
 	if err != nil {

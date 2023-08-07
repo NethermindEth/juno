@@ -327,7 +327,9 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
+	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
+) error {
 	var thestateroot *felt.Felt
 	var theclassroot *felt.Felt
 	var headerhash *felt.Felt
@@ -413,7 +415,8 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	return nil
 }
 
-func (b *Blockchain) ApplyNoVerify(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+// StoreNoVerify does not verify state root. Used to apply state diff at the end of snap sync.
+func (b *Blockchain) StoreNoVerify(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		state := core.NewState(txn)
 		if err := state.UpdateNoVerify(block.Number, stateUpdate, newClasses); err != nil {
@@ -443,16 +446,6 @@ func (b *Blockchain) ApplyNoVerify(block *core.Block, stateUpdate *core.StateUpd
 		// [db.ChainHeight]() -> (BlockNumber)
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
-	})
-}
-
-func (b *Blockchain) StoreDirect(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
-	return b.database.Update(func(txn db.Transaction) error {
-		if err := core.NewState(txn).UpdateRaw(paths, classHashes, hashes, nonces); err != nil {
-			return err
-		}
-
-		return txn.Set(db.ChainHeight.Key(), core.MarshalBlockNumber(uint64(0)))
 	})
 }
 

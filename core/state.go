@@ -27,7 +27,6 @@ var (
 )
 
 var _ StateHistoryReader = (*State)(nil)
-var _ StateReaderStorage = (*State)(nil)
 
 //go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
 type StateHistoryReader interface {
@@ -44,11 +43,6 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
-}
-
-type StateReaderStorage interface {
-	StorageTrie() (*trie.Trie, func() error, error)
-	ClassTrie() (*trie.Trie, func() error, error)
 }
 
 type State struct {
@@ -283,7 +277,7 @@ func (s *State) UpdateNoVerify(blockNumber uint64, update *StateUpdate, declared
 	}
 
 	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
-		return errors.Join(err, errors.New("error updating undeclaret"))
+		return err
 	}
 
 	stateTrie, storageCloser, err := s.storage()
@@ -294,56 +288,12 @@ func (s *State) UpdateNoVerify(blockNumber uint64, update *StateUpdate, declared
 	// register deployed contracts
 	for _, contract := range update.StateDiff.DeployedContracts {
 		if err = s.putNewContract(stateTrie, contract.Address, contract.ClassHash, blockNumber, nil); err != nil && err != ErrContractAlreadyDeployed {
-			return errors.Join(err, errors.New("error putting new contract"))
+			return err
 		}
 	}
 
 	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
 		return errors.Join(err, errors.New("error updating contract"))
-	}
-
-	if err = storageCloser(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *State) UpdateRaw(paths []*felt.Felt, classHashes []*felt.Felt, hashes []*felt.Felt, nonces []*felt.Felt) error {
-	stateTrie, storageCloser, err := s.storage()
-	if err != nil {
-		return err
-	}
-
-	for i, path := range paths {
-		_, err := stateTrie.Put(path, hashes[i])
-		if err != nil {
-			return err
-		}
-
-		err = s.putNewContract(stateTrie, path, classHashes[i], 0, nonces[i])
-		if err != nil && err != ErrContractAlreadyDeployed {
-			return err
-		}
-		if err == ErrContractAlreadyDeployed {
-			_, err = s.replaceContract(stateTrie, path, classHashes[i])
-			if err != nil {
-				return err
-			}
-			_, err = s.updateContractNonce(stateTrie, path, nonces[i])
-			if err != nil {
-				return err
-			}
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
-	err = stateTrie.Commit()
-	if err != nil {
-		return err
 	}
 
 	if err = storageCloser(); err != nil {

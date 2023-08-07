@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -42,7 +41,6 @@ type Service struct {
 	userAgent  string
 	bootPeers  string
 	network    utils.Network
-	syncServer blockSyncServer
 	blockchain *blockchain.Blockchain
 	log        utils.SimpleLogger
 
@@ -103,15 +101,7 @@ func New(
 
 	log.Infow(fmt.Sprintf("Id is %s\n", sourceMultiAddr.Encapsulate(pidmhash).String()))
 
-	// Sync handler
-	syncServer := blockSyncServer{
-		blockchain: bc,
-		converter:  NewConverter(&blockchainClassProvider{blockchain: bc}),
-		log:        log,
-	}
-
 	snapSyncServer := snap.NewSnapSyncServer(bc, log)
-	p2phost.SetStreamHandler(blockSyncProto, syncServer.handleBlockSyncStream)
 	p2phost.SetStreamHandler(snap.Proto, snapSyncServer.HandleStream)
 
 	return &Service{
@@ -236,14 +226,6 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
-	_, ok := os.LookupEnv("P2P_RUN_REENCODING_TEST")
-	if ok {
-		err = runBlockEncodingTests(s.blockchain)
-		if err != nil {
-			return err
-		}
-	}
-
 	<-s.runCtx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
@@ -274,23 +256,6 @@ func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 	}
 
 	return listenAddrs, nil
-}
-
-func (s *Service) CreateBlockSyncProvider() (*BlockSyncProvider, error) {
-	blockSyncPeerManager, err := NewBlockSyncPeerManager(func(ctx context.Context) (network.Stream, func(), error) {
-		str, err := s.NewStream(ctx, snap.Proto)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return str, func() {}, nil
-	}, s.blockchain, s.log)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return blockSyncPeerManager, nil
 }
 
 func (s *Service) CreateSnapProvider() (*snap.SnapProvider, error) {
