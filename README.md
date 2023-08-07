@@ -107,8 +107,8 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 ## ✔ Supported Features
 
-- Starknet [v0.12.0](https://www.starknet.io/en/posts/ecosystem/starknet-quantum-leap-major-throughput-improvements-are-here) support.
-- JSON-RPC [v0.3.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.3.0):
+- Starknet [v0.12.1](https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#starknet_alpha_v0_12_1) support.
+- JSON-RPC [v0.4.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.4.0):
   - `starknet_chainId`
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
@@ -131,6 +131,8 @@ Use the provided snapshots to quickly sync your Juno node with the current state
   - `starknet_addInvokeTransaction`
   - `starknet_addDeclareTransaction`
   - `starknet_addDeployAccountTransaction`
+  - `starkent_estimateMessageFee`
+  - `starknet_pendingTransactions`
 - Juno's JSON-RPC:
   - `juno_version`
   - `juno_getTransactionStatus`
