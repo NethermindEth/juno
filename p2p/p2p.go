@@ -262,40 +262,6 @@ func (s *Service) setupIdentity() error {
 	return nil
 }
 
-func (s *Service) SubscribeToNewPeer(ctx context.Context) (<-chan peerInfo, error) {
-	ch := make(chan peerInfo)
-
-	sub, err := s.host.EventBus().Subscribe(&event.EvtPeerIdentificationCompleted{})
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		for evt := range sub.Out() {
-			evt := evt.(event.EvtPeerIdentificationCompleted)
-
-			protocols, err := s.host.Peerstore().GetProtocols(evt.Peer)
-			if err != nil {
-				s.log.Infow("error getting peer protocol", "error", err)
-				continue
-			}
-
-			ch <- peerInfo{
-				id:        evt.Peer,
-				protocols: protocols,
-			}
-		}
-	}()
-
-	return ch, nil
-}
-
-func (s *Service) SubscribeToPeerDisconnected(ctx context.Context) (<-chan peer.ID, error) {
-	// TODO: implement this
-	ch := make(chan peer.ID)
-	return ch, nil
-}
-
 func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 	pidmhash, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", s.host.ID()))
 	if err != nil {
