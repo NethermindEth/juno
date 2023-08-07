@@ -171,65 +171,19 @@ var (
 	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 4)
 )
 
-func (s *SnapSyncher) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-
-		}
-
-		head, err := s.starknetData.BlockLatest(ctx)
-		if err != nil {
-			s.log.Warnw("error getting current head", "error", err)
-			continue
-		}
-		startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
-		if err != nil {
-			s.log.Warnw("error getting starting block", "error", err)
-			continue
-		}
-
-		return startingBlock, nil
-	}
-}
-
-func (s *SnapSyncher) initState(ctx context.Context) error {
-	startingBlock, err := s.getNextStartingBlock(ctx)
-	if err != nil {
-		return errors.Join(err, errors.New("error getting current head"))
-	}
-
-	s.startingBlock = startingBlock.Header
-	s.lastBlock = startingBlock.Header
-
-	rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.startingBlock)
-	if err != nil {
-		return errors.Join(err, errors.New("error getting trie root"))
-	}
-	s.currentStateRoot = rootInfo.StorageRoot
-	s.currentClassRoot = rootInfo.ClassRoot
-
-	s.storageRangeJobCount = 0
-	s.storageRangeJob = make(chan *storageRangeJob, storageJobQueueSize)
-	s.largeStorageRangeJobCount = 0
-	s.largeStorageRangeJob = make(chan *blockchain.StorageRangeRequest, largeStorageJobQueueSize)
-	s.largeStorageStoreJob = make(chan *largeStorageStoreJob, largeStorageStoreQueueSize)
-	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
-
-	s.addressRangeDone = make(chan interface{})
-	s.storageRangeDone = make(chan interface{})
-	s.largeStoreDone = make(chan interface{})
-
-	s.mtxM = &sync.Mutex{}
-	s.mtxN = &sync.Mutex{}
-	s.mtxL = &sync.Mutex{}
-
-	return nil
-}
-
 func (s *SnapSyncher) Run(ctx context.Context) error {
+	s.log.Infow("starting snap sync")
+	// 1. Get the current head
+	// 2. Start the snap sync with pivot set to that head
+	// 3. If at any moment, if:
+	//    a. The current head is too new (more than 64 block let say)
+	//    b. Too many missing node
+	//    then reset the pivot.
+	// 4. Once finished, replay state update from starting pivot to the latest pivot.
+	// 5. Then do some cleanup, mark things and complete and such.
+	// 6. Probably download old state updato/bodies too
+	// 7. Send back control to base sync.
+
 	err := s.runPhase1(ctx)
 	if err != nil {
 		return err
@@ -254,18 +208,6 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 }
 
 func (s *SnapSyncher) runPhase1(ctx context.Context) error {
-	s.log.Infow("starting snap sync")
-	// 1. Get the current head
-	// 2. Start the snap sync with pivot set to that head
-	// 3. If at any moment, if:
-	//    a. The current head is too new (more than 64 block let say)
-	//    b. Too many missing node
-	//    then reset the pivot.
-	// 4. Once finished, replay state update from starting pivot to the latest pivot.
-	// 5. Then do some cleanup, mark things and complete and such.
-	// 6. Probably download old state updato/bodies too
-	// 7. Send back control to base sync.
-
 	starttime := time.Now()
 
 	err := s.initState(ctx)
@@ -406,6 +348,64 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	}
 
 	s.log.Infow("first phase completed", "duration", time.Now().Sub(starttime).String())
+
+	return nil
+}
+
+func (s *SnapSyncher) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+
+		}
+
+		head, err := s.starknetData.BlockLatest(ctx)
+		if err != nil {
+			s.log.Warnw("error getting current head", "error", err)
+			continue
+		}
+		startingBlock, err := s.starknetData.BlockByNumber(ctx, head.Number-newPivotHeadDistance)
+		if err != nil {
+			s.log.Warnw("error getting starting block", "error", err)
+			continue
+		}
+
+		return startingBlock, nil
+	}
+}
+
+func (s *SnapSyncher) initState(ctx context.Context) error {
+	startingBlock, err := s.getNextStartingBlock(ctx)
+	if err != nil {
+		return errors.Join(err, errors.New("error getting current head"))
+	}
+
+	s.startingBlock = startingBlock.Header
+	s.lastBlock = startingBlock.Header
+
+	rootInfo, err := s.snapServer.GetTrieRootAt(ctx, s.startingBlock)
+	if err != nil {
+		return errors.Join(err, errors.New("error getting trie root"))
+	}
+	s.currentStateRoot = rootInfo.StorageRoot
+	s.currentClassRoot = rootInfo.ClassRoot
+
+	s.storageRangeJobCount = 0
+	s.storageRangeJob = make(chan *storageRangeJob, storageJobQueueSize)
+	s.largeStorageRangeJobCount = 0
+	s.largeStorageRangeJob = make(chan *blockchain.StorageRangeRequest, largeStorageJobQueueSize)
+	s.largeStorageStoreJob = make(chan *largeStorageStoreJob, largeStorageStoreQueueSize)
+	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
+
+	s.addressRangeDone = make(chan interface{})
+	s.storageRangeDone = make(chan interface{})
+	s.largeStoreDone = make(chan interface{})
+
+	s.mtxM = &sync.Mutex{}
+	s.mtxN = &sync.Mutex{}
+	s.mtxL = &sync.Mutex{}
 
 	return nil
 }

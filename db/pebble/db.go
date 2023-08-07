@@ -25,6 +25,8 @@ type DB struct {
 func New(path string, logger pebble.Logger) (db.DB, error) {
 	pDB, err := newPebble(path, &pebble.Options{
 		Logger: logger,
+		// Yea... until trie iterator is implemented properly, the standard 8MB cache is not enough.
+		Cache: pebble.NewCache(100_000_000),
 	})
 	if err != nil {
 		return nil, err

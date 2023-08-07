@@ -8,8 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type TrieRootInfo struct {
@@ -107,11 +105,6 @@ func (b *Blockchain) GetTrieRootAt(blockHash *felt.Felt) (*TrieRootInfo, error) 
 	}, nil
 }
 
-var skipProof = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "snap_server_skip_proof",
-	Help: "Time in address get",
-}, []string{"skipped"})
-
 func iterateWithLimit(
 	srcTrie *trie.Trie,
 	startAddr *felt.Felt,
@@ -157,12 +150,13 @@ func iterateWithLimit(
 	}
 
 	if neverStopped && startAddr.Equal(&felt.Zero) {
-		skipProof.WithLabelValues("yes").Inc()
 		return nil, nil // No need for proof
 	}
-	skipProof.WithLabelValues("no").Inc()
+	if startPath == nil {
+		return nil, nil // No need for proof
+	}
 
-	return srcTrie.RangeProof(startAddr, endPath)
+	return srcTrie.RangeProof(startPath, endPath)
 }
 
 func (b *Blockchain) GetClassRange(classTrieRootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*ClassRangeResult, error) {
