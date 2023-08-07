@@ -12,6 +12,8 @@ import (
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sourcegraph/conc"
 )
 
@@ -22,7 +24,7 @@ type Server struct {
 
 var _ service.Service = (*Server)(nil)
 
-func New(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLogger) (*Server, error) {
+func New(listener net.Listener, metrics bool, rpcHandler *rpc.Handler, log utils.SimpleLogger) (*Server, error) {
 	methods := methods(rpcHandler)
 
 	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
@@ -45,6 +47,9 @@ func New(listener net.Listener, rpcHandler *rpc.Handler, log utils.SimpleLogger)
 	mux := http.NewServeMux()
 	mux.Handle("/", rpcHTTPHandler)
 	mux.Handle("/v0_4", rpcHTTPHandler)
+	if metrics {
+		mux.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
+	}
 
 	return &Server{
 		listener: listener,
