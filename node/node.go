@@ -104,7 +104,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", cfg.RPCPort, err)
 	}
-	rpcSrv, err := junohttp.New(listener, rpcHandler, log)
+	rpcSrv, err := junohttp.New(listener, cfg.Metrics, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -152,16 +152,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		}
 
 		n.services = append(n.services, p2pService)
-	}
-
-	if n.cfg.Metrics {
-		metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", n.cfg.MetricsPort))
-		if err != nil {
-			return nil, fmt.Errorf("listen on metric port %d: %w", n.cfg.MetricsPort, err)
-		}
-		metricServer := metrics.New(metricsListener)
-
-		n.services = append(n.services, metricServer)
 	}
 
 	return n, nil
