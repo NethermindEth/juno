@@ -87,20 +87,36 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFile: true,
 			cfgFileContents: `log-level: debug
 http-port: 4576
+ws-port: 2343
+grpc-port: 9769
 db-path: /home/.juno
 network: goerli2
+eth-node: ethNodeConfig
 pprof: true
+colourF: true
+metrics-port: 8793
+pending-poll-interval: 6
+p2p: true
+p2p-addr: p2pAddress
+p2p-boot-peers: peers
+metrics: true
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
+				WSPort:              2343,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
-				Colour:              defaultColour,
-				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
+				Colour:              true,
+				PendingPollInterval: time.Duration(6),
+				MetricsPort:         8793,
+				GRPCPort:            9769,
+				EthNode:             "ethNodeConfig",
+				P2P:                 true,
+				P2PAddr:             "p2pAddress",
+				P2PBootPeers:        "peers",
+				Metrics:             true,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -122,18 +138,30 @@ http-port: 4576
 		},
 		"all flags without config file": {
 			inputArgs: []string{
-				"--log-level", "debug", "--http-port", "4576",
+				"--log-level", "info", "--http-port", "4576",
 				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
+				"--ws-port", "3030", "--eth-node", "ethNodeAddr",
+				"--colour", "--pending-poll-interval", "5ms",
+				"--p2p-addr", "p2pNodeAddr", "--p2p-boot-peers", "configPeers",
+				"--metrics-port", "8090", "--grpc-port", "9847", "--p2p",
+				"--metrics",
 			},
 			expectedConfig: &node.Config{
-				LogLevel:     utils.DEBUG,
-				HTTPPort:     4576,
-				WSPort:       defaultWSPort,
-				DatabasePath: "/home/.juno",
-				Network:      utils.GOERLI,
-				Pprof:        true,
-				Colour:       defaultColour,
-				MetricsPort:  defaultMetricsPort,
+				LogLevel:            utils.INFO,
+				HTTPPort:            4576,
+				WSPort:              3030,
+				DatabasePath:        "/home/.juno",
+				Network:             utils.GOERLI,
+				Pprof:               true,
+				Colour:              true,
+				MetricsPort:         8090,
+				EthNode:             "ethNodeAddr",
+				PendingPollInterval: time.Duration(5 * 1000000),
+				P2PAddr:             "p2pNodeAddr",
+				P2P:                 true,
+				GRPCPort:            9847,
+				Metrics:             true,
+				P2PBootPeers:        "configPeers",
 			},
 		},
 		"some flags without config file": {
