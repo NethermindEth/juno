@@ -3,12 +3,25 @@ option go_package = "../p2pproto";
 
 package starknet.snap;
 
+// Endpoints, modeled after ethereum SNAP protocol.
+// Note: Unlike ethereum, this only have range endpoints (or phase 1 as nethermind like to call it). Client is expected
+// to keep track of the first and last block it requested the range from and apply state updates from the first to the
+// last block as the healing phase.
 message SnapRequest {
   oneof request {
+    // GetRootInfo is needed for starknet as it consist of two main trie, class trie and storage trie.
     GetRootInfo get_trie_root = 1;
-    GetClassRange get_class_range = 2;
+
+    // Range scan for the top level storage trie
     GetAddressRange get_address_range = 3;
+
+    // For each contract from the top level trie, scan the storage trie also
     GetContractRange get_contract_range = 4;
+
+    // Range scan for the class trie
+    GetClassRange get_class_range = 2;
+
+    // And for each of the contract, you'll need to download the class also
     GetClasses get_classes = 5;
   }
 }
@@ -16,9 +29,11 @@ message SnapRequest {
 message SnapResponse {
   oneof response {
     RootInfo root_info = 1;
-    ClassRange class_range = 2;
+
     AddressRange address_range = 3;
     ContractRange contract_range = 4;
+
+    ClassRange class_range = 2;
     Classes classes = 5;
   }
 }
@@ -40,10 +55,116 @@ message Classes {
   repeated ContractClass classes = 1;
 }
 
+// GetAddressRange request for the range of leaf from the storage trie. It specify the roof of the trie to select
+// which block it wants the leafs from. To verify the integrity of the leafs, the server also need to send proofnodes
+// of the first and the last leaf of the returned range of leaf so that the client can recalculate the root.
+message GetAddressRange {
+  // The root is the trie root of the top level storage trie.
+  FieldElement root = 1;
+
+  // Specify the starting leaf that the client wants. As the client goes through the storage trie it will incrementally
+  // increase the value (usually just set this to te last path of the last request). Client can use the right proof
+  // to determine if there are remaining leafs for a trie.
+  FieldElement start_addr = 2;
+
+  // In some case, for example for parallelization purpose, the client may want to limit the range of leafs up to this addr.
+  // For example, client may split the top level address into 8 fixed address partition which download in parallel. To prevent
+  // a partition from accidentally downloading leafs from another partition, it will need to specify its limit here.
+  optional FieldElement limit_addr = 3;
+
+  // Maximum number of leaf to return. Server may return less, but must return at least one leaf.
+  uint64 max_nodes = 4;
+}
+
+message AddressRange {
+  repeated FieldElement paths = 1;
+
+  // The leaves here are not the actual commitment, so the client need to recalculate the commitment from the leaf
+  // value to be used to verify the trie. Even if the commitment is included, client still need to verify the leaf by
+  // recalculating the commitment.
+  repeated AddressRangeLeaf leaves = 4;
+
+  repeated ProofNode proofs = 3;
+}
+
+message AddressRangeLeaf {
+  FieldElement contract_storage_root = 1;
+  FieldElement class_hash = 2;
+  FieldElement nonce = 3;
+}
+
+// GetContractRange is a batched request of multiple storage of the leafs. Used to download multiple storage tries of address
+// Think of it as multiple `GetAddressRange` where the root is the storage root of the contract.
+// In practice, this endpoint is also used to detect and download large contract in parallel. For example,
+// first as usual, download multiple contract as `AddressRange` found. If Any of the response is incomplete (it has
+// proof nodes), then download those specific contract in another thread with this same endpoint just with only
+// one `requests`, while continuing the remaining storage that `AddressRange` found.
+//
+// I guess you can combine this with GetAddressRange with different tradeoff.
+message GetContractRange {
+  // The top level storage trie root, Not the contract storage root, that one is in the `requests`.
+  FieldElement root = 1;
+
+  // Basically like `GetAddressRange` but per contract.
+  repeated ContractRangeRequest requests = 2;
+
+  // Total maximum number of leafs to return across all contract. Server may return less contract than requested.
+  // NOTE: In ethereum, the limit is in bytes not number of nodes. The nodes in starknet have fixed size, so this
+  // is simpler.
+  uint64 max_nodes = 3;
+
+  // Maximum number of leafs to return per contract. This is used for optimization purposes. 99.9% of contract
+  // have less than 20 leaf. Without this limit, the remaining `max_nodes` budget will be allocated to the last contract,
+  // making for slower large contract discovery.
+  // NOTE: Not in ethereum.
+  uint64 max_nodes_per_contract = 4;
+}
+
+message ContractRangeRequest {
+  FieldElement path = 1;
+
+  // The storage root (not the leaf commitment).
+  // Its possible that the client may have to update the `root` in `GetContractRange` to a newer block as it is too old
+  // (snap take some time to complete), so client may not know if the contract was modified making this `hash` incorrect.
+  // In such case just set the old storage root, and the server should set `updated_contract` in `ContractRangeResponse`.
+  FieldElement hash = 2;
+
+  // These two probably only going to be used for large contract. Large contract tend to be very large, so client
+  // need to download them in multiple requests with increasing `start_addr`.
+  FieldElement start_addr = 3;
+  optional FieldElement limit_addr = 4;
+}
+
+message ContractRange {
+  // Note: Server may return less `responses` then `requests`.
+  repeated ContractRangeResponse responses = 1;
+}
+
+message ContractRangeResponse {
+  repeated FieldElement paths = 1;
+  repeated FieldElement values = 2;
+  // In most cases, the whole storage trie is returned in one request. In such case, the server should detect this
+  // condition and skip proof generation as it is unnecessary to recalculate the storage root.
+  repeated ProofNode proofs = 3;
+
+  // So when the storage root is obsolete, but the root is not, and the server detect it, the server must populate
+  // this field and the proof. This is different from ethereum, where the client is expected to detect this condition
+  // and re-fetch the contract leaf to get the updated hash. I guess you can make it the same also. This seems to happen
+  // about 200 times throughout the sync.
+  // Now, in theory you can always set `ContractRangeRequest.hash` to some wrong value and always rely on this mechanism
+  // to verify the leaf, but then the client and the server would waste CPU cycle calculating and verifying proof.
+  optional AddressRangeLeaf updated_contract = 4;
+  // The client is expected to recalculate the leaf committment, and with this proof, verify that the storage was
+  // updated. This is the proof of the top level leaf committment in the top level storage trie.
+  repeated ProofNode updated_contract_proof = 6;
+}
+
+// Basically same as GetAddressRange
 message GetClassRange {
+  // The root is the trie root of the class trie.
   FieldElement root = 1;
   FieldElement start_addr = 2;
-  FieldElement limit_addr = 3;
+  optional FieldElement limit_addr = 3;
   uint64 max_nodes = 4;
 }
 
@@ -53,58 +174,17 @@ message ClassRange {
   repeated ProofNode proofs = 3;
 }
 
-message GetAddressRange {
-  FieldElement root = 1;
-  FieldElement start_addr = 2;
-  FieldElement limit_addr = 3;
-  uint64 max_nodes = 4;
-}
-
-message AddressRange {
-  repeated FieldElement paths = 1;
-  repeated ProofNode proofs = 3;
-  repeated AddressRangeLeaf leaves = 4;
-}
-
-message AddressRangeLeaf {
-  FieldElement contract_storage_root = 1;
-  FieldElement class_hash = 2;
-  FieldElement nonce = 3;
-}
-
-message GetContractRange {
-  FieldElement root = 1;
-  repeated ContractRangeRequest requests = 2;
-  uint64 max_nodes = 3;
-  uint64 max_nodes_per_contract = 4;
-}
-
-message ContractRangeRequest {
-  FieldElement path = 1;
-  FieldElement hash = 2;
-  FieldElement start_addr = 3;
-  FieldElement limit_addr = 4;
-}
-
-message ContractRange {
-  repeated ContractRangeResponse responses = 1;
-}
-
-message ContractRangeResponse {
-  repeated FieldElement paths = 1;
-  repeated FieldElement values = 2;
-  repeated ProofNode proofs = 3;
-
-  AddressRangeLeaf updated_contract = 4;
-  repeated ProofNode updated_contract_proof = 6;
-}
-
-// Its a bitset in juno. Its a truncated field_element. Probably should use bytes though... But I'm lazy.
+// Its a `Key` in juno.
 message Path {
   uint32 length = 1;
-  bytes element = 2; // little endian
+
+  // Note: although its big endian, juno seems to right align it instead of left align it. I gave up and just serialize
+  // the whole thing here.
+  bytes element = 2;
 }
 
+// StarkNet uses a binary tree, so for each intermediate node, only one child is needed as proof. So might as well
+// address the child directly and save bandwidth. Make implementation easier too.
 message ProofNode {
   Path key = 1;
   FieldElement hash = 2;
