@@ -171,7 +171,7 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
-	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network); err != nil {
+	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
