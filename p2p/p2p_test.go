@@ -83,21 +83,19 @@ func TestService(t *testing.T) {
 		topic := "coolTopic"
 		ch, closer, err := peerA.SubscribeToTopic(topic)
 		require.NoError(t, err)
+		t.Cleanup(closer)
 
-		// allow subscription to be propagated to peerB
-		time.Sleep(time.Second)
+		for i := 0; i < 4; i++ {
+			gossipedMessage := []byte(`veryImportantMessage`)
+			require.NoError(t, peerB.PublishOnTopic(topic, gossipedMessage))
 
-		gossipedMessage := []byte(`veryImportantMessage`)
-		require.NoError(t, peerB.PublishOnTopic(topic, gossipedMessage))
-
-		select {
-		case <-time.After(timeout):
-			require.Equal(t, true, false)
-		case msg := <-ch:
-			require.Equal(t, gossipedMessage, msg)
+			select {
+			case <-time.After(time.Second):
+				require.NotEqual(t, 3, i)
+			case msg := <-ch:
+				require.Equal(t, gossipedMessage, msg)
+			}
 		}
-
-		closer()
 	})
 
 	t.Run("protocol handler", func(t *testing.T) {
