@@ -23,6 +23,9 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: vm/rust
       - name: Install deps
         run: make install-deps
       - name: Tests
