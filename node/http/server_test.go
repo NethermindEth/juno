@@ -26,7 +26,7 @@ func TestServer(t *testing.T) {
 	database := pebble.NewMemTest()
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
-	server, err := junohttp.New(listener, true, database, version, handler, log)
+	server, err := junohttp.New(listener, true, database, version, handler, true, log)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,21 +68,24 @@ func TestServer(t *testing.T) {
 		}
 	})
 
-	t.Run("metrics", func(t *testing.T) {
-		client := &http.Client{}
-		req, err := http.NewRequestWithContext(context.Background(), "GET", httpAddrString+"/metrics", http.NoBody)
-		require.NoError(t, err)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, resp.Body.Close())
-		})
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-	})
-
 	t.Run("grpc", func(t *testing.T) {
 		conn, err := grpc.Dial(httpAddrString+"/grpc", grpc.WithTransportCredentials(insecure.NewCredentials()))
 		require.NoError(t, err)
 		require.NoError(t, conn.Close())
 	})
+
+	// Just make sure these endpoints respond with StatusOK.
+	for _, endpoint := range []string{"metrics", "/debug/pprof"} {
+		t.Run(endpoint, func(t *testing.T) {
+			client := &http.Client{}
+			req, err := http.NewRequestWithContext(context.Background(), "GET", httpAddrString+"/"+endpoint, http.NoBody)
+			require.NoError(t, err)
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, resp.Body.Close())
+			})
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+		})
+	}
 }
