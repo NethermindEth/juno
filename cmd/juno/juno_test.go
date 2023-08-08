@@ -28,7 +28,6 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPprof := false
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
-	defaultMetricsPort := uint16(9090)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -47,7 +46,6 @@ func TestConfigPrecedence(t *testing.T) {
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file path is empty string": {
@@ -60,7 +58,6 @@ func TestConfigPrecedence(t *testing.T) {
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file doesn't exist": {
@@ -76,7 +73,6 @@ func TestConfigPrecedence(t *testing.T) {
 				Network:             defaultNetwork,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -95,7 +91,6 @@ pprof: true
 				Pprof:               true,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -111,7 +106,6 @@ rpc-port: 4576
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"all flags without config file": {
@@ -126,7 +120,6 @@ rpc-port: 4576
 				Network:      utils.GOERLI,
 				Pprof:        true,
 				Colour:       defaultColour,
-				MetricsPort:  defaultMetricsPort,
 			},
 		},
 		"some flags without config file": {
@@ -141,7 +134,6 @@ rpc-port: 4576
 				Network:             utils.INTEGRATION,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -165,7 +157,6 @@ pending-poll-interval: 5s
 				Pprof:               true,
 				Colour:              defaultColour,
 				PendingPollInterval: time.Millisecond,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -183,7 +174,6 @@ network: goerli
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -198,7 +188,6 @@ network: goerli
 				Pprof:               true,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 	}

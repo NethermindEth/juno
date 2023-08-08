@@ -35,7 +35,6 @@ import (
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
 	RPCPort             uint16         `mapstructure:"rpc-port"`
-	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
@@ -43,8 +42,7 @@ type Config struct {
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
-	Metrics     bool   `mapstructure:"metrics"`
-	MetricsPort uint16 `mapstructure:"metrics-port"`
+	Metrics bool `mapstructure:"metrics"`
 
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
