@@ -19,7 +19,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/node/http"
+	junohttp "github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -112,6 +112,8 @@ func New(cfg *Config, version string) (*Node, error) {
 		services:   []service.Service{rpcSrv, synchronizer},
 	}
 
+	handleDiskSpaceWarning(n, cfg.DatabasePath, &cfg.Network)
+
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
@@ -194,4 +196,16 @@ func (n *Node) Run(ctx context.Context) {
 
 func (n *Node) Config() Config {
 	return *n.cfg
+}
+
+func handleDiskSpaceWarning(n *Node, databasPath string, network *utils.Network) {
+	freeDiskSpace, err := utils.AvailableDiskSpace(databasPath)
+	if err != nil {
+		n.log.Warnw(err.Error())
+	}
+	requiredDiskSpace := network.RequiredSpace()
+	if freeDiskSpace <= requiredDiskSpace {
+		//nolint: lll
+		n.log.Warnw("The hard disk is almost full!", "Required free disk space: ", fmt.Sprintf("%.1f GB", requiredDiskSpace), "available free disk space: ", fmt.Sprintf("%.1f GB", freeDiskSpace))
+	}
 }

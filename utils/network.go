@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+var (
+	ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+	requiredSpace     = map[string]float64{"mainnet": 38.0, "goerli": 34.0, "goerli2": 6.5}
+)
 
 type Network int
 
@@ -42,6 +45,10 @@ func (n Network) String() string {
 		// Should not happen.
 		panic(ErrUnknownNetwork)
 	}
+}
+
+func (n Network) RequiredSpace() float64 {
+	return requiredSpace[n.String()]
 }
 
 func (n *Network) Set(s string) error {
