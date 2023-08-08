@@ -3,6 +3,8 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 type SimulationFlag int
@@ -28,4 +30,9 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 type SimulatedTransaction struct {
 	TransactionTrace json.RawMessage `json:"transaction_trace,omitempty"`
 	FeeEstimate      FeeEstimate     `json:"fee_estimate,omitempty"`
+}
+
+type TracedBlockTransaction struct {
+	TraceRoot       json.RawMessage `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt      `json:"transaction_hash,omitempty"`
 }

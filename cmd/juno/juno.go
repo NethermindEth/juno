@@ -30,8 +30,6 @@ const (
 	logLevelF            = "log-level"
 	httpHostF            = "http-host"
 	httpPortF            = "http-port"
-	wsPortF              = "ws-port"
-	grpcPortF            = "grpc-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
 	ethNodeF             = "eth-node"
@@ -42,13 +40,10 @@ const (
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
 	metricsF             = "metrics"
-	metricsPortF         = "metrics-port"
 
 	defaultConfig              = ""
 	defaultHTTPHost            = "localhost"
 	defaultHTTPPort            = 6060
-	defaultWSPort              = 6061
-	defaultGRPCPort            = 0
 	defaultDBPath              = ""
 	defaultEthNode             = ""
 	defaultPprof               = false
@@ -58,14 +53,11 @@ const (
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
 	defaultMetrics             = false
-	defaultMetricsPort         = 9090
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
 	httpHostUsage     = "The interface on which the HTTP RPC server will listen for requests."
-	httpPortUsage     = "The port on which the HTTP RPC server will listen for requests."
-	wsPortUsage       = "The port on which the Websocket RPC server will listen for requests."
-	grpcPortUsage     = "The port on which the gRPC server will listen for requests."
+	httpPortUsage     = "The port on which the HTTP server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage        = "Enables the pprof server and listens on port 9080."
@@ -77,7 +69,6 @@ const (
 	p2PAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 	metricsUsage             = "enable prometheus endpoint"
-	metricsPortUsage         = "The port on which the prometheus server will listen for requests"
 )
 
 var Version string
@@ -158,8 +149,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().String(httpHostF, defaultHTTPHost, httpPortUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
-	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
-	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
@@ -170,7 +159,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
-	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 
 	return junoCmd
 }

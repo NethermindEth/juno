@@ -339,7 +339,7 @@ func TestClient(t *testing.T) {
 			network := utils.MAINNET
 			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
-			client := NewClient(nil, chain, nopLog)
+			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0)
 
 			// We loop over each block and check that the state agrees with our expectations.
 			for _, block := range tt.blocks {
@@ -408,7 +408,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	nopLog := utils.NewNopZapLogger()
 	network := utils.MAINNET
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
-	client := NewClient(nil, chain, nopLog)
+	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0)
 
 	err := errors.New("test err")
 	for _, block := range longSequenceOfBlocks {
