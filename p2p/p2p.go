@@ -41,7 +41,8 @@ type Service struct {
 	topics     map[string]*pubsub.Topic
 	topicsLock sync.RWMutex
 
-	runCtx context.Context
+	runCtx  context.Context
+	runLock sync.RWMutex
 }
 
 func New(
@@ -80,14 +81,16 @@ func New(
 		return nil, err
 	}
 
-	return &Service{
+	s := &Service{
 		bootPeers: bootPeers,
 		log:       log,
 		host:      p2phost,
 		network:   snNetwork,
 		dht:       p2pdht,
 		topics:    make(map[string]*pubsub.Topic),
-	}, nil
+	}
+	s.runLock.Lock()
+	return s, nil
 }
 
 func makeDHT(p2phost host.Host, snNetwork utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
@@ -163,16 +166,24 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 	return ch, nil
 }
 
+// Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
-	var err error
+	err := func() error {
+		defer s.runLock.Unlock()
 
-	s.runCtx = ctx
-	s.pubsub, err = pubsub.NewGossipSub(s.runCtx, s.host)
-	if err != nil {
-		return err
-	}
+		err := s.dht.Bootstrap(ctx)
+		if err != nil {
+			return err
+		}
 
-	err = s.dht.Bootstrap(s.runCtx)
+		s.pubsub, err = pubsub.NewGossipSub(ctx, s.host)
+		if err != nil {
+			return err
+		}
+
+		s.runCtx = ctx
+		return nil
+	}()
 	if err != nil {
 		return err
 	}
@@ -244,6 +255,12 @@ func (s *Service) joinTopic(topic string) (*pubsub.Topic, error) {
 
 	if existingTopic != nil {
 		return existingTopic, nil
+	}
+
+	s.runLock.RLock()
+	defer s.runLock.RUnlock()
+	if s.runCtx == nil {
+		return nil, errors.New("uninitialized p2p service")
 	}
 
 	newTopic, err := s.pubsub.Join(topic)
