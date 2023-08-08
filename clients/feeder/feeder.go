@@ -57,6 +57,11 @@ func (c *Client) WithLogger(log utils.SimpleLogger) *Client {
 	return c
 }
 
+func (c *Client) WithVersion(version string) *Client {
+	c.version = version
+	return c
+}
+
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
@@ -68,10 +73,10 @@ func NopBackoff(d time.Duration) time.Duration {
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T, network utils.Network) *Client {
 	srv := newTestServer(network)
-	version := "v0.0.1-test"
 	t.Cleanup(srv.Close)
+	version := "v0.0.1-test"
 
-	c := NewClient(srv.URL, version).WithBackoff(NopBackoff).WithMaxRetries(0)
+	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithVersion(version)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -145,7 +150,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 	}))
 }
 
-func NewClient(clientURL, version string) *Client {
+func NewClient(clientURL string) *Client {
 	return &Client{
 		url:        clientURL,
 		client:     http.DefaultClient,
@@ -154,7 +159,6 @@ func NewClient(clientURL, version string) *Client {
 		maxWait:    10 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
-		version:    version,
 	}
 }
 

@@ -222,7 +222,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseURL := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseURL, clientVersion)
+	client := feeder.NewClient(baseURL).WithVersion(clientVersion)
 	_, _ = client.Block(context.Background(), strconv.Itoa(0))
 }
 
@@ -341,7 +341,7 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
-	client := feeder.NewClient(srv.URL, clientVersion).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
+	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithVersion(clientVersion)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := client.Block(context.Background(), strconv.Itoa(0))
@@ -377,7 +377,7 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c := feeder.NewClient(srv.URL, clientVersion).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries)
+	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithVersion(clientVersion)
 
 	_, err := c.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")

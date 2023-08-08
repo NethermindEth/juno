@@ -42,13 +42,18 @@ type Client struct {
 	version string
 }
 
+func (c *Client) WithVersion(version string) *Client {
+	c.version = version
+	return c
+}
+
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T) *Client {
 	srv := newTestServer()
 	version := "v0.0.1-test"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, version, utils.NewNopZapLogger())
+	return NewClient(srv.URL, utils.NewNopZapLogger()).WithVersion(version)
 }
 
 func newTestServer() *httptest.Server {
@@ -87,14 +92,13 @@ func newTestServer() *httptest.Server {
 	}))
 }
 
-func NewClient(gatewayURL, version string, log utils.SimpleLogger) *Client {
+func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
 		url:     gatewayURL,
 		timeout: 10 * time.Second,
 		client:  http.DefaultClient,
 		log:     log,
-		version: version,
 	}
 }
 
