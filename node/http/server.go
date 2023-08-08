@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -29,7 +30,7 @@ type Server struct {
 var _ service.Service = (*Server)(nil)
 
 func New(listener net.Listener, metrics bool, database db.DB, version string,
-	rpcHandler *rpc.Handler, log utils.SimpleLogger,
+	rpcHandler *rpc.Handler, pprofEnable bool, log utils.SimpleLogger,
 ) (*Server, error) {
 	methods := methods(rpcHandler)
 
@@ -59,6 +60,14 @@ func New(listener net.Listener, metrics bool, database db.DB, version string,
 	grpcHandler := grpc.NewServer()
 	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
 	mux.Handle("/grpc", grpcHandler)
+	if pprofEnable {
+		// Taken from https://artem.krylysov.com/blog/2017/03/13/profiling-and-optimizing-go-web-applications/
+		mux.HandleFunc("/debug/pprof", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	return &Server{
 		listener: listener,

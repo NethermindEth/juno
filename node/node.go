@@ -21,7 +21,6 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
-	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -31,8 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
-
-const defaultPprofPort = 9080
 
 // Config is the top-level juno configuration.
 type Config struct {
@@ -67,7 +64,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
+func New(cfg *Config, version string) (*Node, error) {
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {
@@ -103,7 +100,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", cfg.RPCPort, err)
 	}
-	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, log)
+	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, cfg.Pprof, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -133,10 +130,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		}
 
 		n.services = append(n.services, l1Client)
-	}
-
-	if n.cfg.Pprof {
-		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
 	}
 
 	if cfg.P2P {
