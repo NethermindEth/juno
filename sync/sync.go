@@ -276,9 +276,9 @@ func maxWorkers() int {
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	numWorkers := 1
 	if s.catchUpMode {
-		numWorkers = runtime.GOMAXPROCS(0)
+		numWorkers = maxWorkers()
 	}
-	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(numWorkers)
+	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 }
 
 func (s *Synchronizer) revertHead(forkBlock *core.Block) {
