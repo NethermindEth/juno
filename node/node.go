@@ -34,7 +34,7 @@ import (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	RPCPort             uint16         `mapstructure:"rpc-port"`
+	HTTPPort            uint16         `mapstructure:"http-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
@@ -94,9 +94,9 @@ func New(cfg *Config, version string) (*Node, error) {
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.RPCPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
 	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", cfg.RPCPort, err)
+		return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
 	}
 	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, cfg.Pprof, log)
 	if err != nil {

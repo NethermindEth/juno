@@ -28,7 +28,7 @@ Juno is a Go implementation of a Starknet full node client created by Nethermind
 const (
 	configF              = "config"
 	logLevelF            = "log-level"
-	rpcPortF             = "rpc-port"
+	httpPortF            = "http-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
 	ethNodeF             = "eth-node"
@@ -41,7 +41,7 @@ const (
 	metricsF             = "metrics"
 
 	defaultConfig              = ""
-	defaultRPCPort             = 6060
+	defaultHTTPPort            = 6060
 	defaultDBPath              = ""
 	defaultEthNode             = ""
 	defaultPprof               = false
@@ -54,7 +54,7 @@ const (
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
-	rpcPortUsage      = "The port on which the RPC server will listen for requests."
+	httpPortUsage     = "The port on which the HTTP server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage        = "Enables the pprof server and listens on port 9080."
@@ -144,7 +144,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
-	junoCmd.Flags().Uint16(rpcPortF, defaultRPCPort, rpcPortUsage)
+	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
