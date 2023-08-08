@@ -96,9 +96,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	}
 
 	chain := blockchain.New(database, cfg.Network, log)
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithVersion(version)
+	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(fmt.Sprintf("Juno/%s Starknet Client", version))
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithVersion(version)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(fmt.Sprintf("Juno/%s Starknet Client", version))
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
 	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)

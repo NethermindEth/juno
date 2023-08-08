@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -29,7 +28,7 @@ type Client struct {
 	maxWait    time.Duration
 	minWait    time.Duration
 	log        utils.SimpleLogger
-	version    string
+	userAgent  string
 }
 
 func (c *Client) WithBackoff(b Backoff) *Client {
@@ -57,8 +56,8 @@ func (c *Client) WithLogger(log utils.SimpleLogger) *Client {
 	return c
 }
 
-func (c *Client) WithVersion(version string) *Client {
-	c.version = version
+func (c *Client) WithUserAgent(ua string) *Client {
+	c.userAgent = ua
 	return c
 }
 
@@ -74,9 +73,9 @@ func NopBackoff(d time.Duration) time.Duration {
 func NewTestClient(t *testing.T, network utils.Network) *Client {
 	srv := newTestServer(network)
 	t.Cleanup(srv.Close)
-	version := "v0.0.1-test"
+	ua := "Juno/v0.0.1-test Starknet Implementation"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithVersion(version)
+	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -195,7 +194,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err != nil {
 				return nil, err
 			}
-			req.Header.Set("User-Agent", fmt.Sprintf("Juno/%s Starknet Client", c.version))
+			req.Header.Set("User-Agent", c.userAgent)
 
 			res, err = c.client.Do(req)
 			if err == nil {

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	clientVersion = "v0.0.1-test"
+	ua = "Juno/v0.0.1-test Starknet Implementation"
 )
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
@@ -222,7 +222,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseURL := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseURL).WithVersion(clientVersion)
+	client := feeder.NewClient(baseURL).WithUserAgent(ua)
 	_, _ = client.Block(context.Background(), strconv.Itoa(0))
 }
 
@@ -341,7 +341,7 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
-	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithVersion(clientVersion)
+	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := client.Block(context.Background(), strconv.Itoa(0))
@@ -377,7 +377,7 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithVersion(clientVersion)
+	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
 
 	_, err := c.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
