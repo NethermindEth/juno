@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/grpc"
+	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -15,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sourcegraph/conc"
+	"google.golang.org/grpc"
 )
 
 type Server struct {
@@ -24,7 +28,9 @@ type Server struct {
 
 var _ service.Service = (*Server)(nil)
 
-func New(listener net.Listener, metrics bool, rpcHandler *rpc.Handler, log utils.SimpleLogger) (*Server, error) {
+func New(listener net.Listener, metrics bool, database db.DB, version string,
+	rpcHandler *rpc.Handler, log utils.SimpleLogger,
+) (*Server, error) {
 	methods := methods(rpcHandler)
 
 	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
@@ -50,6 +56,9 @@ func New(listener net.Listener, metrics bool, rpcHandler *rpc.Handler, log utils
 	if metrics {
 		mux.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 	}
+	grpcHandler := grpc.NewServer()
+	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
+	mux.Handle("/grpc", grpcHandler)
 
 	return &Server{
 		listener: listener,
