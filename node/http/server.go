@@ -238,5 +238,10 @@ func methods(h *rpc.Handler) []jsonrpc.Method { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
 			Handler: h.SimulateTransactions,
 		},
+		{
+			Name:    "starknet_traceBlockTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "block_hash"}},
+			Handler: h.TraceBlockTransactions,
+		},
 	}
 }
