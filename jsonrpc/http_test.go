@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
@@ -16,8 +15,6 @@ import (
 )
 
 func TestHTTP(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
 	method := jsonrpc.Method{
 		Name: "echo",
 		Handler: func(msg string) (string, *jsonrpc.Error) {
@@ -28,20 +25,18 @@ func TestHTTP(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	rpc := jsonrpc.NewServer(log)
 	require.NoError(t, rpc.RegisterMethod(method))
-	server := jsonrpc.NewHTTP("/vX.Y.Z", listener, rpc, log)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	t.Cleanup(func() {
-		cancel()
-	})
-	go func() {
-		require.NoError(t, server.Run(ctx))
-	}()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Server
+	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+
+	// Client
+	client := new(http.Client)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "echo", "params" : [ "abc123" ], "id" : 1}`
-	client := new(http.Client)
-	url := "http://" + listener.Addr().String()
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte(msg)))
+	req, err := http.NewRequestWithContext(ctx, "POST", srv.URL, bytes.NewReader([]byte(msg)))
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -58,7 +53,7 @@ func TestHTTP(t *testing.T) {
 
 	t.Run("GET", func(t *testing.T) {
 		t.Run("root path", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+			req, err := http.NewRequestWithContext(ctx, "GET", srv.URL, http.NoBody)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -67,7 +62,7 @@ func TestHTTP(t *testing.T) {
 		})
 
 		t.Run("non-root path", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, "GET", url+"/notfound", http.NoBody)
+			req, err := http.NewRequestWithContext(ctx, "GET", srv.URL+"/notfound", http.NoBody)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)

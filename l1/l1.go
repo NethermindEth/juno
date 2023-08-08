@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -30,6 +31,7 @@ type Client struct {
 	l2Chain          *blockchain.Blockchain
 	log              utils.SimpleLogger
 	network          utils.Network
+	resubscribeDelay time.Duration
 	nonFinalisedLogs map[uint64]*contract.StarknetLogStateUpdate
 }
 
@@ -41,24 +43,46 @@ func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogg
 		l2Chain:          chain,
 		log:              log,
 		network:          chain.Network(),
+		resubscribeDelay: 10 * time.Second,
 		nonFinalisedLogs: make(map[uint64]*contract.StarknetLogStateUpdate, 0),
 	}
 }
 
+func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
+	c.resubscribeDelay = delay
+	return c
+}
+
 func (c *Client) subscribeToHeaders(ctx context.Context, headerChan chan *types.Header) (event.Subscription, error) {
-	headerSub, err := c.l1.WatchHeader(ctx, headerChan)
-	if err != nil {
-		return nil, fmt.Errorf("subscribe to L1 headers: %w", err)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
+		default:
+			headerSub, err := c.l1.WatchHeader(ctx, headerChan)
+			if err == nil {
+				return headerSub, nil
+			}
+			c.log.Warnw("Failed to subscribe to L1 headers", "tryAgainIn", c.resubscribeDelay, "err", err)
+			time.Sleep(c.resubscribeDelay)
+		}
 	}
-	return headerSub, nil
 }
 
 func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
-	updateSub, err := c.l1.WatchLogStateUpdate(ctx, updateChan)
-	if err != nil {
-		return nil, fmt.Errorf("subscribe to L1 state updates: %w", err)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
+		default:
+			updateSub, err := c.l1.WatchLogStateUpdate(ctx, updateChan)
+			if err == nil {
+				return updateSub, nil
+			}
+			c.log.Warnw("Failed to subscribe to L1 state updates", "tryAgainIn", c.resubscribeDelay, "err", err)
+			time.Sleep(c.resubscribeDelay)
+		}
 	}
-	return updateSub, nil
 }
 
 func (c *Client) checkChainID(ctx context.Context) error {
@@ -85,6 +109,8 @@ func (c *Client) Run(ctx context.Context) error { //nolint:gocyclo
 
 	buffer := 128
 
+	c.log.Infow("Subscribing to L1 updates...")
+
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
 	if err != nil {
@@ -98,6 +124,8 @@ func (c *Client) Run(ctx context.Context) error { //nolint:gocyclo
 		return err
 	}
 	defer headerSub.Unsubscribe()
+
+	c.log.Infow("Subscribed to L1 updates")
 
 	for {
 		select {

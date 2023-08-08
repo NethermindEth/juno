@@ -15,8 +15,8 @@ func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	}
 
 	result := make([]T2, len(slice))
-	for i, v := range slice {
-		result[i] = f(v)
+	for i, e := range slice {
+		result[i] = f(e)
 	}
 
 	return result
@@ -31,4 +31,14 @@ func Filter[T any](slice []T, f func(T) bool) []T {
 	}
 
 	return result
+}
+
+func IndexFunc[T comparable](slice []T, f func(T) bool) int {
+	for i, e := range slice {
+		if f(e) {
+			return i
+		}
+	}
+
+	return -1
 }

@@ -23,13 +23,11 @@ func TestConfigPrecedence(t *testing.T) {
 	// implementation.
 	defaultLogLevel := utils.INFO
 	defaultHTTPPort := uint16(6060)
-	defaultWSPort := uint16(6061)
 	defaultDBPath := ""
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
-	defaultMetricsPort := uint16(9090)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -43,13 +41,11 @@ func TestConfigPrecedence(t *testing.T) {
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTPPort:            defaultHTTPPort,
-				WSPort:              defaultWSPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file path is empty string": {
@@ -57,13 +53,11 @@ func TestConfigPrecedence(t *testing.T) {
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTPPort:            defaultHTTPPort,
-				WSPort:              defaultWSPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file doesn't exist": {
@@ -76,11 +70,9 @@ func TestConfigPrecedence(t *testing.T) {
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTPPort:            defaultHTTPPort,
-				WSPort:              defaultWSPort,
 				Network:             defaultNetwork,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -94,13 +86,11 @@ pprof: true
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -111,13 +101,11 @@ http-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"all flags without config file": {
@@ -128,12 +116,10 @@ http-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:     utils.DEBUG,
 				HTTPPort:     4576,
-				WSPort:       defaultWSPort,
 				DatabasePath: "/home/.juno",
 				Network:      utils.GOERLI,
 				Pprof:        true,
 				Colour:       defaultColour,
-				MetricsPort:  defaultMetricsPort,
 			},
 		},
 		"some flags without config file": {
@@ -144,12 +130,10 @@ http-port: 4576
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
 				HTTPPort:            4576,
-				WSPort:              defaultWSPort,
 				DatabasePath:        "/home/.juno",
 				Network:             utils.INTEGRATION,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -168,13 +152,11 @@ pending-poll-interval: 5s
 			expectedConfig: &node.Config{
 				LogLevel:            utils.ERROR,
 				HTTPPort:            4577,
-				WSPort:              defaultWSPort,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.INTEGRATION,
 				Pprof:               true,
 				Colour:              defaultColour,
 				PendingPollInterval: time.Millisecond,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -183,34 +165,29 @@ pending-poll-interval: 5s
 http-port: 4576
 network: goerli
 `,
-			inputArgs: []string{"--db-path", "/home/flag/.juno", "--ws-port", "4577"},
+			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.WARN,
 				HTTPPort:            4576,
-				WSPort:              4577,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.GOERLI,
 				Pprof:               defaultPprof,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 		"some setting set in default, config file and flags": {
-			cfgFile: true,
-			cfgFileContents: `network: goerli2
-ws-port: 4577`,
-			inputArgs: []string{"--db-path", "/home/flag/.juno", "--pprof"},
+			cfgFile:         true,
+			cfgFileContents: `network: goerli2`,
+			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTPPort:            defaultHTTPPort,
-				WSPort:              4577,
 				DatabasePath:        "/home/flag/.juno",
 				Network:             utils.GOERLI2,
 				Pprof:               true,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				MetricsPort:         defaultMetricsPort,
 			},
 		},
 	}

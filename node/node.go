@@ -16,32 +16,25 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/grpc"
-	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
-	"github.com/NethermindEth/juno/pprof"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
 )
 
-const defaultPprofPort = 9080
-
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
-	WSPort              uint16         `mapstructure:"ws-port"`
-	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
@@ -49,8 +42,7 @@ type Config struct {
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
-	Metrics     bool   `mapstructure:"metrics"`
-	MetricsPort uint16 `mapstructure:"metrics-port"`
+	Metrics bool `mapstructure:"metrics"`
 
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
@@ -70,7 +62,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
+func New(cfg *Config, version string) (*Node, error) {
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {
@@ -102,7 +94,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	services, err := makeRPC(cfg.HTTPPort, cfg.WSPort, rpcHandler, log)
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
+	if err != nil {
+		return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
+	}
+	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, cfg.Pprof, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -113,7 +109,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   append(services, synchronizer),
+		services:   []service.Service{rpcSrv, synchronizer},
 	}
 
 	if n.cfg.EthNode == "" {
@@ -134,14 +130,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		n.services = append(n.services, l1Client)
 	}
 
-	if n.cfg.Pprof {
-		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
-	}
-
-	if n.cfg.GRPCPort > 0 {
-		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
-	}
-
 	if cfg.P2P {
 		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
 		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
@@ -152,177 +140,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		n.services = append(n.services, p2pService)
 	}
 
-	if n.cfg.Metrics {
-		metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", n.cfg.MetricsPort))
-		if err != nil {
-			return nil, fmt.Errorf("listen on metric port %d: %w", n.cfg.MetricsPort, err)
-		}
-		metricServer := metrics.New(metricsListener)
-
-		n.services = append(n.services, metricServer)
-	}
-
 	return n, nil
-}
-
-func makeRPC(httpPort, wsPort uint16, rpcHandler *rpc.Handler, log utils.SimpleLogger) ([]service.Service, error) { //nolint: funlen
-	methods := []jsonrpc.Method{
-		{
-			Name:    "starknet_chainId",
-			Handler: rpcHandler.ChainID,
-		},
-		{
-			Name:    "starknet_blockNumber",
-			Handler: rpcHandler.BlockNumber,
-		},
-		{
-			Name:    "starknet_blockHashAndNumber",
-			Handler: rpcHandler.BlockHashAndNumber,
-		},
-		{
-			Name:    "starknet_getBlockWithTxHashes",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.BlockWithTxHashes,
-		},
-		{
-			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.BlockWithTxs,
-		},
-		{
-			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TransactionByHash,
-		},
-		{
-			Name:    "starknet_getTransactionReceipt",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TransactionReceiptByHash,
-		},
-		{
-			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.BlockTransactionCount,
-		},
-		{
-			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: rpcHandler.TransactionByBlockIDAndIndex,
-		},
-		{
-			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: rpcHandler.StateUpdate,
-		},
-		{
-			Name:    "starknet_syncing",
-			Handler: rpcHandler.Syncing,
-		},
-		{
-			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: rpcHandler.Nonce,
-		},
-		{
-			Name:    "starknet_getStorageAt",
-			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
-			Handler: rpcHandler.StorageAt,
-		},
-		{
-			Name:    "starknet_getClassHashAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: rpcHandler.ClassHashAt,
-		},
-		{
-			Name:    "starknet_getClass",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
-			Handler: rpcHandler.Class,
-		},
-		{
-			Name:    "starknet_getClassAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: rpcHandler.ClassAt,
-		},
-		{
-			Name:    "starknet_addInvokeTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: rpcHandler.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeployAccountTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: rpcHandler.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeclareTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: rpcHandler.AddTransaction,
-		},
-		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: rpcHandler.Events,
-		},
-		{
-			Name:    "starknet_pendingTransactions",
-			Handler: rpcHandler.PendingTransactions,
-		},
-		{
-			Name:    "juno_version",
-			Handler: rpcHandler.Version,
-		},
-		{
-			Name:    "juno_getTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TransactionStatus,
-		},
-		{
-			Name:    "starknet_call",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: rpcHandler.Call,
-		},
-		{
-			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: rpcHandler.EstimateFee,
-		},
-		{
-			Name:    "starknet_estimateMessageFee",
-			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: rpcHandler.EstimateMessageFee,
-		},
-		{
-			Name:    "starknet_traceTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: rpcHandler.TraceTransaction,
-		},
-		{
-			Name:    "starknet_simulateTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: rpcHandler.SimulateTransactions,
-		},
-	}
-
-	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
-	for _, method := range methods {
-		if err := jsonrpcServer.RegisterMethod(method); err != nil {
-			return nil, err
-		}
-	}
-
-	httpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", httpPort))
-	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", httpPort, err)
-	}
-	httpServer := jsonrpc.NewHTTP("/v0_4", httpListener, jsonrpcServer, log)
-
-	wsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", wsPort))
-	if err != nil {
-		return nil, fmt.Errorf("listen on websocket port %d: %w", wsPort, err)
-	}
-	wsServer := jsonrpc.NewWebsocket("/v0_4", wsListener, jsonrpcServer, log)
-
-	return []service.Service{httpServer, wsServer}, nil
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
@@ -351,7 +169,7 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
-	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network); err != nil {
+	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}

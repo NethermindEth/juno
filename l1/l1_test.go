@@ -64,9 +64,11 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	subscriber.EXPECT().Close().Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog)
+	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0)
 
-	require.ErrorIs(t, client.Run(context.Background()), err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
+	cancel()
 }
 
 func TestMismatchedChainID(t *testing.T) {
@@ -86,7 +88,7 @@ func TestMismatchedChainID(t *testing.T) {
 		Return(new(big.Int), nil).
 		Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog)
+	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(cancel)
