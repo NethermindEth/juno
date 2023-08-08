@@ -60,7 +60,7 @@ const (
 	httpPortUsage     = "The port on which the HTTP server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
-	pprofUsage        = "Enables the pprof server and listens on port 9080."
+	pprofUsage        = "Enables the pprof endpoint."
 	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
