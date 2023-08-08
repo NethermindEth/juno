@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
@@ -104,7 +103,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", cfg.RPCPort, err)
 	}
-	rpcSrv, err := junohttp.New(listener, cfg.Metrics, rpcHandler, log)
+	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, log)
 	if err != nil {
 		return nil, fmt.Errorf("create RPC servers: %w", err)
 	}
@@ -138,10 +137,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 
 	if n.cfg.Pprof {
 		n.services = append(n.services, pprof.New(defaultPprofPort, n.log))
-	}
-
-	if n.cfg.GRPCPort > 0 {
-		n.services = append(n.services, grpc.NewServer(n.cfg.GRPCPort, n.version, n.db, n.log))
 	}
 
 	if cfg.P2P {

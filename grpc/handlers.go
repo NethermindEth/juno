@@ -1,4 +1,4 @@
-package grpc
+package junogrpc
 
 import (
 	"bytes"
@@ -13,12 +13,19 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type handlers struct {
+type Handler struct {
 	db      db.DB
 	version string
 }
 
-func (h handlers) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionReply, error) {
+func New(database db.DB, version string) *Handler {
+	return &Handler{
+		db:      database,
+		version: version,
+	}
+}
+
+func (h Handler) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionReply, error) {
 	ver, err := semver.NewVersion(h.version)
 	if err != nil {
 		return nil, err
@@ -31,7 +38,7 @@ func (h handlers) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionRe
 	}, nil
 }
 
-func (h handlers) Tx(server gen.KV_TxServer) error {
+func (h Handler) Tx(server gen.KV_TxServer) error {
 	dbTx := h.db.NewTransaction(false)
 	tx := newTx(dbTx)
 
@@ -48,7 +55,7 @@ func (h handlers) Tx(server gen.KV_TxServer) error {
 	}
 }
 
-func (h handlers) handleTxCursor(
+func (h Handler) handleTxCursor(
 	cur *gen.Cursor,
 	tx *tx,
 	server gen.KV_TxServer,

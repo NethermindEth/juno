@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
@@ -13,6 +14,8 @@ import (
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestServer(t *testing.T) {
@@ -20,9 +23,10 @@ func TestServer(t *testing.T) {
 	const version = "1.2.3-rc1"
 	handler := rpc.New(nil, nil, utils.MAINNET, nil, nil, nil, version, log)
 
+	database := pebble.NewMemTest()
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
-	server, err := junohttp.New(listener, true, handler, log)
+	server, err := junohttp.New(listener, true, database, version, handler, log)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -74,5 +78,11 @@ func TestServer(t *testing.T) {
 			require.NoError(t, resp.Body.Close())
 		})
 		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("grpc", func(t *testing.T) {
+		conn, err := grpc.Dial(httpAddrString+"/grpc", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		require.NoError(t, err)
+		require.NoError(t, conn.Close())
 	})
 }
