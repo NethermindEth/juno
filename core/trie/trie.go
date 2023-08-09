@@ -206,6 +206,20 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		Value: value,
 	}
 
+	// check if we are updating an existing leaf, if yes avoid traversing the trie
+	if !value.IsZero() {
+		if existingLeaf, err := t.storage.Get(&nodeKey); err == nil {
+			old = *existingLeaf.Value // record old value to return to caller
+			if err = t.storage.Put(&nodeKey, node); err != nil {
+				return nil, err
+			}
+			t.dirtyNodes = append(t.dirtyNodes, &nodeKey)
+			return &old, nil
+		} else if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, err
+		}
+	}
+
 	nodes, err := t.nodesFromRoot(&nodeKey)
 	if err != nil {
 		return nil, err
@@ -228,23 +242,16 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		t.setRootKey(&nodeKey)
 		return &old, nil
 	} else {
-		// Replace if key already exist
+		// Since we short-circuit in leaf updates, we will only end up here for deletions
+		// Delete if key already exist
 		sibling := nodes[len(nodes)-1]
 		if nodeKey.Equal(sibling.key) {
 			// we have to deference the Value, since the Node can released back
 			// to the NodePool and be reused anytime
 			old = *sibling.node.Value // record old value to return to caller
-			if value.IsZero() {
-				if err = t.deleteLast(nodes); err != nil {
-					return nil, err
-				}
-				return &old, nil
-			}
-
-			if err = t.storage.Put(&nodeKey, node); err != nil {
+			if err = t.deleteLast(nodes); err != nil {
 				return nil, err
 			}
-			t.dirtyNodes = append(t.dirtyNodes, &nodeKey)
 			return &old, nil
 		} else if value.IsZero() {
 			// trying to insert 0 to a key that does not exist
