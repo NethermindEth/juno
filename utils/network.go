@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding"
+	"encoding/json"
 	"errors"
 	"math/big"
 
@@ -42,6 +43,10 @@ func (n Network) String() string {
 		// Should not happen.
 		panic(ErrUnknownNetwork)
 	}
+}
+
+func (n *Network) MarshalJSON() ([]byte, error) {
+	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
 func (n *Network) Set(s string) error {
