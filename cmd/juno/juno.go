@@ -83,7 +83,9 @@ func main() {
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("%s\n\n", greeting)
-
+		// Log the version number
+		fmt.Printf("Version: %s\n", Version)
+		
 		n, err := node.New(config, Version)
 		if err != nil {
 			return err
