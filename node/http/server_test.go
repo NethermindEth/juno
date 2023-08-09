@@ -75,7 +75,7 @@ func TestServer(t *testing.T) {
 	})
 
 	// Just make sure these endpoints respond with StatusOK.
-	for _, endpoint := range []string{"metrics", "/debug/pprof"} {
+	for _, endpoint := range []string{"metrics", "/debug/pprof", "/debug/pprof/heap", "/debug/pprof/goroutine"} {
 		t.Run(endpoint, func(t *testing.T) {
 			client := &http.Client{}
 			req, err := http.NewRequestWithContext(context.Background(), "GET", httpAddrString+"/"+endpoint, http.NoBody)
