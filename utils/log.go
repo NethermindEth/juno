@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -63,6 +64,10 @@ func (l *LogLevel) Set(s string) error {
 
 func (l *LogLevel) Type() string {
 	return "LogLevel"
+}
+
+func (l *LogLevel) MarshalJSON() ([]byte, error) {
+	return json.RawMessage(`"` + l.String() + `"`), nil
 }
 
 func (l *LogLevel) UnmarshalText(text []byte) error {
