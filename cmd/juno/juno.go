@@ -84,7 +84,7 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Sprintf(greeting, Version)
+		fmt.Printf(greeting, Version)
 		n, err := node.New(config, Version)
 		if err != nil {
 			return err
