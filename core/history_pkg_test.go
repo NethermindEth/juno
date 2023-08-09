@@ -1,9 +1,8 @@
-package core_test
+package core
 
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,7 @@ func TestHistory(t *testing.T) {
 		require.NoError(t, testDB.Close())
 	})
 
-	history := core.NewHistory(txn)
+	history := &history{txn: txn}
 	contractAddress := new(felt.Felt).SetUint64(123)
 
 	for desc, test := range map[string]struct {
@@ -53,7 +52,7 @@ func TestHistory(t *testing.T) {
 		t.Run(desc, func(t *testing.T) {
 			t.Run("no history", func(t *testing.T) {
 				_, err := test.getter(location, 1)
-				assert.ErrorIs(t, err, core.ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState)
 			})
 
 			value := new(felt.Felt).SetUint64(789)
@@ -81,24 +80,24 @@ func TestHistory(t *testing.T) {
 				assert.Equal(t, value, oldValue)
 
 				_, err = test.getter(location, 10)
-				assert.ErrorIs(t, err, core.ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState)
 			})
 
 			t.Run("get value after height 10 ", func(t *testing.T) {
 				_, err := test.getter(location, 13)
-				assert.ErrorIs(t, err, core.ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState)
 			})
 
 			t.Run("get a random location ", func(t *testing.T) {
 				_, err := test.getter(new(felt.Felt).SetUint64(37), 13)
-				assert.ErrorIs(t, err, core.ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState)
 			})
 
 			require.NoError(t, test.deleter(location, 10))
 
 			t.Run("get after delete", func(t *testing.T) {
 				_, err := test.getter(location, 7)
-				assert.ErrorIs(t, err, core.ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState)
 			})
 		})
 	}

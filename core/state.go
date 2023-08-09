@@ -43,13 +43,13 @@ type StateReader interface {
 }
 
 type State struct {
-	*History
+	*history
 	txn db.Transaction
 }
 
 func NewState(txn db.Transaction) *State {
 	return &State{
-		History: NewHistory(txn),
+		history: &history{txn: txn},
 		txn:     txn,
 	}
 }

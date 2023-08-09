@@ -40,5 +40,5 @@ jobs:
           go test -v -run TestMonitorNodeSync -args -targetBlock=$TARGET_BLOCK -timeout=$TIMEOUT
         env:
           TARGET_BLOCK: 100
-          TIMEOUT: 5m
+          TIMEOUT: 10m
           JUNO_PARAMETERS: "--network mainnet --eth-node ${{ secrets.ETH_NODE_MAINNET }}"

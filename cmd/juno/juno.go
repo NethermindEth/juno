@@ -21,9 +21,11 @@ const greeting = `
       | |_   _ _ __   ___   
   _   | | | | | '_ \ / _ \  
  | |__| | |_| | | | | (_) |  
-  \____/ \__,_|_| |_|\___/  
+  \____/ \__,_|_| |_|\___/ %s
 
-Juno is a Go implementation of a Starknet full node client created by Nethermind.`
+Juno is a Go implementation of a Starknet full-node client created by Nethermind.
+
+`
 
 const (
 	configF              = "config"
@@ -85,8 +87,7 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf("%s\n\n", greeting)
-
+		fmt.Printf(greeting, Version)
 		n, err := node.New(config, Version)
 		if err != nil {
 			return err
