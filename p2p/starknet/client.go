@@ -69,3 +69,59 @@ func (c *Client) GetBlocks(ctx context.Context, req *spec.GetBlocks) (*spec.GetB
 	}
 	return &res, nil
 }
+
+func (c *Client) GetSignatures(ctx context.Context, req *spec.GetSignatures) (*spec.Signatures, error) {
+	wrappedReq := spec.Request{
+		Req: &spec.Request_GetSignatures{
+			GetSignatures: req,
+		},
+	}
+
+	var res spec.Signatures
+	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) GetEvents(ctx context.Context, req *spec.GetEvents) (*spec.Events, error) {
+	wrappedReq := spec.Request{
+		Req: &spec.Request_GetEvents{
+			GetEvents: req,
+		},
+	}
+
+	var res spec.Events
+	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) GetReceipts(ctx context.Context, req *spec.GetReceipts) (*spec.Receipts, error) {
+	wrappedReq := spec.Request{
+		Req: &spec.Request_GetReceipts{
+			GetReceipts: req,
+		},
+	}
+
+	var res spec.Receipts
+	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) GetTransactions(ctx context.Context, req *spec.GetTransactions) (*spec.Transactions, error) {
+	wrappedReq := spec.Request{
+		Req: &spec.Request_GetTransactions{
+			GetTransactions: req,
+		},
+	}
+
+	var res spec.Transactions
+	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}

@@ -49,4 +49,32 @@ func TestClientHandler(t *testing.T) {
 		require.Len(t, res.GetBlocks(), 1)
 		require.Equal(t, uint32(251), res.GetBlocks()[0].Header.State.NLeaves)
 	})
+
+	t.Run("get signatures", func(t *testing.T) {
+		res, cErr := client.GetSignatures(testCtx, &spec.GetSignatures{
+			Id: &spec.BlockID{
+				Height: 44,
+			},
+		})
+		require.NoError(t, cErr)
+		require.Equal(t, res.Id.Height, uint64(44))
+	})
+
+	t.Run("get event", func(t *testing.T) {
+		res, cErr := client.GetEvents(testCtx, &spec.GetEvents{})
+		require.NoError(t, cErr)
+		require.Len(t, res.GetEvents(), 44)
+	})
+
+	t.Run("get receipts", func(t *testing.T) {
+		res, cErr := client.GetReceipts(testCtx, &spec.GetReceipts{})
+		require.NoError(t, cErr)
+		require.Len(t, res.GetReceipts(), 37)
+	})
+
+	t.Run("get txns", func(t *testing.T) {
+		res, cErr := client.GetTransactions(testCtx, &spec.GetTransactions{})
+		require.NoError(t, cErr)
+		require.Len(t, res.GetTransactions(), 1337)
+	})
 }
