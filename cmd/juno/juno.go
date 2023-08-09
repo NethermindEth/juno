@@ -82,12 +82,7 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		log, err := utils.NewZapLogger(utils.INFO, true)
-		if err != nil {
-			return err
-		}
-		// Log the greeting and version
-		log.Info(fmt.Sprintf(greeting, Version))
+		fmt.Sprintf(greeting, Version))
 		n, err := node.New(config, Version)
 		if err != nil {
 			return err
