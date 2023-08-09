@@ -35,18 +35,25 @@ var (
 )
 
 type Client struct {
-	url     string
-	client  *http.Client
-	timeout time.Duration
-	log     utils.SimpleLogger
+	url       string
+	client    *http.Client
+	timeout   time.Duration
+	log       utils.SimpleLogger
+	userAgent string
+}
+
+func (c *Client) WithUserAgent(ua string) *Client {
+	c.userAgent = ua
+	return c
 }
 
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T) *Client {
 	srv := newTestServer()
+	ua := "Juno/v0.0.1-test Starknet Implementation"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, utils.NewNopZapLogger())
+	return NewClient(srv.URL, utils.NewNopZapLogger()).WithUserAgent(ua)
 }
 
 func newTestServer() *httptest.Server {
@@ -141,6 +148,7 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", c.userAgent)
 	return c.client.Do(req)
 }
 

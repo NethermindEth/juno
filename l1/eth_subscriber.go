@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -44,10 +43,6 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		client:    client,
 		filterer:  filterer,
 	}, nil
-}
-
-func (s *EthSubscriber) WatchHeader(ctx context.Context, sink chan<- *types.Header) (event.Subscription, error) {
-	return s.ethClient.SubscribeNewHead(ctx, sink)
 }
 
 func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {

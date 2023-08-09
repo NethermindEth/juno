@@ -57,13 +57,13 @@ Flags and their values can also be placed in a `.yaml` file that is passed in th
 
 ### Run with Docker
 
-To run Juno with Docker, use the following command. Make sure to create the `/home/juno` directory on your local machine before running the command.
+To run Juno with Docker, use the following command. Make sure to create the `$HOME/juno` directory on your local machine before running the command.
 
 ```shell
 docker run -d \
   --name juno \
   -p 6060:6060 \
-  -v /home/juno:/var/lib/juno \
+  -v $HOME/juno:/var/lib/juno \
   nethermind/juno \
   --http-port 6060 \
   --db-path /var/lib/juno \
@@ -104,6 +104,49 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 | ------- | ---- | ----- | ------------- |
 | >=v0.4.0 | 1.8 GB | 125026 | [juno_goerli2_125026.tar](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.4.0_125026.tar) |
 | **>=v0.4.0** | **4.5 GB** | **135973** | [**juno_goerli2_135973.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.5.0_135973.tar) |
+
+### Run Juno Using Snapshot
+
+1. **Download Snapshot**
+
+   Fetch the snapshot from the provided URL:
+
+   ```bash
+   curl -o juno_mainnet_v0.5.0_136902.tar https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.5.0_136902.tar
+   ```
+
+2. **Prepare Directory**
+
+   Ensure you have a directory at `$HOME/snapshots`. If it doesn't exist yet, create it:
+
+   ```bash
+   mkdir -p $HOME/snapshots
+   ```
+
+3. **Extract Tarball**
+
+   Extract the contents of the `.tar` file:
+
+   ```bash
+   tar -xvf juno_mainnet_v0.5.0_136902.tar -C $HOME/snapshots
+   ```
+
+4. **Run Juno**
+
+   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno_mainnet`:
+
+   ```bash
+   docker run -d \
+     --name juno \
+     -p 6060:6060 \
+     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
+     nethermind/juno \
+     --http-port 6060 \
+     --db-path /var/lib/juno \
+     --eth-node <YOUR-ETH-NODE>
+   ```
+
+After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
 
 ## ✔ Supported Features
 
