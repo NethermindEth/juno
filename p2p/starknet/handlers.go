@@ -81,6 +81,14 @@ func (h *Handler) reqHandler(req *spec.Request) (proto.Message, error) {
 	switch typedReq := req.GetReq().(type) {
 	case *spec.Request_GetBlocks:
 		return h.HandleGetBlocks(typedReq.GetBlocks)
+	case *spec.Request_GetSignatures:
+		return h.HandleGetSignatures(typedReq.GetSignatures)
+	case *spec.Request_GetEvents:
+		return h.HandleGetEvents(typedReq.GetEvents)
+	case *spec.Request_GetReceipts:
+		return h.HandleGetReceipts(typedReq.GetReceipts)
+	case *spec.Request_GetTransactions:
+		return h.HandleGetTransactions(typedReq.GetTransactions)
 	default:
 		return nil, fmt.Errorf("unhandled request %T", typedReq)
 	}
@@ -98,5 +106,36 @@ func (h *Handler) HandleGetBlocks(req *spec.GetBlocks) (*spec.GetBlocksResponse,
 				},
 			},
 		},
+	}, nil
+}
+
+func (h *Handler) HandleGetSignatures(req *spec.GetSignatures) (*spec.Signatures, error) {
+	// todo: read from bcReader and adapt to p2p type
+	return &spec.Signatures{
+		Id: req.Id,
+	}, nil
+}
+
+func (h *Handler) HandleGetEvents(req *spec.GetEvents) (*spec.Events, error) {
+	// todo: read from bcReader and adapt to p2p type
+	magic := 44
+	return &spec.Events{
+		Events: make([]*spec.Event, magic),
+	}, nil
+}
+
+func (h *Handler) HandleGetReceipts(req *spec.GetReceipts) (*spec.Receipts, error) {
+	// todo: read from bcReader and adapt to p2p type
+	magic := 37
+	return &spec.Receipts{
+		Receipts: make([]*spec.Receipt, magic),
+	}, nil
+}
+
+func (h *Handler) HandleGetTransactions(req *spec.GetTransactions) (*spec.Transactions, error) {
+	// todo: read from bcReader and adapt to p2p type
+	magic := 1337
+	return &spec.Transactions{
+		Transactions: make([]*spec.Transaction, magic),
 	}, nil
 }
