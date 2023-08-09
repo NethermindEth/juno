@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -85,6 +86,13 @@ func main() {
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf(greeting, Version)
+
+		configJSON, err := json.MarshalIndent(config, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Running Juno with Config:\n%s\n\n", string(configJSON))
+
 		n, err := node.New(config, Version)
 		if err != nil {
 			return err
