@@ -1,0 +1,104 @@
+{
+    "openrpc": "1.3.2",
+    "info": {
+        "title": "Juno RPC API",
+        "version": "0.1",
+        "description": "Provides additional (Juno specific) methods over and above the Starknet RPC API"
+    },
+    "methods": [
+        {
+            "name": "juno_version",
+            "summary": "The version of the Juno node hosting this API.",
+            "params": [],
+            "result": {
+                "name": "Juno node version",
+                "required": true,
+                "schema": {
+                    "type": "string",
+                    "description": "A semver compatible version string"
+                }
+            }
+        },
+        {
+            "name": "juno_getTransactionStatus",
+            "summary": "Returns the status of a transaction",
+            "description": "This method returns the current status of a transaction. The status is comprised of both finality and execution statuses",
+            "params": [
+                {
+                    "name": "transaction_hash",
+                    "description": "The hash of the requested transaction",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#/components/schemas/TXN_HASH"
+                    }
+                }
+            ],
+            "result": {
+                "name": "transaction status",
+                "required": true,
+                "schema": {
+                    "type": "object",
+                    "description": "Contains both finality and execution statuses of the requested transaction",
+                    "properties": {
+                        "finality_status": {
+                            "title": "Transaction finality status",
+                            "$ref": "#/components/schemas/TX_FINALITY_STATUS"
+                        },
+                        "execution_status": {
+                            "title": "Transaction execution status",
+                            "$ref": "#/components/schemas/TX_EXECUTION_STATUS"
+                        }
+                    },
+                    "required": [
+                        "finality_status",
+                        "execution_status"
+                    ]
+                }
+            },
+            "errors": [
+                {
+                    "$ref": "#/components/errors/INTERNAL_ERROR"
+                }
+            ]
+        }
+    ],
+    "components": {
+        "contentDescriptors": {},
+        "schemas": {
+            "FELT": {
+                "type": "string",
+                "title": "Field element",
+                "$comment": "A field element, represented as a string of hex digits",
+                "description": "A field element represented as a string of hex digits with a 0x prefix and up-to 63 hex digits",
+                "pattern": "^0x(0|[a-fA-F1-9]{1}[a-fA-F0-9]{0,62})$"
+            },
+            "TXN_HASH": {
+                "$ref": "#/components/schemas/FELT",
+                "description": "The transaction hash, as assigned in Starknet",
+                "title": "A transaction's hash"
+            },
+            "TX_FINALITY_STATUS": {
+                "type": "integer",
+                "enum": [
+                    1,
+                    2
+                ],
+                "description": "The finality status of the transaction"
+            },
+            "TX_EXECUTION_STATUS": {
+                "type": "integer",
+                "enum": [
+                    1,
+                    2
+                ],
+                "description": "The execution status of the transaction"
+            }
+        },
+        "errors": {
+            "INTERNAL_ERROR": {
+                "code": -32603,
+                "message": "Internal Error"
+            }
+        }
+    }
+}
