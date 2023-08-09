@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	junogrpc "github.com/NethermindEth/juno/grpc"
+	"github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc"
@@ -61,7 +61,6 @@ func New(listener net.Listener, metrics bool, database db.DB, version string,
 	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
 	mux.Handle("/grpc", grpcHandler)
 	if pprofEnable {
-		// Taken from https://artem.krylysov.com/blog/2017/03/13/profiling-and-optimizing-go-web-applications/
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
