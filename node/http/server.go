@@ -79,6 +79,9 @@ func (srv *Server) Run(ctx context.Context) error {
 	httpSrv := &http.Server{
 		Addr:    srv.listener.Addr().String(),
 		Handler: srv.mux,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
 		// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
 		ReadTimeout: 30 * time.Second,
 	}
