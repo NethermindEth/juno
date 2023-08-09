@@ -21,7 +21,7 @@ const greeting = `
       | |_   _ _ __   ___   
   _   | | | | | '_ \ / _ \  
  | |__| | |_| | | | | (_) |  
-  \____/ \__,_|_| |_|\___/  %s
+  \____/ \__,_|_| |_|\___/ %s
 
 Juno is a Go implementation of a Starknet full-node client created by Nethermind.
 
