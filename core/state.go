@@ -49,7 +49,7 @@ type State struct {
 
 func NewState(txn db.Transaction) *State {
 	return &State{
-		history: NewHistory(txn),
+		history: &history{txn: txn},
 		txn:     txn,
 	}
 }

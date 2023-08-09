@@ -15,10 +15,6 @@ type history struct {
 	txn db.Transaction
 }
 
-func NewHistory(txn db.Transaction) *history {
-	return &history{txn: txn}
-}
-
 func logDBKey(key []byte, height uint64) []byte {
 	return binary.BigEndian.AppendUint64(key, height)
 }
