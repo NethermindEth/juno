@@ -1,0 +1,65 @@
+syntax = "proto3";
+import "p2p/proto/common.proto";
+
+message TransactionCommon {
+    Felt252 nonce = 1; // FFU: volition will also add the selected state tree
+    Felt252 version = 2;
+}
+
+message L2TransactionCommon {
+    Address sender = 1;
+    Signature signature = 2;
+    Felt252 max_fee = 4; // FFU: may change according to fee market spec
+}
+
+message InvokeTransaction
+{
+    repeated Felt252 calldata = 1; // not streaming this, meaning limited to ~30K felts.
+}
+
+
+message DeclareTransaction
+{
+    Hash class_hash = 1;
+    Hash compiled_hash = 2;
+}
+
+message L2Transaction {
+    L2TransactionCommon common = 1;
+    oneof txn {
+        InvokeTransaction invoke = 2;
+        DeclareTransaction declare = 3;
+    }
+}
+
+
+message L1HandlerTransaction {
+    Address contract = 1;
+    Felt252 entry_point_selector = 2;
+    repeated Felt252 calldata = 3;
+}
+
+// NOTE: not keeping old tx types for clarity
+// TODO: add DeployAccountTransaction
+
+message Transaction
+{
+    TransactionCommon common = 1;
+    oneof txn {
+        L2Transaction l2Transaction = 2;
+        L1HandlerTransaction l1handler = 3;
+    }
+}
+
+
+
+message GetTransactions {
+    BlockID id = 1;
+}
+
+// can be several in a single reply
+message Transactions {
+    repeated Transaction transactions = 2;
+}
+
+
