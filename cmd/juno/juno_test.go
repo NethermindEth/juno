@@ -87,9 +87,19 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFile: true,
 			cfgFileContents: `log-level: debug
 http-port: 4576
+ws-port: 2343
+grpc-port: 9769
 db-path: /home/.juno
 network: goerli2
+eth-node: ethNodeConfig
 pprof: true
+colourF: true
+metrics-port: 8793
+pending-poll-interval: 6
+p2p: true
+p2p-addr: p2pAddress
+p2p-boot-peers: peers
+metrics: true
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
@@ -128,8 +138,13 @@ http-port: 4576
 		},
 		"all flags without config file": {
 			inputArgs: []string{
-				"--log-level", "debug", "--http-port", "4576",
+				"--log-level", "info", "--http-port", "4576",
 				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
+				"--ws-port", "3030", "--eth-node", "ethNodeAddr",
+				"--colour", "--pending-poll-interval", "5ms",
+				"--p2p-addr", "p2pNodeAddr", "--p2p-boot-peers", "configPeers",
+				"--metrics-port", "8090", "--grpc-port", "9847", "--p2p",
+				"--metrics",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.INFO,
