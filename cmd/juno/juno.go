@@ -23,7 +23,9 @@ const greeting = `
  | |__| | |_| | | | | (_) |  
   \____/ \__,_|_| |_|\___/  %s
 
-Juno is a Go implementation of a Starknet full node client created by Nethermind.`
+Juno is a Go implementation of a Starknet full-node client created by Nethermind.
+
+`
 
 const (
 	configF              = "config"
