@@ -339,7 +339,7 @@ func TestClient(t *testing.T) {
 			network := utils.MAINNET
 			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
-			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0)
+			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 			// We loop over each block and check that the state agrees with our expectations.
 			for _, block := range tt.blocks {
@@ -368,15 +368,6 @@ func TestClient(t *testing.T) {
 					Times(1)
 
 				subscriber.EXPECT().Close().Times(1)
-
-				subscriber.
-					EXPECT().
-					WatchHeader(gomock.Any(), gomock.Any()).
-					Do(func(_ context.Context, sink chan<- *types.Header) {
-						sink <- &types.Header{}
-					}).
-					Return(newFakeSubscription(), nil).
-					Times(1)
 
 				client.l1 = subscriber
 
@@ -408,7 +399,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	nopLog := utils.NewNopZapLogger()
 	network := utils.MAINNET
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
-	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0)
+	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")
 	for _, block := range longSequenceOfBlocks {
@@ -443,28 +434,11 @@ func TestUnreliableSubscription(t *testing.T) {
 			Return(network.DefaultL1ChainID(), nil).
 			Times(1)
 
-		failedHeaderSub := newFakeSubscription(err)
-		failedHeaderCall := subscriber.
-			EXPECT().
-			WatchHeader(gomock.Any(), gomock.Any()).
-			Return(failedHeaderSub, nil).
-			Times(1)
-
-		successHeaderSub := newFakeSubscription()
-		subscriber.
-			EXPECT().
-			WatchHeader(gomock.Any(), gomock.Any()).
-			Do(func(_ context.Context, sink chan<- *types.Header) {
-				sink <- &types.Header{}
-			}).
-			Return(successHeaderSub, nil).
-			Times(1).
-			After(failedHeaderCall)
-
 		subscriber.
 			EXPECT().
 			FinalisedHeight(gomock.Any()).
-			Return(block.finalisedHeight, nil)
+			Return(block.finalisedHeight, nil).
+			AnyTimes()
 
 		subscriber.EXPECT().Close().Times(1)
 
@@ -478,8 +452,6 @@ func TestUnreliableSubscription(t *testing.T) {
 		// Subscription resources are released.
 		assert.True(t, failedUpdateSub.closed)
 		assert.True(t, successUpdateSub.closed)
-		assert.True(t, failedHeaderSub.closed)
-		assert.True(t, successHeaderSub.closed)
 
 		got, err := chain.L1Head()
 		if block.expectedL2BlockHash == nil {

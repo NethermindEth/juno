@@ -87,12 +87,12 @@ func New(cfg *Config, version string) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
+	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
 	chain := blockchain.New(database, cfg.Network, log)
-	client := feeder.NewClient(cfg.Network.FeederURL())
-
+	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
 	httpEndpoint := net.JoinHostPort(cfg.HTTPHost, fmt.Sprintf("%d", cfg.HTTPPort))
