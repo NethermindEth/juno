@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"os"
 	"os/signal"
 	"syscall"
@@ -91,6 +92,13 @@ func main() {
 		if err != nil {
 			return err
 		}
+
+		yamlConfig, err := yaml.Marshal(config)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Running Juno with Config:\n%s\n\n", string(yamlConfig))
+
 		fmt.Printf("Running Juno with Config:\n%s\n\n", string(configJSON))
 
 		n, err := node.New(config, Version)
