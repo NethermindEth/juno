@@ -7,10 +7,11 @@
 package p2p_spec
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -660,23 +661,25 @@ func file_p2p_proto_transaction_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_transaction_proto_rawDescData
 }
 
-var file_p2p_proto_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
-var file_p2p_proto_transaction_proto_goTypes = []interface{}{
-	(*TransactionCommon)(nil),    // 0: TransactionCommon
-	(*L2TransactionCommon)(nil),  // 1: L2TransactionCommon
-	(*InvokeTransaction)(nil),    // 2: InvokeTransaction
-	(*DeclareTransaction)(nil),   // 3: DeclareTransaction
-	(*L2Transaction)(nil),        // 4: L2Transaction
-	(*L1HandlerTransaction)(nil), // 5: L1HandlerTransaction
-	(*Transaction)(nil),          // 6: Transaction
-	(*GetTransactions)(nil),      // 7: GetTransactions
-	(*Transactions)(nil),         // 8: Transactions
-	(*Felt252)(nil),              // 9: Felt252
-	(*Address)(nil),              // 10: Address
-	(*Signature)(nil),            // 11: Signature
-	(*Hash)(nil),                 // 12: Hash
-	(*BlockID)(nil),              // 13: BlockID
-}
+var (
+	file_p2p_proto_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+	file_p2p_proto_transaction_proto_goTypes  = []interface{}{
+		(*TransactionCommon)(nil),    // 0: TransactionCommon
+		(*L2TransactionCommon)(nil),  // 1: L2TransactionCommon
+		(*InvokeTransaction)(nil),    // 2: InvokeTransaction
+		(*DeclareTransaction)(nil),   // 3: DeclareTransaction
+		(*L2Transaction)(nil),        // 4: L2Transaction
+		(*L1HandlerTransaction)(nil), // 5: L1HandlerTransaction
+		(*Transaction)(nil),          // 6: Transaction
+		(*GetTransactions)(nil),      // 7: GetTransactions
+		(*Transactions)(nil),         // 8: Transactions
+		(*Felt252)(nil),              // 9: Felt252
+		(*Address)(nil),              // 10: Address
+		(*Signature)(nil),            // 11: Signature
+		(*Hash)(nil),                 // 12: Hash
+		(*BlockID)(nil),              // 13: BlockID
+	}
+)
 var file_p2p_proto_transaction_proto_depIdxs = []int32{
 	9,  // 0: TransactionCommon.nonce:type_name -> Felt252
 	9,  // 1: TransactionCommon.version:type_name -> Felt252

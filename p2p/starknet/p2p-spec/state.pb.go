@@ -7,10 +7,11 @@
 package p2p_spec
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -372,17 +373,19 @@ func file_p2p_proto_state_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_state_proto_rawDescData
 }
 
-var file_p2p_proto_state_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_p2p_proto_state_proto_goTypes = []interface{}{
-	(*ContractStoredValue)(nil),    // 0: ContractStoredValue
-	(*StateDiff)(nil),              // 1: StateDiff
-	(*Class)(nil),                  // 2: Class
-	(*Classes)(nil),                // 3: Classes
-	(*StateDiff_ContractDiff)(nil), // 4: StateDiff.ContractDiff
-	(*Felt252)(nil),                // 5: Felt252
-	(*Hash)(nil),                   // 6: Hash
-	(*Address)(nil),                // 7: Address
-}
+var (
+	file_p2p_proto_state_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+	file_p2p_proto_state_proto_goTypes  = []interface{}{
+		(*ContractStoredValue)(nil),    // 0: ContractStoredValue
+		(*StateDiff)(nil),              // 1: StateDiff
+		(*Class)(nil),                  // 2: Class
+		(*Classes)(nil),                // 3: Classes
+		(*StateDiff_ContractDiff)(nil), // 4: StateDiff.ContractDiff
+		(*Felt252)(nil),                // 5: Felt252
+		(*Hash)(nil),                   // 6: Hash
+		(*Address)(nil),                // 7: Address
+	}
+)
 var file_p2p_proto_state_proto_depIdxs = []int32{
 	5, // 0: ContractStoredValue.key:type_name -> Felt252
 	5, // 1: ContractStoredValue.value:type_name -> Felt252

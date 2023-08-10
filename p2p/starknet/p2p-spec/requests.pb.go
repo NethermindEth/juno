@@ -7,10 +7,11 @@
 package p2p_spec
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -300,19 +301,21 @@ func file_p2p_proto_requests_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_requests_proto_rawDescData
 }
 
-var file_p2p_proto_requests_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_p2p_proto_requests_proto_goTypes = []interface{}{
-	(*Request)(nil),            // 0: Request
-	(*GetBlocksResponse)(nil),  // 1: GetBlocksResponse
-	(*HeaderAndStateDiff)(nil), // 2: HeaderAndStateDiff
-	(*GetBlocks)(nil),          // 3: GetBlocks
-	(*GetSignatures)(nil),      // 4: GetSignatures
-	(*GetEvents)(nil),          // 5: GetEvents
-	(*GetReceipts)(nil),        // 6: GetReceipts
-	(*GetTransactions)(nil),    // 7: GetTransactions
-	(*BlockHeader)(nil),        // 8: BlockHeader
-	(*StateDiff)(nil),          // 9: StateDiff
-}
+var (
+	file_p2p_proto_requests_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+	file_p2p_proto_requests_proto_goTypes  = []interface{}{
+		(*Request)(nil),            // 0: Request
+		(*GetBlocksResponse)(nil),  // 1: GetBlocksResponse
+		(*HeaderAndStateDiff)(nil), // 2: HeaderAndStateDiff
+		(*GetBlocks)(nil),          // 3: GetBlocks
+		(*GetSignatures)(nil),      // 4: GetSignatures
+		(*GetEvents)(nil),          // 5: GetEvents
+		(*GetReceipts)(nil),        // 6: GetReceipts
+		(*GetTransactions)(nil),    // 7: GetTransactions
+		(*BlockHeader)(nil),        // 8: BlockHeader
+		(*StateDiff)(nil),          // 9: StateDiff
+	}
+)
 var file_p2p_proto_requests_proto_depIdxs = []int32{
 	3, // 0: Request.get_blocks:type_name -> GetBlocks
 	4, // 1: Request.get_signatures:type_name -> GetSignatures

@@ -7,11 +7,12 @@
 package p2p_spec
 
 import (
+	reflect "reflect"
+	sync "sync"
+
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -555,24 +556,26 @@ func file_p2p_proto_block_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_block_proto_rawDescData
 }
 
-var file_p2p_proto_block_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_p2p_proto_block_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_p2p_proto_block_proto_goTypes = []interface{}{
-	(GetBlocks_Direction)(0),      // 0: GetBlocks.Direction
-	(*Signatures)(nil),            // 1: Signatures
-	(*BlockHeader)(nil),           // 2: BlockHeader
-	(*BlockProof)(nil),            // 3: BlockProof
-	(*NewBlock)(nil),              // 4: NewBlock
-	(*GetBlocks)(nil),             // 5: GetBlocks
-	(*GetSignatures)(nil),         // 6: GetSignatures
-	(*BlockID)(nil),               // 7: BlockID
-	(*Signature)(nil),             // 8: Signature
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
-	(*Address)(nil),               // 10: Address
-	(*Merkle)(nil),                // 11: Merkle
-	(*Hash)(nil),                  // 12: Hash
-	(*ChainID)(nil),               // 13: ChainID
-}
+var (
+	file_p2p_proto_block_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+	file_p2p_proto_block_proto_msgTypes  = make([]protoimpl.MessageInfo, 6)
+	file_p2p_proto_block_proto_goTypes   = []interface{}{
+		(GetBlocks_Direction)(0),      // 0: GetBlocks.Direction
+		(*Signatures)(nil),            // 1: Signatures
+		(*BlockHeader)(nil),           // 2: BlockHeader
+		(*BlockProof)(nil),            // 3: BlockProof
+		(*NewBlock)(nil),              // 4: NewBlock
+		(*GetBlocks)(nil),             // 5: GetBlocks
+		(*GetSignatures)(nil),         // 6: GetSignatures
+		(*BlockID)(nil),               // 7: BlockID
+		(*Signature)(nil),             // 8: Signature
+		(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+		(*Address)(nil),               // 10: Address
+		(*Merkle)(nil),                // 11: Merkle
+		(*Hash)(nil),                  // 12: Hash
+		(*ChainID)(nil),               // 13: ChainID
+	}
+)
 var file_p2p_proto_block_proto_depIdxs = []int32{
 	7,  // 0: Signatures.id:type_name -> BlockID
 	8,  // 1: Signatures.signatures:type_name -> Signature
