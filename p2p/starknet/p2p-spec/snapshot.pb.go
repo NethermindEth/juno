@@ -7,11 +7,10 @@
 package p2p_spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -874,26 +873,24 @@ func file_p2p_proto_snapshot_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_snapshot_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_snapshot_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
-	file_p2p_proto_snapshot_proto_goTypes  = []interface{}{
-		(*PatriciaNode)(nil),            // 0: PatriciaNode
-		(*PatriciaRangeProof)(nil),      // 1: PatriciaRangeProof
-		(*ContractState)(nil),           // 2: ContractState
-		(*GetContractRange)(nil),        // 3: GetContractRange
-		(*ContractRange)(nil),           // 4: ContractRange
-		(*GetClassRange)(nil),           // 5: GetClassRange
-		(*StorageLeafQuery)(nil),        // 6: StorageLeafQuery
-		(*StorageRangeQuery)(nil),       // 7: StorageRangeQuery
-		(*GetContractStorageRange)(nil), // 8: GetContractStorageRange
-		(*ContractStorageRange)(nil),    // 9: ContractStorageRange
-		(*PatriciaNode_Edge)(nil),       // 10: PatriciaNode.Edge
-		(*PatriciaNode_Binary)(nil),     // 11: PatriciaNode.Binary
-		(*Hash)(nil),                    // 12: Hash
-		(*Felt252)(nil),                 // 13: Felt252
-		(*ContractStoredValue)(nil),     // 14: ContractStoredValue
-	}
-)
+var file_p2p_proto_snapshot_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_p2p_proto_snapshot_proto_goTypes = []interface{}{
+	(*PatriciaNode)(nil),            // 0: PatriciaNode
+	(*PatriciaRangeProof)(nil),      // 1: PatriciaRangeProof
+	(*ContractState)(nil),           // 2: ContractState
+	(*GetContractRange)(nil),        // 3: GetContractRange
+	(*ContractRange)(nil),           // 4: ContractRange
+	(*GetClassRange)(nil),           // 5: GetClassRange
+	(*StorageLeafQuery)(nil),        // 6: StorageLeafQuery
+	(*StorageRangeQuery)(nil),       // 7: StorageRangeQuery
+	(*GetContractStorageRange)(nil), // 8: GetContractStorageRange
+	(*ContractStorageRange)(nil),    // 9: ContractStorageRange
+	(*PatriciaNode_Edge)(nil),       // 10: PatriciaNode.Edge
+	(*PatriciaNode_Binary)(nil),     // 11: PatriciaNode.Binary
+	(*Hash)(nil),                    // 12: Hash
+	(*Felt252)(nil),                 // 13: Felt252
+	(*ContractStoredValue)(nil),     // 14: ContractStoredValue
+}
 var file_p2p_proto_snapshot_proto_depIdxs = []int32{
 	10, // 0: PatriciaNode.edge:type_name -> PatriciaNode.Edge
 	11, // 1: PatriciaNode.binary:type_name -> PatriciaNode.Binary

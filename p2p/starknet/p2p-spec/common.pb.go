@@ -7,11 +7,10 @@
 package p2p_spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -455,19 +454,17 @@ func file_p2p_proto_common_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_common_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_common_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-	file_p2p_proto_common_proto_goTypes  = []interface{}{
-		(*Felt252)(nil),   // 0: Felt252
-		(*Hash)(nil),      // 1: Hash
-		(*Address)(nil),   // 2: Address
-		(*PeerID)(nil),    // 3: PeerID
-		(*ChainID)(nil),   // 4: ChainID
-		(*BlockID)(nil),   // 5: BlockID
-		(*Signature)(nil), // 6: Signature
-		(*Merkle)(nil),    // 7: Merkle
-	}
-)
+var file_p2p_proto_common_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_p2p_proto_common_proto_goTypes = []interface{}{
+	(*Felt252)(nil),   // 0: Felt252
+	(*Hash)(nil),      // 1: Hash
+	(*Address)(nil),   // 2: Address
+	(*PeerID)(nil),    // 3: PeerID
+	(*ChainID)(nil),   // 4: ChainID
+	(*BlockID)(nil),   // 5: BlockID
+	(*Signature)(nil), // 6: Signature
+	(*Merkle)(nil),    // 7: Merkle
+}
 var file_p2p_proto_common_proto_depIdxs = []int32{
 	1, // 0: BlockID.hash:type_name -> Hash
 	0, // 1: Signature.parts:type_name -> Felt252

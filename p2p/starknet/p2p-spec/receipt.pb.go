@@ -7,11 +7,10 @@
 package p2p_spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -1081,27 +1080,25 @@ func file_p2p_proto_receipt_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_receipt_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_receipt_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
-	file_p2p_proto_receipt_proto_goTypes  = []interface{}{
-		(*MessageToL1)(nil),                               // 0: MessageToL1
-		(*EthereumAddress)(nil),                           // 1: EthereumAddress
-		(*MessageToL2)(nil),                               // 2: MessageToL2
-		(*CommonTransactionReceiptProperties)(nil),        // 3: CommonTransactionReceiptProperties
-		(*ExecutionResources)(nil),                        // 4: ExecutionResources
-		(*InvokeTransactionReceipt)(nil),                  // 5: InvokeTransactionReceipt
-		(*L1HandlerTransactionReceipt)(nil),               // 6: L1HandlerTransactionReceipt
-		(*DeclareTransactionReceipt)(nil),                 // 7: DeclareTransactionReceipt
-		(*DeprecatedDeployTransactionReceipt)(nil),        // 8: DeprecatedDeployTransactionReceipt
-		(*DeployAccountTransactionReceipt)(nil),           // 9: DeployAccountTransactionReceipt
-		(*Receipt)(nil),                                   // 10: Receipt
-		(*GetReceipts)(nil),                               // 11: GetReceipts
-		(*Receipts)(nil),                                  // 12: Receipts
-		(*ExecutionResources_BuiltinInstanceCounter)(nil), // 13: ExecutionResources.BuiltinInstanceCounter
-		(*Felt252)(nil),                                   // 14: Felt252
-		(*BlockID)(nil),                                   // 15: BlockID
-	}
-)
+var file_p2p_proto_receipt_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_p2p_proto_receipt_proto_goTypes = []interface{}{
+	(*MessageToL1)(nil),                               // 0: MessageToL1
+	(*EthereumAddress)(nil),                           // 1: EthereumAddress
+	(*MessageToL2)(nil),                               // 2: MessageToL2
+	(*CommonTransactionReceiptProperties)(nil),        // 3: CommonTransactionReceiptProperties
+	(*ExecutionResources)(nil),                        // 4: ExecutionResources
+	(*InvokeTransactionReceipt)(nil),                  // 5: InvokeTransactionReceipt
+	(*L1HandlerTransactionReceipt)(nil),               // 6: L1HandlerTransactionReceipt
+	(*DeclareTransactionReceipt)(nil),                 // 7: DeclareTransactionReceipt
+	(*DeprecatedDeployTransactionReceipt)(nil),        // 8: DeprecatedDeployTransactionReceipt
+	(*DeployAccountTransactionReceipt)(nil),           // 9: DeployAccountTransactionReceipt
+	(*Receipt)(nil),                                   // 10: Receipt
+	(*GetReceipts)(nil),                               // 11: GetReceipts
+	(*Receipts)(nil),                                  // 12: Receipts
+	(*ExecutionResources_BuiltinInstanceCounter)(nil), // 13: ExecutionResources.BuiltinInstanceCounter
+	(*Felt252)(nil),                                   // 14: Felt252
+	(*BlockID)(nil),                                   // 15: BlockID
+}
 var file_p2p_proto_receipt_proto_depIdxs = []int32{
 	14, // 0: MessageToL1.from_address:type_name -> Felt252
 	14, // 1: MessageToL1.payload:type_name -> Felt252
