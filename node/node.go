@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -25,10 +26,17 @@ import (
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
+)
+
+const (
+	upgraderDelay    = 5 * time.Minute
+	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 )
 
 // Config is the top-level juno configuration.
@@ -62,7 +70,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) {
+func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {
@@ -115,14 +123,16 @@ func New(cfg *Config, version string) (*Node, error) {
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
-		ethNodeURL, err := url.Parse(n.cfg.EthNode)
+		var ethNodeURL *url.URL
+		ethNodeURL, err = url.Parse(n.cfg.EthNode)
 		if err != nil {
 			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 		}
 		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
 			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
 		}
-		l1Client, err := newL1Client(n.cfg.EthNode, n.blockchain, n.log)
+		var l1Client *l1.Client
+		l1Client, err = newL1Client(n.cfg.EthNode, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -131,13 +141,22 @@ func New(cfg *Config, version string) (*Node, error) {
 	}
 
 	if cfg.P2P {
-		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		var privKeyStr string
+		privKeyStr, _ = os.LookupEnv("P2P_PRIVATE_KEY")
+		var p2pService *p2p.Service
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
 
 		n.services = append(n.services, p2pService)
+	}
+
+	if semversion, err := semver.NewVersion(version); err == nil {
+		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
+		n.services = append(n.services, ug)
+	} else {
+		log.Warnw("Failed to parse Juno version, will not warn about new releases", "version", version)
 	}
 
 	return n, nil
