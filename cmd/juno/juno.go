@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 const greeting = `
@@ -86,12 +86,16 @@ func main() {
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf(greeting, Version)
-
-		configJSON, err := json.MarshalIndent(config, "", "  ")
+		cfg := make(map[string]interface{})
+		err := mapstructure.Decode(config, &cfg)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Running Juno with Config:\n%s\n\n", string(configJSON))
+		yamlConfig, err := yaml.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Running Juno with Config:\n%s\n\n", string(yamlConfig))
 
 		n, err := node.New(config, Version)
 		if err != nil {
