@@ -46,6 +46,10 @@ func (l LogLevel) String() string {
 	}
 }
 
+func (l LogLevel) MarshalYAML() (interface{}, error) {
+	return l.String(), nil
+}
+
 func (l *LogLevel) Set(s string) error {
 	switch s {
 	case "DEBUG", "debug":
