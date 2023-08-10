@@ -45,8 +45,8 @@ func (n Network) String() string {
 	}
 }
 
-func (l Network) MarshalYAML() (interface{}, error) {
-	return l.String(), nil
+func (n *Network) MarshalYAML() (interface{}, error) {
+	return n.String(), nil
 }
 
 func (n *Network) MarshalJSON() ([]byte, error) {
