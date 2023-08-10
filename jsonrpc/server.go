@@ -17,12 +17,11 @@ import (
 )
 
 const (
-	InvalidJSON         = -32700 // Invalid JSON was received by the server.
-	InvalidRequest      = -32600 // The JSON sent is not a valid Request object.
-	MethodNotFound      = -32601 // The method does not exist / is not available.
-	InvalidParams       = -32602 // Invalid method parameter(s).
-	InternalError       = -32603 // Internal JSON-RPC error.
-	TransactionNotFound = -32004 // Transaction JSON-RPC error.
+	InvalidJSON    = -32700 // Invalid JSON was received by the server.
+	InvalidRequest = -32600 // The JSON sent is not a valid Request object.
+	MethodNotFound = -32601 // The method does not exist / is not available.
+	InvalidParams  = -32602 // Invalid method parameter(s).
+	InternalError  = -32603 // Internal JSON-RPC error.
 )
 
 var ErrInvalidID = errors.New("id should be a string or an integer")
@@ -57,8 +56,6 @@ func Err(code int, data any) *Error {
 		return &Error{Code: MethodNotFound, Message: "Method Not Found", Data: data}
 	case InvalidParams:
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
-	case TransactionNotFound:
-		return &Error{Code: TransactionNotFound, Message: "Transaction Not Found", Data: data}
 
 	default:
 		return &Error{Code: InternalError, Message: "Internal Error", Data: data}
