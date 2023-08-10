@@ -46,7 +46,7 @@ func (l LogLevel) String() string {
 	}
 }
 
-func (l LogLevel) MarshalYAML() (interface{}, error) {
+func (l *LogLevel) MarshalYAML() (interface{}, error) {
 	return l.String(), nil
 }
 
