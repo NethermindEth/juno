@@ -1036,7 +1036,7 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 			// Check if the error is due to a transaction not being found
 			notFoundErr := fmt.Sprintf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			if err.Error() == notFoundErr {
-				return nil, jsonrpc.Err(jsonrpc.TransactionNotFound, err.Error())
+				return nil, ErrTxnHashNotFound
 			}
 
 			// Handle other internal errors
