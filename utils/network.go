@@ -44,7 +44,9 @@ func (n Network) String() string {
 		panic(ErrUnknownNetwork)
 	}
 }
-
+func (l Network) MarshalYAML() (interface{}, error) {
+	return l.String(), nil
+}
 func (n *Network) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
