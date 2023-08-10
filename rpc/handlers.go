@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
+	"fmt"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"net/http"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -1031,7 +1032,14 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 	case ErrTxnHashNotFound:
 		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
 		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.TransactionNotFound, err.Error())
+			// Check if the error is due to a transaction not being found
+			notFoundErr := fmt.Errorf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound))
+			if errors.Is(err, notFoundErr) {
+				return nil, jsonrpc.Err(jsonrpc.TransactionNotFound, err.Error())
+			}
+
+			// Handle other internal errors
+			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
 		status = new(TransactionStatus)
