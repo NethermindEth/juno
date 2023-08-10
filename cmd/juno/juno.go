@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +13,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 const greeting = `
@@ -86,8 +86,12 @@ func main() {
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf(greeting, Version)
-
-		yamlConfig, err := yaml.Marshal(config)
+		cfg := make(map[string]interface{})
+		err := mapstructure.Decode(config, &cfg)
+		if err != nil {
+			return err
+		}
+		yamlConfig, err := yaml.Marshal(cfg)
 		if err != nil {
 			return err
 		}
