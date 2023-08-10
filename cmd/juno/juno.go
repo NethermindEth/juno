@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -88,18 +87,11 @@ func main() {
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
 		fmt.Printf(greeting, Version)
 
-		configJSON, err := json.MarshalIndent(config, "", "  ")
-		if err != nil {
-			return err
-		}
-
 		yamlConfig, err := yaml.Marshal(config)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("Running Juno with Config:\n%s\n\n", string(yamlConfig))
-
-		fmt.Printf("Running Juno with Config:\n%s\n\n", string(configJSON))
 
 		n, err := node.New(config, Version)
 		if err != nil {
