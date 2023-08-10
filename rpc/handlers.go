@@ -1033,8 +1033,8 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
 		if err != nil {
 			// Check if the error is due to a transaction not being found
-			notFoundErr := fmt.Errorf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound))
-			if errors.Is(err, notFoundErr) {
+			notFoundErr := fmt.Sprintf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound))
+			if err.Error() == notFoundErr {
 				return nil, jsonrpc.Err(jsonrpc.TransactionNotFound, err.Error())
 			}
 
