@@ -99,7 +99,7 @@ type Method struct {
 }
 
 type Server struct {
-	callbacks   map[string]callback
+	callbacks   map[string]methodCallback
 	validator Validator
 	log       utils.SimpleLogger
 
@@ -115,7 +115,7 @@ type Validator interface {
 func NewServer(log utils.SimpleLogger) *Server {
 	s := &Server{
 		log:     log,
-		callbacks: make(map[string]callback),
+		callbacks: make(map[string]methodCallback),
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "server",
@@ -350,16 +350,16 @@ func (s *Server) validateParam(param reflect.Value) error {
 
 type paramParser func(v any, t reflect.Type) (reflect.Value, error)
 
-type callback struct {
+type methodCallback struct {
 	method Method
 	returnsErr bool
 
 	parser paramParser
 }
 
-func newCallback(method Method) (callback,error) { 
+func newCallback(method Method) (methodCallback,error) { 
 	var (
-		callback = callback{method: method}
+		callback = methodCallback{method: method}
 		handlerT = reflect.TypeOf(method.Handler)
 	)
 	if handlerT.Kind() != reflect.Func {
@@ -385,7 +385,7 @@ func newCallback(method Method) (callback,error) {
 }
 
 // Builds arguments for calling the underlying method
-func (c callback) buildArgs(params any) ([]reflect.Value, error) { 
+func (c methodCallback) buildArgs(params any) ([]reflect.Value, error) { 
 	args := make([]reflect.Value, 0, len(c.method.Params))
 	if isNil(params) {
 		if len(c.method.Params) > 0 {
@@ -440,7 +440,7 @@ func (c callback) buildArgs(params any) ([]reflect.Value, error) {
 }
 
 // Calls the underlying handler with provided args.
-func (c callback) call(ignoreOutput bool,args []reflect.Value) (res any, errRes *Error) {
+func (c methodCallback) call(ignoreOutput bool,args []reflect.Value) (res any, errRes *Error) {
 	tuple := reflect.ValueOf(c.method.Handler).Call(args)
 	if ignoreOutput {
 		return nil, nil
