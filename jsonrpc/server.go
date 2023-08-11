@@ -233,61 +233,66 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 }
 
 func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, error) {
-	var batchRes []json.RawMessage
-	var resMutex sync.Mutex
+	var (
+		responses []json.RawMessage
+		mutex     sync.Mutex
+	)
+
+	addResponse := func(response any) {
+		if responseJSON, err := json.Marshal(response); err != nil {
+			s.log.Errorw("failed to marshal response", "err", err)
+		} else {
+			mutex.Lock()
+			responses = append(responses, responseJSON)
+			mutex.Unlock()
+		}
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(len(batchReq))
 	for _, rawReq := range batchReq {
-		rawReq := rawReq
+		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
+		reqDec.UseNumber()
+
+		req := new(request)
+		if err := reqDec.Decode(req); err != nil {
+			addResponse(&response{
+				Version: "2.0",
+				Error:   Err(InvalidRequest, err.Error()),
+			})
+			continue
+		}
+
+		wg.Add(1)
 		s.pool.Go(func() {
 			defer wg.Done()
-			var resObject *response
 
-			reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
-			reqDec.UseNumber()
-
-			req := new(request)
-			if jsonErr := reqDec.Decode(req); jsonErr != nil {
-				resObject = &response{
+			resp, err := s.handleRequest(ctx, req)
+			if err != nil {
+				resp = &response{
 					Version: "2.0",
-					Error:   Err(InvalidRequest, jsonErr.Error()),
+					Error:   Err(InvalidRequest, err.Error()),
 				}
-			} else {
-				var handleErr error
-				resObject, handleErr = s.handleRequest(ctx, req)
-				if handleErr != nil {
-					resObject = &response{
-						Version: "2.0",
-						Error:   Err(InvalidRequest, handleErr.Error()),
-					}
-					if !errors.Is(handleErr, ErrInvalidID) {
-						resObject.ID = req.ID
-					}
+				if !errors.Is(err, ErrInvalidID) {
+					resp.ID = req.ID
 				}
 			}
-
-			if resObject != nil {
-				if resArr, jsonErr := json.Marshal(resObject); jsonErr != nil {
-					s.log.Errorw("failed to marshal response", "err", jsonErr)
-				} else {
-					resMutex.Lock()
-					batchRes = append(batchRes, resArr)
-					resMutex.Unlock()
-				}
+			// for notification request response is nil
+			if resp != nil {
+				addResponse(resp)
 			}
 		})
 	}
 
 	wg.Wait()
-	if len(batchRes) == 0 {
+	// according to the spec if there are no response objects server must not return empty array
+	if len(responses) == 0 {
 		return nil, nil
 	}
 
-	return json.Marshal(batchRes)
+	return json.Marshal(responses)
 }
 
 func isBatch(reader *bufio.Reader) bool {
