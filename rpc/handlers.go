@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -1033,14 +1030,13 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 	case ErrTxnHashNotFound:
 		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
 		if err != nil {
-			// Check if the error is due to a transaction not being found
-			notFoundErr := fmt.Sprintf("%d %s", http.StatusNotFound, http.StatusText(http.StatusNotFound))
-			if err.Error() == notFoundErr {
-				return nil, ErrTxnHashNotFound
-			}
-
 			// Handle other internal errors
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+
+		// Check if the error is due to a transaction not being found
+		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
+			return nil, ErrTxnHashNotFound
 		}
 
 		status = new(TransactionStatus)

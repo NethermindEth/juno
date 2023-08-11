@@ -88,6 +88,7 @@ type TxnFinalityStatus uint8
 const (
 	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
 	TxnAcceptedOnL2
+	TxNotRECEIVED
 )
 
 func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
@@ -96,6 +97,8 @@ func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
 		return []byte(`"ACCEPTED_ON_L1"`), nil
 	case TxnAcceptedOnL2:
 		return []byte(`"ACCEPTED_ON_L2"`), nil
+	case TxNotRECEIVED:
+		return []byte(`"NOT_RECEIVED"`), nil
 	default:
 		return nil, errors.New("unknown FinalityStatus")
 	}
