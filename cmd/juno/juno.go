@@ -116,7 +116,7 @@ func main() {
 				<-quiteDownload
 				cancel()
 			}()
-			downloadError := utils.DownloadFile(ctx, network, location)
+			downloadError := utils.DownloadFile(ctx, network, location, &utils.RealDownloader{})
 			if downloadError != nil {
 				return downloadError
 			} else {

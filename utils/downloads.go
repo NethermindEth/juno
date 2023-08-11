@@ -22,7 +22,37 @@ const (
 	dirPermissionMod   = 0o770
 )
 
-func DownloadFile(ctx context.Context, network, location string) error {
+type Downloader interface {
+	DownloadAndWrite(ctx context.Context, reader io.Reader, writer io.Writer, bar *pb.ProgressBar) error
+}
+
+type RealDownloader struct{}
+
+func (d *RealDownloader) DownloadAndWrite(ctx context.Context, reader io.Reader, writer io.Writer, bar *pb.ProgressBar) error {
+	buffer := make([]byte, downloadBufferSize)
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("canceled download")
+		default:
+			n, err := reader.Read(buffer)
+			if err != nil {
+				if err == io.EOF {
+					bar.Finish()
+					return nil
+				}
+				return err
+			}
+
+			_, err = writer.Write(buffer[:n])
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func DownloadFile(ctx context.Context, network, location string, downloader Downloader) error {
 	_, ok := snapshots[network]
 	if !ok {
 		return fmt.Errorf("the %s network is not supported", network)
@@ -45,27 +75,12 @@ func DownloadFile(ctx context.Context, network, location string) error {
 
 	reader := bar.NewProxyReader(resp.Body)
 
-	buffer := make([]byte, downloadBufferSize)
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("canceled download")
-		default:
-			n, err := reader.Read(buffer)
-			if err != nil {
-				if err == io.EOF {
-					bar.Finish()
-					return nil
-				}
-				return err
-			}
-
-			_, err = out.Write(buffer[:n])
-			if err != nil {
-				return err
-			}
-		}
+	err = downloader.DownloadAndWrite(ctx, reader, out, bar)
+	if err != nil {
+		return err
 	}
+
+	return nil
 }
 
 func create(p string) (*os.File, error) {
