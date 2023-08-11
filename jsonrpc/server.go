@@ -9,7 +9,6 @@ import (
 	"errors"
 	"io"
 	"reflect"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -125,11 +124,11 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer(log utils.SimpleLogger) *Server {
+func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 	s := &Server{
 		log:     log,
 		methods: make(map[string]Method),
-		pool:    pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)),
+		pool:    pool.New().WithMaxGoroutines(poolMaxGoroutines),
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "server",
