@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -112,6 +113,7 @@ type Method struct {
 type Server struct {
 	methods   map[string]Method
 	validator Validator
+	pool      *pool.Pool
 	log       utils.SimpleLogger
 
 	// metrics
@@ -127,6 +129,7 @@ func NewServer(log utils.SimpleLogger) *Server {
 	s := &Server{
 		log:     log,
 		methods: make(map[string]Method),
+		pool:    pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)),
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "server",
@@ -236,10 +239,12 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	p := pool.New()
+	var wg sync.WaitGroup
+	wg.Add(len(batchReq))
 	for _, rawReq := range batchReq {
 		rawReq := rawReq
-		p.Go(func() {
+		s.pool.Go(func() {
+			defer wg.Done()
 			var resObject *response
 
 			reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
@@ -277,7 +282,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		})
 	}
 
-	p.Wait()
+	wg.Wait()
 	if len(batchRes) == 0 {
 		return nil, nil
 	}
