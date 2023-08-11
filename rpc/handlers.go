@@ -1018,7 +1018,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	return res, nil
 }
 
-func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
 	var status *TransactionStatus
 
 	receipt, txErr := h.TransactionReceiptByHash(hash)
@@ -1029,7 +1029,7 @@ func (h *Handler) TransactionStatus(hash felt.Felt) (*TransactionStatus, *jsonrp
 			Execution: receipt.ExecutionStatus,
 		}
 	case ErrTxnHashNotFound:
-		txStatus, err := h.feederClient.Transaction(context.Background(), &hash)
+		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}

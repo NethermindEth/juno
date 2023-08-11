@@ -125,7 +125,7 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 
 		wsc.requests.Inc()
 		// Decode the message, call the handler, encode the response.
-		resp, err := wsc.rpc.Handle(r)
+		resp, err := wsc.rpc.Handle(ctx, r)
 		if err != nil {
 			// RPC handling issues should not affect the connection.
 			// Ignore the request and let the client close the connection.
