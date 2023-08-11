@@ -236,10 +236,10 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	p := pool.New().WithErrors()
+	p := pool.New()
 	for _, rawReq := range batchReq {
 		rawReq := rawReq
-		p.Go(func() error {
+		p.Go(func() {
 			var resObject *response
 
 			reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
@@ -247,7 +247,6 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			req := new(request)
 			if jsonErr := reqDec.Decode(req); jsonErr != nil {
-				cancel()
 				resObject = &response{
 					Version: "2.0",
 					Error:   Err(InvalidRequest, jsonErr.Error()),
@@ -268,21 +267,17 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			if resObject != nil {
 				if resArr, jsonErr := json.Marshal(resObject); jsonErr != nil {
-					return jsonErr
+					s.log.Errorw("failed to marshal response", "err", jsonErr)
 				} else {
 					resMutex.Lock()
 					batchRes = append(batchRes, resArr)
 					resMutex.Unlock()
 				}
 			}
-
-			return nil
 		})
 	}
 
-	if err := p.Wait(); err != nil {
-		return nil, err
-	}
+	p.Wait()
 	if len(batchRes) == 0 {
 		return nil, nil
 	}
