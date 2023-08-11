@@ -31,6 +31,7 @@ type FinalityStatus uint8
 const (
 	AcceptedOnL2 FinalityStatus = iota + 1
 	AcceptedOnL1
+	NotReceived
 )
 
 func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
@@ -39,6 +40,8 @@ func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
 		*fs = AcceptedOnL2
 	case `"ACCEPTED_ON_L1"`:
 		*fs = AcceptedOnL1
+	case `"NOT_RECEIVED"`:
+		*fs = NotReceived
 	default:
 		return errors.New("unknown FinalityStatus")
 	}
