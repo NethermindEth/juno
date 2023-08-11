@@ -18,9 +18,8 @@ type MockDownloader struct {
 
 func (m *MockDownloader) DownloadAndWrite(ctx context.Context, reader io.Reader, writer io.Writer, bar *pb.ProgressBar) error {
 	return m.DownloadAndWriteFunc(ctx, reader, writer, bar)
-	
-
 }
+
 func TestDownloadSnapshot(t *testing.T) {
 	t.Run("Successful download", func(t *testing.T) {
 		mockDownloader := &MockDownloader{
@@ -50,7 +49,7 @@ func TestDownloadSnapshot(t *testing.T) {
 				return context.Canceled
 			},
 		}
-		
+
 		err := DownloadFile(context.Background(), "mainnet", createTemporaryDir(t), mockDownloader)
 		assert.Error(t, err)
 		assert.Equal(t, "context canceled", err.Error())
@@ -62,15 +61,12 @@ func TestDownloadSnapshot(t *testing.T) {
 				return errors.New("download error")
 			},
 		}
-	
+
 		err := DownloadFile(context.Background(), "mainnet", createTemporaryDir(t), mockDownloader)
 		assert.Error(t, err)
 		assert.Equal(t, "download error", err.Error())
 	})
-	
 }
-
-
 
 func createTemporaryDir(t testing.TB) string {
 	t.Helper()
