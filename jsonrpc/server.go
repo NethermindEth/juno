@@ -99,7 +99,7 @@ type Method struct {
 }
 
 type Server struct {
-	methods   map[string]Method
+	callbacks   map[string]callback
 	validator Validator
 	log       utils.SimpleLogger
 
@@ -115,7 +115,7 @@ type Validator interface {
 func NewServer(log utils.SimpleLogger) *Server {
 	s := &Server{
 		log:     log,
-		methods: make(map[string]Method),
+		callbacks: make(map[string]callback),
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "server",
@@ -141,22 +141,12 @@ func (s *Server) WithValidator(validator Validator) *Server {
 // - paramNames are the names of parameters in the order that they are expected
 // by the handler
 func (s *Server) RegisterMethod(method Method) error {
-	handlerT := reflect.TypeOf(method.Handler)
-	if handlerT.Kind() != reflect.Func {
-		return errors.New("handler must be a function")
+	callback, err := newCallback(method)
+	if err != nil {
+		return err
 	}
-	if handlerT.NumIn() != len(method.Params) {
-		return errors.New("number of function params and param names must match")
-	}
-	if handlerT.NumOut() != 2 {
-		return errors.New("handler must return 2 values")
-	}
-	if handlerT.Out(1) != reflect.TypeOf(&Error{}) {
-		return errors.New("second return value must be a *jsonrpc.Error")
-	}
-
-	s.methods[method.Name] = method
-
+	callback.parser = s.parseParam
+	s.callbacks[method.Name] = callback
 	return nil
 }
 
@@ -289,85 +279,26 @@ func (s *Server) handleRequest(req *request) (*response, error) {
 		ID:      req.ID,
 	}
 
-	calledMethod, found := s.methods[req.Method]
+	callback, found := s.callbacks[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
 		return res, nil
 	}
 
-	args, err := s.buildArguments(req.Params, calledMethod.Handler, calledMethod.Params)
+	args, err := callback.buildArgs(req.Params)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
 		return res, nil
 	}
 
 	s.requests.WithLabelValues(req.Method).Inc()
-	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
-	if res.ID == nil { // notification
+	notification := res.ID == nil
+	result, resultError := callback.call(notification,args)
+	if notification {
 		return nil, nil
 	}
-
-	if errAny := tuple[1].Interface(); !isNil(errAny) {
-		res.Error = errAny.(*Error)
-		return res, nil
-	}
-
-	res.Result = tuple[0].Interface()
+	res.Result, res.Error = result, resultError
 	return res, nil
-}
-
-func (s *Server) buildArguments(params, handler any, configuredParams []Parameter) ([]reflect.Value, error) {
-	args := make([]reflect.Value, 0, len(configuredParams))
-	if isNil(params) {
-		if len(configuredParams) > 0 {
-			return nil, errors.New("missing non-optional param field")
-		}
-
-		return args, nil
-	}
-
-	handlerType := reflect.TypeOf(handler)
-
-	switch reflect.TypeOf(params).Kind() {
-	case reflect.Slice:
-		paramsList := params.([]any)
-
-		if len(paramsList) != handlerType.NumIn() {
-			return nil, errors.New("missing/unexpected params in list")
-		}
-
-		for i, param := range paramsList {
-			v, err := s.parseParam(param, handlerType.In(i))
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, v)
-		}
-	case reflect.Map:
-		paramsMap := params.(map[string]any)
-
-		for i, configuredParam := range configuredParams {
-			var v reflect.Value
-			if param, found := paramsMap[configuredParam.Name]; found {
-				var err error
-				v, err = s.parseParam(param, handlerType.In(i))
-				if err != nil {
-					return nil, err
-				}
-			} else if configuredParam.Optional {
-				// optional parameter
-				v = reflect.New(handlerType.In(i)).Elem()
-			} else {
-				return nil, errors.New("missing non-optional param")
-			}
-
-			args = append(args, v)
-		}
-	default:
-		// Todo: consider returning InternalError
-		return nil, errors.New("impossible param type: check request.isSane")
-	}
-	return args, nil
 }
 
 func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
@@ -416,3 +347,120 @@ func (s *Server) validateParam(param reflect.Value) error {
 
 	return nil
 }
+
+type paramParser func(v any, t reflect.Type) (reflect.Value, error)
+
+type callback struct {
+	method Method
+	returnsErr bool
+
+	parser paramParser
+}
+
+func newCallback(method Method) (callback,error) { 
+	var (
+		callback = callback{method: method}
+		handlerT = reflect.TypeOf(method.Handler)
+	)
+	if handlerT.Kind() != reflect.Func {
+		return callback,errors.New("handler must be a function")
+	}
+	if handlerT.NumIn() != len(method.Params) {
+		return callback,errors.New("number of function params and param names must match")
+	}
+	// Validate return values
+	switch handlerT.NumOut(){
+	case 0: // no return
+	case 1: // can be either error or any
+		callback.returnsErr = handlerT.Out(0) == reflect.TypeOf(&Error{})
+	case 2: // second is always error
+		callback.returnsErr = true
+		if handlerT.Out(1) != reflect.TypeOf(&Error{}) {
+			return callback, errors.New("second return value must be a *jsonrpc.Error")
+		}
+	default:
+		return callback, errors.New("method return values can't be greater than 2")
+	}
+	return callback, nil
+}
+
+// Builds arguments for calling the underlying method
+func (c callback) buildArgs(params any) ([]reflect.Value, error) { 
+	args := make([]reflect.Value, 0, len(c.method.Params))
+	if isNil(params) {
+		if len(c.method.Params) > 0 {
+			return nil, errors.New("missing non-optional param field")
+		}
+
+		return args, nil
+	}
+
+	handlerType := reflect.TypeOf(c.method.Handler)
+
+	switch reflect.TypeOf(params).Kind() {
+	case reflect.Slice:
+		paramsList := params.([]any)
+
+		if len(paramsList) != handlerType.NumIn() {
+			return nil, errors.New("missing/unexpected params in list")
+		}
+
+		for i, param := range paramsList {
+			v, err := c.parser(param, handlerType.In(i))
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, v)
+		}
+	case reflect.Map:
+		paramsMap := params.(map[string]any)
+
+		for i, configuredParam := range c.method.Params {
+			var v reflect.Value
+			if param, found := paramsMap[configuredParam.Name]; found {
+				var err error
+				v, err = c.parser(param, handlerType.In(i))
+				if err != nil {
+					return nil, err
+				}
+			} else if configuredParam.Optional {
+				// optional parameter
+				v = reflect.New(handlerType.In(i)).Elem()
+			} else {
+				return nil, errors.New("missing non-optional param")
+			}
+
+			args = append(args, v)
+		}
+	default:
+		// Todo: consider returning InternalError
+		return nil, errors.New("impossible param type: check request.isSane")
+	}
+	return args, nil
+}
+
+// Calls the underlying handler with provided args.
+func (c callback) call(ignoreOutput bool,args []reflect.Value) (res any, errRes *Error) {
+	tuple := reflect.ValueOf(c.method.Handler).Call(args)
+	if ignoreOutput {
+		return nil, nil
+	}
+
+	if c.returnsErr {
+		if errAny := tuple[len(tuple)-1].Interface(); !isNil(errAny) {
+			errRes = errAny.(*Error)
+			return
+		}
+	}
+
+	switch len(tuple) {
+	case 2:
+		res = tuple[0].Interface()
+	case 1:
+		if !c.returnsErr {
+			res = tuple[0].Interface()
+		}
+	}
+	return
+}
+
