@@ -10,11 +10,13 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sourcegraph/conc/pool"
 )
 
 const (
@@ -110,6 +112,7 @@ type Method struct {
 type Server struct {
 	methods   map[string]Method
 	validator Validator
+	pool      *pool.Pool
 	log       utils.SimpleLogger
 
 	// metrics
@@ -121,10 +124,11 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer(log utils.SimpleLogger) *Server {
+func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 	s := &Server{
 		log:     log,
 		methods: make(map[string]Method),
+		pool:    pool.New().WithMaxGoroutines(poolMaxGoroutines),
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "rpc",
 			Subsystem: "server",
@@ -211,52 +215,13 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 		}
 	} else {
 		var batchReq []json.RawMessage
-		var batchRes []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
 			res.Error = Err(InvalidJSON, batchJSONErr.Error())
 		} else if len(batchReq) == 0 {
 			res.Error = Err(InvalidRequest, "empty batch")
 		} else {
-			for _, rawReq := range batchReq { // todo: handle async
-				var resObject *response
-
-				reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
-				reqDec.UseNumber()
-
-				req := new(request)
-				if jsonErr := reqDec.Decode(req); jsonErr != nil {
-					resObject = &response{
-						Version: "2.0",
-						Error:   Err(InvalidRequest, jsonErr.Error()),
-					}
-				} else {
-					var handleErr error
-					resObject, handleErr = s.handleRequest(ctx, req)
-					if handleErr != nil {
-						resObject = &response{
-							Version: "2.0",
-							Error:   Err(InvalidRequest, handleErr.Error()),
-						}
-						if !errors.Is(handleErr, ErrInvalidID) {
-							resObject.ID = req.ID
-						}
-					}
-				}
-
-				if resObject != nil {
-					if resArr, jsonErr := json.Marshal(resObject); jsonErr != nil {
-						return nil, jsonErr
-					} else {
-						batchRes = append(batchRes, resArr)
-					}
-				}
-			}
-
-			if len(batchRes) == 0 {
-				return nil, nil
-			}
-			return json.Marshal(batchRes)
+			return s.handleBatchRequest(ctx, batchReq)
 		}
 	}
 
@@ -264,6 +229,69 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 		return nil, nil
 	}
 	return json.Marshal(res)
+}
+
+func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, error) {
+	var (
+		responses []json.RawMessage
+		mutex     sync.Mutex
+	)
+
+	addResponse := func(response any) {
+		if responseJSON, err := json.Marshal(response); err != nil {
+			s.log.Errorw("failed to marshal response", "err", err)
+		} else {
+			mutex.Lock()
+			responses = append(responses, responseJSON)
+			mutex.Unlock()
+		}
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for _, rawReq := range batchReq {
+		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
+		reqDec.UseNumber()
+
+		req := new(request)
+		if err := reqDec.Decode(req); err != nil {
+			addResponse(&response{
+				Version: "2.0",
+				Error:   Err(InvalidRequest, err.Error()),
+			})
+			continue
+		}
+
+		wg.Add(1)
+		s.pool.Go(func() {
+			defer wg.Done()
+
+			resp, err := s.handleRequest(ctx, req)
+			if err != nil {
+				resp = &response{
+					Version: "2.0",
+					Error:   Err(InvalidRequest, err.Error()),
+				}
+				if !errors.Is(err, ErrInvalidID) {
+					resp.ID = req.ID
+				}
+			}
+			// for notification request response is nil
+			if resp != nil {
+				addResponse(resp)
+			}
+		})
+	}
+
+	wg.Wait()
+	// according to the spec if there are no response objects server must not return empty array
+	if len(responses) == 0 {
+		return nil, nil
+	}
+
+	return json.Marshal(responses)
 }
 
 func isBatch(reader *bufio.Reader) bool {

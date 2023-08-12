@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/node/http"
+	junohttp "github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
 	rpcclient "github.com/ethereum/go-ethereum/rpc"
