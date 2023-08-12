@@ -56,7 +56,6 @@ func Err(code int, data any) *Error {
 		return &Error{Code: MethodNotFound, Message: "Method Not Found", Data: data}
 	case InvalidParams:
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
-
 	default:
 		return &Error{Code: InternalError, Message: "Internal Error", Data: data}
 	}
