@@ -1843,19 +1843,16 @@ func TestTransactionStatus(t *testing.T) {
 		network           utils.Network
 		verifiedTxHash    *felt.Felt
 		nonVerifiedTxHash *felt.Felt
-		notFoundTxHash    *felt.Felt
 	}{
 		{
 			network:           utils.MAINNET,
 			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
-			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
 			network:           utils.INTEGRATION,
 			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
-			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
 		},
 	}
 
@@ -1913,9 +1910,8 @@ func TestTransactionStatus(t *testing.T) {
 			})
 			t.Run("transaction not found in db", func(t *testing.T) {
 				notFoundTests := map[string]struct {
-					finality      rpc.TxnFinalityStatus
-					hash          *felt.Felt
-					expectedError *jsonrpc.Error
+					finality rpc.TxnFinalityStatus
+					hash     *felt.Felt
 				}{
 					"verified": {
 						finality: rpc.TxnAcceptedOnL1,
@@ -1925,10 +1921,6 @@ func TestTransactionStatus(t *testing.T) {
 						finality: rpc.TxnAcceptedOnL2,
 						hash:     test.nonVerifiedTxHash,
 					},
-					"not found": {
-						hash:          test.notFoundTxHash,
-						expectedError: rpc.ErrTxnHashNotFound,
-					},
 				}
 
 				for description, notFoundTest := range notFoundTests {
@@ -1936,14 +1928,63 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound)
 						handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
-
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
+						require.Nil(t, err)
+						require.Equal(t, notFoundTest.finality, status.Finality)
+						require.Equal(t, rpc.TxnSuccess, status.Execution)
+					})
+				}
+			})
+		})
+	}
+}
+
+func TestTransactionNotFoundStatus(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	tests := []struct {
+		network        utils.Network
+		notFoundTxHash *felt.Felt
+	}{
+		{
+			network:        utils.MAINNET,
+			notFoundTxHash: utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
+		},
+		{
+			network:        utils.INTEGRATION,
+			notFoundTxHash: utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.network.String(), func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
+
+			t.Run("transaction not found", func(t *testing.T) {
+				notFoundTests := map[string]struct {
+					finality      rpc.TxnFinalityStatus
+					hash          *felt.Felt
+					expectedError *jsonrpc.Error
+				}{
+					"not found": {
+						hash: test.notFoundTxHash,
+					},
+				}
+				ctx := context.Background()
+				for description, notFoundTest := range notFoundTests {
+					t.Run(description, func(t *testing.T) {
+						client := feeder.NewTestClient(t, test.network)
+						mockReader := mocks.NewMockReader(mockCtrl)
+
+						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound)
+						handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+
+						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
+
 						if notFoundTest.expectedError != nil {
 							require.Equal(t, err, notFoundTest.expectedError)
-						} else {
-							require.Nil(t, err)
-							require.Equal(t, notFoundTest.finality, status.Finality)
-							require.Equal(t, rpc.TxnSuccess, status.Execution)
 						}
 					})
 				}
