@@ -1984,7 +1984,7 @@ func TestTransactionNotFoundStatus(t *testing.T) {
 
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.NotNil(t, err)
-						require.Equal(t, err, notFoundTest.expectedError)
+						require.Equal(t, err, rpc.ErrTxnHashNotFound)
 					})
 				}
 			})
