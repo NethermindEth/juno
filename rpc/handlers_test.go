@@ -1928,6 +1928,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound)
 						handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Nil(t, err)
 						require.Equal(t, notFoundTest.finality, status.Finality)
@@ -1982,10 +1983,8 @@ func TestTransactionNotFoundStatus(t *testing.T) {
 						handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
 
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
-
-						if notFoundTest.expectedError != nil {
-							require.Equal(t, err, notFoundTest.expectedError)
-						}
+						require.NotNil(t, err)
+						require.Equal(t, err, notFoundTest.expectedError)
 					})
 				}
 			})
