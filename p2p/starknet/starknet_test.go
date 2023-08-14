@@ -50,8 +50,8 @@ func TestClientHandler(t *testing.T) {
 
 		count := uint32(0)
 		for header, valid := res(); valid; header, valid = res() {
-			assert.Equal(t, count, header.State.NLeaves)
 			count++
+			assert.Equal(t, count, header.ProtocolVersion)
 		}
 		require.Equal(t, uint32(4), count)
 	})

@@ -83,9 +83,7 @@ func (h *Handler) HandleGetBlocks(req *spec.GetBlocks) (Stream[proto.Message], e
 		}
 		count++
 		return &spec.BlockHeader{
-			State: &spec.Merkle{
-				NLeaves: count - 1,
-			},
+			ProtocolVersion: count,
 		}, true
 	}, nil
 }

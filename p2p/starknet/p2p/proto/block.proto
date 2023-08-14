@@ -22,7 +22,7 @@ message BlockHeader {
 
     // State is optional and appears every X blocks for the last block. This is to support
     // snapshot sync and also so that light nodes can sync on state without state diffs.
-    Merkle state = 5; // hash of contract and class patricia tries. Same as in L1. Later more trees will be included
+    Hash state = 5; // hash of contract and class patricia tries. Same as in L1. Later more trees will be included
 
     Hash proof_fact = 6; // for Kth block behind. A hash of the output of the proof
 
