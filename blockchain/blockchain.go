@@ -27,6 +27,7 @@ type Reader interface {
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
+	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)

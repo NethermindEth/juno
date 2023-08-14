@@ -66,6 +66,21 @@ func (mr *MockReaderMockRecorder) BlockByNumber(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), arg0)
 }
 
+// BlockCommitmentsByNumber mocks base method.
+func (m *MockReader) BlockCommitmentsByNumber(arg0 uint64) (*core.BlockCommitments, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockCommitmentsByNumber", arg0)
+	ret0, _ := ret[0].(*core.BlockCommitments)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockCommitmentsByNumber indicates an expected call of BlockCommitmentsByNumber.
+func (mr *MockReaderMockRecorder) BlockCommitmentsByNumber(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommitmentsByNumber", reflect.TypeOf((*MockReader)(nil).BlockCommitmentsByNumber), arg0)
+}
+
 // BlockHeaderByHash mocks base method.
 func (m *MockReader) BlockHeaderByHash(arg0 *felt.Felt) (*core.Header, error) {
 	m.ctrl.T.Helper()
