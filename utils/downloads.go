@@ -53,11 +53,17 @@ func (d *RealDownloader) DownloadAndWrite(ctx context.Context, reader io.Reader,
 }
 
 func DownloadFile(ctx context.Context, network, location string, downloader Downloader) error {
-	_, ok := snapshots[network]
-	if !ok {
+	if _, ok := snapshots[network]; !ok {
 		return fmt.Errorf("the %s network is not supported", network)
 	}
-	resp, err := http.Get(snapshots[network]) //nolint
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, snapshots[network], nil)
+	if err != nil {
+		return err
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
 	if err != nil {
 		return err
 	}

@@ -106,7 +106,8 @@ func main() {
 		return nil
 	})
 
-	SnapshotInit(cmd)
+	snapshotCmd := NewSnapshotCmd()
+	cmd.AddCommand(snapshotCmd)
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
