@@ -62,7 +62,7 @@ func newTestServer() *httptest.Server {
 		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte(err.Error())) //nolint:errcheck
 			return
 		}
 
@@ -73,13 +73,13 @@ func newTestServer() *httptest.Server {
 			return
 		} else if len(b) <= emptyReqLen {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"code": "Malformed Request", "message": "empty request"}`))
+			w.Write([]byte(`{"code": "Malformed Request", "message": "empty request"}`)) //nolint:errcheck
 			return
 		}
 
 		hash := new(felt.Felt).SetBytes([]byte("random"))
 		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
-		w.Write([]byte(resp))
+		w.Write([]byte(resp)) //nolint:errcheck
 	}))
 }
 

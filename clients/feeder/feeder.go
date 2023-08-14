@@ -141,8 +141,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-
-		w.Write(read)
+		w.Write(read) //nolint:errcheck
 	}))
 }
 
