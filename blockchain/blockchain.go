@@ -17,6 +17,8 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
+	Network() utils.Network
+
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)

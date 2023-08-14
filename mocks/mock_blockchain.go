@@ -10,6 +10,7 @@ import (
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	utils "github.com/NethermindEth/juno/utils"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -200,6 +201,20 @@ func (m *MockReader) L1Head() (*core.L1Head, error) {
 func (mr *MockReaderMockRecorder) L1Head() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1Head", reflect.TypeOf((*MockReader)(nil).L1Head))
+}
+
+// Network mocks base method.
+func (m *MockReader) Network() utils.Network {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Network")
+	ret0, _ := ret[0].(utils.Network)
+	return ret0
+}
+
+// Network indicates an expected call of Network.
+func (mr *MockReaderMockRecorder) Network() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Network", reflect.TypeOf((*MockReader)(nil).Network))
 }
 
 // Pending mocks base method.
