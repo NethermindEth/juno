@@ -65,3 +65,27 @@ func TestIndexFunc(t *testing.T) {
 		assert.Equal(t, 2, idx)
 	})
 }
+
+func TestAll(t *testing.T) {
+	t.Run("nil slice", func(t *testing.T) {
+		var input []int
+		allValue := All(input, func(int) bool {
+			return false
+		})
+		assert.True(t, allValue)
+	})
+	t.Run("no element matches the predicate", func(t *testing.T) {
+		input := []int{1, 2, 3, 4}
+		allEven := All(input, func(v int) bool {
+			return v%2 == 0
+		})
+		assert.False(t, allEven)
+	})
+	t.Run("all elements match the predicate", func(t *testing.T) {
+		input := []int{1, 3, 5, 7}
+		allOdd := All(input, func(v int) bool {
+			return v%2 != 0
+		})
+		assert.True(t, allOdd)
+	})
+}
