@@ -72,6 +72,18 @@ func TestLogLevelUnmarshalText(t *testing.T) {
 	})
 }
 
+func TestLogLevelMarshalJSON(t *testing.T) {
+	for level, str := range levelStrings {
+		t.Run("level "+str, func(t *testing.T) {
+			lb, err := level.MarshalJSON()
+			require.NoError(t, err)
+
+			expectedStr := `"` + str + `"`
+			assert.Equal(t, expectedStr, string(lb))
+		})
+	}
+}
+
 func TestLogLevelType(t *testing.T) {
 	assert.Equal(t, "LogLevel", new(utils.LogLevel).Type())
 }

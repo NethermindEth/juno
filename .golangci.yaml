@@ -126,6 +126,10 @@ issues:
         - lll
         - gosec
 
+    - linters:
+        - lll
+      source: "^//go:generate "
+
     - path: pkg/golinters/errcheck.go
       text: "SA1019: errCfg.Exclude is deprecated: use ExcludeFunctions instead"
     - path: pkg/commands/run.go

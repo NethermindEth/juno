@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "p2p/proto/common.proto";
+
+// do we need this? capabilities are protocols (but need arguments, e.g. history length)
+/*
+message NewNode
+{
+    PeerID id = 1;
+
+    repeated string capabilities = 2;
+}
+
+message KnownNodes
+{
+    PeerID id = 1; //id of publishing node
+    repeated PeerID nodes = 2; //nodes known to the publishing node
+}
+*/

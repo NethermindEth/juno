@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"runtime"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -34,7 +35,9 @@ func New(listener net.Listener, metrics bool, database db.DB, version string,
 ) (*Server, error) {
 	methods := methods(rpcHandler)
 
-	jsonrpcServer := jsonrpc.NewServer(log).WithValidator(validator.Validator())
+	// to improve RPC throughput we double GOMAXPROCS
+	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
 	for _, method := range methods {
 		if err := jsonrpcServer.RegisterMethod(method); err != nil {
 			return nil, err
@@ -61,8 +64,7 @@ func New(listener net.Listener, metrics bool, database db.DB, version string,
 	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
 	mux.Handle("/grpc", grpcHandler)
 	if pprofEnable {
-		// Taken from https://artem.krylysov.com/blog/2017/03/13/profiling-and-optimizing-go-web-applications/
-		mux.HandleFunc("/debug/pprof", pprof.Index)
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
