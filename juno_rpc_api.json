@@ -21,7 +21,6 @@
         },
         {
             "name": "juno_getTransactionStatus",
-            "summary": "Returns the status of a transaction",
             "description": "This method returns the current status of a transaction. The status is comprised of both finality and execution statuses",
             "params": [
                 {
@@ -78,18 +77,18 @@
                 "title": "A transaction's hash"
             },
             "TX_FINALITY_STATUS": {
-                "type": "integer",
+                "type": "string",
                 "enum": [
-                    1,
-                    2
+                    "1",
+                    "2"
                 ],
                 "description": "The finality status of the transaction"
             },
             "TX_EXECUTION_STATUS": {
-                "type": "integer",
+                "type": "string",
                 "enum": [
-                    1,
-                    2
+                    "1",
+                    "2"
                 ],
                 "description": "The execution status of the transaction"
             }
