@@ -12,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,8 +47,13 @@ func TestClientHandler(t *testing.T) {
 	t.Run("get blocks", func(t *testing.T) {
 		res, cErr := client.GetBlocks(testCtx, &spec.GetBlocks{})
 		require.NoError(t, cErr)
-		require.Len(t, res.GetBlocks(), 1)
-		require.Equal(t, uint32(251), res.GetBlocks()[0].Header.State.NLeaves)
+
+		count := uint32(0)
+		for header, valid := res(); valid; header, valid = res() {
+			assert.Equal(t, count, header.State.NLeaves)
+			count++
+		}
+		require.Equal(t, uint32(4), count)
 	})
 
 	t.Run("get signatures", func(t *testing.T) {

@@ -4,8 +4,6 @@ import "p2p/proto/block.proto";
 import "p2p/proto/event.proto";
 import "p2p/proto/receipt.proto";
 import "p2p/proto/transaction.proto";
-import "p2p/proto/state.proto";
-
 
 message Request {
   oneof req {
@@ -15,13 +13,4 @@ message Request {
     GetReceipts get_receipts = 5;
     GetTransactions get_transactions = 6;
   }
-}
-
-message GetBlocksResponse {
-  repeated HeaderAndStateDiff blocks = 1;
-}
-
-message HeaderAndStateDiff {
-  BlockHeader header = 1;
-  StateDiff state_diff = 2;
 }

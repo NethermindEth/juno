@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -26,13 +27,7 @@ func NewClient(newStream NewStreamFunc, protocolID protocol.ID, log utils.Logger
 	}
 }
 
-func (c *Client) sendAndReceiveInto(ctx context.Context, req, res proto.Message) error {
-	stream, err := c.newStream(ctx, c.protocolID)
-	if err != nil {
-		return err
-	}
-	defer stream.Close() // todo: dont ignore close errors
-
+func (c *Client) sendAndCloseWrite(stream network.Stream, req proto.Message) error {
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		return err
@@ -41,33 +36,50 @@ func (c *Client) sendAndReceiveInto(ctx context.Context, req, res proto.Message)
 	if _, err = stream.Write(reqBytes); err != nil {
 		return err
 	}
-
-	if err = stream.CloseWrite(); err != nil {
-		return err
-	}
-
-	buffer := getBuffer()
-	defer bufferPool.Put(buffer)
-
-	if _, err = buffer.ReadFrom(stream); err != nil {
-		return err
-	}
-
-	return proto.Unmarshal(buffer.Bytes(), res)
+	return stream.CloseWrite()
 }
 
-func (c *Client) GetBlocks(ctx context.Context, req *spec.GetBlocks) (*spec.GetBlocksResponse, error) {
+func (c *Client) receiveInto(stream network.Stream, res proto.Message) error {
+	return protodelim.UnmarshalFrom(&byteReader{stream}, res)
+}
+
+func (c *Client) sendAndReceiveInto(ctx context.Context, req, res proto.Message) error {
+	stream, err := c.newStream(ctx, c.protocolID)
+	if err != nil {
+		return err
+	}
+	defer stream.Close() // todo: dont ignore close errors
+
+	if err = c.sendAndCloseWrite(stream, req); err != nil {
+		return err
+	}
+
+	return c.receiveInto(stream, res)
+}
+
+func (c *Client) GetBlocks(ctx context.Context, req *spec.GetBlocks) (Stream[*spec.BlockHeader], error) {
 	wrappedReq := spec.Request{
 		Req: &spec.Request_GetBlocks{
 			GetBlocks: req,
 		},
 	}
 
-	var res spec.GetBlocksResponse
-	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
+	stream, err := c.newStream(ctx, c.protocolID)
+	if err != nil {
 		return nil, err
 	}
-	return &res, nil
+	if err := c.sendAndCloseWrite(stream, &wrappedReq); err != nil {
+		return nil, err
+	}
+
+	return func() (*spec.BlockHeader, bool) {
+		var res spec.BlockHeader
+		if err := c.receiveInto(stream, &res); err != nil {
+			stream.Close() // todo: dont ignore close errors
+			return nil, false
+		}
+		return &res, true
+	}, nil
 }
 
 func (c *Client) GetSignatures(ctx context.Context, req *spec.GetSignatures) (*spec.Signatures, error) {
