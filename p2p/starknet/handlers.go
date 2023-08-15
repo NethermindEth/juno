@@ -2,14 +2,13 @@
 package starknet
 
 import (
-	"bytes"
 	"fmt"
-	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
+	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -25,19 +24,6 @@ func NewHandler(bcReader blockchain.Reader, log utils.Logger) *Handler {
 	}
 }
 
-// bufferPool caches unused buffer objects for later reuse.
-var bufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
-
-func getBuffer() *bytes.Buffer {
-	buffer := bufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	return buffer
-}
-
 func (h *Handler) StreamHandler(stream network.Stream) {
 	defer func() {
 		if err := stream.Close(); err != nil {
@@ -45,16 +31,8 @@ func (h *Handler) StreamHandler(stream network.Stream) {
 		}
 	}()
 
-	buffer := getBuffer()
-	defer bufferPool.Put(buffer)
-
-	if _, err := buffer.ReadFrom(stream); err != nil {
-		h.log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-		return
-	}
-
 	var req spec.Request
-	if err := proto.Unmarshal(buffer.Bytes(), &req); err != nil {
+	if err := protodelim.UnmarshalFrom(&byteReader{stream}, &req); err != nil {
 		h.log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		return
 	}
@@ -65,47 +43,50 @@ func (h *Handler) StreamHandler(stream network.Stream) {
 		return
 	}
 
-	responseBytes, err := proto.Marshal(response)
-	if err != nil {
-		h.log.Debugw("Error marshalling response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err, "response", response)
-		return
-	}
-
-	if _, err = stream.Write(responseBytes); err != nil {
-		h.log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-		return
+	for msg, valid := response(); valid; msg, valid = response() {
+		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
+			h.log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		}
 	}
 }
 
-func (h *Handler) reqHandler(req *spec.Request) (proto.Message, error) {
+func (h *Handler) reqHandler(req *spec.Request) (Stream[proto.Message], error) {
+	var singleResponse proto.Message
+	var err error
 	switch typedReq := req.GetReq().(type) {
 	case *spec.Request_GetBlocks:
 		return h.HandleGetBlocks(typedReq.GetBlocks)
 	case *spec.Request_GetSignatures:
-		return h.HandleGetSignatures(typedReq.GetSignatures)
+		singleResponse, err = h.HandleGetSignatures(typedReq.GetSignatures)
 	case *spec.Request_GetEvents:
-		return h.HandleGetEvents(typedReq.GetEvents)
+		singleResponse, err = h.HandleGetEvents(typedReq.GetEvents)
 	case *spec.Request_GetReceipts:
-		return h.HandleGetReceipts(typedReq.GetReceipts)
+		singleResponse, err = h.HandleGetReceipts(typedReq.GetReceipts)
 	case *spec.Request_GetTransactions:
-		return h.HandleGetTransactions(typedReq.GetTransactions)
+		singleResponse, err = h.HandleGetTransactions(typedReq.GetTransactions)
 	default:
 		return nil, fmt.Errorf("unhandled request %T", typedReq)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+	return StaticStream[proto.Message](singleResponse), nil
 }
 
-func (h *Handler) HandleGetBlocks(req *spec.GetBlocks) (*spec.GetBlocksResponse, error) {
+func (h *Handler) HandleGetBlocks(req *spec.GetBlocks) (Stream[proto.Message], error) {
 	// todo: read from bcReader and adapt to p2p type
-	return &spec.GetBlocksResponse{
-		Blocks: []*spec.HeaderAndStateDiff{
-			{
-				Header: &spec.BlockHeader{
-					State: &spec.Merkle{
-						NLeaves: 251,
-					},
-				},
+	count := uint32(0)
+	return func() (proto.Message, bool) {
+		if count > 3 {
+			return nil, false
+		}
+		count++
+		return &spec.BlockHeader{
+			State: &spec.Merkle{
+				NLeaves: count - 1,
 			},
-		},
+		}, true
 	}, nil
 }
 
