@@ -4,9 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -33,8 +37,25 @@ func TestClientHandler(t *testing.T) {
 	clientID := peers[1]
 
 	log := utils.NewNopZapLogger()
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := starknet.NewHandler(mockReader, log)
+
+	testDB := pebble.NewMemTest()
+	t.Cleanup(func() {
+		testDB.Close()
+	})
+	bc := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
+	feederClient := feeder.NewTestClient(t, bc.Network())
+	gw := adaptfeeder.New(feederClient)
+	for i := 0; i < 7; i++ {
+		b, err := gw.BlockByNumber(context.Background(), uint64(i))
+		require.NoError(t, err)
+		s, err := gw.StateUpdate(context.Background(), uint64(i))
+		require.NoError(t, err)
+		commitment, err := bc.SanityCheckNewHeight(b, s, nil)
+		require.NoError(t, err)
+		require.NoError(t, bc.Store(b, commitment, s, nil))
+	}
+
+	handler := starknet.NewHandler(bc, log)
 
 	handlerHost := mockNet.Host(handlerID)
 	handlerHost.SetStreamHandler(testPID, handler.StreamHandler)
@@ -45,15 +66,62 @@ func TestClientHandler(t *testing.T) {
 	}, testPID, log)
 
 	t.Run("get blocks", func(t *testing.T) {
-		res, cErr := client.GetBlocks(testCtx, &spec.GetBlocks{})
-		require.NoError(t, cErr)
+		assertIsBlockWithNumber := func(p2pHeader *spec.BlockHeader, expectedBlockNum uint64) {
+			parentHash, err := p2p2core.AdaptHash(p2pHeader.ParentBlock.Hash)
+			require.NoError(t, err)
 
-		count := uint32(0)
-		for header, valid := res(); valid; header, valid = res() {
-			count++
-			assert.Equal(t, count, header.ProtocolVersion)
+			parentHeader, err := bc.BlockHeaderByHash(&parentHash)
+			require.NoError(t, err)
+
+			assert.Equal(t, expectedBlockNum, parentHeader.Number+1)
 		}
-		require.Equal(t, uint32(4), count)
+		t.Run("forward", func(t *testing.T) {
+			res, cErr := client.GetBlocks(testCtx, &spec.GetBlocks{
+				Start: &spec.BlockID{
+					Height: 0,
+				},
+				Direction: spec.GetBlocks_Forward,
+				Limit:     3,
+				Skip:      1,
+				Step:      2,
+			})
+			require.NoError(t, cErr)
+
+			block1, valid := res()
+			require.True(t, valid)
+			assertIsBlockWithNumber(block1, 1)
+			block3, valid := res()
+			require.True(t, valid)
+			assertIsBlockWithNumber(block3, 3)
+			block5, valid := res()
+			require.True(t, valid)
+			assertIsBlockWithNumber(block5, 5)
+			_, valid = res()
+			require.False(t, valid)
+		})
+
+		t.Run("backward", func(t *testing.T) {
+			res, cErr := client.GetBlocks(testCtx, &spec.GetBlocks{
+				Start: &spec.BlockID{
+					Height: 5,
+				},
+				Direction: spec.GetBlocks_Backward,
+				Limit:     2,
+				Skip:      0,
+				Step:      1,
+			})
+			require.NoError(t, cErr)
+
+			block5, valid := res()
+			require.True(t, valid)
+			assertIsBlockWithNumber(block5, 5)
+			block4, valid := res()
+			require.True(t, valid)
+			assertIsBlockWithNumber(block4, 4)
+			_, valid = res()
+			require.False(t, valid)
+
+		})
 	})
 
 	t.Run("get signatures", func(t *testing.T) {

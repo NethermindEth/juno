@@ -2,8 +2,11 @@
 package starknet
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -75,16 +78,52 @@ func (h *Handler) reqHandler(req *spec.Request) (Stream[proto.Message], error) {
 }
 
 func (h *Handler) HandleGetBlocks(req *spec.GetBlocks) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint32(0)
+	startID := req.GetStart()
+	if startID == nil {
+		return nil, errors.New("nil start id")
+	}
+
+	chainID := h.bcReader.Network().ChainID()
+	startBlockNum := startID.Height
+	if startID.Hash != nil {
+		startBlockHash, err := p2p2core.AdaptHash(startID.Hash)
+		if err != nil {
+			return nil, err
+		}
+		startBlockHeader, err := h.bcReader.BlockHeaderByHash(&startBlockHash)
+		if err != nil {
+			return nil, err
+		}
+		startBlockNum = startBlockHeader.Number
+	}
+	startBlockNum += req.Skip
+
+	offset := uint64(0)
 	return func() (proto.Message, bool) {
-		if count > 3 {
+		if offset >= req.Limit {
 			return nil, false
 		}
-		count++
-		return &spec.BlockHeader{
-			ProtocolVersion: count,
-		}, true
+
+		var blockNum uint64
+		if req.Direction == spec.GetBlocks_Forward {
+			blockNum = startBlockNum + offset*req.Step
+		} else {
+			blockNum = startBlockNum - offset*req.Step
+		}
+
+		block, err := h.bcReader.BlockByNumber(blockNum)
+		if err != nil {
+			return nil, false
+		}
+
+		commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNum)
+		if err != nil {
+			return nil, false
+		}
+
+		offset++
+		// todo: stream state updates as well
+		return core2p2p.AdaptHeader(block, commitments, chainID), true
 	}, nil
 }
 
