@@ -361,7 +361,6 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 	return res, nil
 }
 
-//nolint:gocyclo
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
 	if isNil(params) {
 		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
