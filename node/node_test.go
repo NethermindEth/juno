@@ -3,6 +3,7 @@ package node_test
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
@@ -29,4 +30,31 @@ func TestDefaultDbPath(t *testing.T) {
 			assert.Equal(t, expectedCfg, snNode.Config())
 		})
 	}
+}
+
+// Create a new node with all services enabled.
+func TestNewNode(t *testing.T) {
+	config := &node.Config{
+		LogLevel:            utils.INFO,
+		HTTP:                true,
+		HTTPPort:            0,
+		Websocket:           true,
+		WebsocketPort:       0,
+		GRPC:                true,
+		GRPCPort:            0,
+		DatabasePath:        "",
+		Network:             utils.MAINNET,
+		EthNode:             "",
+		Pprof:               true,
+		PprofPort:           0,
+		Colour:              true,
+		PendingPollInterval: time.Second,
+		Metrics:             true,
+		MetricsPort:         0,
+		P2P:                 true,
+		P2PAddr:             "",
+		P2PBootPeers:        "",
+	}
+
+	node.New(config, "v0.3")
 }
