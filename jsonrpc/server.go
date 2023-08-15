@@ -363,11 +363,11 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 
 //nolint:gocyclo
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
-	allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
-		return p.Optional
-	})
-
 	if isNil(params) {
+		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
+			return p.Optional
+		})
+
 		if len(method.Params) > 0 && !allParamsAreOptional {
 			return nil, errors.New("missing non-optional param field")
 		}
@@ -390,10 +390,6 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 	case reflect.Slice:
 		paramsList := params.([]any)
 
-		if len(paramsList) == 0 && allParamsAreOptional {
-			return s.buildDefaultArguments(ctx, method)
-		}
-
 		if len(paramsList) != numArgs-addContext {
 			return nil, errors.New("missing/unexpected params in list")
 		}
@@ -407,10 +403,6 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		}
 	case reflect.Map:
 		paramsMap := params.(map[string]any)
-
-		if len(paramsMap) == 0 && allParamsAreOptional {
-			return s.buildDefaultArguments(ctx, method)
-		}
 
 		for i, configuredParam := range method.Params {
 			var v reflect.Value
