@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -17,10 +18,10 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -28,6 +29,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
@@ -96,19 +98,55 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	}
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
+	services := make([]service.Service, 0)
+
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
+	// to improve RPC throughput we double GOMAXPROCS
+	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	for _, method := range methods(rpcHandler) {
+		if err := jsonrpcServer.RegisterMethod(method); err != nil {
+			return nil, err
+		}
+	}
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
 	}
-	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, cfg.Pprof, log)
+	httpRPC, err := makeRPCOverHTTP(listener, jsonrpcServer, log)
 	if err != nil {
-		return nil, fmt.Errorf("create RPC servers: %w", err)
+		return nil, fmt.Errorf("setup http rpc server: %w", err)
+	}
+	services = append(services, httpRPC)
+	wsRPC, err := makeRPCOverWebsocket(listener, jsonrpcServer, log)
+	if err != nil {
+		return nil, fmt.Errorf("setup http rpc server: %w", err)
+	}
+	services = append(services, wsRPC)
+	if cfg.Metrics {
+		metricsListener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return nil, fmt.Errorf("listen on metrics port: %w", err)
+		}
+		services = append(services, makeMetrics(metricsListener))
+	}
+	grpcListener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return nil, fmt.Errorf("listen on grpc port: %w", err)
+	}
+	services = append(services, makeGRPC(grpcListener, database, version))
+	if cfg.Pprof {
+		pprofListener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return nil, fmt.Errorf("listen on pprof port: %w", err)
+		}
+		services = append(services, makePPROF(pprofListener))
 	}
 
 	n := &Node{
@@ -117,7 +155,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   []service.Service{rpcSrv, synchronizer},
+		services:   services,
 	}
 
 	if n.cfg.EthNode == "" {
