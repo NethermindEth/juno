@@ -79,16 +79,16 @@
             "TX_FINALITY_STATUS": {
                 "type": "string",
                 "enum": [
-                    "1",
-                    "2"
+                    "ACCEPTED_ON_L1",
+                    "ACCEPTED_ON_L2"
                 ],
                 "description": "The finality status of the transaction"
             },
             "TX_EXECUTION_STATUS": {
                 "type": "string",
                 "enum": [
-                    "1",
-                    "2"
+                    "SUCCEEDED",
+                    "REVERTED"
                 ],
                 "description": "The execution status of the transaction"
             }
