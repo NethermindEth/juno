@@ -44,15 +44,22 @@ const (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
+	HTTP                bool           `mapstructure:"http"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
+	Websocket           bool           `mapstructure:"ws"`
+	WebsocketPort       uint16         `mapstructure:"ws-port"`
+	GRPC                bool           `mapstructure:"grpc"`
+	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
+	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
-	Metrics bool `mapstructure:"metrics"`
+	Metrics     bool   `mapstructure:"metrics"`
+	MetricsPort uint16 `mapstructure:"metrics-port"`
 
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
@@ -115,34 +122,44 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 			return nil, err
 		}
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
-	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
+	if cfg.HTTP {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
+		if err != nil {
+			return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
+		}
+		httpRPC, err := makeRPCOverHTTP(listener, jsonrpcServer, log)
+		if err != nil {
+			return nil, fmt.Errorf("setup http rpc server: %w", err)
+		}
+		services = append(services, httpRPC)
 	}
-	httpRPC, err := makeRPCOverHTTP(listener, jsonrpcServer, log)
-	if err != nil {
-		return nil, fmt.Errorf("setup http rpc server: %w", err)
+	if cfg.Websocket {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.WebsocketPort))
+		if err != nil {
+			return nil, fmt.Errorf("listen on http port %d: %w", cfg.WebsocketPort, err)
+		}
+		wsRPC, err := makeRPCOverWebsocket(listener, jsonrpcServer, log)
+		if err != nil {
+			return nil, fmt.Errorf("setup websocket rpc server: %w", err)
+		}
+		services = append(services, wsRPC)
 	}
-	services = append(services, httpRPC)
-	wsRPC, err := makeRPCOverWebsocket(listener, jsonrpcServer, log)
-	if err != nil {
-		return nil, fmt.Errorf("setup http rpc server: %w", err)
-	}
-	services = append(services, wsRPC)
 	if cfg.Metrics {
-		metricsListener, err := net.Listen("tcp", ":0")
+		metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.MetricsPort))
 		if err != nil {
 			return nil, fmt.Errorf("listen on metrics port: %w", err)
 		}
 		services = append(services, makeMetrics(metricsListener))
 	}
-	grpcListener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return nil, fmt.Errorf("listen on grpc port: %w", err)
+	if cfg.GRPC {
+		grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
+		if err != nil {
+			return nil, fmt.Errorf("listen on grpc port: %w", err)
+		}
+		services = append(services, makeGRPC(grpcListener, database, version))
 	}
-	services = append(services, makeGRPC(grpcListener, database, version))
 	if cfg.Pprof {
-		pprofListener, err := net.Listen("tcp", ":0")
+		pprofListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.PprofPort))
 		if err != nil {
 			return nil, fmt.Errorf("listen on pprof port: %w", err)
 		}
