@@ -14,3 +14,4 @@ ignore:
   - grpc/gen/*
   - vm
   - p2p/starknet/spec
+  - docs

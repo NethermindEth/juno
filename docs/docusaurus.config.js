@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Juno',
   tagline: 'Decentralising Starknet',
-  favicon: 'img/favicon.ico', // TODO
+  favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
   url: 'https://your-docusaurus-test-site.com', // TODO
@@ -58,7 +58,7 @@ const config = {
         title: 'Juno',
         logo: {
           alt: 'Juno logo',
-          src: 'img/logo.svg', // TODO
+          src: 'img/logo.svg',
         },
         items: [
           {
@@ -75,14 +75,14 @@ const config = {
         ],
       },
       footer: {
-        style: 'dark',
+        style: 'light',
         links: [
           {
             title: 'Docs',
             items: [
               {
                 label: 'Quick Start',
-                to: '/docs/intro', // TODO: quick start
+                to: '/docs/intro',
               },
             ],
           },
