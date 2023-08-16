@@ -60,7 +60,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             class_hash: val.call.class_hash,
             result: Some(val.execution.retdata.0),
             function_call: FunctionCall {
-                contract_address: val.call.code_address,
+                contract_address: val.call.storage_address,
                 entry_point_selector: val.call.entry_point_selector,
                 calldata: val.call.calldata,
             },
@@ -73,7 +73,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
 
 #[derive(Serialize)]
 pub struct FunctionCall {
-    pub contract_address: Option<ContractAddress>,
+    pub contract_address: ContractAddress,
     pub entry_point_selector: EntryPointSelector,
     pub calldata: Calldata,
 }
