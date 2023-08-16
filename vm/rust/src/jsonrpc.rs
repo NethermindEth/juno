@@ -7,16 +7,35 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
 #[derive(Serialize)]
-pub struct TransactionTrace {
-    pub validate_invocation: Option<FunctionInvocation>,
-    pub execute_invocation: Option<FunctionInvocation>,
-    pub fee_transfer_invocation: Option<FunctionInvocation>,
+#[serde(untagged)]
+pub enum TransactionTrace {
+    // used for INVOKE_TXN_TRACE and DECLARE_TXN_TRACE
+    Common {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validate_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        execute_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fee_transfer_invocation: Option<FunctionInvocation>,
+    },
+    DeployAccount {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validate_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        constructor_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fee_transfer_invocation: Option<FunctionInvocation>,
+    },
+    L1Handler {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        function_invocation: Option<FunctionInvocation>
+    }
 }
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
 impl From<BlockifierTxInfo> for TransactionTrace {
     fn from(info: BlockifierTxInfo) -> Self {
-        TransactionTrace {
+        TransactionTrace::Common {
             validate_invocation: match info.validate_call_info {
                 Some(v) => Some(v.into()),
                 None => None,

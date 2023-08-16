@@ -277,7 +277,7 @@ fn transaction_from_api(
     match tx {
         StarknetApiTransaction::Deploy(deploy) => {
             return Err(format!(
-                "Deploy transaction is not supported (transaction_hash={})",
+                "Unsupported deploy transaction in the traced block (transaction_hash={})",
                 deploy.transaction_hash
             ))
         }
