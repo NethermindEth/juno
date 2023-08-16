@@ -99,6 +99,7 @@ pub extern "C" fn cairoVMCall(
             block_number,
             block_timestamp,
             StarkFelt::default(),
+            1,
         ),
         AccountTransactionContext::default(),
         4_000_000,
@@ -128,6 +129,7 @@ pub extern "C" fn cairoVMExecute(
     sequencer_address: *const c_uchar,
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
+    gas_price: *const c_uchar
 ) {
     let reader = JunoStateReader::new(reader_handle);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -162,11 +164,13 @@ pub extern "C" fn cairoVMExecute(
     let mut classes = classes.unwrap();
 
     let sequencer_address_felt = ptr_to_felt(sequencer_address);
+    let gas_price_felt = ptr_to_felt(gas_price);
     let block_context: BlockContext = build_block_context(
         chain_id_str,
         block_number,
         block_timestamp,
         sequencer_address_felt,
+        felt_to_u128(gas_price_felt),
     );
     let mut state = CachedState::new(reader);
 
@@ -254,6 +258,14 @@ pub extern "C" fn cairoVMExecute(
     }
 }
 
+fn felt_to_u128(felt: StarkFelt) -> u128 {
+    let bytes = felt.bytes();
+    let mut arr = [0u8; 16];
+    arr.copy_from_slice(&bytes[16..32]);
+
+    u128::from_le_bytes(arr)
+}
+
 fn transaction_from_api(
     tx: StarknetApiTransaction,
     contract_class: Option<ContractClass>,
@@ -296,6 +308,7 @@ fn build_block_context(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     sequencer_address: StarkFelt,
+    gas_price: u128,
 ) -> BlockContext {
     BlockContext {
         chain_id: ChainId(chain_id_str.into()),
@@ -312,7 +325,7 @@ fn build_block_context(
             .unwrap(),
         )
         .unwrap(),
-        gas_price: 1, // fixed gas price, so that we can return "consumed gas" to Go side
+        gas_price: gas_price, // fixed gas price, so that we can return "consumed gas" to Go side
         vm_resource_fee_cost: HashMap::from([
             (N_STEPS_RESOURCE.to_string(), N_STEPS_FEE_WEIGHT),
             (OUTPUT_BUILTIN_NAME.to_string(), 0.0),
