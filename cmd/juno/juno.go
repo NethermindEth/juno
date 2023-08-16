@@ -65,7 +65,7 @@ const (
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
 	defaultMetrics             = false
-	defaultMetricsPort         = 6063
+	defaultMetricsPort         = 9090
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
 

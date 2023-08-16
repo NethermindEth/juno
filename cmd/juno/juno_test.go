@@ -31,7 +31,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
-	defaultMetricsPort := uint16(6063)
+	defaultMetricsPort := uint16(9090)
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
