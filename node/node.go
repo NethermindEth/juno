@@ -79,7 +79,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
+func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {
@@ -123,36 +123,36 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		}
 	}
 	if cfg.HTTP {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
-		if err != nil {
+		listener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
+		if lerr != nil {
 			return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
 		}
 		services = append(services, makeRPCOverHTTP(listener, jsonrpcServer, log))
 	}
 	if cfg.Websocket {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.WebsocketPort))
-		if err != nil {
+		listener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.WebsocketPort))
+		if lerr != nil {
 			return nil, fmt.Errorf("listen on http port %d: %w", cfg.WebsocketPort, err)
 		}
 		services = append(services, makeRPCOverWebsocket(listener, jsonrpcServer, log))
 	}
 	if cfg.Metrics {
-		metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.MetricsPort))
-		if err != nil {
+		metricsListener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.MetricsPort))
+		if lerr != nil {
 			return nil, fmt.Errorf("listen on metrics port: %w", err)
 		}
 		services = append(services, makeMetrics(metricsListener))
 	}
 	if cfg.GRPC {
-		grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
-		if err != nil {
+		grpcListener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
+		if lerr != nil {
 			return nil, fmt.Errorf("listen on grpc port: %w", err)
 		}
 		services = append(services, makeGRPC(grpcListener, database, version))
 	}
 	if cfg.Pprof {
-		pprofListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.PprofPort))
-		if err != nil {
+		pprofListener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.PprofPort))
+		if lerr != nil {
 			return nil, fmt.Errorf("listen on pprof port: %w", err)
 		}
 		services = append(services, makePPROF(pprofListener))
