@@ -253,9 +253,12 @@ pub extern "C" fn cairoVMExecute(
                         felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
                     );
 
-                    append_trace(reader_handle, t.into());
+                    append_trace(
+                        reader_handle,
+                        jsonrpc::new_transaction_trace(sn_api_txn, t),
+                    );
                 }
-            }
+            },
         }
     }
 }

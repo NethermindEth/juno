@@ -5,6 +5,7 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Transaction as StarknetApiTransaction};
 
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -33,21 +34,51 @@ pub enum TransactionTrace {
 }
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
-impl From<BlockifierTxInfo> for TransactionTrace {
-    fn from(info: BlockifierTxInfo) -> Self {
-        TransactionTrace::Common {
-            validate_invocation: match info.validate_call_info {
-                Some(v) => Some(v.into()),
-                None => None,
-            },
-            execute_invocation: match info.execute_call_info {
-                Some(v) => Some(v.into()),
-                None => None,
-            },
-            fee_transfer_invocation: match info.fee_transfer_call_info {
-                Some(v) => Some(v.into()),
-                None => None,
-            },
+pub fn new_transaction_trace(tx: StarknetApiTransaction, info: BlockifierTxInfo) -> TransactionTrace {
+    match tx {
+        StarknetApiTransaction::L1Handler(_) => {
+            TransactionTrace::L1Handler {
+                function_invocation: match info.execute_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                }
+            }
+        },
+        StarknetApiTransaction::DeployAccount(_) => {
+            TransactionTrace::DeployAccount {
+                validate_invocation: match info.validate_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                constructor_invocation: match info.execute_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                fee_transfer_invocation: match info.fee_transfer_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+            }
+        },
+        StarknetApiTransaction::Declare(_) | StarknetApiTransaction::Invoke(_) => {
+            TransactionTrace::Common {
+                validate_invocation: match info.validate_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                execute_invocation: match info.execute_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                fee_transfer_invocation: match info.fee_transfer_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+            }
+        },
+        StarknetApiTransaction::Deploy(_) => {
+            // shouldn't happen since we don't support deploy
+            panic!("Can't create transaction trace for deploy transaction (unsupported)");
         }
     }
 }
