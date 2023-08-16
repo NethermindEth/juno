@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -83,24 +82,15 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		default:
 			block, err := s.StarknetData.BlockByNumber(ctx, height)
 			if err != nil {
-				feederErr, ok := err.(feeder.Error)
-				if !ok {
-					s.log.Warnw("Failed fetching from feeder", "error", feederErr.Error())
-				}
 				continue
 			}
 			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
 			if err != nil {
-				feederErr, ok := err.(feeder.Error)
-				if !ok {
-					s.log.Warnw("Failed fetching from feeder", "error", feederErr.Error())
-				}
 				continue
 			}
 
 			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
 			if err != nil {
-				s.log.Warnw("Failed fetching from feeder", "error", err)
 				continue
 			}
 

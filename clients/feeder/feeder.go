@@ -18,17 +18,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type ErrorCode string
-
-type Error struct {
-	Code    ErrorCode `json:"code"`
-	Message string    `json:"message"`
-}
-
-func (e Error) Error() string {
-	return e.Message
-}
-
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
@@ -194,7 +183,6 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
 	var res *http.Response
 	var err error
-	var feederError Error
 	wait := time.Duration(0)
 	for i := 0; i <= c.maxRetries; i++ {
 		select {
@@ -213,10 +201,6 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
-					body, readErr := io.ReadAll(res.Body)
-					if readErr == nil && len(body) > 0 {
-						err = json.Unmarshal(body, &feederError)		
-					}
 					err = errors.New(res.Status)
 				}
 
@@ -230,11 +214,8 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Warnw("failed query to feeder, retrying...", "retryAfter", wait.String())
+			c.log.Warnw("failed query to feeder", "getting error", err, "retrying...", "retryAfter", wait.String())
 		}
-	}
-	if len(feederError.Code) != 0 {
-		return nil, feederError
 	}
 	return nil, err
 }
