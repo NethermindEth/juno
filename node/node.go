@@ -118,7 +118,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
 	for _, method := range methods(rpcHandler) {
-		if err := jsonrpcServer.RegisterMethod(method); err != nil {
+		if err = jsonrpcServer.RegisterMethod(method); err != nil {
 			return nil, err
 		}
 	}
