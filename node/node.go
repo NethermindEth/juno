@@ -127,22 +127,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		if err != nil {
 			return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
 		}
-		httpRPC, err := makeRPCOverHTTP(listener, jsonrpcServer, log)
-		if err != nil {
-			return nil, fmt.Errorf("setup http rpc server: %w", err)
-		}
-		services = append(services, httpRPC)
+		services = append(services, makeRPCOverHTTP(listener, jsonrpcServer, log))
 	}
 	if cfg.Websocket {
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.WebsocketPort))
 		if err != nil {
 			return nil, fmt.Errorf("listen on http port %d: %w", cfg.WebsocketPort, err)
 		}
-		wsRPC, err := makeRPCOverWebsocket(listener, jsonrpcServer, log)
-		if err != nil {
-			return nil, fmt.Errorf("setup websocket rpc server: %w", err)
-		}
-		services = append(services, wsRPC)
+		services = append(services, makeRPCOverWebsocket(listener, jsonrpcServer, log))
 	}
 	if cfg.Metrics {
 		metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.MetricsPort))

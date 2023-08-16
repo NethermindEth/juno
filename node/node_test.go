@@ -42,7 +42,7 @@ func TestNewNode(t *testing.T) {
 		WebsocketPort:       0,
 		GRPC:                true,
 		GRPCPort:            0,
-		DatabasePath:        "",
+		DatabasePath:        t.TempDir(),
 		Network:             utils.MAINNET,
 		EthNode:             "",
 		Pprof:               true,
@@ -56,5 +56,6 @@ func TestNewNode(t *testing.T) {
 		P2PBootPeers:        "",
 	}
 
-	node.New(config, "v0.3")
+	_, err := node.New(config, "v0.3")
+	require.NoError(t, err)
 }

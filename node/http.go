@@ -48,7 +48,7 @@ func (h *httpService) Run(ctx context.Context) error {
 	}
 }
 
-func makeRPCOverHTTP(listener net.Listener, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) (*httpService, error) {
+func makeRPCOverHTTP(listener net.Listener, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
 	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
 	mux := http.NewServeMux()
 	mux.Handle("/", httpHandler)
@@ -61,10 +61,10 @@ func makeRPCOverHTTP(listener net.Listener, jsonrpcServer *jsonrpc.Server, log u
 			ReadTimeout: 30 * time.Second,
 		},
 		listener: listener,
-	}, nil
+	}
 }
 
-func makeRPCOverWebsocket(listener net.Listener, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) (*httpService, error) {
+func makeRPCOverWebsocket(listener net.Listener, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
 	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
 	mux := http.NewServeMux()
 	mux.Handle("/", wsHandler)
@@ -77,7 +77,7 @@ func makeRPCOverWebsocket(listener net.Listener, jsonrpcServer *jsonrpc.Server, 
 			ReadTimeout: 30 * time.Second,
 		},
 		listener: listener,
-	}, nil
+	}
 }
 
 func makeMetrics(listener net.Listener) *httpService {
