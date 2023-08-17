@@ -3,9 +3,10 @@ package node
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net"
 	"net/http"
 	"net/http/pprof"
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -48,10 +49,10 @@ func (h *httpService) Run(ctx context.Context) error {
 }
 
 func makeHTTPService(port uint16, handler http.Handler) *httpService {
-	address := fmt.Sprintf(":%d", port)
+	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
 		srv: &http.Server{
-			Addr:    address,
+			Addr:    net.JoinHostPort("", portStr),
 			Handler: handler,
 			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
 			ReadTimeout: 30 * time.Second,
