@@ -26,6 +26,8 @@ var (
 	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
 	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
+	ErrInvalidBlockHash                = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
 	ErrInvalidTxIndex                  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
 	ErrClassHashNotFound               = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
 	ErrTxnHashNotFound                 = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
@@ -1111,7 +1113,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		return nil, ErrInvalidTxHash
 	}
 
 	block, err := h.bcReader.BlockByNumber(blockNumber)
@@ -1218,7 +1220,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	block, err := h.bcReader.BlockByHash(&blockHash)
 	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, ErrInvalidBlockHash
 	}
 
 	return h.traceBlockTransactions(block, len(block.Transactions))
