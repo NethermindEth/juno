@@ -47,8 +47,8 @@ func (h *httpService) Run(ctx context.Context) error {
 	}
 }
 
-func makeHTTPService(host string, port uint16, handler http.Handler) *httpService {
-	address := fmt.Sprintf("%s:%d", host, port)
+func makeHTTPService(port uint16, handler http.Handler) *httpService {
+	address := fmt.Sprintf(":%d", port)
 	return &httpService{
 		srv: &http.Server{
 			Addr:    address,
@@ -64,7 +64,7 @@ func makeRPCOverHTTP(port uint16, jsonrpcServer *jsonrpc.Server, log utils.Simpl
 	mux := http.NewServeMux()
 	mux.Handle("/", httpHandler)
 	mux.Handle("/v0_4", httpHandler)
-	return makeHTTPService("", port, mux)
+	return makeHTTPService(port, mux)
 }
 
 func makeRPCOverWebsocket(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
@@ -72,18 +72,18 @@ func makeRPCOverWebsocket(port uint16, jsonrpcServer *jsonrpc.Server, log utils.
 	mux := http.NewServeMux()
 	mux.Handle("/", wsHandler)
 	mux.Handle("/v0_4", wsHandler)
-	return makeHTTPService("", port, mux)
+	return makeHTTPService(port, mux)
 }
 
 func makeMetrics(port uint16) *httpService {
-	return makeHTTPService("", port,
+	return makeHTTPService(port,
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
 func makeGRPC(port uint16, database db.DB, version string) *httpService {
 	grpcHandler := grpc.NewServer()
 	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
-	return makeHTTPService("", port, grpcHandler)
+	return makeHTTPService(port, grpcHandler)
 }
 
 func makePPROF(port uint16) *httpService {
@@ -93,7 +93,7 @@ func makePPROF(port uint16) *httpService {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	return makeHTTPService("", port, mux)
+	return makeHTTPService(port, mux)
 }
 
 func methods(h *rpc.Handler) []jsonrpc.Method { //nolint: funlen
