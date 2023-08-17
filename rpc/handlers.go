@@ -1072,7 +1072,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 }
 
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.SimulateTransactions(id, broadcastedTxns, nil)
+	result, err := h.SimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
 	}
@@ -1142,9 +1142,15 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	if len(simulationFlags) > 0 {
-		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Simulation flags are not supported")
+	skipValidate := utils.Any(simulationFlags, func(f SimulationFlag) bool {
+		return f == SkipValidateFlag
+	})
+	if skipValidate {
+		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
 	}
+	skipFeeCharge := utils.Any(simulationFlags, func(f SimulationFlag) bool {
+		return f == SkipFeeChargeFlag
+	})
 
 	state, closer, err := h.stateByBlockID(&id)
 	if err != nil {
@@ -1190,7 +1196,8 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
-	gasesConsumed, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress, state, h.network, paidFeesOnL1)
+	gasesConsumed, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
+		state, h.network, paidFeesOnL1, skipFeeCharge)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1280,7 +1287,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]Trac
 	}
 
 	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1)
+		sequencerAddress, state, h.network, paidFeesOnL1, false)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()

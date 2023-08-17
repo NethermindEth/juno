@@ -89,3 +89,27 @@ func TestAll(t *testing.T) {
 		assert.True(t, allOdd)
 	})
 }
+
+func TestAny(t *testing.T) {
+	t.Run("nil slice", func(t *testing.T) {
+		var input []int
+		v := Any(input, func(int) bool {
+			return false
+		})
+		assert.False(t, v)
+	})
+	t.Run("not found", func(t *testing.T) {
+		input := []int{1, 2, 3, 4}
+		found := Any(input, func(v int) bool {
+			return v == 5
+		})
+		assert.False(t, found)
+	})
+	t.Run("found", func(t *testing.T) {
+		input := []int{1, 2, 3, 4, 5}
+		found := Any(input, func(v int) bool {
+			return v == 5
+		})
+		assert.True(t, found)
+	})
+}
