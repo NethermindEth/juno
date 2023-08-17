@@ -8,7 +8,8 @@ package vm
 //					char* chain_id);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
-//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json);
+//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
+//					unsigned char skip_charge_fee);
 //
 // #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
 import "C"
@@ -31,6 +32,7 @@ type VM interface {
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+		skipChargeFee bool,
 	) ([]*felt.Felt, error)
 }
 
@@ -134,6 +136,7 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+	skipChargeFee bool,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state: state,
@@ -156,6 +159,11 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 	classesJSONCStr := C.CString(string(classesJSON))
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
+	var skipChargeFeeByte byte
+	if skipChargeFee {
+		skipChargeFeeByte = 1
+	}
+
 	chainID := C.CString(network.ChainIDString())
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
@@ -164,7 +172,9 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		C.ulonglong(blockTimestamp),
 		chainID,
 		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])),
-		paidFeesOnL1CStr)
+		paidFeesOnL1CStr,
+		C.uchar(skipChargeFeeByte),
+	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
 	C.free(unsafe.Pointer(paidFeesOnL1CStr))
