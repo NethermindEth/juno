@@ -47,3 +47,8 @@ func IndexFunc[T comparable](slice []T, f func(T) bool) int {
 func All[T comparable](slice []T, f func(T) bool) bool {
 	return IndexFunc(slice, func(e T) bool { return !f(e) }) == -1
 }
+
+// Any returns true if any of the elements match the given predicate
+func Any[T comparable](slice []T, f func(T) bool) bool {
+	return IndexFunc(slice, f) != -1
+}

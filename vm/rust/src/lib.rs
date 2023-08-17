@@ -127,6 +127,7 @@ pub extern "C" fn cairoVMExecute(
     chain_id: *const c_char,
     sequencer_address: *const c_uchar,
     paid_fees_on_l1_json: *const c_char,
+    skip_charge_fee: c_uchar,
 ) {
     let reader = JunoStateReader::new(reader_handle);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -210,10 +211,11 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
+        let charge_fee = skip_charge_fee == 0;
         let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => t.execute(&mut state, &block_context),
+            Transaction::AccountTransaction(t) => t.execute(&mut state, &block_context, charge_fee),
             Transaction::L1HandlerTransaction(t) => {
-                let maybe_execution_info = t.execute(&mut state, &block_context);
+                let maybe_execution_info = t.execute(&mut state, &block_context, charge_fee);
                 if maybe_execution_info.is_err() {
                     maybe_execution_info
                 } else {
