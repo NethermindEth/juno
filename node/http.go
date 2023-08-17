@@ -3,13 +3,13 @@ package node
 import (
 	"context"
 	"errors"
-	"net"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/grpc"
+	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc"
@@ -22,8 +22,7 @@ import (
 )
 
 type httpService struct {
-	srv      *http.Server
-	listener net.Listener
+	srv *http.Server
 }
 
 var _ service.Service = (*httpService)(nil)
@@ -35,7 +34,7 @@ func (h *httpService) Run(ctx context.Context) error {
 	var wg conc.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() {
-		if err := h.srv.Serve(h.listener); !errors.Is(err, http.ErrServerClosed) {
+		if err := h.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	})
@@ -48,80 +47,53 @@ func (h *httpService) Run(ctx context.Context) error {
 	}
 }
 
-func makeRPCOverHTTP(listener net.Listener, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
+func makeHTTPService(host string, port uint16, handler http.Handler) *httpService {
+	address := fmt.Sprintf("%s:%d", host, port)
+	return &httpService{
+		srv: &http.Server{
+			Addr:    address,
+			Handler: handler,
+			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
+			ReadTimeout: 30 * time.Second,
+		},
+	}
+}
+
+func makeRPCOverHTTP(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
 	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
 	mux := http.NewServeMux()
 	mux.Handle("/", httpHandler)
 	mux.Handle("/v0_4", httpHandler)
-	return &httpService{
-		srv: &http.Server{
-			Addr:    listener.Addr().String(),
-			Handler: mux,
-			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-			ReadTimeout: 30 * time.Second,
-		},
-		listener: listener,
-	}
+	return makeHTTPService("", port, mux)
 }
 
-func makeRPCOverWebsocket(listener net.Listener, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
+func makeRPCOverWebsocket(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
 	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
 	mux := http.NewServeMux()
 	mux.Handle("/", wsHandler)
 	mux.Handle("/v0_4", wsHandler)
-	return &httpService{
-		srv: &http.Server{
-			Addr:    listener.Addr().String(),
-			Handler: mux,
-			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-			ReadTimeout: 30 * time.Second,
-		},
-		listener: listener,
-	}
+	return makeHTTPService("", port, mux)
 }
 
-func makeMetrics(listener net.Listener) *httpService {
-	return &httpService{
-		srv: &http.Server{
-			Addr:    listener.Addr().String(),
-			Handler: promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}),
-			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-			ReadTimeout: 30 * time.Second,
-		},
-		listener: listener,
-	}
+func makeMetrics(port uint16) *httpService {
+	return makeHTTPService("", port,
+		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
-func makeGRPC(listener net.Listener, database db.DB, version string) *httpService {
+func makeGRPC(port uint16, database db.DB, version string) *httpService {
 	grpcHandler := grpc.NewServer()
 	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
-	return &httpService{
-		srv: &http.Server{
-			Addr:    listener.Addr().String(),
-			Handler: grpcHandler,
-			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-			ReadTimeout: 30 * time.Second,
-		},
-		listener: listener,
-	}
+	return makeHTTPService("", port, grpcHandler)
 }
 
-func makePPROF(listener net.Listener) *httpService {
+func makePPROF(port uint16) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	return &httpService{
-		srv: &http.Server{
-			Addr:    listener.Addr().String(),
-			Handler: mux,
-			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-			ReadTimeout: 30 * time.Second,
-		},
-		listener: listener,
-	}
+	return makeHTTPService("", port, mux)
 }
 
 func methods(h *rpc.Handler) []jsonrpc.Method { //nolint: funlen

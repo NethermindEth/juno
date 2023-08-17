@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -123,39 +122,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 	if cfg.HTTP {
-		listener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
-		if lerr != nil {
-			return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
-		}
-		services = append(services, makeRPCOverHTTP(listener, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPPort, jsonrpcServer, log))
 	}
 	if cfg.Websocket {
-		listener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.WebsocketPort))
-		if lerr != nil {
-			return nil, fmt.Errorf("listen on http port %d: %w", cfg.WebsocketPort, err)
-		}
-		services = append(services, makeRPCOverWebsocket(listener, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log))
 	}
 	if cfg.Metrics {
-		metricsListener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.MetricsPort))
-		if lerr != nil {
-			return nil, fmt.Errorf("listen on metrics port: %w", err)
-		}
-		services = append(services, makeMetrics(metricsListener))
+		services = append(services, makeMetrics(cfg.MetricsPort))
 	}
 	if cfg.GRPC {
-		grpcListener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
-		if lerr != nil {
-			return nil, fmt.Errorf("listen on grpc port: %w", err)
-		}
-		services = append(services, makeGRPC(grpcListener, database, version))
+		services = append(services, makeGRPC(cfg.GRPCPort, database, version))
 	}
 	if cfg.Pprof {
-		pprofListener, lerr := net.Listen("tcp", fmt.Sprintf(":%d", cfg.PprofPort))
-		if lerr != nil {
-			return nil, fmt.Errorf("listen on pprof port: %w", err)
-		}
-		services = append(services, makePPROF(pprofListener))
+		services = append(services, makePPROF(cfg.PprofPort))
 	}
 
 	n := &Node{
