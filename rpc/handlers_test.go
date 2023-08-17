@@ -2032,9 +2032,9 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.Equal(t, latestHeader.Timestamp, blockTimestamp)
 			assert.NotNil(t, sequencerAddress)
 			assert.Len(t, paidFeesOnL1, 1)
-			actualFee := new(felt.Felt).Mul(expectedGasConsumed, gasPrice)
 
-			return []*felt.Felt{actualFee}, []json.RawMessage{{}}, nil
+			overallFee := new(felt.Felt).Mul(expectedGasConsumed, gasPrice)
+			return []*felt.Felt{overallFee}, []json.RawMessage{{}}, nil
 		},
 	)
 
