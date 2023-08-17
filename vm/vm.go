@@ -50,9 +50,9 @@ type callContext struct {
 	err string
 	// response from the executed Cairo function
 	response []*felt.Felt
-	// amount of gas consumed per transaction during VM execution
-	gasConsumed []*felt.Felt
-	traces      []json.RawMessage
+	// fee amount taken per transaction during VM execution
+	actualFees []*felt.Felt
+	traces     []json.RawMessage
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -83,10 +83,10 @@ func JunoAppendResponse(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context.response = append(context.response, makeFeltFromPtr(ptr))
 }
 
-//export JunoAppendGasConsumed
-func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+//export JunoAppendActualFee
+func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.gasConsumed = append(context.gasConsumed, makeFeltFromPtr(ptr))
+	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -196,7 +196,7 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		return nil, nil, errors.New(context.err)
 	}
 
-	return context.gasConsumed, context.traces, nil
+	return context.actualFees, context.traces, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

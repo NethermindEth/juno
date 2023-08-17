@@ -49,7 +49,7 @@ extern "C" {
     fn JunoReportError(reader_handle: usize, err: *const c_char);
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
-    fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar);
+    fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
 }
 
 const N_STEPS_FEE_WEIGHT: f64 = 0.01;
@@ -245,7 +245,7 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(t) => unsafe {
-                JunoAppendGasConsumed(
+                JunoAppendActualFee(
                     reader_handle,
                     felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
                 );
