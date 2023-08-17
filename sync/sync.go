@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"time"
 
@@ -11,14 +12,20 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/metrics"
-	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/stream"
 )
 
-var _ service.Service = (*Synchronizer)(nil)
+//go:generate mockgen -destination=../mocks/mock_l1.go -package=mocks github.com/NethermindEth/juno/sync L1
+type L1 interface {
+	// WatchL1Heads sends on sink whenever the Starknet block number
+	// in the core contract is incremented in a finalized Ethereum block.
+	// All errors received on the subscription's error channel are treated as fatal.
+	WatchL1Heads(context.Context, chan<- *core.L1Head) (event.Subscription, error)
+}
 
 const (
 	opVerifyLabel = "verify"
@@ -39,12 +46,14 @@ type Synchronizer struct {
 
 	catchUpMode bool
 
+	l1 L1
+
 	// metrics
 	opTimers    *prometheus.HistogramVec
 	totalBlocks prometheus.Counter
 }
 
-func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
+func New(bc *blockchain.Blockchain, l1 L1, starkNetData starknetdata.StarknetData,
 	log utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
 	s := &Synchronizer{
@@ -61,6 +70,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 			Namespace: "sync",
 			Name:      "blocks",
 		}),
+		l1: l1,
 	}
 	metrics.MustRegister(s.opTimers, s.totalBlocks)
 	return s
@@ -68,8 +78,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	s.syncBlocks(ctx)
-	return nil
+	return s.syncBlocks(ctx)
 }
 
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
@@ -219,11 +228,18 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
-func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
+func (s *Synchronizer) syncBlocks(syncCtx context.Context) error {
 	defer func() {
 		s.StartingBlockNumber = nil
 		s.HighestBlockHeader = nil
 	}()
+
+	l1Heads := make(chan *core.L1Head, 2048)
+	sub, err := s.l1.WatchL1Heads(syncCtx, l1Heads)
+	if err != nil {
+		return fmt.Errorf("watch L1 heads: %w", err)
+	}
+	defer sub.Unsubscribe()
 
 	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
@@ -245,13 +261,28 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			select {
 			case <-syncCtx.Done():
 				pendingSem <- struct{}{}
-				return
+				return nil
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
 				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
+		case head := <-l1Heads:
+			if err = s.Blockchain.SetL1Head(head); err == nil {
+				s.log.Infow("Updated l1 head",
+					"blockNumber", head.BlockNumber,
+					"blockHash", head.BlockHash.ShortString(),
+					"stateRoot", head.StateRoot.ShortString())
+			} else {
+				err = fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
+				s.log.Errorw("Failed to set L1 head", "err", err)
+			}
+		case err = <-sub.Err():
+			streamCancel()
+			fetchers.Wait()
+			verifiers.Wait()
+			return fmt.Errorf("sync: L1 heads subscription: %w", err)
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {

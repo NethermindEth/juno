@@ -10,7 +10,6 @@ coverage:
         only_pulls: true
 ignore:
   - mocks
-  - l1/internal/contract/starknet.go
   - grpc/gen/*
   - vm
   - p2p/starknet/spec

@@ -18,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/ethereum"
-	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/node/http"
@@ -98,6 +97,27 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
+
+	if cfg.EthNode == "" {
+		log.Warnw("Ethereum node address not found; will not verify against L1")
+	} else {
+		var ethNodeURL *url.URL
+		ethNodeURL, err = url.Parse(cfg.EthNode)
+		if err != nil {
+			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		}
+		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
+			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		}
+		var l1Client *l1.Client
+		l1Client, err = newL1Client(n.cfg.EthNode, n.blockchain, n.log)
+		if err != nil {
+			return nil, fmt.Errorf("create L1 client: %w", err)
+		}
+
+		n.services = append(n.services, l1Client)
+	}
+
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
@@ -118,26 +138,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		db:         database,
 		blockchain: chain,
 		services:   []service.Service{rpcSrv, synchronizer},
-	}
-
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-	} else {
-		var ethNodeURL *url.URL
-		ethNodeURL, err = url.Parse(n.cfg.EthNode)
-		if err != nil {
-			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
-		}
-		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
-		}
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(n.cfg.EthNode, n.blockchain, n.log)
-		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
-		}
-
-		n.services = append(n.services, l1Client)
 	}
 
 	if cfg.P2P {

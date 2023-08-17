@@ -391,7 +391,7 @@ type unreliableEthHandler struct {
 	h *ethHandler
 }
 
-func (e *unreliableEthHandler) ChainId() *hexutil.Big { //nolint:stylecheck
+func (e *unreliableEthHandler) ChainId() *hexutil.Big {
 	return e.h.ChainId()
 }
 
