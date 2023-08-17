@@ -91,6 +91,7 @@ pub extern "C" fn cairoVMCall(
         initial_gas: INITIAL_GAS_COST.into(),
     };
 
+    const GAS_PRICE: u128 = 1;
     let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let mut context = EntryPointExecutionContext::new(
@@ -99,7 +100,7 @@ pub extern "C" fn cairoVMCall(
             block_number,
             block_timestamp,
             StarkFelt::default(),
-            1,
+            GAS_PRICE,
         ),
         AccountTransactionContext::default(),
         4_000_000,
@@ -263,7 +264,8 @@ fn felt_to_u128(felt: StarkFelt) -> u128 {
     let mut arr = [0u8; 16];
     arr.copy_from_slice(&bytes[16..32]);
 
-    u128::from_le_bytes(arr)
+    // felts are encoded in big-endian order
+    u128::from_be_bytes(arr)
 }
 
 fn transaction_from_api(
