@@ -2019,7 +2019,7 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), latestHeader.GasPrice).DoAndReturn(
+		gomock.Any(), utils.MAINNET, gomock.Any(), gomock.Any(), latestHeader.GasPrice).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 			skipChargeFee bool, gasPrice *felt.Felt,
@@ -2030,7 +2030,6 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.Empty(t, declaredClasses)
 			assert.Equal(t, latestHeader.Number, blockNumber)
 			assert.Equal(t, latestHeader.Timestamp, blockTimestamp)
-			assert.Equal(t, utils.MAINNET, network)
 			assert.NotNil(t, sequencerAddress)
 			assert.Len(t, paidFeesOnL1, 1)
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, gasPrice)
@@ -2219,7 +2218,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			GasPrice:         utils.HexToFelt(t, "0x1234"),
+			GasPrice:         utils.HexToFelt(t, "0x777"),
 		}
 		block := &core.Block{
 			Header:       header,
