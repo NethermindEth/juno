@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -17,10 +17,10 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -28,6 +28,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sourcegraph/conc"
@@ -42,15 +43,22 @@ const (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
+	HTTP                bool           `mapstructure:"http"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
+	Websocket           bool           `mapstructure:"ws"`
+	WebsocketPort       uint16         `mapstructure:"ws-port"`
+	GRPC                bool           `mapstructure:"grpc"`
+	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
+	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
-	Metrics bool `mapstructure:"metrics"`
+	Metrics     bool   `mapstructure:"metrics"`
+	MetricsPort uint16 `mapstructure:"metrics-port"`
 
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
@@ -70,7 +78,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
+func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {
@@ -96,19 +104,37 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 	}
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
+	services := make([]service.Service, 0)
+
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
-	if err != nil {
-		return nil, fmt.Errorf("listen on http port %d: %w", cfg.HTTPPort, err)
+	// to improve RPC throughput we double GOMAXPROCS
+	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	for _, method := range methods(rpcHandler) {
+		if err = jsonrpcServer.RegisterMethod(method); err != nil {
+			return nil, err
+		}
 	}
-	rpcSrv, err := junohttp.New(listener, cfg.Metrics, database, version, rpcHandler, cfg.Pprof, log)
-	if err != nil {
-		return nil, fmt.Errorf("create RPC servers: %w", err)
+	if cfg.HTTP {
+		services = append(services, makeRPCOverHTTP(cfg.HTTPPort, jsonrpcServer, log))
+	}
+	if cfg.Websocket {
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log))
+	}
+	if cfg.Metrics {
+		services = append(services, makeMetrics(cfg.MetricsPort))
+	}
+	if cfg.GRPC {
+		services = append(services, makeGRPC(cfg.GRPCPort, database, version))
+	}
+	if cfg.Pprof {
+		services = append(services, makePPROF(cfg.PprofPort))
 	}
 
 	n := &Node{
@@ -117,7 +143,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		version:    version,
 		db:         database,
 		blockchain: chain,
-		services:   []service.Service{rpcSrv, synchronizer},
+		services:   services,
 	}
 
 	if n.cfg.EthNode == "" {

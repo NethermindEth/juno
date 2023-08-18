@@ -1,4 +1,4 @@
-package junohttp
+package node
 
 import (
 	"context"
@@ -6,102 +6,95 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/grpc"
+	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
 )
 
-type Server struct {
-	listener net.Listener
-	mux      *http.ServeMux
+type httpService struct {
+	srv *http.Server
 }
 
-var _ service.Service = (*Server)(nil)
+var _ service.Service = (*httpService)(nil)
 
-func New(listener net.Listener, metrics bool, database db.DB, version string,
-	rpcHandler *rpc.Handler, pprofEnable bool, log utils.SimpleLogger,
-) (*Server, error) {
-	methods := methods(rpcHandler)
-
-	// to improve RPC throughput we double GOMAXPROCS
-	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	for _, method := range methods {
-		if err := jsonrpcServer.RegisterMethod(method); err != nil {
-			return nil, err
-		}
-	}
-
-	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
-	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
-
-	rpcHTTPHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.Header.Get("Upgrade") == "websocket" {
-			wsHandler.ServeHTTP(w, req)
-			return
-		}
-		httpHandler.ServeHTTP(w, req)
-	})
-	mux := http.NewServeMux()
-	mux.Handle("/", rpcHTTPHandler)
-	mux.Handle("/v0_4", rpcHTTPHandler)
-	if metrics {
-		mux.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
-	}
-	grpcHandler := grpc.NewServer()
-	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
-	mux.Handle("/grpc", grpcHandler)
-	if pprofEnable {
-		mux.HandleFunc("/debug/pprof/", pprof.Index)
-		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	}
-
-	return &Server{
-		listener: listener,
-		mux:      mux,
-	}, nil
-}
-
-func (srv *Server) Run(ctx context.Context) error {
-	httpSrv := &http.Server{
-		Addr:    srv.listener.Addr().String(),
-		Handler: srv.mux,
-		// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-		ReadTimeout: 30 * time.Second,
-	}
-
+func (h *httpService) Run(ctx context.Context) error {
 	errCh := make(chan error)
 	defer close(errCh)
 
 	var wg conc.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() {
-		if err := httpSrv.Serve(srv.listener); !errors.Is(err, http.ErrServerClosed) {
+		if err := h.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	})
 
 	select {
 	case <-ctx.Done():
-		return httpSrv.Shutdown(context.Background())
+		return h.srv.Shutdown(context.Background())
 	case err := <-errCh:
 		return err
 	}
+}
+
+func makeHTTPService(port uint16, handler http.Handler) *httpService {
+	portStr := strconv.FormatUint(uint64(port), 10)
+	return &httpService{
+		srv: &http.Server{
+			Addr:    net.JoinHostPort("", portStr),
+			Handler: handler,
+			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
+			ReadTimeout: 30 * time.Second,
+		},
+	}
+}
+
+func makeRPCOverHTTP(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
+	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
+	mux := http.NewServeMux()
+	mux.Handle("/", httpHandler)
+	mux.Handle("/v0_4", httpHandler)
+	return makeHTTPService(port, mux)
+}
+
+func makeRPCOverWebsocket(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
+	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
+	mux := http.NewServeMux()
+	mux.Handle("/", wsHandler)
+	mux.Handle("/v0_4", wsHandler)
+	return makeHTTPService(port, mux)
+}
+
+func makeMetrics(port uint16) *httpService {
+	return makeHTTPService(port,
+		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
+}
+
+func makeGRPC(port uint16, database db.DB, version string) *httpService {
+	grpcHandler := grpc.NewServer()
+	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
+	return makeHTTPService(port, grpcHandler)
+}
+
+func makePPROF(port uint16) *httpService {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	return makeHTTPService(port, mux)
 }
 
 func methods(h *rpc.Handler) []jsonrpc.Method { //nolint: funlen
