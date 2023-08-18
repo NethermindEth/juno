@@ -174,6 +174,7 @@ pub extern "C" fn cairoVMExecute(
         felt_to_u128(gas_price_felt),
     );
     let mut state = CachedState::new(reader);
+    let charge_fee = skip_charge_fee == 0;
 
     for sn_api_txn in sn_api_txns {
         let contract_class = match sn_api_txn.clone() {
@@ -216,19 +217,9 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let charge_fee = skip_charge_fee == 0;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => t.execute(&mut state, &block_context, charge_fee),
-            Transaction::L1HandlerTransaction(t) => {
-                let maybe_execution_info = t.execute(&mut state, &block_context, charge_fee);
-                if maybe_execution_info.is_err() {
-                    maybe_execution_info
-                } else {
-                    let mut execution_info = maybe_execution_info.unwrap();
-                    execution_info.actual_fee = calculate_tx_fee(&execution_info.actual_resources, &block_context).unwrap();
-                    Ok(execution_info)
-                }
-            },
+            Transaction::L1HandlerTransaction(t) => t.execute(&mut state, &block_context, charge_fee),
         };
 
         match res {
@@ -244,17 +235,21 @@ pub extern "C" fn cairoVMExecute(
                 );
                 return;
             }
-            Ok(t) => unsafe {
-                JunoAppendActualFee(
-                    reader_handle,
-                    felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
-                );
+            Ok(mut t) => {
+                // we are estimating fee, override actual fee calculation
+                if !charge_fee {
+                    t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context).unwrap();
+                }
 
-                append_trace(
-                    reader_handle,
-                    t.into(),
-                );
-            },
+                unsafe {
+                    JunoAppendActualFee(
+                        reader_handle,
+                        felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
+                    );
+
+                    append_trace(reader_handle, t.into());
+                }
+            }
         }
     }
 }
