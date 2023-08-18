@@ -47,8 +47,8 @@ type Service struct {
 
 func New(
 	addr,
-	userAgent string,
-	bootPeers string,
+	userAgent,
+	bootPeers,
 	privKeyStr string,
 	snNetwork utils.Network,
 	log utils.SimpleLogger,
@@ -75,7 +75,10 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	return NewWithHost(p2phost, bootPeers, snNetwork, log)
+}
 
+func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
 	p2pdht, err := makeDHT(p2phost, snNetwork, bootPeers)
 	if err != nil {
 		return nil, err

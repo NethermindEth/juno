@@ -113,6 +113,18 @@ func TestNetworkUnmarshalText(t *testing.T) {
 	})
 }
 
+func TestNetworkMarshalJSON(t *testing.T) {
+	for network, str := range networkStrings {
+		t.Run("network "+str, func(t *testing.T) {
+			nb, err := network.MarshalJSON()
+			require.NoError(t, err)
+
+			expectedStr := `"` + str + `"`
+			assert.Equal(t, expectedStr, string(nb))
+		})
+	}
+}
+
 func TestNetworkType(t *testing.T) {
 	assert.Equal(t, "Network", new(utils.Network).Type())
 }

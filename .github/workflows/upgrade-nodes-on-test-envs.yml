@@ -56,33 +56,40 @@ jobs:
         envs: DOCKER_IMAGE_TAG
         script: |
             httpPort=6060
+            metricsPort=9090
+            pprofPort=5050
             for network in mainnet goerli goerli2 integration; do
                 docker stop juno_$network
                 docker rm juno_$network
                 if [ "$network" == "mainnet" ]; then
                     ETH_NODE_PARAM="--eth-node ${{ secrets.ETH_NODE_MAINNET }}"
-                    PPROF_PARAM="--pprof"
                 elif [ "$network" == "goerli" ] || [ "$network" == "goerli2" ]; then
                     ETH_NODE_PARAM="--eth-node ${{ secrets.ETH_NODE_GOERLI }}"
-                    PPROF_PARAM=""
                 elif [ "$network" == "integration" ]; then
                     ETH_NODE_PARAM=""
-                    PPROF_PARAM=""
                 fi
                 docker run -d \
                     --name juno_$network \
                     -p $httpPort:$httpPort \
+                    -p $metricsPort:$metricsPort \
+                    -p $pprofPort:$pprofPort \
                     -v /root/juno_$network:/var/lib/juno \
                     nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
                     --db-path /var/lib/juno \
+                    --http \
                     --http-port $httpPort \
                     --network $network \
                     --colour=false \
                     --pending-poll-interval 5s \
                     --metrics \
-                    $ETH_NODE_PARAM \
-                    $PPROF_PARAM
+                    --metrics-port $metricsPort \
+                    --pprof \
+                    --pprof-port $pprofPort \
+                    $ETH_NODE_PARAM 
+
                 httpPort=$((httpPort+5))
+                metricsPort=$((metricsPort+5))
+                pprofPort=$((pprofPort+5))
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
 

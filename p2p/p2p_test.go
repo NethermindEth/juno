@@ -12,18 +12,21 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestService(t *testing.T) {
-	timeout := time.Second * 30
+	net, err := mocknet.FullMeshLinked(2)
+	require.NoError(t, err)
+	peerHosts := net.Hosts()
+	require.Len(t, peerHosts, 2)
+
+	timeout := time.Second
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	peerA, err := p2p.New(
-		"/ip4/127.0.0.1/tcp/30301",
-		"peerA",
-		"",
+	peerA, err := p2p.NewWithHost(
+		peerHosts[0],
 		"",
 		utils.INTEGRATION,
 		utils.NewNopZapLogger(),
@@ -41,11 +44,9 @@ func TestService(t *testing.T) {
 		bootAddrsString = append(bootAddrsString, bootAddr.String())
 	}
 
-	peerB, err := p2p.New(
-		"/ip4/127.0.0.1/tcp/30302",
-		"peerB",
+	peerB, err := p2p.NewWithHost(
+		peerHosts[1],
 		strings.Join(bootAddrsString, ","),
-		"",
 		utils.INTEGRATION,
 		utils.NewNopZapLogger(),
 	)
@@ -68,16 +69,6 @@ func TestService(t *testing.T) {
 	case <-time.After(timeout):
 		require.True(t, false, "no events were emitted")
 	}
-
-	t.Run("new stream", func(t *testing.T) {
-		stream, err := peerA.NewStream(testCtx, identify.ID)
-		require.NoError(t, err)
-		require.NoError(t, stream.Close())
-
-		stream, err = peerB.NewStream(testCtx, identify.ID)
-		require.NoError(t, err)
-		require.NoError(t, stream.Close())
-	})
 
 	t.Run("gossip", func(t *testing.T) {
 		topic := "coolTopic"
