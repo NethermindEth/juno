@@ -174,13 +174,18 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		blockNumber = &header.Number
 	}
 
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = new(felt.Felt)
+	}
+
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
 		Number:           blockNumber,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
-		SequencerAddress: header.SequencerAddress,
+		SequencerAddress: sequencerAddress,
 	}
 }
 
