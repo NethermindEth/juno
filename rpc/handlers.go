@@ -176,7 +176,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = new(felt.Felt)
+		sequencerAddress = &felt.Zero
 	}
 
 	return BlockHeader{
