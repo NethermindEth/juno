@@ -201,7 +201,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = adaptTransaction(txn, false)
+		txs[index] = adaptTransaction(txn)
 	}
 
 	l1H, jsonErr := h.l1Head()
@@ -223,11 +223,11 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
-func adaptTransaction(t core.Transaction, receipt bool) *Transaction {
+func adaptTransaction(t core.Transaction) *Transaction {
 	switch v := t.(type) {
 	case *core.DeployTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
-		tx := &Transaction{
+		return &Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
@@ -235,10 +235,6 @@ func adaptTransaction(t core.Transaction, receipt bool) *Transaction {
 			ContractAddressSalt: v.ContractAddressSalt,
 			ConstructorCallData: &v.ConstructorCallData,
 		}
-		if receipt {
-			tx.ContractAddress = v.ContractAddress
-		}
-		return tx
 	case *core.InvokeTransaction:
 		return adaptInvokeTransaction(v)
 	case *core.DeclareTransaction:
@@ -246,7 +242,7 @@ func adaptTransaction(t core.Transaction, receipt bool) *Transaction {
 	case *core.DeployAccountTransaction:
 		sig := v.Signature()
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1466
-		tx := &Transaction{
+		return &Transaction{
 			Hash:                v.Hash(),
 			MaxFee:              v.MaxFee,
 			Version:             v.Version,
@@ -257,10 +253,6 @@ func adaptTransaction(t core.Transaction, receipt bool) *Transaction {
 			ConstructorCallData: &v.ConstructorCallData,
 			ClassHash:           v.ClassHash,
 		}
-		if receipt {
-			tx.ContractAddress = v.ContractAddress
-		}
-		return tx
 	case *core.L1HandlerTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1669
 		return &Transaction{
@@ -355,15 +347,11 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
-	return h.transactionByHash(hash, false)
-}
-
-func (h *Handler) transactionByHash(hash felt.Felt, receipt bool) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
-	return adaptTransaction(txn, receipt), nil
+	return adaptTransaction(txn), nil
 }
 
 // BlockTransactionCount returns the number of transactions in a block
@@ -399,7 +387,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 			return nil, ErrInvalidTxIndex
 		}
 
-		return adaptTransaction(pending.Block.Transactions[txIndex], false), nil
+		return adaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
 	header, err := h.blockHeaderByID(&id)
@@ -412,7 +400,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return nil, ErrInvalidTxIndex
 	}
 
-	return adaptTransaction(txn, false), nil
+	return adaptTransaction(txn), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -420,13 +408,21 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	txn, rpcErr := h.transactionByHash(hash, true)
-	if rpcErr != nil {
-		return nil, rpcErr
+	coreTxn, err := h.bcReader.TransactionByHash(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
 	}
+	txn := adaptTransaction(coreTxn)
 	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
+	}
+
+	switch v := coreTxn.(type) {
+	case *core.DeployTransaction:
+		txn.ContractAddress = v.ContractAddress
+	case *core.DeployAccountTransaction:
+		txn.ContractAddress = v.ContractAddress
 	}
 
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
@@ -989,7 +985,7 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 	if err == nil {
 		pendingTxns = make([]*Transaction, 0, len(pending.Block.Transactions))
 		for _, txn := range pending.Block.Transactions {
-			pendingTxns = append(pendingTxns, adaptTransaction(txn, false))
+			pendingTxns = append(pendingTxns, adaptTransaction(txn))
 		}
 	}
 	return pendingTxns, nil
