@@ -224,10 +224,11 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 }
 
 func adaptTransaction(t core.Transaction) *Transaction {
+	var txn *Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
-		return &Transaction{
+		txn = &Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
@@ -236,13 +237,13 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			ConstructorCallData: &v.ConstructorCallData,
 		}
 	case *core.InvokeTransaction:
-		return adaptInvokeTransaction(v)
+		txn = adaptInvokeTransaction(v)
 	case *core.DeclareTransaction:
-		return adaptDeclareTransaction(v)
+		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
 		sig := v.Signature()
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1466
-		return &Transaction{
+		txn = &Transaction{
 			Hash:                v.Hash(),
 			MaxFee:              v.MaxFee,
 			Version:             v.Version,
@@ -255,7 +256,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 		}
 	case *core.L1HandlerTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1669
-		return &Transaction{
+		txn = &Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version,
@@ -267,6 +268,11 @@ func adaptTransaction(t core.Transaction) *Transaction {
 	default:
 		panic("not a transaction")
 	}
+
+	if txn.Version.IsZero() && txn.Type != TxnL1Handler {
+		txn.Nonce = nil
+	}
+	return txn
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605

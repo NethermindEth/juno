@@ -495,7 +495,6 @@ func TestTransactionByHash(t *testing.T) {
 				"max_fee": "0x0",
 				"version": "0x0",
 				"signature": [],
-				"nonce": "0x0",
 				"class_hash": "0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0",
 				"sender_address": "0x1"
 			}`,
@@ -1812,6 +1811,7 @@ func TestPendingTransactions(t *testing.T) {
 				Transactions: []core.Transaction{
 					&core.InvokeTransaction{
 						TransactionHash: utils.HexToFelt(t, "0xdeadbeef"),
+						Version:         utils.HexToFelt(t, "0x0"),
 					},
 				},
 			},
