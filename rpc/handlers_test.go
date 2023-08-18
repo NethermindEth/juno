@@ -2255,3 +2255,31 @@ func TestTraceBlockTransactions(t *testing.T) {
 		assert.Equal(t, expectedResult, result)
 	})
 }
+
+func TestRpcBlockAdaptation(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, utils.GOERLI, nil, nil, nil, "", nil)
+
+	client := feeder.NewTestClient(t, utils.GOERLI)
+	gw := adaptfeeder.New(client)
+	latestBlockNumber := uint64(485004)
+
+	t.Run("default sequencer address", func(t *testing.T) {
+		latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+		require.NoError(t, err)
+		latestBlock.Header.SequencerAddress = nil
+		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+
+		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Latest: true})
+		require.NoError(t, err, rpcErr)
+		require.Equal(t, &felt.Zero, block.BlockHeader.SequencerAddress)
+
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
+		require.NoError(t, err, rpcErr)
+		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
+	})
+}
