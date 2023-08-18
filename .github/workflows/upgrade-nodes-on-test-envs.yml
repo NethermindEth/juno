@@ -80,7 +80,7 @@ jobs:
                     --http-port $httpPort \
                     --network $network \
                     --colour=false \
-                    --pending-poll-interval 5s \
+                    --pending-poll-interval 2s \
                     --metrics \
                     --metrics-port $metricsPort \
                     --pprof \
