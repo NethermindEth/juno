@@ -562,7 +562,6 @@ func TestTransactionByHash(t *testing.T) {
        "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
        "version": "0x0",
        "class_hash": "0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486",
-       "contract_address": "0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3",
        "contract_address_salt": "0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b",
        "constructor_calldata": [
            "0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4",
@@ -587,7 +586,6 @@ func TestTransactionByHash(t *testing.T) {
        ],
        "nonce": "0x0",
        "class_hash": "0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
-       "contract_address": "0x611de19d2df80327af36e9530553c38d2a74fbe74711448689391016324090d",
        "contract_address_salt": "0x14e2ae44cbb50dff0e18140e7c415c1f281207d06fd6a0106caf3ff21e130d8",
        "constructor_calldata": [
            "0x6113c1775f3d0fda0b45efbb69f6e2306da3c174df523ef0acdd372bf0a61cb"
