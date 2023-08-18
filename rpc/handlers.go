@@ -1193,8 +1193,8 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
-	gasesConsumed, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge)
+	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
+		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1202,11 +1202,11 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	var result []SimulatedTransaction
-	for i, gasConsumed := range gasesConsumed {
+	for i, overallFee := range overallFees {
 		estimate := FeeEstimate{
-			GasConsumed: gasConsumed,
+			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
 			GasPrice:    header.GasPrice,
-			OverallFee:  new(felt.Felt).Mul(gasConsumed, header.GasPrice),
+			OverallFee:  overallFee,
 		}
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
@@ -1284,7 +1284,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]Trac
 	}
 
 	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false)
+		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
