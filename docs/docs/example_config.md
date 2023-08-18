@@ -36,7 +36,7 @@ ws-port: 6061
 pprof: false
 pprof-port: 6062
 metrics: false
-metrics-port: 6063
+metrics-port: 9090
 grpc: false
 grpc-port: 6064
 
