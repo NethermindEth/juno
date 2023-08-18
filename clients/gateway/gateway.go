@@ -139,7 +139,9 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", c.userAgent)
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
 	return c.client.Do(req)
 }
 
