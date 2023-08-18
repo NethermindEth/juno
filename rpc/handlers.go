@@ -408,21 +408,13 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	coreTxn, err := h.bcReader.TransactionByHash(&hash)
+	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
-	txn := adaptTransaction(coreTxn)
 	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
-	}
-
-	switch v := coreTxn.(type) {
-	case *core.DeployTransaction:
-		txn.ContractAddress = v.ContractAddress
-	case *core.DeployAccountTransaction:
-		txn.ContractAddress = v.ContractAddress
 	}
 
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
@@ -443,9 +435,12 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	contractAddress := txn.ContractAddress
-	if txn.Type != TxnDeploy && txn.Type != TxnDeployAccount {
-		contractAddress = nil
+	var contractAddress *felt.Felt
+	switch v := txn.(type) {
+	case *core.DeployTransaction:
+		contractAddress = v.ContractAddress
+	case *core.DeployAccountTransaction:
+		contractAddress = v.ContractAddress
 	}
 
 	var receiptBlockNumber *uint64
@@ -474,8 +469,8 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return &TransactionReceipt{
 		FinalityStatus:  status,
 		ExecutionStatus: es,
-		Type:            txn.Type,
-		Hash:            txn.Hash,
+		Type:            adaptTransaction(txn).Type,
+		Hash:            txn.Hash(),
 		ActualFee:       receipt.Fee,
 		BlockHash:       blockHash,
 		BlockNumber:     receiptBlockNumber,
