@@ -35,11 +35,13 @@ const (
 	httpHostF            = "http-host"
 	httpPortF            = "http-port"
 	wsF                  = "ws"
+	wsHostF              = "ws-host"
 	wsPortF              = "ws-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
 	ethNodeF             = "eth-node"
 	pprofF               = "pprof"
+	pprofHostF           = "pprof-host"
 	pprofPortF           = "pprof-port"
 	colourF              = "colour"
 	pendingPollIntervalF = "pending-poll-interval"
@@ -47,12 +49,14 @@ const (
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
 	metricsF             = "metrics"
+	metricsHostF         = "metrics-host"
 	metricsPortF         = "metrics-port"
 	grpcF                = "grpc"
+	grpcHostF            = "grpc-host"
 	grpcPortF            = "grpc-port"
 
 	defaultConfig              = ""
-	defaultHTTPHost            = "localhost"
+	defaulHost                 = "localhost"
 	defaultHTTP                = false
 	defaultHTTPPort            = 6060
 	defaultWS                  = false
@@ -77,10 +81,12 @@ const (
 	httpHostUsage     = "The interface on which the HTTP RPC server will listen for requests."
 	httpPortUsage     = "The port on which the HTTP server will listen for requests."
 	wsUsage           = "Enables the Websocket RPC server on the default port."
+	wsHostUsage       = "The interface on which the Websocket RPC server will listen for requests."
 	wsPortUsage       = "The port on which the websocket server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
 	pprofUsage        = "Enables the pprof endpoint on the default port."
+	pprofHostUsage    = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage    = "The port on which the pprof HTTP server will listen for requests."
 	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
@@ -90,8 +96,10 @@ const (
 	p2PAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
+	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
 	grpcUsage                = "Enable the HTTP GRPC server on the default port."
+	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
 )
 
@@ -182,14 +190,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
-	junoCmd.Flags().String(httpHostF, defaultHTTPHost, httpHostUsage)
+	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
+	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
+	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
@@ -197,8 +207,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
+	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
+	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 
 	return junoCmd
