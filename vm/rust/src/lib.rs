@@ -244,17 +244,31 @@ pub extern "C" fn cairoVMExecute(
                 );
                 return;
             }
-            Ok(t) => unsafe {
-                JunoAppendActualFee(
-                    reader_handle,
-                    felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
-                );
+            Ok(t) => {
+                if t.is_reverted() {
+                    report_error(
+                        reader_handle,
+                        format!(
+                            "reverted txn {:?} reason:{:?}",
+                            sn_api_txn.transaction_hash(),
+                            t.revert_error
+                        )
+                        .as_str(),
+                    );
+                    return
+                }
+                unsafe {
+                    JunoAppendActualFee(
+                        reader_handle,
+                        felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
+                    );
 
-                append_trace(
-                    reader_handle,
-                    t.into(),
-                );
-            },
+                    append_trace(
+                        reader_handle,
+                        t.into(),
+                    );
+                }
+            }
         }
     }
 }
