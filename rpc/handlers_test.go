@@ -1163,7 +1163,7 @@ func TestSyncing(t *testing.T) {
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
-	synchronizer.HighestBlockHeader = &core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}
+	synchronizer.HighestBlockHeader.Store(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)})
 	t.Run("block height is equal to highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 2}, nil)

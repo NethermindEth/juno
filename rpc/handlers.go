@@ -583,7 +583,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if err != nil {
 		return defaultSyncState, nil
 	}
-	highestBlockHeader := h.synchronizer.HighestBlockHeader
+	highestBlockHeader := h.synchronizer.HighestBlockHeader.Load()
 	if highestBlockHeader == nil {
 		return defaultSyncState, nil
 	}
