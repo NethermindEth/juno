@@ -26,6 +26,8 @@ var (
 	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
 	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
+	ErrInvalidBlockHash                = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
 	ErrInvalidTxIndex                  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
 	ErrClassHashNotFound               = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
 	ErrTxnHashNotFound                 = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
@@ -172,13 +174,18 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		blockNumber = &header.Number
 	}
 
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = &felt.Zero
+	}
+
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
 		Number:           blockNumber,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
-		SequencerAddress: header.SequencerAddress,
+		SequencerAddress: sequencerAddress,
 	}
 }
 
@@ -1116,7 +1123,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		return nil, ErrInvalidTxHash
 	}
 
 	block, err := h.bcReader.BlockByNumber(blockNumber)
@@ -1196,8 +1203,8 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
-	gasesConsumed, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge)
+	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
+		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1205,11 +1212,11 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	var result []SimulatedTransaction
-	for i, gasConsumed := range gasesConsumed {
+	for i, overallFee := range overallFees {
 		estimate := FeeEstimate{
-			GasConsumed: gasConsumed,
+			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
 			GasPrice:    header.GasPrice,
-			OverallFee:  new(felt.Felt).Mul(gasConsumed, header.GasPrice),
+			OverallFee:  overallFee,
 		}
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
@@ -1223,7 +1230,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	block, err := h.bcReader.BlockByHash(&blockHash)
 	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, ErrInvalidBlockHash
 	}
 
 	return h.traceBlockTransactions(block, len(block.Transactions))
@@ -1287,7 +1294,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]Trac
 	}
 
 	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false)
+		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
