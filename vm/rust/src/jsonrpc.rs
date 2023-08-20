@@ -1,10 +1,10 @@
-use serde::Serialize;
 use blockifier;
-use starknet_api::core::{ContractAddress, EntryPointSelector, ClassHash};
-use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, EventContent, EthAddress, L2ToL1Payload};
-use starknet_api::deprecated_contract_class::EntryPointType;
 use blockifier::execution::entry_point::CallType;
+use serde::Serialize;
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::deprecated_contract_class::EntryPointType;
+use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
 #[derive(Serialize)]
 pub struct TransactionTrace {
@@ -55,7 +55,8 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             call_type: match val.call.call_type {
                 CallType::Call => "CALL",
                 CallType::Delegate => "LIBRARY_CALL",
-            }.to_string(),
+            }
+            .to_string(),
             caller_address: val.call.caller_address,
             class_hash: val.call.class_hash,
             result: Some(val.execution.retdata.0),
@@ -66,7 +67,13 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             },
             calls: Some(val.inner_calls.into_iter().map(|v| v.into()).collect()),
             events: Some(val.execution.events.into_iter().map(|v| v.event).collect()),
-            messages: Some(val.execution.l2_to_l1_messages.into_iter().map(|v| v.message.into()).collect()),
+            messages: Some(
+                val.execution
+                    .l2_to_l1_messages
+                    .into_iter()
+                    .map(|v| v.message.into())
+                    .collect(),
+            ),
         }
     }
 }
@@ -78,7 +85,7 @@ pub struct FunctionCall {
     pub calldata: Calldata,
 }
 
-#[derive(Debug,Serialize)]
+#[derive(Debug, Serialize)]
 pub struct MessageToL1 {
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
@@ -94,5 +101,5 @@ impl From<BlockifierMessageToL1> for MessageToL1 {
     }
 }
 
-#[derive(Debug,Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
