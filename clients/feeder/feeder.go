@@ -153,10 +153,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 			// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
 			// instead of 404 as per real test server behaviour.
 			if dir == "transaction" && queryArg == "transactionHash" {
-				_, err = w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}"))
-				if err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
-				}
+				respondWithTransactionNotReceived(w)
 			} else {
 				w.WriteHeader(http.StatusNotFound)
 			}
@@ -164,6 +161,13 @@ func newTestServer(network utils.Network) *httptest.Server {
 			w.Write(read) //nolint:errcheck
 		}
 	}))
+}
+
+func respondWithTransactionNotReceived(w http.ResponseWriter) {
+	_, err := w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}"))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func NewClient(clientURL string) *Client {
