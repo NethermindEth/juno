@@ -1047,7 +1047,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
-
+		// Check if the error is due to a transaction not being found
+		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
+			return nil, ErrTxnHashNotFound
+		}
+		
 		status = new(TransactionStatus)
 
 		switch txStatus.FinalityStatus {
