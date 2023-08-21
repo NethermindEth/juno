@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -66,6 +67,7 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
+	txStatusCache stdsync.Map
 	version       string
 }
 
@@ -80,6 +82,7 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Ne
 		feederClient:  feederClient,
 		gatewayClient: gatewayClient,
 		vm:            virtualMachine,
+		txStatusCache: stdsync.Map{},
 		version:       version,
 	}
 }
@@ -1042,6 +1045,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			Finality:  receipt.FinalityStatus,
 			Execution: receipt.ExecutionStatus,
 		}
+		h.txStatusCache.Delete(hash)
 	case ErrTxnHashNotFound:
 		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
@@ -1050,6 +1054,10 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		// Check if the error is due to a transaction not being found
 		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
 			return nil, ErrTxnHashNotFound
+		}
+
+		if status, ok := h.txStatusCache.Load(hash); ok {
+			return status.(*TransactionStatus), nil
 		}
 
 		status = new(TransactionStatus)
@@ -1077,6 +1085,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			// pre-0.12.1
 			status.Execution = TxnSuccess
 		}
+		h.txStatusCache.Store(hash, status)
 	default:
 		return nil, txErr
 	}
