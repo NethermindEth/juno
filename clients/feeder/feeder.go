@@ -98,7 +98,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
-			handleErrorResponse(w, http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -142,36 +142,33 @@ func newTestServer(network utils.Network) *httptest.Server {
 
 		fileName, found := queryMap[queryArg]
 		if !found {
-			handleErrorResponse(w, http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
-			// If a transaction data is missing, respond with
-			// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
-			// instead of 404 as per real test server behaviour.
-			if dir == "transaction" && queryArg == "transactionHash" {
-				respondWithTransactionNotReceived(w)
-			} else {
-				handleErrorResponse(w, http.StatusNotFound)
-			}
-		} else {
-			w.Write(read) //nolint:errcheck
+			handleNotFound(dir, queryArg, w, r)
+			return
 		}
+		w.Write(read) //nolint:errcheck
 	}))
 }
 
-func respondWithTransactionNotReceived(w http.ResponseWriter) {
-	_, err := w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}"))
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+func handleNotFound(dir, queryArg string, w http.ResponseWriter, r *http.Request) {
+	// If a transaction data is missing, respond with
+	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
+	// instead of 404 as per real test server behaviour.
+	if dir == "transaction" && queryArg == "transactionHash" {
+		_, err := w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}"))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	} else {
+		w.WriteHeader(http.StatusNotFound)
 	}
-}
-
-func handleErrorResponse(w http.ResponseWriter, statusCode int) {
-	w.WriteHeader(statusCode)
 }
 
 func NewClient(clientURL string) *Client {
