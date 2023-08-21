@@ -161,11 +161,7 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter, r *http.Request
 	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
 	// instead of 404 as per real test server behaviour.
 	if dir == "transaction" && queryArg == "transactionHash" {
-		_, err := w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		return
+		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
