@@ -98,7 +98,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			handleErrorResponse(w, http.StatusBadRequest)
 			return
 		}
 
@@ -142,7 +142,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 
 		fileName, found := queryMap[queryArg]
 		if !found {
-			w.WriteHeader(http.StatusBadRequest)
+			handleErrorResponse(w, http.StatusBadRequest)
 			return
 		}
 
@@ -155,7 +155,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 			if dir == "transaction" && queryArg == "transactionHash" {
 				respondWithTransactionNotReceived(w)
 			} else {
-				w.WriteHeader(http.StatusNotFound)
+				handleErrorResponse(w, http.StatusNotFound)
 			}
 		} else {
 			w.Write(read) //nolint:errcheck
@@ -168,6 +168,10 @@ func respondWithTransactionNotReceived(w http.ResponseWriter) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func handleErrorResponse(w http.ResponseWriter, statusCode int) {
+	w.WriteHeader(statusCode)
 }
 
 func NewClient(clientURL string) *Client {
