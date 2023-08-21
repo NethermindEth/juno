@@ -93,6 +93,14 @@ jobs:
                 nohup sh -c "docker logs -f juno_$network > /var/log/juno_logs_$network.log 2>&1" &>/dev/null &
             done
 
+    - name: Trigger starknet-rs tests
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: starknet-rs-tests.yml
+        token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+        ref: ${{ github.ref }}
+        inputs: '{"NODE_URL": "http://${{ env.HOST }}:6065"}'
+
     - name: Trigger RPC Tests on deployed mainnet
       uses: benc-uk/workflow-dispatch@v1
       with:
