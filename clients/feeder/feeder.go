@@ -149,14 +149,14 @@ func newTestServer(network utils.Network) *httptest.Server {
 		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
-			handleNotFound(dir, queryArg, w, r)
+			handleNotFound(dir, queryArg, w)
 			return
 		}
 		w.Write(read) //nolint:errcheck
 	}))
 }
 
-func handleNotFound(dir, queryArg string, w http.ResponseWriter, r *http.Request) {
+func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	// If a transaction data is missing, respond with
 	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
 	// instead of 404 as per real test server behaviour.
