@@ -157,12 +157,12 @@ func newTestServer(network utils.Network) *httptest.Server {
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 				}
-				return
+			} else {
+				w.WriteHeader(http.StatusNotFound)
 			}
-			w.WriteHeader(http.StatusNotFound)
-			return
+		} else {
+			w.Write(read) //nolint:errcheck
 		}
-		w.Write(read) //nolint:errcheck
 	}))
 }
 
