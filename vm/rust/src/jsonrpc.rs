@@ -5,30 +5,80 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Transaction as StarknetApiTransaction};
 
 #[derive(Serialize)]
-pub struct TransactionTrace {
-    pub validate_invocation: Option<FunctionInvocation>,
-    pub execute_invocation: Option<FunctionInvocation>,
-    pub fee_transfer_invocation: Option<FunctionInvocation>,
+#[serde(untagged)]
+pub enum TransactionTrace {
+    // used for INVOKE_TXN_TRACE and DECLARE_TXN_TRACE
+    Common {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validate_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        execute_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fee_transfer_invocation: Option<FunctionInvocation>,
+    },
+    DeployAccount {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validate_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        constructor_invocation: Option<FunctionInvocation>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fee_transfer_invocation: Option<FunctionInvocation>,
+    },
+    L1Handler {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        function_invocation: Option<FunctionInvocation>
+    }
 }
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
-impl From<BlockifierTxInfo> for TransactionTrace {
-    fn from(info: BlockifierTxInfo) -> Self {
-        TransactionTrace {
-            validate_invocation: match info.validate_call_info {
-                Some(v) => Some(v.into()),
-                None => None,
-            },
-            execute_invocation: match info.execute_call_info {
-                Some(v) => Some(v.into()),
-                None => None,
-            },
-            fee_transfer_invocation: match info.fee_transfer_call_info {
-                Some(v) => Some(v.into()),
-                None => None,
-            },
+pub fn new_transaction_trace(tx: StarknetApiTransaction, info: BlockifierTxInfo) -> TransactionTrace {
+    match tx {
+        StarknetApiTransaction::L1Handler(_) => {
+            TransactionTrace::L1Handler {
+                function_invocation: match info.execute_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                }
+            }
+        },
+        StarknetApiTransaction::DeployAccount(_) => {
+            TransactionTrace::DeployAccount {
+                validate_invocation: match info.validate_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                constructor_invocation: match info.execute_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                fee_transfer_invocation: match info.fee_transfer_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+            }
+        },
+        StarknetApiTransaction::Declare(_) | StarknetApiTransaction::Invoke(_) => {
+            TransactionTrace::Common {
+                validate_invocation: match info.validate_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                execute_invocation: match info.execute_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+                fee_transfer_invocation: match info.fee_transfer_call_info {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
+            }
+        },
+        StarknetApiTransaction::Deploy(_) => {
+            // shouldn't happen since we don't support deploy
+            panic!("Can't create transaction trace for deploy transaction (unsupported)");
         }
     }
 }
