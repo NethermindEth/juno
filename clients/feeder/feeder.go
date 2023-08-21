@@ -149,22 +149,18 @@ func newTestServer(network utils.Network) *httptest.Server {
 		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
-			handleNotFound(dir, queryArg, w)
+			// If a transaction data is missing, respond with
+			// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
+			// instead of 404 as per real test server behaviour.
+			if dir == "transaction" && queryArg == "transactionHash" {
+				w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+			}
 			return
 		}
 		w.Write(read) //nolint:errcheck
 	}))
-}
-
-func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
-	// If a transaction data is missing, respond with
-	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
-	// instead of 404 as per real test server behaviour.
-	if dir == "transaction" && queryArg == "transactionHash" {
-		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-	}
 }
 
 func NewClient(clientURL string) *Client {
