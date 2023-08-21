@@ -1051,7 +1051,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
 			return nil, ErrTxnHashNotFound
 		}
-		
+
 		status = new(TransactionStatus)
 
 		switch txStatus.FinalityStatus {
