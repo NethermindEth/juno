@@ -65,6 +65,7 @@ docker run -d \
   -p 6060:6060 \
   -v $HOME/juno:/var/lib/juno \
   nethermind/juno \
+  --http \
   --http-port 6060 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
@@ -138,6 +139,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
      -p 6060:6060 \
      -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
      nethermind/juno \
+     --http \
      --http-port 6060 \
      --db-path /var/lib/juno \
      --eth-node <YOUR-ETH-NODE>

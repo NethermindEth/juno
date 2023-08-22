@@ -224,26 +224,26 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 }
 
 func adaptTransaction(t core.Transaction) *Transaction {
+	var txn *Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
-		return &Transaction{
+		txn = &Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
 			Version:             v.Version,
 			ContractAddressSalt: v.ContractAddressSalt,
 			ConstructorCallData: &v.ConstructorCallData,
-			ContractAddress:     v.ContractAddress,
 		}
 	case *core.InvokeTransaction:
-		return adaptInvokeTransaction(v)
+		txn = adaptInvokeTransaction(v)
 	case *core.DeclareTransaction:
-		return adaptDeclareTransaction(v)
+		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
 		sig := v.Signature()
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1466
-		return &Transaction{
+		txn = &Transaction{
 			Hash:                v.Hash(),
 			MaxFee:              v.MaxFee,
 			Version:             v.Version,
@@ -253,11 +253,10 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			ContractAddressSalt: v.ContractAddressSalt,
 			ConstructorCallData: &v.ConstructorCallData,
 			ClassHash:           v.ClassHash,
-			ContractAddress:     v.ContractAddress,
 		}
 	case *core.L1HandlerTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1669
-		return &Transaction{
+		txn = &Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version,
@@ -269,6 +268,11 @@ func adaptTransaction(t core.Transaction) *Transaction {
 	default:
 		panic("not a transaction")
 	}
+
+	if txn.Version.IsZero() && txn.Type != TxnL1Handler {
+		txn.Nonce = nil
+	}
+	return txn
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605
@@ -410,9 +414,9 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	txn, rpcErr := h.TransactionByHash(hash)
-	if rpcErr != nil {
-		return nil, rpcErr
+	txn, err := h.bcReader.TransactionByHash(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
 	}
 	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
@@ -437,9 +441,12 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	contractAddress := txn.ContractAddress
-	if txn.Type != TxnDeploy && txn.Type != TxnDeployAccount {
-		contractAddress = nil
+	var contractAddress *felt.Felt
+	switch v := txn.(type) {
+	case *core.DeployTransaction:
+		contractAddress = v.ContractAddress
+	case *core.DeployAccountTransaction:
+		contractAddress = v.ContractAddress
 	}
 
 	var receiptBlockNumber *uint64
@@ -468,8 +475,8 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return &TransactionReceipt{
 		FinalityStatus:  status,
 		ExecutionStatus: es,
-		Type:            txn.Type,
-		Hash:            txn.Hash,
+		Type:            adaptTransaction(txn).Type,
+		Hash:            txn.Hash(),
 		ActualFee:       receipt.Fee,
 		BlockHash:       blockHash,
 		BlockNumber:     receiptBlockNumber,
