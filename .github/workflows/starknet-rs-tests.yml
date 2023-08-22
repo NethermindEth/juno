@@ -23,8 +23,9 @@ jobs:
         profile: minimal
         override: true
 
-    - name: Run tests in jsonrpc.rs
+    - name: Run jsonrpc tests
       run: |
-        cd starknet-providers && cargo test --test jsonrpc
+        cd starknet-providers && cargo test jsonrpc
+        cd ../starknet-accounts && cargo test jsonrpc
       env:
         STARKNET_RPC: ${{ github.event.inputs.NODE_URL }}
