@@ -40,6 +40,17 @@ func TestClassV1Hash(t *testing.T) {
 	}
 }
 
+func TestCompiledClassHash(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	gw := adaptfeeder.New(client)
+
+	hash := utils.HexToFelt(t, "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc")
+	class, err := gw.Class(context.Background(), hash)
+	require.NoError(t, err)
+	got := class.(*core.Cairo1Class).Compiled.CompiledClassHash()
+	assert.Equal(t, "0x18f95714044fd5408d3bf812bcd249ddec098ab3cd201b7916170cfbfa59e05", got.String())
+}
+
 func TestClassEncoding(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -46,6 +46,27 @@ type ClassDefinition struct {
 	V1 *SierraDefinition
 }
 
+type CompiledClass struct {
+	Prime           string              `json:"prime"`
+	Bytecode        []*felt.Felt        `json:"bytecode"`
+	Hints           any                 `json:"hints"`
+	PythonicHints   any                 `json:"pythonic_hints"`
+	CompilerVersion string              `json:"compiler_version"`
+	EntryPoints     CompiledEntryPoints `json:"entry_points_by_type"`
+}
+
+type CompiledEntryPoints struct {
+	External    []CompiledEntryPoint `json:"EXTERNAL"`
+	L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
+	Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+}
+
+type CompiledEntryPoint struct {
+	Selector *felt.Felt `json:"selector"`
+	Offset   *felt.Felt `json:"offset"`
+	Builtins []string   `json:"builtins"`
+}
+
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
 	if err := json.Unmarshal(data, &jsonMap); err != nil {

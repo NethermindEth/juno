@@ -2,7 +2,6 @@ package feeder_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -538,7 +537,13 @@ func TestCompiledClassDefinition(t *testing.T) {
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	class, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
-	require.True(t, json.Valid(class))
+	assert.Equal(t, "1.0.0", class.CompilerVersion)
+	assert.Equal(t, "0x800000000000011000000000000000000000000000000000000000000000001", class.Prime)
+	assert.Equal(t, 3900, len(class.Bytecode))
+	assert.Equal(t, 10, len(class.EntryPoints.External))
+	assert.Equal(t, 1, len(class.EntryPoints.External[9].Builtins))
+	assert.Equal(t, "range_check", class.EntryPoints.External[9].Builtins[0])
+	assert.Equal(t, "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50", class.EntryPoints.External[9].Selector.String())
 }
 
 func TestTransactionStatusRevertError(t *testing.T) {
