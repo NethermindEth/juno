@@ -94,7 +94,6 @@ func NewTestClient(t *testing.T, network utils.Network) *Client {
 	return c
 }
 
-//gocyclo:ignore
 func newTestServer(network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
@@ -157,7 +156,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 	}))
 }
 
-func handleNotFound(dir, queryArg string, w http.ResponseWriter) { //nolint:unparam
+func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	// If a transaction data is missing, respond with
 	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
 	// instead of 404 as per real test server behaviour.
