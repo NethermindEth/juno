@@ -15,7 +15,7 @@ pub enum TransactionTrace {
         #[serde(skip_serializing_if = "Option::is_none")]
         validate_invocation: Option<FunctionInvocation>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        execute_invocation: Option<FunctionInvocation>,
+        execute_invocation: Option<ExecuteInvocation>,
         #[serde(skip_serializing_if = "Option::is_none")]
         fee_transfer_invocation: Option<FunctionInvocation>,
     },
@@ -31,6 +31,15 @@ pub enum TransactionTrace {
         #[serde(skip_serializing_if = "Option::is_none")]
         function_invocation: Option<FunctionInvocation>
     }
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum ExecuteInvocation {
+    Ok(FunctionInvocation),
+    Revert {
+        revert_reason: String
+    },
 }
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
@@ -66,9 +75,12 @@ pub fn new_transaction_trace(tx: StarknetApiTransaction, info: BlockifierTxInfo)
                     Some(v) => Some(v.into()),
                     None => None,
                 },
-                execute_invocation: match info.execute_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
+                execute_invocation: match info.revert_error {
+                    Some(str) => Some(ExecuteInvocation::Revert{revert_reason: str}),
+                    None => match info.execute_call_info {
+                        Some(v) => Some(ExecuteInvocation::Ok(v.into())),
+                        None => None,
+                    },
                 },
                 fee_transfer_invocation: match info.fee_transfer_call_info {
                     Some(v) => Some(v.into()),
