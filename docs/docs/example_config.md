@@ -27,17 +27,23 @@ eth-node: ""
 
 # Enables the HTTP RPC server.
 http: false
+# Interface on which the HTTP RPC server will listen for requests.
+http-host: localhost
 # Port on which the HTTP RPC server will listen for requests.
 http-port: 6060
 
 # The options below are similar to the HTTP RPC options above.
 ws: false # Websocket RPC server
+ws-host: localhost
 ws-port: 6061
 pprof: false
+pprof-host: localhost
 pprof-port: 6062
 metrics: false
+metrics-host: localhost
 metrics-port: 9090
 grpc: false
+grpc-host: localhost
 grpc-port: 6064
 
 # Options: debug, info, warn, error
