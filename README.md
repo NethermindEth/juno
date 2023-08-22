@@ -89,19 +89,19 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.4.0**  | **36.5 GB** | **136902** | [**juno_mainnet_136902.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.5.0_136902.tar) |
+| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.6.0_166353.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.4.0** | **32.3 GB** | **839969** | [**juno_goerli_839969.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.5.0_839969.tar) |
+| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.6.0_850192.tar) |
 
 #### Goerli2
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.4.0** | **4.5 GB** | **135973** | [**juno_goerli2_135973.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.5.0_135973.tar) |
+| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.6.0_139043.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -110,7 +110,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   curl -o juno_mainnet_v0.5.0_136902.tar https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.5.0_136902.tar
+   curl -o juno_mainnet_166353.tar https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.6.0_166353.tar
    ```
 
 2. **Prepare Directory**
@@ -126,7 +126,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_v0.5.0_136902.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet_166353.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
@@ -175,6 +175,10 @@ After following these steps, Juno should be up and running on your machine, util
   - `starknet_addDeployAccountTransaction`
   - `starkent_estimateMessageFee`
   - `starknet_pendingTransactions`
+  - `starknet_traceTransaction`
+  - `starknet_traceBlockTransactions`
+  - `starknet_simulateTransactions`
+  
 - Juno's JSON-RPC:
   - `juno_version`
   - `juno_getTransactionStatus`
