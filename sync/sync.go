@@ -43,10 +43,12 @@ type Synchronizer struct {
 	// metrics
 	opTimers    *prometheus.HistogramVec
 	totalBlocks prometheus.Counter
+
+	observer Observer
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration,
+	observer Observer, log utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
 	s := &Synchronizer{
 		Blockchain:          bc,
@@ -62,6 +64,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 			Namespace: "sync",
 			Name:      "blocks",
 		}),
+		observer: observer,
 	}
 	metrics.MustRegister(s.opTimers, s.totalBlocks)
 	return s
@@ -189,6 +192,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.notifyTransactionsStored(block.Transactions)
+
 			s.totalBlocks.Inc()
 			highestBlockHeader := s.HighestBlockHeader.Load()
 			if highestBlockHeader == nil || highestBlockHeader.Number <= block.Number {
@@ -208,6 +213,12 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
+	}
+}
+
+func (s *Synchronizer) notifyTransactionsStored(transactions []core.Transaction) {
+	for _, tx := range transactions {
+		s.observer.OnTransactionStored(tx)
 	}
 }
 

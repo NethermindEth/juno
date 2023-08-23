@@ -13,6 +13,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/cache"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
@@ -106,13 +107,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
+	txStatusCache := cache.NewTransactionStatusCache()
+
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), txStatusCache, log, cfg.PendingPollInterval)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), version, log)
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), txStatusCache, version, log)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())

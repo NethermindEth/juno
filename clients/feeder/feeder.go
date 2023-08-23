@@ -330,7 +330,7 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 	return class, nil
 }
 
-func (c *Client) PublickKey(ctx context.Context) (*felt.Felt, error) {
+func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	queryURL := c.buildQueryString("get_public_key", nil)
 
 	body, err := c.get(ctx, queryURL)
