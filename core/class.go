@@ -60,24 +60,24 @@ type Cairo1Class struct {
 }
 
 type CompiledClass struct {
-	Bytecode        []*felt.Felt
-	PythonicHints   json.RawMessage
-	CompilerVersion string
-	Hints           json.RawMessage
-	EntryPoints     CompiledEntryPoints
-	Prime           string
+	Bytecode        []*felt.Felt `json:"bytecode"`
+	PythonicHints   json.RawMessage `json:"pythonic_hints"`
+	CompilerVersion string `json:"compiler_version"`
+	Hints           json.RawMessage `json:"hints"`
+	EntryPoints     CompiledEntryPoints `json:"entry_points_by_type"`
+	Prime           string `json:"prime"`
 }
 
 type CompiledEntryPoints struct {
-	External    []CompiledEntryPoint
-	L1Handler   []CompiledEntryPoint
-	Constructor []CompiledEntryPoint
+	External    []CompiledEntryPoint `json:"EXTERNAL"`
+	L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
+	Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
 }
 
 type CompiledEntryPoint struct {
-	Offset   *felt.Felt
-	Builtins []string
-	Selector *felt.Felt
+	Offset   uint64 `json:"offset"`
+	Builtins []string `json:"builtins"`
+	Selector *felt.Felt `json:"selector"`
 }
 
 type SierraEntryPoint struct {
@@ -127,7 +127,7 @@ func compiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
 		// It is important that Selector is first, then Offset is second because the order
 		// influences the class hash.
 		result[3*i] = entryPoint.Selector
-		result[3*i+1] = entryPoint.Offset
+		result[3*i+1] = new(felt.Felt).SetUint64(entryPoint.Offset)
 		builtins := make([]*felt.Felt, len(entryPoint.Builtins))
 		for idx, buil := range entryPoint.Builtins {
 			builtins[idx] = new(felt.Felt).SetBytes([]byte(buil))

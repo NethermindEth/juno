@@ -288,17 +288,17 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 
 		class.Compiled.EntryPoints.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
 		for i, v := range compiledClass.EntryPoints.External {
-			class.Compiled.EntryPoints.External[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
+			class.Compiled.EntryPoints.External[i] = core.CompiledEntryPoint{Offset: v.Offset.Uint64(), Selector: v.Selector, Builtins: v.Builtins}
 		}
 
 		class.Compiled.EntryPoints.L1Handler = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.L1Handler))
 		for i, v := range compiledClass.EntryPoints.L1Handler {
-			class.Compiled.EntryPoints.L1Handler[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
+			class.Compiled.EntryPoints.L1Handler[i] = core.CompiledEntryPoint{Offset: v.Offset.Uint64(), Selector: v.Selector, Builtins: v.Builtins}
 		}
 
 		class.Compiled.EntryPoints.Constructor = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.Constructor))
 		for i, v := range compiledClass.EntryPoints.Constructor {
-			class.Compiled.EntryPoints.Constructor[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
+			class.Compiled.EntryPoints.Constructor[i] = core.CompiledEntryPoint{Offset: v.Offset.Uint64(), Selector: v.Selector, Builtins: v.Builtins}
 		}
 	}
 	return class, nil

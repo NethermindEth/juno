@@ -22,21 +22,26 @@ import (
 )
 
 func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
-	var compiledClass any
+	var compiledCairo0Class any
 	switch c := class.(type) {
 	case *core.Cairo0Class:
 		var err error
-		compiledClass, err = makeDeprecatedVMClass(c)
+		compiledCairo0Class, err = makeDeprecatedVMClass(c)
 		if err != nil {
 			return nil, err
 		}
 	case *core.Cairo1Class:
-		compiledClass = c.Compiled
+		compiledCairo1Class := c.Compiled
+		jsonData, err := json.Marshal(compiledCairo1Class)
+		if err != nil {
+			return nil, err
+		}
+		return json.RawMessage(jsonData), nil
 	default:
 		return nil, errors.New("not a valid class")
 	}
 
-	return json.Marshal(compiledClass)
+	return json.Marshal(compiledCairo0Class)
 }
 
 func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
