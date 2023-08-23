@@ -60,12 +60,12 @@ type Cairo1Class struct {
 }
 
 type CompiledClass struct {
-	Bytecode        []*felt.Felt `json:"bytecode"`
-	PythonicHints   json.RawMessage `json:"pythonic_hints"`
-	CompilerVersion string `json:"compiler_version"`
-	Hints           json.RawMessage `json:"hints"`
+	Bytecode        []*felt.Felt        `json:"bytecode"`
+	PythonicHints   json.RawMessage     `json:"pythonic_hints"`
+	CompilerVersion string              `json:"compiler_version"`
+	Hints           json.RawMessage     `json:"hints"`
 	EntryPoints     CompiledEntryPoints `json:"entry_points_by_type"`
-	Prime           string `json:"prime"`
+	Prime           string              `json:"prime"`
 }
 
 type CompiledEntryPoints struct {
@@ -75,8 +75,8 @@ type CompiledEntryPoints struct {
 }
 
 type CompiledEntryPoint struct {
-	Offset   uint64 `json:"offset"`
-	Builtins []string `json:"builtins"`
+	Offset   uint64     `json:"offset"`
+	Builtins []string   `json:"builtins"`
 	Selector *felt.Felt `json:"selector"`
 }
 
