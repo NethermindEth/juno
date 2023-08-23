@@ -1,4 +1,4 @@
-package feeder_test
+package client_test
 
 import (
 	"context"
@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -20,10 +21,10 @@ const (
 )
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 	txnHash := utils.HexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
-	status, err := client.Transaction(context.Background(), txnHash)
+	status, err := feeder.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
 	declareTx := status.Transaction
@@ -33,17 +34,18 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x1d", declareTx.Nonce.String())
 	assert.Equal(t, "0x2ed6bb4d57ad27a22972b81feb9d09798ff8c273684376ec72c154d90343453", declareTx.ClassHash.String())
 	assert.Equal(t, "0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23", declareTx.SenderAddress.String())
-	assert.Equal(t, feeder.TxnDeclare, declareTx.Type)
+	assert.Equal(t, sequencertypes.TxnDeclare, declareTx.Type)
 	assert.Equal(t, 2, len(*declareTx.Signature))
 	assert.Equal(t, "0x516b5999b47509105675dd4c6ed9c373448038cfd00549fe868695916eee0ff", (*declareTx.Signature)[0].String())
 	assert.Equal(t, "0x6c0189aaa56bfcb2a3e97198d04bd7a9750a4354b88f4e5edf57cf4d966ddda", (*declareTx.Signature)[1].String())
 }
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
-	status, err := client.Transaction(context.Background(), txnHash)
+	status, err := feeder.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
 	invokeTx := status.Transaction
@@ -56,15 +58,16 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, 2, len(*invokeTx.CallData))
 	assert.Equal(t, "0x346f2b6376b4b57f714ba187716fce9edff1361628cc54783ed0351538faa5e", (*invokeTx.CallData)[0].String())
 	assert.Equal(t, "0x2", (*invokeTx.CallData)[1].String())
-	assert.Equal(t, feeder.TxnInvoke, invokeTx.Type)
+	assert.Equal(t, sequencertypes.TxnInvoke, invokeTx.Type)
 }
 
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
-	status, err := client.Transaction(context.Background(), txnHash)
+	status, err := feeder.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
 	deployTx := status.Transaction
@@ -78,14 +81,15 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x2dd76e7ad84dbed81c314ffe5e7a7cacfb8f4836f01af4e913f275f89a3de1a", (*deployTx.ConstructorCallData)[1].String())
 	assert.Equal(t, "0x1", (*deployTx.ConstructorCallData)[2].String())
 	assert.Equal(t, "0x614b9e0c3cb7a8f4ed73b673eba239c41a172859bf129c4b269c4b8057e21d8", (*deployTx.ConstructorCallData)[3].String())
-	assert.Equal(t, feeder.TxnDeploy, deployTx.Type)
+	assert.Equal(t, sequencertypes.TxnDeploy, deployTx.Type)
 }
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
-	status, err := client.Transaction(context.Background(), txnHash)
+	status, err := feeder.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
 	deployTx := status.Transaction
@@ -106,15 +110,16 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x2", (*deployTx.ConstructorCallData)[2].String())
 	assert.Equal(t, "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", (*deployTx.ConstructorCallData)[3].String())
 	assert.Equal(t, "0x0", (*deployTx.ConstructorCallData)[4].String())
-	assert.Equal(t, feeder.TxnDeployAccount, deployTx.Type)
+	assert.Equal(t, sequencertypes.TxnDeployAccount, deployTx.Type)
 }
 
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
-	status, err := client.Transaction(context.Background(), txnHash)
+	status, err := feeder.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 
 	handlerTx := status.Transaction
@@ -128,13 +133,14 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x218559e75713ca564d6eaf043b73388e9ac7c2f459ef8905988052051d3ef5e", (*handlerTx.CallData)[1].String())
 	assert.Equal(t, "0x2386f26fc10000", (*handlerTx.CallData)[2].String())
 	assert.Equal(t, "0x0", (*handlerTx.CallData)[3].String())
-	assert.Equal(t, feeder.TxnL1Handler, handlerTx.Type)
+	assert.Equal(t, sequencertypes.TxnL1Handler, handlerTx.Type)
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
-	block, err := client.Block(context.Background(), strconv.Itoa(11817))
+	block, err := feeder.Block(context.Background(), strconv.Itoa(11817))
 	require.NoError(t, err)
 
 	assert.Equal(t, "0x24c692acaed3b486990bd9d2b2fbbee802b37b3bd79c59f295bad3277200a83", block.Hash.String())
@@ -150,9 +156,10 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
-	block, err := client.Block(context.Background(), strconv.Itoa(19199))
+	block, err := feeder.Block(context.Background(), strconv.Itoa(19199))
 	require.NoError(t, err)
 
 	assert.Equal(t, "0x41811b69473f26503e0375806ee97d05951ccc7840e3d2bbe14ffb2522e5be1", block.Hash.String())
@@ -169,10 +176,11 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestClassV0Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	hash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
-	class, err := client.ClassDefinition(context.Background(), hash)
+	class, err := feeder.ClassDefinition(context.Background(), hash)
 	require.NoError(t, err)
 
 	assert.NotNil(t, class.V0)
@@ -187,10 +195,11 @@ func TestClassV0Unmarshal(t *testing.T) {
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
 
 	hash := utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
-	class, err := client.ClassDefinition(context.Background(), hash)
+	class, err := feeder.ClassDefinition(context.Background(), hash)
 	require.NoError(t, err)
 
 	assert.NotNil(t, class.V1)
@@ -222,15 +231,17 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseURL := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseURL).WithUserAgent(ua)
-	_, _ = client.Block(context.Background(), strconv.Itoa(0))
+	cli := client.NewClient(baseURL).WithUserAgent(ua)
+	feeder := client.NewFeeder(cli)
+	_, _ = feeder.Block(context.Background(), strconv.Itoa(0))
 }
 
 func TestStateUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		stateUpdate, err := client.StateUpdate(context.Background(), "0")
+		stateUpdate, err := feeder.StateUpdate(context.Background(), "0")
 		require.NoError(t, err)
 
 		assert.Equal(t, "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943", stateUpdate.BlockHash.String())
@@ -250,28 +261,29 @@ func TestStateUpdate(t *testing.T) {
 		assert.Equal(t, "0x64", diff[0].Value.String())
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
-		stateUpdate, err := client.StateUpdate(context.Background(), "1000000")
+		stateUpdate, err := feeder.StateUpdate(context.Background(), "1000000")
 		assert.Nil(t, stateUpdate)
 		assert.Error(t, err)
 	})
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.INTEGRATION)
+		cli := client.NewTestClient(t, utils.INTEGRATION)
+		feeder := client.NewFeeder(cli)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
-			update, err := client.StateUpdate(context.Background(), "283746")
+			update, err := feeder.StateUpdate(context.Background(), "283746")
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.OldDeclaredContracts)
 		})
 
 		t.Run("declared Cairo1 classes", func(t *testing.T) {
-			update, err := client.StateUpdate(context.Background(), "283364")
+			update, err := feeder.StateUpdate(context.Background(), "283364")
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.DeclaredClasses)
 		})
 
 		t.Run("replaced classes", func(t *testing.T) {
-			update, err := client.StateUpdate(context.Background(), "283428")
+			update, err := feeder.StateUpdate(context.Background(), "283428")
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.ReplacedClasses)
 		})
@@ -279,55 +291,58 @@ func TestStateUpdate(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
-		actualStatus, err := client.Transaction(context.Background(), transactionHash)
+		actualStatus, err := feeder.Transaction(context.Background(), transactionHash)
 		require.NoError(t, err)
 		assert.NotNil(t, actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0xffff")
-		actualStatus, err := client.Transaction(context.Background(), transactionHash)
+		actualStatus, err := feeder.Transaction(context.Background(), transactionHash)
 		assert.NoError(t, err)
-		assert.Equal(t, actualStatus.FinalityStatus, feeder.NotReceived)
+		assert.Equal(t, actualStatus.FinalityStatus, sequencertypes.NotReceived)
 	})
 }
 
 func TestBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		actualBlock, err := client.Block(context.Background(), strconv.Itoa(11817))
+		actualBlock, err := feeder.Block(context.Background(), strconv.Itoa(11817))
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualBlock)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
-		actualBlock, err := client.Block(context.Background(), strconv.Itoa(1000000))
+		actualBlock, err := feeder.Block(context.Background(), strconv.Itoa(1000000))
 		assert.Nil(t, actualBlock)
 		assert.Error(t, err)
 	})
 	t.Run("Test latest block", func(t *testing.T) {
-		actualBlock, err := client.Block(context.Background(), "latest")
+		actualBlock, err := feeder.Block(context.Background(), "latest")
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualBlock)
 	})
 }
 
 func TestClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 
-		actualClass, err := client.ClassDefinition(context.Background(), classHash)
+		actualClass, err := feeder.ClassDefinition(context.Background(), classHash)
 		assert.Equal(t, nil, err, "Unexpected error")
 		assert.NotNil(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x000")
-		actualClass, err := client.ClassDefinition(context.Background(), classHash)
+		actualClass, err := feeder.ClassDefinition(context.Background(), classHash)
 		assert.Nil(t, actualClass)
 		assert.Error(t, err)
 	})
@@ -341,25 +356,26 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
-	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
 
+	cli := client.NewClient(srv.URL).WithBackoff(client.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
+	feeder := client.NewFeeder(cli)
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
-		_, err := client.Block(context.Background(), strconv.Itoa(0))
+		_, err := feeder.Block(context.Background(), strconv.Itoa(0))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetTransaction", func(t *testing.T) {
-		_, err := client.Transaction(context.Background(), new(felt.Felt))
+		_, err := feeder.Transaction(context.Background(), new(felt.Felt))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetClassDefinition", func(t *testing.T) {
-		_, err := client.ClassDefinition(context.Background(), new(felt.Felt))
+		_, err := feeder.ClassDefinition(context.Background(), new(felt.Felt))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetStateUpdate", func(t *testing.T) {
-		_, err := client.StateUpdate(context.Background(), "0")
+		_, err := feeder.StateUpdate(context.Background(), "0")
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
@@ -377,44 +393,49 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
+	cli := client.NewClient(srv.URL).WithBackoff(client.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
+	feeder := client.NewFeeder(cli)
 
-	_, err := c.Block(context.Background(), strconv.Itoa(0))
+	_, err := feeder.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
 
 func TestCompiledClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	class, err := client.CompiledClassDefinition(context.Background(), classHash)
+	class, err := feeder.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 	require.True(t, json.Valid(class))
 }
 
 func TestTransactionStatusRevertError(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998")
-	status, err := client.Transaction(context.Background(), txnHash)
+	status, err := feeder.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 	require.NotEmpty(t, status.RevertError)
 }
 
 func TestPublicKey(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
 
-	actualPublicKey, err := client.PublickKey(context.Background())
+	actualPublicKey, err := feeder.PublickKey(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
 }
 
 func TestSignature(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(214584))
+		actualSignature, err := feeder.Signature(context.Background(), strconv.Itoa(214584))
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(actualSignature.Signature))
 		assert.Equal(t, "0x351c1b3fdd944ec8a787085b386ae9adddc5e4e839525b0cdfa8fac7419fe16", actualSignature.Signature[0].String())
@@ -423,22 +444,23 @@ func TestSignature(t *testing.T) {
 		assert.Equal(t, "0x4253056094397f30399b01aa6a9eb44e59f8298545c26f5f746d86940b6cab8", actualSignature.SignatureInput.StateDiffCommitment.String())
 	})
 	t.Run("Test on unexisting block", func(t *testing.T) {
-		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(10000000000))
+		actualSignature, err := feeder.Signature(context.Background(), strconv.Itoa(10000000000))
 		assert.Error(t, err)
 		assert.Nil(t, actualSignature)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
-		actualSignature, err := client.Signature(context.Background(), "latest")
+		actualSignature, err := feeder.Signature(context.Background(), "latest")
 		assert.NoError(t, err)
 		assert.NotNil(t, actualSignature)
 	})
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(0))
+		actualStateUpdate, err := feeder.StateUpdateWithBlock(context.Background(), strconv.Itoa(0))
 		assert.NoError(t, err)
 		assert.Equal(t, "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279", actualStateUpdate.Block.Hash.String())
 		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
@@ -450,12 +472,12 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
 	t.Run("Test on unexisting block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(10000000000))
+		actualStateUpdate, err := feeder.StateUpdateWithBlock(context.Background(), strconv.Itoa(10000000000))
 		assert.Error(t, err)
 		assert.Nil(t, actualStateUpdate)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), "latest")
+		actualStateUpdate, err := feeder.StateUpdateWithBlock(context.Background(), "latest")
 		assert.NoError(t, err)
 		assert.NotNil(t, actualStateUpdate)
 	})

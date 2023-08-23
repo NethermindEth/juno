@@ -30,7 +30,7 @@ const (
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	Blockchain          *blockchain.Blockchain
-	StarknetData        starknetdata.StarknetData
+	StarknetData        starknetdata.StarknetDataInterface
 	StartingBlockNumber *uint64
 	HighestBlockHeader  atomic.Pointer[core.Header]
 
@@ -45,7 +45,7 @@ type Synchronizer struct {
 	totalBlocks prometheus.Counter
 }
 
-func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
+func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetDataInterface,
 	log utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
 	s := &Synchronizer{

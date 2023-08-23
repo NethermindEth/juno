@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
@@ -29,8 +29,8 @@ func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
 		t.Helper()
 		assert.NoError(t, func() error {
@@ -92,7 +92,7 @@ func TestSyncBlocks(t *testing.T) {
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
 
-		mockSNData := mocks.NewMockStarknetData(mockCtrl)
+		mockSNData := mocks.NewMockStarknetDataInterface(mockCtrl)
 
 		syncingHeight := uint64(0)
 
@@ -151,11 +151,11 @@ func TestSyncBlocks(t *testing.T) {
 
 func TestReorg(t *testing.T) {
 	t.Parallel()
-	mainClient := feeder.NewTestClient(t, utils.MAINNET)
-	mainGw := adaptfeeder.New(mainClient)
+	mainClient := client.NewTestClient(t, utils.MAINNET)
+	mainGw := starknetdata.NewStarknetData(mainClient)
 
-	integClient := feeder.NewTestClient(t, utils.INTEGRATION)
-	integGw := adaptfeeder.New(integClient)
+	integClient := client.NewTestClient(t, utils.INTEGRATION)
+	integGw := starknetdata.NewStarknetData(integClient)
 
 	testDB := pebble.NewMemTest()
 
@@ -191,8 +191,8 @@ func TestReorg(t *testing.T) {
 func TestPending(t *testing.T) {
 	t.Parallel()
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	testDB := pebble.NewMemTest()
 	log := utils.NewNopZapLogger()

@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
@@ -86,8 +86,8 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, testdb.Close())
 	})
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	for i := uint64(0); i < 3; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)
@@ -175,8 +175,8 @@ func TestCalculateBlockCommitments(t *testing.T) {
 		require.NoError(t, testdb.Close())
 	})
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	for i := uint64(0); i < 3; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)

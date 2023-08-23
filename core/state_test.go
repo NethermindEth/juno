@@ -7,21 +7,21 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
@@ -149,8 +149,8 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
@@ -268,8 +268,8 @@ func TestStateHistory(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(context.Background(), 0)
@@ -313,8 +313,8 @@ func TestStateHistory(t *testing.T) {
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
@@ -370,8 +370,8 @@ func TestClass(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	gw := starknetdata.NewStarknetData(cli)
 
 	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 	cairo0Class, err := gw.Class(context.Background(), cairo0Hash)
@@ -414,8 +414,8 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(context.Background(), 0)
@@ -561,8 +561,8 @@ func TestRevert(t *testing.T) {
 }
 
 func TestRevertNoClassContracts(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)

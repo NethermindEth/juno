@@ -6,7 +6,7 @@ linters-settings:
           - pkg: github.com/sirupsen/logrus
             desc: use github.com/NethermindEth/juno/utils for logging
   dupl:
-    threshold: 100
+    threshold: 105
   funlen:
     lines: 120
     statements: 50

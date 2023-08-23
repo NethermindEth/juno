@@ -1,4 +1,4 @@
-package feeder
+package sequencertypes
 
 import "github.com/NethermindEth/juno/core/felt"
 

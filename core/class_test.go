@@ -7,19 +7,19 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestClassV1Hash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	gw := starknetdata.NewStarknetData(cli)
 	tests := []struct {
 		classHash string
 	}{
@@ -117,8 +117,8 @@ func TestVerifyClassHash(t *testing.T) {
 		wantErr   error
 	}
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	gw := starknetdata.NewStarknetData(cli)
 
 	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	cairo1Class, err := gw.Class(context.Background(), cairo1ClassHash)

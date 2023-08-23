@@ -5,12 +5,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,8 +19,8 @@ import (
 func TestV0Call(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 		require.NoError(t, testDB.Close())
@@ -78,8 +78,8 @@ func TestV0Call(t *testing.T) {
 func TestV1Call(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
-	client := feeder.NewTestClient(t, utils.GOERLI)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI)
+	gw := starknetdata.NewStarknetData(cli)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 		require.NoError(t, testDB.Close())

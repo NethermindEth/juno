@@ -1,4 +1,4 @@
-package feeder_test
+package starknetdata_test
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/feeder2core"
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,13 +17,14 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	adapter := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
+	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
 
 	for _, number := range numbers {
 		t.Run("mainnet block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.Block(ctx, strconv.FormatUint(number, 10))
+			response, err := feeder.Block(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
@@ -35,11 +36,12 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	adapter := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
+	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
 
-	response, err := client.Block(ctx, "latest")
+	response, err := feeder.Block(ctx, "latest")
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
@@ -51,13 +53,14 @@ func TestBlockLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	adapter := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	feeder := client.NewFeeder(cli)
+	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
 
 	for _, number := range numbers {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
+			response, err := feeder.StateUpdate(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
@@ -77,14 +80,15 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
-	adapter := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI)
+	feeder := client.NewFeeder(cli)
+	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
 		t.Run("hash "+hashString, func(t *testing.T) {
 			hash := utils.HexToFelt(t, hashString)
-			response, err := client.ClassDefinition(ctx, hash)
+			response, err := feeder.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
 			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
@@ -97,17 +101,19 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.GOERLI)
-	adapterGoerli := adaptfeeder.New(clientGoerli)
+	clientGoerli := client.NewTestClient(t, utils.GOERLI)
+	feederGoerli := client.NewFeeder(clientGoerli)
+	adapterGoerli := starknetdata.NewStarknetData(clientGoerli)
 
-	clientMainnet := feeder.NewTestClient(t, utils.MAINNET)
-	adapterMainnet := adaptfeeder.New(clientMainnet)
+	clientMainnet := client.NewTestClient(t, utils.MAINNET)
+	feederMainnet := client.NewFeeder(clientMainnet)
+	adapterMainnet := starknetdata.NewStarknetData(clientMainnet)
 
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		response, err := feederGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -120,7 +126,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("deploy transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		response, err := feederGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -133,7 +139,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("deploy account transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
-		response, err := clientMainnet.Transaction(ctx, hash)
+		response, err := feederMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -146,7 +152,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("declare transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		response, err := feederGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -159,7 +165,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("l1handler transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
-		response, err := clientMainnet.Transaction(ctx, hash)
+		response, err := feederMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -172,16 +178,17 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
-	adapter := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.INTEGRATION)
+	feeder := client.NewFeeder(cli)
+	adapter := starknetdata.NewStarknetData(cli)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	class, err := adapter.Class(context.Background(), classHash)
 	require.NoError(t, err)
 
-	feederClass, err := client.ClassDefinition(context.Background(), classHash)
+	feederClass, err := feeder.ClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
-	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
+	compiled, err := feeder.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
 	adaptedResponse, err := feeder2core.AdaptCairo1Class(feederClass.V1, compiled)

@@ -6,8 +6,8 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/gateway"
+	client "github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -16,11 +16,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
-
-//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
-type Gateway interface {
-	AddTransaction(json.RawMessage) (json.RawMessage, error)
-}
 
 var (
 	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
@@ -62,15 +57,15 @@ type Handler struct {
 	bcReader      blockchain.Reader
 	synchronizer  *sync.Synchronizer
 	network       utils.Network
-	gatewayClient Gateway
-	feederClient  *feeder.Client
+	gatewayClient client.GatewayInterface
+	feederClient  client.FeederInterface
 	vm            vm.VM
 	log           utils.Logger
 	version       string
 }
 
 func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
-	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
+	gatewayClient client.GatewayInterface, feederClient client.FeederInterface, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
@@ -885,7 +880,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 	}
 
 	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
-		request["type"] = feeder.TxnInvoke.String()
+		request["type"] = sequencertypes.TxnInvoke.String()
 
 		updatedReq, errIn := json.Marshal(request)
 		if errIn != nil {
@@ -936,37 +931,37 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
-	gatewayErr, ok := err.(*gateway.Error)
+	gatewayErr, ok := err.(*sequencertypes.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	switch gatewayErr.Code {
-	case gateway.InvalidContractClass:
+	case sequencertypes.InvalidContractClass:
 		return ErrInvalidContractClass
-	case gateway.UndeclaredClass:
+	case sequencertypes.UndeclaredClass:
 		return ErrClassHashNotFound
-	case gateway.ClassAlreadyDeclared:
+	case sequencertypes.ClassAlreadyDeclared:
 		return ErrClassAlreadyDeclared
-	case gateway.InsufficientMaxFee:
+	case sequencertypes.InsufficientMaxFee:
 		return ErrInsufficientMaxFee
-	case gateway.InsufficientAccountBalance:
+	case sequencertypes.InsufficientAccountBalance:
 		return ErrInsufficientAccountBalance
-	case gateway.ValidateFailure:
+	case sequencertypes.ValidateFailure:
 		return ErrValidationFailure
-	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
+	case sequencertypes.ContractBytecodeSizeTooLarge, sequencertypes.ContractClassObjectSizeTooLarge:
 		return ErrContractClassSizeTooLarge
-	case gateway.DuplicatedTransaction:
+	case sequencertypes.DuplicatedTransaction:
 		return ErrDuplicateTx
-	case gateway.InvalidTransactionNonce:
+	case sequencertypes.InvalidTransactionNonce:
 		return ErrInvalidTransactionNonce
-	case gateway.CompilationFailed:
+	case sequencertypes.CompilationFailed:
 		return ErrCompilationFailed
-	case gateway.InvalidCompiledClassHash:
+	case sequencertypes.InvalidCompiledClassHash:
 		return ErrCompiledClassHashMismatch
-	case gateway.InvalidTransactionVersion:
+	case sequencertypes.InvalidTransactionVersion:
 		return ErrUnsupportedTxVersion
-	case gateway.InvalidContractClassVersion:
+	case sequencertypes.InvalidContractClassVersion:
 		return ErrUnsupportedContractClassVersion
 	default:
 		unexpectedErr := ErrUnexpectedError
@@ -1048,16 +1043,16 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		// Check if the error is due to a transaction not being found
-		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
+		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == sequencertypes.NotReceived {
 			return nil, ErrTxnHashNotFound
 		}
 
 		status = new(TransactionStatus)
 
 		switch txStatus.FinalityStatus {
-		case feeder.AcceptedOnL1:
+		case sequencertypes.AcceptedOnL1:
 			status.Finality = TxnAcceptedOnL1
-		case feeder.AcceptedOnL2:
+		case sequencertypes.AcceptedOnL2:
 			status.Finality = TxnAcceptedOnL2
 		default:
 			// pre-0.12.1
@@ -1069,9 +1064,9 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		}
 
 		switch txStatus.ExecutionStatus {
-		case feeder.Succeeded:
+		case sequencertypes.Succeeded:
 			status.Execution = TxnSuccess
-		case feeder.Reverted:
+		case sequencertypes.Reverted:
 			status.Execution = TxnFailure
 		default:
 			// pre-0.12.1

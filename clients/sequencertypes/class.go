@@ -1,4 +1,4 @@
-package feeder
+package sequencertypes
 
 import (
 	"encoding/json"

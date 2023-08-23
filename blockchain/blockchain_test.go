@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +20,8 @@ import (
 var emptyCommitments = core.BlockCommitments{}
 
 func TestNew(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 	log := utils.NewNopZapLogger()
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, log)
@@ -49,8 +49,8 @@ func TestNew(t *testing.T) {
 }
 
 func TestHeight(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 	log := utils.NewNopZapLogger()
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI, log)
@@ -78,8 +78,8 @@ func TestHeight(t *testing.T) {
 func TestBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.GOERLI, utils.NewNopZapLogger())
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.MAINNET)
-		gw := adaptfeeder.New(client)
+		cli := client.NewTestClient(t, utils.MAINNET)
+		gw := starknetdata.NewStarknetData(cli)
 
 		block, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
@@ -124,9 +124,9 @@ func TestVerifyBlock(t *testing.T) {
 		assert.EqualError(t, chain.VerifyBlock(block), "block's parent hash does not match head block hash")
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, utils.MAINNET)
 
-	gw := adaptfeeder.New(client)
+	gw := starknetdata.NewStarknetData(cli)
 	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
 
@@ -176,9 +176,8 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, utils.NewNopZapLogger())
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -209,8 +208,8 @@ func TestSanityCheckNewHeight(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 	log := utils.NewNopZapLogger()
 
 	block0, err := gw.BlockByNumber(context.Background(), 0)
@@ -271,8 +270,8 @@ func TestStore(t *testing.T) {
 func TestTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(), utils.MAINNET, utils.NewNopZapLogger())
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	for i := uint64(0); i < 3; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)
@@ -362,8 +361,8 @@ func TestState(t *testing.T) {
 	})
 	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	t.Run("head with no blocks", func(t *testing.T) {
 		_, _, err := chain.HeadState()
@@ -428,8 +427,8 @@ func TestEvents(t *testing.T) {
 	})
 	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
 
-	client := feeder.NewTestClient(t, utils.GOERLI2)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI2)
+	gw := starknetdata.NewStarknetData(cli)
 
 	for i := 0; i < 7; i++ {
 		b, err := gw.BlockByNumber(context.Background(), uint64(i))
@@ -547,8 +546,8 @@ func TestRevert(t *testing.T) {
 	testdb := pebble.NewMemTest()
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	for i := uint64(0); i < 3; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)
@@ -644,8 +643,8 @@ func TestPending(t *testing.T) {
 		require.NoError(t, testDB.Close())
 	})
 	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	b, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -734,8 +733,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 		require.NoError(t, testDB.Close())
 	})
 	chain := blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	block0, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)

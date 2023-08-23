@@ -13,8 +13,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/gateway"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -24,7 +23,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	starknetdata "github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"
@@ -107,12 +106,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services := make([]service.Service, 0)
 
 	chain := blockchain.New(database, cfg.Network, log)
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	cli := client.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
+	synchronizer := sync.New(chain, starknetdata.NewStarknetData(cli), log, cfg.PendingPollInterval)
 	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
-
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
+	gatewayClient := client.NewGateway(cli)
+	feederClient := client.NewFeeder(cli)
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, feederClient, vm.New(), version, log)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())

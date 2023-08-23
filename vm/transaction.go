@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/jinzhu/copier"
@@ -18,7 +18,7 @@ var queryVersion = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).
 func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	txnMap := make(map[string]any)
 
-	var t feeder.Transaction
+	var t sequencertypes.Transaction
 	if err := copier.Copy(&t, txn); err != nil {
 		return nil, err
 	}

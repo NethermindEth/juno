@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -169,8 +169,8 @@ func TestBlockHash(t *testing.T) {
 		tc := testcase
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client := feeder.NewTestClient(t, tc.chain)
-			gw := adaptfeeder.New(client)
+			cli := client.NewTestClient(t, tc.chain)
+			gw := starknetdata.NewStarknetData(cli)
 
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
@@ -184,8 +184,8 @@ func TestBlockHash(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	mainnetGW := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	mainnetGW := starknetdata.NewStarknetData(cli)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -199,8 +199,8 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.GOERLI)
-		goerliGW := adaptfeeder.New(client)
+		cli := client.NewTestClient(t, utils.GOERLI)
+		goerliGW := starknetdata.NewStarknetData(cli)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 

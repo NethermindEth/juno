@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptBlock(response *feeder.Block) (*core.Block, error) {
+func AdaptBlock(response *sequencertypes.Block) (*core.Block, error) {
 	if response == nil {
 		return nil, errors.New("nil client block")
 	}
@@ -51,7 +51,7 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 	}, nil
 }
 
-func AdaptTransactionReceipt(response *feeder.TransactionReceipt) *core.TransactionReceipt {
+func AdaptTransactionReceipt(response *sequencertypes.TransactionReceipt) *core.TransactionReceipt {
 	if response == nil {
 		return nil
 	}
@@ -73,12 +73,12 @@ func AdaptTransactionReceipt(response *feeder.TransactionReceipt) *core.Transact
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
-		Reverted:           response.ExecutionStatus == feeder.Reverted,
+		Reverted:           response.ExecutionStatus == sequencertypes.Reverted,
 		RevertReason:       response.RevertError,
 	}
 }
 
-func AdaptEvent(response *feeder.Event) *core.Event {
+func AdaptEvent(response *sequencertypes.Event) *core.Event {
 	if response == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func AdaptEvent(response *feeder.Event) *core.Event {
 	}
 }
 
-func AdaptExecutionResources(response *feeder.ExecutionResources) *core.ExecutionResources {
+func AdaptExecutionResources(response *sequencertypes.ExecutionResources) *core.ExecutionResources {
 	if response == nil {
 		return nil
 	}
@@ -102,7 +102,7 @@ func AdaptExecutionResources(response *feeder.ExecutionResources) *core.Executio
 	}
 }
 
-func AdaptBuiltinInstanceCounter(response feeder.BuiltinInstanceCounter) core.BuiltinInstanceCounter {
+func AdaptBuiltinInstanceCounter(response sequencertypes.BuiltinInstanceCounter) core.BuiltinInstanceCounter {
 	return core.BuiltinInstanceCounter{
 		Bitwise:    response.Bitwise,
 		EcOp:       response.EcOp,
@@ -113,7 +113,7 @@ func AdaptBuiltinInstanceCounter(response feeder.BuiltinInstanceCounter) core.Bu
 	}
 }
 
-func AdaptL1ToL2Message(response *feeder.L1ToL2Message) *core.L1ToL2Message {
+func AdaptL1ToL2Message(response *sequencertypes.L1ToL2Message) *core.L1ToL2Message {
 	if response == nil {
 		return nil
 	}
@@ -127,7 +127,7 @@ func AdaptL1ToL2Message(response *feeder.L1ToL2Message) *core.L1ToL2Message {
 	}
 }
 
-func AdaptL2ToL1Message(response *feeder.L2ToL1Message) *core.L2ToL1Message {
+func AdaptL2ToL1Message(response *sequencertypes.L2ToL1Message) *core.L2ToL1Message {
 	if response == nil {
 		return nil
 	}
@@ -139,25 +139,25 @@ func AdaptL2ToL1Message(response *feeder.L2ToL1Message) *core.L2ToL1Message {
 	}
 }
 
-func AdaptTransaction(transaction *feeder.Transaction) (core.Transaction, error) {
+func AdaptTransaction(transaction *sequencertypes.Transaction) (core.Transaction, error) {
 	txType := transaction.Type
 	switch txType {
-	case feeder.TxnDeclare:
+	case sequencertypes.TxnDeclare:
 		return AdaptDeclareTransaction(transaction), nil
-	case feeder.TxnDeploy:
+	case sequencertypes.TxnDeploy:
 		return AdaptDeployTransaction(transaction), nil
-	case feeder.TxnInvoke:
+	case sequencertypes.TxnInvoke:
 		return AdaptInvokeTransaction(transaction), nil
-	case feeder.TxnDeployAccount:
+	case sequencertypes.TxnDeployAccount:
 		return AdaptDeployAccountTransaction(transaction), nil
-	case feeder.TxnL1Handler:
+	case sequencertypes.TxnL1Handler:
 		return AdaptL1HandlerTransaction(transaction), nil
 	default:
 		return nil, fmt.Errorf("unknown transaction type %q", txType)
 	}
 }
 
-func AdaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
+func AdaptDeclareTransaction(t *sequencertypes.Transaction) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
 		TransactionHash:      t.Hash,
 		SenderAddress:        t.SenderAddress,
@@ -170,7 +170,7 @@ func AdaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 	}
 }
 
-func AdaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
+func AdaptDeployTransaction(t *sequencertypes.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
 		t.ContractAddress = core.ContractAddress(&felt.Zero, t.ClassHash, t.ContractAddressSalt, *t.ConstructorCallData)
 	}
@@ -184,7 +184,7 @@ func AdaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
 	}
 }
 
-func AdaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
+func AdaptInvokeTransaction(t *sequencertypes.Transaction) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
 		TransactionHash:      t.Hash,
 		ContractAddress:      t.ContractAddress,
@@ -198,7 +198,7 @@ func AdaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
 	}
 }
 
-func AdaptL1HandlerTransaction(t *feeder.Transaction) *core.L1HandlerTransaction {
+func AdaptL1HandlerTransaction(t *sequencertypes.Transaction) *core.L1HandlerTransaction {
 	return &core.L1HandlerTransaction{
 		TransactionHash:    t.Hash,
 		ContractAddress:    t.ContractAddress,
@@ -209,7 +209,7 @@ func AdaptL1HandlerTransaction(t *feeder.Transaction) *core.L1HandlerTransaction
 	}
 }
 
-func AdaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTransaction {
+func AdaptDeployAccountTransaction(t *sequencertypes.Transaction) *core.DeployAccountTransaction {
 	return &core.DeployAccountTransaction{
 		DeployTransaction:    *AdaptDeployTransaction(t),
 		MaxFee:               t.MaxFee,
@@ -218,7 +218,7 @@ func AdaptDeployAccountTransaction(t *feeder.Transaction) *core.DeployAccountTra
 	}
 }
 
-func AdaptCairo1Class(response *feeder.SierraDefinition, compiledClass json.RawMessage) (core.Class, error) {
+func AdaptCairo1Class(response *sequencertypes.SierraDefinition, compiledClass json.RawMessage) (core.Class, error) {
 	var err error
 
 	class := new(core.Cairo1Class)
@@ -253,7 +253,7 @@ func AdaptCairo1Class(response *feeder.SierraDefinition, compiledClass json.RawM
 	return class, nil
 }
 
-func AdaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
+func AdaptCairo0Class(response *sequencertypes.Cairo0Definition) (core.Class, error) {
 	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 
@@ -281,7 +281,7 @@ func AdaptCairo0Class(response *feeder.Cairo0Definition) (core.Class, error) {
 	return class, nil
 }
 
-func AdaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
+func AdaptStateUpdate(response *sequencertypes.StateUpdate) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts
 

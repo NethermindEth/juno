@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
+	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -17,7 +17,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -86,8 +86,8 @@ func TestBlockHashAndNumber(t *testing.T) {
 	})
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.MAINNET)
-		gw := adaptfeeder.New(client)
+		cli := client.NewTestClient(t, utils.MAINNET)
+		gw := starknetdata.NewStarknetData(cli)
 
 		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
 		require.NoError(t, err)
@@ -109,8 +109,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, utils.GOERLI, nil, nil, nil, "", nil)
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI)
+	gw := starknetdata.NewStarknetData(cli)
 
 	latestBlockNumber := uint64(485004)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -186,8 +186,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, utils.GOERLI, nil, nil, nil, "", nil)
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI)
+	gw := starknetdata.NewStarknetData(cli)
 
 	latestBlockNumber := uint64(485004)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -308,8 +308,8 @@ func TestBlockWithTxs(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", nil)
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	gw := starknetdata.NewStarknetData(cli)
 
 	latestBlockNumber := uint64(16697)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
@@ -452,8 +452,8 @@ func TestTransactionByHash(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	mainnetGw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	mainnetGw := starknetdata.NewStarknetData(cli)
 
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", nil)
 
@@ -642,8 +642,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	mainnetGw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	mainnetGw := starknetdata.NewStarknetData(cli)
 
 	latestBlockNumber := 19199
 	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
@@ -798,8 +798,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	mainnetGw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	mainnetGw := starknetdata.NewStarknetData(cli)
 
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
@@ -951,8 +951,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n"
 		}`
 
-		integClient := feeder.NewTestClient(t, utils.INTEGRATION)
-		integGw := adaptfeeder.New(integClient)
+		integcli := client.NewTestClient(t, utils.INTEGRATION)
+		integGw := starknetdata.NewStarknetData(integcli)
 
 		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
 		require.NoError(t, err)
@@ -1000,8 +1000,8 @@ func TestStateUpdate(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	mainnetGw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	mainnetGw := starknetdata.NewStarknetData(cli)
 
 	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
 	require.NoError(t, err)
@@ -1080,8 +1080,8 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("post v0.11.0", func(t *testing.T) {
-		integrationClient := feeder.NewTestClient(t, utils.INTEGRATION)
-		integGw := adaptfeeder.New(integrationClient)
+		integrationcli := client.NewTestClient(t, utils.INTEGRATION)
+		integGw := starknetdata.NewStarknetData(integrationcli)
 
 		for name, height := range map[string]uint64{
 			"declared Cairo0 classes": 283746,
@@ -1119,10 +1119,10 @@ func TestSyncing(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.MAINNET)
+	sn := starknetdata.NewStarknetData(cli)
 	log := utils.NewNopZapLogger()
-	synchronizer := sync.New(nil, gw, log, time.Duration(0))
+	synchronizer := sync.New(nil, sn, log, time.Duration(0))
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, synchronizer, utils.MAINNET, nil, nil, nil, "", nil)
@@ -1471,8 +1471,8 @@ func assertEqualCairo1Class(t *testing.T, cairo1Class *core.Cairo1Class, class *
 }
 
 func TestClass(t *testing.T) {
-	integrationClient := feeder.NewTestClient(t, utils.INTEGRATION)
-	integGw := adaptfeeder.New(integrationClient)
+	integrationcli := client.NewTestClient(t, utils.INTEGRATION)
+	integGw := starknetdata.NewStarknetData(integrationcli)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1519,8 +1519,8 @@ func TestClass(t *testing.T) {
 }
 
 func TestClassAt(t *testing.T) {
-	integrationClient := feeder.NewTestClient(t, utils.INTEGRATION)
-	integGw := adaptfeeder.New(integrationClient)
+	integrationcli := client.NewTestClient(t, utils.INTEGRATION)
+	integGw := starknetdata.NewStarknetData(integrationcli)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1577,8 +1577,8 @@ func TestEvents(t *testing.T) {
 	})
 	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
 
-	client := feeder.NewTestClient(t, utils.GOERLI2)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI2)
+	gw := starknetdata.NewStarknetData(cli)
 
 	for i := 0; i < 7; i++ {
 		b, err := gw.BlockByNumber(context.Background(), uint64(i))
@@ -1742,7 +1742,7 @@ func TestAddTransaction(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	mockGateway := mocks.NewMockGateway(mockCtrl)
+	mockGateway := mocks.NewMockGatewayInterface(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, nil, nil, "", log)
 
@@ -1864,10 +1864,11 @@ func TestTransactionStatus(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 
-			client := feeder.NewTestClient(t, test.network)
+			cli := client.NewTestClient(t, test.network)
+			feeder := client.NewFeeder(cli)
 
 			t.Run("tx found in db", func(t *testing.T) {
-				gw := adaptfeeder.New(client)
+				gw := starknetdata.NewStarknetData(cli)
 
 				block, err := gw.BlockLatest(context.Background())
 				require.NoError(t, err)
@@ -1928,7 +1929,7 @@ func TestTransactionStatus(t *testing.T) {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound)
-						handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+						handler := rpc.New(mockReader, nil, test.network, nil, feeder, nil, "", nil)
 
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Nil(t, err)
@@ -1942,7 +1943,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+				handler := rpc.New(mockReader, nil, test.network, nil, feeder, nil, "", nil)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
@@ -2275,8 +2276,8 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, utils.GOERLI, nil, nil, nil, "", nil)
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
-	gw := adaptfeeder.New(client)
+	cli := client.NewTestClient(t, utils.GOERLI)
+	gw := starknetdata.NewStarknetData(cli)
 	latestBlockNumber := uint64(485004)
 
 	t.Run("default sequencer address", func(t *testing.T) {

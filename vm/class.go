@@ -14,7 +14,7 @@ import (
 	"errors"
 	"unsafe"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -57,40 +57,40 @@ func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
 	return json.Marshal(declaredClass)
 }
 
-func makeDeprecatedVMClass(class *core.Cairo0Class) (*feeder.Cairo0Definition, error) {
+func makeDeprecatedVMClass(class *core.Cairo0Class) (*sequencertypes.Cairo0Definition, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
 	}
 
-	constructors := make([]feeder.EntryPoint, 0, len(class.Constructors))
+	constructors := make([]sequencertypes.EntryPoint, 0, len(class.Constructors))
 	for _, entryPoint := range class.Constructors {
-		constructors = append(constructors, feeder.EntryPoint{
+		constructors = append(constructors, sequencertypes.EntryPoint{
 			Selector: entryPoint.Selector,
 			Offset:   entryPoint.Offset,
 		})
 	}
 
-	external := make([]feeder.EntryPoint, 0, len(class.Externals))
+	external := make([]sequencertypes.EntryPoint, 0, len(class.Externals))
 	for _, entryPoint := range class.Externals {
-		external = append(external, feeder.EntryPoint{
+		external = append(external, sequencertypes.EntryPoint{
 			Selector: entryPoint.Selector,
 			Offset:   entryPoint.Offset,
 		})
 	}
 
-	handlers := make([]feeder.EntryPoint, 0, len(class.L1Handlers))
+	handlers := make([]sequencertypes.EntryPoint, 0, len(class.L1Handlers))
 	for _, entryPoint := range class.L1Handlers {
-		handlers = append(handlers, feeder.EntryPoint{
+		handlers = append(handlers, sequencertypes.EntryPoint{
 			Selector: entryPoint.Selector,
 			Offset:   entryPoint.Offset,
 		})
 	}
 
-	return &feeder.Cairo0Definition{
+	return &sequencertypes.Cairo0Definition{
 		Program: decompressedProgram,
 		Abi:     class.Abi,
-		EntryPoints: feeder.EntryPoints{
+		EntryPoints: sequencertypes.EntryPoints{
 			Constructor: constructors,
 			External:    external,
 			L1Handler:   handlers,
@@ -98,35 +98,35 @@ func makeDeprecatedVMClass(class *core.Cairo0Class) (*feeder.Cairo0Definition, e
 	}, nil
 }
 
-func makeSierraClass(class *core.Cairo1Class) *feeder.SierraDefinition {
-	constructors := make([]feeder.SierraEntryPoint, 0, len(class.EntryPoints.Constructor))
+func makeSierraClass(class *core.Cairo1Class) *sequencertypes.SierraDefinition {
+	constructors := make([]sequencertypes.SierraEntryPoint, 0, len(class.EntryPoints.Constructor))
 	for _, entryPoint := range class.EntryPoints.Constructor {
-		constructors = append(constructors, feeder.SierraEntryPoint{
+		constructors = append(constructors, sequencertypes.SierraEntryPoint{
 			Selector: entryPoint.Selector,
 			Index:    entryPoint.Index,
 		})
 	}
 
-	external := make([]feeder.SierraEntryPoint, 0, len(class.EntryPoints.External))
+	external := make([]sequencertypes.SierraEntryPoint, 0, len(class.EntryPoints.External))
 	for _, entryPoint := range class.EntryPoints.External {
-		external = append(external, feeder.SierraEntryPoint{
+		external = append(external, sequencertypes.SierraEntryPoint{
 			Selector: entryPoint.Selector,
 			Index:    entryPoint.Index,
 		})
 	}
 
-	handlers := make([]feeder.SierraEntryPoint, 0, len(class.EntryPoints.L1Handler))
+	handlers := make([]sequencertypes.SierraEntryPoint, 0, len(class.EntryPoints.L1Handler))
 	for _, entryPoint := range class.EntryPoints.L1Handler {
-		handlers = append(handlers, feeder.SierraEntryPoint{
+		handlers = append(handlers, sequencertypes.SierraEntryPoint{
 			Selector: entryPoint.Selector,
 			Index:    entryPoint.Index,
 		})
 	}
 
-	return &feeder.SierraDefinition{
+	return &sequencertypes.SierraDefinition{
 		Version: class.SemanticVersion,
 		Program: class.Program,
-		EntryPoints: feeder.SierraEntryPoints{
+		EntryPoints: sequencertypes.SierraEntryPoints{
 			Constructor: constructors,
 			External:    external,
 			L1Handler:   handlers,
