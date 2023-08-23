@@ -2,6 +2,7 @@ package sn2core_test
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"testing"
 
@@ -492,7 +493,9 @@ func TestClassV1(t *testing.T) {
 	assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
 	assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
 	assert.Equal(t, compiled.Prime, v1Class.Compiled.Prime)
-	assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
+	rawHints, err := json.Marshal(compiled.Hints)
+	require.NoError(t, err)
+	assert.Equal(t, rawHints, []byte(v1Class.Compiled.Hints))
 	assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
 	assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.EntryPoints.External))
 
