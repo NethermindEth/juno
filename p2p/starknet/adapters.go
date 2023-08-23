@@ -12,13 +12,6 @@ func AdaptFeltToHash(f *felt.Felt) *spec.Hash {
 	}
 }
 
-func adaptFeltToAddress(f *felt.Felt) *spec.Address {
-	fBytes := f.Bytes()
-	return &spec.Address{
-		Elements: fBytes[:],
-	}
-}
-
 func AdaptFelt(f *felt.Felt) *spec.Felt252 {
 	fBytes := f.Bytes()
 	return &spec.Felt252{
