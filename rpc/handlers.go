@@ -1047,8 +1047,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
-		// Check if the error is due to a transaction not being found
-		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
+		if txStatus.FinalityStatus == feeder.NotReceived {
 			return nil, ErrTxnHashNotFound
 		}
 
@@ -1060,12 +1059,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		case feeder.AcceptedOnL2:
 			status.Finality = TxnAcceptedOnL2
 		default:
-			// pre-0.12.1
-			if txStatus.Status == "ACCEPTED_ON_L1" {
-				status.Finality = TxnAcceptedOnL1
-			} else {
-				status.Finality = TxnAcceptedOnL2
-			}
+			return nil, jsonrpc.Err(jsonrpc.InternalError, "unknown finality status from feeder gateway")
 		}
 
 		switch txStatus.ExecutionStatus {
@@ -1074,8 +1068,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		case feeder.Reverted:
 			status.Execution = TxnFailure
 		default:
-			// pre-0.12.1
-			status.Execution = TxnSuccess
+			return nil, jsonrpc.Err(jsonrpc.InternalError, "unknown execution status from feeder gateway")
 		}
 	default:
 		return nil, txErr
