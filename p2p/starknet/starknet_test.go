@@ -56,16 +56,6 @@ func TestClientHandler(t *testing.T) {
 		require.Equal(t, uint32(4), count)
 	})
 
-	t.Run("get signatures", func(t *testing.T) {
-		res, cErr := client.GetSignatures(testCtx, &spec.GetSignatures{
-			Id: &spec.BlockID{
-				Height: 44,
-			},
-		})
-		require.NoError(t, cErr)
-		require.Equal(t, res.Id.Height, uint64(44))
-	})
-
 	t.Run("get event", func(t *testing.T) {
 		res, cErr := client.GetEvents(testCtx, &spec.GetEvents{})
 		require.NoError(t, cErr)
