@@ -25,7 +25,7 @@ func PrometheusRegistry() base.Registry {
 	return &promRegistryWrapper{registry: junoPrometheus.NewRegistry()}
 }
 
-// PrometheusFactory excepts registry to be created with PrometheusRegistry function
+// PrometheusFactory expects registry to be created with PrometheusRegistry function
 func PrometheusFactory(registry base.Registry) (base.Factory, error) {
 	if !Enabled() {
 		return &noopFactory{}, nil
@@ -38,7 +38,7 @@ func PrometheusFactory(registry base.Registry) (base.Factory, error) {
 	}
 }
 
-// PrometheusHandler excepts registry to be created with PrometheusRegistry function
+// PrometheusHandler expects registry to be created with PrometheusRegistry function
 func PrometheusHandler(registry base.Registry) (http.Handler, error) {
 	if !Enabled() {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), nil
