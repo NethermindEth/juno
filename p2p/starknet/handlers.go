@@ -3,10 +3,13 @@ package starknet
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -114,9 +117,21 @@ func (h *Handler) HandleGetBlocks(req *spec.GetBlocks) (Stream[proto.Message], e
 }
 
 func (h *Handler) HandleGetSignatures(req *spec.GetSignatures) (*spec.Signatures, error) {
-	// todo: read from bcReader and adapt to p2p type
+	block, err := h.blockByID(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	var signatures []*spec.Signature
+	for _, tx := range block.Transactions {
+		signature := &spec.Signature{
+			Parts: utils.Map(tx.Signature(), AdaptFelt),
+		}
+		signatures = append(signatures, signature)
+	}
 	return &spec.Signatures{
-		Id: req.Id,
+		Id:         req.Id,
+		Signatures: signatures,
 	}, nil
 }
 
@@ -142,4 +157,16 @@ func (h *Handler) HandleGetTransactions(req *spec.GetTransactions) (*spec.Transa
 	return &spec.Transactions{
 		Transactions: make([]*spec.Transaction, magic),
 	}, nil
+}
+
+func (h *Handler) blockByID(id *spec.BlockID) (*core.Block, error) {
+	switch {
+	case id == nil:
+		return nil, errors.New("block id is nil")
+	case id.Hash != nil:
+		hash := new(felt.Felt).SetBytes(id.Hash.Elements)
+		return h.bcReader.BlockByHash(hash)
+	default:
+		return h.bcReader.BlockByNumber(id.Height)
+	}
 }
