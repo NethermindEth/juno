@@ -364,7 +364,6 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 		s.failedRequests.WithLabelValues(req.Method).Inc()
 		return res, nil
 	}
-	s.failedRequests.WithLabelValues(req.Method).Inc()
 	res.Result = tuple[0].Interface()
 	return res, nil
 }
