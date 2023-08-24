@@ -131,6 +131,10 @@ func TestSyncBlocks(t *testing.T) {
 
 			return ret, nil
 		}).AnyTimes()
+		mockSNData.EXPECT().StateUpdateWithBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
+			// TODO: implement once the new feeder endpoint is available
+			return nil, nil, errors.New("404 Not Found")
+		}).AnyTimes()
 		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.Class, error) {
 			return gw.Class(ctx, hash)
 		}).AnyTimes()

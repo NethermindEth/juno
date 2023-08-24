@@ -81,13 +81,16 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		case <-ctx.Done():
 			return func() {}
 		default:
-			block, err := s.StarknetData.BlockByNumber(ctx, height)
+			stateUpdate, block, err := s.StarknetData.StateUpdateWithBlock(ctx, height)
 			if err != nil {
-				continue
-			}
-			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
-			if err != nil {
-				continue
+				// TODO: remove once the new feeder endpoint is available
+				if err.Error() == "404 Not Found" {
+					if stateUpdate, block, err = s.fetcherTaskFallback(ctx, height); err != nil {
+						continue
+					}
+				} else {
+					continue
+				}
 			}
 
 			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
@@ -341,14 +344,16 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return nil
 	}
 
-	pendingBlock, err := s.StarknetData.BlockPending(ctx)
+	pendingStateUpdate, pendingBlock, err := s.StarknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
-		return err
-	}
-
-	pendingStateUpdate, err := s.StarknetData.StateUpdatePending(ctx)
-	if err != nil {
-		return err
+		// TODO: remove once the new feeder endpoint is available
+		if err.Error() == "404 Not Found" {
+			if pendingStateUpdate, pendingBlock, err = s.fetchAndStorePendingFallback(ctx); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
@@ -362,4 +367,31 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
 	})
+}
+
+func (s *Synchronizer) fetcherTaskFallback(ctx context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
+	block, err := s.StarknetData.BlockByNumber(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return stateUpdate, block, nil
+}
+
+func (s *Synchronizer) fetchAndStorePendingFallback(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
+	pendingBlock, err := s.StarknetData.BlockPending(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pendingStateUpdate, err := s.StarknetData.StateUpdatePending(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return pendingStateUpdate, pendingBlock, nil
 }
