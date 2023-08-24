@@ -79,7 +79,14 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
-	metrics.Enabled = cfg.Metrics
+	if cfg.Metrics {
+		metrics.Enable()
+	}
+	registry := metrics.PrometheusRegistry()
+	metricsFactory, err := metrics.PrometheusFactory(registry)
+	if err != nil {
+		return nil, err
+	}
 
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
@@ -98,7 +105,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
-	database, err := pebble.New(cfg.DatabasePath, dbLog)
+	database, err := pebble.New(cfg.DatabasePath, dbLog, metricsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
@@ -108,27 +115,31 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	chain := blockchain.New(database, cfg.Network, log)
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, metricsFactory)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log, metricsFactory).WithValidator(validator.Validator())
 	for _, method := range methods(rpcHandler) {
 		if err = jsonrpcServer.RegisterMethod(method); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPPort, jsonrpcServer, log, metricsFactory))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log, metricsFactory))
 	}
 	if cfg.Metrics {
-		services = append(services, makeMetrics(cfg.MetricsPort))
+		handler, err := metrics.PrometheusHandler(registry)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, makeMetrics(cfg.MetricsPort, handler))
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCPort, database, version))

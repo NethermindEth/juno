@@ -3,9 +3,8 @@ package jsonrpc
 import (
 	"net/http"
 
-	"github.com/NethermindEth/juno/metrics"
+	metrics "github.com/NethermindEth/juno/metrics/base"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
@@ -13,20 +12,16 @@ const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
 type HTTP struct {
 	rpc      *Server
 	log      utils.SimpleLogger
-	requests prometheus.Counter
+	reporter httpReporter
 }
 
-func NewHTTP(rpc *Server, log utils.SimpleLogger) *HTTP {
+func NewHTTP(rpc *Server, log utils.SimpleLogger, factory metrics.Factory) *HTTP {
 	h := &HTTP{
-		rpc: rpc,
-		log: log,
-		requests: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "http",
-			Name:      "requests",
-		}),
+		rpc:      rpc,
+		log:      log,
+		reporter: newHttpReporter(factory),
 	}
-	metrics.MustRegister(h.requests)
+
 	return h
 }
 
@@ -45,7 +40,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	}
 
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	h.requests.Inc()
+	h.reporter.requests.Inc()
 	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {

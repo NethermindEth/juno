@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -1122,7 +1123,7 @@ func TestSyncing(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	synchronizer := sync.New(nil, gw, log, time.Duration(0))
+	synchronizer := sync.New(nil, gw, log, time.Duration(0), metrics.VoidFactory())
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, synchronizer, utils.MAINNET, nil, nil, nil, "", nil)

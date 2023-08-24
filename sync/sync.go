@@ -11,11 +11,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/metrics"
+	metrics "github.com/NethermindEth/juno/metrics/base"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/stream"
 )
 
@@ -41,29 +40,19 @@ type Synchronizer struct {
 	catchUpMode bool
 
 	// metrics
-	opTimers    *prometheus.HistogramVec
-	totalBlocks prometheus.Counter
+	reporter syncReporter
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration,
+	log utils.SimpleLogger, pendingPollInterval time.Duration, factory metrics.Factory,
 ) *Synchronizer {
 	s := &Synchronizer{
 		Blockchain:          bc,
 		StarknetData:        starkNetData,
 		log:                 log,
 		pendingPollInterval: pendingPollInterval,
-
-		opTimers: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: "sync",
-			Name:      "timers",
-		}, []string{"op"}),
-		totalBlocks: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "sync",
-			Name:      "blocks",
-		}),
+		reporter:            newSyncReporter(factory),
 	}
-	metrics.MustRegister(s.opTimers, s.totalBlocks)
 	return s
 }
 
@@ -159,7 +148,7 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
-	timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opVerifyLabel))
+	timer := s.reporter.factory.NewTimer(s.reporter.opTimers.WithLabelValues(opVerifyLabel))
 	commitments, err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	timer.ObserveDuration()
 	return func() {
@@ -172,7 +161,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opStoreLabel))
+			timer := s.reporter.factory.NewTimer(s.reporter.opTimers.WithLabelValues(opStoreLabel))
 			err = s.Blockchain.Store(block, commitments, stateUpdate, newClasses)
 			timer.ObserveDuration()
 
@@ -189,7 +178,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			s.totalBlocks.Inc()
+			s.reporter.totalBlocks.Inc()
 			highestBlockHeader := s.HighestBlockHeader.Load()
 			if highestBlockHeader == nil || highestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
@@ -255,7 +244,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
-				timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opFetchLabel))
+				timer := s.reporter.factory.NewTimer(s.reporter.opTimers.WithLabelValues(opFetchLabel))
 				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
 				timer.ObserveDuration()
 				return cb

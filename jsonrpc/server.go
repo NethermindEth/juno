@@ -13,9 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NethermindEth/juno/metrics"
+	metrics "github.com/NethermindEth/juno/metrics/base"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -116,7 +115,7 @@ type Server struct {
 	log       utils.SimpleLogger
 
 	// metrics
-	requests *prometheus.CounterVec
+	reporter serverReporter
 }
 
 type Validator interface {
@@ -124,19 +123,13 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
+func NewServer(poolMaxGoroutines int, log utils.SimpleLogger, factory metrics.Factory) *Server {
 	s := &Server{
-		log:     log,
-		methods: make(map[string]Method),
-		pool:    pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "requests",
-		}, []string{"method"}),
+		log:      log,
+		methods:  make(map[string]Method),
+		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		reporter: newServerReporter(factory),
 	}
-
-	metrics.MustRegister(s.requests)
 	return s
 }
 
@@ -346,7 +339,7 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 		return res, nil
 	}
 
-	s.requests.WithLabelValues(req.Method).Inc()
+	s.reporter.requests.WithLabelValues(req.Method).Inc()
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
 		return nil, nil

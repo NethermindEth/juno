@@ -13,11 +13,10 @@ import (
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
+	metrics "github.com/NethermindEth/juno/metrics/base"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
 )
@@ -60,25 +59,24 @@ func makeHTTPService(port uint16, handler http.Handler) *httpService {
 	}
 }
 
-func makeRPCOverHTTP(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
-	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
+func makeRPCOverHTTP(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger, factory metrics.Factory) *httpService {
+	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log, factory)
 	mux := http.NewServeMux()
 	mux.Handle("/", httpHandler)
 	mux.Handle("/v0_4", httpHandler)
 	return makeHTTPService(port, mux)
 }
 
-func makeRPCOverWebsocket(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
-	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
+func makeRPCOverWebsocket(port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger, factory metrics.Factory) *httpService {
+	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log, factory)
 	mux := http.NewServeMux()
 	mux.Handle("/", wsHandler)
 	mux.Handle("/v0_4", wsHandler)
 	return makeHTTPService(port, mux)
 }
 
-func makeMetrics(port uint16) *httpService {
-	return makeHTTPService(port,
-		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
+func makeMetrics(port uint16, handler http.Handler) *httpService {
+	return makeHTTPService(port, handler)
 }
 
 func makeGRPC(port uint16, database db.DB, version string) *httpService {

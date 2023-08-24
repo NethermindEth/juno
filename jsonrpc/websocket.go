@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/metrics"
+	metrics "github.com/NethermindEth/juno/metrics/base"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"nhooyr.io/websocket"
 )
 
@@ -20,22 +19,16 @@ type Websocket struct {
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
 	// metrics
-	requests prometheus.Counter
+	reporter websocketReporter
 }
 
-func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(rpc *Server, log utils.SimpleLogger, factory metrics.Factory) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
-		requests: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "ws",
-			Name:      "requests",
-		}),
+		reporter:   newWebsocketReporter(factory),
 	}
-
-	metrics.MustRegister(ws.requests)
 	return ws
 }
 
@@ -56,7 +49,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO include connection information, such as the remote address, in the logs.
 
-	wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
+	wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.reporter.requests)
 
 	err = wsc.ReadWriteLoop(r.Context())
 
@@ -99,10 +92,10 @@ type websocketConn struct {
 	conn     *websocket.Conn
 	rpc      *Server
 	params   *WebsocketConnParams
-	requests prometheus.Counter
+	requests metrics.Counter
 }
 
-func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, requests prometheus.Counter) *websocketConn {
+func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, requests metrics.Counter) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
 		conn:     conn,

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,11 +23,11 @@ func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
 			return msg, nil
 		},
 	}
-	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger(), metrics.VoidFactory())
 	require.NoError(t, rpc.RegisterMethod(method))
 
 	// Server
-	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger()))
+	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger(), metrics.VoidFactory()))
 
 	// Client
 	conn, resp, err := websocket.Dial(ctx, srv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.

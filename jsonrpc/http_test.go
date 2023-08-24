@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,14 +24,14 @@ func TestHTTP(t *testing.T) {
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
 	log := utils.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, log)
+	rpc := jsonrpc.NewServer(1, log, metrics.VoidFactory())
 	require.NoError(t, rpc.RegisterMethod(method))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Server
-	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log, metrics.VoidFactory()))
 
 	// Client
 	client := new(http.Client)

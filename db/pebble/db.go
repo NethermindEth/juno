@@ -4,10 +4,9 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/metrics"
+	metrics "github.com/NethermindEth/juno/metrics/base"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var _ db.DB = (*DB)(nil)
@@ -17,12 +16,11 @@ type DB struct {
 	wMutex *sync.Mutex
 
 	// metrics
-	readCounter  prometheus.Counter
-	writeCounter prometheus.Counter
+	reporter *dbReporter
 }
 
 // New opens a new database at the given path
-func New(path string, logger pebble.Logger) (db.DB, error) {
+func New(path string, logger pebble.Logger, factory metrics.Factory) (db.DB, error) {
 	pDB, err := newPebble(path, &pebble.Options{
 		Logger: logger,
 	})
@@ -30,16 +28,7 @@ func New(path string, logger pebble.Logger) (db.DB, error) {
 		return nil, err
 	}
 
-	pDB.readCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "db",
-		Name:      "read",
-	})
-	pDB.writeCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "db",
-		Name:      "write",
-	})
-	metrics.MustRegister(pDB.readCounter, pDB.writeCounter)
-
+	pDB.reporter = newSyncReporter(factory)
 	return pDB, nil
 }
 
@@ -69,10 +58,7 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 
 // NewTransaction : see db.DB.NewTransaction
 func (d *DB) NewTransaction(update bool) db.Transaction {
-	txn := &Transaction{
-		readCounter:  d.readCounter,
-		writeCounter: d.writeCounter,
-	}
+	txn := &Transaction{reporter: d.reporter}
 	if update {
 		d.wMutex.Lock()
 		txn.lock = d.wMutex

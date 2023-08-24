@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -59,7 +60,7 @@ func TestSyncBlocks(t *testing.T) {
 		t.Parallel()
 		testDB := pebble.NewMemTest()
 		bc := blockchain.New(testDB, utils.MAINNET, log)
-		synchronizer := sync.New(bc, gw, log, time.Duration(0))
+		synchronizer := sync.New(bc, gw, log, time.Duration(0), metrics.VoidFactory())
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -78,7 +79,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, gw, log, time.Duration(0))
+		synchronizer := sync.New(bc, gw, log, time.Duration(0), metrics.VoidFactory())
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -139,7 +140,7 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.BlockLatest(context.Background())
 		}).AnyTimes()
 
-		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0))
+		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0), metrics.VoidFactory())
 		ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -161,7 +162,7 @@ func TestReorg(t *testing.T) {
 
 	// sync to integration for 2 blocks
 	bc := blockchain.New(testDB, utils.INTEGRATION, utils.NewNopZapLogger())
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), time.Duration(0))
+	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), time.Duration(0), metrics.VoidFactory())
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -176,7 +177,7 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), time.Duration(0))
+		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), time.Duration(0), metrics.VoidFactory())
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
@@ -197,7 +198,7 @@ func TestPending(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	log := utils.NewNopZapLogger()
 	bc := blockchain.New(testDB, utils.MAINNET, log)
-	synchronizer := sync.New(bc, gw, log, time.Millisecond*100)
+	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, metrics.VoidFactory())
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))
