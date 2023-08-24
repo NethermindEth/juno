@@ -347,7 +347,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	pendingStateUpdate, pendingBlock, err := s.StarknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
 		// TODO: remove once the new feeder endpoint is available
-		if err.Error() == "400 Bad Request" || err.Error() == "404 Not Found"{
+		if err.Error() == "400 Bad Request" || err.Error() == "404 Not Found" {
 			if pendingStateUpdate, pendingBlock, err = s.fetchAndStorePendingFallback(ctx); err != nil {
 				return err
 			}
