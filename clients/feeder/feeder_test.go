@@ -290,8 +290,8 @@ func TestTransaction(t *testing.T) {
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0xffff")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
-		assert.Nil(t, actualStatus)
-		assert.Error(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, actualStatus.FinalityStatus, feeder.NotReceived)
 	})
 }
 
