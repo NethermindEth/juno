@@ -30,11 +30,9 @@ jobs:
       - name: Run local k6 test
         uses: grafana/k6-action@v0.3.0
         with:
-          filename: load-tests/rpc-load-tests.js
-          flags: --out json=results.json
+          filename: load-tests/test_cases.js
+          flags: --vus ${{ github.event.inputs.VUS }} --duration ${{ github.event.inputs.DURATION }} --out json=results.json
         env:
-          VUS: ${{ github.event.inputs.VUS }}
-          DURATION: ${{ github.event.inputs.DURATION }}
           NODE_URL: ${{ github.event.inputs.NODE_URL }}
 
       - name: Upload performance test results
@@ -42,4 +40,3 @@ jobs:
         with:
           name: k6-report
           path: results.json
-
