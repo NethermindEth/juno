@@ -47,45 +47,24 @@ pub fn new_transaction_trace(tx: StarknetApiTransaction, info: BlockifierTxInfo)
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             TransactionTrace::L1Handler {
-                function_invocation: match info.execute_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
-                }
+                function_invocation: info.execute_call_info.map(|v| v.into()),
             }
         },
         StarknetApiTransaction::DeployAccount(_) => {
             TransactionTrace::DeployAccount {
-                validate_invocation: match info.validate_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
-                },
-                constructor_invocation: match info.execute_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
-                },
-                fee_transfer_invocation: match info.fee_transfer_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
-                },
+                validate_invocation: info.validate_call_info.map(|v| v.into()),
+                constructor_invocation: info.execute_call_info.map(|v| v.into()),
+                fee_transfer_invocation: info.fee_transfer_call_info.map(|v| v.into()),
             }
         },
         StarknetApiTransaction::Declare(_) | StarknetApiTransaction::Invoke(_) => {
             TransactionTrace::Common {
-                validate_invocation: match info.validate_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
-                },
+                validate_invocation: info.validate_call_info.map(|v| v.into()),
                 execute_invocation: match info.revert_error {
                     Some(str) => Some(ExecuteInvocation::Revert{revert_reason: str}),
-                    None => match info.execute_call_info {
-                        Some(v) => Some(ExecuteInvocation::Ok(v.into())),
-                        None => None,
-                    },
+                    None => info.execute_call_info.map(|v| ExecuteInvocation::Ok(v.into())),
                 },
-                fee_transfer_invocation: match info.fee_transfer_call_info {
-                    Some(v) => Some(v.into()),
-                    None => None,
-                },
+                fee_transfer_invocation: info.fee_transfer_call_info.map(|v| v.into()),
             }
         },
         StarknetApiTransaction::Deploy(_) => {
