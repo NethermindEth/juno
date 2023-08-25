@@ -1,1 +1,26 @@
-{"block_hash": "0x791fb65b9780f90f7f64d4ec49509da1071af166de61573d06fde906626a09b", "new_root": "0631af1bb6ed804990d1a562d9c46cb3796f0f2eae69edbd6d95bd0285477c03", "old_root": "008b2a19a805d9d81381863a698de6be3d2cc460d7742ca5bb6496c8a4890835", "state_diff": {"storage_diffs": {"0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82": [{"key": "0xe8fc4f1b6b3dc661208f9a8a5017a6c059098327e31518722e0a5c3a5a7e86", "value": "0x1"}, {"key": "0x6731c2612148152778052958b2b08ec2687d89ab9e3400564584aa90089bebd", "value": "0x1"}]}, "nonces": {"0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8": "0x1"}, "deployed_contracts": [], "old_declared_contracts": [], "declared_classes": [], "replaced_classes": []}}
+{
+    "block_hash": "0x791fb65b9780f90f7f64d4ec49509da1071af166de61573d06fde906626a09b",
+    "new_root": "0x631af1bb6ed804990d1a562d9c46cb3796f0f2eae69edbd6d95bd0285477c03",
+    "old_root": "0x8b2a19a805d9d81381863a698de6be3d2cc460d7742ca5bb6496c8a4890835",
+    "state_diff": {
+      "storage_diffs": {
+        "0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82": [
+          {
+            "key": "0xe8fc4f1b6b3dc661208f9a8a5017a6c059098327e31518722e0a5c3a5a7e86",
+            "value": "0x1"
+          },
+          {
+            "key": "0x6731c2612148152778052958b2b08ec2687d89ab9e3400564584aa90089bebd",
+            "value": "0x1"
+          }
+        ]
+      },
+      "nonces": {
+        "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8": "0x1"
+      },
+      "deployed_contracts": [],
+      "old_declared_contracts": [],
+      "declared_classes": [],
+      "replaced_classes": []
+    }
+}

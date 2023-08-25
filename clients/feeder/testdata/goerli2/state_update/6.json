@@ -1,1 +1,22 @@
-{"block_hash": "0xdc4f7b00430daf9a6985145de533323be2a034252014eb39a958457f690b3b", "new_root": "05f93acbaf4cf7f2fb5c140382b8e3c6ce8d73ad82c0fbaba6074ce8a1f0529e", "old_root": "001712f1cf94e7cbeb3a5458f135c547b76aa14c368c09a0c1ba99ea1d778c0d", "state_diff": {"storage_diffs": {"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": [{"key": "0x71ff46b290a51051556c7d4512e7e639903f6de60ea8ae775d8439a82b2d0a3", "value": "0x635a9896"}]}, "nonces": {"0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8": "0x3"}, "deployed_contracts": [], "old_declared_contracts": [], "declared_classes": [], "replaced_classes": []}}
+{
+    "block_hash": "0xdc4f7b00430daf9a6985145de533323be2a034252014eb39a958457f690b3b",
+    "new_root": "0x5f93acbaf4cf7f2fb5c140382b8e3c6ce8d73ad82c0fbaba6074ce8a1f0529e",
+    "old_root": "0x1712f1cf94e7cbeb3a5458f135c547b76aa14c368c09a0c1ba99ea1d778c0d",
+    "state_diff": {
+      "storage_diffs": {
+        "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": [
+          {
+            "key": "0x71ff46b290a51051556c7d4512e7e639903f6de60ea8ae775d8439a82b2d0a3",
+            "value": "0x635a9896"
+          }
+        ]
+      },
+      "nonces": {
+        "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8": "0x3"
+      },
+      "deployed_contracts": [],
+      "old_declared_contracts": [],
+      "declared_classes": [],
+      "replaced_classes": []
+    }
+}
