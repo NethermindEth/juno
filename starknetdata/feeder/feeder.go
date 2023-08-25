@@ -138,10 +138,16 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 	return adaptedState, adaptedBlock, nil
 }
 
+// StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
+// then adapts them to the core.StateUpdate and core.Block types respectively
 func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, "pending")
 }
 
+// StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
+// and adapts them to the core.StateUpdate and core.Block types respectively
 func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
+
+
