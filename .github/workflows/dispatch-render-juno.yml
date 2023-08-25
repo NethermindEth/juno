@@ -1,7 +1,10 @@
 name: Dispatch Render Juno-Dev
 
 on:
-    workflow_dispatch
+    # workflow_dispatch
+    push:
+      branches:
+        - juno-dev-gitaction
 env: 
     EVENT_NAME: juno-dev
     VALUES1_FILE: apps/juno-node/overlays/dev-goerli-1/config.yaml
