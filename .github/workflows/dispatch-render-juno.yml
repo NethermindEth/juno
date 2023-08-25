@@ -52,7 +52,7 @@ jobs:
             ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
           run: |
-            curl -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+            curl -H "Authorization: Bearer $ACCESS_TOKEN" \
             --request POST \
             --data '{"event_type": "'"$EVENT_NAME"'", "client_payload": {"name": "'"$EVENT_NAME"'", "file1_path": "'"$VALUES1_FILE"'", "file2_path": "'"$VALUES2_FILE"'", "file3_path": "'"$VALUES3_FILE"'", "file4_path": "'"$VALUES4_FILE"'", "tag": "'"$IMAGE_TAG"'"}}' \
             https://api.github.com/repos/NethermindEth/argo/dispatches
