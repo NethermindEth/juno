@@ -49,10 +49,10 @@ jobs:
           env:
             IMAGE_TAG: ${{ github.sha }}
             EVENT_NAME: ${{ env.EVENT_NAME }}
-            VALUES1_FILE: ${{ env.VALUES_FILE }}
-            VALUES2_FILE: ${{ env.VALUES_FILE }}
-            VALUES3_FILE: ${{ env.VALUES_FILE }}
-            VALUES4_FILE: ${{ env.VALUES_FILE }}
+            VALUES1_FILE: ${{ env.VALUES1_FILE }}
+            VALUES2_FILE: ${{ env.VALUES2_FILE }}
+            VALUES3_FILE: ${{ env.VALUES3_FILE }}
+            VALUES4_FILE: ${{ env.VALUES4_FILE }}
             ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
           run: |
