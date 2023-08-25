@@ -43,7 +43,7 @@ jobs:
             context: .
             push: true
             platforms: 'linux/amd64'
-            tags: nethermind/juno:$IMAGE_TAG
+            tags: nethermind/juno:${{env.IMAGE_TAG}}
         
         - name: Repository Dispatch
           env:
