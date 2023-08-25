@@ -145,9 +145,7 @@ func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUp
 }
 
 // StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
-// and adapts them to the core.StateUpdate and core.Block types respectively
+// then adapts them to the core.StateUpdate and core.Block types respectively
 func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
-
-
