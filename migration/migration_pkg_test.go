@@ -28,7 +28,7 @@ func TestMigration0000(t *testing.T) {
 
 	t.Run("empty DB", func(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			return migration0000(txn, utils.MAINNET)
+			return migration0000(txn, core.MAINNET)
 		}))
 	})
 
@@ -37,7 +37,7 @@ func TestMigration0000(t *testing.T) {
 			return txn.Set([]byte("asd"), []byte("123"))
 		}))
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
-			return migration0000(txn, utils.MAINNET)
+			return migration0000(txn, core.MAINNET)
 		}), "initial DB should be empty")
 	})
 }
@@ -60,7 +60,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, relocateContractStorageRootKeys(txn, utils.MAINNET))
+	require.NoError(t, relocateContractStorageRootKeys(txn, core.MAINNET))
 
 	// Each root-key entry should have been moved to its new location
 	// and the old entry should not exist.
@@ -85,8 +85,8 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testdb.Close())
 	})
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	cli := client.NewTestClient(t, utils.MAINNET)
+	chain := blockchain.New(testdb, core.MAINNET, utils.NewNopZapLogger())
+	cli := client.NewTestClient(t, core.MAINNET)
 	gw := starknetdata.NewStarknetData(cli)
 
 	for i := uint64(0); i < 3; i++ {
@@ -100,7 +100,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	}
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return recalculateBloomFilters(txn, utils.MAINNET)
+		return recalculateBloomFilters(txn, core.MAINNET)
 	}))
 
 	for i := uint64(0); i < 3; i++ {
@@ -151,7 +151,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	m := new(changeTrieNodeEncoding)
 	m.Before()
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return m.Migrate(txn, utils.MAINNET)
+		return m.Migrate(txn, core.MAINNET)
 	}))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
@@ -174,8 +174,8 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testdb.Close())
 	})
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	cli := client.NewTestClient(t, utils.MAINNET)
+	chain := blockchain.New(testdb, core.MAINNET, utils.NewNopZapLogger())
+	cli := client.NewTestClient(t, core.MAINNET)
 	gw := starknetdata.NewStarknetData(cli)
 
 	for i := uint64(0); i < 3; i++ {
@@ -187,7 +187,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	}
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return calculateBlockCommitments(txn, utils.MAINNET)
+		return calculateBlockCommitments(txn, core.MAINNET)
 	}))
 
 	for i := uint64(0); i < 3; i++ {
@@ -208,7 +208,7 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	err = memTxn.Set(key, bsBytes)
 	require.NoError(t, err)
 
-	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, utils.MAINNET))
+	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, core.MAINNET))
 
 	var trieKey trie.Key
 	err = memTxn.Get(key, trieKey.UnmarshalBinary)
@@ -240,7 +240,7 @@ func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
 	err = memTxn.Set(nodeKey, nodeBytes.Bytes())
 	require.NoError(t, err)
 
-	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), utils.MAINNET))
+	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), core.MAINNET))
 
 	err = memTxn.Get(db.ClassesTrie.Key(bsBytes), func(b []byte) error {
 		return nil

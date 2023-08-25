@@ -3,6 +3,7 @@ package migration_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
@@ -16,7 +17,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 	})
 
 	t.Run("Migration should happen on empty DB", func(t *testing.T) {
-		require.NoError(t, migration.MigrateIfNeeded(testDB, utils.MAINNET, utils.NewNopZapLogger()))
+		require.NoError(t, migration.MigrateIfNeeded(testDB, core.MAINNET, utils.NewNopZapLogger()))
 	})
 
 	version, err := migration.SchemaVersion(testDB)
@@ -24,7 +25,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 	require.NotEqual(t, 0, version)
 
 	t.Run("subsequent calls to MigrateIfNeeded should not change the DB version", func(t *testing.T) {
-		require.NoError(t, migration.MigrateIfNeeded(testDB, utils.MAINNET, utils.NewNopZapLogger()))
+		require.NoError(t, migration.MigrateIfNeeded(testDB, core.MAINNET, utils.NewNopZapLogger()))
 		postVersion, postErr := migration.SchemaVersion(testDB)
 		require.NoError(t, postErr)
 		require.Equal(t, version, postVersion)

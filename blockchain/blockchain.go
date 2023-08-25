@@ -66,7 +66,7 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  utils.Network
+	network  core.Network
 	database db.DB
 
 	log utils.SimpleLogger
@@ -74,7 +74,7 @@ type Blockchain struct {
 	newHeads event.FeedOf[*core.Header]
 }
 
-func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
+func New(database db.DB, network core.Network, log utils.SimpleLogger) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
@@ -83,7 +83,7 @@ func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockch
 	}
 }
 
-func (b *Blockchain) Network() utils.Network {
+func (b *Blockchain) Network() core.Network {
 	return b.network
 }
 

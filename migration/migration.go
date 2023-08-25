@@ -21,13 +21,13 @@ import (
 
 type Migration interface {
 	Before()
-	Migrate(db.Transaction, utils.Network) error
+	Migrate(db.Transaction, core.Network) error
 }
 
-type MigrationFunc func(db.Transaction, utils.Network) error
+type MigrationFunc func(db.Transaction, core.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(txn db.Transaction, network utils.Network) error {
+func (f MigrationFunc) Migrate(txn db.Transaction, network core.Network) error {
 	return f(txn, network)
 }
 
@@ -56,7 +56,7 @@ var migrations = []Migration{
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogger) error {
+func MigrateIfNeeded(targetDB db.DB, network core.Network, log utils.SimpleLogger) error {
 	/*
 		Schema version of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
@@ -125,7 +125,7 @@ func SchemaVersion(targetDB db.DB) (uint64, error) {
 }
 
 // migration0000 makes sure the targetDB is empty
-func migration0000(txn db.Transaction, _ utils.Network) error {
+func migration0000(txn db.Transaction, _ core.Network) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -144,7 +144,7 @@ func migration0000(txn db.Transaction, _ utils.Network) error {
 // After: the key to the root of the contract storage trie is stored at 3+<contractAddress>.
 //
 // This enables us to remove the db.ContractRootKey prefix.
-func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error {
+func relocateContractStorageRootKeys(txn db.Transaction, _ core.Network) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error 
 }
 
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
-func recalculateBloomFilters(txn db.Transaction, _ utils.Network) error {
+func recalculateBloomFilters(txn db.Transaction, _ core.Network) error {
 	blockchain.RegisterCoreTypesToEncoder()
 	for blockNumber := uint64(0); ; blockNumber++ {
 		block, err := blockchain.BlockByNumber(txn, blockNumber)
@@ -311,7 +311,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) error {
+func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ core.Network) error {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
 	var n node
@@ -380,7 +380,7 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) er
 }
 
 // calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
-func calculateBlockCommitments(txn db.Transaction, network utils.Network) error {
+func calculateBlockCommitments(txn db.Transaction, network core.Network) error {
 	var txnLock sync.RWMutex
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 
@@ -425,7 +425,7 @@ func bitset2Key(bs *bitset.BitSet) *trie.Key {
 	return &k
 }
 
-func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ utils.Network) error {
+func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ core.Network) error {
 	var bs bitset.BitSet
 	var tempBuf bytes.Buffer
 	if err := bs.UnmarshalBinary(value); err != nil {
@@ -459,7 +459,7 @@ func nodesFilter(target db.Bucket) BucketMigratorKeyFilter {
 }
 
 func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc {
-	return func(txn db.Transaction, key, value []byte, _ utils.Network) error {
+	return func(txn db.Transaction, key, value []byte, _ core.Network) error {
 		var n node
 		var tempBuf bytes.Buffer
 		if err := n._UnmarshalBinary(value); err != nil {

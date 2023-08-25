@@ -10,6 +10,7 @@ import (
 
 	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/clients/sequencertypes"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,7 @@ const (
 )
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 	txnHash := utils.HexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
 	status, err := feeder.Transaction(context.Background(), txnHash)
@@ -41,7 +42,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 }
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
@@ -63,7 +64,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
@@ -85,7 +86,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 }
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
@@ -115,7 +116,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
@@ -137,7 +138,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	block, err := feeder.Block(context.Background(), strconv.Itoa(11817))
@@ -156,7 +157,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	block, err := feeder.Block(context.Background(), strconv.Itoa(19199))
@@ -176,7 +177,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestClassV0Unmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	hash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
@@ -195,7 +196,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	hash := utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
@@ -237,7 +238,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 }
 
 func TestStateUpdate(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -267,7 +268,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		cli := client.NewTestClient(t, utils.INTEGRATION)
+		cli := client.NewTestClient(t, core.INTEGRATION)
 		feeder := client.NewFeeder(cli)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
@@ -291,7 +292,7 @@ func TestStateUpdate(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -309,7 +310,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -330,7 +331,7 @@ func TestBlock(t *testing.T) {
 }
 
 func TestClassDefinition(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -402,7 +403,7 @@ func TestBackoffFailure(t *testing.T) {
 }
 
 func TestCompiledClassDefinition(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
@@ -412,7 +413,7 @@ func TestCompiledClassDefinition(t *testing.T) {
 }
 
 func TestTransactionStatusRevertError(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	txnHash := utils.HexToFelt(t, "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998")
@@ -422,7 +423,7 @@ func TestTransactionStatusRevertError(t *testing.T) {
 }
 
 func TestPublicKey(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	actualPublicKey, err := feeder.PublickKey(context.Background())
@@ -431,7 +432,7 @@ func TestPublicKey(t *testing.T) {
 }
 
 func TestSignature(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {
@@ -456,7 +457,7 @@ func TestSignature(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	t.Run("Test normal case", func(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 func TestV0Call(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	gw := starknetdata.NewStarknetData(cli)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -51,7 +51,7 @@ func TestV0Call(t *testing.T) {
 	}))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-	ret, err := New().Call(contractAddr, entryPoint, nil, 0, 0, testState, utils.MAINNET)
+	ret, err := New().Call(contractAddr, entryPoint, nil, 0, 0, testState, core.MAINNET)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -70,7 +70,7 @@ func TestV0Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New().Call(contractAddr, entryPoint, nil, 1, 0, testState, utils.MAINNET)
+	ret, err = New().Call(contractAddr, entryPoint, nil, 1, 0, testState, core.MAINNET)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -78,7 +78,7 @@ func TestV0Call(t *testing.T) {
 func TestV1Call(t *testing.T) {
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(true)
-	cli := client.NewTestClient(t, utils.GOERLI)
+	cli := client.NewTestClient(t, core.GOERLI)
 	gw := starknetdata.NewStarknetData(cli)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -114,7 +114,7 @@ func TestV1Call(t *testing.T) {
 	storageLocation := utils.HexToFelt(t, "0x44")
 	ret, err := New().Call(contractAddr, entryPoint, []felt.Felt{
 		*storageLocation,
-	}, 0, 0, testState, utils.GOERLI)
+	}, 0, 0, testState, core.GOERLI)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -135,13 +135,13 @@ func TestV1Call(t *testing.T) {
 
 	ret, err = New().Call(contractAddr, entryPoint, []felt.Felt{
 		*storageLocation,
-	}, 1, 0, testState, utils.GOERLI)
+	}, 1, 0, testState, core.GOERLI)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
 
 func TestExecute(t *testing.T) {
-	const network = utils.GOERLI2
+	const network = core.GOERLI2
 
 	testDB := pebble.NewMemTest()
 	txn := testDB.NewTransaction(false)

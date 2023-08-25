@@ -14,6 +14,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	client "github.com/NethermindEth/juno/clients"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -49,7 +50,7 @@ type Config struct {
 	GRPC                bool           `mapstructure:"grpc"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
-	Network             utils.Network  `mapstructure:"network"`
+	Network             core.Network   `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
 	PprofPort           uint16         `mapstructure:"pprof-port"`

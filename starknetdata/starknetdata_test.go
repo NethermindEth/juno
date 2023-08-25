@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
 	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -17,7 +16,7 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
@@ -28,7 +27,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := feeder2core.AdaptBlock(response)
+			adaptedResponse, err := utils.AdaptBlock(response)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -36,7 +35,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
@@ -45,7 +44,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := feeder2core.AdaptBlock(response)
+	adaptedResponse, err := utils.AdaptBlock(response)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -53,7 +52,7 @@ func TestBlockLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
@@ -65,7 +64,7 @@ func TestStateUpdate(t *testing.T) {
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
 
-			adaptedResponse, err := feeder2core.AdaptStateUpdate(response)
+			adaptedResponse, err := utils.AdaptStateUpdate(response)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, feederUpdate)
 		})
@@ -80,7 +79,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	cli := client.NewTestClient(t, utils.GOERLI)
+	cli := client.NewTestClient(t, core.GOERLI)
 	feeder := client.NewFeeder(cli)
 	adapter := starknetdata.NewStarknetData(cli)
 	ctx := context.Background()
@@ -93,7 +92,7 @@ func TestClassV0(t *testing.T) {
 			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
 
-			adaptedResponse, err := feeder2core.AdaptCairo0Class(response.V0)
+			adaptedResponse, err := utils.AdaptCairo0Class(response.V0)
 			require.NoError(t, err)
 			require.Equal(t, adaptedResponse, classGeneric)
 		})
@@ -101,11 +100,11 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := client.NewTestClient(t, utils.GOERLI)
+	clientGoerli := client.NewTestClient(t, core.GOERLI)
 	feederGoerli := client.NewFeeder(clientGoerli)
 	adapterGoerli := starknetdata.NewStarknetData(clientGoerli)
 
-	clientMainnet := client.NewTestClient(t, utils.MAINNET)
+	clientMainnet := client.NewTestClient(t, core.MAINNET)
 	feederMainnet := client.NewFeeder(clientMainnet)
 	adapterMainnet := starknetdata.NewStarknetData(clientMainnet)
 
@@ -121,7 +120,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptInvokeTransaction(responseTx), invokeTx)
+		assert.Equal(t, utils.AdaptInvokeTransaction(responseTx), invokeTx)
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
@@ -134,7 +133,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeployTransaction(responseTx), deployTx)
+		assert.Equal(t, utils.AdaptDeployTransaction(responseTx), deployTx)
 	})
 
 	t.Run("deploy account transaction", func(t *testing.T) {
@@ -147,7 +146,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
+		assert.Equal(t, utils.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
@@ -160,7 +159,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeclareTransaction(responseTx), declareTx)
+		assert.Equal(t, utils.AdaptDeclareTransaction(responseTx), declareTx)
 	})
 
 	t.Run("l1handler transaction", func(t *testing.T) {
@@ -173,12 +172,12 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
+		assert.Equal(t, utils.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
 	})
 }
 
 func TestClassV1(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 	adapter := starknetdata.NewStarknetData(cli)
 
@@ -191,7 +190,7 @@ func TestClassV1(t *testing.T) {
 	compiled, err := feeder.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	adaptedResponse, err := feeder2core.AdaptCairo1Class(feederClass.V1, compiled)
+	adaptedResponse, err := utils.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, class)
 }

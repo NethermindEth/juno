@@ -56,7 +56,7 @@ const (
 type Handler struct {
 	bcReader      blockchain.Reader
 	synchronizer  *sync.Synchronizer
-	network       utils.Network
+	network       core.Network
 	gatewayClient client.GatewayInterface
 	feederClient  client.FeederInterface
 	vm            vm.VM
@@ -64,7 +64,7 @@ type Handler struct {
 	version       string
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
+func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n core.Network,
 	gatewayClient client.GatewayInterface, feederClient client.FeederInterface, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{

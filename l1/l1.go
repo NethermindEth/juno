@@ -28,7 +28,7 @@ type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
 	log                   utils.SimpleLogger
-	network               utils.Network
+	network               core.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate

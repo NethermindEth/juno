@@ -6,13 +6,13 @@ import (
 
 	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/clients/sequencertypes"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAddInvokeTx(t *testing.T) {
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	gateway := client.NewGateway(cli)
 	t.Run("Correct request", func(t *testing.T) {
 		invokeTx := "{\"max_fee\":\"0x1\",\"version\":\"0x1\",\"signature\":[],\"nonce\":\"0x1\",\"type\":\"INVOKE\",\"sender_address\":\"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb\",\"calldata\":[]}"

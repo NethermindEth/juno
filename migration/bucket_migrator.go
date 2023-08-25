@@ -3,14 +3,14 @@ package migration
 import (
 	"bytes"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var _ Migration = (*BucketMigrator)(nil)
 
 type (
-	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte, n utils.Network) error
+	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte, n core.Network) error
 	BucketMigratorKeyFilter func([]byte) (bool, error)
 )
 
@@ -40,7 +40,7 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 }
 
 func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
-	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte, n utils.Network) error {
+	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte, n core.Network) error {
 		err := txn.Delete(key)
 		if err != nil {
 			return err
@@ -70,7 +70,7 @@ func (m *BucketMigrator) Before() {
 	m.before()
 }
 
-func (m *BucketMigrator) Migrate(txn db.Transaction, network utils.Network) error {
+func (m *BucketMigrator) Migrate(txn db.Transaction, network core.Network) error {
 	remainingInBatch := m.batchSize
 	iterator, err := txn.NewIterator()
 	if err != nil {

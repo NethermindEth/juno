@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
 	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -48,7 +47,7 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 
 	switch {
 	case feederClass.V1 != nil:
-		return feeder2core.AdaptCairo1Class(feederClass.V1, nil)
+		return utils.AdaptCairo1Class(feederClass.V1, nil)
 	case feederClass.V0 != nil:
 		// strip the quotes
 		base64Program := string(feederClass.V0.Program[1 : len(feederClass.V0.Program)-1])
@@ -57,7 +56,7 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 			return nil, err
 		}
 
-		return feeder2core.AdaptCairo0Class(feederClass.V0)
+		return utils.AdaptCairo0Class(feederClass.V0)
 	default:
 		return nil, errors.New("empty class")
 	}

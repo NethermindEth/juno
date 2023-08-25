@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/clients/sequencertypes"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -106,7 +107,7 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 }
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t *testing.T, network utils.Network) *Client {
+func NewTestClient(t *testing.T, network core.Network) *Client {
 	srv := newTestServer(network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
@@ -130,7 +131,7 @@ func NewTestClient(t *testing.T, network utils.Network) *Client {
 	return c
 }
 
-func newTestServer(network utils.Network) *httptest.Server {
+func newTestServer(network core.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch strings.Contains(r.URL.Path, "add_transaction") {
 		case true:
@@ -141,7 +142,7 @@ func newTestServer(network utils.Network) *httptest.Server {
 	}))
 }
 
-func testServerFeeder(network utils.Network, w http.ResponseWriter, r *http.Request) {
+func testServerFeeder(network core.Network, w http.ResponseWriter, r *http.Request) {
 	queryMap, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

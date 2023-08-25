@@ -7,6 +7,7 @@ import (
 	"time"
 
 	juno "github.com/NethermindEth/juno/cmd/juno"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
@@ -27,7 +28,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := ""
-	defaultNetwork := utils.MAINNET
+	defaultNetwork := core.MAINNET
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
@@ -127,7 +128,7 @@ pprof: true
 				Metrics:             defaultMetrics,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.GOERLI2,
+				Network:             core.GOERLI2,
 				Pprof:               true,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
@@ -173,7 +174,7 @@ http-port: 4576
 				Metrics:       defaultMetrics,
 				MetricsPort:   defaultMetricsPort,
 				DatabasePath:  "/home/.juno",
-				Network:       utils.GOERLI,
+				Network:       core.GOERLI,
 				Pprof:         true,
 				PprofPort:     defaultPprofPort,
 				Colour:        defaultColour,
@@ -195,7 +196,7 @@ http-port: 4576
 				Metrics:             defaultMetrics,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.INTEGRATION,
+				Network:             core.INTEGRATION,
 				Pprof:               defaultPprof,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
@@ -235,7 +236,7 @@ pending-poll-interval: 5s
 				GRPC:                true,
 				GRPCPort:            4577,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.INTEGRATION,
+				Network:             core.INTEGRATION,
 				Pprof:               true,
 				PprofPort:           6064,
 				Colour:              defaultColour,
@@ -260,7 +261,7 @@ network: goerli
 				Metrics:             defaultMetrics,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.GOERLI,
+				Network:             core.GOERLI,
 				Pprof:               defaultPprof,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
@@ -282,7 +283,7 @@ network: goerli
 				Metrics:             defaultMetrics,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.GOERLI2,
+				Network:             core.GOERLI2,
 				Pprof:               true,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,

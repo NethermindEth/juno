@@ -7,7 +7,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/sourcegraph/conc"
 )
@@ -51,7 +50,7 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
-func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
+func NetworkBlockHashMetaInfo(network Network) *blockHashMetaInfo {
 	fallBackSequencerAddress, err := new(felt.Felt).SetString(
 		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	if err != nil {
@@ -59,7 +58,7 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 
 	switch network {
-	case utils.MAINNET:
+	case MAINNET:
 		fallBackSequencerAddress, err = new(felt.Felt).SetString(
 			"0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
 		if err != nil {
@@ -69,18 +68,18 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
-	case utils.GOERLI:
+	case GOERLI:
 		return &blockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
-	case utils.GOERLI2:
+	case GOERLI2:
 		return &blockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
-	case utils.INTEGRATION:
+	case INTEGRATION:
 		return &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
@@ -99,7 +98,7 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error) {
+func VerifyBlockHash(b *Block, network Network) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -144,7 +143,7 @@ func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error)
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func blockHash(b *Block, network Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	metaInfo := NetworkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {

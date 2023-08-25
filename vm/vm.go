@@ -22,16 +22,15 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 )
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-		blockTimestamp uint64, state core.StateReader, network utils.Network,
+		blockTimestamp uint64, state core.StateReader, network core.Network,
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+		sequencerAddress *felt.Felt, state core.StateReader, network core.Network, paidFeesOnL1 []*felt.Felt,
 		skipChargeFee bool, gasPrice *felt.Felt,
 	) ([]*felt.Felt, []json.RawMessage, error)
 }
@@ -99,7 +98,7 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 }
 
 func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network utils.Network,
+	blockTimestamp uint64, state core.StateReader, network core.Network,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -143,7 +142,7 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+	sequencerAddress *felt.Felt, state core.StateReader, network core.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee bool, gasPrice *felt.Felt,
 ) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{

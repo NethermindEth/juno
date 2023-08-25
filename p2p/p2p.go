@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -33,7 +34,7 @@ const (
 type Service struct {
 	host      host.Host
 	bootPeers string
-	network   utils.Network
+	network   core.Network
 	log       utils.SimpleLogger
 
 	dht        *dht.IpfsDHT
@@ -50,7 +51,7 @@ func New(
 	userAgent,
 	bootPeers,
 	privKeyStr string,
-	snNetwork utils.Network,
+	snNetwork core.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	if addr == "" {
@@ -78,7 +79,7 @@ func New(
 	return NewWithHost(p2phost, bootPeers, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
+func NewWithHost(p2phost host.Host, bootPeers string, snNetwork core.Network, log utils.SimpleLogger) (*Service, error) {
 	p2pdht, err := makeDHT(p2phost, snNetwork, bootPeers)
 	if err != nil {
 		return nil, err
@@ -96,7 +97,7 @@ func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, l
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, snNetwork utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, snNetwork core.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
 	bootPeers := []peer.AddrInfo{}
 	if cfgBootPeers != "" {
 		splitted := strings.Split(cfgBootPeers, ",")

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
 	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 // StarknetData defines the function which are required to retrieve Starknet's state
@@ -61,7 +61,7 @@ func (s *StarknetData) block(ctx context.Context, blockID string) (*core.Block, 
 	if blockID == "pending" && response.Status != "PENDING" {
 		return nil, errors.New("no pending block")
 	}
-	return feeder2core.AdaptBlock(response)
+	return utils.AdaptBlock(response)
 }
 
 // Transaction gets the transaction for a given transaction hash from the feeder,
@@ -72,7 +72,7 @@ func (s *StarknetData) Transaction(ctx context.Context, transactionHash *felt.Fe
 		return nil, err
 	}
 
-	tx, err := feeder2core.AdaptTransaction(response.Transaction)
+	tx, err := utils.AdaptTransaction(response.Transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +95,9 @@ func (s *StarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.Cl
 			return nil, cErr
 		}
 
-		return feeder2core.AdaptCairo1Class(response.V1, compiledClass)
+		return utils.AdaptCairo1Class(response.V1, compiledClass)
 	case response.V0 != nil:
-		return feeder2core.AdaptCairo0Class(response.V0)
+		return utils.AdaptCairo0Class(response.V0)
 	default:
 		return nil, errors.New("empty class")
 	}
@@ -109,7 +109,7 @@ func (s *StarknetData) stateUpdate(ctx context.Context, blockID string) (*core.S
 		return nil, err
 	}
 
-	return feeder2core.AdaptStateUpdate(response)
+	return utils.AdaptStateUpdate(response)
 }
 
 // StateUpdate gets the state update for a given block number from the feeder,

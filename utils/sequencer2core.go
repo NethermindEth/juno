@@ -1,4 +1,4 @@
-package feeder2core
+package utils
 
 import (
 	"encoding/json"
@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -273,7 +272,7 @@ func AdaptCairo0Class(response *sequencertypes.Cairo0Definition) (core.Class, er
 	}
 
 	var err error
-	class.Program, err = utils.Gzip64Encode(response.Program)
+	class.Program, err = Gzip64Encode(response.Program)
 	if err != nil {
 		return nil, err
 	}

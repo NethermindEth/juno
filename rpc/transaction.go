@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
 	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -184,14 +183,14 @@ type FeeEstimate struct {
 
 //nolint:gocyclo
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
-	network utils.Network,
+	network core.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
 	var feederTxn sequencertypes.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
 	}
 
-	txn, err := feeder2core.AdaptTransaction(&feederTxn)
+	txn, err := utils.AdaptTransaction(&feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}

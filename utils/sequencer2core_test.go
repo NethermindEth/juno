@@ -1,11 +1,10 @@
-package feeder2core_test
+package utils_test
 
 import (
 	"context"
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
 	client "github.com/NethermindEth/juno/clients"
 	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
@@ -18,21 +17,21 @@ func TestAdaptBlock(t *testing.T) {
 	tests := []struct {
 		number          uint64
 		protocolVersion string
-		network         utils.Network
+		network         core.Network
 	}{
 		{
 			number:  147,
-			network: utils.MAINNET,
+			network: core.MAINNET,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
-			network:         utils.MAINNET,
+			network:         core.MAINNET,
 		},
 		{
 			number:          304740,
 			protocolVersion: "0.12.1",
-			network:         utils.INTEGRATION,
+			network:         core.INTEGRATION,
 		},
 	}
 
@@ -45,7 +44,7 @@ func TestAdaptBlock(t *testing.T) {
 
 			response, err := feeder.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
-			block, err := feeder2core.AdaptBlock(response)
+			block, err := utils.AdaptBlock(response)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)
@@ -77,7 +76,7 @@ func TestAdaptBlock(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	cli := client.NewTestClient(t, utils.MAINNET)
+	cli := client.NewTestClient(t, core.MAINNET)
 	feeder := client.NewFeeder(cli)
 	ctx := context.Background()
 
@@ -85,7 +84,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
 			response, err := feeder.StateUpdate(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
-			feederUpdate, err := feeder2core.AdaptStateUpdate(response)
+			feederUpdate, err := utils.AdaptStateUpdate(response)
 			require.NoError(t, err)
 
 			assert.True(t, response.NewRoot.Equal(feederUpdate.NewRoot))
@@ -129,12 +128,12 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient := client.NewTestClient(t, utils.INTEGRATION)
+		integClient := client.NewTestClient(t, core.INTEGRATION)
 		feeder := client.NewFeeder(integClient)
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := feeder.StateUpdate(ctx, "283746")
 			require.NoError(t, err)
-			update, err := feeder2core.AdaptStateUpdate(feederUpdate)
+			update, err := utils.AdaptStateUpdate(feederUpdate)
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -144,7 +143,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo1 classes", func(t *testing.T) {
 			feederUpdate, err := feeder.StateUpdate(ctx, "283364")
 			require.NoError(t, err)
-			update, err := feeder2core.AdaptStateUpdate(feederUpdate)
+			update, err := utils.AdaptStateUpdate(feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV1Classes)
@@ -154,7 +153,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("replaced classes", func(t *testing.T) {
 			feederUpdate, err := feeder.StateUpdate(ctx, "283428")
 			require.NoError(t, err)
-			update, err := feeder2core.AdaptStateUpdate(feederUpdate)
+			update, err := utils.AdaptStateUpdate(feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -171,7 +170,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	cli := client.NewTestClient(t, utils.GOERLI)
+	cli := client.NewTestClient(t, core.GOERLI)
 	feeder := client.NewFeeder(cli)
 	ctx := context.Background()
 
@@ -180,7 +179,7 @@ func TestClassV0(t *testing.T) {
 			hash := utils.HexToFelt(t, hashString)
 			response, err := feeder.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			classGeneric, err := feeder2core.AdaptCairo0Class(response.V0)
+			classGeneric, err := utils.AdaptCairo0Class(response.V0)
 			require.NoError(t, err)
 			class, ok := classGeneric.(*core.Cairo0Class)
 			require.True(t, ok)
@@ -209,9 +208,9 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := client.NewTestClient(t, utils.GOERLI)
+	clientGoerli := client.NewTestClient(t, core.GOERLI)
 	feederGoerli := client.NewFeeder(clientGoerli)
-	clientMainnet := client.NewTestClient(t, utils.MAINNET)
+	clientMainnet := client.NewTestClient(t, core.MAINNET)
 	feederMainnet := client.NewFeeder(clientMainnet)
 	ctx := context.Background()
 
@@ -221,7 +220,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := utils.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
@@ -243,7 +242,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := utils.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
@@ -263,7 +262,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := utils.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
 		require.True(t, ok)
@@ -286,7 +285,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := utils.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
@@ -307,7 +306,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := utils.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
 		require.True(t, ok)
@@ -323,7 +322,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	feeder := client.NewFeeder(cli)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
@@ -333,7 +332,7 @@ func TestClassV1(t *testing.T) {
 	compiled, err := feeder.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	class, err := feeder2core.AdaptCairo1Class(feederClass.V1, compiled)
+	class, err := utils.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
 
 	v1Class, ok := class.(*core.Cairo1Class)

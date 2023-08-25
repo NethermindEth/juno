@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/mitchellh/mapstructure"
@@ -174,7 +175,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
-	defaultNetwork := utils.MAINNET
+	defaultNetwork := core.MAINNET
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ func TestDefaultDbPath(t *testing.T) {
 	defaultDataDir, err := utils.DefaultDataDir()
 	require.NoError(t, err)
 
-	networks := []utils.Network{utils.GOERLI, utils.MAINNET, utils.GOERLI2, utils.INTEGRATION}
+	networks := []core.Network{core.GOERLI, core.MAINNET, core.GOERLI2, core.INTEGRATION}
 
 	for _, n := range networks {
 		t.Run(n.String(), func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestNewNode(t *testing.T) {
 		GRPC:                true,
 		GRPCPort:            0,
 		DatabasePath:        t.TempDir(),
-		Network:             utils.MAINNET,
+		Network:             core.MAINNET,
 		EthNode:             "",
 		Pprof:               true,
 		PprofPort:           0,

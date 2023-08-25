@@ -18,7 +18,7 @@ import (
 )
 
 func TestClassV1Hash(t *testing.T) {
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	gw := starknetdata.NewStarknetData(cli)
 	tests := []struct {
 		classHash string
@@ -117,7 +117,7 @@ func TestVerifyClassHash(t *testing.T) {
 		wantErr   error
 	}
 
-	cli := client.NewTestClient(t, utils.INTEGRATION)
+	cli := client.NewTestClient(t, core.INTEGRATION)
 	gw := starknetdata.NewStarknetData(cli)
 
 	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
