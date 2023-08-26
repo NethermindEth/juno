@@ -117,6 +117,14 @@ func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, err
 func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
 	response, err := f.client.StateUpdateWithBlock(ctx, blockID)
 	if err != nil {
+		// TODO: remove once the new feeder is available
+		if err.Error() == "400 Bad Request" {
+			if blockID == "pending" {
+				return f.stateUpdateWithBlockPendingFallback(ctx)
+			}
+
+			return f.stateUpdateWithBlockFallback(ctx, blockID)
+		}
 		return nil, nil, err
 	}
 
@@ -148,4 +156,33 @@ func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUp
 // then adapts them to the core.StateUpdate and core.Block types respectively
 func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
+}
+
+// TODO: remove once new feeder endpoint is available
+func (f *Feeder) stateUpdateWithBlockFallback(ctx context.Context, height string) (*core.StateUpdate, *core.Block, error) {
+	block, err := f.block(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	stateUpdate, err := f.stateUpdate(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return stateUpdate, block, nil
+}
+
+// TODO: remove once new feeder endpoint hits mainnet
+func (f *Feeder) stateUpdateWithBlockPendingFallback(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
+	pendingBlock, err := f.block(ctx, "pending")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pendingStateUpdate, err := f.stateUpdate(ctx, "pending")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return pendingStateUpdate, pendingBlock, nil
 }
