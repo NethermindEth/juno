@@ -48,7 +48,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		return nil, err
 	}
 
-	if blockID == "pending" && response.Status != "PENDING" {
+	if blockID == "pending" && response.Status != "PENDING" { //nolint:goconst
 		return nil, errors.New("no pending block")
 	}
 	return feeder2core.AdaptBlock(response)
