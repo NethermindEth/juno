@@ -53,7 +53,7 @@ func NewTestClient(t *testing.T) *Client {
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, utils.NewNopZapLogger()).WithUserAgent(ua)
+	return NewClient(srv.URL, utils.NewNopLogger()).WithUserAgent(ua)
 }
 
 func newTestServer() *httptest.Server {

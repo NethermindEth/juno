@@ -85,7 +85,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testdb.Close())
 	})
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopLogger())
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
@@ -174,7 +174,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testdb.Close())
 	})
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
+	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopLogger())
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 

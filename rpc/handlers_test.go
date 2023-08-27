@@ -1121,7 +1121,7 @@ func TestSyncing(t *testing.T) {
 
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	synchronizer := sync.New(nil, gw, log, time.Duration(0))
 
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -1194,7 +1194,7 @@ func TestNonce(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
@@ -1267,7 +1267,7 @@ func TestStorageAt(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
@@ -1349,7 +1349,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
@@ -1488,7 +1488,7 @@ func TestClass(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", utils.NewNopLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -1544,7 +1544,7 @@ func TestClassAt(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", utils.NewNopLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -1575,7 +1575,7 @@ func TestEvents(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testDB.Close())
 	})
-	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
+	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopLogger())
 
 	client := feeder.NewTestClient(t, utils.GOERLI2)
 	gw := adaptfeeder.New(client)
@@ -1598,7 +1598,7 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	handler := rpc.New(chain, nil, utils.GOERLI2, nil, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(chain, nil, utils.GOERLI2, nil, nil, nil, "", utils.NewNopLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
@@ -1743,7 +1743,7 @@ func TestAddTransaction(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockGateway := mocks.NewMockGateway(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(nil, nil, utils.MAINNET, mockGateway, nil, nil, "", log)
 
 	t.Run("invalid json", func(t *testing.T) {
@@ -1794,7 +1794,7 @@ func TestPendingTransactions(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", log)
 
 	t.Run("no pending", func(t *testing.T) {
@@ -1957,7 +1957,7 @@ func TestCall(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
@@ -2003,7 +2003,7 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, mockVM, "", log)
 	msg := rpc.MsgFromL1{
@@ -2065,7 +2065,7 @@ func TestTraceTransaction(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, utils.MAINNET, nil, nil, mockVM, "", log)
 
 	t.Run("not found", func(t *testing.T) {
@@ -2129,7 +2129,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
 	t.Run("failure if skip validate provided", func(t *testing.T) {
@@ -2157,7 +2157,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 
 	const network = utils.MAINNET
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)

@@ -22,7 +22,7 @@ func TestHTTP(t *testing.T) {
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	rpc := jsonrpc.NewServer(1, log)
 	require.NoError(t, rpc.RegisterMethod(method))
 

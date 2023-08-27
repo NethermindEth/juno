@@ -88,12 +88,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
-	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
+	log, err := utils.NewSlogLogger(cfg.LogLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
 	}
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
+	dbLog, err := utils.NewSlogLogger(utils.ERROR, cfg.Colour)
 	if err != nil {
 		return nil, fmt.Errorf("create DB logger: %w", err)
 	}

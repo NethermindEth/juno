@@ -335,7 +335,7 @@ func TestClient(t *testing.T) {
 			t.Parallel()
 
 			ctrl := gomock.NewController(t)
-			nopLog := utils.NewNopZapLogger()
+			nopLog := utils.NewNopLogger()
 			network := utils.MAINNET
 			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
@@ -396,7 +396,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	nopLog := utils.NewNopZapLogger()
+	nopLog := utils.NewNopLogger()
 	network := utils.MAINNET
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)

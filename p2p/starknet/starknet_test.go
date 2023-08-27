@@ -32,7 +32,7 @@ func TestClientHandler(t *testing.T) {
 	handlerID := peers[0]
 	clientID := peers[1]
 
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := starknet.NewHandler(mockReader, log)
 

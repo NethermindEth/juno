@@ -54,7 +54,7 @@ func TestSyncBlocks(t *testing.T) {
 			return nil
 		}())
 	}
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		t.Parallel()
 		testDB := pebble.NewMemTest()
@@ -160,8 +160,8 @@ func TestReorg(t *testing.T) {
 	testDB := pebble.NewMemTest()
 
 	// sync to integration for 2 blocks
-	bc := blockchain.New(testDB, utils.INTEGRATION, utils.NewNopZapLogger())
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), time.Duration(0))
+	bc := blockchain.New(testDB, utils.INTEGRATION, utils.NewNopLogger())
+	synchronizer := sync.New(bc, integGw, utils.NewNopLogger(), time.Duration(0))
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -169,14 +169,14 @@ func TestReorg(t *testing.T) {
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
 		t.Parallel()
-		bc = blockchain.New(testDB, utils.MAINNET, utils.NewNopZapLogger())
+		bc = blockchain.New(testDB, utils.MAINNET, utils.NewNopLogger())
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), time.Duration(0))
+		synchronizer = sync.New(bc, mainGw, utils.NewNopLogger(), time.Duration(0))
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
@@ -195,7 +195,7 @@ func TestPending(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest()
-	log := utils.NewNopZapLogger()
+	log := utils.NewNopLogger()
 	bc := blockchain.New(testDB, utils.MAINNET, log)
 	synchronizer := sync.New(bc, gw, log, time.Millisecond*100)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

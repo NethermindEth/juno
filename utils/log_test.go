@@ -14,6 +14,7 @@ var levelStrings = map[utils.LogLevel]string{
 	utils.INFO:  "info",
 	utils.WARN:  "warn",
 	utils.ERROR: "error",
+	utils.FATAL: "fatal",
 }
 
 func TestLogLevelString(t *testing.T) {
@@ -91,7 +92,7 @@ func TestLogLevelType(t *testing.T) {
 func TestZapWithColour(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level, true)
+			_, err := utils.NewSlogLogger(level, true)
 			assert.NoError(t, err)
 		})
 	}
@@ -100,7 +101,7 @@ func TestZapWithColour(t *testing.T) {
 func TestZapWithoutColour(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level, false)
+			_, err := utils.NewSlogLogger(level, false)
 			assert.NoError(t, err)
 		})
 	}

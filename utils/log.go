@@ -1,18 +1,22 @@
 package utils
 
 import (
+	"context"
 	"encoding"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
-var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error)")
+var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error, fatal)")
 
 type LogLevel int
 
@@ -28,6 +32,11 @@ const (
 	INFO
 	WARN
 	ERROR
+	FATAL
+)
+
+const (
+	timeFormat = "15:04:05.000 02/01/2006 -07:00"
 )
 
 func (l LogLevel) String() string {
@@ -40,6 +49,26 @@ func (l LogLevel) String() string {
 		return "warn"
 	case ERROR:
 		return "error"
+	case FATAL:
+		return "fatal"
+	default:
+		// Should not happen.
+		panic(ErrUnknownLogLevel)
+	}
+}
+
+func (l LogLevel) StringUpper() string {
+	switch l {
+	case DEBUG:
+		return "DEBUG"
+	case INFO:
+		return "INFO"
+	case WARN:
+		return "WARN"
+	case ERROR:
+		return "ERROR"
+	case FATAL:
+		return "FATAL"
 	default:
 		// Should not happen.
 		panic(ErrUnknownLogLevel)
@@ -60,6 +89,8 @@ func (l *LogLevel) Set(s string) error {
 		*l = WARN
 	case "ERROR", "error":
 		*l = ERROR
+	case "FATAL", "fatal":
+		*l = FATAL
 	default:
 		return ErrUnknownLogLevel
 	}
@@ -95,34 +126,127 @@ type ZapLogger struct {
 }
 
 var _ Logger = (*ZapLogger)(nil)
-
-func NewNopZapLogger() *ZapLogger {
-	return &ZapLogger{zap.NewNop().Sugar()}
-}
-
-func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
-	config := zap.NewProductionConfig()
-	config.Encoding = "console"
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	if !colour {
-		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	}
-	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
-	}
-	level, err := zapcore.ParseLevel(logLevel.String())
-	if err != nil {
-		return nil, err
-	}
-	config.Level.SetLevel(level)
-	log, err := config.Build()
-	if err != nil {
-		return nil, err
-	}
-
-	return &ZapLogger{log.Sugar()}, nil
-}
+var _ Logger = (*SlogLogger)(nil)
+var _ Logger = (*noopLogger)(nil)
 
 func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
+}
+
+var ctx = context.Background()
+
+type SlogLogger struct {
+	*slog.Logger
+}
+
+func NewSlogLogger(logLevel LogLevel, _ bool) (*SlogLogger, error) {
+	lvl, err := adaptToSlog(logLevel)
+	if err != nil {
+		return nil, err
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     lvl,
+		ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
+			switch attr.Value.Kind() {
+			case slog.KindTime:
+				attr.Value = slog.StringValue(attr.Value.Any().(time.Time).Local().Format(timeFormat))
+			case slog.KindAny:
+				if src, ok := attr.Value.Any().(*slog.Source); ok {
+					after := strings.SplitN(src.File, "juno/", 2)
+					if len(after) == 2 {
+						attr.Value = slog.StringValue(fmt.Sprintf("%s:%d", after[1], src.Line))
+					}
+				}
+			}
+
+			switch attr.Key {
+			case slog.LevelKey:
+				level := attr.Value.Any().(slog.Level)
+				adapted := mustAdaptFromSlog(level)
+				switch adapted {
+				case FATAL:
+					attr.Value = slog.StringValue(adapted.StringUpper())
+				}
+			}
+
+			return attr
+		},
+	}))
+
+	return &SlogLogger{Logger: logger}, nil
+}
+
+func (l *SlogLogger) Debugw(msg string, keysAndValues ...any)  { l.Debug(msg, keysAndValues...) }
+func (l *SlogLogger) Infow(msg string, keysAndValues ...any)   { l.Info(msg, keysAndValues...) }
+func (l *SlogLogger) Warnw(msg string, keysAndValues ...any)   { l.Warn(msg, keysAndValues...) }
+func (l *SlogLogger) Errorw(msg string, keysAndValues ...any)  { l.Error(msg, keysAndValues...) }
+func (l *SlogLogger) Infof(format string, args ...interface{}) { l.Info(fmt.Sprintf(format, args...)) }
+func (l *SlogLogger) Fatalf(format string, args ...interface{}) {
+	s := fmt.Sprintf(format, args...)
+	l.Log(ctx, mustAdaptToSlog(FATAL), s)
+	os.Exit(1)
+}
+
+type noopLogger struct{}
+
+func NewNopLogger() *noopLogger {
+	return &noopLogger{}
+}
+
+func (l *noopLogger) Debugw(msg string, keysAndValues ...any)   {}
+func (l *noopLogger) Infow(msg string, keysAndValues ...any)    {}
+func (l *noopLogger) Warnw(msg string, keysAndValues ...any)    {}
+func (l *noopLogger) Errorw(msg string, keysAndValues ...any)   {}
+func (l *noopLogger) Infof(format string, args ...interface{})  {}
+func (l *noopLogger) Fatalf(format string, args ...interface{}) {}
+
+func adaptToSlog(lvl LogLevel) (slog.Level, error) {
+	switch lvl {
+	case DEBUG:
+		return slog.LevelDebug, nil
+	case INFO:
+		return slog.LevelInfo, nil
+	case WARN:
+		return slog.LevelWarn, nil
+	case ERROR:
+		return slog.LevelError, nil
+	case FATAL:
+		return slog.Level(9), nil
+	default:
+		return slog.Level(-1), ErrUnknownLogLevel
+	}
+}
+
+func mustAdaptToSlog(lvl LogLevel) slog.Level {
+	v, err := adaptToSlog(lvl)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func adaptFromSlog(lvl slog.Level) (LogLevel, error) {
+	switch lvl {
+	case slog.LevelDebug:
+		return DEBUG, nil
+	case slog.LevelInfo:
+		return INFO, nil
+	case slog.LevelWarn:
+		return WARN, nil
+	case slog.LevelError:
+		return ERROR, nil
+	case slog.Level(9):
+		return FATAL, nil
+	default:
+		return LogLevel(-1), ErrUnknownLogLevel
+	}
+}
+
+func mustAdaptFromSlog(lvl slog.Level) LogLevel {
+	v, err := adaptFromSlog(lvl)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
