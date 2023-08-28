@@ -183,23 +183,11 @@ type TransactionReceipt struct {
 	Events          []*Event        `json:"events"`
 	ContractAddress *felt.Felt      `json:"contract_address,omitempty"`
 	RevertReason    string          `json:"revert_reason,omitempty"`
-}
-
-type TransactionReceiptSeq struct {
-	// NOTE: finality_status is included on receipts retrieved from the get_transaction_receipt
-	// endpoint, but is not included when receipt is in a block. We do not include the field
-	// with an omitempty tag since it could cause very confusing behaviour. If the finality
-	// status is needed, use get_block.
-
-	ActualFee          *felt.Felt          `json:"actual_fee"`
-	Events             []*Event            `json:"events"`
-	ExecutionStatus    ExecutionStatus     `json:"execution_status"`
-	ExecutionResources *ExecutionResources `json:"execution_resources"`
-	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
-	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages"`
-	TransactionHash    *felt.Felt          `json:"transaction_hash"`
-	TransactionIndex   uint64              `json:"transaction_index"`
-	RevertError        string              `json:"revert_error"`
+	// Specific to the Feeder
+	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
+	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message,omitempty"`
+	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages,omitempty"`
+	TransactionIndex   uint64              `json:"transaction_index,omitempty"`
 }
 
 type AddTxResponse struct {

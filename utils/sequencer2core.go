@@ -25,7 +25,7 @@ func AdaptBlock(response *Block) (*core.Block, error) {
 		if err != nil {
 			return nil, err
 		}
-		receipts[i] = AdaptTransactionReceipt(response.ReceiptsSeq[i])
+		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
 		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
@@ -49,7 +49,7 @@ func AdaptBlock(response *Block) (*core.Block, error) {
 	}, nil
 }
 
-func AdaptTransactionReceipt(response *TransactionReceiptSeq) *core.TransactionReceipt {
+func AdaptTransactionReceipt(response *TransactionReceipt) *core.TransactionReceipt {
 	if response == nil {
 		return nil
 	}
@@ -66,13 +66,13 @@ func AdaptTransactionReceipt(response *TransactionReceiptSeq) *core.TransactionR
 
 	return &core.TransactionReceipt{
 		Fee:                response.ActualFee,
-		TransactionHash:    response.TransactionHash,
+		TransactionHash:    response.Hash,
 		Events:             events,
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
 		L2ToL1Message:      l2ToL1Messages,
 		Reverted:           response.ExecutionStatus == Reverted,
-		RevertReason:       response.RevertError,
+		RevertReason:       response.RevertReason,
 	}
 }
 
