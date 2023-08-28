@@ -153,6 +153,8 @@ func newIpcConn(conn net.Conn, params IpcConnParams) *ipcConn {
 }
 
 func (ipc *ipcConn) Write(p []byte) (int, error) {
-	ipc.Conn.SetWriteDeadline(time.Now().Add(ipc.WriteDuration))
+	if err := ipc.Conn.SetWriteDeadline(time.Now().Add(ipc.WriteDuration)); err != nil {
+		return 0, err
+	}
 	return ipc.Conn.Write(p)
 }

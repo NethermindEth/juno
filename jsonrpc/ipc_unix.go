@@ -16,9 +16,7 @@ const (
 	maxIpcPathSize = int(108)
 )
 
-var (
-	errPathTooLong = errors.New("path too long")
-)
+var errPathTooLong = errors.New("path too long")
 
 func createListener(endpoint string) (net.Listener, error) {
 	var (
@@ -37,7 +35,8 @@ func createListener(endpoint string) (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	return l, os.Chmod(endpoint, 0600)
+	err = os.Chmod(endpoint, 0o600) //nolint:gomnd
+	return l, err
 }
 
 func IpcDial(ctx context.Context, endpoint string) (net.Conn, error) {
@@ -46,7 +45,8 @@ func IpcDial(ctx context.Context, endpoint string) (net.Conn, error) {
 
 func preparePath(path string) error {
 	var err error
-	if err := os.MkdirAll(filepath.Dir(path), 0751); err != nil {
+	err = os.MkdirAll(filepath.Dir(path), 0o751) //nolint:gomnd
+	if err != nil {
 		return err
 	}
 	err = os.Remove(path)

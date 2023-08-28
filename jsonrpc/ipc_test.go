@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func exchangeMsg(conn net.Conn, send string, want string) error {
+func exchangeMsg(conn net.Conn, send, want string) error {
 	_, err := conn.Write([]byte(send))
 	if err != nil {
 		return err
@@ -76,18 +76,18 @@ func testIpc(endpoint string) (*jsonrpc.Ipc, error) {
 }
 
 func TestIpcHandler(t *testing.T) {
-	var (
+	const (
 		msg  = `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
 		want = `{"jsonrpc":"2.0","result":"abc123","id":1}`
 	)
 
 	t.Run("single conn", func(t *testing.T) {
-		path := path.Join(t.TempDir(), "juno.ipc")
-		srv, err := testIpc(path)
+		ep := path.Join(t.TempDir(), "juno.ipc")
+		srv, err := testIpc(ep)
 		assert.NoError(t, err)
 		srv.Start()
 		defer func() { assert.NoError(t, srv.Stop()) }()
-		conn, err := jsonrpc.IpcDial(context.Background(), path)
+		conn, err := jsonrpc.IpcDial(context.Background(), ep)
 		assert.NoError(t, err)
 		assert.NoError(t, exchangeMsg(conn, msg, want))
 	})
@@ -98,8 +98,8 @@ func TestIpcHandler(t *testing.T) {
 			conns = make([]net.Conn, items)
 			errCh = make(chan error, items)
 		)
-		path := path.Join(t.TempDir(), "juno.ipc")
-		srv, err := testIpc(path)
+		ep := path.Join(t.TempDir(), "juno.ipc")
+		srv, err := testIpc(ep)
 		assert.NoError(t, err)
 		srv.Start()
 		defer func() { assert.NoError(t, srv.Stop()) }()
@@ -111,7 +111,7 @@ func TestIpcHandler(t *testing.T) {
 			}
 		}()
 		for i := 0; i < items; i++ {
-			conn, err := jsonrpc.IpcDial(ctx, path)
+			conn, err := jsonrpc.IpcDial(ctx, ep)
 			assert.NoError(t, err)
 			conns[i] = conn
 			go func() {
@@ -133,8 +133,8 @@ func TestIpcHandler(t *testing.T) {
 	})
 
 	t.Run("teardown", func(t *testing.T) {
-		path := path.Join(t.TempDir(), "juno.ipc")
-		srv, err := testIpc(path)
+		ep := path.Join(t.TempDir(), "juno.ipc")
+		srv, err := testIpc(ep)
 		assert.NoError(t, err)
 		srv.Start()
 		defer func() { assert.Error(t, srv.Stop()) }()
@@ -147,7 +147,7 @@ func TestIpcHandler(t *testing.T) {
 		defer cancel()
 		var wg sync.WaitGroup
 		for i := 0; i < items; i++ {
-			conn, err := jsonrpc.IpcDial(ctx, path)
+			conn, err := jsonrpc.IpcDial(ctx, ep)
 			assert.NoError(t, err)
 			conns[i] = conn
 			wg.Add(1)
@@ -170,8 +170,8 @@ func TestIpcHandler(t *testing.T) {
 	})
 
 	t.Run("disconnecting clients", func(t *testing.T) {
-		path := path.Join(t.TempDir(), "juno.ipc")
-		srv, err := testIpc(path)
+		ep := path.Join(t.TempDir(), "juno.ipc")
+		srv, err := testIpc(ep)
 		assert.NoError(t, err)
 		srv.Start()
 		defer func() { assert.NoError(t, srv.Stop()) }()
@@ -181,7 +181,7 @@ func TestIpcHandler(t *testing.T) {
 		)
 
 		for i := 0; i < items; i++ {
-			conn, err := jsonrpc.IpcDial(context.Background(), path)
+			conn, err := jsonrpc.IpcDial(context.Background(), ep)
 			assert.NoError(t, err)
 			conns[i] = conn
 		}
@@ -192,17 +192,17 @@ func TestIpcHandler(t *testing.T) {
 	})
 
 	t.Run("subscription", func(t *testing.T) {
-		path := path.Join(t.TempDir(), "juno.ipc")
-		srv, err := testIpc(path)
+		ep := path.Join(t.TempDir(), "juno.ipc")
+		srv, err := testIpc(ep)
 		assert.NoError(t, err)
 		srv.Start()
 		defer func() { assert.NoError(t, srv.Stop()) }()
 
-		conn, err := jsonrpc.IpcDial(context.Background(), path)
+		conn, err := jsonrpc.IpcDial(context.Background(), ep)
 		assert.NoError(t, err)
 
 		// Initial subscription handshake.
-		req := `{"jsonrpc": "2.0", "method": "test_subscribe", "params": [], "id": 1}`
+		const req = `{"jsonrpc": "2.0", "method": "test_subscribe", "params": [], "id": 1}`
 		want := fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
 		assert.NoError(t, exchangeMsg(conn, req, want))
 
@@ -222,17 +222,18 @@ func BenchmarkIpcThroughput(b *testing.B) {
 	var (
 		msg      = `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
 		want     = `{"jsonrpc":"2.0","result":"abc123","id":1}`
-		path     = path.Join(b.TempDir(), "juno.ipc")
-		srv, err = testIpc(path)
+		ep       = path.Join(b.TempDir(), "juno.ipc")
+		srv, err = testIpc(ep)
 	)
 	assert.NoError(b, err)
 
 	srv.Start()
-	defer srv.Stop()
+	defer func() { assert.NoError(b, srv.Stop()) }()
+
 	b.ResetTimer()
 	var wg sync.WaitGroup
 	for i := 0; i < b.N; i++ {
-		conn, err := jsonrpc.IpcDial(context.Background(), path)
+		conn, err := jsonrpc.IpcDial(context.Background(), ep)
 		assert.NoError(b, err)
 		wg.Add(1)
 		go func() {
