@@ -1,4 +1,4 @@
-package sequencertypes
+package utils
 
 var (
 	InvalidContractClass            ErrorCode = "StarknetErrorCode.INVALID_CONTRACT_CLASS"

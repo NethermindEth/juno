@@ -5,19 +5,19 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type FeederInterface interface {
-	StateUpdate(ctx context.Context, blockID string) (*sequencertypes.StateUpdate, error)
-	Transaction(ctx context.Context, transactionHash *felt.Felt) (*sequencertypes.TransactionStatus, error)
-	Block(ctx context.Context, blockID string) (*sequencertypes.Block, error)
-	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*sequencertypes.ClassDefinition, error)
+	StateUpdate(ctx context.Context, blockID string) (*utils.StateUpdateSeq, error)
+	Transaction(ctx context.Context, transactionHash *felt.Felt) (*utils.TransactionStatus, error)
+	Block(ctx context.Context, blockID string) (*utils.Block, error)
+	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*utils.ClassDefinition, error)
 	CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (json.RawMessage, error)
 	PublickKey(ctx context.Context) (*felt.Felt, error)
-	Signature(ctx context.Context, blockID string) (*sequencertypes.Signature, error)
-	StateUpdateWithBlock(ctx context.Context, blockID string) (*sequencertypes.StateUpdateWithBlock, error)
+	Signature(ctx context.Context, blockID string) (*utils.Signature, error)
+	StateUpdateWithBlock(ctx context.Context, blockID string) (*utils.StateUpdateWithBlock, error)
 }
 
 type Feeder struct {
@@ -30,7 +30,7 @@ func NewFeeder(client *Client) *Feeder {
 	return &Feeder{client: client}
 }
 
-func (f *Feeder) StateUpdate(ctx context.Context, blockID string) (*sequencertypes.StateUpdate, error) {
+func (f *Feeder) StateUpdate(ctx context.Context, blockID string) (*utils.StateUpdateSeq, error) {
 	queryURL := f.client.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -41,14 +41,14 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockID string) (*sequencertyp
 	}
 	defer body.Close()
 
-	update := new(sequencertypes.StateUpdate)
+	update := new(utils.StateUpdateSeq)
 	if err = json.NewDecoder(body).Decode(update); err != nil {
 		return nil, err
 	}
 	return update, nil
 }
 
-func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (*sequencertypes.TransactionStatus, error) {
+func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (*utils.TransactionStatus, error) {
 	queryURL := f.client.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
@@ -59,14 +59,14 @@ func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 	}
 	defer body.Close()
 
-	txStatus := new(sequencertypes.TransactionStatus)
+	txStatus := new(utils.TransactionStatus)
 	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
 		return nil, err
 	}
 	return txStatus, nil
 }
 
-func (f *Feeder) Block(ctx context.Context, blockID string) (*sequencertypes.Block, error) {
+func (f *Feeder) Block(ctx context.Context, blockID string) (*utils.Block, error) {
 	queryURL := f.client.buildQueryString("get_block", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -77,14 +77,14 @@ func (f *Feeder) Block(ctx context.Context, blockID string) (*sequencertypes.Blo
 	}
 	defer body.Close()
 
-	block := new(sequencertypes.Block)
+	block := new(utils.Block)
 	if err = json.NewDecoder(body).Decode(block); err != nil {
 		return nil, err
 	}
 	return block, nil
 }
 
-func (f *Feeder) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*sequencertypes.ClassDefinition, error) {
+func (f *Feeder) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*utils.ClassDefinition, error) {
 	queryURL := f.client.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": classHash.String(),
 	})
@@ -95,7 +95,7 @@ func (f *Feeder) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*se
 	}
 	defer body.Close()
 
-	class := new(sequencertypes.ClassDefinition)
+	class := new(utils.ClassDefinition)
 	if err = json.NewDecoder(body).Decode(class); err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (f *Feeder) PublickKey(ctx context.Context) (*felt.Felt, error) {
 	return publicKey, nil
 }
 
-func (f *Feeder) Signature(ctx context.Context, blockID string) (*sequencertypes.Signature, error) {
+func (f *Feeder) Signature(ctx context.Context, blockID string) (*utils.Signature, error) {
 	queryURL := f.client.buildQueryString("get_signature", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -149,7 +149,7 @@ func (f *Feeder) Signature(ctx context.Context, blockID string) (*sequencertypes
 	}
 	defer body.Close()
 
-	signature := new(sequencertypes.Signature)
+	signature := new(utils.Signature)
 	if err := json.NewDecoder(body).Decode(signature); err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (f *Feeder) Signature(ctx context.Context, blockID string) (*sequencertypes
 	return signature, nil
 }
 
-func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockID string) (*sequencertypes.StateUpdateWithBlock, error) {
+func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockID string) (*utils.StateUpdateWithBlock, error) {
 	queryURL := f.client.buildQueryString("get_state_update", map[string]string{
 		"blockNumber":  blockID,
 		"includeBlock": "true",
@@ -169,7 +169,7 @@ func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockID string) (*seq
 	}
 	defer body.Close()
 
-	stateUpdate := new(sequencertypes.StateUpdateWithBlock)
+	stateUpdate := new(utils.StateUpdateWithBlock)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}

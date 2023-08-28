@@ -1,4 +1,4 @@
-package rpc
+package utils
 
 import "github.com/NethermindEth/juno/core/felt"
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 //export JunoFree
@@ -76,7 +77,7 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return nil
 	}
 
-	compiledClass, err := marshalCompiledClass(val.Class)
+	compiledClass, err := utils.MarshalCompiledClass(val.Class)
 	if err != nil {
 		return nil
 	}

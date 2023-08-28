@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	client "github.com/NethermindEth/juno/clients"
-	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -62,8 +61,8 @@ func TestAdaptBlock(t *testing.T) {
 			assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
 			if assert.Equal(t, len(response.Receipts), len(block.Receipts)) {
 				for i, feederReceipt := range response.Receipts {
-					assert.Equal(t, feederReceipt.ExecutionStatus == sequencertypes.Reverted, block.Receipts[i].Reverted)
-					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
+					assert.Equal(t, feederReceipt.ExecutionStatus == utils.Reverted, block.Receipts[i].Reverted)
+					assert.Equal(t, feederReceipt.RevertReason, block.Receipts[i].RevertReason)
 				}
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)

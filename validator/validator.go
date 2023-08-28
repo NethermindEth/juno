@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -30,11 +30,11 @@ func Validator() *validator.Validate {
 			panic("not a felt")
 		}, felt.Felt{}, &felt.Felt{})
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
-			if t, ok := field.Interface().(rpc.TransactionType); ok {
+			if t, ok := field.Interface().(utils.TransactionType); ok {
 				return t.String()
 			}
 			panic("not a TransactionType")
-		}, rpc.TransactionType(0))
+		}, utils.TransactionType(0))
 	})
 	return v
 }
