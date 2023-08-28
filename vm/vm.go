@@ -22,7 +22,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 )
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
@@ -211,7 +210,7 @@ func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []co
 
 	classJSONs := []json.RawMessage{}
 	for _, declaredClass := range declaredClasses {
-		declaredClassJSON, cErr := utils.MarshalDeclaredClass(declaredClass)
+		declaredClassJSON, cErr := marshalDeclaredClass(declaredClass)
 		if cErr != nil {
 			return nil, nil, cErr
 		}

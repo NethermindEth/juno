@@ -1175,7 +1175,7 @@ func (h *Handler) SimulateTransactions(id utils.BlockID, transactions []utils.Br
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := utils.AdaptBroadcastedTransaction(&transactions[idx], h.network)
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.network)
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}

@@ -1,18 +1,8 @@
 package utils
 
-//#include <stdint.h>
-//#include <stdlib.h>
-//#include <stddef.h>
-//
-// extern void Cairo0ClassHash(char* class_json_str, char* hash);
-//
-// #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
-import "C"
-
 import (
 	"encoding/json"
 	"errors"
-	"unsafe"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -46,7 +36,7 @@ type FunctionCall struct {
 	Calldata           []felt.Felt `json:"calldata"`
 }
 
-func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
+func AdaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 	var feederClass ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
@@ -111,137 +101,4 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	}
 	c.V0 = new(Cairo0Definition)
 	return json.Unmarshal(data, c.V0)
-}
-
-func Cairo0ClassHash(class *core.Cairo0Class) (*felt.Felt, error) {
-	classJSON, err := MarshalDeclaredClass(class)
-	if err != nil {
-		return nil, err
-	}
-	classJSONCStr := C.CString(string(classJSON))
-
-	var hash felt.Felt
-	hashBytes := hash.Bytes()
-
-	C.Cairo0ClassHash(classJSONCStr, (*C.char)(unsafe.Pointer(&hashBytes[0])))
-	hash.SetBytes(hashBytes[:])
-	C.free(unsafe.Pointer(classJSONCStr))
-	if hash.IsZero() {
-		return nil, errors.New("failed to calculate class hash")
-	}
-	return &hash, nil
-}
-
-func MarshalCompiledClass(class core.Class) (json.RawMessage, error) {
-	var compiledClass any
-	switch c := class.(type) {
-	case *core.Cairo0Class:
-		var err error
-		compiledClass, err = makeDeprecatedVMClass(c)
-		if err != nil {
-			return nil, err
-		}
-	case *core.Cairo1Class:
-		compiledClass = c.Compiled
-	default:
-		return nil, errors.New("not a valid class")
-	}
-
-	return json.Marshal(compiledClass)
-}
-
-func MarshalDeclaredClass(class core.Class) (json.RawMessage, error) {
-	var declaredClass any
-	var err error
-
-	switch c := class.(type) {
-	case *core.Cairo0Class:
-		declaredClass, err = makeDeprecatedVMClass(c)
-		if err != nil {
-			return nil, err
-		}
-	case *core.Cairo1Class:
-		declaredClass = makeSierraClass(c)
-	default:
-		return nil, errors.New("not a valid class")
-	}
-
-	return json.Marshal(declaredClass)
-}
-
-func makeDeprecatedVMClass(class *core.Cairo0Class) (*Cairo0Definition, error) {
-	decompressedProgram, err := Gzip64Decode(class.Program)
-	if err != nil {
-		return nil, err
-	}
-
-	constructors := make([]EntryPoint, 0, len(class.Constructors))
-	for _, entryPoint := range class.Constructors {
-		constructors = append(constructors, EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	external := make([]EntryPoint, 0, len(class.Externals))
-	for _, entryPoint := range class.Externals {
-		external = append(external, EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	handlers := make([]EntryPoint, 0, len(class.L1Handlers))
-	for _, entryPoint := range class.L1Handlers {
-		handlers = append(handlers, EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	return &Cairo0Definition{
-		Program: decompressedProgram,
-		Abi:     class.Abi,
-		EntryPoints: EntryPoints{
-			Constructor: constructors,
-			External:    external,
-			L1Handler:   handlers,
-		},
-	}, nil
-}
-
-func makeSierraClass(class *core.Cairo1Class) *SierraDefinition {
-	constructors := make([]SierraEntryPoint, 0, len(class.EntryPoints.Constructor))
-	for _, entryPoint := range class.EntryPoints.Constructor {
-		constructors = append(constructors, SierraEntryPoint{
-			Selector: entryPoint.Selector,
-			Index:    entryPoint.Index,
-		})
-	}
-
-	external := make([]SierraEntryPoint, 0, len(class.EntryPoints.External))
-	for _, entryPoint := range class.EntryPoints.External {
-		external = append(external, SierraEntryPoint{
-			Selector: entryPoint.Selector,
-			Index:    entryPoint.Index,
-		})
-	}
-
-	handlers := make([]SierraEntryPoint, 0, len(class.EntryPoints.L1Handler))
-	for _, entryPoint := range class.EntryPoints.L1Handler {
-		handlers = append(handlers, SierraEntryPoint{
-			Selector: entryPoint.Selector,
-			Index:    entryPoint.Index,
-		})
-	}
-
-	return &SierraDefinition{
-		Version: class.SemanticVersion,
-		Program: class.Program,
-		EntryPoints: SierraEntryPoints{
-			Constructor: constructors,
-			External:    external,
-			L1Handler:   handlers,
-		},
-	}
 }
