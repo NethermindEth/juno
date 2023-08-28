@@ -54,7 +54,7 @@ const (
 
 type Handler struct {
 	bcReader      blockchain.Reader
-	Synchronizer  *Sync
+	synchronizer  *sync.Synchronizer
 	network       core.Network
 	gatewayClient client.GatewayInterface
 	feederClient  client.FeederInterface
@@ -67,14 +67,14 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n core.Net
 	gatewayClient client.GatewayInterface, feederClient client.FeederInterface, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
-		bcReader:           bcReader,
-		utils.Synchronizer: utils.Synchronizer,
-		network:            n,
-		log:                logger,
-		feederClient:       feederClient,
-		gatewayClient:      gatewayClient,
-		vm:                 virtualMachine,
-		version:            version,
+		bcReader:      bcReader,
+		synchronizer:  synchronizer,
+		network:       n,
+		log:           logger,
+		feederClient:  feederClient,
+		gatewayClient: gatewayClient,
+		vm:            virtualMachine,
+		version:       version,
 	}
 }
 
@@ -444,7 +444,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*utils.TransactionRe
 	}
 
 	var receiptBlockNumber *uint64
-	status := TxnAcceptedOnL2
+	status := utils.AcceptedOnL2
 
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
@@ -455,15 +455,15 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*utils.TransactionRe
 		}
 
 		if isL1Verified(blockNumber, l1H) {
-			status = TxnAcceptedOnL1
+			status = utils.AcceptedOnL1
 		}
 	}
 
-	var es TxnExecutionStatus
+	var es utils.ExecutionStatus
 	if receipt.Reverted {
-		es = TxnFailure
+		es = utils.Reverted
 	} else {
-		es = TxnSuccess
+		es = utils.Succeeded
 	}
 
 	return &utils.TransactionReceipt{
@@ -569,10 +569,10 @@ func (h *Handler) StateUpdate(id utils.BlockID) (*utils.StateUpdate, *jsonrpc.Er
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
-func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
-	defaultSyncState := &Sync{Syncing: new(bool)}
+func (h *Handler) Syncing() (*utils.Sync, *jsonrpc.Error) {
+	defaultSyncState := &utils.Sync{Syncing: new(bool)}
 
-	startingBlockNumber := h.Synchronizer.StartingBlockNumber
+	startingBlockNumber := h.synchronizer.StartingBlockNumber
 	if startingBlockNumber == nil {
 		return defaultSyncState, nil
 	}
@@ -584,7 +584,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if err != nil {
 		return defaultSyncState, nil
 	}
-	highestBlockHeader := h.Synchronizer.HighestBlockHeader.Load()
+	highestBlockHeader := h.synchronizer.HighestBlockHeader.Load()
 	if highestBlockHeader == nil {
 		return defaultSyncState, nil
 	}
@@ -1042,34 +1042,34 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*utils
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		// Check if the error is due to a transaction not being found
-		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == utils.NotReceived {
+		if txStatus.Status == "NOT_RECEIVED" || txStatus.Finality == utils.NotReceived {
 			return nil, ErrTxnHashNotFound
 		}
 
-		status = new(TransactionStatus)
+		status = new(utils.TransactionStatus)
 
-		switch txStatus.FinalityStatus {
+		switch txStatus.Finality {
 		case utils.AcceptedOnL1:
-			status.Finality = TxnAcceptedOnL1
+			status.Finality = utils.AcceptedOnL1
 		case utils.AcceptedOnL2:
-			status.Finality = TxnAcceptedOnL2
+			status.Finality = utils.AcceptedOnL2
 		default:
 			// pre-0.12.1
 			if txStatus.Status == "ACCEPTED_ON_L1" {
-				status.Finality = TxnAcceptedOnL1
+				status.Finality = utils.AcceptedOnL1
 			} else {
-				status.Finality = TxnAcceptedOnL2
+				status.Finality = utils.AcceptedOnL2
 			}
 		}
 
-		switch txStatus.ExecutionStatus {
+		switch txStatus.Execution {
 		case utils.Succeeded:
-			status.Execution = TxnSuccess
+			status.Execution = utils.Succeeded
 		case utils.Reverted:
-			status.Execution = TxnFailure
+			status.Execution = utils.Reverted
 		default:
 			// pre-0.12.1
-			status.Execution = TxnSuccess
+			status.Execution = utils.Succeeded
 		}
 	default:
 		return nil, txErr
@@ -1079,7 +1079,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*utils
 }
 
 func (h *Handler) EstimateFee(broadcastedTxns []utils.BroadcastedTransaction, id utils.BlockID) ([]utils.FeeEstimate, *jsonrpc.Error) {
-	result, err := h.SimulateTransactions(id, broadcastedTxns, []utils.SimulationFlag{SkipFeeChargeFlag})
+	result, err := h.SimulateTransactions(id, broadcastedTxns, []utils.SimulationFlag{utils.SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
 	}
@@ -1175,7 +1175,7 @@ func (h *Handler) SimulateTransactions(id utils.BlockID, transactions []utils.Br
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&utils.Transactions[idx], h.network)
+		txn, declaredClass, paidFeeOnL1, aErr := utils.AdaptBroadcastedTransaction(&transactions[idx], h.network)
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}

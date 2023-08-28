@@ -222,7 +222,7 @@ type FeeEstimate struct {
 }
 
 //nolint:gocyclo
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network core.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
 	var feederTxn Transaction
