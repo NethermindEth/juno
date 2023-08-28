@@ -8,18 +8,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Ipc struct {
 	rpc *Server
 	log utils.SimpleLogger
 
-	endpoint   string
 	connParams IpcConnParams
+	listener   net.Listener
 
-	listener net.Listener
+	// metrics
+	requests prometheus.Counter
 
 	// everything below is protected
 	mu      sync.Mutex
@@ -31,15 +34,22 @@ func NewIpc(rpc *Server, log utils.SimpleLogger, endpoint string) (*Ipc, error) 
 	ipc := &Ipc{
 		rpc:        rpc,
 		log:        log,
-		endpoint:   endpoint,
 		connParams: DefaultIpcConnParams(),
 		conns:      make(map[net.Conn]struct{}),
+		requests: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "rpc",
+			Subsystem: "ipc",
+			Name:      "requests",
+		}),
 	}
-	listener, err := createListener(ipc.endpoint)
+	listener, err := createListener(endpoint)
 	if err != nil {
 		return nil, err
 	}
 	ipc.listener = listener
+
+	metrics.MustRegister(ipc.requests)
+
 	return ipc, nil
 }
 
@@ -95,6 +105,7 @@ func (i *Ipc) serveConn(ctx context.Context, conn net.Conn) {
 	var err error
 	for err == nil {
 		err = i.rpc.Handle(ctx, conn)
+		i.requests.Inc()
 	}
 
 	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
@@ -119,8 +130,6 @@ func (i *Ipc) Stop() error {
 }
 
 type IpcConnParams struct {
-	// Maximum message size allowed.
-	ReadLimit int64
 	// Maximum time to write a message.
 	WriteDuration time.Duration
 }
@@ -131,7 +140,9 @@ type ipcConn struct {
 }
 
 func DefaultIpcConnParams() IpcConnParams {
-	return IpcConnParams(*DefaultWebsocketConnParams())
+	return IpcConnParams{
+		WriteDuration: 5 * time.Second,
+	}
 }
 
 func newIpcConn(conn net.Conn, params IpcConnParams) *ipcConn {
@@ -141,11 +152,6 @@ func newIpcConn(conn net.Conn, params IpcConnParams) *ipcConn {
 	}
 }
 
-func (ipc *ipcConn) Read(p []byte) (int, error) {
-	return ipc.Conn.Read(p)
-}
-
-// Write returns the number of bytes of p sent, not including the header.
 func (ipc *ipcConn) Write(p []byte) (int, error) {
 	ipc.Conn.SetWriteDeadline(time.Now().Add(ipc.WriteDuration))
 	return ipc.Conn.Write(p)

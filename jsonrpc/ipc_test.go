@@ -16,7 +16,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testIpc(t *testing.T, endpoint string) *jsonrpc.Ipc {
+func exchangeMsg(conn net.Conn, send string, want string) error {
+	_, err := conn.Write([]byte(send))
+	if err != nil {
+		return err
+	}
+
+	buffer := make([]byte, len(want))
+	_, err = conn.Read(buffer)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(buffer, []byte(want)) {
+		return fmt.Errorf("recv msg does not match. got %v, want %v", string(buffer), want)
+	}
+	return nil
+}
+
+func testIpc(endpoint string) (*jsonrpc.Ipc, error) {
 	method := jsonrpc.Method{
 		Name:   "test_echo",
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
@@ -49,11 +67,12 @@ func testIpc(t *testing.T, endpoint string) *jsonrpc.Ipc {
 	rpc.WithIDGen(func() (uint64, error) {
 		return id, nil
 	})
-	assert.NoError(t, rpc.RegisterMethod(method))
+	err := rpc.RegisterMethod(method)
+	if err != nil {
+		return nil, err
+	}
 	rpc.RegisterSubscribeMethod(submethod)
-	ipc, err := jsonrpc.NewIpc(rpc, utils.NewNopZapLogger(), endpoint)
-	assert.NoError(t, err)
-	return ipc
+	return jsonrpc.NewIpc(rpc, utils.NewNopZapLogger(), endpoint)
 }
 
 func TestIpcHandler(t *testing.T) {
@@ -62,29 +81,12 @@ func TestIpcHandler(t *testing.T) {
 		want = `{"jsonrpc":"2.0","result":"abc123","id":1}`
 	)
 
-	exchangeMsg := func(conn net.Conn, send string, want string) error {
-		_, err := conn.Write([]byte(send))
-		if err != nil {
-			return err
-		}
-
-		buffer := make([]byte, len(want))
-		_, err = conn.Read(buffer)
-		if err != nil {
-			return err
-		}
-
-		if !bytes.Equal(buffer, []byte(want)) {
-			return fmt.Errorf("recv msg does not match. got %v, want %v", string(buffer), want)
-		}
-		return nil
-	}
-
 	t.Run("single conn", func(t *testing.T) {
 		path := path.Join(t.TempDir(), "juno.ipc")
-		srv := testIpc(t, path)
+		srv, err := testIpc(path)
+		assert.NoError(t, err)
 		srv.Start()
-		defer srv.Stop()
+		defer func() { assert.NoError(t, srv.Stop()) }()
 		conn, err := jsonrpc.IpcDial(context.Background(), path)
 		assert.NoError(t, err)
 		assert.NoError(t, exchangeMsg(conn, msg, want))
@@ -97,9 +99,10 @@ func TestIpcHandler(t *testing.T) {
 			errCh = make(chan error, items)
 		)
 		path := path.Join(t.TempDir(), "juno.ipc")
-		srv := testIpc(t, path)
+		srv, err := testIpc(path)
+		assert.NoError(t, err)
 		srv.Start()
-		defer srv.Stop()
+		defer func() { assert.NoError(t, srv.Stop()) }()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		defer func() {
@@ -131,9 +134,10 @@ func TestIpcHandler(t *testing.T) {
 
 	t.Run("teardown", func(t *testing.T) {
 		path := path.Join(t.TempDir(), "juno.ipc")
-		srv := testIpc(t, path)
+		srv, err := testIpc(path)
+		assert.NoError(t, err)
 		srv.Start()
-		defer srv.Stop()
+		defer func() { assert.Error(t, srv.Stop()) }()
 		var (
 			items = 1024
 			conns = make([]net.Conn, items)
@@ -167,9 +171,9 @@ func TestIpcHandler(t *testing.T) {
 
 	t.Run("disconnecting clients", func(t *testing.T) {
 		path := path.Join(t.TempDir(), "juno.ipc")
-		srv := testIpc(t, path)
+		srv, err := testIpc(path)
+		assert.NoError(t, err)
 		srv.Start()
-		defer srv.Stop()
 		defer func() { assert.NoError(t, srv.Stop()) }()
 		var (
 			items = 128
@@ -186,4 +190,56 @@ func TestIpcHandler(t *testing.T) {
 			assert.NoError(t, conn.Close())
 		}
 	})
+
+	t.Run("subscription", func(t *testing.T) {
+		path := path.Join(t.TempDir(), "juno.ipc")
+		srv, err := testIpc(path)
+		assert.NoError(t, err)
+		srv.Start()
+		defer func() { assert.NoError(t, srv.Stop()) }()
+
+		conn, err := jsonrpc.IpcDial(context.Background(), path)
+		assert.NoError(t, err)
+
+		// Initial subscription handshake.
+		req := `{"jsonrpc": "2.0", "method": "test_subscribe", "params": [], "id": 1}`
+		want := fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
+		assert.NoError(t, exchangeMsg(conn, req, want))
+
+		// All values are received.
+		for _, value := range values {
+			want = fmt.Sprintf(`{"jsonrpc":"2.0","method":"test_subscribe","params":{"subscription":%d,"result":%d}}`, id, value)
+			buff := make([]byte, len(want))
+			assert.NoError(t, conn.SetReadDeadline(time.Now().Add(3*time.Second)))
+			_, err := conn.Read(buff)
+			assert.NoError(t, err)
+			assert.Equal(t, []byte(want), buff)
+		}
+	})
+}
+
+func BenchmarkIpcThroughput(b *testing.B) {
+	var (
+		msg      = `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
+		want     = `{"jsonrpc":"2.0","result":"abc123","id":1}`
+		path     = path.Join(b.TempDir(), "juno.ipc")
+		srv, err = testIpc(path)
+	)
+	assert.NoError(b, err)
+
+	srv.Start()
+	defer srv.Stop()
+	b.ResetTimer()
+	var wg sync.WaitGroup
+	for i := 0; i < b.N; i++ {
+		conn, err := jsonrpc.IpcDial(context.Background(), path)
+		assert.NoError(b, err)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer conn.Close()
+			assert.NoError(b, exchangeMsg(conn, msg, want))
+		}()
+	}
+	wg.Wait()
 }
