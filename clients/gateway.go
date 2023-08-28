@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 )
 
-//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc GatewayInterface
+//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/clients GatewayInterface
 type GatewayInterface interface {
 	AddTransaction(txn json.RawMessage) (json.RawMessage, error)
 }
