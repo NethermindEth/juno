@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path"
 	"sync"
 	"testing"
@@ -81,12 +82,84 @@ func TestIpcHandler(t *testing.T) {
 		want = `{"jsonrpc":"2.0","result":"abc123","id":1}`
 	)
 
-	t.Run("single conn", func(t *testing.T) {
-		ep := path.Join(t.TempDir(), "juno.ipc")
+	t.Run("ipc cleanup", func(t *testing.T) {
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
 		srv, err := testIpc(ep)
 		assert.NoError(t, err)
-		srv.Start()
-		defer func() { assert.NoError(t, srv.Stop()) }()
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
+
+		_, err = jsonrpc.IpcDial(context.Background(), ep)
+		assert.NoError(t, err)
+		assert.NoError(t, srv.Stop())
+		srv.Wait()
+		_, err = jsonrpc.IpcDial(context.Background(), ep)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+	})
+
+	t.Run("ctx stop", func(t *testing.T) {
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
+		srv, err := testIpc(ep)
+		assert.NoError(t, err)
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
+	})
+
+	t.Run("manual stop", func(t *testing.T) {
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
+		srv, err := testIpc(ep)
+		assert.NoError(t, err)
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
+		srv.Stop()
+	})
+
+	t.Run("single conn", func(t *testing.T) {
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
+		srv, err := testIpc(ep)
+		assert.NoError(t, err)
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
 		conn, err := jsonrpc.IpcDial(context.Background(), ep)
 		assert.NoError(t, err)
 		assert.NoError(t, exchangeMsg(conn, msg, want))
@@ -94,17 +167,24 @@ func TestIpcHandler(t *testing.T) {
 
 	t.Run("multiple conns", func(t *testing.T) {
 		var (
-			items = 1024
-			conns = make([]net.Conn, items)
-			errCh = make(chan error, items)
+			items       = 1024
+			conns       = make([]net.Conn, items)
+			errCh       = make(chan error, items)
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
 		)
-		ep := path.Join(t.TempDir(), "juno.ipc")
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
 		srv, err := testIpc(ep)
 		assert.NoError(t, err)
-		srv.Start()
-		defer func() { assert.NoError(t, srv.Stop()) }()
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
+
 		defer func() {
 			for _, conn := range conns {
 				conn.Close()
@@ -133,18 +213,28 @@ func TestIpcHandler(t *testing.T) {
 	})
 
 	t.Run("teardown", func(t *testing.T) {
-		ep := path.Join(t.TempDir(), "juno.ipc")
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
 		srv, err := testIpc(ep)
 		assert.NoError(t, err)
-		srv.Start()
-		defer func() { assert.Error(t, srv.Stop()) }()
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
+
 		var (
 			items = 1024
 			conns = make([]net.Conn, items)
 			errCh = make(chan error, items)
 		)
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
+
 		var wg sync.WaitGroup
 		for i := 0; i < items; i++ {
 			conn, err := jsonrpc.IpcDial(ctx, ep)
@@ -170,11 +260,22 @@ func TestIpcHandler(t *testing.T) {
 	})
 
 	t.Run("disconnecting clients", func(t *testing.T) {
-		ep := path.Join(t.TempDir(), "juno.ipc")
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
 		srv, err := testIpc(ep)
 		assert.NoError(t, err)
-		srv.Start()
-		defer func() { assert.NoError(t, srv.Stop()) }()
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
+
 		var (
 			items = 128
 			conns = make([]net.Conn, items)
@@ -192,11 +293,21 @@ func TestIpcHandler(t *testing.T) {
 	})
 
 	t.Run("subscription", func(t *testing.T) {
-		ep := path.Join(t.TempDir(), "juno.ipc")
+		var (
+			ep          = path.Join(t.TempDir(), "juno.ipc")
+			ctx, cancel = context.WithCancel(context.Background())
+			srvWg       sync.WaitGroup
+		)
+		srvWg.Add(1)
+		defer srvWg.Wait()
+		defer cancel()
+
 		srv, err := testIpc(ep)
 		assert.NoError(t, err)
-		srv.Start()
-		defer func() { assert.NoError(t, srv.Stop()) }()
+		go func() {
+			assert.NoError(t, srv.Run(ctx))
+			srvWg.Done()
+		}()
 
 		conn, err := jsonrpc.IpcDial(context.Background(), ep)
 		assert.NoError(t, err)
@@ -220,15 +331,22 @@ func TestIpcHandler(t *testing.T) {
 
 func BenchmarkIpcThroughput(b *testing.B) {
 	var (
-		msg      = `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
-		want     = `{"jsonrpc":"2.0","result":"abc123","id":1}`
-		ep       = path.Join(b.TempDir(), "juno.ipc")
-		srv, err = testIpc(ep)
+		msg         = `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
+		want        = `{"jsonrpc":"2.0","result":"abc123","id":1}`
+		ctx, cancel = context.WithCancel(context.Background())
+		srvWg       sync.WaitGroup
+		ep          = path.Join(b.TempDir(), "juno.ipc")
 	)
-	assert.NoError(b, err)
+	srvWg.Add(1)
+	defer srvWg.Wait()
+	defer cancel()
 
-	srv.Start()
-	defer func() { assert.NoError(b, srv.Stop()) }()
+	srv, err := testIpc(ep)
+	assert.NoError(b, err)
+	go func() {
+		assert.NoError(b, srv.Run(ctx))
+		srvWg.Done()
+	}()
 
 	b.ResetTimer()
 	var wg sync.WaitGroup

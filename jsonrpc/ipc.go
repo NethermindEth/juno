@@ -28,6 +28,8 @@ type Ipc struct {
 	mu      sync.Mutex
 	conns   map[net.Conn]struct{}
 	closing bool
+
+	connWg sync.WaitGroup
 }
 
 func NewIpc(rpc *Server, log utils.SimpleLogger, endpoint string) (*Ipc, error) {
@@ -53,12 +55,29 @@ func NewIpc(rpc *Server, log utils.SimpleLogger, endpoint string) (*Ipc, error) 
 	return ipc, nil
 }
 
-func (i *Ipc) Start() {
-	go i.run()
+func (i *Ipc) Run(ctx context.Context) error {
+	errCh := make(chan error, 1)
+	go func() {
+		if err := i.run(ctx); err != nil && !isNetworkErrorCloser(err) {
+			errCh <- err
+		}
+	}()
+
+	var err error
+	select {
+	case <-ctx.Done():
+		err = i.Stop()
+	case err = <-errCh:
+	}
+
+	if err != nil && errors.Is(err, errAlreadyStopping) {
+		return nil
+	}
+	return err
 }
 
-func (i *Ipc) run() {
-	ctx, cancel := context.WithCancel(context.Background())
+func (i *Ipc) run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for {
 		conn, err := i.listener.Accept()
@@ -66,9 +85,9 @@ func (i *Ipc) run() {
 			i.log.Errorw("Failed to accept connection", "err", err)
 			continue
 		} else if err != nil {
-			return
+			return err
 		}
-
+		i.connWg.Add(1)
 		go i.serveConn(ctx, newIpcConn(conn, i.connParams))
 	}
 }
@@ -94,6 +113,7 @@ func (i *Ipc) cleanupConnNoLock(conn net.Conn) {
 	delete(i.conns, conn)
 	if ok {
 		conn.Close()
+		i.connWg.Done()
 	}
 }
 
@@ -108,26 +128,30 @@ func (i *Ipc) serveConn(ctx context.Context, conn net.Conn) {
 		i.requests.Inc()
 	}
 
-	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+	if isNetworkErrorCloser(err) {
 		i.log.Infow("Client closed websocket connection")
 		return
 	}
 	i.log.Warnw("Closing ipc connection due to internal error", "err", err)
 }
 
+var errAlreadyStopping = errors.New("already stopping")
+
 func (i *Ipc) Stop() error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	if i.closing {
-		return net.ErrClosed
+		return errAlreadyStopping
 	}
 	i.closing = true
-	i.listener.Close()
+	err := i.listener.Close()
 	for conn := range i.conns {
 		i.cleanupConnNoLock(conn)
 	}
-	return nil
+	return err
 }
+
+func (i *Ipc) Wait() { i.connWg.Wait() }
 
 type IpcConnParams struct {
 	// Maximum time to write a message.
@@ -157,4 +181,8 @@ func (ipc *ipcConn) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return ipc.Conn.Write(p)
+}
+
+func isNetworkErrorCloser(err error) bool {
+	return errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF)
 }
