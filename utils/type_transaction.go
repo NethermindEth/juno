@@ -178,3 +178,9 @@ type TransactionReceipt struct {
 	TransactionIndex   uint64              `json:"transaction_index"`
 	RevertError        string              `json:"revert_error"`
 }
+
+type FeeEstimate struct {
+	GasConsumed *felt.Felt `json:"gas_consumed"`
+	GasPrice    *felt.Felt `json:"gas_price"`
+	OverallFee  *felt.Felt `json:"overall_fee"`
+}

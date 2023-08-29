@@ -1078,18 +1078,18 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	return status, nil
 }
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id utils.BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.SimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
+func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id utils.BlockID) ([]utils.FeeEstimate, *jsonrpc.Error) {
+	result, err := h.SimulateTransactions(id, broadcastedTxns, []utils.SimulationFlag{utils.SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
 	}
 
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
+	return utils.Map(result, func(tx utils.SimulatedTransaction) utils.FeeEstimate {
 		return tx.FeeEstimate
 	}), nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id utils.BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFee(msg MsgFromL1, id utils.BlockID) (*utils.FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
@@ -1147,16 +1147,16 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 }
 
 func (h *Handler) SimulateTransactions(id utils.BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag,
-) ([]SimulatedTransaction, *jsonrpc.Error) {
-	skipValidate := utils.Any(simulationFlags, func(f SimulationFlag) bool {
-		return f == SkipValidateFlag
+	simulationFlags []utils.SimulationFlag,
+) ([]utils.SimulatedTransaction, *jsonrpc.Error) {
+	skipValidate := utils.Any(simulationFlags, func(f utils.SimulationFlag) bool {
+		return f == utils.SkipValidateFlag
 	})
 	if skipValidate {
 		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
 	}
-	skipFeeCharge := utils.Any(simulationFlags, func(f SimulationFlag) bool {
-		return f == SkipFeeChargeFlag
+	skipFeeCharge := utils.Any(simulationFlags, func(f utils.SimulationFlag) bool {
+		return f == utils.SkipFeeChargeFlag
 	})
 
 	state, closer, err := h.stateByBlockID(&id)
@@ -1211,14 +1211,14 @@ func (h *Handler) SimulateTransactions(id utils.BlockID, transactions []Broadcas
 		return nil, &rpcErr
 	}
 
-	var result []SimulatedTransaction
+	var result []utils.SimulatedTransaction
 	for i, overallFee := range overallFees {
-		estimate := FeeEstimate{
+		estimate := utils.FeeEstimate{
 			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
 			GasPrice:    header.GasPrice,
 			OverallFee:  overallFee,
 		}
-		result = append(result, SimulatedTransaction{
+		result = append(result, utils.SimulatedTransaction{
 			TransactionTrace: traces[i],
 			FeeEstimate:      estimate,
 		})
@@ -1227,7 +1227,7 @@ func (h *Handler) SimulateTransactions(id utils.BlockID, transactions []Broadcas
 	return result, nil
 }
 
-func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]utils.TracedBlockTransaction, *jsonrpc.Error) {
 	block, err := h.bcReader.BlockByHash(&blockHash)
 	if err != nil {
 		return nil, ErrInvalidBlockHash
@@ -1236,7 +1236,7 @@ func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTran
 	return h.traceBlockTransactions(block, len(block.Transactions))
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]utils.TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
@@ -1301,9 +1301,9 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]Trac
 		return nil, &rpcErr
 	}
 
-	var result []TracedBlockTransaction
+	var result []utils.TracedBlockTransaction
 	for i, trace := range traces {
-		result = append(result, TracedBlockTransaction{
+		result = append(result, utils.TracedBlockTransaction{
 			TraceRoot:       trace,
 			TransactionHash: transactions[i].Hash(),
 		})

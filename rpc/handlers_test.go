@@ -2053,7 +2053,7 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	estimateFee, err := handler.EstimateMessageFee(msg, utils.BlockID{Latest: true})
 	require.Nil(t, err)
-	require.Equal(t, rpc.FeeEstimate{
+	require.Equal(t, utils.FeeEstimate{
 		GasConsumed: expectedGasConsumed,
 		GasPrice:    latestHeader.GasPrice,
 		OverallFee:  new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
@@ -2134,7 +2134,7 @@ func TestSimulateTransactions(t *testing.T) {
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
 	t.Run("failure if skip validate provided", func(t *testing.T) {
-		_, err := handler.SimulateTransactions(utils.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactions(utils.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []utils.SimulationFlag{utils.SkipValidateFlag})
 		require.NotNil(t, err)
 	})
 	t.Run("ok with zero values", func(t *testing.T) {
@@ -2147,7 +2147,7 @@ func TestSimulateTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, nil).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
-		_, err := handler.SimulateTransactions(utils.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, err := handler.SimulateTransactions(utils.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []utils.SimulationFlag{utils.SkipFeeChargeFlag})
 		require.Nil(t, err)
 	})
 }
@@ -2257,7 +2257,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
 			nil, network, []*felt.Felt{}, false, header.GasPrice).Return(nil, []json.RawMessage{vmTrace}, nil)
 
-		expectedResult := []rpc.TracedBlockTransaction{
+		expectedResult := []utils.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
 				TraceRoot:       vmTrace,
