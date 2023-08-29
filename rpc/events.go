@@ -1,6 +1,9 @@
 package rpc
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
+)
 
 type EventsArg struct {
 	EventFilter
@@ -8,10 +11,10 @@ type EventsArg struct {
 }
 
 type EventFilter struct {
-	FromBlock *BlockID      `json:"from_block"`
-	ToBlock   *BlockID      `json:"to_block"`
-	Address   *felt.Felt    `json:"address"`
-	Keys      [][]felt.Felt `json:"keys"`
+	FromBlock *utils.BlockID `json:"from_block"`
+	ToBlock   *utils.BlockID `json:"to_block"`
+	Address   *felt.Felt     `json:"address"`
+	Keys      [][]felt.Felt  `json:"keys"`
 }
 
 type ResultPageRequest struct {
