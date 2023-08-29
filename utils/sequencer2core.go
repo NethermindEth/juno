@@ -279,7 +279,7 @@ func AdaptCairo0Class(response *Cairo0Definition) (core.Class, error) {
 	return class, nil
 }
 
-func AdaptStateUpdate(response *StateUpdate) (*core.StateUpdate, error) {
+func AdaptStateUpdate(response *StateUpdateFeeder) (*core.StateUpdate, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts
 

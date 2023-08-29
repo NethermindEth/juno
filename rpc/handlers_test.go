@@ -1006,7 +1006,7 @@ func TestStateUpdate(t *testing.T) {
 	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
 	require.NoError(t, err)
 
-	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
+	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *utils.StateUpdate) {
 		t.Helper()
 		assert.Equal(t, coreUpdate.BlockHash, rpcUpdate.BlockHash)
 		assert.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)

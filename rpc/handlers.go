@@ -485,7 +485,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
-func (h *Handler) StateUpdate(id utils.BlockID) (*StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id utils.BlockID) (*utils.StateUpdate, *jsonrpc.Error) {
 	var update *core.StateUpdate
 	var err error
 	if id.Latest {
@@ -510,51 +510,51 @@ func (h *Handler) StateUpdate(id utils.BlockID) (*StateUpdate, *jsonrpc.Error) {
 		return nil, ErrBlockNotFound
 	}
 
-	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))
+	nonces := make([]utils.Nonce, 0, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		nonces = append(nonces, Nonce{ContractAddress: new(felt.Felt).Set(&addr), Nonce: nonce})
+		nonces = append(nonces, utils.Nonce{ContractAddress: new(felt.Felt).Set(&addr), Nonce: nonce})
 	}
 
-	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
+	storageDiffs := make([]utils.StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		entries := make([]Entry, len(diffs))
+		entries := make([]utils.Entry, len(diffs))
 
 		for index, diff := range diffs {
-			entries[index] = Entry{Key: diff.Key, Value: diff.Value}
+			entries[index] = utils.Entry{Key: diff.Key, Value: diff.Value}
 		}
 
-		storageDiffs = append(storageDiffs, StorageDiff{Address: new(felt.Felt).Set(&addr), StorageEntries: entries})
+		storageDiffs = append(storageDiffs, utils.StorageDiff{Address: new(felt.Felt).Set(&addr), StorageEntries: entries})
 	}
 
-	deployedContracts := make([]DeployedContract, 0, len(update.StateDiff.DeployedContracts))
+	deployedContracts := make([]utils.DeployedContract, 0, len(update.StateDiff.DeployedContracts))
 	for _, deployedContract := range update.StateDiff.DeployedContracts {
-		deployedContracts = append(deployedContracts, DeployedContract{
+		deployedContracts = append(deployedContracts, utils.DeployedContract{
 			Address:   deployedContract.Address,
 			ClassHash: deployedContract.ClassHash,
 		})
 	}
 
-	declaredClasses := make([]DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
+	declaredClasses := make([]utils.DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
 	for _, declaredClass := range update.StateDiff.DeclaredV1Classes {
-		declaredClasses = append(declaredClasses, DeclaredClass{
+		declaredClasses = append(declaredClasses, utils.DeclaredClass{
 			ClassHash:         declaredClass.ClassHash,
 			CompiledClassHash: declaredClass.CompiledClassHash,
 		})
 	}
 
-	replacedClasses := make([]ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
+	replacedClasses := make([]utils.ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
 	for _, replacedClass := range update.StateDiff.ReplacedClasses {
-		replacedClasses = append(replacedClasses, ReplacedClass{
+		replacedClasses = append(replacedClasses, utils.ReplacedClass{
 			ClassHash:       replacedClass.ClassHash,
 			ContractAddress: replacedClass.Address,
 		})
 	}
 
-	return &StateUpdate{
+	return &utils.StateUpdate{
 		BlockHash: update.BlockHash,
 		OldRoot:   update.OldRoot,
 		NewRoot:   update.NewRoot,
-		StateDiff: &StateDiff{
+		StateDiff: &utils.StateDiff{
 			DeprecatedDeclaredClasses: update.StateDiff.DeclaredV0Classes,
 			DeclaredClasses:           declaredClasses,
 			ReplacedClasses:           replacedClasses,

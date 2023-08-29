@@ -10,14 +10,14 @@ import (
 )
 
 type FeederInterface interface {
-	StateUpdate(ctx context.Context, blockID string) (*utils.StateUpdate, error)
+	StateUpdate(ctx context.Context, blockID string) (*utils.StateUpdateFeeder, error)
 	Transaction(ctx context.Context, transactionHash *felt.Felt) (*utils.TransactionStatus, error)
 	Block(ctx context.Context, blockID string) (*utils.Block, error)
 	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*utils.ClassDefinition, error)
 	CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (json.RawMessage, error)
 	PublickKey(ctx context.Context) (*felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (*utils.Signature, error)
-	StateUpdateWithBlock(ctx context.Context, blockID string) (*utils.StateUpdateWithBlock, error)
+	StateUpdateWithBlock(ctx context.Context, blockID string) (*utils.StateUpdateWithBlockFeeder, error)
 }
 
 type Feeder struct {
@@ -30,7 +30,7 @@ func NewFeeder(client *Client) *Feeder {
 	return &Feeder{client: client}
 }
 
-func (f *Feeder) StateUpdate(ctx context.Context, blockID string) (*utils.StateUpdate, error) {
+func (f *Feeder) StateUpdate(ctx context.Context, blockID string) (*utils.StateUpdateFeeder, error) {
 	queryURL := f.client.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -41,7 +41,7 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockID string) (*utils.StateU
 	}
 	defer body.Close()
 
-	update := new(utils.StateUpdate)
+	update := new(utils.StateUpdateFeeder)
 	if err = json.NewDecoder(body).Decode(update); err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (f *Feeder) Signature(ctx context.Context, blockID string) (*utils.Signatur
 	return signature, nil
 }
 
-func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockID string) (*utils.StateUpdateWithBlock, error) {
+func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockID string) (*utils.StateUpdateWithBlockFeeder, error) {
 	queryURL := f.client.buildQueryString("get_state_update", map[string]string{
 		"blockNumber":  blockID,
 		"includeBlock": "true",
@@ -169,7 +169,7 @@ func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockID string) (*uti
 	}
 	defer body.Close()
 
-	stateUpdate := new(utils.StateUpdateWithBlock)
+	stateUpdate := new(utils.StateUpdateWithBlockFeeder)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}
