@@ -11,11 +11,10 @@ on:
         - juno-staging-gitaction
 env: 
     EVENT_NAME: juno-staging
-    # config files for environments to be updated
-    GOERLI: apps/juno-node/overlays/dev-goerli-1/config.yaml
-    GOERLI2: apps/juno-node/overlays/dev-goerli-2/config.yaml
-    TESTNET: apps/juno-node/overlays/dev-integration/config.yaml
-    MAINNET: apps/juno-node/overlays/dev-mainnet/config.yaml
+    GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
+    GOERLI2: apps/juno-staging/overlays/staging-goerli-2/config.yaml
+    TESTNET: apps/juno-staging/overlays/staging-integration/config.yaml
+    MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
 
 permissions:
     id-token: write
