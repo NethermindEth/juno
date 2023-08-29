@@ -340,7 +340,7 @@ func TestBlockWithTxs(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	checkLatestBlock := func(t *testing.T, blockWithTxHashes *utils.BlockWithTxHashes, blockWithTxs *utils.BlockWithTxs) {
+	checkLatestBlock := func(t *testing.T, blockWithTxHashes *utils.BlockWithTxHashes, blockWithTxs *rpc.BlockWithTxs) {
 		t.Helper()
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
@@ -1131,7 +1131,7 @@ func TestSyncing(t *testing.T) {
 	t.Run("undefined starting block", func(t *testing.T) {
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
+		assert.Equal(t, &utils.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
 	startingBlock := uint64(0)
@@ -1141,7 +1141,7 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
+		assert.Equal(t, &utils.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	t.Run("undefined highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
@@ -1149,7 +1149,7 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
+		assert.Equal(t, &utils.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	t.Run("block height is greater than highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
@@ -1157,7 +1157,7 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
+		assert.Equal(t, &utils.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
 	synchronizer.HighestBlockHeader.Store(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)})
@@ -1167,7 +1167,7 @@ func TestSyncing(t *testing.T) {
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
-		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
+		assert.Equal(t, &utils.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	t.Run("syncing", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
@@ -1175,7 +1175,7 @@ func TestSyncing(t *testing.T) {
 
 		currentBlockNumber := uint64(1)
 		highestBlockNumber := uint64(2)
-		expectedSyncing := &rpc.Sync{
+		expectedSyncing := &utils.Sync{
 			StartingBlockHash:   &felt.Zero,
 			StartingBlockNumber: &startingBlock,
 			CurrentBlockHash:    new(felt.Felt).SetUint64(1),

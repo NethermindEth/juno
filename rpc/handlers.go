@@ -187,13 +187,13 @@ func adaptBlockHeader(header *core.Header) utils.BlockHeader {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
-func (h *Handler) BlockWithTxs(id utils.BlockID) (*utils.BlockWithTxs, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxs(id utils.BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
 
-	txs := make([]*utils.Transaction, len(block.Transactions))
+	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
 		txs[index] = adaptTransaction(txn)
 	}
@@ -210,19 +210,19 @@ func (h *Handler) BlockWithTxs(id utils.BlockID) (*utils.BlockWithTxs, *jsonrpc.
 		status = utils.BlockAcceptedL1
 	}
 
-	return &utils.BlockWithTxs{
+	return &BlockWithTxs{
 		Status:       status,
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
 
-func adaptTransaction(t core.Transaction) *utils.Transaction {
-	var txn *utils.Transaction
+func adaptTransaction(t core.Transaction) *Transaction {
+	var txn *Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
-		txn = &utils.Transaction{
+		txn = &Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
@@ -237,7 +237,7 @@ func adaptTransaction(t core.Transaction) *utils.Transaction {
 	case *core.DeployAccountTransaction:
 		sig := v.Signature()
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1466
-		txn = &utils.Transaction{
+		txn = &Transaction{
 			Hash:                v.Hash(),
 			MaxFee:              v.MaxFee,
 			Version:             v.Version,
@@ -250,7 +250,7 @@ func adaptTransaction(t core.Transaction) *utils.Transaction {
 		}
 	case *core.L1HandlerTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1669
-		txn = &utils.Transaction{
+		txn = &Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version,
@@ -270,9 +270,9 @@ func adaptTransaction(t core.Transaction) *utils.Transaction {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605
-func adaptInvokeTransaction(t *core.InvokeTransaction) *utils.Transaction {
+func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	sig := t.Signature()
-	invTxn := &utils.Transaction{
+	invTxn := &Transaction{
 		Type:               TxnInvoke,
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
@@ -289,9 +289,9 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *utils.Transaction {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1340
-func adaptDeclareTransaction(t *core.DeclareTransaction) *utils.Transaction {
+func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	sig := t.Signature()
-	txn := &utils.Transaction{
+	txn := &Transaction{
 		Type:              TxnDeclare,
 		Hash:              t.Hash(),
 		MaxFee:            t.MaxFee,
@@ -346,7 +346,7 @@ func (h *Handler) blockHeaderByID(id *utils.BlockID) (*core.Header, error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
-func (h *Handler) TransactionByHash(hash felt.Felt) (*utils.Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
@@ -372,7 +372,7 @@ func (h *Handler) BlockTransactionCount(id utils.BlockID) (uint64, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id utils.BlockID, txIndex int) (*utils.Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(id utils.BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, ErrInvalidTxIndex
 	}
@@ -569,8 +569,8 @@ func (h *Handler) StateUpdate(id utils.BlockID) (*StateUpdate, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
-func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
-	defaultSyncState := &Sync{Syncing: new(bool)}
+func (h *Handler) Syncing() (*utils.Sync, *jsonrpc.Error) {
+	defaultSyncState := &utils.Sync{Syncing: new(bool)}
 
 	startingBlockNumber := h.synchronizer.StartingBlockNumber
 	if startingBlockNumber == nil {
@@ -592,7 +592,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 		return defaultSyncState, nil
 	}
 
-	return &Sync{
+	return &utils.Sync{
 		StartingBlockHash:   startingBlockHeader.Hash,
 		StartingBlockNumber: &startingBlockHeader.Number,
 		CurrentBlockHash:    head.Hash,
@@ -973,12 +973,12 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/aaea417f193bbec87b59455128d4b09a06876c28/api/starknet_api_openrpc.json#L602-L616
-func (h *Handler) PendingTransactions() ([]*utils.Transaction, *jsonrpc.Error) {
-	var pendingTxns []*utils.Transaction
+func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
+	var pendingTxns []*Transaction
 
 	pending, err := h.bcReader.Pending()
 	if err == nil {
-		pendingTxns = make([]*utils.Transaction, 0, len(pending.Block.Transactions))
+		pendingTxns = make([]*Transaction, 0, len(pending.Block.Transactions))
 		for _, txn := range pending.Block.Transactions {
 			pendingTxns = append(pendingTxns, adaptTransaction(txn))
 		}
