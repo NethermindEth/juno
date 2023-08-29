@@ -1,4 +1,4 @@
-name: Dispatch Render Juno-Dev
+name: Dispatch Render Juno Staging
 
 on:
     workflow_dispatch:
@@ -6,9 +6,7 @@ on:
         tag:
           description: Image tag 
           required: true
-    push:
-      branches:
-        - juno-staging-gitaction
+
 env: 
     EVENT_NAME: juno-staging
     GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
