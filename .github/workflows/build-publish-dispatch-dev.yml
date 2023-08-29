@@ -7,10 +7,10 @@ on:
         - juno-dev-gitaction
 env: 
     EVENT_NAME: juno-dev
-    GOERLI: apps/juno-node/overlays/dev-goerli-1/config.yaml
-    GOERLI2: apps/juno-node/overlays/dev-goerli-2/config.yaml
-    TESTNET: apps/juno-node/overlays/dev-integration/config.yaml
-    MAINNET: apps/juno-node/overlays/dev-mainnet/config.yaml
+    GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
+    GOERLI2: apps/juno-dev/overlays/dev-goerli-2/config.yaml
+    TESTNET: apps/juno-dev/overlays/dev-integration/config.yaml
+    MAINNET: apps/juno-dev/overlays/dev-mainnet/config.yaml
 
 permissions:
     id-token: write
