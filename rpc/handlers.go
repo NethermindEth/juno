@@ -781,7 +781,7 @@ func (h *Handler) ClassAt(id utils.BlockID, address felt.Felt) (*Class, *jsonrpc
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
-func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args utils.EventsArg) (*utils.EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > maxEventChunkSize {
 		return nil, ErrPageSizeTooBig
 	} else {
@@ -822,17 +822,17 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, ErrInternal
 	}
 
-	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
+	emittedEvents := make([]*utils.EmittedEvent, 0, len(filteredEvents))
 	for _, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
 			blockNumber = &fEvent.BlockNumber
 		}
-		emittedEvents = append(emittedEvents, &EmittedEvent{
+		emittedEvents = append(emittedEvents, &utils.EmittedEvent{
 			BlockNumber:     blockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
-			Event: &Event{
+			Event: &utils.Event{
 				From: fEvent.From,
 				Keys: fEvent.Keys,
 				Data: fEvent.Data,
@@ -844,7 +844,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if cToken != nil {
 		cTokenStr = cToken.String()
 	}
-	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
+	return &utils.EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }
 
 func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *utils.BlockID, latestHeight uint64) error {

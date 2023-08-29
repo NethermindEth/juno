@@ -1600,14 +1600,14 @@ func TestEvents(t *testing.T) {
 
 	handler := rpc.New(chain, nil, core.GOERLI2, nil, nil, nil, "", utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
-	args := rpc.EventsArg{
-		EventFilter: rpc.EventFilter{
+	args := utils.EventsArg{
+		EventFilter: utils.EventFilter{
 			FromBlock: &utils.BlockID{Number: 0},
 			ToBlock:   &utils.BlockID{Latest: true},
 			Address:   from,
 			Keys:      [][]felt.Felt{},
 		},
-		ResultPageRequest: rpc.ResultPageRequest{
+		ResultPageRequest: utils.ResultPageRequest{
 			ChunkSize:         100,
 			ContinuationToken: "",
 		},
@@ -1650,7 +1650,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with no keys", func(t *testing.T) {
-		var allEvents []*rpc.EmittedEvent
+		var allEvents []*utils.EmittedEvent
 		t.Run("get canonical events without pagination", func(t *testing.T) {
 			args.ToBlock = &utils.BlockID{Latest: true}
 			args.Address = from
@@ -1662,7 +1662,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("accumulate events with pagination", func(t *testing.T) {
-			var accEvents []*rpc.EmittedEvent
+			var accEvents []*utils.EmittedEvent
 			args.ChunkSize = 1
 
 			for i := 0; i < len(allEvents)+1; i++ {
@@ -1717,12 +1717,12 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("get pending events without pagination", func(t *testing.T) {
-		args = rpc.EventsArg{
-			EventFilter: rpc.EventFilter{
+		args = utils.EventsArg{
+			EventFilter: utils.EventFilter{
 				FromBlock: &utils.BlockID{Pending: true},
 				ToBlock:   &utils.BlockID{Pending: true},
 			},
-			ResultPageRequest: rpc.ResultPageRequest{
+			ResultPageRequest: utils.ResultPageRequest{
 				ChunkSize:         100,
 				ContinuationToken: "",
 			},
