@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	client "github.com/NethermindEth/juno/clients"
-	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,9 +36,9 @@ func TestAddInvokeTx(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, resp)
 
-		gatewayErr, ok := err.(*sequencertypes.Error)
+		gatewayErr, ok := err.(*utils.Error)
 		require.True(t, ok)
-		assert.Equal(t, sequencertypes.ErrorCode("Malformed Request"), gatewayErr.Code)
+		assert.Equal(t, utils.ErrorCode("Malformed Request"), gatewayErr.Code)
 		assert.Equal(t, "empty request", gatewayErr.Message)
 	})
 

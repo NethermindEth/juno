@@ -7,7 +7,6 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	client "github.com/NethermindEth/juno/clients"
-	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -880,7 +879,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 	}
 
 	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
-		request["type"] = sequencertypes.TxnInvoke.String()
+		request["type"] = utils.TxnInvoke.String()
 
 		updatedReq, errIn := json.Marshal(request)
 		if errIn != nil {
@@ -931,37 +930,37 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
-	gatewayErr, ok := err.(*sequencertypes.Error)
+	gatewayErr, ok := err.(*utils.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	switch gatewayErr.Code {
-	case sequencertypes.InvalidContractClass:
+	case utils.InvalidContractClass:
 		return ErrInvalidContractClass
-	case sequencertypes.UndeclaredClass:
+	case utils.UndeclaredClass:
 		return ErrClassHashNotFound
-	case sequencertypes.ClassAlreadyDeclared:
+	case utils.ClassAlreadyDeclared:
 		return ErrClassAlreadyDeclared
-	case sequencertypes.InsufficientMaxFee:
+	case utils.InsufficientMaxFee:
 		return ErrInsufficientMaxFee
-	case sequencertypes.InsufficientAccountBalance:
+	case utils.InsufficientAccountBalance:
 		return ErrInsufficientAccountBalance
-	case sequencertypes.ValidateFailure:
+	case utils.ValidateFailure:
 		return ErrValidationFailure
-	case sequencertypes.ContractBytecodeSizeTooLarge, sequencertypes.ContractClassObjectSizeTooLarge:
+	case utils.ContractBytecodeSizeTooLarge, utils.ContractClassObjectSizeTooLarge:
 		return ErrContractClassSizeTooLarge
-	case sequencertypes.DuplicatedTransaction:
+	case utils.DuplicatedTransaction:
 		return ErrDuplicateTx
-	case sequencertypes.InvalidTransactionNonce:
+	case utils.InvalidTransactionNonce:
 		return ErrInvalidTransactionNonce
-	case sequencertypes.CompilationFailed:
+	case utils.CompilationFailed:
 		return ErrCompilationFailed
-	case sequencertypes.InvalidCompiledClassHash:
+	case utils.InvalidCompiledClassHash:
 		return ErrCompiledClassHashMismatch
-	case sequencertypes.InvalidTransactionVersion:
+	case utils.InvalidTransactionVersion:
 		return ErrUnsupportedTxVersion
-	case sequencertypes.InvalidContractClassVersion:
+	case utils.InvalidContractClassVersion:
 		return ErrUnsupportedContractClassVersion
 	default:
 		unexpectedErr := ErrUnexpectedError
@@ -1043,16 +1042,16 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		// Check if the error is due to a transaction not being found
-		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == sequencertypes.NotReceived {
+		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == utils.NotReceived {
 			return nil, ErrTxnHashNotFound
 		}
 
 		status = new(TransactionStatus)
 
 		switch txStatus.FinalityStatus {
-		case sequencertypes.AcceptedOnL1:
+		case utils.AcceptedOnL1:
 			status.Finality = TxnAcceptedOnL1
-		case sequencertypes.AcceptedOnL2:
+		case utils.AcceptedOnL2:
 			status.Finality = TxnAcceptedOnL2
 		default:
 			// pre-0.12.1
@@ -1064,9 +1063,9 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		}
 
 		switch txStatus.ExecutionStatus {
-		case sequencertypes.Succeeded:
+		case utils.Succeeded:
 			status.Execution = TxnSuccess
-		case sequencertypes.Reverted:
+		case utils.Reverted:
 			status.Execution = TxnFailure
 		default:
 			// pre-0.12.1

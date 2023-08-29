@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -292,7 +291,7 @@ func (c *Client) post(urlStr string, data any) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		var gatewayError sequencertypes.Error
+		var gatewayError utils.Error
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr == nil && len(body) > 0 {
 			if err := json.Unmarshal(body, &gatewayError); err == nil {

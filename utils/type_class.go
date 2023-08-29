@@ -1,4 +1,4 @@
-package sequencertypes
+package utils
 
 import (
 	"encoding/json"

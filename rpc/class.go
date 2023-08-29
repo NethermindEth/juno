@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/NethermindEth/juno/clients/sequencertypes"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -39,7 +38,7 @@ type FunctionCall struct {
 }
 
 func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
-	var feederClass sequencertypes.ClassDefinition
+	var feederClass utils.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
 		return nil, err

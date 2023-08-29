@@ -1,4 +1,4 @@
-package sequencertypes
+package utils
 
 import "github.com/NethermindEth/juno/core/felt"
 
