@@ -88,7 +88,7 @@ type grpcService struct {
 }
 
 func (g *grpcService) Run(ctx context.Context) error {
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	defer close(errCh)
 
 	portStr := strconv.FormatUint(uint64(g.port), 10)
