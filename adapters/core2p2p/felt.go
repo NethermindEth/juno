@@ -1,20 +1,26 @@
-package starknet
+package core2p2p
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 )
 
-func AdaptFeltToHash(f *felt.Felt) *spec.Hash {
-	fBytes := f.Bytes()
+func AdaptHash(f *felt.Felt) *spec.Hash {
+	if f == nil {
+		return nil
+	}
+
 	return &spec.Hash{
-		Elements: fBytes[:],
+		Elements: f.Marshal(),
 	}
 }
 
 func AdaptFelt(f *felt.Felt) *spec.Felt252 {
-	fBytes := f.Bytes()
+	if f == nil {
+		return nil
+	}
+
 	return &spec.Felt252{
-		Elements: fBytes[:],
+		Elements: f.Marshal(),
 	}
 }

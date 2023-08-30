@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -133,9 +134,9 @@ func (h *Handler) HandleGetEvents(req *spec.GetEvents) (*spec.Events, error) {
 	for _, receipt := range block.Receipts {
 		for _, ev := range receipt.Events {
 			event := &spec.Event{
-				FromAddress: AdaptFelt(ev.From),
-				Keys:        utils.Map(ev.Keys, AdaptFelt),
-				Data:        utils.Map(ev.Data, AdaptFelt),
+				FromAddress: core2p2p.AdaptFelt(ev.From),
+				Keys:        utils.Map(ev.Keys, core2p2p.AdaptFelt),
+				Data:        utils.Map(ev.Data, core2p2p.AdaptFelt),
 			}
 
 			result.Events = append(result.Events, event)

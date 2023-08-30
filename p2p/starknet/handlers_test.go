@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
@@ -37,7 +38,7 @@ func TestHandleGetEvents(t *testing.T) {
 
 		events, err := h.HandleGetEvents(&spec.GetEvents{
 			Id: &spec.BlockID{
-				Hash: starknet.AdaptFeltToHash(hash),
+				Hash: core2p2p.AdaptHash(hash),
 			},
 		})
 		require.NoError(t, err)
@@ -87,14 +88,14 @@ func TestHandleGetEvents(t *testing.T) {
 			expected := &spec.Events{
 				Events: []*spec.Event{
 					{
-						FromAddress: starknet.AdaptFelt(event1.From),
-						Keys:        utils.Map(event1.Keys, starknet.AdaptFelt),
-						Data:        utils.Map(event1.Data, starknet.AdaptFelt),
+						FromAddress: core2p2p.AdaptFelt(event1.From),
+						Keys:        utils.Map(event1.Keys, core2p2p.AdaptFelt),
+						Data:        utils.Map(event1.Data, core2p2p.AdaptFelt),
 					},
 					{
-						FromAddress: starknet.AdaptFelt(event2.From),
-						Keys:        utils.Map(event2.Keys, starknet.AdaptFelt),
-						Data:        utils.Map(event2.Data, starknet.AdaptFelt),
+						FromAddress: core2p2p.AdaptFelt(event2.From),
+						Keys:        utils.Map(event2.Keys, core2p2p.AdaptFelt),
+						Data:        utils.Map(event2.Data, core2p2p.AdaptFelt),
 					},
 				},
 			}
