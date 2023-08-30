@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -1137,7 +1138,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 		return nil, ErrBlockNotFound
 	}
 
-	txIndex := utils.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
+	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
 		return tx.Hash().Equal(&hash)
 	})
 	if txIndex == -1 {
@@ -1155,15 +1156,10 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	skipValidate := utils.Any(simulationFlags, func(f SimulationFlag) bool {
-		return f == SkipValidateFlag
-	})
-	if skipValidate {
+	if slices.Contains(simulationFlags, SkipValidateFlag) {
 		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
 	}
-	skipFeeCharge := utils.Any(simulationFlags, func(f SimulationFlag) bool {
-		return f == SkipFeeChargeFlag
-	})
+	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 
 	state, closer, err := h.stateByBlockID(&id)
 	if err != nil {
