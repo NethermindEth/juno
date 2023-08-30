@@ -2,9 +2,9 @@ package utils
 
 import "slices"
 
-func Flatten[T any](slices ...[]T) []T {
+func Flatten[T any](sl ...[]T) []T {
 	var result []T
-	for _, slice := range slices {
+	for _, slice := range sl {
 		result = append(result, slice...)
 	}
 
