@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -167,7 +167,7 @@ func (h *Handler) blockByID(id *spec.BlockID) (*core.Block, error) {
 	case id == nil:
 		return nil, errors.New("block id is nil")
 	case id.Hash != nil:
-		hash := new(felt.Felt).SetBytes(id.Hash.Elements)
+		hash := p2p2core.AdaptHash(id.Hash)
 		return h.bcReader.BlockByHash(hash)
 	default:
 		return h.bcReader.BlockByNumber(id.Height)
