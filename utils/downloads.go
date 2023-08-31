@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/cheggaaa/pb.v1"
 )
@@ -106,6 +107,11 @@ func ExtractTar(src, destPath string) error {
 		}
 
 		filename := filepath.Join(destPath, filepath.Base(header.Name))
+		// The following line checks for Zip-Slip vulnerability even it is not possible
+		// in our situation as the zip's content is provided by us.
+		if !strings.HasPrefix(filepath.Join(destPath, filename), destPath) {
+			return fmt.Errorf("%s: illegal file path", filename)
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
