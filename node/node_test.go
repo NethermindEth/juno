@@ -57,6 +57,6 @@ func TestNewNode(t *testing.T) {
 		P2PBootPeers:        "",
 	}
 
-	_, err := node.New(config, "v0.3")
+	_, err := node.New(config, "v0.3", context.Background())
 	require.NoError(t, err)
 }

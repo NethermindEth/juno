@@ -21,7 +21,6 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -57,11 +56,11 @@ type Config struct {
 	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
-	
+
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsPort uint16 `mapstructure:"metrics-port"`
-  Snapshot bool `mapstructure:"snapshot"`
-  
+	Snapshot    bool   `mapstructure:"snapshot"`
+
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
@@ -80,7 +79,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string, ctx context.Context) (*Node, error) { //nolint:gocyclo
+func New(cfg *Config, version string, ctx context.Context) (*Node, error) { //nolint:gocyclo,funlen
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {

@@ -29,29 +29,27 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF              = "config"
-	logLevelF            = "log-level"
-	httpF                = "http"
-	httpPortF            = "http-port"
-	wsF                  = "ws"
-	wsPortF              = "ws-port"
-	dbPathF              = "db-path"
-	networkF             = "network"
-	ethNodeF             = "eth-node"
-	pprofF               = "pprof"
-	pprofPortF           = "pprof-port"
-	colourF              = "colour"
-	pendingPollIntervalF = "pending-poll-interval"
-	p2pF                 = "p2p"
-	p2pAddrF             = "p2p-addr"
-	p2pBootPeersF        = "p2p-boot-peers"
-	metricsF             = "metrics"
-	metricsPortF         = "metrics-port"
-  snapshotF            = "snapshot"
-	grpcF                = "grpc"
-	grpcPortF            = "grpc-port"
-
-
+	configF                    = "config"
+	logLevelF                  = "log-level"
+	httpF                      = "http"
+	httpPortF                  = "http-port"
+	wsF                        = "ws"
+	wsPortF                    = "ws-port"
+	dbPathF                    = "db-path"
+	networkF                   = "network"
+	ethNodeF                   = "eth-node"
+	pprofF                     = "pprof"
+	pprofPortF                 = "pprof-port"
+	colourF                    = "colour"
+	pendingPollIntervalF       = "pending-poll-interval"
+	p2pF                       = "p2p"
+	p2pAddrF                   = "p2p-addr"
+	p2pBootPeersF              = "p2p-boot-peers"
+	metricsF                   = "metrics"
+	metricsPortF               = "metrics-port"
+	snapshotF                  = "snapshot"
+	grpcF                      = "grpc"
+	grpcPortF                  = "grpc-port"
 	defaultConfig              = ""
 	defaultHTTP                = false
 	defaultHTTPPort            = 6060
@@ -68,23 +66,21 @@ const (
 	defaultP2pBootPeers        = ""
 	defaultMetrics             = false
 	defaultMetricsPort         = 9090
-  defaultSnapshot            = false
+	defaultSnapshot            = false
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
-
-
-	configFlagUsage   = "The yaml configuration file."
-	logLevelFlagUsage = "Options: debug, info, warn, error."
-	httpUsage         = "Enables the HTTP RPC server on the default port."
-	httpPortUsage     = "The port on which the HTTP server will listen for requests."
-	wsUsage           = "Enables the Websocket RPC server on the default port."
-	wsPortUsage       = "The port on which the websocket server will listen for requests."
-	dbPathUsage       = "Location of the database files."
-	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
-	pprofUsage        = "Enables the pprof endpoint on the default port."
-	pprofPortUsage    = "The port on which the pprof HTTP server will listen for requests."
-	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	configFlagUsage            = "The yaml configuration file."
+	logLevelFlagUsage          = "Options: debug, info, warn, error."
+	httpUsage                  = "Enables the HTTP RPC server on the default port."
+	httpPortUsage              = "The port on which the HTTP server will listen for requests."
+	wsUsage                    = "Enables the Websocket RPC server on the default port."
+	wsPortUsage                = "The port on which the websocket server will listen for requests."
+	dbPathUsage                = "Location of the database files."
+	networkUsage               = "Options: mainnet, goerli, goerli2, integration."
+	pprofUsage                 = "Enables the pprof endpoint on the default port."
+	pprofPortUsage             = "The port on which the pprof HTTP server will listen for requests."
+	colourUsage                = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage               = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
@@ -92,7 +88,7 @@ const (
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
-  snapshotUsage            = "downloads the network's snapshot and starts syncing based on it."
+	snapshotUsage            = "downloads the network's snapshot and starts syncing based on it."
 	grpcUsage                = "Enable the HTTP GRPC server on the default port."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
 )
