@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/node/http"
+	junohttp "github.com/NethermindEth/juno/node/http"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
@@ -50,7 +50,8 @@ type Config struct {
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
-	Metrics bool `mapstructure:"metrics"`
+	Metrics  bool `mapstructure:"metrics"`
+	Snapshot bool `mapstructure:"snapshot"`
 
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
@@ -70,7 +71,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
+func New(cfg *Config, version string, ctx context.Context) (*Node, error) { //nolint:gocyclo
 	metrics.Enabled = cfg.Metrics
 
 	if cfg.DatabasePath == "" {
@@ -80,9 +81,27 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo
 		}
 		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
 	}
+
 	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.Snapshot {
+		var downloadErr error
+		var downloadedPath string
+
+		network := cfg.Network.String()
+		log.Info("Downloading snapshot for ", network, "...")
+		if downloadedPath, downloadErr = utils.Download(ctx, network, ""); err != nil {
+			return nil, downloadErr
+		} else {
+			var extractErr error
+			log.Info("The snapshot was successfully downloaded, extracting to ", cfg.DatabasePath)
+			if extractErr = utils.ExtractTar(downloadedPath, cfg.DatabasePath); extractErr != nil {
+				return nil, extractErr
+			}
+		}
 	}
 
 	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)

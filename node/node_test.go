@@ -1,6 +1,7 @@
 package node_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestDefaultDbPath(t *testing.T) {
 				Network:      n,
 				DatabasePath: filepath.Join(defaultDataDir, n.String()),
 			}
-			snNode, err := node.New(cfg, "1.2.3")
+			snNode, err := node.New(cfg, "1.2.3", context.Background())
 			require.NoError(t, err)
 
 			assert.Equal(t, expectedCfg, snNode.Config())

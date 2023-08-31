@@ -42,6 +42,7 @@ const (
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
 	metricsF             = "metrics"
+	snapshotF            = "snapshot"
 
 	defaultConfig              = ""
 	defaultHTTPPort            = 6060
@@ -54,6 +55,7 @@ const (
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
 	defaultMetrics             = false
+	defaultSnapshot            = false
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -69,6 +71,7 @@ const (
 	p2PAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 	metricsUsage             = "enable prometheus endpoint"
+	snapshotUsage            = "downloads the network's snapshot and starts syncing based on it."
 )
 
 var Version string
@@ -97,7 +100,7 @@ func main() {
 		}
 		fmt.Printf("Running Juno with Config:\n%s\n\n", string(yamlConfig))
 
-		n, err := node.New(config, Version)
+		n, err := node.New(config, Version, ctx)
 		if err != nil {
 			return err
 		}
@@ -106,8 +109,6 @@ func main() {
 		return nil
 	})
 
-	snapshotCmd := NewSnapshotCmd()
-	cmd.AddCommand(snapshotCmd)
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
@@ -165,6 +166,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	junoCmd.Flags().Bool(snapshotF, defaultSnapshot, snapshotUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
