@@ -4,10 +4,12 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
 
@@ -153,4 +155,8 @@ func (n Network) CoreContractAddress() (common.Address, error) {
 
 func (n Network) ChainID() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.ChainIDString()))
+}
+
+func (n Network) ProtocolID() protocol.ID {
+	return protocol.ID(fmt.Sprintf("/starknet/%s", n))
 }

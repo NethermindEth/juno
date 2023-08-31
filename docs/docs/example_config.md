@@ -25,14 +25,23 @@ db-path: /home/<user>/.local/share/juno
 # If using Infura, it looks something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`
 eth-node: ""
 
-# Port on which the HTTP server will listen for requests.
+# Enables the HTTP RPC server.
+http: false
+# Port on which the HTTP RPC server will listen for requests.
 http-port: 6060
+
+# The options below are similar to the HTTP RPC options above.
+ws: false # Websocket RPC server
+ws-port: 6061
+pprof: false
+pprof-port: 6062
+metrics: false
+metrics-port: 9090
+grpc: false
+grpc-port: 6064
 
 # Options: debug, info, warn, error
 log-level: info
-
-# Enable prometheus endpoint.
-metrics: false
 
 # Options: mainnet, goerli, goerli2, integration
 network: mainnet

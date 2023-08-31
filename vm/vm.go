@@ -8,7 +8,8 @@ package vm
 //					char* chain_id);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
-//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json);
+//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
+//					unsigned char skip_charge_fee, char* gas_price);
 //
 // #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
 import "C"
@@ -31,26 +32,32 @@ type VM interface {
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+		skipChargeFee bool, gasPrice *felt.Felt,
 	) ([]*felt.Felt, []json.RawMessage, error)
 }
 
-type vm struct{}
+type vm struct {
+	log utils.SimpleLogger
+}
 
-func New() VM {
-	return &vm{}
+func New(log utils.SimpleLogger) VM {
+	return &vm{
+		log: log,
+	}
 }
 
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
 	state core.StateReader
+	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
 	// response from the executed Cairo function
 	response []*felt.Felt
-	// amount of gas consumed per transaction during VM execution
-	gasConsumed []*felt.Felt
-	traces      []json.RawMessage
+	// fee amount taken per transaction during VM execution
+	actualFees []*felt.Felt
+	traces     []json.RawMessage
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -81,10 +88,10 @@ func JunoAppendResponse(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context.response = append(context.response, makeFeltFromPtr(ptr))
 }
 
-//export JunoAppendGasConsumed
-func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+//export JunoAppendActualFee
+func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.gasConsumed = append(context.gasConsumed, makeFeltFromPtr(ptr))
+	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -96,12 +103,13 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 	return C.CBytes(feltBytes[:])
 }
 
-func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
+func (v *vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, state core.StateReader, network utils.Network,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
+		log:      v.log,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
@@ -140,11 +148,13 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
+func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+	skipChargeFee bool, gasPrice *felt.Felt,
 ) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{
 		state: state,
+		log:   v.log,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
@@ -164,6 +174,12 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 	classesJSONCStr := C.CString(string(classesJSON))
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
+	gasPriceBytes := gasPrice.Bytes()
+
+	var skipChargeFeeByte byte
+	if skipChargeFee {
+		skipChargeFeeByte = 1
+	}
 
 	chainID := C.CString(network.ChainIDString())
 	C.cairoVMExecute(txnsJSONCstr,
@@ -173,7 +189,10 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		C.ulonglong(blockTimestamp),
 		chainID,
 		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])),
-		paidFeesOnL1CStr)
+		paidFeesOnL1CStr,
+		C.uchar(skipChargeFeeByte),
+		(*C.char)(unsafe.Pointer(&gasPriceBytes[0])),
+	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
 	C.free(unsafe.Pointer(paidFeesOnL1CStr))
@@ -184,7 +203,7 @@ func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockN
 		return nil, nil, errors.New(context.err)
 	}
 
-	return context.gasConsumed, context.traces, nil
+	return context.actualFees, context.traces, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

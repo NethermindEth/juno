@@ -22,7 +22,7 @@ func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
 			return msg, nil
 		},
 	}
-	rpc := jsonrpc.NewServer(utils.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethod(method))
 
 	// Server

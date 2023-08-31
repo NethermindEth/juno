@@ -4,7 +4,7 @@
 // 	protoc        v3.21.12
 // source: p2p/proto/common.proto
 
-package p2p_spec
+package spec
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

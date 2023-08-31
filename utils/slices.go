@@ -33,7 +33,7 @@ func Filter[T any](slice []T, f func(T) bool) []T {
 	return result
 }
 
-func IndexFunc[T comparable](slice []T, f func(T) bool) int {
+func IndexFunc[T any](slice []T, f func(T) bool) int {
 	for i, e := range slice {
 		if f(e) {
 			return i
@@ -41,4 +41,14 @@ func IndexFunc[T comparable](slice []T, f func(T) bool) int {
 	}
 
 	return -1
+}
+
+// All returns true if all elements match the given predicate
+func All[T any](slice []T, f func(T) bool) bool {
+	return IndexFunc(slice, func(e T) bool { return !f(e) }) == -1
+}
+
+// Any returns true if any of the elements match the given predicate
+func Any[T any](slice []T, f func(T) bool) bool {
+	return IndexFunc(slice, f) != -1
 }

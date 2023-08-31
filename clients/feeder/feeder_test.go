@@ -290,8 +290,8 @@ func TestTransaction(t *testing.T) {
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0xffff")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
-		assert.Nil(t, actualStatus)
-		assert.Error(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, actualStatus.FinalityStatus, feeder.NotReceived)
 	})
 }
 
@@ -400,4 +400,63 @@ func TestTransactionStatusRevertError(t *testing.T) {
 	status, err := client.Transaction(context.Background(), txnHash)
 	require.NoError(t, err)
 	require.NotEmpty(t, status.RevertError)
+}
+
+func TestPublicKey(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+
+	actualPublicKey, err := client.PublickKey(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
+}
+
+func TestSignature(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(214584))
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(actualSignature.Signature))
+		assert.Equal(t, "0x351c1b3fdd944ec8a787085b386ae9adddc5e4e839525b0cdfa8fac7419fe16", actualSignature.Signature[0].String())
+		assert.Equal(t, "0x63507ca773169dd5cf5c27036c69b7676b9c1c60538d1d91811e7cd7a5c0b64", actualSignature.Signature[1].String())
+		assert.Equal(t, "0x5decb56a6651b829e01d8700235e7d99880bac258fd97fac4e30a3e5f1993f0", actualSignature.SignatureInput.BlockHash.String())
+		assert.Equal(t, "0x4253056094397f30399b01aa6a9eb44e59f8298545c26f5f746d86940b6cab8", actualSignature.SignatureInput.StateDiffCommitment.String())
+	})
+	t.Run("Test on unexisting block", func(t *testing.T) {
+		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(10000000000))
+		assert.Error(t, err)
+		assert.Nil(t, actualSignature)
+	})
+	t.Run("Test on latest block", func(t *testing.T) {
+		actualSignature, err := client.Signature(context.Background(), "latest")
+		assert.NoError(t, err)
+		assert.NotNil(t, actualSignature)
+	})
+}
+
+func TestStateUpdateWithBlock(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(0))
+		assert.NoError(t, err)
+		assert.Equal(t, "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279", actualStateUpdate.Block.Hash.String())
+		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
+		assert.Equal(t, "0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833", actualStateUpdate.Block.StateRoot.String())
+		assert.Equal(t, "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279", actualStateUpdate.StateUpdate.BlockHash.String())
+		assert.Equal(t, "0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833", actualStateUpdate.StateUpdate.NewRoot.String())
+		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
+		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)
+		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
+	})
+	t.Run("Test on unexisting block", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(10000000000))
+		assert.Error(t, err)
+		assert.Nil(t, actualStateUpdate)
+	})
+	t.Run("Test on latest block", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), "latest")
+		assert.NoError(t, err)
+		assert.NotNil(t, actualStateUpdate)
+	})
 }

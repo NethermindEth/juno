@@ -30,7 +30,7 @@ jobs:
       - name: Run local k6 test
         uses: grafana/k6-action@v0.3.0
         with:
-          filename: load-tests/rpc-load-tests.js
+          filename: load-tests/test_cases.js
           flags: --out json=results.json
         env:
           VUS: ${{ github.event.inputs.VUS }}

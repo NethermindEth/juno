@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -31,7 +32,7 @@ type Synchronizer struct {
 	Blockchain          *blockchain.Blockchain
 	StarknetData        starknetdata.StarknetData
 	StartingBlockNumber *uint64
-	HighestBlockHeader  *core.Header
+	HighestBlockHeader  atomic.Pointer[core.Header]
 
 	log utils.SimpleLogger
 
@@ -189,15 +190,14 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 			s.totalBlocks.Inc()
-
-			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {
+			highestBlockHeader := s.HighestBlockHeader.Load()
+			if highestBlockHeader == nil || highestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
-					s.HighestBlockHeader = highestBlock.Header
-
-					isBehind := s.HighestBlockHeader.Number > block.Number+uint64(maxWorkers())
+					s.HighestBlockHeader.Store(highestBlock.Header)
+					isBehind := highestBlock.Number > block.Number+uint64(maxWorkers())
 					if s.catchUpMode != isBehind {
 						resetStreams()
 					}
@@ -222,7 +222,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
 		s.StartingBlockNumber = nil
-		s.HighestBlockHeader = nil
+		s.HighestBlockHeader.Store(nil)
 	}()
 
 	fetchers, verifiers := s.setupWorkers()
@@ -326,7 +326,8 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	if s.HighestBlockHeader == nil {
+	highestBlockHeader := s.HighestBlockHeader.Load()
+	if highestBlockHeader == nil {
 		return nil
 	}
 
@@ -336,7 +337,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}
 
 	// not at the tip of the chain yet, no need to poll pending
-	if s.HighestBlockHeader.Number > head.Number {
+	if highestBlockHeader.Number > head.Number {
 		return nil
 	}
 

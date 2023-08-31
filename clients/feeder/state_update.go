@@ -32,3 +32,9 @@ type StateUpdate struct {
 		} `json:"replaced_classes"`
 	} `json:"state_diff"`
 }
+
+// StateUpdateWithBlock object returned by the feeder in JSON format for "get_state_update" endpoint with includingBlock arg
+type StateUpdateWithBlock struct {
+	Block       *Block       `json:"block"`
+	StateUpdate *StateUpdate `json:"state_update"`
+}
