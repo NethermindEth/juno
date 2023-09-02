@@ -176,7 +176,7 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
-type FeeEstimation struct {
+type FeeEstimate struct {
 	GasConsumed *felt.Felt `json:"gas_consumed"`
 	GasPrice    *felt.Felt `json:"gas_price"`
 	OverallFee  *felt.Felt `json:"overall_fee"`
