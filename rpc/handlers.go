@@ -1084,18 +1084,18 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	return status, nil
 }
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
+func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimation, *jsonrpc.Error) {
 	result, err := h.SimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
 	}
 
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
+	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimation {
 		return tx.FeeEstimate
 	}), nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimation, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
@@ -1219,7 +1219,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	var result []SimulatedTransaction
 	for i, overallFee := range overallFees {
-		estimate := FeeEstimate{
+		estimate := FeeEstimation{
 			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
 			GasPrice:    header.GasPrice,
 			OverallFee:  overallFee,
