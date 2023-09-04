@@ -1,10 +1,10 @@
 name: Dispatch Render Juno-Dev
 
 on:
-    # workflow_dispatch
-    push:
-      branches:
-        - juno-dev-gitaction
+  push:
+    branches:
+      - main
+    
 env: 
     EVENT_NAME: juno-dev
     GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
@@ -36,18 +36,19 @@ jobs:
 
         - name: Build, tag and push image
           env:
-            IMAGE_TAG: ${{ github.sha }}
+            IMAGE_TAG: latest-dev
           id: build-image
           uses: docker/build-push-action@v4
           with:
             context: .
             push: true
             platforms: 'linux/amd64'
-            tags: nethermind/juno:${{env.IMAGE_TAG}}
+            tags: nethermindeth/juno:${{env.IMAGE_TAG}}
+        
         
         - name: Repository Dispatch
           env:
-            IMAGE_TAG: ${{ github.sha }}
+            IMAGE_TAG: latest-dev
           run: |
             curl -L \
             -X POST \
