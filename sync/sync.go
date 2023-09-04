@@ -76,7 +76,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		}),
 		reorgCount: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: "sync",
-			Name:      "reorganizations",
+			Name:      "reorganisations",
 		}),
 		transactionCount: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: "sync",
