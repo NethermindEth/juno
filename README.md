@@ -266,6 +266,10 @@ There are also many other ways to contribute. Here are some ideas:
 * [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
 * Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
 
+## 🔌 Looking for a Starknet RPC Provider? 
+
+If you are looking for a Starknet RPC provider, Nethermind will offer a Starknet RPC service before the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+
 ## 🤝 Partnerships
 
 To establish a partnership with the Juno team, or if you have any suggestion or special request, feel free to reach us
