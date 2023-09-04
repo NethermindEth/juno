@@ -3,10 +3,14 @@ package starknet
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -121,11 +125,25 @@ func (h *Handler) HandleGetSignatures(req *spec.GetSignatures) (*spec.Signatures
 }
 
 func (h *Handler) HandleGetEvents(req *spec.GetEvents) (*spec.Events, error) {
-	// todo: read from bcReader and adapt to p2p type
-	magic := 44
-	return &spec.Events{
-		Events: make([]*spec.Event, magic),
-	}, nil
+	block, err := h.blockByID(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	var result spec.Events
+	for _, receipt := range block.Receipts {
+		for _, ev := range receipt.Events {
+			event := &spec.Event{
+				FromAddress: core2p2p.AdaptFelt(ev.From),
+				Keys:        utils.Map(ev.Keys, core2p2p.AdaptFelt),
+				Data:        utils.Map(ev.Data, core2p2p.AdaptFelt),
+			}
+
+			result.Events = append(result.Events, event)
+		}
+	}
+
+	return &result, nil
 }
 
 func (h *Handler) HandleGetReceipts(req *spec.GetReceipts) (*spec.Receipts, error) {
@@ -142,4 +160,16 @@ func (h *Handler) HandleGetTransactions(req *spec.GetTransactions) (*spec.Transa
 	return &spec.Transactions{
 		Transactions: make([]*spec.Transaction, magic),
 	}, nil
+}
+
+func (h *Handler) blockByID(id *spec.BlockID) (*core.Block, error) {
+	switch {
+	case id == nil:
+		return nil, errors.New("block id is nil")
+	case id.Hash != nil:
+		hash := p2p2core.AdaptHash(id.Hash)
+		return h.bcReader.BlockByHash(hash)
+	default:
+		return h.bcReader.BlockByNumber(id.Height)
+	}
 }
