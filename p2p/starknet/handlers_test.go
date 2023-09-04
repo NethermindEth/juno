@@ -55,7 +55,7 @@ func TestHandleGetEvents(t *testing.T) {
 					Height: height,
 				},
 			})
-			assert.True(t, errors.Is(err, someErr))
+			assert.ErrorIs(t, err, someErr)
 		})
 		t.Run("ok", func(t *testing.T) {
 			height := uint64(888)
@@ -64,18 +64,18 @@ func TestHandleGetEvents(t *testing.T) {
 					{
 						Events: []*core.Event{
 							{
-								From: randFelt(),
-								Keys: randFeltSlice(1),
-								Data: randFeltSlice(1),
+								From: randFelt(t),
+								Keys: randFeltSlice(t, 1),
+								Data: randFeltSlice(t, 1),
 							},
 						},
 					},
 					{
 						Events: []*core.Event{
 							{
-								From: randFelt(),
-								Keys: randFeltSlice(2),
-								Data: randFeltSlice(2),
+								From: randFelt(t),
+								Keys: randFeltSlice(t, 2),
+								Data: randFeltSlice(t, 2),
 							},
 						},
 					},
@@ -111,20 +111,22 @@ func TestHandleGetEvents(t *testing.T) {
 	})
 }
 
-func randFeltSlice(n int) []*felt.Felt {
+func randFeltSlice(t *testing.T, n int) []*felt.Felt {
+	t.Helper()
+
 	sl := make([]*felt.Felt, n)
 	for i := range sl {
-		sl[i] = randFelt()
+		sl[i] = randFelt(t)
 	}
 
 	return sl
 }
 
-func randFelt() *felt.Felt {
+func randFelt(t *testing.T) *felt.Felt {
+	t.Helper()
+
 	f, err := new(felt.Felt).SetRandom()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	return f
 }
