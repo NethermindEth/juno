@@ -17,7 +17,7 @@ RUN make juno
 RUN upx-ucl /app/build/juno
 
 # Stage 2: Build Docker image
-FROM ubuntu:23.04 AS runtime
+FROM ubuntu:23.10 AS runtime
 
 RUN apt-get update && apt-get install -y ca-certificates
 
