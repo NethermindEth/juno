@@ -37,6 +37,10 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
+> **📌 Looking for a Starknet RPC Provider?**
+>
+> If you are searching for a Starknet RPC provider, **Nethermind** is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. Interested Register [here](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+
 ## ⚙️ Installation
 
 ### Prerequisites
@@ -265,10 +269,6 @@ There are also many other ways to contribute. Here are some ideas:
 * Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
 * [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
 * Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
-
-## 🔌 Looking for a Starknet RPC Provider? 
-
-If you are looking for a Starknet RPC provider, Nethermind will offer a Starknet RPC service before the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
 
 ## 🤝 Partnerships
 
