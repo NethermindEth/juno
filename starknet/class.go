@@ -47,23 +47,21 @@ type ClassDefinition struct {
 }
 
 type CompiledClass struct {
-	Prime           string              `json:"prime"`
-	Bytecode        []*felt.Felt        `json:"bytecode"`
-	Hints           any                 `json:"hints"`
-	PythonicHints   any                 `json:"pythonic_hints"`
-	CompilerVersion string              `json:"compiler_version"`
-	EntryPoints     CompiledEntryPoints `json:"entry_points_by_type"`
-}
-
-type CompiledEntryPoints struct {
-	External    []CompiledEntryPoint `json:"EXTERNAL"`
-	L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
-	Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+	Prime           string       `json:"prime"`
+	Bytecode        []*felt.Felt `json:"bytecode"`
+	Hints           any          `json:"hints"`
+	PythonicHints   any          `json:"pythonic_hints"`
+	CompilerVersion string       `json:"compiler_version"`
+	EntryPoints     struct {
+		External    []CompiledEntryPoint `json:"EXTERNAL"`
+		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
+		Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+	} `json:"entry_points_by_type"`
 }
 
 type CompiledEntryPoint struct {
 	Selector *felt.Felt `json:"selector"`
-	Offset   *felt.Felt `json:"offset"`
+	Offset   uint64     `json:"offset"`
 	Builtins []string   `json:"builtins"`
 }
 

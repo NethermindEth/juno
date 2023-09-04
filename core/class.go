@@ -60,18 +60,15 @@ type Cairo1Class struct {
 }
 
 type CompiledClass struct {
-	Bytecode        []*felt.Felt        `json:"bytecode"`
-	PythonicHints   json.RawMessage     `json:"pythonic_hints"`
-	CompilerVersion string              `json:"compiler_version"`
-	Hints           json.RawMessage     `json:"hints"`
-	EntryPoints     CompiledEntryPoints `json:"entry_points_by_type"`
-	Prime           string              `json:"prime"`
-}
-
-type CompiledEntryPoints struct {
-	External    []CompiledEntryPoint `json:"EXTERNAL"`
-	L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
-	Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+	Bytecode        []*felt.Felt    `json:"bytecode"`
+	PythonicHints   json.RawMessage `json:"pythonic_hints"`
+	CompilerVersion string          `json:"compiler_version"`
+	Hints           json.RawMessage `json:"hints"`
+	EntryPoints     struct {
+		External    []CompiledEntryPoint `json:"EXTERNAL"`
+		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
+		Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+	} `json:"entry_points_by_type"`
 }
 
 type CompiledEntryPoint struct {
@@ -100,12 +97,12 @@ func (c *Cairo1Class) Hash() *felt.Felt {
 	)
 }
 
-func (c *CompiledClass) CompiledClassHash() *felt.Felt {
+func (c *CompiledClass) Hash() *felt.Felt {
 	return crypto.PoseidonArray(
 		new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1")),
-		crypto.PoseidonArray(compiledEntryPoints(c.EntryPoints.External)...),
-		crypto.PoseidonArray(compiledEntryPoints(c.EntryPoints.L1Handler)...),
-		crypto.PoseidonArray(compiledEntryPoints(c.EntryPoints.Constructor)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.EntryPoints.External)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.EntryPoints.L1Handler)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.EntryPoints.Constructor)...),
 		crypto.PoseidonArray(c.Bytecode...),
 	)
 }
@@ -121,7 +118,7 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 	return result
 }
 
-func compiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
+func flattenCompiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*3)
 	for i, entryPoint := range entryPoints {
 		// It is important that Selector is first, then Offset is second because the order

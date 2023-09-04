@@ -21,6 +21,8 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const compiledClassPrime = "0x800000000000011000000000000000000000000000000000000000000000001"
+
 func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 	var compiledCairo0Class any
 	switch c := class.(type) {
@@ -30,8 +32,10 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 		if err != nil {
 			return nil, err
 		}
+		return json.Marshal(compiledCairo0Class)
 	case *core.Cairo1Class:
-		compiledCairo1Class := c.Compiled
+		compiledCairo1Class := makeCairo1CompiledClass(&c.Compiled)
+		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 		jsonData, err := json.Marshal(compiledCairo1Class)
 		if err != nil {
 			return nil, err
@@ -40,8 +44,6 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 	default:
 		return nil, errors.New("not a valid class")
 	}
-
-	return json.Marshal(compiledCairo0Class)
 }
 
 func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
@@ -138,6 +140,44 @@ func makeSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 			L1Handler:   handlers,
 		},
 	}
+}
+
+func makeCairo1CompiledClass(coreCompiledClass *core.CompiledClass) feeder.CompiledClass {
+	feederCompiledClass := new(feeder.CompiledClass)
+	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
+	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
+	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
+	feederCompiledClass.Hints = coreCompiledClass.Hints
+	feederCompiledClass.Prime = compiledClassPrime
+
+	feederCompiledClass.EntryPoints.External = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.EntryPoints.External))
+	for i, external := range coreCompiledClass.EntryPoints.External {
+		feederCompiledClass.EntryPoints.External[i] = feeder.CompiledEntryPoint{
+			Selector: external.Selector,
+			Builtins: external.Builtins,
+			Offset:   external.Offset,
+		}
+	}
+
+	feederCompiledClass.EntryPoints.L1Handler = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.EntryPoints.L1Handler))
+	for i, external := range coreCompiledClass.EntryPoints.L1Handler {
+		feederCompiledClass.EntryPoints.L1Handler[i] = feeder.CompiledEntryPoint{
+			Selector: external.Selector,
+			Builtins: external.Builtins,
+			Offset:   external.Offset,
+		}
+	}
+
+	feederCompiledClass.EntryPoints.Constructor = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.EntryPoints.Constructor))
+	for i, external := range coreCompiledClass.EntryPoints.Constructor {
+		feederCompiledClass.EntryPoints.Constructor[i] = feeder.CompiledEntryPoint{
+			Selector: external.Selector,
+			Builtins: external.Builtins,
+			Offset:   external.Offset,
+		}
+	}
+
+	return *feederCompiledClass
 }
 
 func Cairo0ClassHash(class *core.Cairo0Class) (*felt.Felt, error) {

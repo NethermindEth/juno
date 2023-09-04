@@ -492,7 +492,6 @@ func TestClassV1(t *testing.T) {
 	assert.Equal(t, feederClass.V1.Program, v1Class.Program)
 	assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
 	assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
-	assert.Equal(t, compiled.Prime, v1Class.Compiled.Prime)
 	rawHints, err := json.Marshal(compiled.Hints)
 	require.NoError(t, err)
 	assert.Equal(t, rawHints, []byte(v1Class.Compiled.Hints))
