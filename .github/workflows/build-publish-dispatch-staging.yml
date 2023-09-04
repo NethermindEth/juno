@@ -36,28 +36,14 @@ jobs:
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
 
-        - name: Sync From Nethermind to NethermindEth
+        - name: Sync From NethermindETh to Nethermind
           env:
             IMAGE_TAG: ${{ github.event.inputs.tag }}
-          uses: onichandame/docker-registry-sync-action@master
-          with: 
-            source_repository: nethermindeth/juno:latest-dev
-            source_username: ${{ secrets.DOCKER_USERNAME }}
-            source_password: ${{ secrets.DOCKER_PASSWORD }}
-            target_repository: nethermind/juno:${{ env.IMAGE_TAG }}
-            target_username: ${{ secrets.DOCKER_USERNAME }}
-            target_password: ${{ secrets.DOCKER_PASSWORD }}
+          run: |
+            docker pull nethermindeth/juno:latest-dev
+            docker tag nethermindeth/juno:latest-dev nethermind/juno:${{ env.IMAGE_TAG }}
+            docker push nethermind/juno:${{ env.IMAGE_TAG }}
           
-        #- name: Build, tag and push image
-        #  env:
-        #    IMAGE_TAG: ${{ github.event.inputs.tag }}
-        #  id: build-image
-        #  uses: docker/build-push-action@v4
-        #  with:
-        #    context: .
-        #    push: true
-        #    platforms: 'linux/amd64'
-        #    tags: nethermind/juno:${{env.IMAGE_TAG}}
         
         - name: Repository Dispatch
           env:
