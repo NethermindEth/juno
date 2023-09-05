@@ -6,8 +6,13 @@ juno: vm ## compile
 	@mkdir -p build
 	@go build -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
+ifeq ($(VM_DEBUG),true)
+vm:
+	$(MAKE) -C vm/rust debug
+else
 vm:
 	$(MAKE) -C vm/rust all
+endif
 
 generate: ## generate
 	mkdir -p mocks
