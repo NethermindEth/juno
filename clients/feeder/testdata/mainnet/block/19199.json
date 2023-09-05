@@ -3,7 +3,7 @@
     "parent_block_hash": "0x68427fb6f1f5e687fbd779b3cc0d4ee31b49575ed0f8c749f827e4a45611efc",
     "block_number": 19199,
     "state_root": "0541b796ea02703d02ff31459815f65f410ceefe80a4e3499f7ef9ccc36d26ee",
-    "status": "ACCEPTED_ON_L1",
+    "status": "ACCEPTED_ON_L2",
     "gas_price": "0x31c4e2d75",
     "transactions": [
       {
