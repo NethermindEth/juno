@@ -60,21 +60,21 @@ type Cairo1Class struct {
 }
 
 type CompiledClass struct {
-	Bytecode        []*felt.Felt    `json:"bytecode"`
-	PythonicHints   json.RawMessage `json:"pythonic_hints"`
-	CompilerVersion string          `json:"compiler_version"`
-	Hints           json.RawMessage `json:"hints"`
+	Bytecode        []*felt.Felt    
+	PythonicHints   json.RawMessage 
+	CompilerVersion string          
+	Hints           json.RawMessage 
 	EntryPoints     struct {
-		External    []CompiledEntryPoint `json:"EXTERNAL"`
-		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
-		Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
-	} `json:"entry_points_by_type"`
+		External    []CompiledEntryPoint 
+		L1Handler   []CompiledEntryPoint 
+		Constructor []CompiledEntryPoint 
+	} 
 }
 
 type CompiledEntryPoint struct {
-	Offset   uint64     `json:"offset"`
-	Builtins []string   `json:"builtins"`
-	Selector *felt.Felt `json:"selector"`
+	Offset   uint64    
+	Builtins []string   
+	Selector *felt.Felt 
 }
 
 type SierraEntryPoint struct {

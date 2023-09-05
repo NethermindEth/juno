@@ -24,11 +24,9 @@ import (
 const compiledClassPrime = "0x800000000000011000000000000000000000000000000000000000000000001"
 
 func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
-	var compiledCairo0Class any
 	switch c := class.(type) {
 	case *core.Cairo0Class:
-		var err error
-		compiledCairo0Class, err = makeDeprecatedVMClass(c)
+		compiledCairo0Class, err := makeDeprecatedVMClass(c)
 		if err != nil {
 			return nil, err
 		}
