@@ -26,6 +26,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
 	if err != nil {
 		if !errors.Is(err, core.ErrContractNotDeployed) {
+			context.log.Errorw("JunoStateGetStorageAt failed to read contract storage", "err", err)
 			return nil
 		}
 		val = &felt.Zero
@@ -42,6 +43,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress unsafe.Pointe
 	val, err := context.state.ContractNonce(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, core.ErrContractNotDeployed) {
+			context.log.Errorw("JunoStateGetNonceAt failed to read contract nonce", "err", err)
 			return nil
 		}
 		val = &felt.Zero
@@ -58,6 +60,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress unsafe.Po
 	val, err := context.state.ContractClassHash(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, core.ErrContractNotDeployed) {
+			context.log.Errorw("JunoStateGetClassHashAt failed to read contract class", "err", err)
 			return nil
 		}
 		val = &felt.Zero
@@ -73,11 +76,13 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	classHashFelt := makeFeltFromPtr(classHash)
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
+		context.log.Errorw("JunoStateGetCompiledClass failed to read class", "err", err)
 		return nil
 	}
 
 	compiledClass, err := marshalCompiledClass(val.Class)
 	if err != nil {
+		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
 		return nil
 	}
 
