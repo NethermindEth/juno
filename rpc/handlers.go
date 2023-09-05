@@ -1091,7 +1091,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	}
 
 	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
-		return tx.FeeEstimate
+		return tx.FeeEstimation
 	}), nil
 }
 
@@ -1226,7 +1226,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
-			FeeEstimate:      estimate,
+			FeeEstimation:    estimate,
 		})
 	}
 
