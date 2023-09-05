@@ -1,7 +1,7 @@
 {
   "block_hash": "0x4163f64ea0258f21fd05b478e2306ab2daeb541bdbd3bf29a9874dc5cd4b64e",
-  "new_root": "0439dc9eef2baf3e860d7fbfdee8d55fc437edca579627805d0f6fecedc67b7d",
-  "old_root": "0000000000000000000000000000000000000000000000000000000000000000",
+  "new_root": "0x439dc9eef2baf3e860d7fbfdee8d55fc437edca579627805d0f6fecedc67b7d",
+  "old_root": "0x0",
   "state_diff": {
     "storage_diffs": {},
     "nonces": {},
