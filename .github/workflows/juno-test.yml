@@ -13,7 +13,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [ '1.21' ]
         os: [ ubuntu-latest, macOS-latest, self-hosted-linux-arm64]
     runs-on: ${{ matrix.os }}
     steps:
@@ -21,7 +20,7 @@ jobs:
       - name: Set up go
         uses: actions/setup-go@v4.1.0
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: '../../go.mod'
           cache: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
