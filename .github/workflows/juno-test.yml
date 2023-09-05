@@ -20,7 +20,7 @@ jobs:
       - name: Set up go
         uses: actions/setup-go@v4.1.0
         with:
-          go-version-file: '../../go.mod'
+          go-version-file: go.mod
           cache: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2

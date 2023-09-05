@@ -25,7 +25,7 @@ jobs:
       - name: Setup Go Environment
         uses: actions/setup-go@v4.1.0
         with:
-          go-version-file: '../../go.mod'
+          go-version-file: go.mod
 
       - name: Execute RPC Tests
         run: |
