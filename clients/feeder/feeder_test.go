@@ -141,7 +141,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x3873ccb937f14429b169c654dda28886d2cc2d6ea17b3cff9748fe5cfdb67e0", block.ParentHash.String())
 	assert.Equal(t, uint64(11817), block.Number)
 	assert.Equal(t, "0x3df24be7b5fed6b41de08d38686b6142944119ca2a345c38793590d6804bba4", block.StateRoot.String())
-	assert.Equal(t, "ACCEPTED_ON_L1", block.Status)
+	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
 	assert.Equal(t, "0x27ad16775", block.GasPrice.String())
 	assert.Equal(t, 52, len(block.Transactions))
 	assert.Equal(t, 52, len(block.Receipts))
