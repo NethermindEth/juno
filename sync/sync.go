@@ -216,7 +216,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			defer s.updateStats(block)
 			highestBlockHeader := s.HighestBlockHeader.Load()
 			if highestBlockHeader == nil || highestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
@@ -234,6 +233,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			s.updateStats(block)
 		}
 	}
 }
