@@ -37,6 +37,10 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
+> **📌 Looking for a Starknet RPC Provider?**
+>
+> If you are searching for a Starknet RPC provider, Nethermind is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+
 ## ⚙️ Installation
 
 ### Prerequisites
