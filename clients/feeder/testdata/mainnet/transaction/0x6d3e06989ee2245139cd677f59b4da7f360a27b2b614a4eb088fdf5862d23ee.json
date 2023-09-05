@@ -1,1 +1,22 @@
-{"status": "ACCEPTED_ON_L1", "block_hash": "0x1a557205f5c5ac5e6ea9c70f6945e377a5fda7e007124e0538732134bcec534", "block_number": 11434, "transaction_index": 37, "transaction": {"transaction_hash": "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee", "version": "0x0", "contract_address": "0x7cc55b21de4b7d6d7389df3b27de950924ac976d263ac8d71022d0b18155fc", "contract_address_salt": "0x614b9e0c3cb7a8f4ed73b673eba239c41a172859bf129c4b269c4b8057e21d8", "class_hash": "0x3131fa018d520a037686ce3efddeab8f28895662f019ca3ca18a626650f7d1e", "constructor_calldata": ["0x69577e6756a99b584b5d1ce8e60650ae33b6e2b13541783458268f07da6b38a", "0x2dd76e7ad84dbed81c314ffe5e7a7cacfb8f4836f01af4e913f275f89a3de1a", "0x1", "0x614b9e0c3cb7a8f4ed73b673eba239c41a172859bf129c4b269c4b8057e21d8"], "type": "DEPLOY"}}
+{
+    "execution_status": "SUCCEEDED",
+    "finality_status": "ACCEPTED_ON_L1",
+    "status": "ACCEPTED_ON_L1",
+    "block_hash": "0x1a557205f5c5ac5e6ea9c70f6945e377a5fda7e007124e0538732134bcec534",
+    "block_number": 11434,
+    "transaction_index": 37,
+    "transaction": {
+      "transaction_hash": "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
+      "version": "0x0",
+      "contract_address": "0x7cc55b21de4b7d6d7389df3b27de950924ac976d263ac8d71022d0b18155fc",
+      "contract_address_salt": "0x614b9e0c3cb7a8f4ed73b673eba239c41a172859bf129c4b269c4b8057e21d8",
+      "class_hash": "0x3131fa018d520a037686ce3efddeab8f28895662f019ca3ca18a626650f7d1e",
+      "constructor_calldata": [
+        "0x69577e6756a99b584b5d1ce8e60650ae33b6e2b13541783458268f07da6b38a",
+        "0x2dd76e7ad84dbed81c314ffe5e7a7cacfb8f4836f01af4e913f275f89a3de1a",
+        "0x1",
+        "0x614b9e0c3cb7a8f4ed73b673eba239c41a172859bf129c4b269c4b8057e21d8"
+      ],
+      "type": "DEPLOY"
+    }
+}
