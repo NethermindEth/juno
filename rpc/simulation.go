@@ -29,7 +29,7 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 
 type SimulatedTransaction struct {
 	TransactionTrace json.RawMessage `json:"transaction_trace,omitempty"`
-	FeeEstimate      FeeEstimate     `json:"fee_estimate,omitempty"`
+	FeeEstimation    FeeEstimate     `json:"fee_estimation,omitempty"`
 }
 
 type TracedBlockTransaction struct {
