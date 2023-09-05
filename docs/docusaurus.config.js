@@ -68,6 +68,10 @@ const config = {
             label: 'Quick Start',
           },
           {
+            type: 'docsVersionDropdown',
+            position: 'right',
+          },
+          {
             href: 'https://github.com/NethermindEth/juno',
             label: 'GitHub',
             position: 'right',
