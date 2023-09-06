@@ -100,6 +100,7 @@ func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
 
 func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 	feltBytes := val.Bytes()
+	//nolint:gocritic
 	return C.CBytes(feltBytes[:])
 }
 
@@ -119,6 +120,7 @@ func (v *vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, block
 	calldataPtrs := []*C.char{}
 	for _, data := range calldata {
 		bytes := data.Bytes()
+		//nolint:gocritic
 		calldataPtrs = append(calldataPtrs, (*C.char)(C.CBytes(bytes[:])))
 	}
 	calldataArrPtr := unsafe.Pointer(nil)
