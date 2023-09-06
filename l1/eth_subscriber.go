@@ -59,6 +59,7 @@ func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
 
+	//nolint:gosec
 	number, ok := finalisedBlock["number"]
 	if !ok {
 		return 0, fmt.Errorf("number field not present in Ethereum block")
