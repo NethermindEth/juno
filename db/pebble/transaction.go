@@ -123,16 +123,12 @@ func (t *Transaction) Impl() any {
 // NewIterator : see db.Transaction.NewIterator
 func (t *Transaction) NewIterator() (db.Iterator, error) {
 	var iter *pebble.Iterator
-	var err error
 	if t.batch != nil {
-		iter, err = t.batch.NewIter(nil)
+		iter = t.batch.NewIter(nil)
 	} else if t.snapshot != nil {
-		iter, err = t.snapshot.NewIter(nil)
+		iter = t.snapshot.NewIter(nil)
 	} else {
 		return nil, ErrDiscardedTransaction
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	return &iterator{iter: iter}, nil
