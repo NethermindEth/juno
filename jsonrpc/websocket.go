@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	metrics "github.com/NethermindEth/juno/metrics/base"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"nhooyr.io/websocket"
 )

@@ -1,6 +1,6 @@
 package jsonrpc
 
-import metrics "github.com/NethermindEth/juno/metrics/base"
+import "github.com/NethermindEth/juno/metrics"
 
 type httpReporter struct {
 	requests metrics.Counter

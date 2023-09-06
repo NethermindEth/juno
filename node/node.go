@@ -83,10 +83,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		metrics.Enable()
 	}
 	registry := metrics.PrometheusRegistry()
-	metricsFactory, err := metrics.PrometheusFactory(registry)
-	if err != nil {
-		return nil, err
-	}
+	metricsFactory := metrics.PrometheusFactory(registry)
 
 	if cfg.DatabasePath == "" {
 		dirPrefix, err := utils.DefaultDataDir()
@@ -135,11 +132,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log, metricsFactory))
 	}
 	if cfg.Metrics {
-		handler, err := metrics.PrometheusHandler(registry)
-		if err != nil {
-			return nil, err
-		}
-		services = append(services, makeMetrics(cfg.MetricsPort, handler))
+		services = append(services, makeMetrics(cfg.MetricsPort, metrics.PrometheusHandler(registry)))
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCPort, database, version))

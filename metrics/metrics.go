@@ -1,57 +1,80 @@
 package metrics
 
 import (
-	"errors"
-	"net/http"
-
-	"github.com/NethermindEth/juno/metrics/base"
-	junoPrometheus "github.com/NethermindEth/juno/metrics/prometheus"
+	"time"
 )
+
+type Factory interface {
+	NewCounter(opts CounterOpts) Counter
+	NewCounterVec(opts CounterOpts, labelNames []string) Vec[Counter]
+	NewGauge(opts GaugeOpts) Gauge
+	NewGaugeVec(opts GaugeOpts, labelNames []string) Vec[Gauge]
+	NewHistogram(opts HistogramOpts) Histogram
+	NewHistogramVec(opts HistogramOpts, labelNames []string) Vec[Histogram]
+	NewSummary(opts SummaryOpts) Summary
+	NewSummaryVec(opts SummaryOpts, labelNames []string) Vec[Summary]
+	NewTimer(o Observer) Timer
+}
+
+type Summary interface {
+	Observe(float64)
+}
+
+type Histogram interface {
+	Observe(float64)
+}
+
+type Gauge interface {
+	Set(float64)
+	Inc()
+	Dec()
+	Add(float64)
+	Sub(float64)
+}
+
+type Vec[T any] interface {
+	WithLabelValues(lvs ...string) T
+}
+
+type Counter interface {
+	Inc()
+	Add(float64)
+}
+
+type Observer interface {
+	Observe(float64)
+}
+
+type Timer interface {
+	ObserveDuration() time.Duration
+}
+
+type Opts struct {
+	Namespace string
+	Subsystem string
+	Name      string
+}
+
+type SummaryOpts Opts
+type CounterOpts Opts
+type GaugeOpts Opts
+type HistogramOpts struct {
+	Namespace string
+	Subsystem string
+	Name      string
+
+	Buckets []float64
+}
 
 var (
-	enabled                bool
-	errUnsupportedRegistry = errors.New("unsupported registry")
+	enabled bool
 )
-
-func Enabled() bool {
-	return enabled
-}
 
 func Enable() {
 	enabled = true
 }
 
-func PrometheusRegistry() base.Registry {
-	return &promRegistryWrapper{registry: junoPrometheus.NewRegistry()}
-}
-
-// PrometheusFactory expects registry to be created with PrometheusRegistry function
-func PrometheusFactory(registry base.Registry) (base.Factory, error) {
-	if !Enabled() {
-		return &noopFactory{}, nil
-	}
-	switch v := registry.(type) {
-	case *promRegistryWrapper:
-		return junoPrometheus.Factory(v.registry), nil
-	default:
-		return nil, errUnsupportedRegistry
-	}
-}
-
-// PrometheusHandler expects registry to be created with PrometheusRegistry function
-func PrometheusHandler(registry base.Registry) (http.Handler, error) {
-	if !Enabled() {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), nil
-	}
-	switch v := registry.(type) {
-	case *promRegistryWrapper:
-		return junoPrometheus.Handler(v.registry), nil
-	default:
-		return nil, errUnsupportedRegistry
-	}
-}
-
 // VoidFactory returns metrics factory without any collection.
-func VoidFactory() base.Factory {
+func VoidFactory() Factory {
 	return &noopFactory{}
 }

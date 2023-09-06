@@ -1,6 +1,6 @@
 package sync
 
-import metrics "github.com/NethermindEth/juno/metrics/base"
+import "github.com/NethermindEth/juno/metrics"
 
 type syncReporter struct {
 	factory     metrics.Factory

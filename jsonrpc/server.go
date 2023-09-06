@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	metrics "github.com/NethermindEth/juno/metrics/base"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
 )

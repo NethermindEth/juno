@@ -13,7 +13,7 @@ import (
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
-	metrics "github.com/NethermindEth/juno/metrics/base"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"

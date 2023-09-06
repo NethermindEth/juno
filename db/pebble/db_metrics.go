@@ -1,6 +1,6 @@
 package pebble
 
-import metrics "github.com/NethermindEth/juno/metrics/base"
+import "github.com/NethermindEth/juno/metrics"
 
 type dbReporter struct {
 	writeCounter metrics.Counter

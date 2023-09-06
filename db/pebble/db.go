@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	metrics "github.com/NethermindEth/juno/metrics/base"
+	"github.com/NethermindEth/juno/metrics"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 )
