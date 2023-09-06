@@ -88,7 +88,7 @@ type grpcService struct {
 }
 
 func (g *grpcService) Run(ctx context.Context) error {
-	errCh := make(chan error, 1)
+	errCh := make(chan error)
 	defer close(errCh)
 
 	portStr := strconv.FormatUint(uint64(g.port), 10)
@@ -101,7 +101,7 @@ func (g *grpcService) Run(ctx context.Context) error {
 	var wg conc.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() {
-		if err := g.srv.Serve(l); !errors.Is(err, http.ErrServerClosed) {
+		if err := g.srv.Serve(l); err != nil {
 			errCh <- err
 		}
 	})
