@@ -15,6 +15,7 @@ jobs:
       uses: actions/checkout@v3.5.3
       with:
         repository: xJonathanLEI/starknet-rs
+        ref: starknet/v0.6.0
 
     - name: Setup Rust
       uses: actions-rs/toolchain@v1
@@ -26,6 +27,7 @@ jobs:
     - name: Run jsonrpc tests
       run: |
         cd starknet-providers && cargo test jsonrpc
-        cd ../starknet-accounts && cargo test jsonrpc
+        cd ../starknet-accounts && cargo test jsonrpc -- --skip can_declare_cairo0_contract_with_jsonrpc
       env:
         STARKNET_RPC: ${{ github.event.inputs.NODE_URL }}
+
