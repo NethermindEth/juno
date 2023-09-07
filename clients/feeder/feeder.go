@@ -222,9 +222,6 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 					return res.Body, nil
 				} else {
 					err = errors.New(res.Status)
-					if err.Error() == "400 Bad Request" {
-						return nil, err
-					}
 				}
 
 				res.Body.Close()
