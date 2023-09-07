@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -60,21 +61,20 @@ type Cairo1Class struct {
 }
 
 type CompiledClass struct {
-	Bytecode        []*felt.Felt    
-	PythonicHints   json.RawMessage 
-	CompilerVersion string          
-	Hints           json.RawMessage 
-	EntryPoints     struct {
-		External    []CompiledEntryPoint 
-		L1Handler   []CompiledEntryPoint 
-		Constructor []CompiledEntryPoint 
-	} 
+	Bytecode        []*felt.Felt
+	PythonicHints   json.RawMessage
+	CompilerVersion string
+	Hints           json.RawMessage
+	Prime           *big.Int
+	External        []CompiledEntryPoint
+	L1Handler       []CompiledEntryPoint
+	Constructor     []CompiledEntryPoint
 }
 
 type CompiledEntryPoint struct {
-	Offset   uint64    
-	Builtins []string   
-	Selector *felt.Felt 
+	Offset   uint64
+	Builtins []string
+	Selector *felt.Felt
 }
 
 type SierraEntryPoint struct {
@@ -100,9 +100,9 @@ func (c *Cairo1Class) Hash() *felt.Felt {
 func (c *CompiledClass) Hash() *felt.Felt {
 	return crypto.PoseidonArray(
 		new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1")),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.EntryPoints.External)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.EntryPoints.L1Handler)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.EntryPoints.Constructor)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...),
 		crypto.PoseidonArray(c.Bytecode...),
 	)
 }

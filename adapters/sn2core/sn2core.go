@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -279,29 +280,34 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		}
 		class.Compiled.PythonicHints = pyHints
 		class.Compiled.CompilerVersion = compiledClass.CompilerVersion
+		var success bool
+		class.Compiled.Prime, success = new(big.Int).SetString(compiledClass.Prime, 0)
+		if !success {
+			return nil, fmt.Errorf("couldn't convert prime value to big.Int")
+		}
 		hints, err := json.Marshal(compiledClass.Hints)
 		if err != nil {
 			return nil, err
 		}
 		class.Compiled.Hints = hints
 
-		class.Compiled.EntryPoints.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
+		class.Compiled.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
 		for i, v := range compiledClass.EntryPoints.External {
-			class.Compiled.EntryPoints.External[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
+			class.Compiled.External[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
 		}
 
-		class.Compiled.EntryPoints.L1Handler = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.L1Handler))
+		class.Compiled.L1Handler = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.L1Handler))
 		for i, v := range compiledClass.EntryPoints.L1Handler {
-			class.Compiled.EntryPoints.L1Handler[i] = core.CompiledEntryPoint{
+			class.Compiled.L1Handler[i] = core.CompiledEntryPoint{
 				Offset:   v.Offset,
 				Selector: v.Selector,
 				Builtins: v.Builtins,
 			}
 		}
 
-		class.Compiled.EntryPoints.Constructor = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.Constructor))
+		class.Compiled.Constructor = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.Constructor))
 		for i, v := range compiledClass.EntryPoints.Constructor {
-			class.Compiled.EntryPoints.Constructor[i] = core.CompiledEntryPoint{
+			class.Compiled.Constructor[i] = core.CompiledEntryPoint{
 				Offset:   v.Offset,
 				Selector: v.Selector,
 				Builtins: v.Builtins,

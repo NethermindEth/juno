@@ -491,12 +491,13 @@ func TestClassV1(t *testing.T) {
 	assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
 	assert.Equal(t, feederClass.V1.Program, v1Class.Program)
 	assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
+	assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(16))
 	assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
 	rawHints, err := json.Marshal(compiled.Hints)
 	require.NoError(t, err)
 	assert.Equal(t, rawHints, []byte(v1Class.Compiled.Hints))
 	assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
-	assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.EntryPoints.External))
+	assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
 
 	assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
 	for i, v := range feederClass.V1.EntryPoints.External {

@@ -21,8 +21,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-const compiledClassPrime = "0x800000000000011000000000000000000000000000000000000000000000001"
-
 func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 	switch c := class.(type) {
 	case *core.Cairo0Class:
@@ -146,10 +144,10 @@ func makeCairo1CompiledClass(coreCompiledClass *core.CompiledClass) feeder.Compi
 	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
 	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
 	feederCompiledClass.Hints = coreCompiledClass.Hints
-	feederCompiledClass.Prime = compiledClassPrime
+	feederCompiledClass.Prime = "0x" + coreCompiledClass.Prime.Text(16) //nolint:gomnd
 
-	feederCompiledClass.EntryPoints.External = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.EntryPoints.External))
-	for i, external := range coreCompiledClass.EntryPoints.External {
+	feederCompiledClass.EntryPoints.External = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.External))
+	for i, external := range coreCompiledClass.External {
 		feederCompiledClass.EntryPoints.External[i] = feeder.CompiledEntryPoint{
 			Selector: external.Selector,
 			Builtins: external.Builtins,
@@ -157,8 +155,8 @@ func makeCairo1CompiledClass(coreCompiledClass *core.CompiledClass) feeder.Compi
 		}
 	}
 
-	feederCompiledClass.EntryPoints.L1Handler = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.EntryPoints.L1Handler))
-	for i, external := range coreCompiledClass.EntryPoints.L1Handler {
+	feederCompiledClass.EntryPoints.L1Handler = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.L1Handler))
+	for i, external := range coreCompiledClass.L1Handler {
 		feederCompiledClass.EntryPoints.L1Handler[i] = feeder.CompiledEntryPoint{
 			Selector: external.Selector,
 			Builtins: external.Builtins,
@@ -166,8 +164,8 @@ func makeCairo1CompiledClass(coreCompiledClass *core.CompiledClass) feeder.Compi
 		}
 	}
 
-	feederCompiledClass.EntryPoints.Constructor = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.EntryPoints.Constructor))
-	for i, external := range coreCompiledClass.EntryPoints.Constructor {
+	feederCompiledClass.EntryPoints.Constructor = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.Constructor))
+	for i, external := range coreCompiledClass.Constructor {
 		feederCompiledClass.EntryPoints.Constructor[i] = feeder.CompiledEntryPoint{
 			Selector: external.Selector,
 			Builtins: external.Builtins,
