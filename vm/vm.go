@@ -36,16 +36,21 @@ type VM interface {
 	) ([]*felt.Felt, []json.RawMessage, error)
 }
 
-type vm struct{}
+type vm struct {
+	log utils.SimpleLogger
+}
 
-func New() VM {
-	return &vm{}
+func New(log utils.SimpleLogger) VM {
+	return &vm{
+		log: log,
+	}
 }
 
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
 	state core.StateReader
+	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
 	// response from the executed Cairo function
@@ -95,15 +100,17 @@ func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
 
 func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 	feltBytes := val.Bytes()
+	//nolint:gocritic
 	return C.CBytes(feltBytes[:])
 }
 
-func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
+func (v *vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, state core.StateReader, network utils.Network,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
+		log:      v.log,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
@@ -113,6 +120,7 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 	calldataPtrs := []*C.char{}
 	for _, data := range calldata {
 		bytes := data.Bytes()
+		//nolint:gocritic
 		calldataPtrs = append(calldataPtrs, (*C.char)(C.CBytes(bytes[:])))
 	}
 	calldataArrPtr := unsafe.Pointer(nil)
@@ -142,12 +150,13 @@ func (*vm) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNu
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (*vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
+func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee bool, gasPrice *felt.Felt,
 ) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{
 		state: state,
+		log:   v.log,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()

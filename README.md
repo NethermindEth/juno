@@ -37,6 +37,10 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
+> **📌 Looking for a Starknet RPC Provider?**
+>
+> If you are searching for a Starknet RPC provider, Nethermind is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+
 ## ⚙️ Installation
 
 ### Prerequisites
@@ -89,19 +93,19 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.6.0_166353.tar) |
+| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.6.0_850192.tar) |
+| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
 
 #### Goerli2
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -110,7 +114,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   curl -o juno_mainnet_166353.tar https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.6.0_166353.tar
+   curl -o juno_mainnet_166353.tar https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar
    ```
 
 2. **Prepare Directory**

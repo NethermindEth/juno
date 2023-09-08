@@ -116,7 +116,8 @@ type Server struct {
 	log       utils.SimpleLogger
 
 	// metrics
-	requests *prometheus.CounterVec
+	requests       *prometheus.CounterVec
+	failedRequests *prometheus.CounterVec
 }
 
 type Validator interface {
@@ -134,9 +135,15 @@ func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 			Subsystem: "server",
 			Name:      "requests",
 		}, []string{"method"}),
+		failedRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "rpc",
+			Subsystem: "server",
+			Name:      "failed_requests",
+		}, []string{"method"}),
 	}
 
 	metrics.MustRegister(s.requests)
+	metrics.MustRegister(s.failedRequests)
 	return s
 }
 
@@ -354,9 +361,9 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
+		s.failedRequests.WithLabelValues(req.Method).Inc()
 		return res, nil
 	}
-
 	res.Result = tuple[0].Interface()
 	return res, nil
 }

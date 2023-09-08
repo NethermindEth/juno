@@ -2,7 +2,7 @@
   "block_hash": "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14",
   "parent_block_hash": "0x791fb65b9780f90f7f64d4ec49509da1071af166de61573d06fde906626a09b",
   "block_number": 5,
-  "state_root": "001712f1cf94e7cbeb3a5458f135c547b76aa14c368c09a0c1ba99ea1d778c0d",
+  "state_root": "0x1712f1cf94e7cbeb3a5458f135c547b76aa14c368c09a0c1ba99ea1d778c0d",
   "status": "ACCEPTED_ON_L1",
   "gas_price": "0x10225a992d",
   "transactions": [
@@ -31,6 +31,7 @@
   "sequencer_address": "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
   "transaction_receipts": [
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 0,
       "transaction_hash": "0x6d1431d875ba082365b888c1651e026012a94172b04589c91c2adeb6c1b7ace",
       "l2_to_l1_messages": [],

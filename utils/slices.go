@@ -1,8 +1,10 @@
 package utils
 
-func Flatten[T any](slices ...[]T) []T {
+import "slices"
+
+func Flatten[T any](sl ...[]T) []T {
 	var result []T
-	for _, slice := range slices {
+	for _, slice := range sl {
 		result = append(result, slice...)
 	}
 
@@ -33,22 +35,7 @@ func Filter[T any](slice []T, f func(T) bool) []T {
 	return result
 }
 
-func IndexFunc[T comparable](slice []T, f func(T) bool) int {
-	for i, e := range slice {
-		if f(e) {
-			return i
-		}
-	}
-
-	return -1
-}
-
 // All returns true if all elements match the given predicate
-func All[T comparable](slice []T, f func(T) bool) bool {
-	return IndexFunc(slice, func(e T) bool { return !f(e) }) == -1
-}
-
-// Any returns true if any of the elements match the given predicate
-func Any[T comparable](slice []T, f func(T) bool) bool {
-	return IndexFunc(slice, f) != -1
+func All[T any](slice []T, f func(T) bool) bool {
+	return slices.IndexFunc(slice, func(e T) bool { return !f(e) }) == -1
 }

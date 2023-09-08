@@ -1,4 +1,4 @@
-package junogrpc
+package grpc
 
 import (
 	"bytes"
