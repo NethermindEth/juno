@@ -24,6 +24,8 @@ jobs:
         steps:
         - name: Checkout
           uses: actions/checkout@v3
+          with:
+            fetch-depth: 0
         
         - name: Set up Docker Buildx
           uses: docker/setup-buildx-action@v2
@@ -36,8 +38,7 @@ jobs:
 
         - name: Build, tag and push image
           env:
-            IMAGE_TAG: latest-dev
-          id: build-image
+            IMAGE_TAG: ${{ github.event.inputs.tag }}
           uses: docker/build-push-action@v4
           with:
             context: .

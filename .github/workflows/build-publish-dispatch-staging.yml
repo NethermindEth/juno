@@ -3,8 +3,11 @@ name: Dispatch Render Juno Staging
 on:
     workflow_dispatch:
       inputs:
+        dev-tag:
+          description: 'Dev most recent image tag'
+          required: true
         tag:
-          description: Image tag 
+          description: 'Enter an image tag e.g v0.1.0'
           required: true
 
 env: 
@@ -38,10 +41,11 @@ jobs:
 
         - name: Sync From NethermindETh to Nethermind
           env:
+            DEV_TAG: ${{ github.event.inputs.dev-tag }}
             IMAGE_TAG: ${{ github.event.inputs.tag }}
           run: |
-            docker pull nethermindeth/juno:latest-dev
-            docker tag nethermindeth/juno:latest-dev nethermind/juno:${{ env.IMAGE_TAG }}
+            docker pull nethermindeth/juno:${{ env.DEV_TAG }}
+            docker tag nethermindeth/juno:${{ env.DEV_TAG }} nethermind/juno:${{ env.IMAGE_TAG }}
             docker push nethermind/juno:${{ env.IMAGE_TAG }}
           
         
