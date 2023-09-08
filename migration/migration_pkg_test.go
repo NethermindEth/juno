@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/log"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -85,7 +86,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testdb.Close())
 	})
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopLogger())
+	chain := blockchain.New(testdb, utils.MAINNET, log.NewVoidHandler())
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
@@ -174,7 +175,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, testdb.Close())
 	})
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopLogger())
+	chain := blockchain.New(testdb, utils.MAINNET, log.NewVoidHandler())
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 

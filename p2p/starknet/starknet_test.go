@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -32,7 +32,7 @@ func TestClientHandler(t *testing.T) {
 	handlerID := peers[0]
 	clientID := peers[1]
 
-	log := utils.NewNopLogger()
+	log := log.NewVoidHandler()
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := starknet.NewHandler(mockReader, log)
 

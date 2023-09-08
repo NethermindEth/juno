@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/golang/mock/gomock"
@@ -45,7 +46,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	network := utils.MAINNET
 	ctrl := gomock.NewController(t)
-	nopLog := utils.NewNopLogger()
+	nopLog := log.NewVoidHandler()
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
@@ -76,7 +77,7 @@ func TestMismatchedChainID(t *testing.T) {
 
 	network := utils.MAINNET
 	ctrl := gomock.NewController(t)
-	nopLog := utils.NewNopLogger()
+	nopLog := log.NewVoidHandler()
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)

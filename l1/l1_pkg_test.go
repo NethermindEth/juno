@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -335,7 +336,7 @@ func TestClient(t *testing.T) {
 			t.Parallel()
 
 			ctrl := gomock.NewController(t)
-			nopLog := utils.NewNopLogger()
+			nopLog := log.NewVoidHandler()
 			network := utils.MAINNET
 			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 
@@ -396,7 +397,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	nopLog := utils.NewNopLogger()
+	nopLog := log.NewVoidHandler()
 	network := utils.MAINNET
 	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
 	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)

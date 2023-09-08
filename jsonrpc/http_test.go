@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +22,7 @@ func TestHTTP(t *testing.T) {
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
-	log := utils.NewNopLogger()
+	log := log.NewVoidHandler()
 	rpc := jsonrpc.NewServer(1, log)
 	require.NoError(t, rpc.RegisterMethod(method))
 

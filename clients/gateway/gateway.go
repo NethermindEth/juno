@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -53,7 +54,7 @@ func NewTestClient(t *testing.T) *Client {
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, utils.NewNopLogger()).WithUserAgent(ua)
+	return NewClient(srv.URL, log.NewVoidHandler()).WithUserAgent(ua)
 }
 
 func newTestServer() *httptest.Server {

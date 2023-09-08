@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestServer_RegisterMethod(t *testing.T) {
-	server := jsonrpc.NewServer(1, utils.NewNopLogger())
+	server := jsonrpc.NewServer(1, log.NewVoidHandler())
 	tests := map[string]struct {
 		handler    any
 		paramNames []jsonrpc.Parameter
@@ -149,7 +149,7 @@ func TestHandle(t *testing.T) {
 			},
 		},
 	}
-	server := jsonrpc.NewServer(1, utils.NewNopLogger()).WithValidator(validator.New())
+	server := jsonrpc.NewServer(1, log.NewVoidHandler()).WithValidator(validator.New())
 	for _, m := range methods {
 		require.NoError(t, server.RegisterMethod(m))
 	}
