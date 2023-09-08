@@ -181,7 +181,7 @@ pub extern "C" fn cairoVMExecute(
         let contract_class = match sn_api_txn.clone() {
             StarknetApiTransaction::Declare(declare) => {
                 if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class".to_string().as_str());
+                    report_error(reader_handle, "missing declared class");
                     return;
                 }
                 let class_json_str = classes.remove(0);
@@ -206,7 +206,7 @@ pub extern "C" fn cairoVMExecute(
                 if paid_fees_on_l1.is_empty() {
                     report_error(
                         reader_handle,
-                        "missing fee paid on l1b".to_string().as_str(),
+                        "missing fee paid on l1b",
                     );
                     return;
                 }
