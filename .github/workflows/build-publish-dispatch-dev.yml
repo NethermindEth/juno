@@ -38,7 +38,7 @@ jobs:
 
         - name: Build, tag and push image
           env:
-            IMAGE_TAG: ${{ github.event.inputs.tag }}
+            IMAGE_TAG: ${{ }}
           uses: docker/build-push-action@v4
           with:
             context: .
@@ -49,7 +49,7 @@ jobs:
         
         - name: Repository Dispatch
           env:
-            IMAGE_TAG: latest-dev
+            IMAGE_TAG: 
           run: |
             curl -L \
             -X POST \

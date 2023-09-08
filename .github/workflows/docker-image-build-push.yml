@@ -14,6 +14,14 @@ on:
         options:
         - official
         - non-official
+      production_deployment:
+        description: 'Choose to deploy to prod'
+        type: choice
+        required: false
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   build_and_push_docker_image_amd:
@@ -121,13 +129,37 @@ jobs:
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client-payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "testnet_config": "${{ env.TESTNET }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+  
+  staging_repository_dispatch:
+    permissions:
+      id-token: write
+      contents:
+    if: github.repository_owner == 'NethermindEth' && github.event.inputs.repo_type == 'official'
+    needs: [build_and_push_docker_image_amd]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository_Dispatch_Staging
+        env:
+          EVENT_NAME: juno-staging
+          IMAGE_TAG: ${{ github.event.inputs.tag }}
+          GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
+          GOERLI2: apps/juno-staging/overlays/staging-goerli-2/config.yaml
+          TESTNET: apps/juno-staging/overlays/staging-integration/config.yaml
+          MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
+        run: |
+          curl -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          https://api.github.com/repos/NethermindEth/argo/dispatches \
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client-payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "testnet_config": "${{ env.TESTNET }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
           
-
   prod_repository_dispatch_official_image:
     permissions:
       id-token: write
       contents: write
-    if: github.repository_owner == 'NethermindEth' && github.event.inputs.repo_type == 'official'
+    if: github.repository_owner == 'NethermindEth' && github.event.inputs.repo_type == 'official' && github.event.inputs.production_deployment == 'true'
     needs: [create_and_push_official_image]
     runs-on: ubuntu-latest
     steps:
