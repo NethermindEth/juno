@@ -16,8 +16,8 @@ const (
 	DARK_GRAY Color = 90
 )
 
-// ColorFunc is an alias type for a coloring function that accepts anything and returns a colorized string
-type ColorFunc = func(s any) string
+// ColorFunc is an alias type for a coloring function that accepts string and returns colorized string
+type ColorFunc = func(s string) string
 
 func Reset(s string) string {
 	return s
