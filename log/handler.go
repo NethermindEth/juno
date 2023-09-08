@@ -68,13 +68,20 @@ func (h *slogHandler) Handle(_ context.Context, record slog.Record) error {
 	buf := getBuffer()
 	defer putBuffer(buf)
 
+	h.bufWriter.pre(buf)
+
 	// write components in order
-	for _, comp := range h.comps {
+	var prevField FieldComp
+	for x, comp := range h.comps {
+		hint := hintWrite{
+			prevField: prevField,
+			depth:     x,
+		}
 		switch comp {
 		case TimestampFieldName:
-			h.bufWriter.writeComponent(buf, comp, record.Time)
+			h.bufWriter.writeComponent(buf, comp, record.Time, hint)
 		case LevelFieldName:
-			h.bufWriter.writeComponent(buf, comp, record.Level)
+			h.bufWriter.writeComponent(buf, comp, record.Level, hint)
 		case CallerFieldName:
 			fs := runtime.CallersFrames([]uintptr{record.PC})
 			f, _ := fs.Next()
@@ -84,28 +91,47 @@ func (h *slogHandler) Handle(_ context.Context, record slog.Record) error {
 					File:     f.File,
 					Line:     f.Line,
 				}
-				h.bufWriter.writeComponent(buf, comp, src)
+				h.bufWriter.writeComponent(buf, comp, src, hint)
 			}
 		case HandlerAttributeFieldName:
-			for _, attr := range h.attrs {
-				h.bufWriter.writeComponent(buf, HandlerAttributeFieldName, attr)
+			size := len(h.attrs)
+			for i, attr := range h.attrs {
+				hint.attribute = hintAttribute{i, size}
+				h.bufWriter.writeComponent(
+					buf,
+					HandlerAttributeFieldName,
+					attr,
+					hint,
+				)
+				hint.prevField = comp // resolve inner loop field
 			}
+			hint.attribute = hintAttribute{} // reset attribute
 		case MessageFieldName:
-			h.bufWriter.writeComponent(buf, MessageFieldName, record.Message)
+			h.bufWriter.writeComponent(buf, MessageFieldName, record.Message, hint)
 		case MessageAttributeFieldName:
+			var index int
+			hint.attribute.size = record.NumAttrs()
 			record.Attrs(func(attr slog.Attr) bool {
-				h.bufWriter.writeComponent(buf, MessageAttributeFieldName, attr)
+				hint.attribute.index = index
+				h.bufWriter.writeComponent(
+					buf,
+					MessageAttributeFieldName,
+					attr,
+					hint,
+				)
+				index++
+				hint.prevField = comp // resolve inner loop field
 				return true
 			})
+			hint.attribute = hintAttribute{} // reset attribute
+		default:
+			continue
 		}
+		prevField = comp
 	}
 
-	err := buf.WriteByte('\n')
-	if err != nil {
-		return err
-	}
-
-	_, err = buf.WriteTo(h.out)
+	h.bufWriter.after(buf)
+	_, err := buf.WriteTo(h.out)
 	return err
 }
 

@@ -18,20 +18,20 @@ func (comp fieldComps) Validated() fieldComps {
 	return list
 }
 
-type FieldComp string
+type FieldComp uint8
 
 const (
-	TimestampFieldName        FieldComp = "time"
-	LevelFieldName            FieldComp = "level"
-	CallerFieldName           FieldComp = "caller"
-	MessageFieldName          FieldComp = "message"
-	MessageAttributeFieldName FieldComp = "message-attribute"
-	HandlerAttributeFieldName FieldComp = "handler-attribute"
+	unknown                   FieldComp = 0
+	TimestampFieldName        FieldComp = 1
+	LevelFieldName            FieldComp = 2
+	CallerFieldName           FieldComp = 3
+	MessageFieldName          FieldComp = 4
+	MessageAttributeFieldName FieldComp = 5
+	HandlerAttributeFieldName FieldComp = 6
 )
 
 // LevelFunc is a func that returns current lvl.
 type LevelFunc func() slog.Level
 
 // Formatter formats the input into a string.
-// If empty string is returned the message value will be ommited.
 type Formatter[T any] func(T) string
