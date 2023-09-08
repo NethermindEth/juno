@@ -9,7 +9,6 @@ on:
 
 env:
   EVENT_NAME: juno-prod
-  IMAGE_TAG: ${{github.event.inputs.tag}}
   GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
   GOERLI2: apps/juno-prod/overlays/prod-goerli-2/config.yaml
   TESTNET: apps/juno-prod/overlays/prod-integration/config.yaml
