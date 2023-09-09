@@ -21,7 +21,7 @@ Suitable for casual setups, production-grade indexers, and everything in between
 mkdir -p junodb
 
 # Juno's HTTP server listens on port 6060.
-docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:latest --db-path /var/lib/juno
+docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:latest --db-path /var/lib/juno --http
 ```
 
 For a complete list of options and their explanations, see the [Example Configuration](config) or run:
