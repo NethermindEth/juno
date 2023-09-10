@@ -13,9 +13,10 @@ import (
 
 type hintWrite struct {
 	// attributes hints
-	attribute hintAttribute
-	prevField FieldComp
-	depth     int
+	currentAttribute hintAttribute
+	nextField        FieldComp
+	prevField        FieldComp
+	depth            int
 }
 
 type hintAttribute struct {
@@ -38,8 +39,8 @@ func (hint hintAttribute) isStarting() bool {
 type writer interface {
 	// pre is called before components
 	pre(buf *bytes.Buffer)
-	// writeComponent writes component to buffer
-	writeComponent(buf *bytes.Buffer, field FieldComp, value any, hint hintWrite)
+	// writeComponent writes component to buffer. Returns true if wrote. Ignores empty messages
+	writeComponent(buf *bytes.Buffer, field FieldComp, value any, hint hintWrite) bool
 	// after is called after all components
 	after(buf *bytes.Buffer)
 }
@@ -49,8 +50,8 @@ func consoleDefaultComponents() []FieldComp {
 		TimestampFieldName,
 		LevelFieldName,
 		CallerFieldName,
-		HandlerAttributeFieldName,
 		MessageFieldName,
+		HandlerAttributeFieldName,
 		MessageAttributeFieldName,
 	}
 }
@@ -88,6 +89,7 @@ func consoleDefaultFormatters() Formatters {
 
 type consoleWriter struct {
 	Formatters
+	splitter string
 }
 
 func newConsoleWriter(formatters Formatters) *consoleWriter {
@@ -107,16 +109,20 @@ func newConsoleWriter(formatters Formatters) *consoleWriter {
 	if formatters.MessageFormatter != nil {
 		defaultFormatters.MessageFormatter = formatters.MessageFormatter
 	}
-	return &consoleWriter{Formatters: defaultFormatters}
+	return &consoleWriter{Formatters: defaultFormatters, splitter: ", "}
 }
 
 func (c *consoleWriter) pre(buf *bytes.Buffer)   {}
 func (c *consoleWriter) after(buf *bytes.Buffer) { buf.WriteByte('\n') }
 
-func (c *consoleWriter) writeComponent(buf *bytes.Buffer, field FieldComp, value any, hint hintWrite) {
-	prev := hint.prevField
-	cur := field
-	var msg string
+func (c *consoleWriter) writeComponent(buf *bytes.Buffer, field FieldComp, value any, hint hintWrite) bool {
+	var (
+		prev = hint.prevField
+		cur  = field
+		next = hint.nextField
+		msg  string
+	)
+
 	switch field {
 	case TimestampFieldName:
 		msg = c.TimeFormatter(value.(time.Time))
@@ -130,24 +136,37 @@ func (c *consoleWriter) writeComponent(buf *bytes.Buffer, field FieldComp, value
 		msg = c.AttrFormatter(value.(slog.Attr))
 	}
 
-	// seperate different contexts
-	if buf.Len() > 0 && prev != cur {
-		buf.WriteByte('\t')
+	if len(msg) == 0 {
+		return false
+	}
+
+	if buf.Len() > 0 && !cur.Eq(prev) {
+		if !cur.WeakEq(prev) {
+			buf.WriteByte('\t')
+		} else {
+			buf.WriteString(c.splitter)
+		}
 	}
 
 	// add closure for first attribute
-	if hint.attribute.isValid() && hint.attribute.isStarting() {
+	if hint.currentAttribute.isValid() && hint.currentAttribute.isStarting() && !isAttribute(prev) {
 		buf.WriteByte('{')
 	}
 
 	buf.WriteString(msg)
 
 	// either close or seperate
-	if hint.attribute.isValid() {
-		if !hint.attribute.isEnding() {
-			buf.WriteString(", ")
-		} else {
+	if hint.currentAttribute.isValid() {
+		if !hint.currentAttribute.isEnding() {
+			buf.WriteString(c.splitter)
+		} else if !isAttribute(next) {
 			buf.WriteByte('}')
 		}
 	}
+
+	return true
+}
+
+func isAttribute(field FieldComp) bool {
+	return field == HandlerAttributeFieldName || field == MessageAttributeFieldName
 }

@@ -21,14 +21,57 @@ func (comp fieldComps) Validated() fieldComps {
 type FieldComp uint8
 
 const (
-	unknown                   FieldComp = 0
-	TimestampFieldName        FieldComp = 1
-	LevelFieldName            FieldComp = 2
-	CallerFieldName           FieldComp = 3
-	MessageFieldName          FieldComp = 4
-	MessageAttributeFieldName FieldComp = 5
-	HandlerAttributeFieldName FieldComp = 6
+	// internal types
+	unknown   FieldComp = 0
+	none      FieldComp = 1
+	attribute FieldComp = 2
+
+	ReservedBuffer = 10 // up to this place everything is reserved
+
+	TimestampFieldName        FieldComp = ReservedBuffer + 1
+	LevelFieldName            FieldComp = TimestampFieldName + 1
+	CallerFieldName           FieldComp = LevelFieldName + 1
+	MessageFieldName          FieldComp = CallerFieldName + 1
+	MessageAttributeFieldName FieldComp = MessageFieldName + 1
+	HandlerAttributeFieldName FieldComp = MessageAttributeFieldName + 1
 )
+
+func (field FieldComp) String() string {
+	switch field {
+	case unknown:
+		return "unknown"
+	case none:
+		return "none"
+	case attribute:
+		return "attribute"
+	case ReservedBuffer:
+		return "ReservedBuffer"
+	case TimestampFieldName:
+		return "TimestampFieldName"
+	case LevelFieldName:
+		return "LevelFieldName"
+	case CallerFieldName:
+		return "CallerFieldName"
+	case MessageFieldName:
+		return "MessageFieldName"
+	case MessageAttributeFieldName:
+		return "MessageAttributeFieldName"
+	case HandlerAttributeFieldName:
+		return "HandlerAttributeFieldName"
+	default:
+		return "not defined"
+	}
+}
+
+// WeakEq returns whether two fields are weakly equal.
+func (field FieldComp) WeakEq(f FieldComp) bool {
+	return isAttribute(field) && isAttribute(f)
+}
+
+// WeakEq returns whether two fields are equal.
+func (field FieldComp) Eq(f FieldComp) bool {
+	return field == f
+}
 
 // LevelFunc is a func that returns current lvl.
 type LevelFunc func() slog.Level

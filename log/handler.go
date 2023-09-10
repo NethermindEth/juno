@@ -60,6 +60,18 @@ func NewConsoleHandler(cfg HandlerConfig, formats Formatters, output io.Writer) 
 	}, nil
 }
 
+func (h *slogHandler) copy() *slogHandler {
+	attrs := make([]slog.Attr, len(h.attrs))
+	copy(attrs, h.attrs)
+	return &slogHandler{
+		lvl:       h.lvl,
+		comps:     h.comps,
+		attrs:     attrs,
+		bufWriter: h.bufWriter,
+		out:       h.out,
+	}
+}
+
 func (h *slogHandler) Enabled(_ context.Context, lvl slog.Level) bool {
 	return lvl >= h.lvl()
 }
@@ -70,18 +82,32 @@ func (h *slogHandler) Handle(_ context.Context, record slog.Record) error {
 
 	h.bufWriter.pre(buf)
 
+	// initialzie some values
+	var (
+		prevField FieldComp = none
+		compSlots           = len(h.comps) - 1
+	)
 	// write components in order
-	var prevField FieldComp
 	for x, comp := range h.comps {
-		hint := hintWrite{
-			prevField: prevField,
-			depth:     x,
+		var (
+			// writer.writeComponent result
+			wrote bool
+			// rebuild hint
+			hint = hintWrite{
+				prevField: prevField,
+				nextField: none,
+				depth:     x,
+			}
+		)
+		// hint next attribute if any
+		if x+1 <= compSlots {
+			hint.nextField = h.comps[x+1]
 		}
 		switch comp {
 		case TimestampFieldName:
-			h.bufWriter.writeComponent(buf, comp, record.Time, hint)
+			wrote = h.bufWriter.writeComponent(buf, comp, record.Time, hint)
 		case LevelFieldName:
-			h.bufWriter.writeComponent(buf, comp, record.Level, hint)
+			wrote = h.bufWriter.writeComponent(buf, comp, record.Level, hint)
 		case CallerFieldName:
 			fs := runtime.CallersFrames([]uintptr{record.PC})
 			f, _ := fs.Next()
@@ -91,40 +117,61 @@ func (h *slogHandler) Handle(_ context.Context, record slog.Record) error {
 					File:     f.File,
 					Line:     f.Line,
 				}
-				h.bufWriter.writeComponent(buf, comp, src, hint)
+				wrote = h.bufWriter.writeComponent(buf, comp, src, hint)
 			}
 		case HandlerAttributeFieldName:
 			size := len(h.attrs)
+			backup := hint.nextField
+			hint.nextField = HandlerAttributeFieldName
 			for i, attr := range h.attrs {
-				hint.attribute = hintAttribute{i, size}
-				h.bufWriter.writeComponent(
+				hint.currentAttribute = hintAttribute{i, size}
+				// restore actual next field if its last local elem
+				if hint.currentAttribute.isEnding() {
+					hint.nextField = backup
+				}
+				if h.bufWriter.writeComponent(
 					buf,
 					HandlerAttributeFieldName,
 					attr,
 					hint,
-				)
+				) {
+					wrote = true
+				}
 				hint.prevField = comp // resolve inner loop field
 			}
-			hint.attribute = hintAttribute{} // reset attribute
+			hint.currentAttribute = hintAttribute{} // reset attribute
+			hint.nextField = backup
 		case MessageFieldName:
-			h.bufWriter.writeComponent(buf, MessageFieldName, record.Message, hint)
+			wrote = h.bufWriter.writeComponent(buf, MessageFieldName, record.Message, hint)
 		case MessageAttributeFieldName:
 			var index int
-			hint.attribute.size = record.NumAttrs()
+			backup := hint.nextField
+			hint.currentAttribute.size = record.NumAttrs()
+			hint.nextField = comp // resolve inner next attribute
 			record.Attrs(func(attr slog.Attr) bool {
-				hint.attribute.index = index
-				h.bufWriter.writeComponent(
+				hint.currentAttribute.index = index
+				// restore actual next field if its last local elem
+				if hint.currentAttribute.isEnding() {
+					hint.nextField = backup
+				}
+				if h.bufWriter.writeComponent(
 					buf,
 					MessageAttributeFieldName,
 					attr,
 					hint,
-				)
+				) {
+					wrote = true
+				}
 				index++
 				hint.prevField = comp // resolve inner loop field
 				return true
 			})
-			hint.attribute = hintAttribute{} // reset attribute
+			hint.currentAttribute = hintAttribute{} // reset attribute
+			hint.nextField = backup
 		default:
+			continue
+		}
+		if !wrote {
 			continue
 		}
 		prevField = comp
@@ -136,9 +183,9 @@ func (h *slogHandler) Handle(_ context.Context, record slog.Record) error {
 }
 
 func (h *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	// TODO implement
-	panic("implement me")
-	return nil
+	handler := h.copy()
+	handler.attrs = append(handler.attrs, attrs...)
+	return handler
 }
 
 func (l *slogHandler) WithGroup(name string) slog.Handler {

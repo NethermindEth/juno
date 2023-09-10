@@ -9,6 +9,7 @@ type HandlerConfig struct {
 	Lvl LevelFunc // returns current lvl
 
 	// The handler will output all matching components in order.
+	// When none components are provided, the default ones will be used instead.
 	Components []FieldComp
 }
 
