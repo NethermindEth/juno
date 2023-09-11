@@ -25,20 +25,20 @@ clean-testcache:
 	go clean -testcache
 
 test: clean-testcache vm ## tests
-	go test ./...
+	go test $(GO_TAGS) ./...
 
 test-cached: vm ## tests with existing cache
-	go test ./...
+	go test $(GO_TAGS) ./...
 
 test-race: clean-testcache vm
-	go test ./... -race
+	go test $(GO_TAGS) ./... -race
 
 benchmarks: vm ## benchmarking
-	go test ./... -run=^# -bench=. -benchmem
+	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
 test-cover: vm ## tests with coverage
 	mkdir -p coverage
-	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
+	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: | install-gofumpt install-mockgen install-golangci-lint## install some project dependencies
