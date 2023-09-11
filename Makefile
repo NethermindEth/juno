@@ -2,17 +2,20 @@
 
 .PHONY: vm
 
+ifeq ($(VM_DEBUG),true)
+    GO_TAGS = -tags vm_debug
+    VM_TARGET = debug
+else
+    GO_TAGS =
+    VM_TARGET = all
+endif
+
 juno: vm ## compile
 	@mkdir -p build
-	@go build -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
-ifeq ($(VM_DEBUG),true)
 vm:
-	$(MAKE) -C vm/rust debug
-else
-vm:
-	$(MAKE) -C vm/rust all
-endif
+	$(MAKE) -C vm/rust $(VM_TARGET)
 
 generate: ## generate
 	mkdir -p mocks

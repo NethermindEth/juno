@@ -11,7 +11,8 @@ package vm
 //					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
 //					unsigned char skip_charge_fee, char* gas_price);
 //
-// #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
+// #cgo vm_debug  LDFLAGS: -L./rust/target/debug -ljuno_starknet_rs -lm -ldl
+// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
 import "C"
 
 import (
