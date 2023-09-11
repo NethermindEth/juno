@@ -482,11 +482,8 @@ func TestClassV1(t *testing.T) {
 	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+	v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
-
-	v1Class, ok := class.(*core.Cairo1Class)
-	require.True(t, ok)
 
 	assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
 	assert.Equal(t, feederClass.V1.Program, v1Class.Program)

@@ -245,7 +245,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (core.Class, error) {
+func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
 	var err error
 
 	class := new(core.Cairo1Class)
@@ -272,49 +272,56 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
 	}
 
-	if compiledClass != nil {
-		class.Compiled.Bytecode = compiledClass.Bytecode
-		pyHints, err := json.Marshal(compiledClass.PythonicHints)
-		if err != nil {
-			return nil, err
-		}
-		class.Compiled.PythonicHints = pyHints
-		class.Compiled.CompilerVersion = compiledClass.CompilerVersion
-		var success bool
-		class.Compiled.Prime, success = new(big.Int).SetString(compiledClass.Prime, 0)
-		if !success {
-			return nil, fmt.Errorf("couldn't convert prime value to big.Int")
-		}
-		hints, err := json.Marshal(compiledClass.Hints)
-		if err != nil {
-			return nil, err
-		}
-		class.Compiled.Hints = hints
+	if class.Compiled, err = AdaptCompiledClass(compiledClass); err != nil {
+		return nil, err
+	}
 
-		class.Compiled.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
-		for i, v := range compiledClass.EntryPoints.External {
-			class.Compiled.External[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
-		}
+	return class, nil
+}
 
-		class.Compiled.L1Handler = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.L1Handler))
-		for i, v := range compiledClass.EntryPoints.L1Handler {
-			class.Compiled.L1Handler[i] = core.CompiledEntryPoint{
-				Offset:   v.Offset,
-				Selector: v.Selector,
-				Builtins: v.Builtins,
-			}
-		}
+func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (core.CompiledClass, error) {
+	compiled := core.CompiledClass{}
+	compiled.Bytecode = compiledClass.Bytecode
+	pyHints, err := json.Marshal(compiledClass.PythonicHints)
+	if err != nil {
+		return core.CompiledClass{}, err
+	}
+	compiled.PythonicHints = pyHints
+	compiled.CompilerVersion = compiledClass.CompilerVersion
+	var success bool
+	compiled.Prime, success = new(big.Int).SetString(compiledClass.Prime, 0)
+	if !success {
+		return core.CompiledClass{}, fmt.Errorf("couldn't convert prime value to big.Int")
+	}
+	hints, err := json.Marshal(compiledClass.Hints)
+	if err != nil {
+		return core.CompiledClass{}, err
+	}
+	compiled.Hints = hints
 
-		class.Compiled.Constructor = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.Constructor))
-		for i, v := range compiledClass.EntryPoints.Constructor {
-			class.Compiled.Constructor[i] = core.CompiledEntryPoint{
-				Offset:   v.Offset,
-				Selector: v.Selector,
-				Builtins: v.Builtins,
-			}
+	compiled.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
+	for i, v := range compiledClass.EntryPoints.External {
+		compiled.External[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
+	}
+
+	compiled.L1Handler = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.L1Handler))
+	for i, v := range compiledClass.EntryPoints.L1Handler {
+		compiled.L1Handler[i] = core.CompiledEntryPoint{
+			Offset:   v.Offset,
+			Selector: v.Selector,
+			Builtins: v.Builtins,
 		}
 	}
-	return class, nil
+
+	compiled.Constructor = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.Constructor))
+	for i, v := range compiledClass.EntryPoints.Constructor {
+		compiled.Constructor[i] = core.CompiledEntryPoint{
+			Offset:   v.Offset,
+			Selector: v.Selector,
+			Builtins: v.Builtins,
+		}
+	}
+	return compiled, nil
 }
 
 func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
