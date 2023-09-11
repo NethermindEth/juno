@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 )
 
 type stateSnapshot struct {
@@ -82,7 +83,7 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	}
 
 	if s.blockNumber < declaredClass.At {
-		return nil, errors.New("contract not found")
+		return nil, db.ErrKeyNotFound
 	}
 	return declaredClass, nil
 }
