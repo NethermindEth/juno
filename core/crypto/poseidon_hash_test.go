@@ -44,7 +44,14 @@ func TestPoseidonArray(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
+			var digest, digestWhole crypto.PoseidonDigest
 			assert.Equal(t, test.expected, crypto.PoseidonArray(test.elems...).String())
+			assert.Equal(t, test.expected, digestWhole.Update(test.elems...).Finish().String())
+
+			for _, elem := range test.elems {
+				digest.Update(elem)
+			}
+			assert.Equal(t, test.expected, digest.Finish().String())
 		})
 	}
 }
