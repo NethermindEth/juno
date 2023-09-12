@@ -108,7 +108,7 @@ func TestSyncBlocks(t *testing.T) {
 			if err != nil {
 				return nil, nil, err
 			}
-			
+
 			switch reqCount {
 			case 1:
 				return nil, nil, errors.New("try again")
