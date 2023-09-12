@@ -14,14 +14,6 @@ on:
         options:
         - official
         - non-official
-      production_deployment:
-        description: 'Choose to deploy to prod'
-        type: choice
-        required: false
-        default: 'false'
-        options:
-          - 'true'
-          - 'false'
 
 jobs:
   build_and_push_docker_image_amd:
