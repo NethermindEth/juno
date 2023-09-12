@@ -2,12 +2,20 @@
 
 .PHONY: vm
 
+ifeq ($(VM_DEBUG),true)
+    GO_TAGS = -tags vm_debug
+    VM_TARGET = debug
+else
+    GO_TAGS =
+    VM_TARGET = all
+endif
+
 juno: vm ## compile
 	@mkdir -p build
-	@go build -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
 vm:
-	$(MAKE) -C vm/rust all
+	$(MAKE) -C vm/rust $(VM_TARGET)
 
 generate: ## generate
 	mkdir -p mocks
@@ -17,20 +25,20 @@ clean-testcache:
 	go clean -testcache
 
 test: clean-testcache vm ## tests
-	go test ./...
+	go test $(GO_TAGS) ./...
 
 test-cached: vm ## tests with existing cache
-	go test ./...
+	go test $(GO_TAGS) ./...
 
 test-race: clean-testcache vm
-	go test ./... -race
+	go test $(GO_TAGS) ./... -race
 
 benchmarks: vm ## benchmarking
-	go test ./... -run=^# -bench=. -benchmem
+	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
 test-cover: vm ## tests with coverage
 	mkdir -p coverage
-	go test -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
+	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: | install-gofumpt install-mockgen install-golangci-lint## install some project dependencies
