@@ -188,3 +188,43 @@ func TestClassV1(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, class)
 }
+
+func TestStateUpdateWithBlock(t *testing.T) {
+	numbers := []uint64{0, 78541}
+
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	adapter := adaptfeeder.New(client)
+	ctx := context.Background()
+
+	for _, number := range numbers {
+		t.Run("integration block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
+			response, err := client.StateUpdateWithBlock(ctx, strconv.FormatUint(number, 10))
+			require.NoError(t, err)
+			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
+			require.NoError(t, err)
+			adaptedBlock, err := feeder2core.AdaptBlock(response.Block)
+			require.NoError(t, err)
+			adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
+			require.NoError(t, err)
+			assert.Equal(t, block, adaptedBlock)
+			assert.Equal(t, stateUpdate, adaptedStateUpdate)
+		})
+	}
+}
+
+func TestStateUpdatePendingWithBlock(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	adapter := adaptfeeder.New(client)
+	ctx := context.Background()
+
+	response, err := client.StateUpdateWithBlock(ctx, "pending")
+	require.NoError(t, err)
+	adaptedBlock, err := feeder2core.AdaptBlock(response.Block)
+	require.NoError(t, err)
+	adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
+	require.NoError(t, err)
+	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, block, adaptedBlock)
+	assert.Equal(t, stateUpdate, adaptedStateUpdate)
+}

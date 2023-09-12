@@ -163,7 +163,7 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	if dir == "transaction" && queryArg == "transactionHash" {
 		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
 	} else {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusBadRequest)
 	}
 }
 
