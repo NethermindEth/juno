@@ -49,6 +49,7 @@ const (
 	metricsPortF         = "metrics-port"
 	grpcF                = "grpc"
 	grpcPortF            = "grpc-port"
+	rpcMaxConcurrencyF   = "rpc-max-concurrency"
 
 	defaultConfig              = ""
 	defaultHTTP                = false
@@ -68,6 +69,7 @@ const (
 	defaultMetricsPort         = 9090
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
+	defaultRPCMaxConcurrency   = 1024
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -90,6 +92,7 @@ const (
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
 	grpcUsage                = "Enable the HTTP GRPC server on the default port."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
+	rpcMaxConcurrencyUsage   = "Maximum number of RPC requests to be handled concurrently"
 )
 
 var Version string
@@ -196,6 +199,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
+	junoCmd.Flags().Int(rpcMaxConcurrencyF, defaultRPCMaxConcurrency, rpcMaxConcurrencyUsage)
 
 	return junoCmd
 }

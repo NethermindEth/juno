@@ -1,32 +1,34 @@
 {
+    "execution_status": "SUCCEEDED",
+    "finality_status": "ACCEPTED_ON_L2",
     "status": "ACCEPTED_ON_L2",
     "block_hash": "0x6c9dc1dc56efb62181377dba9d9cff9f00d21cb4521c75a4457345edca7e469",
     "block_number": 123443,
     "transaction_index": 3,
     "transaction": {
-        "transaction_hash": "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
-        "version": "0x1",
-        "max_fee": "0x1a9a4bdc14000",
-        "signature": [
-            "0x5e817845ba6681fe39a14ac3b1749dbc98374ce9e4361cc7381bc82c1dedcf3",
-            "0x5439b1cb55171f22659fa3be441ce37be92f61167db9718c2ec43901350021"
-        ],
-        "nonce": "0x1d",
-        "sender_address": "0x4f1cb86e5067045d8264cc542da0517b9afcc4219575a184a76265423e8a213",
-        "calldata": [
-            "0x1",
-            "0x76503062d78f4481be03c9145022d6a4a71ec0719aa07756f79a2384dc7ef16",
-            "0x2f0b3c5710379609eb5495f1ecd348cb28167711b73609fe565a72734550354",
-            "0x0",
-            "0x6",
-            "0x6",
-            "0x1a869e20ba",
-            "0x0",
-            "0x3",
-            "0xf",
-            "0x306ca0efa231fd84c6fbeaf904c3e3ec7b1325e6f23e3050b73f795420d94e7",
-            "0x4f2547837bda05f61052b150a568d098bca8b03f072276836fc1c88e64d1d06"
-        ],
-        "type": "INVOKE_FUNCTION"
+      "transaction_hash": "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
+      "version": "0x1",
+      "max_fee": "0x1a9a4bdc14000",
+      "signature": [
+        "0x5e817845ba6681fe39a14ac3b1749dbc98374ce9e4361cc7381bc82c1dedcf3",
+        "0x5439b1cb55171f22659fa3be441ce37be92f61167db9718c2ec43901350021"
+      ],
+      "nonce": "0x1d",
+      "sender_address": "0x4f1cb86e5067045d8264cc542da0517b9afcc4219575a184a76265423e8a213",
+      "calldata": [
+        "0x1",
+        "0x76503062d78f4481be03c9145022d6a4a71ec0719aa07756f79a2384dc7ef16",
+        "0x2f0b3c5710379609eb5495f1ecd348cb28167711b73609fe565a72734550354",
+        "0x0",
+        "0x6",
+        "0x6",
+        "0x1a869e20ba",
+        "0x0",
+        "0x3",
+        "0xf",
+        "0x306ca0efa231fd84c6fbeaf904c3e3ec7b1325e6f23e3050b73f795420d94e7",
+        "0x4f2547837bda05f61052b150a568d098bca8b03f072276836fc1c88e64d1d06"
+      ],
+      "type": "INVOKE_FUNCTION"
     }
 }

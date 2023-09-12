@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -123,7 +124,7 @@ func TestStateSnapshot(t *testing.T) {
 
 	t.Run("before class is declared", func(t *testing.T) {
 		_, err := snapshotBeforeDeployment.Class(addr)
-		require.EqualError(t, err, "contract not found")
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("on height that class is declared", func(t *testing.T) {

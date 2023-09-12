@@ -177,11 +177,13 @@ pub extern "C" fn cairoVMExecute(
     let mut state = CachedState::new(reader);
     let charge_fee = skip_charge_fee == 0;
 
+    let mut trace_buffer = Vec::with_capacity(10_000);
+
     for sn_api_txn in sn_api_txns {
         let contract_class = match sn_api_txn.clone() {
             StarknetApiTransaction::Declare(declare) => {
                 if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class".to_string().as_str());
+                    report_error(reader_handle, "missing declared class");
                     return;
                 }
                 let class_json_str = classes.remove(0);
@@ -203,10 +205,10 @@ pub extern "C" fn cairoVMExecute(
 
         let paid_fee_on_l1: Option<Fee> = match sn_api_txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
-                if paid_fees_on_l1.len() == 0 {
+                if paid_fees_on_l1.is_empty() {
                     report_error(
                         reader_handle,
-                        "missing fee paid on l1b".to_string().as_str(),
+                        "missing fee paid on l1b",
                     );
                     return;
                 }
@@ -256,6 +258,7 @@ pub extern "C" fn cairoVMExecute(
                     append_trace(
                         reader_handle,
                         jsonrpc::new_transaction_trace(sn_api_txn, t),
+                        &mut trace_buffer,
                     );
                 }
             },
@@ -297,11 +300,12 @@ fn transaction_from_api(
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
-fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace) {
-    let json = serde_json::to_string(&trace).unwrap();
-    let json_bytes = json.into_bytes();
-    let ptr = json_bytes.as_ptr();
-    let len = json_bytes.len();
+fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace, trace_buffer: &mut Vec<u8>) {
+    trace_buffer.clear();
+    serde_json::to_writer(&mut *trace_buffer, &trace).unwrap();
+
+    let ptr = trace_buffer.as_ptr();
+    let len = trace_buffer.len();
 
     unsafe {
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);

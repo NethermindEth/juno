@@ -42,30 +42,6 @@ func TestFilter(t *testing.T) {
 	})
 }
 
-func TestIndexFunc(t *testing.T) {
-	t.Run("nil slice", func(t *testing.T) {
-		var input []int
-		idx := IndexFunc(input, func(int) bool {
-			return true
-		})
-		assert.Equal(t, -1, idx)
-	})
-	t.Run("element not present", func(t *testing.T) {
-		input := []int{1, 2, 3, 4}
-		idx := IndexFunc(input, func(v int) bool {
-			return v < 0
-		})
-		assert.Equal(t, -1, idx)
-	})
-	t.Run("element present", func(t *testing.T) {
-		input := []int{1, 2, 3, 4}
-		idx := IndexFunc(input, func(v int) bool {
-			return v == 3
-		})
-		assert.Equal(t, 2, idx)
-	})
-}
-
 func TestAll(t *testing.T) {
 	t.Run("nil slice", func(t *testing.T) {
 		var input []int
@@ -87,29 +63,5 @@ func TestAll(t *testing.T) {
 			return v%2 != 0
 		})
 		assert.True(t, allOdd)
-	})
-}
-
-func TestAny(t *testing.T) {
-	t.Run("nil slice", func(t *testing.T) {
-		var input []int
-		v := Any(input, func(int) bool {
-			return false
-		})
-		assert.False(t, v)
-	})
-	t.Run("not found", func(t *testing.T) {
-		input := []int{1, 2, 3, 4}
-		found := Any(input, func(v int) bool {
-			return v == 5
-		})
-		assert.False(t, found)
-	})
-	t.Run("found", func(t *testing.T) {
-		input := []int{1, 2, 3, 4, 5}
-		found := Any(input, func(v int) bool {
-			return v == 5
-		})
-		assert.True(t, found)
 	})
 }

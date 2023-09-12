@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -63,6 +62,8 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+
+	RPCMaxConcurrency int `mapstructure:"rpc-max-concurrency"`
 }
 
 type Node struct {
@@ -112,10 +113,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(), version, log)
-	// to improve RPC throughput we double GOMAXPROCS
-	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), version, log)
+	jsonrpcServer := jsonrpc.NewServer(cfg.RPCMaxConcurrency, log).WithValidator(validator.Validator())
 	for _, method := range methods(rpcHandler) {
 		if err = jsonrpcServer.RegisterMethod(method); err != nil {
 			return nil, err
