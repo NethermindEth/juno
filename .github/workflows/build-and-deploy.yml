@@ -21,7 +21,7 @@ jobs:
       
       - name: Define_docker_image_tag
         run: |
-          echo "DOCKER_IMAGE_TAG=(git describe --tags)" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE_TAG=$(git describe --tags)" >> $GITHUB_ENV
           echo "IMAGE_TAG=$(git describe --tags)" >> "$GITHUB_OUTPUT"
       
       - name: Setup Docker Buildx
