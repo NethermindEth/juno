@@ -10,12 +10,8 @@ import (
 //
 // [Pedersen array hashing]: https://docs.starknet.io/documentation/develop/Hashing/hash-functions/#array_hashing
 func PedersenArray(elems ...*felt.Felt) *felt.Felt {
-	fpElements := make([]*fp.Element, len(elems))
-	for i, elem := range elems {
-		fpElements[i] = elem.Impl()
-	}
-	hash := pedersenhash.PedersenArray(fpElements...)
-	return felt.NewFelt(&hash)
+	var digest PedersenDigest
+	return digest.Update(elems...).Finish()
 }
 
 // Pedersen implements the [Pedersen hash].
@@ -24,4 +20,24 @@ func PedersenArray(elems ...*felt.Felt) *felt.Felt {
 func Pedersen(a, b *felt.Felt) *felt.Felt {
 	hash := pedersenhash.Pedersen(a.Impl(), b.Impl())
 	return felt.NewFelt(&hash)
+}
+
+var _ Digest = (*PedersenDigest)(nil)
+
+type PedersenDigest struct {
+	digest fp.Element
+	count  uint64
+}
+
+func (d *PedersenDigest) Update(elems ...*felt.Felt) Digest {
+	for idx := range elems {
+		d.digest = pedersenhash.Pedersen(&d.digest, elems[idx].Impl())
+	}
+	d.count += uint64(len(elems))
+	return d
+}
+
+func (d *PedersenDigest) Finish() *felt.Felt {
+	d.digest = pedersenhash.Pedersen(&d.digest, new(fp.Element).SetUint64(d.count))
+	return felt.NewFelt(&d.digest)
 }
