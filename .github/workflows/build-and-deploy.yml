@@ -2,7 +2,7 @@ name: Docker Build, Publish and Deploy
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 permissions:
   id-token: write
@@ -12,7 +12,7 @@ jobs:
   docker_build_and_publish:
     runs-on: ubuntu-latest
     outputs:
-      IMAGE_TAGE: ${{ steps.image_tag.outputs.IMAGE_TAG }}
+      IMAGE_TAG: ${{ steps.image_tag.outputs.IMAGE_TAG }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -39,7 +39,7 @@ jobs:
           context: .
           platforms: 'linux/amd64'
           push: true
-          tags: nethermindeth/juno:${{ github.event.inputs.tag }}
+          tags: nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }}
     
   deploy_to_dev:
     permissions:
@@ -56,7 +56,7 @@ jobs:
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
           GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
           GOERLI2: apps/juno-dev/overlays/dev-goerli-2/config.yaml
-          TESTNET: apps/juno-dev/overlays/dev-integration/config.yaml
+          INTEGRATION: apps/juno-dev/overlays/dev-integration/config.yaml
           MAINNET: apps/juno-dev/overlays/dev-mainnet/config.yaml
         run: |
           curl -L \
@@ -65,7 +65,7 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "testnet_config": "${{ env.TESTNET }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
 
   deploy_to_staging:
     needs: [docker_build_and_publish, deploy_to_dev]
@@ -79,7 +79,7 @@ jobs:
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
           GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
           GOERLI2: apps/juno-staging/overlays/staging-goerli-2/config.yaml
-          TESTNET: apps/juno-staging/overlays/staging-integration/config.yaml
+          INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
           MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
         run: |
           curl -L \
@@ -88,10 +88,10 @@ jobs:
             -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/NethermindEth/argo/dispatches \
-            -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "testnet_config": "${{ env.TESTNET }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+            -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
   
   deploy_to_production:
-    needs: [docker_build_and_publish, deploy_to_staging]
+    needs: [deploy_to_staging]
     runs-on: ubuntu-latest
     environment:
       name: Production
@@ -102,7 +102,7 @@ jobs:
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
           GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
           GOERLI2: apps/juno-prod/overlays/prod-goerli-2/config.yaml
-          TESTNET: apps/juno-prod/overlays/prod-integration/config.yaml
+          INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
           MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
         run: |
           curl -L \
@@ -111,6 +111,6 @@ jobs:
             -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/NethermindEth/argo/dispatches \
-            -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "testnet_config": "${{ env.TESTNET }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+            -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "goerli2_config": "${{ env.GOERLI2 }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
 
 
