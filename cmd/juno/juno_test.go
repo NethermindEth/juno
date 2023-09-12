@@ -36,7 +36,6 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
-	defaultRPCMaxConcurrency := 1024
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -63,7 +62,6 @@ func TestConfigPrecedence(t *testing.T) {
 				MetricsPort:         defaultMetricsPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"config file path is empty string": {
@@ -84,7 +82,6 @@ func TestConfigPrecedence(t *testing.T) {
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"config file doesn't exist": {
@@ -109,7 +106,6 @@ func TestConfigPrecedence(t *testing.T) {
 				PendingPollInterval: defaultPendingPollInterval,
 				Pprof:               defaultPprof,
 				PprofPort:           defaultPprofPort,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -136,7 +132,6 @@ pprof: true
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -160,7 +155,6 @@ http-port: 4576
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"all flags without config file": {
@@ -169,21 +163,20 @@ http-port: 4576
 				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
 			},
 			expectedConfig: &node.Config{
-				LogLevel:          utils.DEBUG,
-				HTTP:              defaultHTTP,
-				HTTPPort:          4576,
-				Websocket:         defaultWS,
-				WebsocketPort:     defaultWSPort,
-				GRPC:              defaultGRPC,
-				GRPCPort:          defaultGRPCPort,
-				Metrics:           defaultMetrics,
-				MetricsPort:       defaultMetricsPort,
-				DatabasePath:      "/home/.juno",
-				Network:           utils.GOERLI,
-				Pprof:             true,
-				PprofPort:         defaultPprofPort,
-				Colour:            defaultColour,
-				RPCMaxConcurrency: defaultRPCMaxConcurrency,
+				LogLevel:      utils.DEBUG,
+				HTTP:          defaultHTTP,
+				HTTPPort:      4576,
+				Websocket:     defaultWS,
+				WebsocketPort: defaultWSPort,
+				GRPC:          defaultGRPC,
+				GRPCPort:      defaultGRPCPort,
+				Metrics:       defaultMetrics,
+				MetricsPort:   defaultMetricsPort,
+				DatabasePath:  "/home/.juno",
+				Network:       utils.GOERLI,
+				Pprof:         true,
+				PprofPort:     defaultPprofPort,
+				Colour:        defaultColour,
 			},
 		},
 		"some flags without config file": {
@@ -207,7 +200,6 @@ http-port: 4576
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -248,7 +240,6 @@ pending-poll-interval: 5s
 				PprofPort:           6064,
 				Colour:              defaultColour,
 				PendingPollInterval: time.Millisecond,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -274,7 +265,6 @@ network: goerli
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -297,7 +287,6 @@ network: goerli
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
-				RPCMaxConcurrency:   defaultRPCMaxConcurrency,
 			},
 		},
 	}

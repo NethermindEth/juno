@@ -19,11 +19,10 @@ func TestDefaultDbPath(t *testing.T) {
 
 	for _, n := range networks {
 		t.Run(n.String(), func(t *testing.T) {
-			cfg := &node.Config{Network: n, DatabasePath: "", RPCMaxConcurrency: 1}
+			cfg := &node.Config{Network: n, DatabasePath: ""}
 			expectedCfg := node.Config{
-				Network:           n,
-				DatabasePath:      filepath.Join(defaultDataDir, n.String()),
-				RPCMaxConcurrency: cfg.RPCMaxConcurrency,
+				Network:      n,
+				DatabasePath: filepath.Join(defaultDataDir, n.String()),
 			}
 			snNode, err := node.New(cfg, "1.2.3")
 			require.NoError(t, err)
@@ -55,7 +54,6 @@ func TestNewNode(t *testing.T) {
 		P2P:                 true,
 		P2PAddr:             "",
 		P2PBootPeers:        "",
-		RPCMaxConcurrency:   1,
 	}
 
 	_, err := node.New(config, "v0.3")
