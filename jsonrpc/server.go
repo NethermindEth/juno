@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
@@ -116,8 +115,9 @@ type Server struct {
 	log       utils.SimpleLogger
 
 	// metrics
-	requests       *prometheus.CounterVec
-	failedRequests *prometheus.CounterVec
+	requests         *prometheus.CounterVec
+	failedRequests   *prometheus.CounterVec
+	requestLatencies *prometheus.HistogramVec
 }
 
 type Validator interface {
@@ -140,10 +140,14 @@ func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 			Subsystem: "server",
 			Name:      "failed_requests",
 		}, []string{"method"}),
+		requestLatencies: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "rpc",
+			Subsystem: "server",
+			Name:      "requests_latency",
+		}, []string{"method"}),
 	}
 
-	metrics.MustRegister(s.requests)
-	metrics.MustRegister(s.failedRequests)
+	metrics.MustRegister(s.requests, s.failedRequests, s.requestLatencies)
 	return s
 }
 
@@ -323,14 +327,10 @@ func isNil(i any) bool {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *request) (*response, error) {
-	start := time.Now()
 	reqJSON, err := json.Marshal(req)
 	if err == nil {
 		s.log.Debugw("Serving RPC request", "request", string(reqJSON))
 	}
-	defer func() {
-		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", time.Since(start))
-	}()
 
 	if err = req.isSane(); err != nil {
 		return nil, err
@@ -347,11 +347,16 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 		return res, nil
 	}
 
+	timer := prometheus.NewTimer(s.requestLatencies.WithLabelValues(req.Method))
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
 		return res, nil
 	}
+	defer func() {
+		took := timer.ObserveDuration()
+		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", took)
+	}()
 
 	s.requests.WithLabelValues(req.Method).Inc()
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
