@@ -490,6 +490,7 @@
   "timestamp": 1637091683,
   "transaction_receipts": [
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 0,
       "transaction_hash": "0x69385371f5725ae56843f44ecceba2fbf02cd7c96f0d32e5b4a79f9511cf6d4",
       "l2_to_l1_messages": [
@@ -518,6 +519,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 1,
       "transaction_hash": "0x586dd5935b33f89bd83a56a132b06abbd7264617d6f8a3bafd6e6d5ddecfd70",
       "l2_to_l1_messages": [],
@@ -537,6 +539,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 2,
       "transaction_hash": "0x7891e4941527084a144b80963074070aa0fd0632e3c0a62de94dbdfdfc99fd",
       "l2_to_l1_messages": [],
@@ -556,6 +559,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 3,
       "transaction_hash": "0x6bb3031050c160045af32d0fb36ad54909453ff0177e5822d0827538509f3a0",
       "l2_to_l1_messages": [],
@@ -575,6 +579,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 4,
       "transaction_hash": "0x50f85bfe057cd882b6a05d9bd7b1e37b1e8204cd2aed5fbe7bb9a46f2525462",
       "l2_to_l1_messages": [],
@@ -594,6 +599,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 5,
       "transaction_hash": "0x2a74daca88a03a98a408ee51b9ff4f871855610b03bf9331a1b3b502b5384f",
       "l2_to_l1_messages": [],
@@ -613,6 +619,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 6,
       "transaction_hash": "0x1866427f42c7cb6b6addc616af7c48fca2b2b47ddba47d8add70757e3684284",
       "l2_to_l1_messages": [],
@@ -632,6 +639,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 7,
       "transaction_hash": "0x33f4e8efb56694297e29df6f0a70e2032620c1dc73afa443d2d8810f9a88086",
       "l2_to_l1_messages": [],
@@ -651,6 +659,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 8,
       "transaction_hash": "0x563c537ae133895cc5dd2d4796ddbf55c762dbb06c4c67a1afc7620bc877257",
       "l2_to_l1_messages": [],
@@ -670,6 +679,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 9,
       "transaction_hash": "0x416cd1eb3a5c0651f7edeea5a7c0f29fa40c3b486a52f97a360ea868c47f760",
       "l2_to_l1_messages": [],
@@ -689,6 +699,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 10,
       "transaction_hash": "0x132326af6e67634bad11d08ff28247379ffeceba7f301b78a2b62a733d2075",
       "l2_to_l1_messages": [],
@@ -708,6 +719,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 11,
       "transaction_hash": "0x4a2b7d763c4f89fb3a5bbf5d0dfeec5eaa62f4be5b3d7c9a3749eeb095d4125",
       "l2_to_l1_messages": [],
@@ -727,6 +739,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 12,
       "transaction_hash": "0xc5803408d2996eb2b33ace6fe526ae9c5c9a2cbd0c29077d471cec31fefccf",
       "l2_to_l1_messages": [],
@@ -746,6 +759,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 13,
       "transaction_hash": "0x2d7d6248c0fb9da2bd9bbcc8e12a1aaffc92636e26b28482fe95e270b1405e2",
       "l2_to_l1_messages": [
@@ -774,6 +788,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 14,
       "transaction_hash": "0x388567e40f75583811d8c9ffd03b333b181a0ee17ebab8875547e685fca8eed",
       "l2_to_l1_messages": [
@@ -802,6 +817,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 15,
       "transaction_hash": "0x593fcc8d4515e35d768c38518a815b13663ef3a679cdfcfb8ceb5e5a2cb853c",
       "l2_to_l1_messages": [],
@@ -821,6 +837,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 16,
       "transaction_hash": "0x697f855111c4b8c6ccb628e0e9e07023ef0fdbfcd30b74350ec1de94a52ec52",
       "l2_to_l1_messages": [],
@@ -840,6 +857,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 17,
       "transaction_hash": "0x71645719e9bb685681d736b529d9c3905742a1c1b83c31017cf30101b089659",
       "l2_to_l1_messages": [],
@@ -859,6 +877,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 18,
       "transaction_hash": "0x1178a94ffb3a42998585ecc306a9cee3c8ca327359595b9eedcb3bbecb746f4",
       "l2_to_l1_messages": [],
@@ -878,6 +897,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 19,
       "transaction_hash": "0x6f6c19248456126cd82b5b322b2ddbfa0ea68b47b345ad90513687decc11de4",
       "l2_to_l1_messages": [],
@@ -897,6 +917,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 20,
       "transaction_hash": "0x64067d3fcb100026e378290041b6c4349cbe3fac5d1202387bc556054924c4c",
       "l2_to_l1_messages": [],
@@ -916,6 +937,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 21,
       "transaction_hash": "0x31f3fb51405f05c4cca53f67ae552aa367417399f4005204ba6b52d7b79d0ca",
       "l2_to_l1_messages": [
@@ -944,6 +966,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 22,
       "transaction_hash": "0xaa2b6c48e4452c070bca64d31728e832d53807ad622a0f6a8c4598b9e750bf",
       "l2_to_l1_messages": [],
@@ -963,6 +986,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 23,
       "transaction_hash": "0x26aa67c759a560155d5b4651dae8ca4fdb7bf90c6595dc40ff54d44c57a90e8",
       "l2_to_l1_messages": [],
@@ -982,6 +1006,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 24,
       "transaction_hash": "0x1b652dafbe00c032253ae810e469d0d118e54f2a580340ef1b2e08065e0911b",
       "l2_to_l1_messages": [],
@@ -1001,6 +1026,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 25,
       "transaction_hash": "0x297778648b7ad25b7cc6ed460585450bf14f42153445717d2b606280f2aaef2",
       "l2_to_l1_messages": [],
@@ -1020,6 +1046,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 26,
       "transaction_hash": "0x6c96d5dbb61affebcaae37f9b426a7545272bf29183a77dd0124155932e7a14",
       "l2_to_l1_messages": [],
@@ -1039,6 +1066,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 27,
       "transaction_hash": "0x2d1f71c1cd88832be28e302d55c7f4e98c4733d71640174620b3e55df6dd1b1",
       "l2_to_l1_messages": [
@@ -1075,6 +1103,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 28,
       "transaction_hash": "0x4a80a947ab81840cf3aef27c78c69603314b6ad670f1820d0105f5488a8820",
       "l2_to_l1_messages": [],
@@ -1094,6 +1123,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 29,
       "transaction_hash": "0x90c26cab9df6cde417f2b884d526e76a33868c3b513d139fffb3b966017769",
       "l2_to_l1_messages": [],
@@ -1113,6 +1143,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 30,
       "transaction_hash": "0x7f4249ef834c586b75855176bb156411f59f7fa572834cb9e2f231efe054224",
       "l2_to_l1_messages": [],
@@ -1132,6 +1163,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 31,
       "transaction_hash": "0x69d1a71ce1f965ecf5d0862b228e852fe95fd713a28b1487de2a8d78ae0a410",
       "l2_to_l1_messages": [],
@@ -1151,6 +1183,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 32,
       "transaction_hash": "0x146535794027a7b45d3d2831087cd0d1c461e237f64645ddb1c21c23df7972e",
       "l2_to_l1_messages": [
@@ -1179,6 +1212,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 33,
       "transaction_hash": "0x79c6fe04996648a8d0620094d35d8929b0d8f8ac1007b4ee65bdb0fd778f530",
       "l2_to_l1_messages": [],
@@ -1198,6 +1232,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 34,
       "transaction_hash": "0x3c28efbc632f0ece25dc30aa2c5035f9aa907e43a42103609b9aded29fde516",
       "l2_to_l1_messages": [
@@ -1234,6 +1269,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 35,
       "transaction_hash": "0x4db5b5ebf18b66f7c1badada7f73acad6991aa10a50b3542fcfe782075fc2c8",
       "l2_to_l1_messages": [],
@@ -1253,6 +1289,7 @@
       "actual_fee": "0x0"
     },
     {
+      "execution_status": "SUCCEEDED",
       "transaction_index": 36,
       "transaction_hash": "0x160d07b065887fec1f898405d12874b742c553d8dfc52e6dc5a8667b4d05e63",
       "l2_to_l1_messages": [],

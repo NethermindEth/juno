@@ -110,14 +110,18 @@ func newTestServer(network utils.Network) *httptest.Server {
 		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
 		dir := ""
-
+		const blockNumberArg = "blockNumber"
 		switch {
 		case strings.HasSuffix(r.URL.Path, "get_block"):
 			dir = "block"
-			queryArg = "blockNumber"
+			queryArg = blockNumberArg
 		case strings.HasSuffix(r.URL.Path, "get_state_update"):
-			dir = "state_update"
-			queryArg = "blockNumber"
+			queryArg = blockNumberArg
+			if includeBlock, ok := queryMap["includeBlock"]; !ok || len(includeBlock) == 0 {
+				dir = "state_update"
+			} else {
+				dir = "state_update_with_block"
+			}
 		case strings.HasSuffix(r.URL.Path, "get_transaction"):
 			dir = "transaction"
 			queryArg = "transactionHash"
@@ -127,6 +131,13 @@ func newTestServer(network utils.Network) *httptest.Server {
 		case strings.HasSuffix(r.URL.Path, "get_compiled_class_by_class_hash"):
 			dir = "compiled_class"
 			queryArg = "classHash"
+		case strings.HasSuffix(r.URL.Path, "get_public_key"):
+			dir = "public_key"
+			queryArg = "pk"
+			queryMap[queryArg] = []string{queryArg}
+		case strings.HasSuffix(r.URL.Path, "get_signature"):
+			dir = "signature"
+			queryArg = blockNumberArg
 		}
 
 		fileName, found := queryMap[queryArg]
@@ -138,11 +149,22 @@ func newTestServer(network utils.Network) *httptest.Server {
 		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
+			handleNotFound(dir, queryArg, w)
 			return
 		}
 		w.Write(read) //nolint:errcheck
 	}))
+}
+
+func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
+	// If a transaction data is missing, respond with
+	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
+	// instead of 404 as per real test server behaviour.
+	if dir == "transaction" && queryArg == "transactionHash" {
+		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+	}
 }
 
 func NewClient(clientURL string) *Client {
@@ -190,7 +212,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err != nil {
 				return nil, err
 			}
-			req.Header.Set("User-Agent", c.userAgent)
+			if c.userAgent != "" {
+				req.Header.Set("User-Agent", c.userAgent)
+			}
 
 			res, err = c.client.Do(req)
 			if err == nil {
@@ -304,4 +328,61 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 		return nil, err
 	}
 	return class, nil
+}
+
+func (c *Client) PublickKey(ctx context.Context) (*felt.Felt, error) {
+	queryURL := c.buildQueryString("get_public_key", nil)
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	b, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+	publicKey := new(felt.Felt).SetBytes(b)
+
+	return publicKey, nil
+}
+
+func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, error) {
+	queryURL := c.buildQueryString("get_signature", map[string]string{
+		"blockNumber": blockID,
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	signature := new(Signature)
+	if err := json.NewDecoder(body).Decode(signature); err != nil {
+		return nil, err
+	}
+
+	return signature, nil
+}
+
+func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*StateUpdateWithBlock, error) {
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
+		"blockNumber":  blockID,
+		"includeBlock": "true",
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	stateUpdate := new(StateUpdateWithBlock)
+	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
+		return nil, err
+	}
+
+	return stateUpdate, nil
 }

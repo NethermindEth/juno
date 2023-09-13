@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -81,10 +82,48 @@ func makeMetrics(host string, port uint16) *httpService {
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
-func makeGRPC(host string, port uint16, database db.DB, version string) *httpService {
-	grpcHandler := grpc.NewServer()
-	gen.RegisterKVServer(grpcHandler, junogrpc.New(database, version))
-	return makeHTTPService(host, port, grpcHandler)
+type grpcService struct {
+	srv  *grpc.Server
+	host string
+	port uint16
+}
+
+func (g *grpcService) Run(ctx context.Context) error {
+	errCh := make(chan error)
+	defer close(errCh)
+
+	portStr := strconv.FormatUint(uint64(g.port), 10)
+	addr := net.JoinHostPort(g.host, portStr)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen on addr %s: %w", addr, err)
+	}
+
+	var wg conc.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() {
+		if err := g.srv.Serve(l); err != nil {
+			errCh <- err
+		}
+	})
+
+	select {
+	case <-ctx.Done():
+		g.srv.Stop()
+		return nil
+	case err := <-errCh:
+		return err
+	}
+}
+
+func makeGRPC(host string, port uint16, database db.DB, version string) *grpcService {
+	srv := grpc.NewServer()
+	gen.RegisterKVServer(srv, junogrpc.New(database, version))
+	return &grpcService{
+		srv:  srv,
+		host: host,
+		port: port,
+	}
 }
 
 func makePPROF(host string, port uint16) *httpService {

@@ -1,5 +1,7 @@
 # Stage 1: Build golang dependencies and binaries
-FROM ubuntu:23.04 AS build
+FROM ubuntu:23.10 AS build
+
+ARG VM_DEBUG
 
 # Install Alpine Dependencies
 RUN apt-get update && \
@@ -11,13 +13,13 @@ WORKDIR /app
 COPY . .
 
 # Build the project
-RUN make juno
+RUN VM_DEBUG=${VM_DEBUG} make juno
 
 # Compress the executable with UPX
 RUN upx-ucl /app/build/juno
 
 # Stage 2: Build Docker image
-FROM ubuntu:23.04 AS runtime
+FROM ubuntu:23.10 AS runtime
 
 RUN apt-get update && apt-get install -y ca-certificates
 

@@ -37,6 +37,10 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
+> **📌 Looking for a Starknet RPC Provider?**
+>
+> If you are searching for a Starknet RPC provider, Nethermind is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+
 ## ⚙️ Installation
 
 ### Prerequisites
@@ -65,6 +69,7 @@ docker run -d \
   -p 6060:6060 \
   -v $HOME/juno:/var/lib/juno \
   nethermind/juno \
+  --http \
   --http-port 6060 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
@@ -88,19 +93,19 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.4.0**  | **36.5 GB** | **136902** | [**juno_mainnet_136902.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.5.0_136902.tar) |
+| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.4.0** | **32.3 GB** | **839969** | [**juno_goerli_839969.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli/juno_goerli_v0.5.0_839969.tar) |
+| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
 
 #### Goerli2
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.4.0** | **4.5 GB** | **135973** | [**juno_goerli2_135973.tar**](https://juno-snapshot.s3.us-east-2.amazonaws.com/goerli2/juno_goerli2_v0.5.0_135973.tar) |
+| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -109,7 +114,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   curl -o juno_mainnet_v0.5.0_136902.tar https://juno-snapshot.s3.us-east-2.amazonaws.com/mainnet/juno_mainnet_v0.5.0_136902.tar
+   curl -o juno_mainnet_166353.tar https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar
    ```
 
 2. **Prepare Directory**
@@ -125,7 +130,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_v0.5.0_136902.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet_166353.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
@@ -138,6 +143,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
      -p 6060:6060 \
      -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
      nethermind/juno \
+     --http \
      --http-port 6060 \
      --db-path /var/lib/juno \
      --eth-node <YOUR-ETH-NODE>
@@ -147,7 +153,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.12.1](https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#starknet_alpha_v0_12_1) support.
+- Starknet [v0.12.2](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
 - JSON-RPC [v0.4.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.4.0):
   - `starknet_chainId`
   - `starknet_blockNumber`
@@ -173,6 +179,10 @@ After following these steps, Juno should be up and running on your machine, util
   - `starknet_addDeployAccountTransaction`
   - `starkent_estimateMessageFee`
   - `starknet_pendingTransactions`
+  - `starknet_traceTransaction`
+  - `starknet_traceBlockTransactions`
+  - `starknet_simulateTransactions`
+  
 - Juno's JSON-RPC:
   - `juno_version`
   - `juno_getTransactionStatus`

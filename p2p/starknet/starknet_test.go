@@ -66,12 +66,6 @@ func TestClientHandler(t *testing.T) {
 		require.Equal(t, res.Id.Height, uint64(44))
 	})
 
-	t.Run("get event", func(t *testing.T) {
-		res, cErr := client.GetEvents(testCtx, &spec.GetEvents{})
-		require.NoError(t, cErr)
-		require.Len(t, res.GetEvents(), 44)
-	})
-
 	t.Run("get receipts", func(t *testing.T) {
 		res, cErr := client.GetReceipts(testCtx, &spec.GetReceipts{})
 		require.NoError(t, cErr)

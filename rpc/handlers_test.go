@@ -495,7 +495,6 @@ func TestTransactionByHash(t *testing.T) {
 				"max_fee": "0x0",
 				"version": "0x0",
 				"signature": [],
-				"nonce": "0x0",
 				"class_hash": "0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0",
 				"sender_address": "0x1"
 			}`,
@@ -562,7 +561,6 @@ func TestTransactionByHash(t *testing.T) {
        "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
        "version": "0x0",
        "class_hash": "0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486",
-       "contract_address": "0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3",
        "contract_address_salt": "0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b",
        "constructor_calldata": [
            "0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4",
@@ -587,7 +585,6 @@ func TestTransactionByHash(t *testing.T) {
        ],
        "nonce": "0x0",
        "class_hash": "0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
-       "contract_address": "0x611de19d2df80327af36e9530553c38d2a74fbe74711448689391016324090d",
        "contract_address_salt": "0x14e2ae44cbb50dff0e18140e7c415c1f281207d06fd6a0106caf3ff21e130d8",
        "constructor_calldata": [
            "0x6113c1775f3d0fda0b45efbb69f6e2306da3c174df523ef0acdd372bf0a61cb"
@@ -1163,7 +1160,7 @@ func TestSyncing(t *testing.T) {
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
-	synchronizer.HighestBlockHeader = &core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}
+	synchronizer.HighestBlockHeader.Store(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)})
 	t.Run("block height is equal to highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 2}, nil)
@@ -1814,6 +1811,7 @@ func TestPendingTransactions(t *testing.T) {
 				Transactions: []core.Transaction{
 					&core.InvokeTransaction{
 						TransactionHash: utils.HexToFelt(t, "0xdeadbeef"),
+						Version:         utils.HexToFelt(t, "0x0"),
 					},
 				},
 			},
@@ -1843,16 +1841,19 @@ func TestTransactionStatus(t *testing.T) {
 		network           utils.Network
 		verifiedTxHash    *felt.Felt
 		nonVerifiedTxHash *felt.Felt
+		notFoundTxHash    *felt.Felt
 	}{
 		{
 			network:           utils.MAINNET,
 			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
+			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
 			network:           utils.INTEGRATION,
 			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
 		},
 	}
 
@@ -1935,6 +1936,17 @@ func TestTransactionStatus(t *testing.T) {
 						require.Equal(t, rpc.TxnSuccess, status.Execution)
 					})
 				}
+			})
+
+			// transaction no† found in db and feeder
+			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
+				mockReader := mocks.NewMockReader(mockCtrl)
+				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
+				handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+
+				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
+				require.NotNil(t, err)
+				require.Equal(t, err, rpc.ErrTxnHashNotFound)
 			})
 		})
 	}
@@ -2253,5 +2265,33 @@ func TestTraceBlockTransactions(t *testing.T) {
 		result, err := handler.TraceBlockTransactions(*blockHash)
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
+	})
+}
+
+func TestRpcBlockAdaptation(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, utils.GOERLI, nil, nil, nil, "", nil)
+
+	client := feeder.NewTestClient(t, utils.GOERLI)
+	gw := adaptfeeder.New(client)
+	latestBlockNumber := uint64(485004)
+
+	t.Run("default sequencer address", func(t *testing.T) {
+		latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+		require.NoError(t, err)
+		latestBlock.Header.SequencerAddress = nil
+		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+
+		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Latest: true})
+		require.NoError(t, err, rpcErr)
+		require.Equal(t, &felt.Zero, block.BlockHeader.SequencerAddress)
+
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
+		require.NoError(t, err, rpcErr)
+		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
 }

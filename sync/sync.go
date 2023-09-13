@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -31,7 +32,7 @@ type Synchronizer struct {
 	Blockchain          *blockchain.Blockchain
 	StarknetData        starknetdata.StarknetData
 	StartingBlockNumber *uint64
-	HighestBlockHeader  *core.Header
+	HighestBlockHeader  atomic.Pointer[core.Header]
 
 	log utils.SimpleLogger
 
@@ -40,8 +41,12 @@ type Synchronizer struct {
 	catchUpMode bool
 
 	// metrics
-	opTimers    *prometheus.HistogramVec
-	totalBlocks prometheus.Counter
+	opTimerHistogram *prometheus.HistogramVec
+	blockCount       prometheus.Counter
+	chainHeightGauge prometheus.Gauge
+	bestBlockGauge   prometheus.Gauge
+	reorgCount       prometheus.Counter
+	transactionCount prometheus.Counter
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -53,16 +58,39 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		log:                 log,
 		pendingPollInterval: pendingPollInterval,
 
-		opTimers: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		opTimerHistogram: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: "sync",
 			Name:      "timers",
 		}, []string{"op"}),
-		totalBlocks: prometheus.NewCounter(prometheus.CounterOpts{
+		blockCount: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: "sync",
 			Name:      "blocks",
 		}),
+		chainHeightGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "sync",
+			Name:      "blockchain_height",
+		}),
+		bestBlockGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "sync",
+			Name:      "best_known_block_number",
+		}),
+		reorgCount: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "sync",
+			Name:      "reorganisations",
+		}),
+		transactionCount: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "sync",
+			Name:      "transactions",
+		}),
 	}
-	metrics.MustRegister(s.opTimers, s.totalBlocks)
+	metrics.MustRegister(
+		s.opTimerHistogram,
+		s.blockCount,
+		s.chainHeightGauge,
+		s.bestBlockGauge,
+		s.reorgCount,
+		s.transactionCount,
+	)
 	return s
 }
 
@@ -80,11 +108,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		case <-ctx.Done():
 			return func() {}
 		default:
-			block, err := s.StarknetData.BlockByNumber(ctx, height)
-			if err != nil {
-				continue
-			}
-			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
+			stateUpdate, block, err := s.StarknetData.StateUpdateWithBlock(ctx, height)
 			if err != nil {
 				continue
 			}
@@ -158,7 +182,7 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
-	timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opVerifyLabel))
+	timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opVerifyLabel))
 	commitments, err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	timer.ObserveDuration()
 	return func() {
@@ -171,7 +195,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opStoreLabel))
+			timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opStoreLabel))
 			err = s.Blockchain.Store(block, commitments, stateUpdate, newClasses)
 			timer.ObserveDuration()
 
@@ -188,16 +212,14 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			s.totalBlocks.Inc()
-
-			if s.HighestBlockHeader == nil || s.HighestBlockHeader.Number <= block.Number {
+			highestBlockHeader := s.HighestBlockHeader.Load()
+			if highestBlockHeader == nil || highestBlockHeader.Number <= block.Number {
 				highestBlock, err := s.StarknetData.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
-					s.HighestBlockHeader = highestBlock.Header
-
-					isBehind := s.HighestBlockHeader.Number > block.Number+uint64(maxWorkers())
+					s.HighestBlockHeader.Store(highestBlock.Header)
+					isBehind := highestBlock.Number > block.Number+uint64(maxWorkers())
 					if s.catchUpMode != isBehind {
 						resetStreams()
 					}
@@ -207,6 +229,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			s.updateStats(block)
 		}
 	}
 }
@@ -222,7 +245,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
 		s.StartingBlockNumber = nil
-		s.HighestBlockHeader = nil
+		s.HighestBlockHeader.Store(nil)
 	}()
 
 	fetchers, verifiers := s.setupWorkers()
@@ -255,7 +278,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
-				timer := prometheus.NewTimer(s.opTimers.WithLabelValues(opFetchLabel))
+				timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opFetchLabel))
 				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
 				timer.ObserveDuration()
 				return cb
@@ -296,6 +319,7 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
+	s.reorgCount.Inc()
 }
 
 func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
@@ -326,7 +350,8 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	if s.HighestBlockHeader == nil {
+	highestBlockHeader := s.HighestBlockHeader.Load()
+	if highestBlockHeader == nil {
 		return nil
 	}
 
@@ -336,16 +361,11 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}
 
 	// not at the tip of the chain yet, no need to poll pending
-	if s.HighestBlockHeader.Number > head.Number {
+	if highestBlockHeader.Number > head.Number {
 		return nil
 	}
 
-	pendingBlock, err := s.StarknetData.BlockPending(ctx)
-	if err != nil {
-		return err
-	}
-
-	pendingStateUpdate, err := s.StarknetData.StateUpdatePending(ctx)
+	pendingStateUpdate, pendingBlock, err := s.StarknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
 		return err
 	}
@@ -361,4 +381,21 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
 	})
+}
+
+func (s *Synchronizer) updateStats(block *core.Block) {
+	var (
+		transactions              = block.TransactionCount
+		currentHeight             = block.Number
+		highestKnownHeight uint64 = 0
+	)
+	highestBlockHeader := s.HighestBlockHeader.Load()
+	if highestBlockHeader != nil {
+		highestKnownHeight = highestBlockHeader.Number
+	}
+
+	s.blockCount.Inc()
+	s.chainHeightGauge.Set(float64(currentHeight))
+	s.bestBlockGauge.Set(float64(highestKnownHeight))
+	s.transactionCount.Add(float64(transactions))
 }

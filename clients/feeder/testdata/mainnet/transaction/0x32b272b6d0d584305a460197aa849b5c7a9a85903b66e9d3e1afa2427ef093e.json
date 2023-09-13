@@ -1,1 +1,29 @@
-{"status": "ACCEPTED_ON_L1", "block_hash": "0x6ab1ac972ab2f2eab08941ad19c33fa45dce9bb53408d915feca7120e68dd6b", "block_number": 11437, "transaction_index": 91, "transaction": {"transaction_hash": "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e", "version": "0x1", "max_fee": "0x59f5f9f474b0", "signature": ["0x467ae89bbbbaa0139e8f8a02ddc614bd80252998f3c033239f59f9f2ab973c5", "0x92938929b5afcd596d651a6d28ed38baf90b000192897617d98de19d475331"], "nonce": "0x0", "contract_address": "0x104714313388bd0ab569ac247fed6cf0b7a2c737105c00d64c23e24bd8dea40", "contract_address_salt": "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", "class_hash": "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918", "constructor_calldata": ["0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2", "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463", "0x2", "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", "0x0"], "type": "DEPLOY_ACCOUNT"}}
+{
+    "execution_status": "SUCCEEDED",
+    "finality_status": "ACCEPTED_ON_L1",
+    "status": "ACCEPTED_ON_L1",
+    "block_hash": "0x6ab1ac972ab2f2eab08941ad19c33fa45dce9bb53408d915feca7120e68dd6b",
+    "block_number": 11437,
+    "transaction_index": 91,
+    "transaction": {
+      "transaction_hash": "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e",
+      "version": "0x1",
+      "max_fee": "0x59f5f9f474b0",
+      "signature": [
+        "0x467ae89bbbbaa0139e8f8a02ddc614bd80252998f3c033239f59f9f2ab973c5",
+        "0x92938929b5afcd596d651a6d28ed38baf90b000192897617d98de19d475331"
+      ],
+      "nonce": "0x0",
+      "contract_address": "0x104714313388bd0ab569ac247fed6cf0b7a2c737105c00d64c23e24bd8dea40",
+      "contract_address_salt": "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3",
+      "class_hash": "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+      "constructor_calldata": [
+        "0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+        "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+        "0x2",
+        "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3",
+        "0x0"
+      ],
+      "type": "DEPLOY_ACCOUNT"
+    }
+}
