@@ -1244,13 +1244,17 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	return result, nil
 }
 
-func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	block, err := h.bcReader.BlockByHash(&blockHash)
-	if err != nil {
-		return nil, ErrInvalidBlockHash
+func (h *Handler) TraceBlockTransactions(id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	block, err := h.blockByID(&id)
+	if block == nil || err != nil {
+		return nil, ErrBlockNotFound
 	}
 
 	return h.traceBlockTransactions(block, len(block.Transactions))
+}
+
+func (h *Handler) LegacyTraceBlockTransactions(hash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	return h.TraceBlockTransactions(BlockID{Hash: &hash})
 }
 
 func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]TracedBlockTransaction, *jsonrpc.Error) {
@@ -1473,7 +1477,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.TraceBlockTransactions,
 		},
 		{
@@ -1622,7 +1626,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_traceBlockTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_hash"}},
-			Handler: h.TraceBlockTransactions,
+			Handler: h.LegacyTraceBlockTransactions,
 		},
 	}, "/v0_4"
 }
