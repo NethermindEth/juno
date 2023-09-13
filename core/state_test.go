@@ -192,7 +192,7 @@ func TestContractClassHash(t *testing.T) {
 			BlockHash: utils.HexToFelt(t, "0xDEADBEEF"),
 			NewRoot:   utils.HexToFelt(t, "0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   su1.StateDiff.DeployedContracts[0].Address,
 						ClassHash: utils.HexToFelt(t, "0x1337"),
@@ -226,7 +226,7 @@ func TestNonce(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   addr,
 					ClassHash: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
@@ -431,7 +431,7 @@ func TestRevert(t *testing.T) {
 			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   addr,
 						ClassHash: utils.HexToFelt(t, "0xDEADBEEF"),

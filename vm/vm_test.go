@@ -38,7 +38,7 @@ func TestV0Call(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   contractAddr,
 					ClassHash: classHash,
@@ -96,7 +96,7 @@ func TestV1Call(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   contractAddr,
 					ClassHash: classHash,

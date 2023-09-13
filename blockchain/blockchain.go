@@ -905,10 +905,10 @@ func storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
 			StateDiff: &core.StateDiff{
 				StorageDiffs:      make(map[felt.Felt][]core.StorageDiff, 0),
 				Nonces:            make(map[felt.Felt]*felt.Felt, 0),
-				DeployedContracts: make([]core.DeployedContract, 0),
+				DeployedContracts: make([]core.AddressClassHashPair, 0),
 				DeclaredV0Classes: make([]*felt.Felt, 0),
 				DeclaredV1Classes: make([]core.DeclaredV1Class, 0),
-				ReplacedClasses:   make([]core.ReplacedClass, 0),
+				ReplacedClasses:   make([]core.AddressClassHashPair, 0),
 			},
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
