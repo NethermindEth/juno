@@ -2150,7 +2150,7 @@ func TestSimulateTransactions(t *testing.T) {
 		require.Nil(t, err)
 	})
 
-	t.Run("reverted txs", func(t *testing.T) {
+	t.Run("reverted tx", func(t *testing.T) {
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
