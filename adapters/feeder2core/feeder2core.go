@@ -290,17 +290,17 @@ func AdaptStateUpdate(response *feeder.StateUpdate) (*core.StateUpdate, error) {
 		}
 	}
 
-	stateDiff.ReplacedClasses = make([]core.ReplacedClass, len(response.StateDiff.ReplacedClasses))
+	stateDiff.ReplacedClasses = make([]core.AddressClassHashPair, len(response.StateDiff.ReplacedClasses))
 	for index, replacedClass := range response.StateDiff.ReplacedClasses {
-		stateDiff.ReplacedClasses[index] = core.ReplacedClass{
+		stateDiff.ReplacedClasses[index] = core.AddressClassHashPair{
 			Address:   replacedClass.Address,
 			ClassHash: replacedClass.ClassHash,
 		}
 	}
 
-	stateDiff.DeployedContracts = make([]core.DeployedContract, len(response.StateDiff.DeployedContracts))
+	stateDiff.DeployedContracts = make([]core.AddressClassHashPair, len(response.StateDiff.DeployedContracts))
 	for index, deployedContract := range response.StateDiff.DeployedContracts {
-		stateDiff.DeployedContracts[index] = core.DeployedContract{
+		stateDiff.DeployedContracts[index] = core.AddressClassHashPair{
 			Address:   deployedContract.Address,
 			ClassHash: deployedContract.ClassHash,
 		}

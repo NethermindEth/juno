@@ -34,13 +34,13 @@ func TestPendingState(t *testing.T) {
 			NewRoot:   nil,
 			OldRoot:   nil,
 			StateDiff: &core.StateDiff{
-				DeployedContracts: []core.DeployedContract{
+				DeployedContracts: []core.AddressClassHashPair{
 					{
 						Address:   deployedAddr,
 						ClassHash: deployedClassHash,
 					},
 				},
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   replacedAddr,
 						ClassHash: replacedClassHash,

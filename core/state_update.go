@@ -1,6 +1,8 @@
 package core
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"github.com/NethermindEth/juno/core/felt"
+)
 
 type StateUpdate struct {
 	BlockHash *felt.Felt
@@ -12,10 +14,10 @@ type StateUpdate struct {
 type StateDiff struct {
 	StorageDiffs      map[felt.Felt][]StorageDiff
 	Nonces            map[felt.Felt]*felt.Felt
-	DeployedContracts []DeployedContract
+	DeployedContracts []AddressClassHashPair
 	DeclaredV0Classes []*felt.Felt
 	DeclaredV1Classes []DeclaredV1Class
-	ReplacedClasses   []ReplacedClass
+	ReplacedClasses   []AddressClassHashPair
 }
 
 type StorageDiff struct {
@@ -23,7 +25,7 @@ type StorageDiff struct {
 	Value *felt.Felt
 }
 
-type DeployedContract struct {
+type AddressClassHashPair struct {
 	Address   *felt.Felt
 	ClassHash *felt.Felt
 }
@@ -31,9 +33,4 @@ type DeployedContract struct {
 type DeclaredV1Class struct {
 	ClassHash         *felt.Felt
 	CompiledClassHash *felt.Felt
-}
-
-type ReplacedClass struct {
-	Address   *felt.Felt
-	ClassHash *felt.Felt
 }

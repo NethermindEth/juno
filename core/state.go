@@ -708,9 +708,9 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 	}
 
 	// replaced
-	reversed.ReplacedClasses = make([]ReplacedClass, 0, len(diff.ReplacedClasses))
+	reversed.ReplacedClasses = make([]AddressClassHashPair, 0, len(diff.ReplacedClasses))
 	for _, replacedClass := range diff.ReplacedClasses {
-		reverse := ReplacedClass{
+		reverse := AddressClassHashPair{
 			Address:   replacedClass.Address,
 			ClassHash: &felt.Zero,
 		}
