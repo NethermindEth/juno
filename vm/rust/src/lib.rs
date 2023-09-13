@@ -3,6 +3,7 @@ pub mod jsonrpc;
 mod juno_state_reader;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use starknet_api::transaction::TransactionHash;
 use std::{
     collections::HashMap,
     ffi::{c_char, c_uchar, c_ulonglong, c_void, CStr, CString},
@@ -17,7 +18,7 @@ use blockifier::{
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
     },
     fee::fee_utils::calculate_tx_fee,
-    state::cached_state::CachedState,
+    state::cached_state::{CachedState, GlobalContractCache},
     transaction::{
         objects::AccountTransactionContext, transaction_execution::Transaction,
         transactions::ExecutableTransaction,
@@ -91,7 +92,7 @@ pub extern "C" fn cairoVMCall(
     };
 
     const GAS_PRICE: u128 = 1;
-    let mut state = CachedState::new(reader);
+    let mut state = CachedState::new(reader, GlobalContractCache::default());
     let mut resources = ExecutionResources::default();
     let mut context = EntryPointExecutionContext::new(
         build_block_context(
@@ -133,6 +134,8 @@ pub extern "C" fn cairoVMExecute(
     legacy_json: c_uchar,
 ) {
     let reader = JunoStateReader::new(reader_handle);
+    // let cached_reader = LruCachedReader::new(reader);
+
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let sn_api_txns: Result<Vec<StarknetApiTransaction>, serde_json::Error> =
@@ -175,7 +178,7 @@ pub extern "C" fn cairoVMExecute(
         sequencer_address_felt,
         felt_to_u128(gas_price_felt),
     );
-    let mut state = CachedState::new(reader);
+    let mut state = CachedState::new(reader, GlobalContractCache::default());
     let charge_fee = skip_charge_fee == 0;
 
     let mut trace_buffer = Vec::with_capacity(10_000);
@@ -222,12 +225,13 @@ pub extern "C" fn cairoVMExecute(
         }
 
         let mut txn_state = CachedState::create_transactional(&mut state);
+        const VALIDATE: bool = false;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee)
+                t.execute(&mut txn_state, &block_context, charge_fee, VALIDATE)
             }
             Transaction::L1HandlerTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee)
+                t.execute(&mut txn_state, &block_context, charge_fee, VALIDATE)
             }
         };
 
@@ -237,7 +241,7 @@ pub extern "C" fn cairoVMExecute(
                     reader_handle,
                     format!(
                         "failed txn {:?} reason:{:?}",
-                        sn_api_txn.transaction_hash(),
+                        "todo sn_api_txn.transaction_hash",
                         e
                     )
                     .as_str(),
@@ -295,19 +299,19 @@ fn transaction_from_api(
         StarknetApiTransaction::Deploy(deploy) => {
             return Err(format!(
                 "Unsupported deploy transaction in the traced block (transaction_hash={})",
-                deploy.transaction_hash
+                "not found deploy.transaction_hash"
             ))
         }
         StarknetApiTransaction::Declare(declare) if contract_class.is_none() => {
             return Err(format!(
                 "Declare transaction must be created with a ContractClass (transaction_hash={})",
-                declare.transaction_hash()
+                "not found declare.transaction_hash()"
             ))
         }
         _ => {} // all ok
     };
 
-    Transaction::from_api(tx, contract_class, paid_fee_on_l1)
+    Transaction::from_api(tx, TransactionHash::default(), contract_class, paid_fee_on_l1, None)
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 

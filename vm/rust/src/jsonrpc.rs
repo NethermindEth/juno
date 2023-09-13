@@ -254,7 +254,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
 
 #[derive(Serialize)]
 pub struct FunctionCall {
-    pub contract_address: ContractAddress,
+    pub contract_address: starknet_api::core::ContractAddress,
     pub entry_point_selector: EntryPointSelector,
     pub calldata: Calldata,
 }

@@ -7,7 +7,8 @@ use blockifier::{
     execution::contract_class::{ContractClassV0, ContractClassV1},
     state::state_api::{StateReader, StateResult},
 };
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, CompiledClassHash, Nonce};
+use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 

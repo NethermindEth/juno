@@ -8,8 +8,9 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-blockifier = {git = "https://github.com/starkware-libs/blockifier", rev = "e7cc94f"}
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "8f620bc" }
+cached = "0.44.0"
+blockifier = {git = "https://github.com/starkware-libs/blockifier", rev = "72c7b4f4"}
+starknet_api = "0.3.0"
 cairo-vm = "0.8.2"
 cairo-lang-casm = "2.1.0"
 cairo-lang-starknet = "2.1.0"
