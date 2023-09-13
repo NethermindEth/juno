@@ -118,10 +118,10 @@ func SchemaVersion(targetDB db.DB) (uint64, error) {
 		return nil
 	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return 0, db.CloseAndWrapOnError(txn.Discard, err)
+		return 0, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return version, db.CloseAndWrapOnError(txn.Discard, nil)
+	return version, utils.RunAndWrapOnError(txn.Discard, nil)
 }
 
 // migration0000 makes sure the targetDB is empty
@@ -133,7 +133,7 @@ func migration0000(txn db.Transaction, _ utils.Network) error {
 
 	// not empty if valid
 	if it.Next() {
-		return db.CloseAndWrapOnError(it.Close, errors.New("initial DB should be empty"))
+		return utils.RunAndWrapOnError(it.Close, errors.New("initial DB should be empty"))
 	}
 	return it.Close()
 }
@@ -167,7 +167,7 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error 
 		oldKey := it.Key()
 		value, err = it.Value()
 		if err != nil {
-			return db.CloseAndWrapOnError(it.Close, err)
+			return utils.RunAndWrapOnError(it.Close, err)
 		}
 		oldEntries[string(oldKey)] = value
 	}
@@ -373,7 +373,7 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) er
 
 	for bucket, info := range m.trieNodeBuckets {
 		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
-			return db.CloseAndWrapOnError(iterator.Close, err)
+			return utils.RunAndWrapOnError(iterator.Close, err)
 		}
 	}
 	return iterator.Close()

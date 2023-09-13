@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,25 +22,25 @@ func closeAndNoError() error {
 func TestCloseAndJoinOnError(t *testing.T) {
 	t.Run("closeFn returns no error", func(t *testing.T) {
 		t.Run("original error is nil", func(t *testing.T) {
-			assert.NoError(t, db.CloseAndWrapOnError(closeAndNoError, nil))
+			assert.NoError(t, utils.RunAndWrapOnError(closeAndNoError, nil))
 		})
 
 		t.Run("original error is non-nil", func(t *testing.T) {
 			want := errors.New("some error")
-			got := db.CloseAndWrapOnError(closeAndNoError, want)
+			got := utils.RunAndWrapOnError(closeAndNoError, want)
 			assert.EqualError(t, got, want.Error())
 		})
 	})
 	t.Run("closeFn returns error", func(t *testing.T) {
 		t.Run("original error is nil", func(t *testing.T) {
-			got := db.CloseAndWrapOnError(closeAndError, nil)
+			got := utils.RunAndWrapOnError(closeAndError, nil)
 			assert.EqualError(t, got, errClose.Error())
 		})
 
 		t.Run("original error is non-nil", func(t *testing.T) {
 			want := errors.New("some error")
-			wrapped := db.CloseAndWrapOnError(closeAndError, want)
-			assert.EqualError(t, wrapped, fmt.Sprintf(`failed to close because "%v" with existing err %q`, errClose.Error(), want.Error()))
+			wrapped := utils.RunAndWrapOnError(closeAndError, want)
+			assert.EqualError(t, wrapped, fmt.Sprintf(`failed to run because "%v" with existing err %q`, errClose.Error(), want.Error()))
 			assert.EqualError(t, errors.Unwrap(wrapped), want.Error())
 		})
 	})

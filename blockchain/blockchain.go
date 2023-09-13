@@ -505,12 +505,12 @@ func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 
 		val, vErr := iterator.Value()
 		if vErr != nil {
-			return nil, db.CloseAndWrapOnError(iterator.Close, vErr)
+			return nil, utils.RunAndWrapOnError(iterator.Close, vErr)
 		}
 
 		var tx core.Transaction
 		if err = encoder.Unmarshal(val, &tx); err != nil {
-			return nil, db.CloseAndWrapOnError(iterator.Close, err)
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
 		}
 
 		txs = append(txs, tx)
@@ -540,12 +540,12 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 
 		val, vErr := iterator.Value()
 		if vErr != nil {
-			return nil, db.CloseAndWrapOnError(iterator.Close, vErr)
+			return nil, utils.RunAndWrapOnError(iterator.Close, vErr)
 		}
 
 		receipt := new(core.TransactionReceipt)
 		if err = encoder.Unmarshal(val, receipt); err != nil {
-			return nil, db.CloseAndWrapOnError(iterator.Close, err)
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
 		}
 
 		receipts = append(receipts, receipt)
@@ -737,7 +737,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	txn := b.database.NewTransaction(false)
 	_, err := chainHeight(txn)
 	if err != nil {
-		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
 	return core.NewState(txn), txn.Discard, nil
@@ -748,7 +748,7 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 	txn := b.database.NewTransaction(false)
 	_, err := blockHeaderByNumber(txn, blockNumber)
 	if err != nil {
-		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
 	return core.NewStateSnapshot(core.NewState(txn), blockNumber), txn.Discard, nil
@@ -765,7 +765,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 	txn := b.database.NewTransaction(false)
 	header, err := blockHeaderByHash(txn, blockHash)
 	if err != nil {
-		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
 	return core.NewStateSnapshot(core.NewState(txn), header.Number), txn.Discard, nil
@@ -934,7 +934,7 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 	txn := b.database.NewTransaction(false)
 	pending, err := pendingBlock(txn)
 	if err != nil {
-		return nil, nil, db.CloseAndWrapOnError(txn.Discard, err)
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
 	return NewPendingState(

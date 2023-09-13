@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -49,9 +50,9 @@ func (t *Transaction) Discard() error {
 // Commit : see db.Transaction.Commit
 func (t *Transaction) Commit() error {
 	if t.batch != nil {
-		return db.CloseAndWrapOnError(t.Discard, t.batch.Commit(pebble.Sync))
+		return utils.RunAndWrapOnError(t.Discard, t.batch.Commit(pebble.Sync))
 	}
-	return db.CloseAndWrapOnError(t.Discard, ErrDiscardedTransaction)
+	return utils.RunAndWrapOnError(t.Discard, ErrDiscardedTransaction)
 }
 
 // Set : see db.Transaction.Set
@@ -105,7 +106,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 
 		return err
 	}
-	return db.CloseAndWrapOnError(closer.Close, cb(val))
+	return utils.RunAndWrapOnError(closer.Close, cb(val))
 }
 
 // Impl : see db.Transaction.Impl
