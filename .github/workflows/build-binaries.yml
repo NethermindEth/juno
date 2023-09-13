@@ -19,6 +19,7 @@ jobs:
           - os: self-hosted
             architecture: arm64
     runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

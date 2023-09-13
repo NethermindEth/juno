@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 )
 
 //export JunoFree
@@ -76,7 +77,9 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	classHashFelt := makeFeltFromPtr(classHash)
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
-		context.log.Errorw("JunoStateGetCompiledClass failed to read class", "err", err)
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			context.log.Errorw("JunoStateGetCompiledClass failed to read class", "err", err)
+		}
 		return nil
 	}
 
@@ -86,5 +89,5 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return nil
 	}
 
-	return unsafe.Pointer(C.CString(string(compiledClass)))
+	return unsafe.Pointer(cstring(compiledClass))
 }

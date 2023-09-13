@@ -6,7 +6,8 @@ package vm
 //
 // extern void Cairo0ClassHash(char* class_json_str, char* hash);
 //
-// #cgo LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
+// #cgo vm_debug LDFLAGS:  -L./rust/target/debug -ljuno_starknet_rs -lm -ldl
+// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
 import "C"
 
 import (
@@ -139,7 +140,7 @@ func Cairo0ClassHash(class *core.Cairo0Class) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
-	classJSONCStr := C.CString(string(classJSON))
+	classJSONCStr := cstring(classJSON)
 
 	var hash felt.Felt
 	hashBytes := hash.Bytes()

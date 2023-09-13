@@ -1193,7 +1193,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	blockNumber := header.Number
-	if false && id.Pending {
+	if id.Pending {
 		height, hErr := h.bcReader.Height()
 		if hErr != nil {
 			return nil, ErrBlockNotFound

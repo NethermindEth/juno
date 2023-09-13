@@ -23,22 +23,22 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 		return nil, err
 	}
 
+	t.Version = clearQueryBit(t.Version)
 	switch txn.(type) {
 	case *core.InvokeTransaction:
-		versionFelt := clearQueryBit(t.Version)
 		// workaround until starknet_api::transaction::InvokeTranscationV0 is fixed
-		if versionFelt.IsZero() {
+		if t.Version.IsZero() {
 			t.Nonce = &felt.Zero
 			t.SenderAddress = t.ContractAddress
 		}
 		txnMap["Invoke"] = map[string]any{
-			"V" + clearQueryBit(t.Version).Text(felt.Base10): t,
+			"V" + t.Version.Text(felt.Base10): t,
 		}
 	case *core.DeployAccountTransaction:
 		txnMap["DeployAccount"] = t
 	case *core.DeclareTransaction:
 		txnMap["Declare"] = map[string]any{
-			"V" + clearQueryBit(t.Version).Text(felt.Base10): t,
+			"V" + t.Version.Text(felt.Base10): t,
 		}
 	case *core.L1HandlerTransaction:
 		txnMap["L1Handler"] = t

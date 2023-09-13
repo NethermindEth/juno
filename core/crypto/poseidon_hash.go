@@ -113,6 +113,38 @@ func setRoundKeys() {
 	}
 }
 
+var _ Digest = (*PedersenDigest)(nil)
+
+type PoseidonDigest struct {
+	state    [3]felt.Felt
+	lastElem *felt.Felt
+}
+
+func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
+	for idx := range elems {
+		if d.lastElem == nil {
+			d.lastElem = new(felt.Felt).Set(elems[idx])
+		} else {
+			d.state[0].Add(&d.state[0], d.lastElem)
+			d.state[1].Add(&d.state[1], elems[idx])
+			hadesPermutation(d.state[:])
+			d.lastElem = nil
+		}
+	}
+	return d
+}
+
+func (d *PoseidonDigest) Finish() *felt.Felt {
+	if d.lastElem == nil {
+		d.state[0].Add(&d.state[0], one)
+	} else {
+		d.state[0].Add(&d.state[0], d.lastElem)
+		d.state[1].Add(&d.state[1], one)
+	}
+	hadesPermutation(d.state[:])
+	return &d.state[0]
+}
+
 // https://github.com/starkware-industries/poseidon/blob/main/poseidon3.txt
 var roundKeysSpec = [][]string{
 	{
