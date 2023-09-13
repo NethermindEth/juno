@@ -140,7 +140,7 @@ func Cairo0ClassHash(class *core.Cairo0Class) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
-	classJSONCStr := C.CString(string(classJSON))
+	classJSONCStr := cstring(classJSON)
 
 	var hash felt.Felt
 	hashBytes := hash.Bytes()

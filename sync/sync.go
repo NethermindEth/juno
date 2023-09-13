@@ -108,11 +108,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		case <-ctx.Done():
 			return func() {}
 		default:
-			block, err := s.StarknetData.BlockByNumber(ctx, height)
-			if err != nil {
-				continue
-			}
-			stateUpdate, err := s.StarknetData.StateUpdate(ctx, height)
+			stateUpdate, block, err := s.StarknetData.StateUpdateWithBlock(ctx, height)
 			if err != nil {
 				continue
 			}
@@ -369,12 +365,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return nil
 	}
 
-	pendingBlock, err := s.StarknetData.BlockPending(ctx)
-	if err != nil {
-		return err
-	}
-
-	pendingStateUpdate, err := s.StarknetData.StateUpdatePending(ctx)
+	pendingStateUpdate, pendingBlock, err := s.StarknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
 		return err
 	}

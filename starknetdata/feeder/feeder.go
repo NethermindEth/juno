@@ -113,3 +113,39 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.Sta
 func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
 	return f.stateUpdate(ctx, "pending")
 }
+
+func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
+	response, err := f.client.StateUpdateWithBlock(ctx, blockID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if blockID == "pending" && response.Block.Status != "PENDING" {
+		return nil, nil, errors.New("no pending block")
+	}
+
+	var adaptedState *core.StateUpdate
+	var adaptedBlock *core.Block
+
+	if adaptedState, err = feeder2core.AdaptStateUpdate(response.StateUpdate); err != nil {
+		return nil, nil, err
+	}
+
+	if adaptedBlock, err = feeder2core.AdaptBlock(response.Block); err != nil {
+		return nil, nil, err
+	}
+
+	return adaptedState, adaptedBlock, nil
+}
+
+// StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
+// then adapts them to the core.StateUpdate and core.Block types respectively
+func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
+	return f.stateUpdateWithBlock(ctx, "pending")
+}
+
+// StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
+// then adapts them to the core.StateUpdate and core.Block types respectively
+func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
+	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
+}

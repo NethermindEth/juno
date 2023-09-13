@@ -172,9 +172,9 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, err
 	}
 
-	paidFeesOnL1CStr := C.CString(string(paidFeesOnL1Bytes))
-	txnsJSONCstr := C.CString(string(txnsJSON))
-	classesJSONCStr := C.CString(string(classesJSON))
+	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
+	txnsJSONCstr := cstring(txnsJSON)
+	classesJSONCStr := cstring(classesJSON)
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
 	gasPriceBytes := gasPrice.Bytes()

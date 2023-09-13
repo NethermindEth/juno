@@ -89,5 +89,5 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return nil
 	}
 
-	return unsafe.Pointer(C.CString(string(compiledClass)))
+	return unsafe.Pointer(cstring(compiledClass))
 }
