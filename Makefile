@@ -50,7 +50,7 @@ install-mockgen:
 	go install github.com/golang/mock/mockgen@latest
 
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
 
 lint:
 	@which golangci-lint || make install-golangci-lint
