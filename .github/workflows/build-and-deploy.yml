@@ -110,4 +110,3 @@ jobs:
           https://api.github.com/repos/NethermindEth/argo/dispatches \
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
 
-
