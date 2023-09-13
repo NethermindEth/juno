@@ -1213,6 +1213,16 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, &rpcErr
 	}
 
+	for _, trace := range traces {
+		revert := findRevertReason(trace)
+		if revert == "" {
+			continue
+		}
+		rpcErr := *ErrContractError
+		rpcErr.Data = revert
+		return nil, &rpcErr
+	}
+
 	var result []SimulatedTransaction
 	for i, overallFee := range overallFees {
 		estimate := FeeEstimate{
