@@ -143,14 +143,23 @@ func (s *Server) WithListener(listener EventListener) *Server {
 	return s
 }
 
-// RegisterMethod verifies and creates an endpoint that the server recognises.
+// RegisterMethods verifies and creates an endpoint that the server recognises.
 //
 // - name is the method name
 // - handler is the function to be called when a request is received for the
 // associated method. It should have (any, *jsonrpc.Error) as its return type
 // - paramNames are the names of parameters in the order that they are expected
 // by the handler
-func (s *Server) RegisterMethod(method Method) error {
+func (s *Server) RegisterMethods(methods ...Method) error {
+	for idx := range methods {
+		if err := s.registerMethod(methods[idx]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) registerMethod(method Method) error {
 	handlerT := reflect.TypeOf(method.Handler)
 	if handlerT.Kind() != reflect.Func {
 		return errors.New("handler must be a function")

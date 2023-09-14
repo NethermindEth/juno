@@ -22,8 +22,9 @@ func testConnection(t *testing.T, ctx context.Context, listener jsonrpc.EventLis
 			return msg, nil
 		},
 	}
+
 	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithListener(listener)
-	require.NoError(t, rpc.RegisterMethod(method))
+	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
 	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger()))
