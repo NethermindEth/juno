@@ -22,7 +22,7 @@ func closeAndNoError() error {
 func TestCloseAndJoinOnError(t *testing.T) {
 	t.Run("closeFn returns no error", func(t *testing.T) {
 		t.Run("original error is nil", func(t *testing.T) {
-			assert.NoError(t, utils.RunAndWrapOnError(closeAndNoError, nil))
+			assert.NoError(t, closeAndNoError())
 		})
 
 		t.Run("original error is non-nil", func(t *testing.T) {
@@ -33,8 +33,7 @@ func TestCloseAndJoinOnError(t *testing.T) {
 	})
 	t.Run("closeFn returns error", func(t *testing.T) {
 		t.Run("original error is nil", func(t *testing.T) {
-			got := utils.RunAndWrapOnError(closeAndError, nil)
-			assert.EqualError(t, got, errClose.Error())
+			assert.EqualError(t, closeAndError(), errClose.Error())
 		})
 
 		t.Run("original error is non-nil", func(t *testing.T) {

@@ -176,7 +176,7 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 		}
 	}
 
-	return newClasses, utils.RunAndWrapOnError(closer, nil)
+	return newClasses, closer()
 }
 
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,

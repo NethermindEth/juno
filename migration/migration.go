@@ -121,7 +121,7 @@ func SchemaVersion(targetDB db.DB) (uint64, error) {
 		return 0, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return version, utils.RunAndWrapOnError(txn.Discard, nil)
+	return version, txn.Discard()
 }
 
 // migration0000 makes sure the targetDB is empty
