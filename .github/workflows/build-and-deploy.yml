@@ -12,7 +12,7 @@ jobs:
   docker_build_and_publish:
     runs-on: ubuntu-latest
     outputs:
-      IMAGE_TAG: ${{ steps.Define_docker_image_tag.outputs.IMAGE_TAG }}
+      IMAGE_TAG: ${{ steps.image_tag.outputs.IMAGE_TAG }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
