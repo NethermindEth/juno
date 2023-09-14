@@ -121,14 +121,25 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	if err = jsonrpcServer.RegisterMethods(rpcHandler.Methods()...); err != nil {
+	methods, path := rpcHandler.Methods()
+	if err = jsonrpcServer.RegisterMethods(methods...); err != nil {
 		return nil, err
 	}
+	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	legacyMethods, legacyPath := rpcHandler.LegacyMethods()
+	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
+		return nil, err
+	}
+	rpcServers := map[string]*jsonrpc.Server{
+		"/":        jsonrpcServer,
+		path:       jsonrpcServer,
+		legacyPath: jsonrpcServerLegacy,
+	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log))
 	}
 	if cfg.Metrics {
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))

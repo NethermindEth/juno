@@ -1324,7 +1324,15 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "v0.5.0-rc0", nil
 }
 
-func (h *Handler) Methods() []jsonrpc.Method { //nolint: funlen
+func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
+	legacyMethods, _ := h.LegacyMethods()
+	return append(legacyMethods, jsonrpc.Method{
+		Name:    "starknet_specVersion",
+		Handler: h.SpecVersion,
+	}), "/v0_5"
+}
+
+func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -1465,9 +1473,5 @@ func (h *Handler) Methods() []jsonrpc.Method { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_hash"}},
 			Handler: h.TraceBlockTransactions,
 		},
-		{
-			Name:    "starknet_specVersion",
-			Handler: h.SpecVersion,
-		},
-	}
+	}, "/v0_4"
 }
