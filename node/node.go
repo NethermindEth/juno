@@ -44,20 +44,25 @@ const (
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
 	HTTP                bool           `mapstructure:"http"`
+	HTTPHost            string         `mapstructure:"http-host"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
 	Websocket           bool           `mapstructure:"ws"`
+	WebsocketHost       string         `mapstructure:"ws-host"`
 	WebsocketPort       uint16         `mapstructure:"ws-port"`
 	GRPC                bool           `mapstructure:"grpc"`
+	GRPCHost            string         `mapstructure:"grpc-host"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
+	PprofHost           string         `mapstructure:"pprof-host"`
 	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
 	Metrics     bool   `mapstructure:"metrics"`
+	MetricsHost string `mapstructure:"metrics-host"`
 	MetricsPort uint16 `mapstructure:"metrics-port"`
 
 	P2P          bool   `mapstructure:"p2p"`
@@ -122,19 +127,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log))
 	}
 	if cfg.Metrics {
-		services = append(services, makeMetrics(cfg.MetricsPort))
+		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
-		services = append(services, makeGRPC(cfg.GRPCPort, database, version))
+		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
 	}
 	if cfg.Pprof {
-		services = append(services, makePPROF(cfg.PprofPort))
+		services = append(services, makePPROF(cfg.PprofHost, cfg.PprofPort))
 	}
 
 	n := &Node{

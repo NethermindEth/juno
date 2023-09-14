@@ -153,7 +153,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.12.1](https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#starknet_alpha_v0_12_1) support.
+- Starknet [v0.12.2](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
 - JSON-RPC [v0.4.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.4.0):
   - `starknet_chainId`
   - `starknet_blockNumber`
