@@ -52,7 +52,7 @@ func TestServer_RegisterMethod(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			err := server.RegisterMethod(jsonrpc.Method{
+			err := server.RegisterMethods(jsonrpc.Method{
 				Name:    "method",
 				Params:  test.paramNames,
 				Handler: test.handler,
@@ -62,7 +62,7 @@ func TestServer_RegisterMethod(t *testing.T) {
 	}
 
 	t.Run("should not fail", func(t *testing.T) {
-		err := server.RegisterMethod(jsonrpc.Method{
+		err := server.RegisterMethods(jsonrpc.Method{
 			Name:    "method",
 			Params:  []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
 			Handler: func(param1, param2 int) (int, *jsonrpc.Error) { return 0, nil },
@@ -150,9 +150,7 @@ func TestHandle(t *testing.T) {
 		},
 	}
 	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New())
-	for _, m := range methods {
-		require.NoError(t, server.RegisterMethod(m))
-	}
+	require.NoError(t, server.RegisterMethods(methods...))
 
 	tests := map[string]struct {
 		isBatch bool

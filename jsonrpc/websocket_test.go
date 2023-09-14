@@ -23,7 +23,7 @@ func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
 		},
 	}
 	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
-	require.NoError(t, rpc.RegisterMethod(method))
+	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
 	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger()))

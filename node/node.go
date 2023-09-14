@@ -121,10 +121,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	for _, method := range methods(rpcHandler) {
-		if err = jsonrpcServer.RegisterMethod(method); err != nil {
-			return nil, err
-		}
+	if err = jsonrpcServer.RegisterMethods(methods(rpcHandler)...); err != nil {
+		return nil, err
 	}
 	if cfg.HTTP {
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log))
