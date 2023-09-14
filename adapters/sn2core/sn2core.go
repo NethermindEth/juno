@@ -272,30 +272,34 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
 	}
 
-	if class.Compiled, err = AdaptCompiledClass(compiledClass); err != nil {
-		return nil, err
+	if compiledClass != nil {
+		adaptedCompiledClass, err := AdaptCompiledClass(compiledClass)
+		if err != nil {
+			return nil, err
+		}
+		class.Compiled = *adaptedCompiledClass
 	}
 
 	return class, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (core.CompiledClass, error) {
-	compiled := core.CompiledClass{}
+func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
+	compiled := new(core.CompiledClass)
 	compiled.Bytecode = compiledClass.Bytecode
 	pyHints, err := json.Marshal(compiledClass.PythonicHints)
 	if err != nil {
-		return core.CompiledClass{}, err
+		return nil, err
 	}
 	compiled.PythonicHints = pyHints
 	compiled.CompilerVersion = compiledClass.CompilerVersion
 	var success bool
 	compiled.Prime, success = new(big.Int).SetString(compiledClass.Prime, 0)
 	if !success {
-		return core.CompiledClass{}, fmt.Errorf("couldn't convert prime value to big.Int")
+		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
 	}
 	hints, err := json.Marshal(compiledClass.Hints)
 	if err != nil {
-		return core.CompiledClass{}, err
+		return nil, err
 	}
 	compiled.Hints = hints
 
