@@ -1320,6 +1320,10 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 	}
 }
 
+func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
+	return "v0.5.0-rc0", nil
+}
+
 func (h *Handler) Methods() []jsonrpc.Method { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -1460,6 +1464,10 @@ func (h *Handler) Methods() []jsonrpc.Method { //nolint: funlen
 			Name:    "starknet_traceBlockTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_hash"}},
 			Handler: h.TraceBlockTransactions,
+		},
+		{
+			Name:    "starknet_specVersion",
+			Handler: h.SpecVersion,
 		},
 	}
 }
