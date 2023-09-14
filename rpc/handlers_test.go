@@ -1749,7 +1749,7 @@ func TestAddTransaction(t *testing.T) {
 	t.Run("invalid json", func(t *testing.T) {
 		_, err := handler.AddTransaction(json.RawMessage(`{]`))
 		require.NotNil(t, err)
-		assert.Equal(t, jsonrpc.InvalidJSON, err.Code)
+		assert.Equal(t, jsonrpc.InvalidJSON, err.ErrorCode())
 	})
 
 	t.Run("ok response", func(t *testing.T) {

@@ -24,34 +24,34 @@ type Gateway interface {
 }
 
 var (
-	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
-	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
-	ErrInvalidBlockHash                = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
-	ErrInvalidTxIndex                  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
-	ErrClassHashNotFound               = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
-	ErrTxnHashNotFound                 = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
-	ErrPageSizeTooBig                  = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
-	ErrNoBlock                         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidContinuationToken        = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
-	ErrTooManyKeysInFilter             = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
-	ErrContractError                   = &jsonrpc.Error{Code: 40, Message: "Contract error"}
-	ErrInvalidContractClass            = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
-	ErrClassAlreadyDeclared            = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
-	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
-	ErrInvalidTransactionNonce         = &jsonrpc.Error{Code: 52, Message: "Invalid transaction nonce"}
-	ErrInsufficientMaxFee              = &jsonrpc.Error{Code: 53, Message: "Max fee is smaller than the minimal transaction cost (validation plus fee transfer)"} //nolint:lll
-	ErrInsufficientAccountBalance      = &jsonrpc.Error{Code: 54, Message: "Account balance is smaller than the transaction's max_fee"}
-	ErrValidationFailure               = &jsonrpc.Error{Code: 55, Message: "Account validation failed"}
-	ErrCompilationFailed               = &jsonrpc.Error{Code: 56, Message: "Compilation failed"}
-	ErrContractClassSizeTooLarge       = &jsonrpc.Error{Code: 57, Message: "Contract class size is too large"}
-	ErrNonAccount                      = &jsonrpc.Error{Code: 58, Message: "Sender address is not an account contract"}
-	ErrDuplicateTx                     = &jsonrpc.Error{Code: 59, Message: "A transaction with the same hash already exists in the mempool"}
-	ErrCompiledClassHashMismatch       = &jsonrpc.Error{Code: 60, Message: "the compiled class hash did not match the one supplied in the transaction"} //nolint:lll
-	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
-	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
-	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+	ErrNoTraceAvailable                = &jsonrpc.StaticError{Code: 10, Message: "No trace available for transaction"}
+	ErrContractNotFound                = &jsonrpc.StaticError{Code: 20, Message: "Contract not found"}
+	ErrBlockNotFound                   = &jsonrpc.StaticError{Code: 24, Message: "Block not found"}
+	ErrInvalidTxHash                   = &jsonrpc.StaticError{Code: 25, Message: "Invalid transaction hash"}
+	ErrInvalidBlockHash                = &jsonrpc.StaticError{Code: 26, Message: "Invalid block hash"}
+	ErrInvalidTxIndex                  = &jsonrpc.StaticError{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound               = &jsonrpc.StaticError{Code: 28, Message: "Class hash not found"}
+	ErrTxnHashNotFound                 = &jsonrpc.StaticError{Code: 29, Message: "Transaction hash not found"}
+	ErrPageSizeTooBig                  = &jsonrpc.StaticError{Code: 31, Message: "Requested page size is too big"}
+	ErrNoBlock                         = &jsonrpc.StaticError{Code: 32, Message: "There are no blocks"}
+	ErrInvalidContinuationToken        = &jsonrpc.StaticError{Code: 33, Message: "Invalid continuation token"}
+	ErrTooManyKeysInFilter             = &jsonrpc.StaticError{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrContractError                   = &jsonrpc.StaticError{Code: 40, Message: "Contract error"}
+	ErrInvalidContractClass            = &jsonrpc.StaticError{Code: 50, Message: "Invalid contract class"}
+	ErrClassAlreadyDeclared            = &jsonrpc.StaticError{Code: 51, Message: "Class already declared"}
+	ErrInternal                        = &jsonrpc.StaticError{Code: jsonrpc.InternalError, Message: "Internal error"}
+	ErrInvalidTransactionNonce         = &jsonrpc.StaticError{Code: 52, Message: "Invalid transaction nonce"}
+	ErrInsufficientMaxFee              = &jsonrpc.StaticError{Code: 53, Message: "Max fee is smaller than the minimal transaction cost (validation plus fee transfer)"} //nolint:lll
+	ErrInsufficientAccountBalance      = &jsonrpc.StaticError{Code: 54, Message: "Account balance is smaller than the transaction's max_fee"}
+	ErrValidationFailure               = &jsonrpc.StaticError{Code: 55, Message: "Account validation failed"}
+	ErrCompilationFailed               = &jsonrpc.StaticError{Code: 56, Message: "Compilation failed"}
+	ErrContractClassSizeTooLarge       = &jsonrpc.StaticError{Code: 57, Message: "Contract class size is too large"}
+	ErrNonAccount                      = &jsonrpc.StaticError{Code: 58, Message: "Sender address is not an account contract"}
+	ErrDuplicateTx                     = &jsonrpc.StaticError{Code: 59, Message: "A transaction with the same hash already exists in the mempool"}            //nolint:lll
+	ErrCompiledClassHashMismatch       = &jsonrpc.StaticError{Code: 60, Message: "the compiled class hash did not match the one supplied in the transaction"} //nolint:lll
+	ErrUnsupportedTxVersion            = &jsonrpc.StaticError{Code: 61, Message: "the transaction version is not supported"}
+	ErrUnsupportedContractClassVersion = &jsonrpc.StaticError{Code: 62, Message: "the contract class version is not supported"}
+	ErrUnexpectedError                 = &jsonrpc.StaticError{Code: 63, Message: "An unexpected error occurred"}
 )
 
 const (
@@ -89,7 +89,7 @@ func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Ne
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
-func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) ChainID() (*felt.Felt, jsonrpc.Error) {
 	return h.network.ChainID(), nil
 }
 
@@ -97,7 +97,7 @@ func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L500
-func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
+func (h *Handler) BlockNumber() (uint64, jsonrpc.Error) {
 	num, err := h.bcReader.Height()
 	if err != nil {
 		return 0, ErrNoBlock
@@ -110,7 +110,7 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L517
-func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
+func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, jsonrpc.Error) {
 	block, err := h.bcReader.Head()
 	if err != nil {
 		return nil, ErrNoBlock
@@ -122,7 +122,7 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, jsonrpc.Error) {
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
@@ -152,7 +152,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
-func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
+func (h *Handler) l1Head() (*core.L1Head, jsonrpc.Error) {
 	l1Head, err := h.bcReader.L1Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -194,7 +194,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
-func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, jsonrpc.Error) {
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
@@ -353,7 +353,7 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
-func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
@@ -366,7 +366,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
-func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
+func (h *Handler) BlockTransactionCount(id BlockID) (uint64, jsonrpc.Error) {
 	header, err := h.blockHeaderByID(&id)
 	if header == nil || err != nil {
 		return 0, ErrBlockNotFound
@@ -379,7 +379,7 @@ func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, ErrInvalidTxIndex
 	}
@@ -414,7 +414,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
@@ -492,7 +492,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
-func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, jsonrpc.Error) {
 	var update *core.StateUpdate
 	var err error
 	if id.Latest {
@@ -576,7 +576,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L569
-func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
+func (h *Handler) Syncing() (*Sync, jsonrpc.Error) {
 	defaultSyncState := &Sync{Syncing: new(bool)}
 
 	startingBlockNumber := h.synchronizer.StartingBlockNumber
@@ -626,7 +626,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
-func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -645,7 +645,7 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
-func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -664,7 +664,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
-func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, jsonrpc.Error) {
 	stateReader, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -683,7 +683,7 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
-func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, jsonrpc.Error) {
 	state, stateCloser, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -776,7 +776,7 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L329
-func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, jsonrpc.Error) {
 	classHash, err := h.ClassHashAt(id, address)
 	if err != nil {
 		return nil, err
@@ -788,7 +788,7 @@ func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
-func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args EventsArg) (*EventsChunk, jsonrpc.Error) {
 	if args.ChunkSize > maxEventChunkSize {
 		return nil, ErrPageSizeTooBig
 	} else {
@@ -878,7 +878,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 }
 
 // AddTransaction relays a transaction to the gateway.
-func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, jsonrpc.Error) {
 	var request map[string]any
 	err := json.Unmarshal(txnJSON, &request)
 	if err != nil {
@@ -936,7 +936,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 	return &response, nil
 }
 
-func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
+func makeJSONErrorFromGatewayError(err error) jsonrpc.Error {
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -980,7 +980,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/aaea417f193bbec87b59455128d4b09a06876c28/api/starknet_api_openrpc.json#L602-L616
-func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
+func (h *Handler) PendingTransactions() ([]*Transaction, jsonrpc.Error) {
 	var pendingTxns []*Transaction
 
 	pending, err := h.bcReader.Pending()
@@ -993,12 +993,12 @@ func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
 	return pendingTxns, nil
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
+func (h *Handler) Version() (string, jsonrpc.Error) {
 	return h.version, nil
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, jsonrpc.Error) { //nolint:gocritic
 	state, closer, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound
@@ -1033,7 +1033,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	return res, nil
 }
 
-func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, jsonrpc.Error) {
 	var status *TransactionStatus
 
 	receipt, txErr := h.TransactionReceiptByHash(hash)
@@ -1085,7 +1085,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	return status, nil
 }
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
+func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, jsonrpc.Error) {
 	result, err := h.SimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
@@ -1096,7 +1096,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id Block
 	}), nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
@@ -1127,7 +1127,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, ErrInvalidTxHash
@@ -1155,7 +1155,7 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
-) ([]SimulatedTransaction, *jsonrpc.Error) {
+) ([]SimulatedTransaction, jsonrpc.Error) {
 	if slices.Contains(simulationFlags, SkipValidateFlag) {
 		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
 	}
@@ -1229,7 +1229,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	return result, nil
 }
 
-func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTransaction, jsonrpc.Error) {
 	block, err := h.bcReader.BlockByHash(&blockHash)
 	if err != nil {
 		return nil, ErrInvalidBlockHash
@@ -1238,7 +1238,7 @@ func (h *Handler) TraceBlockTransactions(blockHash felt.Felt) ([]TracedBlockTran
 	return h.traceBlockTransactions(block, len(block.Transactions))
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]TracedBlockTransaction, jsonrpc.Error) {
 	isPending := block.Hash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)

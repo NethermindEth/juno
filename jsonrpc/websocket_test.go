@@ -18,7 +18,7 @@ func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
 	method := jsonrpc.Method{
 		Name:   "test_echo",
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
-		Handler: func(msg string) (string, *jsonrpc.Error) {
+		Handler: func(msg string) (string, jsonrpc.Error) {
 			return msg, nil
 		},
 	}

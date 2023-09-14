@@ -17,7 +17,7 @@ import (
 func TestHTTP(t *testing.T) {
 	method := jsonrpc.Method{
 		Name: "echo",
-		Handler: func(msg string) (string, *jsonrpc.Error) {
+		Handler: func(msg string) (string, jsonrpc.Error) {
 			return msg, nil
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},

@@ -29,7 +29,8 @@ const (
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
-	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
+	contextInterface      = reflect.TypeOf((*context.Context)(nil)).Elem()
+	jsonrpcErrorInterface = reflect.TypeOf((*Error)(nil)).Elem()
 )
 
 type request struct {
@@ -42,28 +43,50 @@ type request struct {
 type response struct {
 	Version string `json:"jsonrpc"`
 	Result  any    `json:"result,omitempty"`
-	Error   *Error `json:"error,omitempty"`
+	Error   Error  `json:"error,omitempty"`
 	ID      any    `json:"id"`
 }
 
-type Error struct {
+// Error is returned by all handlers.
+// It is inspired by the rpc.Error interface in go-ethereum.
+type Error interface {
+	Error() string  // returns the message
+	ErrorCode() int // returns the code
+	ErrorData() any // returns the data
+}
+
+// StaticError is an error with an unchanging code, message, and data.
+// If the error changes dynamically, a custom error type that implements Error is required.
+type StaticError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data,omitempty"`
 }
 
-func Err(code int, data any) *Error {
+func (e *StaticError) Error() string {
+	return e.Message
+}
+
+func (e *StaticError) ErrorCode() int {
+	return e.Code
+}
+
+func (e *StaticError) ErrorData() any {
+	return e.Data
+}
+
+func Err(code int, data any) *StaticError {
 	switch code {
 	case InvalidJSON:
-		return &Error{Code: InvalidJSON, Message: "Parse error", Data: data}
+		return &StaticError{Code: InvalidJSON, Message: "Parse error", Data: data}
 	case InvalidRequest:
-		return &Error{Code: InvalidRequest, Message: "Invalid Request", Data: data}
+		return &StaticError{Code: InvalidRequest, Message: "Invalid Request", Data: data}
 	case MethodNotFound:
-		return &Error{Code: MethodNotFound, Message: "Method Not Found", Data: data}
+		return &StaticError{Code: MethodNotFound, Message: "Method Not Found", Data: data}
 	case InvalidParams:
-		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
+		return &StaticError{Code: InvalidParams, Message: "Invalid Params", Data: data}
 	default:
-		return &Error{Code: InternalError, Message: "Internal Error", Data: data}
+		return &StaticError{Code: InternalError, Message: "Internal Error", Data: data}
 	}
 }
 
@@ -182,8 +205,8 @@ func (s *Server) RegisterMethod(method Method) error {
 	if handlerT.NumOut() != 2 {
 		return errors.New("handler must return 2 values")
 	}
-	if handlerT.Out(1) != reflect.TypeOf(&Error{}) {
-		return errors.New("second return value must be a *jsonrpc.Error")
+	if !handlerT.Out(1).Implements(jsonrpcErrorInterface) {
+		return errors.New("second return value must implement jsonrpc.Error")
 	}
 
 	// The method is valid. Mutate the appropriate fields and register on the server.
@@ -365,7 +388,12 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 	}
 
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
-		res.Error = errAny.(*Error)
+		jsonrpcErr := errAny.(Error)
+		res.Error = &StaticError{
+			Message: jsonrpcErr.Error(),
+			Code:    jsonrpcErr.ErrorCode(),
+			Data:    jsonrpcErr.ErrorData(),
+		}
 		s.failedRequests.WithLabelValues(req.Method).Inc()
 		return res, nil
 	}

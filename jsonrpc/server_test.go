@@ -41,12 +41,12 @@ func TestServer_RegisterMethod(t *testing.T) {
 		"int return": {
 			handler:    func(param1, param2 int) (int, int) { return 0, 0 },
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error",
+			want:       "second return value must implement jsonrpc.Error",
 		},
 		"no error return": {
 			handler:    func(param1, param2 int) (any, int) { return 0, 0 },
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error",
+			want:       "second return value must implement jsonrpc.Error",
 		},
 	}
 
@@ -65,7 +65,7 @@ func TestServer_RegisterMethod(t *testing.T) {
 		err := server.RegisterMethod(jsonrpc.Method{
 			Name:    "method",
 			Params:  []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			Handler: func(param1, param2 int) (int, *jsonrpc.Error) { return 0, nil },
+			Handler: func(param1, param2 int) (int, jsonrpc.Error) { return 0, nil },
 		})
 		assert.NoError(t, err)
 	})
@@ -79,9 +79,9 @@ func TestHandle(t *testing.T) {
 		{
 			Name:   "method",
 			Params: []jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
-			Handler: func(num *int, shouldError bool, data any) (any, *jsonrpc.Error) {
+			Handler: func(num *int, shouldError bool, data any) (any, jsonrpc.Error) {
 				if shouldError {
-					return nil, &jsonrpc.Error{Code: 44, Message: "Expected Error", Data: data}
+					return nil, &jsonrpc.StaticError{Code: 44, Message: "Expected Error", Data: data}
 				}
 				return struct {
 					Doubled int `json:"doubled"`
@@ -91,60 +91,60 @@ func TestHandle(t *testing.T) {
 		{
 			Name:   "subtract",
 			Params: []jsonrpc.Parameter{{Name: "minuend"}, {Name: "subtrahend"}},
-			Handler: func(a, b int) (int, *jsonrpc.Error) {
+			Handler: func(a, b int) (int, jsonrpc.Error) {
 				return a - b, nil
 			},
 		},
 		{
 			Name:   "update",
 			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"}},
-			Handler: func(a, b, c, d, e int) (int, *jsonrpc.Error) {
+			Handler: func(a, b, c, d, e int) (int, jsonrpc.Error) {
 				return 0, nil
 			},
 		},
 		{
 			Name:   "foobar",
 			Params: []jsonrpc.Parameter{},
-			Handler: func() (int, *jsonrpc.Error) {
+			Handler: func() (int, jsonrpc.Error) {
 				return 0, nil
 			},
 		},
 		{
 			Name:   "validation",
 			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v validationStruct) (int, *jsonrpc.Error) {
+			Handler: func(v validationStruct) (int, jsonrpc.Error) {
 				return v.A, nil
 			},
 		},
 		{
 			Name:   "validationSlice",
 			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v []validationStruct) (int, *jsonrpc.Error) {
+			Handler: func(v []validationStruct) (int, jsonrpc.Error) {
 				return v[0].A, nil
 			},
 		},
 		{
 			Name:   "validationPointer",
 			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v *validationStruct) (int, *jsonrpc.Error) {
+			Handler: func(v *validationStruct) (int, jsonrpc.Error) {
 				return v.A, nil
 			},
 		},
 		{
 			Name:   "validationMapPointer",
 			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v map[string]*validationStruct) (int, *jsonrpc.Error) {
+			Handler: func(v map[string]*validationStruct) (int, jsonrpc.Error) {
 				return v["expectedkey"].A, nil
 			},
 		},
 		{
 			Name:    "acceptsContext",
-			Handler: func(_ context.Context) (int, *jsonrpc.Error) { return 0, nil },
+			Handler: func(_ context.Context) (int, jsonrpc.Error) { return 0, nil },
 		},
 		{
 			Name:   "acceptsContextAndTwoParams",
 			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}},
-			Handler: func(_ context.Context, a, b int) (int, *jsonrpc.Error) {
+			Handler: func(_ context.Context, a, b int) (int, jsonrpc.Error) {
 				return b - a, nil
 			},
 		},
