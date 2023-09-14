@@ -3,17 +3,12 @@ package vm
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/jinzhu/copier"
 )
-
-const queryBit = 128
-
-var queryVersion = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
 
 func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	txnMap := make(map[string]any)
@@ -23,7 +18,8 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 		return nil, err
 	}
 
-	t.Version = clearQueryBit(t.Version)
+	versionWithoutQueryBit := (*core.TransactionVersion)(t.Version).WithoutQueryBit()
+	t.Version = versionWithoutQueryBit.AsFelt()
 	switch txn.(type) {
 	case *core.InvokeTransaction:
 		// workaround until starknet_api::transaction::InvokeTranscationV0 is fixed
@@ -48,13 +44,4 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 		return nil, fmt.Errorf("unsupported txn type %T", txn)
 	}
 	return json.Marshal(txnMap)
-}
-
-func clearQueryBit(v *felt.Felt) *felt.Felt {
-	versionWithoutQueryBit := new(felt.Felt).Set(v)
-	// if versionWithoutQueryBit >= queryBit
-	if versionWithoutQueryBit.Cmp(queryVersion) != -1 {
-		versionWithoutQueryBit.Sub(versionWithoutQueryBit, queryVersion)
-	}
-	return versionWithoutQueryBit
 }

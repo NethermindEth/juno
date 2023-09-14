@@ -164,7 +164,7 @@ func AdaptDeclareTransaction(t *feeder.Transaction) *core.DeclareTransaction {
 		MaxFee:               t.MaxFee,
 		TransactionSignature: *t.Signature,
 		Nonce:                t.Nonce,
-		Version:              t.Version,
+		Version:              (*core.TransactionVersion)(t.Version),
 		ClassHash:            t.ClassHash,
 		CompiledClassHash:    t.CompiledClassHash,
 	}
@@ -180,7 +180,7 @@ func AdaptDeployTransaction(t *feeder.Transaction) *core.DeployTransaction {
 		ContractAddress:     t.ContractAddress,
 		ClassHash:           t.ClassHash,
 		ConstructorCallData: *t.ConstructorCallData,
-		Version:             t.Version,
+		Version:             (*core.TransactionVersion)(t.Version),
 	}
 }
 
@@ -193,7 +193,7 @@ func AdaptInvokeTransaction(t *feeder.Transaction) *core.InvokeTransaction {
 		CallData:             *t.CallData,
 		TransactionSignature: *t.Signature,
 		MaxFee:               t.MaxFee,
-		Version:              t.Version,
+		Version:              (*core.TransactionVersion)(t.Version),
 		SenderAddress:        t.SenderAddress,
 	}
 }
@@ -205,7 +205,7 @@ func AdaptL1HandlerTransaction(t *feeder.Transaction) *core.L1HandlerTransaction
 		EntryPointSelector: t.EntryPointSelector,
 		Nonce:              t.Nonce,
 		CallData:           *t.CallData,
-		Version:            t.Version,
+		Version:            (*core.TransactionVersion)(t.Version),
 	}
 }
 
