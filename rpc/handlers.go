@@ -36,7 +36,6 @@ var (
 	ErrNoBlock                         = &jsonrpc.StaticError{Code: 32, Message: "There are no blocks"}
 	ErrInvalidContinuationToken        = &jsonrpc.StaticError{Code: 33, Message: "Invalid continuation token"}
 	ErrTooManyKeysInFilter             = &jsonrpc.StaticError{Code: 34, Message: "Too many keys provided in a filter"}
-	ErrContractError                   = &jsonrpc.StaticError{Code: 40, Message: "Contract error"}
 	ErrInvalidContractClass            = &jsonrpc.StaticError{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared            = &jsonrpc.StaticError{Code: 51, Message: "Class already declared"}
 	ErrInternal                        = &jsonrpc.StaticError{Code: jsonrpc.InternalError, Message: "Internal error"}
@@ -51,8 +50,39 @@ var (
 	ErrCompiledClassHashMismatch       = &jsonrpc.StaticError{Code: 60, Message: "the compiled class hash did not match the one supplied in the transaction"} //nolint:lll
 	ErrUnsupportedTxVersion            = &jsonrpc.StaticError{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.StaticError{Code: 62, Message: "the contract class version is not supported"}
-	ErrUnexpectedError                 = &jsonrpc.StaticError{Code: 63, Message: "An unexpected error occurred"}
 )
+
+type ContractError struct {
+	Data string
+}
+
+func (e *ContractError) Error() string {
+	return "Contract error"
+}
+
+func (e *ContractError) ErrorCode() int {
+	return 40 //nolint:gomnd
+}
+
+func (e *ContractError) ErrorData() any {
+	return e.Data
+}
+
+type UnexpectedError struct {
+	Data string
+}
+
+func (e *UnexpectedError) Error() string {
+	return "An unexpected error occurred"
+}
+
+func (e *UnexpectedError) ErrorCode() int {
+	return 63 //nolint:gomnd
+}
+
+func (e *UnexpectedError) ErrorData() any {
+	return e.Data
+}
 
 const (
 	maxEventChunkSize  = 10240
@@ -970,9 +1000,9 @@ func makeJSONErrorFromGatewayError(err error) jsonrpc.Error {
 	case gateway.InvalidContractClassVersion:
 		return ErrUnsupportedContractClassVersion
 	default:
-		unexpectedErr := ErrUnexpectedError
-		unexpectedErr.Data = gatewayErr.Message
-		return unexpectedErr
+		return &UnexpectedError{
+			Data: gatewayErr.Message,
+		}
 	}
 }
 
@@ -1026,9 +1056,9 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, jsonrpc.Err
 
 	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
-		contractErr := *ErrContractError
-		contractErr.Data = err.Error()
-		return nil, &contractErr
+		return nil, &ContractError{
+			Data: err.Error(),
+		}
 	}
 	return res, nil
 }
@@ -1208,9 +1238,9 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
 		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice)
 	if err != nil {
-		rpcErr := *ErrContractError
-		rpcErr.Data = err.Error()
-		return nil, &rpcErr
+		return nil, &ContractError{
+			Data: err.Error(),
+		}
 	}
 
 	var result []SimulatedTransaction
@@ -1298,9 +1328,9 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]Trac
 	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice)
 	if err != nil {
-		rpcErr := *ErrContractError
-		rpcErr.Data = err.Error()
-		return nil, &rpcErr
+		return nil, &ContractError{
+			Data: err.Error(),
+		}
 	}
 
 	var result []TracedBlockTransaction
