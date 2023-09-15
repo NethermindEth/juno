@@ -24,7 +24,6 @@ type Gateway interface {
 }
 
 var (
-	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
 	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
