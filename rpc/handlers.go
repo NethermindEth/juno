@@ -60,7 +60,7 @@ const (
 
 type Handler struct {
 	bcReader      blockchain.Reader
-	synchronizer  *sync.Synchronizer
+	syncReader    sync.Reader
 	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
@@ -69,12 +69,12 @@ type Handler struct {
 	version       string
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
-		synchronizer:  synchronizer,
+		syncReader:    syncReader,
 		network:       n,
 		log:           logger,
 		feederClient:  feederClient,
@@ -578,11 +578,11 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	defaultSyncState := &Sync{Syncing: new(bool)}
 
-	startingBlockNumber := h.synchronizer.StartingBlockNumber
-	if startingBlockNumber == nil {
+	startingBlockNumber, err := h.syncReader.StartingBlockNumber()
+	if err != nil {
 		return defaultSyncState, nil
 	}
-	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(*startingBlockNumber)
+	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber)
 	if err != nil {
 		return defaultSyncState, nil
 	}
@@ -590,7 +590,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if err != nil {
 		return defaultSyncState, nil
 	}
-	highestBlockHeader := h.synchronizer.HighestBlockHeader.Load()
+	highestBlockHeader := h.syncReader.HighestBlockHeader()
 	if highestBlockHeader == nil {
 		return defaultSyncState, nil
 	}

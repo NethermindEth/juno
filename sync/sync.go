@@ -19,7 +19,10 @@ import (
 	"github.com/sourcegraph/conc/stream"
 )
 
-var _ service.Service = (*Synchronizer)(nil)
+var (
+	_ service.Service = (*Synchronizer)(nil)
+	_ Reader          = (*Synchronizer)(nil)
+)
 
 const (
 	opVerifyLabel = "verify"
@@ -27,12 +30,18 @@ const (
 	opFetchLabel  = "fetch"
 )
 
+//go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
+type Reader interface {
+	StartingBlockNumber() (uint64, error)
+	HighestBlockHeader() *core.Header
+}
+
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
-	Blockchain          *blockchain.Blockchain
-	StarknetData        starknetdata.StarknetData
-	StartingBlockNumber *uint64
-	HighestBlockHeader  atomic.Pointer[core.Header]
+	blockchain          *blockchain.Blockchain
+	starknetData        starknetdata.StarknetData
+	startingBlockNumber *uint64
+	highestBlockHeader  atomic.Pointer[core.Header]
 
 	log utils.SimpleLogger
 
@@ -53,8 +62,8 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 	log utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
 	s := &Synchronizer{
-		Blockchain:          bc,
-		StarknetData:        starkNetData,
+		blockchain:          bc,
+		starknetData:        starkNetData,
 		log:                 log,
 		pendingPollInterval: pendingPollInterval,
 
@@ -108,7 +117,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		case <-ctx.Done():
 			return func() {}
 		default:
-			stateUpdate, block, err := s.StarknetData.StateUpdateWithBlock(ctx, height)
+			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, height)
 			if err != nil {
 				continue
 			}
@@ -128,7 +137,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 }
 
 func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
-	state, closer, err := s.Blockchain.HeadState()
+	state, closer, err := s.blockchain.HeadState()
 	if err != nil {
 		// if err is db.ErrKeyNotFound we are on an empty DB
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -151,7 +160,7 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 		}
 
 		if errors.Is(stateErr, db.ErrKeyNotFound) {
-			class, fetchErr := s.StarknetData.Class(ctx, classHash)
+			class, fetchErr := s.starknetData.Class(ctx, classHash)
 			if fetchErr == nil {
 				newClasses[*classHash] = class
 			}
@@ -183,7 +192,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
 	timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opVerifyLabel))
-	commitments, err := s.Blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	timer.ObserveDuration()
 	return func() {
 		select {
@@ -196,7 +205,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 			timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opStoreLabel))
-			err = s.Blockchain.Store(block, commitments, stateUpdate, newClasses)
+			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
 			timer.ObserveDuration()
 
 			if err != nil {
@@ -212,13 +221,13 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			highestBlockHeader := s.HighestBlockHeader.Load()
+			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader == nil || highestBlockHeader.Number <= block.Number {
-				highestBlock, err := s.StarknetData.BlockLatest(ctx)
+				highestBlock, err := s.starknetData.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
-					s.HighestBlockHeader.Store(highestBlock.Header)
+					s.highestBlockHeader.Store(highestBlock.Header)
 					isBehind := highestBlock.Number > block.Number+uint64(maxWorkers())
 					if s.catchUpMode != isBehind {
 						resetStreams()
@@ -236,7 +245,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 
 func (s *Synchronizer) nextHeight() uint64 {
 	nextHeight := uint64(0)
-	if h, err := s.Blockchain.Height(); err == nil {
+	if h, err := s.blockchain.Height(); err == nil {
 		nextHeight = h + 1
 	}
 	return nextHeight
@@ -244,8 +253,8 @@ func (s *Synchronizer) nextHeight() uint64 {
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
-		s.StartingBlockNumber = nil
-		s.HighestBlockHeader.Store(nil)
+		s.startingBlockNumber = nil
+		s.highestBlockHeader.Store(nil)
 	}()
 
 	fetchers, verifiers := s.setupWorkers()
@@ -253,7 +262,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
-	s.StartingBlockNumber = &startingHeight
+	s.startingBlockNumber = &startingHeight
 
 	pendingSem := make(chan struct{}, 1)
 	go s.pollPending(syncCtx, pendingSem)
@@ -306,14 +315,14 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 
 func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	var localHead *felt.Felt
-	head, err := s.Blockchain.HeadsHeader()
+	head, err := s.blockchain.HeadsHeader()
 	if err == nil {
 		localHead = head.Hash
 	}
 
 	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
 
-	err = s.Blockchain.RevertHead()
+	err = s.blockchain.RevertHead()
 	if err != nil {
 		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
 	} else {
@@ -350,12 +359,12 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	highestBlockHeader := s.HighestBlockHeader.Load()
+	highestBlockHeader := s.highestBlockHeader.Load()
 	if highestBlockHeader == nil {
 		return nil
 	}
 
-	head, err := s.Blockchain.HeadsHeader()
+	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		return err
 	}
@@ -365,7 +374,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return nil
 	}
 
-	pendingStateUpdate, pendingBlock, err := s.StarknetData.StateUpdatePendingWithBlock(ctx)
+	pendingStateUpdate, pendingBlock, err := s.starknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
 		return err
 	}
@@ -376,7 +385,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}
 
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.Blockchain.StorePending(&blockchain.Pending{
+	return s.blockchain.StorePending(&blockchain.Pending{
 		Block:       pendingBlock,
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
@@ -389,7 +398,7 @@ func (s *Synchronizer) updateStats(block *core.Block) {
 		currentHeight             = block.Number
 		highestKnownHeight uint64 = 0
 	)
-	highestBlockHeader := s.HighestBlockHeader.Load()
+	highestBlockHeader := s.highestBlockHeader.Load()
 	if highestBlockHeader != nil {
 		highestKnownHeight = highestBlockHeader.Number
 	}
@@ -398,4 +407,15 @@ func (s *Synchronizer) updateStats(block *core.Block) {
 	s.chainHeightGauge.Set(float64(currentHeight))
 	s.bestBlockGauge.Set(float64(highestKnownHeight))
 	s.transactionCount.Add(float64(transactions))
+}
+
+func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
+	if s.startingBlockNumber == nil {
+		return 0, errors.New("not running")
+	}
+	return *s.startingBlockNumber, nil
+}
+
+func (s *Synchronizer) HighestBlockHeader() *core.Header {
+	return s.highestBlockHeader.Load()
 }
