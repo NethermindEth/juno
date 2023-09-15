@@ -6,22 +6,17 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var _ db.DB = (*DB)(nil)
 
 type DB struct {
-	pebble *pebble.DB
-	wMutex *sync.Mutex
-
-	// metrics
-	readCounter  prometheus.Counter
-	writeCounter prometheus.Counter
+	pebble   *pebble.DB
+	wMutex   *sync.Mutex
+	listener db.EventListener
 }
 
 // New opens a new database at the given path
@@ -32,17 +27,6 @@ func New(path string, logger pebble.Logger) (db.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	pDB.readCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "db",
-		Name:      "read",
-	})
-	pDB.writeCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "db",
-		Name:      "write",
-	})
-	metrics.MustRegister(pDB.readCounter, pDB.writeCounter)
-
 	return pDB, nil
 }
 
@@ -67,14 +51,19 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{pebble: pDB, wMutex: new(sync.Mutex)}, nil
+	return &DB{pebble: pDB, wMutex: new(sync.Mutex), listener: &db.SelectiveListener{}}, nil
+}
+
+// WithListener registers an EventListener
+func (d *DB) WithListener(listener db.EventListener) db.DB {
+	d.listener = listener
+	return d
 }
 
 // NewTransaction : see db.DB.NewTransaction
 func (d *DB) NewTransaction(update bool) db.Transaction {
 	txn := &Transaction{
-		readCounter:  d.readCounter,
-		writeCounter: d.writeCounter,
+		listener: d.listener,
 	}
 	if update {
 		d.wMutex.Lock()

@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var ErrDiscardedTransaction = errors.New("discarded txn")
@@ -19,10 +18,7 @@ type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot
 	lock     *sync.Mutex
-
-	// metrics
-	readCounter  prometheus.Counter
-	writeCounter prometheus.Counter
+	listener db.EventListener
 }
 
 // Discard : see db.Transaction.Discard
@@ -64,9 +60,7 @@ func (t *Transaction) Set(key, val []byte) error {
 		return errors.New("empty key")
 	}
 
-	if t.writeCounter != nil {
-		t.writeCounter.Inc()
-	}
+	t.listener.OnIO(true)
 	return t.batch.Set(key, val, pebble.Sync)
 }
 
@@ -76,9 +70,7 @@ func (t *Transaction) Delete(key []byte) error {
 		return errors.New("read only transaction")
 	}
 
-	if t.writeCounter != nil {
-		t.writeCounter.Inc()
-	}
+	t.listener.OnIO(true)
 	return t.batch.Delete(key, pebble.Sync)
 }
 
@@ -96,9 +88,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		return ErrDiscardedTransaction
 	}
 
-	if t.readCounter != nil {
-		t.readCounter.Inc()
-	}
+	t.listener.OnIO(false)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return db.ErrKeyNotFound
