@@ -16,15 +16,31 @@ var noop = func(val []byte) error {
 	return nil
 }
 
+type eventListener struct {
+	WriteCount int
+	ReadCount  int
+}
+
+func (l *eventListener) OnIO(write bool) {
+	if write {
+		l.WriteCount++
+	} else {
+		l.ReadCount++
+	}
+}
+
 func TestTransaction(t *testing.T) {
+	listener := eventListener{}
 	t.Run("new transaction can retrieve existing value", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
+		testDB := pebble.NewMemTest().WithListener(&listener)
 		t.Cleanup(func() {
 			require.NoError(t, testDB.Close())
 		})
 
 		txn := testDB.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
+		assert.Equal(t, 1, listener.WriteCount)
+		assert.Equal(t, 0, listener.ReadCount)
 
 		require.NoError(t, txn.Commit())
 
@@ -33,6 +49,9 @@ func TestTransaction(t *testing.T) {
 			assert.Equal(t, "value", string(val))
 			return nil
 		}))
+		assert.Equal(t, 1, listener.WriteCount)
+		assert.Equal(t, 1, listener.ReadCount)
+
 		require.NoError(t, readOnlyTxn.Discard())
 	})
 

@@ -136,6 +136,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log))
 	}
 	if cfg.Metrics {
+		database.WithListener(makeDBMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
