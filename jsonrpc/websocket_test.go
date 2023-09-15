@@ -14,7 +14,7 @@ import (
 )
 
 // The caller is responsible for closing the connection.
-func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
+func testConnection(t *testing.T, ctx context.Context, listener jsonrpc.EventListener) *websocket.Conn {
 	method := jsonrpc.Method{
 		Name:   "test_echo",
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
@@ -22,7 +22,7 @@ func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
 			return msg, nil
 		},
 	}
-	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithListener(listener)
 	require.NoError(t, rpc.RegisterMethod(method))
 
 	// Server
@@ -39,7 +39,9 @@ func testConnection(t *testing.T, ctx context.Context) *websocket.Conn {
 func TestHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn := testConnection(t, ctx)
+
+	listener := CountingEventListener{}
+	conn := testConnection(t, ctx, &listener)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
 	err := conn.Write(context.Background(), websocket.MessageText, []byte(msg))
@@ -49,6 +51,7 @@ func TestHandler(t *testing.T) {
 	_, got, err := conn.Read(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, want, string(got))
+	assert.Len(t, listener.OnNewRequestLogs, 1)
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
 }

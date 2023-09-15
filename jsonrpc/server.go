@@ -11,10 +11,9 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -113,11 +112,7 @@ type Server struct {
 	validator Validator
 	pool      *pool.Pool
 	log       utils.SimpleLogger
-
-	// metrics
-	requests         *prometheus.CounterVec
-	failedRequests   *prometheus.CounterVec
-	requestLatencies *prometheus.HistogramVec
+	listener  EventListener
 }
 
 type Validator interface {
@@ -127,33 +122,24 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 	s := &Server{
-		log:     log,
-		methods: make(map[string]Method),
-		pool:    pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "requests",
-		}, []string{"method"}),
-		failedRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "failed_requests",
-		}, []string{"method"}),
-		requestLatencies: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "requests_latency",
-		}, []string{"method"}),
+		log:      log,
+		methods:  make(map[string]Method),
+		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		listener: &SelectiveListener{},
 	}
 
-	metrics.MustRegister(s.requests, s.failedRequests, s.requestLatencies)
 	return s
 }
 
 // WithValidator registers a validator to validate handler struct arguments
 func (s *Server) WithValidator(validator Validator) *Server {
 	s.validator = validator
+	return s
+}
+
+// WithListener registers an EventListener
+func (s *Server) WithListener(listener EventListener) *Server {
+	s.listener = listener
 	return s
 }
 
@@ -347,18 +333,20 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 		return res, nil
 	}
 
-	timer := prometheus.NewTimer(s.requestLatencies.WithLabelValues(req.Method))
+	handlerTimer := time.Now()
+	s.listener.OnNewRequest(req.Method)
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
+		s.listener.OnRequestFailed(req.Method, err)
 		return res, nil
 	}
 	defer func() {
-		took := timer.ObserveDuration()
-		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", took)
+		handlerTook := time.Since(handlerTimer)
+		s.listener.OnRequestHandled(req.Method, handlerTook)
+		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", handlerTook)
 	}()
 
-	s.requests.WithLabelValues(req.Method).Inc()
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
 		return nil, nil
@@ -366,7 +354,7 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
-		s.failedRequests.WithLabelValues(req.Method).Inc()
+		s.listener.OnRequestFailed(req.Method, err)
 		return res, nil
 	}
 	res.Result = tuple[0].Interface()

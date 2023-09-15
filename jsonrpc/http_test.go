@@ -22,8 +22,9 @@ func TestHTTP(t *testing.T) {
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
+	listener := CountingEventListener{}
 	log := utils.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, log)
+	rpc := jsonrpc.NewServer(1, log).WithListener(&listener)
 	require.NoError(t, rpc.RegisterMethod(method))
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,6 +42,7 @@ func TestHTTP(t *testing.T) {
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Len(t, listener.OnNewRequestLogs, 1)
 	t.Cleanup(func() {
 		require.NoError(t, resp.Body.Close())
 	})
@@ -69,5 +71,6 @@ func TestHTTP(t *testing.T) {
 			require.Equal(t, http.StatusNotFound, resp.StatusCode)
 			require.NoError(t, resp.Body.Close())
 		})
+		assert.Len(t, listener.OnNewRequestLogs, 1)
 	})
 }

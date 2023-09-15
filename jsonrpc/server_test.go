@@ -149,15 +149,19 @@ func TestHandle(t *testing.T) {
 			},
 		},
 	}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New())
+
+	listener := CountingEventListener{}
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
 	for _, m := range methods {
 		require.NoError(t, server.RegisterMethod(m))
 	}
 
 	tests := map[string]struct {
-		isBatch bool
-		req     string
-		res     string
+		isBatch              bool
+		req                  string
+		res                  string
+		checkNewRequestEvent bool
+		checkFailedEvent     bool
 	}{
 		"invalid json": {
 			req: `{]`,
@@ -188,8 +192,9 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"too many params": {
-			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
+			req:              `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
+			checkFailedEvent: true,
 		},
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
@@ -341,12 +346,14 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"invalid value in struct": {
-			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			req:              `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			checkFailedEvent: true,
 		},
 		"valid value in struct": {
-			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+			req:                  `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
+			res:                  `{"jsonrpc":"2.0","result":1,"id":1}`,
+			checkNewRequestEvent: true,
 		},
 		"invalid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 0} ], "id" : 1}`,
@@ -441,6 +448,10 @@ func TestHandle(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
+			oldNewRequestEventCount := len(listener.OnNewRequestLogs)
+			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
+			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
+
 			res, err := server.Handle(context.Background(), []byte(test.req))
 			require.NoError(t, err)
 
@@ -448,6 +459,15 @@ func TestHandle(t *testing.T) {
 				assertBatchResponse(t, test.res, string(res))
 			} else {
 				assert.Equal(t, test.res, string(res))
+			}
+			if test.checkNewRequestEvent {
+				assert.Greater(t, len(listener.OnNewRequestLogs), oldNewRequestEventCount)
+				if !test.checkFailedEvent {
+					assert.Greater(t, len(listener.OnRequestHandledCalls), oldRequestHandledCalls)
+				}
+			}
+			if test.checkFailedEvent {
+				assert.Greater(t, len(listener.OnRequestFailedCalls), oldRequestFailedEventCount)
 			}
 		})
 	}

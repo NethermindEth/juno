@@ -61,16 +61,22 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 	}
 }
 
-func makeRPCOverHTTP(host string, port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
-	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
+func makeRPCOverHTTP(host string, port uint16, server *jsonrpc.Server, log utils.SimpleLogger, metricsEnabled bool) *httpService {
+	httpHandler := jsonrpc.NewHTTP(server, log)
+	if metricsEnabled {
+		httpHandler.WithListener(makeHTTPMetrics())
+	}
 	mux := http.NewServeMux()
 	mux.Handle("/", httpHandler)
 	mux.Handle("/v0_4", httpHandler)
 	return makeHTTPService(host, port, mux)
 }
 
-func makeRPCOverWebsocket(host string, port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
-	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
+func makeRPCOverWebsocket(host string, port uint16, server *jsonrpc.Server, log utils.SimpleLogger, metricsEnabled bool) *httpService {
+	wsHandler := jsonrpc.NewWebsocket(server, log)
+	if metricsEnabled {
+		wsHandler.WithListener(makeWSMetrics())
+	}
 	mux := http.NewServeMux()
 	mux.Handle("/", wsHandler)
 	mux.Handle("/v0_4", wsHandler)
