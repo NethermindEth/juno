@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrCheckHeadState = errors.New("check head state")
@@ -52,14 +53,14 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 		}
 
 		val, itErr := it.Value()
-		if err = db.CloseAndWrapOnError(it.Close, itErr); err != nil {
+		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
 			return nil, err
 		}
 		// seekedHeight > height
 		return val, nil
 	}
 
-	return nil, db.CloseAndWrapOnError(it.Close, ErrCheckHeadState)
+	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
 func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {

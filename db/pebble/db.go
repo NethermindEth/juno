@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/metrics"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/prometheus/client_golang/prometheus"
@@ -92,16 +93,16 @@ func (d *DB) Close() error {
 // View : see db.DB.View
 func (d *DB) View(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(false)
-	return db.CloseAndWrapOnError(txn.Discard, fn(txn))
+	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
 }
 
 // Update : see db.DB.Update
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(true)
 	if err := fn(txn); err != nil {
-		return db.CloseAndWrapOnError(txn.Discard, err)
+		return utils.RunAndWrapOnError(txn.Discard, err)
 	}
-	return db.CloseAndWrapOnError(txn.Discard, txn.Commit())
+	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
 }
 
 // Impl : see db.DB.Impl

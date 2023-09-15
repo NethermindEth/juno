@@ -45,12 +45,12 @@ func (h Handler) Tx(server gen.KV_TxServer) error {
 	for {
 		cursor, err := server.Recv()
 		if err != nil {
-			return db.CloseAndWrapOnError(tx.cleanup, err)
+			return utils.RunAndWrapOnError(tx.cleanup, err)
 		}
 
 		err = h.handleTxCursor(cursor, tx, server)
 		if err != nil {
-			return db.CloseAndWrapOnError(tx.cleanup, err)
+			return utils.RunAndWrapOnError(tx.cleanup, err)
 		}
 	}
 }

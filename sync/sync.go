@@ -162,21 +162,21 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 
 	for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
 		if err = fetchIfNotFound(deployedContract.ClassHash); err != nil {
-			return nil, db.CloseAndWrapOnError(closer, err)
+			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
 	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
 		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, db.CloseAndWrapOnError(closer, err)
+			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
 	for _, declaredV1 := range stateUpdate.StateDiff.DeclaredV1Classes {
 		if err = fetchIfNotFound(declaredV1.ClassHash); err != nil {
-			return nil, db.CloseAndWrapOnError(closer, err)
+			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
 
-	return newClasses, db.CloseAndWrapOnError(closer, nil)
+	return newClasses, closer()
 }
 
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
