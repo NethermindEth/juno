@@ -7,9 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"nhooyr.io/websocket"
 )
 
@@ -19,8 +17,7 @@ type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
-	// metrics
-	requests prometheus.Counter
+	listener   NewRequestListener
 }
 
 func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
@@ -28,20 +25,21 @@ func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
-		requests: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "ws",
-			Name:      "requests",
-		}),
+		listener:   &SelectiveListener{},
 	}
 
-	metrics.MustRegister(ws.requests)
 	return ws
 }
 
 // WithConnParams sanity checks and applies the provided params.
 func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 	ws.connParams = p
+	return ws
+}
+
+// WithListener registers a NewRequestListener
+func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
+	ws.listener = listener
 	return ws
 }
 
@@ -56,7 +54,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO include connection information, such as the remote address, in the logs.
 
-	wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
+	wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.listener)
 
 	err = wsc.ReadWriteLoop(r.Context())
 
@@ -99,16 +97,16 @@ type websocketConn struct {
 	conn     *websocket.Conn
 	rpc      *Server
 	params   *WebsocketConnParams
-	requests prometheus.Counter
+	listener NewRequestListener
 }
 
-func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, requests prometheus.Counter) *websocketConn {
+func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, listener NewRequestListener) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
 		conn:     conn,
 		rpc:      rpc,
 		params:   params,
-		requests: requests,
+		listener: listener,
 	}
 }
 
@@ -123,7 +121,7 @@ func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
 		// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
 		// permits concurrent writes.
 
-		wsc.requests.Inc()
+		wsc.listener.OnNewRequest("any")
 		// Decode the message, call the handler, encode the response.
 		resp, err := wsc.rpc.Handle(ctx, r)
 		if err != nil {

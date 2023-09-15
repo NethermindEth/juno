@@ -130,13 +130,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log, cfg.Metrics))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log, cfg.Metrics))
 	}
 	if cfg.Metrics {
 		database.WithListener(makeDBMetrics())
+		jsonrpcServer.WithListener(makeRPCMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
