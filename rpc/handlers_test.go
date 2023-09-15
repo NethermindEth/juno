@@ -1811,7 +1811,7 @@ func TestPendingTransactions(t *testing.T) {
 				Transactions: []core.Transaction{
 					&core.InvokeTransaction{
 						TransactionHash: utils.HexToFelt(t, "0xdeadbeef"),
-						Version:         utils.HexToFelt(t, "0x0"),
+						Version:         &core.TransactionVersion{},
 					},
 				},
 			},

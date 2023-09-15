@@ -34,7 +34,7 @@ func TestTransactionEncoding(t *testing.T) {
 					new(felt.Felt).SetUint64(6),
 				},
 				Nonce:   new(felt.Felt).SetUint64(7),
-				Version: new(felt.Felt).SetUint64(8),
+				Version: new(core.TransactionVersion).SetUint64(8),
 			},
 		},
 		{
@@ -48,7 +48,7 @@ func TestTransactionEncoding(t *testing.T) {
 					new(felt.Felt).SetUint64(5),
 					new(felt.Felt).SetUint64(6),
 				},
-				Version: new(felt.Felt).SetUint64(7),
+				Version: new(core.TransactionVersion).SetUint64(7),
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestTransactionEncoding(t *testing.T) {
 				},
 				MaxFee:             new(felt.Felt).SetUint64(6),
 				ContractAddress:    new(felt.Felt).SetUint64(7),
-				Version:            new(felt.Felt).SetUint64(8),
+				Version:            new(core.TransactionVersion).SetUint64(8),
 				EntryPointSelector: new(felt.Felt).SetUint64(9),
 				Nonce:              new(felt.Felt).SetUint64(10),
 			},
@@ -82,7 +82,7 @@ func TestTransactionEncoding(t *testing.T) {
 						new(felt.Felt).SetUint64(5),
 						new(felt.Felt).SetUint64(6),
 					},
-					Version: new(felt.Felt).SetUint64(7),
+					Version: new(core.TransactionVersion).SetUint64(7),
 				},
 				MaxFee: new(felt.Felt).SetUint64(8),
 				TransactionSignature: []*felt.Felt{
@@ -103,7 +103,7 @@ func TestTransactionEncoding(t *testing.T) {
 					new(felt.Felt).SetUint64(5),
 					new(felt.Felt).SetUint64(6),
 				},
-				Version: new(felt.Felt).SetUint64(7),
+				Version: new(core.TransactionVersion).SetUint64(7),
 			},
 		},
 	}
@@ -168,7 +168,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 	t.Run("contains bad transaction", func(t *testing.T) {
 		badTxn0 := new(core.DeclareTransaction)
 		*badTxn0 = *txn0.(*core.DeclareTransaction)
-		badTxn0.Version = new(felt.Felt).SetUint64(3)
+		badTxn0.Version = new(core.TransactionVersion).SetUint64(3)
 
 		badTxn1 := new(core.L1HandlerTransaction)
 		*badTxn1 = *txn3.(*core.L1HandlerTransaction)
@@ -181,7 +181,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 		}{
 			*badTxn0.Hash(): {
 				name:    "Declare - error if transaction hash calculation failed",
-				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %w", badTxn0.Hash().String(), errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 3")),
+				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %w", badTxn0.Hash().String(), errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 0x3")),
 				txn:     badTxn0,
 			},
 			*badTxn1.Hash(): {
@@ -208,4 +208,20 @@ func TestVerifyTransactionHash(t *testing.T) {
 		txns := []core.Transaction{txn0, txn1, txn2, txn3, txn4}
 		assert.NoError(t, core.VerifyTransactions(txns, utils.MAINNET, "99.99.99"))
 	})
+}
+
+func TestTransactionVersi(t *testing.T) {
+	f := utils.HexToFelt(t, "0x100000000000000000000000000000002")
+	v := (*core.TransactionVersion)(f)
+
+	assert.True(t, v.HasQueryBit())
+	assert.True(t, v.Is(2))
+	assert.False(t, v.Is(1))
+	assert.False(t, v.Is(0))
+
+	withoutQBit := v.WithoutQueryBit()
+	assert.False(t, withoutQBit.HasQueryBit())
+	assert.True(t, withoutQBit.Is(2))
+	assert.False(t, withoutQBit.Is(1))
+	assert.False(t, withoutQBit.Is(0))
 }
