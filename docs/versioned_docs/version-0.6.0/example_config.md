@@ -51,8 +51,6 @@ network: mainnet
 # Disabled by default.
 pending-poll-interval: 0s
 
-pprof: false # Enable the pprof endpoint.
-
 # Experimental p2p options; there is currently no standardized Starknet p2p testnet.
 p2p: false # Enable the p2p server
 p2p-addr: "" # Source address
