@@ -138,6 +138,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if cfg.Metrics {
 		database.WithListener(makeDBMetrics())
 		jsonrpcServer.WithListener(makeRPCMetrics())
+		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {

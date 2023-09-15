@@ -3,8 +3,10 @@ package node
 import (
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -87,6 +89,52 @@ func makeRPCMetrics() jsonrpc.EventListener {
 		},
 		OnRequestFailedCb: func(method string, data any) {
 			failedRequests.WithLabelValues(method).Inc()
+		},
+	}
+}
+
+func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
+	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "sync",
+		Name:      "timers",
+	}, []string{"op"})
+	blockCount := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "sync",
+		Name:      "blocks",
+	})
+	reorgCount := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "sync",
+		Name:      "reorganisations",
+	})
+	chainHeightGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "sync",
+		Name:      "blockchain_height",
+	}, func() float64 {
+		height, _ := bcReader.Height()
+		return float64(height)
+	})
+	bestBlockGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "sync",
+		Name:      "best_known_block_number",
+	}, func() float64 {
+		bestHeader := syncReader.HighestBlockHeader()
+		if bestHeader != nil {
+			return float64(bestHeader.Number)
+		}
+		return 0
+	})
+
+	prometheus.MustRegister(opTimerHistogram, blockCount, chainHeightGauge, bestBlockGauge, reorgCount)
+
+	return &sync.SelectiveListener{
+		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {
+			opTimerHistogram.WithLabelValues(op).Observe(took.Seconds())
+			if op == sync.OpStore {
+				blockCount.Inc()
+			}
+		},
+		OnReorgCb: func(blockNum uint64) {
+			reorgCount.Inc()
 		},
 	}
 }
