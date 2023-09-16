@@ -339,7 +339,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := txn.Delete(db.Pending.Key()); err != nil {
+		if err := storeEmptyPending(txn, block.Header); err != nil {
 			return err
 		}
 
@@ -822,14 +822,6 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 			return err
 		}
 	}
-	if !genesisBlock {
-		var newHeader *core.Header
-		newHeader, err = blockHeaderByNumber(txn, blockNumber-1)
-		if err != nil {
-			return err
-		}
-		b.newHeads.Send(newHeader)
-	}
 
 	if err = removeTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
 		return err
@@ -840,14 +832,24 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 		return err
 	}
 
-	// remove pending
-	if err = txn.Delete(db.Pending.Key()); err != nil {
-		return err
+	// Revert chain height and pending.
+
+	if genesisBlock {
+		if err = txn.Delete(db.Pending.Key()); err != nil {
+			return err
+		}
+		return txn.Delete(db.ChainHeight.Key())
 	}
 
-	// update chain height
-	if genesisBlock {
-		return txn.Delete(db.ChainHeight.Key())
+	var newHeader *core.Header
+	newHeader, err = blockHeaderByNumber(txn, blockNumber-1)
+	if err != nil {
+		return err
+	}
+	b.newHeads.Send(newHeader)
+
+	if err := storeEmptyPending(txn, newHeader); err != nil {
+		return err
 	}
 
 	heightBin := core.MarshalBlockNumber(blockNumber - 1)
@@ -881,21 +883,52 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 	return nil
 }
 
+func storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingBlock := &core.Block{
+		Header: &core.Header{
+			ParentHash:       latestHeader.Hash,
+			SequencerAddress: latestHeader.SequencerAddress,
+			Timestamp:        latestHeader.Timestamp + 1,
+			ProtocolVersion:  latestHeader.ProtocolVersion,
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         latestHeader.GasPrice,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	emptyPending := &Pending{
+		Block: pendingBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot: latestHeader.GlobalStateRoot,
+			StateDiff: &core.StateDiff{
+				StorageDiffs:      make(map[felt.Felt][]core.StorageDiff, 0),
+				Nonces:            make(map[felt.Felt]*felt.Felt, 0),
+				DeployedContracts: make([]core.DeployedContract, 0),
+				DeclaredV0Classes: make([]*felt.Felt, 0),
+				DeclaredV1Classes: make([]core.DeclaredV1Class, 0),
+				ReplacedClasses:   make([]core.ReplacedClass, 0),
+			},
+		},
+		NewClasses: make(map[felt.Felt]core.Class, 0),
+	}
+	return storePending(txn, emptyPending)
+}
+
 // StorePending stores a pending block given that it is for the next height
 func (b *Blockchain) StorePending(pending *Pending) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		expectedParent := new(felt.Felt)
-		expectedOldRoot := new(felt.Felt)
-		h, err := head(txn)
+		expectedParentHash := new(felt.Felt)
+		h, err := headsHeader(txn)
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		} else if err == nil {
-			expectedParent = h.Hash
-			expectedOldRoot = h.GlobalStateRoot
+			expectedParentHash = h.Hash
 		}
 
-		if !expectedParent.Equal(pending.Block.ParentHash) || !expectedOldRoot.Equal(pending.StateUpdate.OldRoot) {
-			return errors.New("pending block parent is not our local HEAD")
+		if !expectedParentHash.Equal(pending.Block.ParentHash) {
+			return ErrParentDoesNotMatchHead
 		}
 
 		existingPending, err := pendingBlock(txn)
@@ -903,12 +936,16 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
 		}
 
-		pendingBytes, err := encoder.Marshal(pending)
-		if err != nil {
-			return err
-		}
-		return txn.Set(db.Pending.Key(), pendingBytes)
+		return storePending(txn, pending)
 	})
+}
+
+func storePending(txn db.Transaction, pending *Pending) error {
+	pendingBytes, err := encoder.Marshal(pending)
+	if err != nil {
+		return err
+	}
+	return txn.Set(db.Pending.Key(), pendingBytes)
 }
 
 func pendingBlock(txn db.Transaction) (Pending, error) {
