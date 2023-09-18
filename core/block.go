@@ -37,6 +37,8 @@ type Header struct {
 	EventsBloom *bloom.BloomFilter
 	// Amount of ETH charged per Gas spent
 	GasPrice *felt.Felt
+	// Sequencer signatures
+	Signatures [][]*felt.Felt
 }
 
 type Block struct {

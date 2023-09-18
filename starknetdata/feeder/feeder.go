@@ -14,6 +14,11 @@ import (
 
 var _ starknetdata.StarknetData = (*Feeder)(nil)
 
+const (
+	latestID  = "latest"
+	pendingID = "pending"
+)
+
 type Feeder struct {
 	client *feeder.Client
 }
@@ -33,13 +38,13 @@ func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.B
 // BlockLatest gets the latest block from the feeder,
 // then adapts it to the core.Block type.
 func (f *Feeder) BlockLatest(ctx context.Context) (*core.Block, error) {
-	return f.block(ctx, "latest")
+	return f.block(ctx, latestID)
 }
 
 // BlockPending gets the pending block from the feeder,
 // then adapts it to the core.Block type.
 func (f *Feeder) BlockPending(ctx context.Context) (*core.Block, error) {
-	return f.block(ctx, "pending")
+	return f.block(ctx, pendingID)
 }
 
 func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
@@ -48,10 +53,19 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		return nil, err
 	}
 
-	if blockID == "pending" && response.Status != "PENDING" {
+	if blockID == pendingID && response.Status != "PENDING" {
 		return nil, errors.New("no pending block")
 	}
-	return feeder2core.AdaptBlock(response)
+
+	var sig *feeder.Signature
+	if blockID != pendingID {
+		sig, err = f.client.Signature(ctx, blockID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return feeder2core.AdaptBlock(response, sig)
 }
 
 // Transaction gets the transaction for a given transaction hash from the feeder,
@@ -111,7 +125,7 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.Sta
 // StateUpdatePending gets the state update for the pending block from the feeder,
 // then adapts it to the core.StateUpdate type.
 func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	return f.stateUpdate(ctx, "pending")
+	return f.stateUpdate(ctx, pendingID)
 }
 
 func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
@@ -120,8 +134,16 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		return nil, nil, err
 	}
 
-	if blockID == "pending" && response.Block.Status != "PENDING" {
+	if blockID == pendingID && response.Block.Status != "PENDING" {
 		return nil, nil, errors.New("no pending block")
+	}
+
+	var sig *feeder.Signature
+	if blockID != pendingID {
+		sig, err = f.client.Signature(ctx, blockID)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	var adaptedState *core.StateUpdate
@@ -131,7 +153,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		return nil, nil, err
 	}
 
-	if adaptedBlock, err = feeder2core.AdaptBlock(response.Block); err != nil {
+	if adaptedBlock, err = feeder2core.AdaptBlock(response.Block, sig); err != nil {
 		return nil, nil, err
 	}
 
@@ -141,7 +163,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 // StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
 // then adapts them to the core.StateUpdate and core.Block types respectively
 func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
-	return f.stateUpdateWithBlock(ctx, "pending")
+	return f.stateUpdateWithBlock(ctx, pendingID)
 }
 
 // StateUpdateWithBlock gets both state update and block for a given block number from the feeder,

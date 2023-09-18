@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptBlock(response *feeder.Block) (*core.Block, error) {
+func AdaptBlock(response *feeder.Block, sig *feeder.Signature) (*core.Block, error) {
 	if response == nil {
 		return nil, errors.New("nil client block")
 	}
@@ -31,6 +31,10 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
+	sigs := [][]*felt.Felt{}
+	if sig != nil {
+		sigs = append(sigs, sig.Signature)
+	}
 	return &core.Block{
 		Header: &core.Header{
 			Hash:             response.Hash,
@@ -45,6 +49,7 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
 			GasPrice:         response.GasPrice,
+			Signatures:       sigs,
 		},
 		Transactions: txns,
 		Receipts:     receipts,
