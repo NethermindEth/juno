@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -221,19 +223,105 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Mes
 }
 
 func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
-	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+	block, err := h.blockByID(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := new(spec.Transactions)
+	for _, transaction := range block.Transactions {
+		tx, err := adaptTransaction(transaction)
+		if err != nil {
+			return nil, err
 		}
-		count++
-		return &spec.TransactionsResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
+
+		resp.Transactions = append(resp.Transactions, tx)
+	}
+
+	return resp, nil
+}
+
+func adaptTransaction(transaction core.Transaction) (*spec.Transaction, error) {
+	var specTx spec.Transaction
+
+	switch tx := transaction.(type) {
+	case *core.L1HandlerTransaction:
+		specTx.Common = &spec.TransactionCommon{
+			Nonce:   adaptFelt(tx.Nonce),
+			Version: adaptFelt((*felt.Felt)(tx.Version)),
+		}
+		specTx.Txn = &spec.Transaction_L1Handler{
+			L1Handler: &spec.L1HandlerTransaction{
+				Contract:           adaptFeltToAddress(tx.ContractAddress),
+				EntryPointSelector: adaptFelt(tx.EntryPointSelector),
+				Calldata:           utils.Map(tx.CallData, adaptFelt),
 			},
-		}, true
-	}, nil
+		}
+		return &specTx, nil
+	case *core.InvokeTransaction:
+		specTx.Common = &spec.TransactionCommon{
+			Nonce:   adaptFelt(tx.Nonce),
+			Version: adaptFelt((*felt.Felt)(tx.Version)),
+		}
+		specTx.Txn = &spec.Transaction_L2Transaction{
+			L2Transaction: &spec.L2Transaction{
+				Common: &spec.L2TransactionCommon{
+					Sender:    adaptFeltToAddress(tx.SenderAddress),
+					Signature: adaptTxSignature(tx),
+					MaxFee:    adaptFelt(tx.MaxFee),
+				},
+				Txn: &spec.L2Transaction_Invoke{
+					Invoke: &spec.InvokeTransaction{
+						Calldata: utils.Map(tx.CallData, adaptFelt),
+					},
+				},
+			},
+		}
+		return &specTx, nil
+	case *core.DeclareTransaction:
+		specTx.Common = &spec.TransactionCommon{
+			Nonce:   adaptFelt(tx.Nonce),
+			Version: adaptFelt((*felt.Felt)(tx.Version)),
+		}
+		specTx.Txn = &spec.Transaction_L2Transaction{
+			L2Transaction: &spec.L2Transaction{
+				Common: &spec.L2TransactionCommon{
+					Sender:    adaptFeltToAddress(tx.SenderAddress),
+					Signature: adaptTxSignature(tx),
+					MaxFee:    adaptFelt(tx.MaxFee),
+				},
+				Txn: &spec.L2Transaction_Declare{
+					Declare: &spec.DeclareTransaction{
+						// ClassHash: adaptFelt(tx.ClassHash),
+						// CompiledHash: adaptFelt(tx.CompiledClassHash),
+					},
+				},
+			},
+		}
+		return &specTx, nil
+	default:
+		return nil, fmt.Errorf("unsupported tx type %T", tx)
+	}
+}
+
+func adaptTxSignature(tx core.Transaction) *spec.Signature {
+	return &spec.Signature{
+		Parts: utils.Map(tx.Signature(), adaptFelt),
+	}
+}
+
+func adaptFeltToAddress(f *felt.Felt) *spec.Address {
+	fBytes := f.Bytes()
+	return &spec.Address{
+		Elements: fBytes[:],
+	}
+}
+
+func adaptFelt(f *felt.Felt) *spec.Felt252 {
+	fBytes := f.Bytes()
+	return &spec.Felt252{
+		Elements: fBytes[:],
+	}
 }
 
 func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
