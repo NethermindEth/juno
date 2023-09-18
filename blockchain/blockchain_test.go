@@ -652,6 +652,11 @@ func TestPending(t *testing.T) {
 	su, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
+	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+		_, _, err = chain.PendingState()
+		require.Error(t, err)
+	})
+
 	t.Run("store genesis as pending", func(t *testing.T) {
 		pendingGenesis := blockchain.Pending{
 			Block:       b,
@@ -664,10 +669,50 @@ func TestPending(t *testing.T) {
 		assert.Equal(t, pendingGenesis, gotPending)
 	})
 
-	t.Run("storing genesis as an accepted block should clear pending", func(t *testing.T) {
-		require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
-		_, pErr := chain.Pending()
-		require.ErrorIs(t, pErr, db.ErrKeyNotFound)
+	require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
+
+	t.Run("no pending block means pending state matches head state", func(t *testing.T) {
+		pending, pErr := chain.Pending()
+		require.NoError(t, pErr)
+		require.Equal(t, b.Timestamp+1, pending.Block.Timestamp)
+		require.Equal(t, b.SequencerAddress, pending.Block.SequencerAddress)
+		require.Equal(t, b.GasPrice, pending.Block.GasPrice)
+		require.Equal(t, b.ProtocolVersion, pending.Block.ProtocolVersion)
+		require.Equal(t, su.NewRoot, pending.StateUpdate.OldRoot)
+		require.Empty(t, pending.StateUpdate.StateDiff.Nonces)
+		require.Empty(t, pending.StateUpdate.StateDiff.StorageDiffs)
+		require.Empty(t, pending.StateUpdate.StateDiff.ReplacedClasses)
+		require.Empty(t, pending.StateUpdate.StateDiff.DeclaredV0Classes)
+		require.Empty(t, pending.StateUpdate.StateDiff.DeclaredV1Classes)
+		require.Empty(t, pending.StateUpdate.StateDiff.DeployedContracts)
+		require.Empty(t, pending.NewClasses)
+
+		// PendingState matches head state.
+		require.NoError(t, pErr)
+		reader, closer, pErr := chain.PendingState()
+		require.NoError(t, pErr)
+		t.Cleanup(func() {
+			require.NoError(t, closer())
+		})
+
+		for address, diff := range su.StateDiff.StorageDiffs {
+			for _, kv := range diff {
+				value, csErr := reader.ContractStorage(&address, kv.Key)
+				require.NoError(t, csErr)
+				require.Equal(t, kv.Value, value)
+			}
+		}
+
+		for address, nonce := range su.StateDiff.Nonces {
+			got, cnErr := reader.ContractNonce(&address)
+			require.NoError(t, cnErr)
+			require.Equal(t, nonce, got)
+		}
+
+		for _, hash := range su.StateDiff.DeclaredV0Classes {
+			_, err = reader.Class(hash)
+			require.NoError(t, err)
+		}
 	})
 
 	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
@@ -680,12 +725,7 @@ func TestPending(t *testing.T) {
 			Block:       b,
 			StateUpdate: su,
 		}
-		require.EqualError(t, chain.StorePending(&notExpectedPending), "pending block parent is not our local HEAD")
-	})
-
-	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
-		_, _, err = chain.PendingState()
-		require.Error(t, err)
+		require.ErrorIs(t, chain.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
 	})
 
 	t.Run("store expected pending block", func(t *testing.T) {
