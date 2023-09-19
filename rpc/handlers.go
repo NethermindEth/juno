@@ -687,11 +687,9 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	declared, err := state.Class(&classHash)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getClass", "err", closerErr)
-	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClass")
 
+	declared, err := state.Class(&classHash)
 	if err != nil {
 		return nil, ErrClassHashNotFound
 	}
