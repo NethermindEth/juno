@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 )
 
 func TestConfigPrecedence(t *testing.T) {
+	pwd, err := os.Getwd()
+	require.NoError(t, err)
+
 	// The purpose of these tests are to ensure the precedence of our config
 	// values is respected. Since viper offers this feature, it would be
 	// redundant to enumerate all combinations. Thus, only a select few are
@@ -27,7 +31,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultHTTPPort := uint16(6060)
 	defaultWS := false
 	defaultWSPort := uint16(6061)
-	defaultDBPath := ""
+	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultNetwork := utils.MAINNET
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
@@ -122,6 +126,7 @@ func TestConfigPrecedence(t *testing.T) {
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
+				DatabasePath:        defaultDBPath,
 			},
 		},
 		"config file with all settings but without any other flags": {
