@@ -1,6 +1,8 @@
 package pebble
 
 import (
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
@@ -93,12 +95,14 @@ func (d *DB) Close() error {
 // View : see db.DB.View
 func (d *DB) View(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(false)
+	defer discardTxnOnPanic(txn)
 	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
 }
 
 // Update : see db.DB.Update
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	txn := d.NewTransaction(true)
+	defer discardTxnOnPanic(txn)
 	if err := fn(txn); err != nil {
 		return utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -108,4 +112,14 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 // Impl : see db.DB.Impl
 func (d *DB) Impl() any {
 	return d.pebble
+}
+
+func discardTxnOnPanic(txn db.Transaction) {
+	p := recover()
+	if p != nil {
+		if err := txn.Discard(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
+		}
+		panic(p)
+	}
 }
