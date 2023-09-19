@@ -234,7 +234,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Warnw("failed query to feeder, retrying...", "retryAfter", wait.String())
+			c.log.Debugw("Failed query to feeder, retrying...", "retryAfter", wait.String(), "err", err)
 		}
 	}
 	return nil, err
