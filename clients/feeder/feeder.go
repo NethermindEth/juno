@@ -61,6 +61,11 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
+func (c *Client) WithTimeout(t time.Duration) *Client {
+	c.client.Timeout = t
+	return c
+}
+
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
