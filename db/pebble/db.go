@@ -22,9 +22,7 @@ type DB struct {
 
 // New opens a new database at the given path
 func New(path string, logger pebble.Logger) (db.DB, error) {
-	pDB, err := newPebble(path, &pebble.Options{
-		Logger: logger,
-	})
+	pDB, err := newPebble(path, &pebble.Options{Logger: logger})
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +51,10 @@ func NewMemTest(t *testing.T) db.DB {
 }
 
 func newPebble(path string, options *pebble.Options) (*DB, error) {
+	// hookup into events
+	if options.EventListener == nil {
+		options.EventListener = &pebble.EventListener{}
+	}
 	pDB, err := pebble.Open(path, options)
 	if err != nil {
 		return nil, err
