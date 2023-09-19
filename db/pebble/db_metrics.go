@@ -323,3 +323,97 @@ func (reporter *stallReporter) report(_ *pebble.Metrics) {
 	reporter.metrics.writeStall.Observe(float64(reporter.cache.writeStallDuration - cache.writeStallDuration))
 	reporter.metrics.writeStalls.Add(float64(reporter.cache.writeStalls - cache.writeStalls))
 }
+
+type compactReporter struct {
+	// previous data
+	cache struct {
+		DefaultCount     int64
+		DeleteOnlyCount  int64
+		ElisionOnlyCount int64
+		MoveCount        int64
+		ReadCount        int64
+		RewriteCount     int64
+		MultiLevelCount  int64
+	}
+
+	metrics struct {
+		DefaultCount     prometheus.Counter
+		DeleteOnlyCount  prometheus.Counter
+		ElisionOnlyCount prometheus.Counter
+		MoveCount        prometheus.Counter
+		ReadCount        prometheus.Counter
+		RewriteCount     prometheus.Counter
+		MultiLevelCount  prometheus.Counter
+		EstimatedDebt    prometheus.Gauge
+		InProgressBytes  prometheus.Gauge
+		NumInProgress    prometheus.Gauge
+		MarkedFiles      prometheus.Gauge
+	}
+}
+
+func newCompactReporter() *compactReporter {
+	reporter := &compactReporter{}
+	compactionsCounts := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "db",
+		Subsystem: "compaction",
+		Name:      "amount",
+	}, []string{"type"})
+	reporter.metrics.DefaultCount = compactionsCounts.WithLabelValues("default")
+	reporter.metrics.DeleteOnlyCount = compactionsCounts.WithLabelValues("delete")
+	reporter.metrics.ElisionOnlyCount = compactionsCounts.WithLabelValues("elision")
+	reporter.metrics.MoveCount = compactionsCounts.WithLabelValues("move")
+	reporter.metrics.ReadCount = compactionsCounts.WithLabelValues("read")
+	reporter.metrics.RewriteCount = compactionsCounts.WithLabelValues("rewrite")
+	reporter.metrics.MultiLevelCount = compactionsCounts.WithLabelValues("multi_level")
+	reporter.metrics.EstimatedDebt = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "db",
+		Subsystem: "compaction",
+		Name:      "estimated_debt",
+	})
+	reporter.metrics.InProgressBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "db",
+		Subsystem: "compaction",
+		Name:      "in_progress_bytes",
+	})
+	reporter.metrics.NumInProgress = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "db",
+		Subsystem: "compaction",
+		Name:      "num_in_progress",
+	})
+	reporter.metrics.MarkedFiles = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "db",
+		Subsystem: "compaction",
+		Name:      "marked_files",
+	})
+	metrics.MustRegister(
+		compactionsCounts,
+		reporter.metrics.EstimatedDebt,
+		reporter.metrics.InProgressBytes,
+		reporter.metrics.NumInProgress,
+		reporter.metrics.MarkedFiles,
+	)
+	return reporter
+}
+
+func (reporter *compactReporter) report(stats *pebble.Metrics) {
+	cache := reporter.cache
+	reporter.cache.DefaultCount = stats.Compact.DefaultCount
+	reporter.cache.DeleteOnlyCount = stats.Compact.DeleteOnlyCount
+	reporter.cache.ElisionOnlyCount = stats.Compact.ElisionOnlyCount
+	reporter.cache.MoveCount = stats.Compact.MoveCount
+	reporter.cache.ReadCount = stats.Compact.ReadCount
+	reporter.cache.RewriteCount = stats.Compact.RewriteCount
+	reporter.cache.MultiLevelCount = stats.Compact.MultiLevelCount
+
+	reporter.metrics.DefaultCount.Add(float64(reporter.cache.DefaultCount - cache.DefaultCount))
+	reporter.metrics.DeleteOnlyCount.Add(float64(reporter.cache.DeleteOnlyCount - cache.DeleteOnlyCount))
+	reporter.metrics.ElisionOnlyCount.Add(float64(reporter.cache.ElisionOnlyCount - cache.ElisionOnlyCount))
+	reporter.metrics.MoveCount.Add(float64(reporter.cache.MoveCount - cache.MoveCount))
+	reporter.metrics.ReadCount.Add(float64(reporter.cache.ReadCount - cache.ReadCount))
+	reporter.metrics.RewriteCount.Add(float64(reporter.cache.RewriteCount - cache.RewriteCount))
+	reporter.metrics.MultiLevelCount.Add(float64(reporter.cache.MultiLevelCount - cache.MultiLevelCount))
+	reporter.metrics.EstimatedDebt.Set(float64(stats.Compact.EstimatedDebt))
+	reporter.metrics.InProgressBytes.Set(float64(stats.Compact.InProgressBytes))
+	reporter.metrics.NumInProgress.Set(float64(stats.Compact.NumInProgress))
+	reporter.metrics.MarkedFiles.Set(float64(stats.Compact.MarkedFiles))
+}
