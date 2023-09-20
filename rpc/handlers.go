@@ -590,11 +590,12 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if err != nil {
 		return defaultSyncState, nil
 	}
-	highestBlockHeader := h.syncReader.HighestBlockHeader()
-	if highestBlockHeader == nil {
+	highestBlockHash := h.syncReader.HighestBlockHash()
+	if highestBlockHash == nil {
 		return defaultSyncState, nil
 	}
-	if highestBlockHeader.Number <= head.Number {
+	highestBlockNumber := h.syncReader.HighestBlockNumber()
+	if highestBlockNumber <= head.Number {
 		return defaultSyncState, nil
 	}
 
@@ -603,8 +604,8 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 		StartingBlockNumber: &startingBlockHeader.Number,
 		CurrentBlockHash:    head.Hash,
 		CurrentBlockNumber:  &head.Number,
-		HighestBlockHash:    highestBlockHeader.Hash,
-		HighestBlockNumber:  &highestBlockHeader.Number,
+		HighestBlockHash:    highestBlockHash,
+		HighestBlockNumber:  &highestBlockNumber,
 	}, nil
 }
 

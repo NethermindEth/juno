@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	core "github.com/NethermindEth/juno/core"
+	felt "github.com/NethermindEth/juno/core/felt"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -34,18 +34,32 @@ func (m *MockSyncReader) EXPECT() *MockSyncReaderMockRecorder {
 	return m.recorder
 }
 
-// HighestBlockHeader mocks base method.
-func (m *MockSyncReader) HighestBlockHeader() *core.Header {
+// HighestBlockHash mocks base method.
+func (m *MockSyncReader) HighestBlockHash() *felt.Felt {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HighestBlockHeader")
-	ret0, _ := ret[0].(*core.Header)
+	ret := m.ctrl.Call(m, "HighestBlockHash")
+	ret0, _ := ret[0].(*felt.Felt)
 	return ret0
 }
 
-// HighestBlockHeader indicates an expected call of HighestBlockHeader.
-func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
+// HighestBlockHash indicates an expected call of HighestBlockHash.
+func (mr *MockSyncReaderMockRecorder) HighestBlockHash() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHash", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHash))
+}
+
+// HighestBlockNumber mocks base method.
+func (m *MockSyncReader) HighestBlockNumber() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HighestBlockNumber")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// HighestBlockNumber indicates an expected call of HighestBlockNumber.
+func (mr *MockSyncReaderMockRecorder) HighestBlockNumber() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockNumber", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockNumber))
 }
 
 // StartingBlockNumber mocks base method.

@@ -460,3 +460,44 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.NotNil(t, actualStateUpdate)
 	})
 }
+
+func TestBlockHashAndNumber(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.MAINNET)
+	ctx := context.Background()
+
+	t.Run("non-existent block", func(t *testing.T) {
+		_, _, err := client.BlockHashAndNumber(ctx, "11111")
+		require.Error(t, err)
+	})
+
+	t.Run("pending block has no header", func(t *testing.T) {
+		_, _, err := client.BlockHashAndNumber(ctx, "pending")
+		require.Error(t, err)
+	})
+
+	tests := []struct {
+		blockID    string
+		wantHash   *felt.Felt
+		wantNumber uint64
+	}{
+		{
+			blockID:    "latest",
+			wantHash:   utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+			wantNumber: 2,
+		},
+		{
+			blockID:    "0",
+			wantHash:   utils.HexToFelt(t, "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943"),
+			wantNumber: 0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.blockID, func(t *testing.T) {
+			hash, number, err := client.BlockHashAndNumber(ctx, test.blockID)
+			require.NoError(t, err)
+			require.Equal(t, test.wantHash, hash)
+			require.Equal(t, test.wantNumber, number)
+		})
+	}
+}

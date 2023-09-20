@@ -1139,10 +1139,11 @@ func TestSyncing(t *testing.T) {
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
-	synchronizer.EXPECT().HighestBlockHeader().Return(nil).Times(2)
 	t.Run("undefined highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		synchronizer.EXPECT().HighestBlockHash().Return(nil).Times(1)
+		synchronizer.EXPECT().HighestBlockNumber().Return(uint64(0)).Times(1)
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
@@ -1151,16 +1152,17 @@ func TestSyncing(t *testing.T) {
 	t.Run("block height is greater than highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+		synchronizer.EXPECT().HighestBlockHash().Return(nil).Times(1)
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
-	synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}).Times(2)
 	t.Run("block height is equal to highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 2}, nil)
+		synchronizer.EXPECT().HighestBlockHash().Return(new(felt.Felt).SetUint64(2)).Times(1)
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
@@ -1169,16 +1171,16 @@ func TestSyncing(t *testing.T) {
 	t.Run("syncing", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
+		synchronizer.EXPECT().HighestBlockHash().Return(new(felt.Felt).SetUint64(2)).Times(1)
+		synchronizer.EXPECT().HighestBlockNumber().Return(uint64(2)).Times(1)
 
-		currentBlockNumber := uint64(1)
-		highestBlockNumber := uint64(2)
 		expectedSyncing := &rpc.Sync{
 			StartingBlockHash:   &felt.Zero,
 			StartingBlockNumber: &startingBlock,
 			CurrentBlockHash:    new(felt.Felt).SetUint64(1),
-			CurrentBlockNumber:  &currentBlockNumber,
+			CurrentBlockNumber:  utils.Ptr(uint64(1)),
 			HighestBlockHash:    new(felt.Felt).SetUint64(2),
-			HighestBlockNumber:  &highestBlockNumber,
+			HighestBlockNumber:  utils.Ptr(uint64(2)),
 		}
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)

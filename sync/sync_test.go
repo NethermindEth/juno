@@ -94,6 +94,7 @@ func TestSyncBlocks(t *testing.T) {
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
+		mockSNData.EXPECT().LatestBlockHashAndNumber(gomock.Any()).Times(1)
 		syncingHeight := uint64(0)
 		reqCount := 0
 		mockSNData.EXPECT().StateUpdateWithBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {

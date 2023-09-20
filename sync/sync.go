@@ -33,7 +33,8 @@ const (
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
-	HighestBlockHeader() *core.Header
+	HighestBlockNumber() uint64
+	HighestBlockHash() *felt.Felt
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -41,7 +42,8 @@ type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
-	highestBlockHeader  atomic.Pointer[core.Header]
+	highestBlockNumber  atomic.Uint64
+	highestBlockHash    atomic.Pointer[felt.Felt]
 
 	log utils.SimpleLogger
 
@@ -221,18 +223,19 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			highestBlockHeader := s.highestBlockHeader.Load()
-			if highestBlockHeader != nil {
-				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
+			highestBlockNumber := s.highestBlockNumber.Load()
+			if highestBlockNumber > 0 {
+				isBehind := highestBlockNumber > block.Number+uint64(maxWorkers())
 				if s.catchUpMode != isBehind {
 					resetStreams()
 				}
 				s.catchUpMode = isBehind
 			}
 
-			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
-				if s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header) {
+			if highestBlockNumber == 0 || highestBlockNumber < block.Number {
+				if s.highestBlockNumber.CompareAndSwap(highestBlockNumber, block.Header.Number) {
 					s.bestBlockGauge.Set(float64(block.Header.Number))
+					s.highestBlockHash.Store(block.Hash)
 				}
 			}
 
@@ -254,7 +257,8 @@ func (s *Synchronizer) nextHeight() uint64 {
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
 		s.startingBlockNumber = nil
-		s.highestBlockHeader.Store(nil)
+		s.highestBlockNumber.Store(0)
+		s.highestBlockHash.Store(nil)
 	}()
 
 	fetchers, verifiers := s.setupWorkers()
@@ -371,13 +375,14 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 				defer func() {
 					<-sem
 				}()
-				highestBlock, err := s.starknetData.BlockLatest(ctx)
+				hash, number, err := s.starknetData.LatestBlockHashAndNumber(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
-					s.highestBlockHeader.Store(highestBlock.Header)
+					s.highestBlockNumber.Store(number)
+					s.highestBlockHash.Store(hash)
 				}
-				s.bestBlockGauge.Set(float64(highestBlock.Header.Number))
+				s.bestBlockGauge.Set(float64(number))
 			}()
 		default:
 		}
@@ -398,8 +403,8 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	highestBlockHeader := s.highestBlockHeader.Load()
-	if highestBlockHeader == nil {
+	highestBlockNumber := s.highestBlockNumber.Load()
+	if highestBlockNumber == 0 {
 		return nil
 	}
 
@@ -409,7 +414,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}
 
 	// not at the tip of the chain yet, no need to poll pending
-	if highestBlockHeader.Number > head.Number {
+	if highestBlockNumber > head.Number {
 		return nil
 	}
 
@@ -449,6 +454,10 @@ func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 	return *s.startingBlockNumber, nil
 }
 
-func (s *Synchronizer) HighestBlockHeader() *core.Header {
-	return s.highestBlockHeader.Load()
+func (s *Synchronizer) HighestBlockNumber() uint64 {
+	return s.highestBlockNumber.Load()
+}
+
+func (s *Synchronizer) HighestBlockHash() *felt.Felt {
+	return s.highestBlockHash.Load()
 }

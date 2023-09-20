@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -282,8 +283,13 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 }
 
 func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
+	return c.block(ctx, blockID, false)
+}
+
+func (c *Client) block(ctx context.Context, blockID string, hashAndNumberOnly bool) (*Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": blockID,
+		"headerOnly":  strconv.FormatBool(hashAndNumberOnly),
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -390,4 +396,15 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*Sta
 	}
 
 	return stateUpdate, nil
+}
+
+func (c *Client) BlockHashAndNumber(ctx context.Context, blockID string) (*felt.Felt, uint64, error) {
+	if blockID == "pending" {
+		return nil, 0, errors.New("pending block has no header")
+	}
+	block, err := c.block(ctx, blockID, true)
+	if err != nil {
+		return nil, 0, err
+	}
+	return block.Hash, block.Number, err
 }

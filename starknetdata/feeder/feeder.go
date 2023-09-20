@@ -149,3 +149,7 @@ func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUp
 func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
+
+func (f *Feeder) LatestBlockHashAndNumber(ctx context.Context) (*felt.Felt, uint64, error) {
+	return f.client.BlockHashAndNumber(ctx, "latest")
+}

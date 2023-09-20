@@ -228,3 +228,16 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	assert.Equal(t, block, adaptedBlock)
 	assert.Equal(t, stateUpdate, adaptedStateUpdate)
 }
+
+func TestLatestBlockHashAndNumber(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.MAINNET)
+	adapter := adaptfeeder.New(client)
+	ctx := context.Background()
+
+	hash, number, err := client.BlockHashAndNumber(ctx, "latest")
+	require.NoError(t, err)
+	gotHash, gotNumber, err := adapter.LatestBlockHashAndNumber(ctx)
+	require.NoError(t, err)
+	require.Equal(t, hash, gotHash)
+	require.Equal(t, number, gotNumber)
+}
